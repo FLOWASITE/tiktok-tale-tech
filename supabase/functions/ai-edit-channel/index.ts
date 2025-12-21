@@ -128,6 +128,32 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   },
 };
 
+// Partial override type
+type ChannelOverride = Partial<Pick<ChannelSettings, 
+  'max_length' | 'min_length' | 'hook_required' | 'cta_policy' | 
+  'emoji_allowed' | 'emoji_limit' | 'hashtag_limit' | 'link_position'
+>>;
+
+type ChannelOverrides = Record<string, ChannelOverride> | null;
+
+function mergeChannelSettings(channel: string, overrides: ChannelOverrides): ChannelSettings {
+  const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
+  if (!defaults) return DEFAULT_CHANNEL_SETTINGS.facebook;
+  if (!overrides || !overrides[channel]) return defaults;
+  const override = overrides[channel];
+  return {
+    ...defaults,
+    max_length: override.max_length ?? defaults.max_length,
+    min_length: override.min_length ?? defaults.min_length,
+    hook_required: override.hook_required ?? defaults.hook_required,
+    cta_policy: override.cta_policy ?? defaults.cta_policy,
+    emoji_allowed: override.emoji_allowed ?? defaults.emoji_allowed,
+    emoji_limit: override.emoji_limit ?? defaults.emoji_limit,
+    hashtag_limit: override.hashtag_limit ?? defaults.hashtag_limit,
+    link_position: override.link_position ?? defaults.link_position,
+  };
+}
+
 function buildChannelRulesPrompt(channel: string, settings: ChannelSettings): string {
   const parts: string[] = [];
   parts.push(`### QUY ƯỚC KÊNH ${channel.toUpperCase()}`);
@@ -190,20 +216,22 @@ serve(async (req) => {
       throw new Error("Không tìm thấy nội dung");
     }
 
-    // Load brand template to check emoji settings
+    // Load brand template to check emoji settings and channel overrides
     let brandAllowEmoji = true;
+    let channelOverrides: ChannelOverrides = null;
     if (content.brand_template_id) {
       const { data: template } = await supabase
         .from("brand_templates")
-        .select("allow_emoji")
+        .select("allow_emoji, channel_overrides")
         .eq("id", content.brand_template_id)
         .single();
       if (template) {
         brandAllowEmoji = template.allow_emoji ?? true;
+        channelOverrides = template.channel_overrides || null;
       }
     }
 
-    const channelSettings = DEFAULT_CHANNEL_SETTINGS[channel];
+    const channelSettings = mergeChannelSettings(channel, channelOverrides);
     const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings);
 
     // Override emoji if brand doesn't allow

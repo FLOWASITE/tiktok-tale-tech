@@ -118,6 +118,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       forbidden_words: null,
       allow_emoji: true,
       compliance_rules: null,
+      channel_overrides: null,
     });
 
     if (result) {
