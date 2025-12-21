@@ -149,6 +149,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       brandGuideline: brandGuideline.trim(),
       includeLogo,
       logoUrl: getSelectedLogoUrl(),
+      brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
     });
   };
 

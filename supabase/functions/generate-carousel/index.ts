@@ -16,6 +16,7 @@ interface CarouselFormData {
   brandGuideline: string;
   includeLogo: boolean;
   logoUrl?: string | null;
+  brandTemplateId?: string;
 }
 
 interface CarouselSlide {
@@ -29,6 +30,100 @@ interface CarouselSlide {
   fullPrompt: string;
 }
 
+// Brand Voice label mappings
+const brandPositioningLabels: Record<string, string> = {
+  business: "Doanh nghiệp",
+  expert: "Chuyên gia",
+  agency: "Agency",
+  consultant: "Tư vấn",
+};
+
+const toneOfVoiceLabels: Record<string, string> = {
+  expert: "Chuyên gia",
+  calm: "Điềm tĩnh",
+  confident: "Tự tin",
+  friendly: "Thân thiện",
+  analytical: "Phân tích",
+  serious: "Nghiêm túc",
+  inspirational: "Truyền cảm hứng",
+};
+
+const formalityLevelLabels: Record<string, string> = {
+  very_formal: "Rất trang trọng",
+  professional: "Chuyên nghiệp",
+  neutral: "Trung lập",
+  casual: "Gần gũi",
+};
+
+const languageStyleLabels: Record<string, string> = {
+  clear_direct: "Rõ ràng, trực tiếp",
+  structured: "Có cấu trúc",
+  no_exaggeration: "Không khoa trương",
+  no_over_emotion: "Không cảm tính quá mức",
+};
+
+interface BrandVoice {
+  brand_positioning: string | null;
+  tone_of_voice: string[] | null;
+  formality_level: string | null;
+  language_style: string[] | null;
+  preferred_words: string[] | null;
+  forbidden_words: string[] | null;
+  allow_emoji: boolean;
+  compliance_rules: string[] | null;
+}
+
+const getBrandVoicePrompt = (voice: BrandVoice): string => {
+  const parts: string[] = [];
+  
+  parts.push(`## BRAND VOICE PROFILE (LUẬT CAO NHẤT)`);
+  parts.push(`Brand Voice là LUẬT CAO NHẤT. Mọi nội dung chữ trên slide PHẢI tuân theo Brand Voice.`);
+  
+  if (voice.brand_positioning) {
+    const label = brandPositioningLabels[voice.brand_positioning] || voice.brand_positioning;
+    parts.push(`\n### Định vị thương hiệu: ${label}`);
+  }
+  
+  if (voice.tone_of_voice && voice.tone_of_voice.length > 0) {
+    const tones = voice.tone_of_voice.map(t => toneOfVoiceLabels[t] || t).join(", ");
+    parts.push(`\n### Tone of Voice: ${tones}`);
+  }
+  
+  if (voice.formality_level) {
+    const label = formalityLevelLabels[voice.formality_level] || voice.formality_level;
+    parts.push(`\n### Mức trang trọng: ${label}`);
+  }
+  
+  if (voice.language_style && voice.language_style.length > 0) {
+    const styles = voice.language_style.map(s => languageStyleLabels[s] || s).join(", ");
+    parts.push(`\n### Phong cách ngôn ngữ: ${styles}`);
+  }
+  
+  parts.push(`\n### NGUYÊN TẮC BRAND VOICE CHO CAROUSEL`);
+  parts.push(`1. Nội dung chữ trên slide PHẢI đúng Tone of Voice`);
+  parts.push(`2. Không được "sáng tạo giọng mới" - giữ nhất quán xuyên suốt carousel`);
+  parts.push(`3. Caption và CTA cũng PHẢI đúng Brand Voice`);
+  
+  if (voice.preferred_words && voice.preferred_words.length > 0) {
+    parts.push(`\n### TỪ NÊN DÙNG trong nội dung carousel`);
+    parts.push(voice.preferred_words.join(", "));
+  }
+  
+  if (voice.forbidden_words && voice.forbidden_words.length > 0) {
+    parts.push(`\n### TỪ CẤM (TUYỆT ĐỐI KHÔNG DÙNG trong nội dung slide)`);
+    parts.push(voice.forbidden_words.join(", "));
+  }
+  
+  if (voice.compliance_rules && voice.compliance_rules.length > 0) {
+    parts.push(`\n### QUY TẮC TUÂN THỦ`);
+    voice.compliance_rules.forEach(rule => {
+      parts.push(`- ${rule}`);
+    });
+  }
+  
+  return parts.join("\n");
+};
+
 const getSlideObjective = (slideNumber: number, totalSlides: number): string => {
   if (slideNumber === 1) return "Hook - Gây sốc, tò mò, thu hút người xem dừng lại";
   if (slideNumber === 2) return "Nêu vấn đề - Khơi gợi pain point của người đọc";
@@ -39,7 +134,7 @@ const getSlideObjective = (slideNumber: number, totalSlides: number): string => 
   return "Hậu quả / Lợi ích - Nhấn mạnh tầm quan trọng";
 };
 
-const getSystemPrompt = (formData: CarouselFormData): string => {
+const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice): string => {
   const aiToolPromptGuide = {
     ideogram: `Tối ưu cho Ideogram - ưu tiên text clarity:
 - Sử dụng cấu trúc prompt rõ ràng
@@ -60,7 +155,12 @@ const getSystemPrompt = (formData: CarouselFormData): string => {
 - Chọn model phù hợp với infographic`,
   };
 
+  // Build Brand Voice section if available
+  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
+
   return `Bạn là một Content Strategist chuyên nghiệp cho mạng xã hội, chuyên tạo carousel cho ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
+
+${brandVoiceSection}
 
 ## VAI TRÒ CỦA BẠN
 1. Viết Prompt tạo ảnh chuyên nghiệp cho ${formData.aiTool}
@@ -142,7 +242,35 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = getSystemPrompt(formData);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Load Brand Voice from template if provided
+    let brandVoice: BrandVoice | undefined;
+    if (formData.brandTemplateId) {
+      const { data: template } = await supabase
+        .from("brand_templates")
+        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules")
+        .eq("id", formData.brandTemplateId)
+        .single();
+
+      if (template) {
+        brandVoice = {
+          brand_positioning: template.brand_positioning,
+          tone_of_voice: template.tone_of_voice,
+          formality_level: template.formality_level,
+          language_style: template.language_style,
+          preferred_words: template.preferred_words,
+          forbidden_words: template.forbidden_words,
+          allow_emoji: template.allow_emoji ?? true,
+          compliance_rules: template.compliance_rules,
+        };
+        console.log("Brand Voice loaded for carousel:", brandVoice.brand_positioning, brandVoice.tone_of_voice);
+      }
+    }
+
+    const systemPrompt = getSystemPrompt(formData, brandVoice);
 
     const userPrompt = `Tạo ${formData.slideCount} slide carousel cho chủ đề:
 "${formData.topic}"
@@ -251,10 +379,6 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
     console.log("Generated carousel:", generatedData.title);
 
     // Save to database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     const { data: carousel, error: dbError } = await supabase
       .from("carousels")
       .insert({
