@@ -706,7 +706,20 @@ export default function BrandView() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground italic">Chưa có cấu hình riêng cho kênh nào</p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground italic">
+                Chưa có cấu hình riêng cho kênh nào. Tất cả kênh sử dụng cài đặt mặc định.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setEditDialogOpen(true)}
+                className="gap-1.5"
+              >
+                <Settings2 className="w-4 h-4" />
+                Cấu hình channel settings
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
