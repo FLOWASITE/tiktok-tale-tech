@@ -145,8 +145,33 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               </SelectTrigger>
               <SelectContent>
                 {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.name}{template.is_default ? ' (Mặc định)' : ''}
+                  <SelectItem key={template.id} value={template.id} className="py-2">
+                    <span className="flex items-center gap-2">
+                      {template.logo_url ? (
+                        <img 
+                          src={template.logo_url} 
+                          alt="" 
+                          className="w-5 h-5 rounded object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <span 
+                          className="w-5 h-5 rounded flex-shrink-0 border border-border"
+                          style={{ backgroundColor: template.primary_color || 'hsl(var(--muted))' }}
+                        />
+                      )}
+                      <span className="flex items-center gap-1.5">
+                        {template.primary_color && (
+                          <span 
+                            className="w-3 h-3 rounded-full flex-shrink-0 border border-border/50"
+                            style={{ backgroundColor: template.primary_color }}
+                          />
+                        )}
+                        <span>{template.name}</span>
+                        {template.is_default && (
+                          <span className="text-xs text-muted-foreground">(Mặc định)</span>
+                        )}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
