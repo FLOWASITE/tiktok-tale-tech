@@ -238,6 +238,51 @@ export type Database = {
           },
         ]
       }
+      plan_limits: {
+        Row: {
+          created_at: string
+          features: Json | null
+          id: string
+          monthly_ai_edits: number
+          monthly_carousels: number
+          monthly_images: number
+          monthly_multichannel: number
+          monthly_scripts: number
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          price_monthly: number
+          price_yearly: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          features?: Json | null
+          id?: string
+          monthly_ai_edits?: number
+          monthly_carousels?: number
+          monthly_images?: number
+          monthly_multichannel?: number
+          monthly_scripts?: number
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          price_monthly?: number
+          price_yearly?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          features?: Json | null
+          id?: string
+          monthly_ai_edits?: number
+          monthly_carousels?: number
+          monthly_images?: number
+          monthly_multichannel?: number
+          monthly_scripts?: number
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          price_monthly?: number
+          price_yearly?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -304,6 +349,81 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          metadata: Json | null
+          payment_provider: string | null
+          payment_reference: string | null
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          status: Database["public"]["Enums"]["subscription_status"]
+          trial_end: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          metadata?: Json | null
+          payment_provider?: string | null
+          payment_reference?: string | null
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_end?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          metadata?: Json | null
+          payment_provider?: string | null
+          payment_reference?: string | null
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_end?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_logs: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          reference_id: string | null
+          usage_type: Database["public"]["Enums"]["usage_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          reference_id?: string | null
+          usage_type: Database["public"]["Enums"]["usage_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          reference_id?: string | null
+          usage_type?: Database["public"]["Enums"]["usage_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -330,6 +450,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_use_feature: {
+        Args: {
+          _usage_type: Database["public"]["Enums"]["usage_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      get_user_usage: {
+        Args: {
+          _usage_type: Database["public"]["Enums"]["usage_type"]
+          _user_id: string
+        }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -342,6 +476,19 @@ export type Database = {
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok"
+      plan_type: "free" | "starter" | "pro" | "enterprise"
+      subscription_status:
+        | "active"
+        | "cancelled"
+        | "expired"
+        | "pending"
+        | "trial"
+      usage_type:
+        | "script"
+        | "carousel"
+        | "multichannel"
+        | "image_generation"
+        | "ai_edit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -472,6 +619,21 @@ export const Constants = {
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
       carousel_platform: ["facebook", "tiktok"],
+      plan_type: ["free", "starter", "pro", "enterprise"],
+      subscription_status: [
+        "active",
+        "cancelled",
+        "expired",
+        "pending",
+        "trial",
+      ],
+      usage_type: [
+        "script",
+        "carousel",
+        "multichannel",
+        "image_generation",
+        "ai_edit",
+      ],
     },
   },
 } as const
