@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Header } from '@/components/Header';
 import { ScriptForm } from '@/components/ScriptForm';
 import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
@@ -71,16 +70,14 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="relative">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
       </div>
 
-      <Header />
-
-      <main className="container py-8 relative">
+      <div className="container py-8 relative">
         <div className="grid lg:grid-cols-[400px_1fr] gap-8">
           {/* Left column - Form */}
           <div className="space-y-6">
@@ -167,7 +164,7 @@ const Index = () => {
             )}
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Script viewer dialog */}
       <ScriptViewer
