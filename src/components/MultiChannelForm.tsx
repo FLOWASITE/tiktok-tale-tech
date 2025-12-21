@@ -266,20 +266,18 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                 disabled={isLoading}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Chọn mục tiêu..." />
                 </SelectTrigger>
                 <SelectContent>
                   {CONTENT_GOALS.map((goal) => {
                     const Icon = goal.icon;
                     return (
                       <SelectItem key={goal.value} value={goal.value}>
-                        <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-2">
                           <Icon className="w-4 h-4 text-primary" />
-                          <div className="flex flex-col">
-                            <span>{goal.label}</span>
-                            <span className="text-xs text-muted-foreground">{goal.description}</span>
-                          </div>
-                        </div>
+                          <span>{goal.label}</span>
+                          <span className="text-xs text-muted-foreground">- {goal.description}</span>
+                        </span>
                       </SelectItem>
                     );
                   })}
@@ -301,10 +299,10 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                 <SelectContent>
                   {templates.map((template) => (
                     <SelectItem key={template.id} value={template.id}>
-                      <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-2">
                         {template.primary_color && (
-                          <div
-                            className="w-3 h-3 rounded-full"
+                          <span
+                            className="w-3 h-3 rounded-full inline-block"
                             style={{ backgroundColor: template.primary_color }}
                           />
                         )}
@@ -312,7 +310,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                         {template.is_default && (
                           <span className="text-xs text-muted-foreground">(Mặc định)</span>
                         )}
-                      </div>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
