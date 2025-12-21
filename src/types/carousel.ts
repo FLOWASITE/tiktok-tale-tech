@@ -38,6 +38,7 @@ export interface CarouselFormData {
   brandGuideline: string;
   includeLogo: boolean;
   logoUrl?: string | null;
+  brandTemplateId?: string;
 }
 
 export const DEFAULT_BRAND_GUIDELINE = `Professional tax expert infographic style.
