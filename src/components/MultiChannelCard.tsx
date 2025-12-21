@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Clock, Linkedin, Mail, Youtube, MessageCircle, Send } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Clock, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MultiChannelContent, Channel, CONTENT_GOALS } from '@/types/multichannel';
+import { MultiChannelContent, Channel, CONTENT_GOALS, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
 
 interface MultiChannelCardProps {
   content: MultiChannelContent;
@@ -56,8 +56,17 @@ const goalColors: Record<string, string> = {
   conversion: 'bg-red-500/20 text-red-400',
 };
 
+const statusColors: Record<ContentStatus, string> = {
+  draft: 'bg-muted text-muted-foreground border-muted-foreground/30',
+  review: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  approved: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  published: 'bg-green-500/20 text-green-400 border-green-500/30',
+};
+
 export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCardProps) {
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
+  const statusLabel = CONTENT_STATUSES.find(s => s.value === content.status)?.label || content.status;
+  const imageCount = Object.keys(content.channel_images || {}).length;
   
   const timeAgo = formatDistanceToNow(new Date(content.created_at), {
     addSuffix: true,
@@ -69,8 +78,18 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
       {/* Hover glow effect */}
       <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/0 via-primary/0 to-secondary/0 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-secondary/5 transition-all duration-500 pointer-events-none" />
       
+      {/* Status Badge - Top Right */}
+      <div className="absolute top-3 right-3 z-10">
+        <Badge 
+          variant="outline" 
+          className={`text-[10px] px-1.5 py-0.5 ${statusColors[content.status || 'draft']}`}
+        >
+          {statusLabel}
+        </Badge>
+      </div>
+
       {/* Header */}
-      <div className="relative mb-3">
+      <div className="relative mb-3 pr-16">
         <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200">
           {content.title}
         </h3>
@@ -89,7 +108,37 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
             {content.industry}
           </Badge>
         )}
+        {imageCount > 0 && (
+          <Badge variant="outline" className="bg-violet-500/20 text-violet-400 border-violet-500/30">
+            <Image className="w-3 h-3 mr-1" />
+            {imageCount}
+          </Badge>
+        )}
       </div>
+
+      {/* Tags */}
+      {content.tags && content.tags.length > 0 && (
+        <div className="relative flex flex-wrap gap-1 mb-3">
+          <Tag className="w-3 h-3 text-muted-foreground mr-0.5" />
+          {content.tags.slice(0, 3).map((tag) => (
+            <Badge 
+              key={tag} 
+              variant="secondary" 
+              className="text-[10px] px-1.5 py-0 h-5 bg-secondary/50 hover:bg-secondary"
+            >
+              {tag}
+            </Badge>
+          ))}
+          {content.tags.length > 3 && (
+            <Badge 
+              variant="secondary" 
+              className="text-[10px] px-1.5 py-0 h-5 bg-secondary/50"
+            >
+              +{content.tags.length - 3}
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Channels */}
       <div className="relative flex flex-wrap gap-1.5 mb-4">
