@@ -8,6 +8,12 @@ export interface GeneratedImage {
   generatedAt: string;
 }
 
+export interface GeneratedImage {
+  slideNumber: number;
+  imageUrl: string;
+  generatedAt: string;
+}
+
 export function useImageGeneration() {
   const [generating, setGenerating] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -81,6 +87,50 @@ export function useImageGeneration() {
     return generatedImages.find((img) => img.slideNumber === slideNumber);
   };
 
+  const deleteImage = async (
+    slideNumber: number,
+    carouselId: string
+  ): Promise<boolean> => {
+    const image = getImageForSlide(slideNumber);
+    if (!image) {
+      toast.error('Không tìm thấy ảnh để xóa');
+      return false;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-carousel-image', {
+        body: {
+          imageUrl: image.imageUrl,
+          carouselId,
+          slideNumber,
+        },
+      });
+
+      if (error) {
+        console.error('Error deleting image:', error);
+        toast.error('Không thể xóa ảnh: ' + error.message);
+        return false;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        return false;
+      }
+
+      // Remove from local state
+      setGeneratedImages((prev) =>
+        prev.filter((img) => img.slideNumber !== slideNumber)
+      );
+
+      toast.success(`Đã xóa ảnh slide ${slideNumber}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('Lỗi không xác định khi xóa ảnh');
+      return false;
+    }
+  };
+
   return {
     generating,
     generatedImages,
@@ -88,5 +138,6 @@ export function useImageGeneration() {
     setImages,
     clearImages,
     getImageForSlide,
+    deleteImage,
   };
 }

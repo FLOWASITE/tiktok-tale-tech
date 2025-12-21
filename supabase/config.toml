@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.test-gemini-connection]
 verify_jwt = false
+
+[functions.delete-carousel-image]
+verify_jwt = false
