@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,9 +20,11 @@ import { DEFAULT_CHANNEL_SETTINGS } from '@/types/channelSettings';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useDraft } from '@/hooks/useDraft';
+import { useContentAnalysis } from '@/hooks/useContentAnalysis';
 import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
 import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
+import { SmartQuickActions } from '@/components/SmartQuickActions';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -114,12 +116,10 @@ const channelConfig: Record<Channel, {
   },
 };
 
-const quickActions = [
-  { label: 'Ngắn gọn hơn', icon: Minus, instruction: 'Viết ngắn gọn, súc tích hơn' },
-  { label: 'Thêm emoji', icon: Smile, instruction: 'Thêm emoji phù hợp để sinh động hơn' },
-  { label: 'CTA mạnh', icon: Target, instruction: 'Thêm hoặc cải thiện call-to-action cho thuyết phục hơn' },
-  { label: 'Chuyên nghiệp', icon: Briefcase, instruction: 'Viết lại với tone chuyên nghiệp, formal hơn' },
-];
+import { analyzeContent } from '@/hooks/useContentAnalysis';
+
+// Brand Voice Apply instruction
+const APPLY_BRAND_VOICE_INSTRUCTION = "Viết lại toàn bộ nội dung theo đúng Brand Voice profile đã cấu hình: giữ nguyên ý chính nhưng điều chỉnh giọng điệu, phong cách ngôn ngữ, mức độ formal, và tuân thủ các từ ưu tiên/từ cấm theo brand guidelines";
 
 function getContentForChannel(content: MultiChannelContent, channel: Channel): string | null {
   switch (channel) {
@@ -456,6 +456,9 @@ export function MultiChannelViewer({
             const wordCount = countWords(displayContent);
             const charCount = countCharacters(displayContent);
             const isRegenerating = regeneratingChannel === channel;
+            
+            // Content analysis for smart quick actions
+            const contentAnalysis = analyzeContent(displayContent, channel);
 
             return (
               <TabsContent
@@ -650,31 +653,23 @@ export function MultiChannelViewer({
                   <div className="space-y-3">
                     {/* AI Edit Panel */}
                     {onAIEdit && (
-                      <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-2">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-3">
+                        <div className="flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-primary" />
                           <span className="text-sm font-medium">Chỉnh sửa với AI</span>
                         </div>
                         
-                        {/* Quick Actions */}
-                        <div className="flex flex-wrap gap-2">
-                          {quickActions.map((action) => (
-                            <Button
-                              key={action.label}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAIEdit(channel, action.instruction)}
-                              disabled={isAIEditing}
-                              className="gap-1.5 text-xs"
-                            >
-                              <action.icon className="w-3 h-3" />
-                              {action.label}
-                            </Button>
-                          ))}
-                        </div>
+                        {/* Smart Quick Actions with Apply Brand Voice */}
+                        <SmartQuickActions
+                          analysis={contentAnalysis}
+                          onAction={(instruction) => handleAIEdit(channel, instruction)}
+                          onApplyBrandVoice={() => handleAIEdit(channel, APPLY_BRAND_VOICE_INSTRUCTION)}
+                          isLoading={isAIEditing}
+                          hasBrandVoice={!!content.brand_template_id}
+                        />
                         
                         {/* Custom Prompt */}
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 pt-2 border-t border-border/50">
                           <Input
                             placeholder="Hoặc nhập yêu cầu chỉnh sửa (VD: thêm số liệu thống kê, đổi tone hài hước...)"
                             value={aiPrompt}
