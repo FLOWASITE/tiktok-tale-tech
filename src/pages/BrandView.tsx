@@ -331,6 +331,16 @@ export default function BrandView() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <span className="text-sm text-muted-foreground">Tên Template</span>
+              <p className="font-medium">{template.name || '-'}</p>
+            </div>
+
+            <div>
+              <span className="text-sm text-muted-foreground">Tên thương hiệu</span>
+              <p className="font-medium">{template.brand_name}</p>
+            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Màu chủ đạo</span>
               <div className="flex items-center gap-2">
@@ -342,16 +352,25 @@ export default function BrandView() {
               </div>
             </div>
             
-            {template.industry && template.industry.length > 0 && (
-              <div>
-                <span className="text-sm text-muted-foreground">Ngành nghề</span>
+            <div>
+              <span className="text-sm text-muted-foreground">Ngành nghề</span>
+              {template.industry && template.industry.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {template.industry.map(ind => (
                     <Badge key={ind} variant="secondary">{ind}</Badge>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground italic mt-1">Chưa chọn ngành</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Sử dụng logo</span>
+              <Badge variant={template.include_logo ? 'default' : 'secondary'}>
+                {template.include_logo ? 'Có' : 'Không'}
+              </Badge>
+            </div>
 
             <Separator />
             
@@ -381,20 +400,22 @@ export default function BrandView() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {template.brand_positioning && (
-              <div>
-                <span className="text-sm text-muted-foreground">Định vị thương hiệu</span>
+            <div>
+              <span className="text-sm text-muted-foreground">Định vị thương hiệu</span>
+              {template.brand_positioning ? (
                 <div className="mt-1">
                   <Badge variant="outline">
                     {BRAND_POSITIONING_OPTIONS.find(o => o.value === template.brand_positioning)?.label || template.brand_positioning}
                   </Badge>
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground italic mt-1">Chưa chọn</p>
+              )}
+            </div>
 
-            {template.tone_of_voice && template.tone_of_voice.length > 0 && (
-              <div>
-                <span className="text-sm text-muted-foreground">Tone of Voice</span>
+            <div>
+              <span className="text-sm text-muted-foreground">Tone of Voice</span>
+              {template.tone_of_voice && template.tone_of_voice.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {template.tone_of_voice.map(tone => (
                     <Badge key={tone} variant="secondary">
@@ -402,23 +423,27 @@ export default function BrandView() {
                     </Badge>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground italic mt-1">Chưa chọn</p>
+              )}
+            </div>
 
-            {template.formality_level && (
-              <div>
-                <span className="text-sm text-muted-foreground">Mức độ trang trọng</span>
+            <div>
+              <span className="text-sm text-muted-foreground">Mức độ trang trọng</span>
+              {template.formality_level ? (
                 <div className="mt-1">
                   <Badge variant="outline">
                     {FORMALITY_LEVEL_OPTIONS.find(o => o.value === template.formality_level)?.label || template.formality_level}
                   </Badge>
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground italic mt-1">Chưa chọn</p>
+              )}
+            </div>
 
-            {template.language_style && template.language_style.length > 0 && (
-              <div>
-                <span className="text-sm text-muted-foreground">Phong cách ngôn ngữ</span>
+            <div>
+              <span className="text-sm text-muted-foreground">Phong cách ngôn ngữ</span>
+              {template.language_style && template.language_style.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {template.language_style.map(style => (
                     <Badge key={style} variant="secondary">
@@ -426,8 +451,10 @@ export default function BrandView() {
                     </Badge>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground italic mt-1">Chưa chọn</p>
+              )}
+            </div>
 
             <div className="flex items-center gap-2 pt-2">
               {template.allow_emoji !== false ? (
@@ -452,96 +479,107 @@ export default function BrandView() {
           <CardTitle className="text-base">Brand Writing Guideline</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm whitespace-pre-wrap leading-relaxed">{template.brand_guideline}</p>
+          {template.brand_guideline ? (
+            <p className="text-sm whitespace-pre-wrap leading-relaxed">{template.brand_guideline}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Chưa có guideline</p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Keywords */}
-      {((template.preferred_words && template.preferred_words.length > 0) || 
-        (template.forbidden_words && template.forbidden_words.length > 0)) && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {template.preferred_words && template.preferred_words.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 text-green-600">
-                  <Check className="w-4 h-4" />
-                  Từ nên dùng
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {template.preferred_words.map(word => (
-                    <Badge key={word} variant="outline" className="border-green-300 text-green-700 bg-green-50">
-                      {word}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {template.forbidden_words && template.forbidden_words.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 text-destructive">
-                  <X className="w-4 h-4" />
-                  Từ cấm dùng
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {template.forbidden_words.map(word => (
-                    <Badge key={word} variant="outline" className="border-destructive/30 text-destructive bg-destructive/5">
-                      {word}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {/* Channel Overrides */}
-      {overrideChannels.length > 0 && (
+      {/* Keywords - Always show both sections */}
+      <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Settings2 className="w-4 h-4 text-primary" />
-              Channel Settings Override
+            <CardTitle className="text-base flex items-center gap-2 text-green-600">
+              <Check className="w-4 h-4" />
+              Từ nên dùng
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">
-              Các kênh sau có cấu hình riêng thay vì mặc định:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {overrideChannels.map(channel => (
-                <Badge key={channel} variant="secondary" className="gap-1.5">
-                  {channelIcons[channel]}
-                  {channelLabels[channel]}
-                </Badge>
-              ))}
-            </div>
+            {template.preferred_words && template.preferred_words.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {template.preferred_words.map(word => (
+                  <Badge key={word} variant="outline" className="border-green-300 text-green-700 bg-green-50">
+                    {word}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">Chưa có từ khóa</p>
+            )}
           </CardContent>
         </Card>
-      )}
 
-      {/* Compliance Rules */}
-      {template.compliance_rules && template.compliance_rules.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Compliance Rules</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2 text-destructive">
+              <X className="w-4 h-4" />
+              Từ cấm dùng
+            </CardTitle>
           </CardHeader>
           <CardContent>
+            {template.forbidden_words && template.forbidden_words.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {template.forbidden_words.map(word => (
+                  <Badge key={word} variant="outline" className="border-destructive/30 text-destructive bg-destructive/5">
+                    {word}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">Chưa có từ cấm</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Channel Overrides */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Settings2 className="w-4 h-4 text-primary" />
+            Channel Settings Override
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {overrideChannels.length > 0 ? (
+            <>
+              <p className="text-sm text-muted-foreground mb-3">
+                Các kênh sau có cấu hình riêng thay vì mặc định:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {overrideChannels.map(channel => (
+                  <Badge key={channel} variant="secondary" className="gap-1.5">
+                    {channelIcons[channel]}
+                    {channelLabels[channel]}
+                  </Badge>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Chưa có cấu hình riêng cho kênh nào</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Compliance Rules */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Compliance Rules</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {template.compliance_rules && template.compliance_rules.length > 0 ? (
             <ul className="list-disc list-inside space-y-1 text-sm">
               {template.compliance_rules.map((rule, idx) => (
                 <li key={idx}>{rule}</li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Chưa có quy tắc tuân thủ</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
