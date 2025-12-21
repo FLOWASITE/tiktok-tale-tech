@@ -115,10 +115,10 @@ export default function Brands() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `brand-templates-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `brands-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Đã xuất templates thành công!');
+    toast.success('Đã xuất brands thành công!');
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,7 +159,7 @@ export default function Brands() {
         }
       }
       
-      toast.success(`Đã import ${successCount} templates!`);
+      toast.success(`Đã import ${successCount} brands!`);
       e.target.value = '';
     } catch {
       toast.error('File không hợp lệ');
@@ -194,11 +194,11 @@ export default function Brands() {
       for (const id of idsToDelete) {
         await deleteTemplate(id);
       }
-      toast.success(`Đã xóa ${idsToDelete.length} templates!`);
+      toast.success(`Đã xóa ${idsToDelete.length} brands!`);
       setSelectedIds(new Set());
       setIsSelectionMode(false);
     } catch {
-      toast.error('Có lỗi xảy ra khi xóa templates');
+      toast.error('Có lỗi xảy ra khi xóa brands');
     } finally {
       setIsDeleting(false);
     }
@@ -211,10 +211,10 @@ export default function Brands() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `brand-templates-selected-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `brands-selected-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`Đã xuất ${selectedTemplates.length} templates!`);
+    toast.success(`Đã xuất ${selectedTemplates.length} brands!`);
   };
 
   const toggleSelectionMode = () => {
