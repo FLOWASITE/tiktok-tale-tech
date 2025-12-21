@@ -224,7 +224,7 @@ YÊU CẦU:
           type: 'function',
           function: {
             name: 'generate_brand_guideline',
-            description: 'Tạo Brand Writing Guideline chi tiết với ví dụ đối chiếu',
+            description: 'Tạo Brand Writing Guideline chi tiết với ví dụ đối chiếu và gợi ý Brand Voice settings',
             parameters: {
               type: 'object',
               properties: {
@@ -244,9 +244,19 @@ YÊU CẦU:
                   type: 'array',
                   items: { type: 'string' },
                   description: 'Danh sách 3-5 nguyên tắc chính dạng bullet points ngắn gọn'
+                },
+                suggested_brand_positioning: {
+                  type: 'string',
+                  enum: ['business', 'expert', 'community', 'personal'],
+                  description: 'Gợi ý định vị thương hiệu phù hợp: business (Doanh nghiệp), expert (Chuyên gia), community (Cộng đồng), personal (Cá nhân)'
+                },
+                suggested_formality_level: {
+                  type: 'string',
+                  enum: ['formal', 'semi_formal', 'casual', 'friendly'],
+                  description: 'Gợi ý mức độ trang trọng: formal (Trang trọng), semi_formal (Bán trang trọng), casual (Thân mật), friendly (Gần gũi)'
                 }
               },
-              required: ['guideline', 'example_good', 'example_bad', 'key_principles'],
+              required: ['guideline', 'example_good', 'example_bad', 'key_principles', 'suggested_brand_positioning', 'suggested_formality_level'],
               additionalProperties: false
             }
           }
@@ -290,6 +300,8 @@ YÊU CẦU:
           example_good: result.example_good,
           example_bad: result.example_bad,
           key_principles: result.key_principles,
+          suggested_brand_positioning: result.suggested_brand_positioning,
+          suggested_formality_level: result.suggested_formality_level,
           target_audience: targetAudience,
           color_tone_suggestion: colorToneSuggestion,
         }),
@@ -306,6 +318,8 @@ YÊU CẦU:
           example_good: '',
           example_bad: '',
           key_principles: [],
+          suggested_brand_positioning: 'business',
+          suggested_formality_level: 'semi_formal',
           target_audience: targetAudience,
           color_tone_suggestion: colorToneSuggestion,
         }),

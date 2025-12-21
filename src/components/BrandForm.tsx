@@ -1035,6 +1035,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 if (result.example_good) setGuidelineExampleGood(result.example_good);
                 if (result.example_bad) setGuidelineExampleBad(result.example_bad);
                 if (result.key_principles) setGuidelineKeyPrinciples(result.key_principles);
+                if (result.suggested_brand_positioning) setBrandPositioning(result.suggested_brand_positioning);
+                if (result.suggested_formality_level) setFormalityLevel(result.suggested_formality_level);
               }}
               onApply={(suggestions) => {
                 if (suggestions.brand_positioning) setBrandPositioning(suggestions.brand_positioning);

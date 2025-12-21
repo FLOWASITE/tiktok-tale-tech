@@ -33,6 +33,8 @@ interface GuidelineResult {
   example_good?: string;
   example_bad?: string;
   key_principles?: string[];
+  suggested_brand_positioning?: string;
+  suggested_formality_level?: string;
 }
 
 interface AIBrandVoiceGeneratorProps {
@@ -108,6 +110,8 @@ export function AIBrandVoiceGenerator({
     example_good?: string;
     example_bad?: string;
     key_principles?: string[];
+    suggested_brand_positioning?: string;
+    suggested_formality_level?: string;
   }>({});
 
   // Check if guideline exists
@@ -146,6 +150,8 @@ export function AIBrandVoiceGenerator({
         example_good: guidelineData.example_good,
         example_bad: guidelineData.example_bad,
         key_principles: guidelineData.key_principles,
+        suggested_brand_positioning: guidelineData.suggested_brand_positioning,
+        suggested_formality_level: guidelineData.suggested_formality_level,
       });
       setStep('edit-guideline');
       toast.success('Đã tạo Brand Guideline! Bạn có thể chỉnh sửa trước khi tiếp tục.');
