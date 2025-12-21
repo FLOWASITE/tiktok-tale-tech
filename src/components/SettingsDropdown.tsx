@@ -14,29 +14,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { GeminiApiKeyInput } from './GeminiApiKeyInput';
-import { useGeminiApiKey } from '@/hooks/useGeminiApiKey';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { Loader2, CheckCircle, XCircle, Wifi, ExternalLink, Plus, ArrowLeft } from 'lucide-react';
-
-interface ConnectionTestResult {
-  success: boolean;
-  message?: string;
-  error?: string;
-  modelsCount?: number;
-  imageGenerationSupported?: boolean;
-}
+import { Plus, ArrowLeft } from 'lucide-react';
+import { AIProviderSettings } from './AIProviderSettings';
+import { useAIProviders } from '@/hooks/useAIProviders';
+import { AI_PROVIDERS } from '@/types/aiProvider';
+import { Badge } from '@/components/ui/badge';
 
 export function SettingsDropdown() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [brandOpen, setBrandOpen] = useState(false);
+  const { config, getProviderConfig } = useAIProviders();
+  const activeProvider = AI_PROVIDERS.find(p => p.id === config.selectedProvider);
+  const isConfigured = !!getProviderConfig(config.selectedProvider);
 
   return (
     <>
@@ -45,12 +38,22 @@ export function SettingsDropdown() {
           <Button variant="ghost" size="sm" className="h-9 gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Cài đặt</span>
+            {isConfigured && activeProvider && (
+              <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 hidden md:flex">
+                {activeProvider.icon}
+              </Badge>
+            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-popover">
           <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
             <Sparkles className="w-4 h-4 mr-2" />
             Cài đặt API
+            {isConfigured && (
+              <Badge variant="secondary" className="ml-auto text-xs px-1.5 py-0">
+                {activeProvider?.icon}
+              </Badge>
+            )}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setBrandOpen(true)}>
             <Palette className="w-4 h-4 mr-2" />
@@ -71,151 +74,17 @@ export function SettingsDropdown() {
 }
 
 function SettingsApiDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { apiKey, isConfigured } = useGeminiApiKey();
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
-
-  const handleTestConnection = async () => {
-    if (!apiKey) {
-      toast.error('Vui lòng nhập API key trước');
-      return;
-    }
-
-    setTesting(true);
-    setTestResult(null);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('test-gemini-connection', {
-        body: { geminiApiKey: apiKey },
-      });
-
-      if (error) {
-        setTestResult({ success: false, error: error.message });
-        toast.error('Lỗi test kết nối');
-      } else {
-        setTestResult(data);
-        if (data.success) {
-          toast.success('Kết nối thành công!');
-        } else {
-          toast.error(data.error || 'Kết nối thất bại');
-        }
-      }
-    } catch (error) {
-      console.error('Test connection error:', error);
-      setTestResult({ success: false, error: 'Lỗi không xác định' });
-      toast.error('Lỗi test kết nối');
-    } finally {
-      setTesting(false);
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            Cài đặt API
+            Cài đặt AI Providers
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              Gemini Image Generation
-            </h3>
-            <GeminiApiKeyInput />
-
-            {isConfigured && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Wifi className="w-4 h-4" />
-                    Test kết nối
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button
-                    onClick={handleTestConnection}
-                    disabled={testing}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    {testing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Đang test...
-                      </>
-                    ) : (
-                      <>
-                        <Wifi className="w-4 h-4 mr-2" />
-                        Test kết nối API
-                      </>
-                    )}
-                  </Button>
-
-                  {testResult && (
-                    <div
-                      className={`p-3 rounded-lg ${
-                        testResult.success
-                          ? 'bg-green-500/10 border border-green-500/30'
-                          : 'bg-destructive/10 border border-destructive/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        {testResult.success ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-destructive" />
-                        )}
-                        <span
-                          className={`font-medium text-sm ${
-                            testResult.success ? 'text-green-600' : 'text-destructive'
-                          }`}
-                        >
-                          {testResult.success ? testResult.message : testResult.error}
-                        </span>
-                      </div>
-                      {testResult.success && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {testResult.modelsCount} models
-                          </Badge>
-                          {testResult.imageGenerationSupported && (
-                            <Badge className="text-xs bg-green-500/20 text-green-600 border-green-500/30">
-                              Image Generation ✓
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          <Card className="bg-muted/30">
-            <CardContent className="pt-4">
-              <h4 className="font-medium text-sm mb-2">Thông tin</h4>
-              <ul className="text-xs text-muted-foreground space-y-1.5">
-                <li>• API key được lưu cục bộ trên trình duyệt của bạn</li>
-                <li>• Gemini Image API sử dụng model gemini-2.0-flash-exp</li>
-                <li>• Miễn phí với giới hạn số lượng request/phút</li>
-              </ul>
-              <a
-                href="https://ai.google.dev/pricing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs text-primary hover:underline mt-3"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Xem chi tiết pricing và quota
-              </a>
-            </CardContent>
-          </Card>
-        </div>
+        <AIProviderSettings />
       </DialogContent>
     </Dialog>
   );
