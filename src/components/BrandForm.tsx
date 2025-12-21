@@ -297,6 +297,11 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   };
 
   const handleAIQuickStart = async () => {
+    if (!brandName.trim()) {
+      toast.error('Vui lòng nhập Tên Thương hiệu trước');
+      return;
+    }
+
     if (!aiDescription.trim()) {
       toast.error('Vui lòng nhập mô tả sản phẩm/dịch vụ');
       return;
@@ -315,7 +320,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
       if (data?.suggestions) {
         const s = data.suggestions;
-        console.log('AI Brand Voice suggestions:', s);
         if (s.brand_positioning) setBrandPositioning(s.brand_positioning);
         if (s.tone_of_voice) setToneOfVoice(s.tone_of_voice);
         if (s.formality_level) setFormalityLevel(s.formality_level);
@@ -323,17 +327,16 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         if (s.preferred_words) setPreferredWords(s.preferred_words);
         if (s.forbidden_words) setForbiddenWords(s.forbidden_words);
         if (s.allow_emoji !== undefined) setAllowEmoji(s.allow_emoji);
-        
-        // Also set brand guideline from reasoning if available
-        if (s.reasoning && !brandGuideline.trim()) {
+
+        // Use AI reasoning as guideline when user hasn't customized it yet
+        if (s.reasoning && brandGuideline.trim() === DEFAULT_BRAND_GUIDELINE.trim()) {
           setBrandGuideline(s.reasoning);
         }
-        
+
         setShowQuickStart(false);
         setCurrentStep(1);
-        toast.success('Đã tạo Brand Voice với AI! Vui lòng nhập Tên Thương hiệu.');
+        toast.success('Đã áp dụng đề xuất AI!');
       } else {
-        console.error('No suggestions in response:', data);
         toast.error('Không nhận được đề xuất từ AI.');
       }
     } catch (error) {
@@ -422,35 +425,58 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             <div>
               <h3 className="font-medium">Bắt đầu nhanh với AI</h3>
               <p className="text-sm text-muted-foreground">
-                Mô tả sản phẩm/dịch vụ và để AI tạo Brand Voice cho bạn
+                Nhập Tên thương hiệu + mô tả sản phẩm/dịch vụ để AI tạo Brand Voice cho bạn
               </p>
             </div>
           </div>
-          <Textarea
-            value={aiDescription}
-            onChange={(e) => setAiDescription(e.target.value)}
-            placeholder="VD: Dịch vụ kế toán trọn gói cho doanh nghiệp nhỏ và vừa, chuyên về hỗ trợ thuế và tư vấn tài chính..."
-            rows={3}
-            className="mb-3 resize-none"
-            disabled={isGeneratingAI}
-          />
-          <Button 
-            onClick={handleAIQuickStart} 
-            disabled={isGeneratingAI || !aiDescription.trim()}
-            className="w-full gap-2"
-          >
-            {isGeneratingAI ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Đang phân tích...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                Tạo đề xuất với AI
-              </>
-            )}
-          </Button>
+
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="quick-brandName">Tên Thương hiệu *</Label>
+              <Input
+                id="quick-brandName"
+                value={brandName}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setBrandName(value);
+                  if (!template) setName(value);
+                }}
+                placeholder="VD: Thuế Hộ by TAF.vn"
+                disabled={isGeneratingAI}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quick-desc">Mô tả sản phẩm/dịch vụ *</Label>
+              <Textarea
+                id="quick-desc"
+                value={aiDescription}
+                onChange={(e) => setAiDescription(e.target.value)}
+                placeholder="VD: Dịch vụ kế toán trọn gói cho doanh nghiệp nhỏ và vừa, chuyên về hỗ trợ thuế và tư vấn tài chính..."
+                rows={3}
+                className="resize-none"
+                disabled={isGeneratingAI}
+              />
+            </div>
+
+            <Button
+              onClick={handleAIQuickStart}
+              disabled={isGeneratingAI || !aiDescription.trim() || !brandName.trim()}
+              className="w-full gap-2"
+            >
+              {isGeneratingAI ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang phân tích...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Tạo đề xuất với AI
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="relative">
