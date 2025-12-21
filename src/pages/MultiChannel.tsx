@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Loader2, FileText, Sparkles, CheckSquare } from 'lucide-react';
+import { Loader2, FileText, Sparkles, CheckSquare, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
@@ -13,6 +15,7 @@ import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/type
 import { toast } from 'sonner';
 
 export default function MultiChannel() {
+  const navigate = useNavigate();
   const { 
     contents, 
     loading, 
@@ -260,6 +263,15 @@ export default function MultiChannel() {
                   {filteredContents.length} / {contents.length} bộ nội dung
                 </p>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/')}
+                className="h-9 w-9"
+                title="Đóng"
+              >
+                <X className="h-5 w-5" />
+              </Button>
             </div>
 
             {/* Bulk Actions Bar */}
