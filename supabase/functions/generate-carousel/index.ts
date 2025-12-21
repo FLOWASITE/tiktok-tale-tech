@@ -15,6 +15,7 @@ interface CarouselFormData {
   brandName: string;
   brandGuideline: string;
   includeLogo: boolean;
+  logoUrl?: string | null;
 }
 
 interface CarouselSlide {
@@ -77,7 +78,7 @@ const getSystemPrompt = (formData: CarouselFormData): string => {
 ${formData.brandGuideline}
 
 Brand name: ${formData.brandName}
-${formData.includeLogo ? `Logo: Bao gồm logo "${formData.brandName}" ở góc dưới, subtle và professional.` : "Không có logo."}
+${formData.includeLogo ? `Logo: Bao gồm logo "${formData.brandName}" ở góc dưới, subtle và professional.${formData.logoUrl ? `\nLogo URL (reference): ${formData.logoUrl}` : ""}` : "Không có logo."}
 
 ## ${aiToolPromptGuide[formData.aiTool]}
 
@@ -124,7 +125,7 @@ Requirements:
 - Text must be perfectly readable
 - No distorted Vietnamese characters
 - Flat design, no clutter
-${formData.includeLogo ? `- Include subtle "${formData.brandName}" logo at bottom corner` : ""}`;
+${formData.includeLogo ? `- Include subtle "${formData.brandName}" logo at bottom corner${formData.logoUrl ? ` (Logo reference: ${formData.logoUrl})` : ""}` : ""}`;
 };
 
 serve(async (req) => {

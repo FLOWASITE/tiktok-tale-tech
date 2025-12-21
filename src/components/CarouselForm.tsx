@@ -116,6 +116,15 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
     }
   };
 
+  // Get selected template's logo URL
+  const getSelectedLogoUrl = (): string | null => {
+    if (selectedTemplateId && selectedTemplateId !== 'custom') {
+      const template = templates.find(t => t.id === selectedTemplateId);
+      return template?.logo_url || null;
+    }
+    return null;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
@@ -128,6 +137,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       brandName: brandName.trim(),
       brandGuideline: brandGuideline.trim(),
       includeLogo,
+      logoUrl: getSelectedLogoUrl(),
     });
   };
 
