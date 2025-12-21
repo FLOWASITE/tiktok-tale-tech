@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.generate-brand-voice]
 verify_jwt = false
+
+[functions.generate-brand-guideline]
+verify_jwt = false
