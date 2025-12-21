@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,7 @@ interface MultiChannelViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRegenerate?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | null>;
+  onUpdateContent?: (contentId: string, channel: Channel, newContent: string) => Promise<MultiChannelContent | null>;
   regeneratingChannel?: string | null;
 }
 
@@ -89,16 +91,28 @@ export function MultiChannelViewer({
   open, 
   onOpenChange, 
   onRegenerate,
+  onUpdateContent,
   regeneratingChannel 
 }: MultiChannelViewerProps) {
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [editContent, setEditContent] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset edit state when dialog closes or content changes
+  useEffect(() => {
+    if (!open) {
+      setEditingChannel(null);
+      setEditContent('');
+    }
+  }, [open]);
 
   if (!content) return null;
 
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
 
   const handleCopy = async (channel: Channel) => {
-    const text = getContentForChannel(content, channel);
+    const text = editingChannel === channel ? editContent : getContentForChannel(content, channel);
     if (!text) return;
 
     try {
@@ -120,7 +134,34 @@ export function MultiChannelViewer({
 
   const handleRegenerate = async (channel: Channel) => {
     if (!onRegenerate || regeneratingChannel) return;
+    setEditingChannel(null);
     await onRegenerate(content.id, channel);
+  };
+
+  const handleStartEdit = (channel: Channel) => {
+    const currentContent = getContentForChannel(content, channel) || '';
+    setEditContent(currentContent);
+    setEditingChannel(channel);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingChannel(null);
+    setEditContent('');
+  };
+
+  const handleSaveEdit = async (channel: Channel) => {
+    if (!onUpdateContent || isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      const updated = await onUpdateContent(content.id, channel, editContent);
+      if (updated) {
+        setEditingChannel(null);
+        setEditContent('');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportAll = () => {
@@ -216,8 +257,10 @@ export function MultiChannelViewer({
           {content.selected_channels.map((channel) => {
             const channelContent = getContentForChannel(content, channel);
             const config = channelConfig[channel];
-            const wordCount = channelContent ? countWords(channelContent) : 0;
-            const charCount = channelContent ? countCharacters(channelContent) : 0;
+            const isEditing = editingChannel === channel;
+            const displayContent = isEditing ? editContent : (channelContent || '');
+            const wordCount = countWords(displayContent);
+            const charCount = countCharacters(displayContent);
             const isRegenerating = regeneratingChannel === channel;
 
             return (
@@ -237,69 +280,131 @@ export function MultiChannelViewer({
                     <span className="text-xs text-muted-foreground">
                       {wordCount} chữ / {charCount} ký tự
                     </span>
+                    {isEditing && (
+                      <Badge variant="secondary" className="text-xs">
+                        Đang chỉnh sửa
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {onRegenerate && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRegenerate(channel)}
-                        disabled={isRegenerating || !!regeneratingChannel}
-                        className="gap-1.5"
-                      >
-                        {isRegenerating ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Đang tạo lại...
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="w-4 h-4" />
-                            Tạo lại
-                          </>
+                    {isEditing ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCancelEdit}
+                          disabled={isSaving}
+                          className="gap-1.5"
+                        >
+                          <X className="w-4 h-4" />
+                          Hủy
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleSaveEdit(channel)}
+                          disabled={isSaving}
+                          className="gap-1.5"
+                        >
+                          {isSaving ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Đang lưu...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4" />
+                              Lưu
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {onUpdateContent && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleStartEdit(channel)}
+                            disabled={isRegenerating || !!regeneratingChannel}
+                            className="gap-1.5"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Sửa
+                          </Button>
                         )}
-                      </Button>
+                        {onRegenerate && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRegenerate(channel)}
+                            disabled={isRegenerating || !!regeneratingChannel}
+                            className="gap-1.5"
+                          >
+                            {isRegenerating ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Đang tạo lại...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4" />
+                                Tạo lại
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopy(channel)}
+                          disabled={isRegenerating}
+                          className="gap-1.5"
+                        >
+                          {copiedChannel === channel ? (
+                            <>
+                              <Check className="w-4 h-4 text-green-500" />
+                              Đã copy
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCopy(channel)}
-                      disabled={isRegenerating}
-                      className="gap-1.5"
-                    >
-                      {copiedChannel === channel ? (
-                        <>
-                          <Check className="w-4 h-4 text-green-500" />
-                          Đã copy
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4" />
-                          Copy
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </div>
 
-                <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
-                  <div className="p-4">
-                    {isRegenerating ? (
-                      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                        <Loader2 className="w-8 h-8 animate-spin mb-3" />
-                        <p>Đang tạo lại nội dung...</p>
-                      </div>
-                    ) : channelContent ? (
-                      <div className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap">
-                        {channelContent}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-center py-8">
-                        Không có nội dung cho kênh này
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
+                {isEditing ? (
+                  <Textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="h-[400px] resize-none font-mono text-sm"
+                    placeholder="Nhập nội dung..."
+                  />
+                ) : (
+                  <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
+                    <div className="p-4">
+                      {isRegenerating ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                          <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                          <p>Đang tạo lại nội dung...</p>
+                        </div>
+                      ) : channelContent ? (
+                        <div className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap">
+                          {channelContent}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-8">
+                          Không có nội dung cho kênh này
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                )}
               </TabsContent>
             );
           })}
