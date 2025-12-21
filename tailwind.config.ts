@@ -115,6 +115,22 @@ export default {
           "0%, 100%": { borderColor: "hsl(var(--border))" },
           "50%": { borderColor: "hsl(var(--primary) / 0.5)" },
         },
+        "slide-in-right": {
+          "0%": { transform: "translateX(100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        "slide-out-right": {
+          "0%": { transform: "translateX(0)", opacity: "1" },
+          "100%": { transform: "translateX(100%)", opacity: "0" },
+        },
+        "overlay-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "overlay-out": {
+          "0%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -129,6 +145,10 @@ export default {
         "card-hover": "card-hover 0.3s ease-out forwards",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "border-glow": "border-glow 2s ease-in-out infinite",
+        "slide-in-right": "slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-out-right": "slide-out-right 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+        "overlay-in": "overlay-in 0.25s ease-out",
+        "overlay-out": "overlay-out 0.2s ease-in",
       },
     },
   },
