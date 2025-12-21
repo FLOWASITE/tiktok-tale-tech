@@ -56,6 +56,57 @@ export function useBrandTemplates() {
     }
   };
 
+  const updateTemplate = async (id: string, updates: Partial<Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>>): Promise<BrandTemplate | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('brand_templates')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      const updatedTemplate = data as BrandTemplate;
+      setTemplates((prev) => prev.map((t) => t.id === id ? updatedTemplate : t));
+      toast.success('Đã cập nhật template!');
+      return updatedTemplate;
+    } catch (error) {
+      console.error('Error updating template:', error);
+      toast.error('Không thể cập nhật template');
+      return null;
+    }
+  };
+
+  const setDefaultTemplate = async (id: string): Promise<boolean> => {
+    try {
+      // First, unset all defaults
+      await supabase
+        .from('brand_templates')
+        .update({ is_default: false })
+        .neq('id', id);
+      
+      // Then set the new default
+      const { error } = await supabase
+        .from('brand_templates')
+        .update({ is_default: true })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setTemplates((prev) => prev.map((t) => ({
+        ...t,
+        is_default: t.id === id
+      })));
+      toast.success('Đã đặt làm mặc định!');
+      return true;
+    } catch (error) {
+      console.error('Error setting default template:', error);
+      toast.error('Không thể đặt làm mặc định');
+      return false;
+    }
+  };
+
   const deleteTemplate = async (id: string) => {
     try {
       const { error } = await supabase.from('brand_templates').delete().eq('id', id);
@@ -76,7 +127,9 @@ export function useBrandTemplates() {
     templates,
     loading,
     saveTemplate,
+    updateTemplate,
     deleteTemplate,
+    setDefaultTemplate,
     refetch: fetchTemplates,
   };
 }

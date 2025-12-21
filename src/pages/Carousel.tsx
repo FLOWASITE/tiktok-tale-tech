@@ -5,6 +5,7 @@ import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { SettingsDialog } from '@/components/SettingsDialog';
+import { BrandManagementDialog } from '@/components/BrandManagementDialog';
 import { useCarousels } from '@/hooks/useCarousels';
 import { Carousel } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -99,7 +100,10 @@ const CarouselPage = () => {
                   ({filteredCarousels.length}/{carousels.length})
                 </span>
               </h2>
-              <SettingsDialog />
+              <div className="flex items-center gap-2">
+                <BrandManagementDialog />
+                <SettingsDialog />
+              </div>
             </div>
 
             {/* Filters */}
