@@ -35,6 +35,8 @@ serve(async (req) => {
 Dựa vào mô tả được cung cấp, hãy đề xuất các thiết lập Brand Voice theo format JSON sau:
 
 {
+  "suggested_brand_name": "Tên thương hiệu gợi ý (ngắn gọn, dễ nhớ, 2-4 từ)",
+  "suggested_industry": "Ngành nghề phù hợp nhất",
   "brand_positioning": "Câu định vị thương hiệu ngắn gọn (1-2 câu)",
   "tone_of_voice": ["professional", "friendly", "authoritative", "playful", "empathetic", "inspirational", "educational", "conversational"],
   "formality_level": "formal | semi_formal | casual | friendly",
@@ -46,6 +48,8 @@ Dựa vào mô tả được cung cấp, hãy đề xuất các thiết lập Br
 }
 
 Lưu ý:
+- suggested_brand_name: Gợi ý 1 tên thương hiệu phù hợp với mô tả (có thể là tiếng Việt hoặc tiếng Anh)
+- suggested_industry: Chọn 1 ngành phù hợp nhất từ: Tài chính & Kế toán, Bất động sản, F&B, Công nghệ thông tin, Giáo dục & Đào tạo, Y tế & Sức khỏe, Du lịch & Khách sạn, Thương mại điện tử, Marketing & Truyền thông, Thời trang & Làm đẹp, hoặc ngành khác phù hợp
 - tone_of_voice: Chọn 2-4 giá trị phù hợp nhất từ danh sách
 - language_style: Chọn 2-3 giá trị phù hợp nhất
 - preferred_words: Đề xuất 5-10 từ/cụm từ đặc trưng cho ngành

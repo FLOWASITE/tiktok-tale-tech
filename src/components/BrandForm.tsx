@@ -297,11 +297,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   };
 
   const handleAIQuickStart = async () => {
-    if (!brandName.trim()) {
-      toast.error('Vui lòng nhập Tên Thương hiệu trước');
-      return;
-    }
-
     if (!aiDescription.trim()) {
       toast.error('Vui lòng nhập mô tả sản phẩm/dịch vụ');
       return;
@@ -320,6 +315,18 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
       if (data?.suggestions) {
         const s = data.suggestions;
+        
+        // Auto-fill brand name if AI suggested one and user hasn't entered yet
+        if (s.suggested_brand_name && !brandName.trim()) {
+          setBrandName(s.suggested_brand_name);
+          setName(s.suggested_brand_name);
+        }
+        
+        // Auto-fill industry if AI suggested one and user hasn't selected yet
+        if (s.suggested_industry && industries.length === 0) {
+          setIndustries([s.suggested_industry]);
+        }
+        
         if (s.brand_positioning) setBrandPositioning(s.brand_positioning);
         if (s.tone_of_voice) setToneOfVoice(s.tone_of_voice);
         if (s.formality_level) setFormalityLevel(s.formality_level);
@@ -335,7 +342,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
         setShowQuickStart(false);
         setCurrentStep(1);
-        toast.success('Đã áp dụng đề xuất AI!');
+        toast.success('Đã tạo Brand Voice với AI!');
       } else {
         toast.error('Không nhận được đề xuất từ AI.');
       }
@@ -425,27 +432,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             <div>
               <h3 className="font-medium">Bắt đầu nhanh với AI</h3>
               <p className="text-sm text-muted-foreground">
-                Nhập Tên thương hiệu + mô tả sản phẩm/dịch vụ để AI tạo Brand Voice cho bạn
+                Mô tả sản phẩm/dịch vụ và AI sẽ gợi ý Tên thương hiệu + Brand Voice phù hợp
               </p>
             </div>
           </div>
 
           <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="quick-brandName">Tên Thương hiệu *</Label>
-              <Input
-                id="quick-brandName"
-                value={brandName}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setBrandName(value);
-                  if (!template) setName(value);
-                }}
-                placeholder="VD: Thuế Hộ by TAF.vn"
-                disabled={isGeneratingAI}
-              />
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="quick-desc">Mô tả sản phẩm/dịch vụ *</Label>
               <Textarea
@@ -459,20 +451,106 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>Ngành nghề (tùy chọn)</Label>
+              {industries.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {industries.map((item) => (
+                    <span
+                      key={item}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-primary/10 text-primary border border-primary/20"
+                    >
+                      {item}
+                      <button
+                        type="button"
+                        onClick={() => removeIndustry(item)}
+                        className="hover:text-destructive"
+                        disabled={isGeneratingAI}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      'w-full justify-between font-normal',
+                      industries.length === 0 && 'text-muted-foreground'
+                    )}
+                    disabled={isGeneratingAI}
+                  >
+                    {industries.length === 0 
+                      ? 'Chọn ngành để AI đề xuất chính xác hơn...' 
+                      : `${industries.length} ngành đã chọn`}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0 z-50 bg-popover" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Tìm hoặc nhập ngành..." 
+                      value={searchValue}
+                      onValueChange={setSearchValue}
+                    />
+                    <CommandList>
+                      {searchValue.trim() && !SUGGESTED_INDUSTRIES.some(i => 
+                        i.toLowerCase() === searchValue.trim().toLowerCase()
+                      ) && (
+                        <CommandItem
+                          onSelect={addCustomIndustry}
+                          className="text-primary"
+                        >
+                          <Check className="mr-2 h-4 w-4 opacity-0" />
+                          Thêm "{searchValue.trim()}"
+                        </CommandItem>
+                      )}
+                      <CommandGroup heading="Gợi ý">
+                        {SUGGESTED_INDUSTRIES.filter(item => 
+                          item.toLowerCase().includes(searchValue.toLowerCase())
+                        ).map((item) => (
+                          <CommandItem
+                            key={item}
+                            value={item}
+                            onSelect={() => toggleIndustry(item)}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4',
+                                industries.includes(item) ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            {item}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                AI sẽ tự phát hiện ngành nếu bạn không chọn
+              </p>
+            </div>
+
             <Button
               onClick={handleAIQuickStart}
-              disabled={isGeneratingAI || !aiDescription.trim() || !brandName.trim()}
+              disabled={isGeneratingAI || !aiDescription.trim()}
               className="w-full gap-2"
             >
               {isGeneratingAI ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang phân tích...
+                  AI đang phân tích và gợi ý...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  Tạo đề xuất với AI
+                  Tạo Brand Voice với AI
                 </>
               )}
             </Button>
