@@ -205,7 +205,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
+      setCurrentStep(prev => Math.min(prev + 1, 3));
     }
   };
 
@@ -799,31 +799,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             complianceRules={complianceRules}
             onComplianceRulesChange={setComplianceRules}
           />
-        </div>
-      )}
-
-      {/* Step 3: Voice Details */}
-      {currentStep === 3 && (
-        <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
-          <Label className="text-base font-medium">Chi tiết Brand Voice</Label>
-          <BrandVoiceSection
-            brandPositioning={brandPositioning}
-            onBrandPositioningChange={setBrandPositioning}
-            toneOfVoice={toneOfVoice}
-            onToneOfVoiceChange={setToneOfVoice}
-            formalityLevel={formalityLevel}
-            onFormalityLevelChange={setFormalityLevel}
-            languageStyle={languageStyle}
-            onLanguageStyleChange={setLanguageStyle}
-            preferredWords={preferredWords}
-            onPreferredWordsChange={setPreferredWords}
-            forbiddenWords={forbiddenWords}
-            onForbiddenWordsChange={setForbiddenWords}
-            allowEmoji={allowEmoji}
-            onAllowEmojiChange={setAllowEmoji}
-            complianceRules={complianceRules}
-            onComplianceRulesChange={setComplianceRules}
-          />
           
           {/* Preview */}
           <BrandVoicePreview
@@ -839,12 +814,13 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
       )}
 
-      {/* Step 4: Channel Settings */}
-      {currentStep === 4 && (
+      {/* Step 3: Channel Settings */}
+      {currentStep === 3 && (
         <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
           <ChannelSettingsEditor
             value={channelOverrides}
             onChange={setChannelOverrides}
+            defaultExpanded={true}
           />
         </div>
       )}
@@ -863,13 +839,13 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
             Hủy
           </Button>
-          {currentStep < 4 ? (
+          {currentStep < 3 ? (
             <Button type="button" onClick={handleNext} disabled={isLoading}>
               Tiếp theo
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           ) : (
-            <Button type="submit" disabled={isLoading || !name.trim() || !brandName.trim()}>
+            <Button type="submit" disabled={isLoading || !brandName.trim()}>
               {isLoading ? 'Đang lưu...' : template ? 'Cập nhật' : 'Tạo mới'}
             </Button>
           )}

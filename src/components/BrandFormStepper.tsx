@@ -10,8 +10,7 @@ export interface Step {
 export const BRAND_FORM_STEPS: Step[] = [
   { id: 1, title: 'Thông tin cơ bản', icon: <Info className="w-4 h-4" /> },
   { id: 2, title: 'Brand Voice', icon: <Megaphone className="w-4 h-4" /> },
-  { id: 3, title: 'Chi tiết Voice', icon: <Settings className="w-4 h-4" /> },
-  { id: 4, title: 'Channel Settings', icon: <Globe className="w-4 h-4" /> },
+  { id: 3, title: 'Cài đặt kênh', icon: <Globe className="w-4 h-4" /> },
 ];
 
 interface BrandFormStepperProps {
@@ -79,7 +78,7 @@ export function BrandFormStepper({ currentStep, onStepClick, completedSteps = []
 
       {/* Mobile: current step indicator */}
       <div className="sm:hidden flex items-center justify-center gap-2 text-sm">
-        <span className="text-muted-foreground">Bước {currentStep}/4:</span>
+        <span className="text-muted-foreground">Bước {currentStep}/3:</span>
         <span className="font-medium">{BRAND_FORM_STEPS[currentStep - 1]?.title}</span>
       </div>
     </div>

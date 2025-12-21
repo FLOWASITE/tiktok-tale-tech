@@ -37,6 +37,7 @@ export type ChannelOverrides = Partial<Record<Channel, ChannelOverride>>;
 interface ChannelSettingsEditorProps {
   value: ChannelOverrides;
   onChange: (value: ChannelOverrides) => void;
+  defaultExpanded?: boolean;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -271,8 +272,8 @@ function ChannelSettingRow({
   );
 }
 
-export function ChannelSettingsEditor({ value, onChange }: ChannelSettingsEditorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false }: ChannelSettingsEditorProps) {
+  const [isOpen, setIsOpen] = useState(defaultExpanded);
   
   const hasAnyOverrides = Object.keys(value).some(
     (ch) => value[ch as Channel] && Object.keys(value[ch as Channel]!).length > 0
