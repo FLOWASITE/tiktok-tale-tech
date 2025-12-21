@@ -196,7 +196,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     const newErrors: Record<string, string> = {};
     
     if (step === 1) {
-      if (!name.trim()) newErrors.name = 'Tên brand là bắt buộc';
       if (!brandName.trim()) newErrors.brandName = 'Tên thương hiệu là bắt buộc';
     }
     
@@ -541,29 +540,17 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             {/* Left Column */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Tên Brand *</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
-                  }}
-                  placeholder="VD: Brand công ty ABC"
-                  className={errors.name ? 'border-destructive' : ''}
-                />
-                {errors.name && (
-                  <p className="text-xs text-destructive">{errors.name}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="brandName">Tên Thương hiệu *</Label>
                 <Input
                   id="brandName"
                   value={brandName}
                   onChange={(e) => {
-                    setBrandName(e.target.value);
+                    const value = e.target.value;
+                    setBrandName(value);
+                    // Auto-sync to name field
+                    if (!template) {
+                      setName(value);
+                    }
                     if (errors.brandName) setErrors(prev => ({ ...prev, brandName: '' }));
                   }}
                   placeholder="VD: Thuế Hộ by TAF.vn"
