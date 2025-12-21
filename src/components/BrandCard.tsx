@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { 
   BRAND_POSITIONING_OPTIONS, 
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2 } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -250,6 +251,16 @@ export function BrandCard({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
+              asChild
+            >
+              <Link to={`/brands/${template.id}`}>
+                <Eye className="w-4 h-4" />
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
               onClick={() => onEdit(template)}
             >
               <Edit2 className="w-4 h-4" />
@@ -485,6 +496,16 @@ export function BrandCard({
                   </Tooltip>
                 </TooltipProvider>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 transition-all duration-200 hover:scale-110 hover:bg-secondary/50"
+                asChild
+              >
+                <Link to={`/brands/${template.id}`}>
+                  <Eye className="w-4 h-4" />
+                </Link>
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
