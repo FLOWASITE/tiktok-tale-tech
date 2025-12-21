@@ -1,7 +1,8 @@
-import { Film, Images, Settings, Palette, Bookmark, Layers, LayoutDashboard, User, Shield } from 'lucide-react';
+import { Film, Images, Settings, Bookmark, Layers, LayoutDashboard, User, Shield } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
+import logoImage from '@/assets/logo.png';
 import {
   Sidebar,
   SidebarContent,
@@ -36,10 +37,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-shrink-0">
-            <div className="absolute inset-0 gradient-primary rounded-xl blur-lg opacity-50 animate-pulse-glow" />
-            <div className="relative gradient-primary p-2.5 rounded-xl">
-              <Palette className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img src={logoImage} alt="Flowa Logo" className="w-10 h-10 object-contain" />
           </div>
           {!isCollapsed && (
             <div className="overflow-hidden">
