@@ -7,7 +7,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,9 +33,10 @@ interface BrandCardProps {
   onEdit: (template: BrandTemplate) => void;
   onDelete: (id: string) => void;
   onSetDefault: (id: string) => void;
+  onDuplicate?: (id: string) => void;
 }
 
-export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCardProps) {
+export function BrandCard({ template, onEdit, onDelete, onSetDefault, onDuplicate }: BrandCardProps) {
   const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
 
   return (
@@ -184,6 +185,25 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
               <Check className="w-3 h-3 mr-1" />
               Đặt mặc định
             </Button>
+          )}
+          {onDuplicate && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 transition-all duration-200 hover:scale-110 hover:bg-secondary/50"
+                    onClick={() => onDuplicate(template.id)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Tạo bản sao</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           <Button
             variant="ghost"
