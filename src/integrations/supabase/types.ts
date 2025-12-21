@@ -142,6 +142,7 @@ export type Database = {
           brand_guideline: string | null
           brand_name: string
           brand_template_id: string | null
+          channel_images: Json | null
           content_goal: string
           created_at: string
           email_content: string | null
@@ -153,6 +154,8 @@ export type Database = {
           linkedin_content: string | null
           primary_color: string | null
           selected_channels: string[]
+          status: string | null
+          tags: string[] | null
           telegram_content: string | null
           title: string
           topic: string
@@ -166,6 +169,7 @@ export type Database = {
           brand_guideline?: string | null
           brand_name: string
           brand_template_id?: string | null
+          channel_images?: Json | null
           content_goal: string
           created_at?: string
           email_content?: string | null
@@ -177,6 +181,8 @@ export type Database = {
           linkedin_content?: string | null
           primary_color?: string | null
           selected_channels: string[]
+          status?: string | null
+          tags?: string[] | null
           telegram_content?: string | null
           title: string
           topic: string
@@ -190,6 +196,7 @@ export type Database = {
           brand_guideline?: string | null
           brand_name?: string
           brand_template_id?: string | null
+          channel_images?: Json | null
           content_goal?: string
           created_at?: string
           email_content?: string | null
@@ -201,6 +208,8 @@ export type Database = {
           linkedin_content?: string | null
           primary_color?: string | null
           selected_channels?: string[]
+          status?: string | null
+          tags?: string[] | null
           telegram_content?: string | null
           title?: string
           topic?: string
