@@ -32,6 +32,7 @@ export type Database = {
           language_style: string[] | null
           logo_url: string | null
           name: string
+          organization_id: string | null
           preferred_words: string[] | null
           primary_color: string | null
           tone_of_voice: string[] | null
@@ -55,6 +56,7 @@ export type Database = {
           language_style?: string[] | null
           logo_url?: string | null
           name: string
+          organization_id?: string | null
           preferred_words?: string[] | null
           primary_color?: string | null
           tone_of_voice?: string[] | null
@@ -78,13 +80,22 @@ export type Database = {
           language_style?: string[] | null
           logo_url?: string | null
           name?: string
+          organization_id?: string | null
           preferred_words?: string[] | null
           primary_color?: string | null
           tone_of_voice?: string[] | null
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brand_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       carousels: {
         Row: {
@@ -97,6 +108,7 @@ export type Database = {
           generated_images: Json | null
           id: string
           include_logo: boolean
+          organization_id: string | null
           platform: Database["public"]["Enums"]["carousel_platform"]
           slide_count: number
           slides_content: Json
@@ -115,6 +127,7 @@ export type Database = {
           generated_images?: Json | null
           id?: string
           include_logo?: boolean
+          organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           slide_count?: number
           slides_content?: Json
@@ -133,6 +146,7 @@ export type Database = {
           generated_images?: Json | null
           id?: string
           include_logo?: boolean
+          organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           slide_count?: number
           slides_content?: Json
@@ -141,7 +155,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "carousels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       multi_channel_contents: {
         Row: {
@@ -158,6 +180,7 @@ export type Database = {
           industry: string | null
           instagram_content: string | null
           linkedin_content: string | null
+          organization_id: string | null
           primary_color: string | null
           selected_channels: string[]
           status: string | null
@@ -186,6 +209,7 @@ export type Database = {
           industry?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
+          organization_id?: string | null
           primary_color?: string | null
           selected_channels: string[]
           status?: string | null
@@ -214,6 +238,7 @@ export type Database = {
           industry?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
+          organization_id?: string | null
           primary_color?: string | null
           selected_channels?: string[]
           status?: string | null
@@ -236,7 +261,88 @@ export type Database = {
             referencedRelation: "brand_templates"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "multi_channel_contents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          joined_at: string | null
+          organization_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string
+          primary_color: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          owner_id: string
+          primary_color?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          primary_color?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       plan_limits: {
         Row: {
@@ -317,6 +423,7 @@ export type Database = {
           created_at: string
           duration: number
           id: string
+          organization_id: string | null
           title: string
           topic: string
           updated_at: string
@@ -329,6 +436,7 @@ export type Database = {
           created_at?: string
           duration?: number
           id?: string
+          organization_id?: string | null
           title: string
           topic: string
           updated_at?: string
@@ -341,13 +449,22 @@ export type Database = {
           created_at?: string
           duration?: number
           id?: string
+          organization_id?: string | null
           title?: string
           topic?: string
           updated_at?: string
           user_id?: string | null
           video_type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "scripts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -457,12 +574,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_user_org_id: { Args: { _user_id: string }; Returns: string }
       get_user_usage: {
         Args: {
           _usage_type: Database["public"]["Enums"]["usage_type"]
           _user_id: string
         }
         Returns: number
+      }
+      has_org_role: {
+        Args: {
+          _org_id: string
+          _role: Database["public"]["Enums"]["org_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       has_role: {
         Args: {
@@ -471,11 +597,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_org_admin: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok"
+      org_role: "owner" | "admin" | "member" | "viewer"
       plan_type: "free" | "starter" | "pro" | "enterprise"
       subscription_status:
         | "active"
@@ -619,6 +754,7 @@ export const Constants = {
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
       carousel_platform: ["facebook", "tiktok"],
+      org_role: ["owner", "admin", "member", "viewer"],
       plan_type: ["free", "starter", "pro", "enterprise"],
       subscription_status: [
         "active",
