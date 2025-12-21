@@ -18,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelContent, Channel, CONTENT_GOALS } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { useDraft } from '@/hooks/useDraft';
 import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 
 interface MultiChannelViewerProps {
@@ -117,6 +118,7 @@ export function MultiChannelViewer({
   const [aiPrompt, setAiPrompt] = useState('');
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
+  const [showDraftRestorePrompt, setShowDraftRestorePrompt] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo hook for edit content
@@ -132,6 +134,23 @@ export function MultiChannelViewer({
     historyCount,
   } = useUndoRedo('');
 
+  // Draft auto-save hook
+  const {
+    hasDraft,
+    lastSaved: draftLastSaved,
+    isSaving: isDraftSaving,
+    loadDraft,
+    saveDraft,
+    clearDraft,
+  } = useDraft(content?.id || null, editingChannel);
+
+  // Auto-save draft when editing
+  useEffect(() => {
+    if (editingChannel && editContent) {
+      saveDraft(editContent);
+    }
+  }, [editContent, editingChannel, saveDraft]);
+
   // Reset state when dialog closes or content changes
   useEffect(() => {
     if (!open) {
@@ -140,6 +159,7 @@ export function MultiChannelViewer({
       setAiPrompt('');
       setPreviewContent(null);
       setShowMarkdownPreview(false);
+      setShowDraftRestorePrompt(false);
     }
   }, [open, resetEditContent]);
 
@@ -177,10 +197,36 @@ export function MultiChannelViewer({
 
   const handleStartEdit = (channel: Channel) => {
     const currentContent = getContentForChannel(content, channel) || '';
-    resetEditContent(currentContent);
+    
+    // Check for existing draft
+    const draft = loadDraft();
+    if (draft && draft !== currentContent) {
+      setShowDraftRestorePrompt(true);
+      resetEditContent(currentContent);
+    } else {
+      resetEditContent(currentContent);
+    }
+    
     setEditingChannel(channel);
     setPreviewContent(null);
     setAiPrompt('');
+  };
+
+  const handleRestoreDraft = () => {
+    const draft = loadDraft();
+    if (draft) {
+      resetEditContent(draft);
+      setShowDraftRestorePrompt(false);
+      toast({
+        title: 'Đã khôi phục bản nháp',
+        description: 'Nội dung đã được khôi phục từ bản lưu tự động',
+      });
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setShowDraftRestorePrompt(false);
   };
 
   const handleCancelEdit = () => {
@@ -192,6 +238,7 @@ export function MultiChannelViewer({
       setEditingChannel(null);
       resetEditContent('');
       setAiPrompt('');
+      clearDraft();
     }
   };
 
@@ -208,6 +255,7 @@ export function MultiChannelViewer({
         resetEditContent('');
         setPreviewContent(null);
         setAiPrompt('');
+        clearDraft(); // Clear draft after successful save
       }
     } finally {
       setIsSaving(false);
@@ -382,9 +430,21 @@ export function MultiChannelViewer({
                       {wordCount} chữ / {charCount} ký tự
                     </span>
                     {isEditing && (
-                      <Badge variant="secondary" className="text-xs">
-                        {previewContent ? 'Đang xem trước AI' : 'Đang chỉnh sửa'}
-                      </Badge>
+                      <>
+                        <Badge variant="secondary" className="text-xs">
+                          {previewContent ? 'Đang xem trước AI' : 'Đang chỉnh sửa'}
+                        </Badge>
+                        {isDraftSaving && (
+                          <span className="text-xs text-muted-foreground animate-pulse">
+                            Đang lưu...
+                          </span>
+                        )}
+                        {!isDraftSaving && draftLastSaved && (
+                          <span className="text-xs text-muted-foreground">
+                            Đã lưu tự động
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -587,6 +647,31 @@ export function MultiChannelViewer({
                                 Áp dụng
                               </>
                             )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Draft restore prompt */}
+                    {showDraftRestorePrompt && (
+                      <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">Bạn có bản nháp chưa lưu. Khôi phục?</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDiscardDraft}
+                          >
+                            Bỏ qua
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleRestoreDraft}
+                          >
+                            Khôi phục
                           </Button>
                         </div>
                       </div>
