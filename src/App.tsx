@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import OrganizationSettings from "./pages/OrganizationSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -102,6 +103,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Admin />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/organization"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <OrganizationSettings />
                     </AppLayout>
                   </ProtectedRoute>
                 }
