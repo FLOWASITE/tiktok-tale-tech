@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CONTENT_GOALS, CHANNELS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 
@@ -31,6 +31,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   email: <Mail className="w-4 h-4" />,
   youtube: <Youtube className="w-4 h-4" />,
   zalo_oa: <MessageCircle className="w-4 h-4" />,
+  telegram: <Send className="w-4 h-4" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -43,6 +44,7 @@ const channelColors: Record<Channel, string> = {
   email: 'text-amber-500',
   youtube: 'text-red-500',
   zalo_oa: 'text-blue-500',
+  telegram: 'text-sky-500',
 };
 
 export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps) {

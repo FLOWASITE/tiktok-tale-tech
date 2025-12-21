@@ -150,6 +150,7 @@ export type Database = {
           linkedin_content: string | null
           primary_color: string | null
           selected_channels: string[]
+          telegram_content: string | null
           title: string
           topic: string
           twitter_content: string | null
@@ -173,6 +174,7 @@ export type Database = {
           linkedin_content?: string | null
           primary_color?: string | null
           selected_channels: string[]
+          telegram_content?: string | null
           title: string
           topic: string
           twitter_content?: string | null
@@ -196,6 +198,7 @@ export type Database = {
           linkedin_content?: string | null
           primary_color?: string | null
           selected_channels?: string[]
+          telegram_content?: string | null
           title?: string
           topic?: string
           twitter_content?: string | null

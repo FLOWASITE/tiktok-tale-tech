@@ -24,6 +24,7 @@ const transformContent = (data: any): MultiChannelContent => ({
   email_content: data.email_content,
   youtube_content: data.youtube_content,
   zalo_oa_content: data.zalo_oa_content,
+  telegram_content: data.telegram_content,
   created_at: data.created_at,
   updated_at: data.updated_at,
 });
@@ -146,6 +147,7 @@ export function useMultiChannelContents() {
         email: 'email_content',
         youtube: 'youtube_content',
         zalo_oa: 'zalo_oa_content',
+        telegram: 'telegram_content',
       };
 
       const updateField = fieldMap[channel];

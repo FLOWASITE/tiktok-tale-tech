@@ -14,21 +14,143 @@ interface AIEditRequest {
   currentContent: string;
 }
 
-const channelRules: Record<string, string> = {
-  website: `WEBSITE/BLOG: 800–1500 chữ, cấu trúc heading H1/H2/H3, Markdown format, KHÔNG emoji`,
-  facebook: `FACEBOOK: 120–300 chữ, chia đoạn ngắn, emoji tiết chế (1-3)`,
-  instagram: `INSTAGRAM: 50–150 chữ, ngắn gọn, hashtag cuối (3-5)`,
-  twitter: `TWITTER: Thread 5-7 tweets, mỗi tweet ≤ 280 ký tự, đánh số 1/, 2/...`,
-  google_maps: `GOOGLE MAPS: 80–150 chữ, khách quan, KHÔNG emoji/hashtag`,
+// ============================================
+// CHANNEL SETTINGS ENGINE
+// ============================================
+
+interface ChannelSettings {
+  min_length?: number;
+  max_length: number;
+  length_unit: 'words' | 'chars';
+  hook_required: boolean;
+  hook_style?: string;
+  bullet_allowed: boolean;
+  cta_policy: 'required' | 'optional' | 'soft' | 'none';
+  has_subject_line?: boolean;
+  emoji_allowed: boolean;
+  emoji_limit?: number;
+  hashtag_limit: number;
+  hashtag_position?: 'none' | 'end' | 'inline';
+  line_break_style: 'many' | 'short' | 'normal' | 'minimal';
+  link_position: 'body' | 'end' | 'allowed' | 'none';
+  format_description?: string;
+}
+
+const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
+  website: {
+    min_length: 800, max_length: 1500, length_unit: 'words',
+    hook_required: false, hook_style: 'không cần giật tít',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
+  },
+  facebook: {
+    min_length: 120, max_length: 300, length_unit: 'words',
+    hook_required: true, hook_style: 'BẮT BUỘC hook mạnh 2 dòng đầu',
+    bullet_allowed: true, cta_policy: 'optional',
+    emoji_allowed: true, emoji_limit: 3,
+    hashtag_limit: 3, hashtag_position: 'end',
+    line_break_style: 'short', link_position: 'body',
+    format_description: 'Xuống dòng ngắn, chia đoạn 2-3 dòng',
+  },
+  instagram: {
+    min_length: 50, max_length: 150, length_unit: 'words',
+    hook_required: true, hook_style: 'hook ngắn gọn',
+    bullet_allowed: false, cta_policy: 'optional',
+    emoji_allowed: true, emoji_limit: 5,
+    hashtag_limit: 5, hashtag_position: 'end',
+    line_break_style: 'many', link_position: 'none',
+    format_description: 'Nhiều xuống dòng, hashtag cuối bài',
+  },
+  twitter: {
+    min_length: 0, max_length: 280, length_unit: 'chars',
+    hook_required: true, hook_style: 'quan điểm ngay câu đầu',
+    bullet_allowed: false, cta_policy: 'none',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 1, hashtag_position: 'end',
+    line_break_style: 'minimal', link_position: 'allowed',
+    format_description: 'Thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số 1/, 2/...',
+  },
+  google_maps: {
+    min_length: 80, max_length: 150, length_unit: 'words',
+    hook_required: false, hook_style: 'không',
+    bullet_allowed: false, cta_policy: 'none',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'none',
+    format_description: 'Thực tế, xác thực, khách quan',
+  },
+  linkedin: {
+    min_length: 150, max_length: 400, length_unit: 'words',
+    hook_required: true, hook_style: 'nhẹ, không giật tít',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: true, emoji_limit: 2,
+    hashtag_limit: 3, hashtag_position: 'end',
+    line_break_style: 'normal', link_position: 'allowed',
+    format_description: 'Chuyên nghiệp, B2B authority',
+  },
+  email: {
+    min_length: 150, max_length: 400, length_unit: 'words',
+    hook_required: false, bullet_allowed: true, cta_policy: 'required',
+    has_subject_line: true, emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Có Subject line, đoạn ngắn, CTA rõ',
+  },
+  youtube: {
+    min_length: 500, max_length: 800, length_unit: 'words',
+    hook_required: true, hook_style: 'hook 5 giây đầu',
+    bullet_allowed: true, cta_policy: 'required',
+    emoji_allowed: true, emoji_limit: 3,
+    hashtag_limit: 5, hashtag_position: 'end',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Script Hook + Intro + Content + CTA + Outro',
+  },
+  zalo_oa: {
+    min_length: 60, max_length: 150, length_unit: 'words',
+    hook_required: true, hook_style: 'trực diện',
+    bullet_allowed: false, cta_policy: 'required',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'short', link_position: 'allowed',
+    format_description: 'Thông báo rõ việc, thân thiện local',
+  },
+  telegram: {
+    min_length: 100, max_length: 500, length_unit: 'words',
+    hook_required: false, hook_style: 'không cần giật',
+    bullet_allowed: true, cta_policy: 'optional',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'allowed',
+    format_description: 'Bullet, dễ đọc, linh hoạt',
+  },
 };
 
-const channelFieldMap: Record<string, string> = {
-  website: "website_content",
-  facebook: "facebook_content",
-  instagram: "instagram_content",
-  twitter: "twitter_content",
-  google_maps: "google_maps_content",
-};
+function buildChannelRulesPrompt(channel: string, settings: ChannelSettings): string {
+  const parts: string[] = [];
+  parts.push(`### QUY ƯỚC KÊNH ${channel.toUpperCase()}`);
+  
+  const lengthLabel = settings.length_unit === 'chars' ? 'ký tự' : 'chữ';
+  parts.push(`- Độ dài: ${settings.min_length || 0}–${settings.max_length} ${lengthLabel}`);
+  parts.push(`- Hook: ${settings.hook_required ? settings.hook_style || 'BẮT BUỘC' : 'Không bắt buộc'}`);
+  
+  const ctaLabels: Record<string, string> = { required: 'Bắt buộc', soft: 'Mềm', optional: 'Tuỳ chọn', none: 'Không' };
+  parts.push(`- CTA: ${ctaLabels[settings.cta_policy]}`);
+  
+  if (settings.emoji_allowed) {
+    parts.push(`- Emoji: Tối đa ${settings.emoji_limit}`);
+  } else {
+    parts.push(`- Emoji: KHÔNG`);
+  }
+  
+  parts.push(`- Hashtag: ${settings.hashtag_limit > 0 ? `Tối đa ${settings.hashtag_limit}` : 'KHÔNG'}`);
+  if (settings.format_description) parts.push(`- Format: ${settings.format_description}`);
+  if (settings.has_subject_line) parts.push(`- Bao gồm Subject line`);
+  
+  return parts.join('\n');
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -43,7 +165,7 @@ serve(async (req) => {
       throw new Error("contentId, channel, instruction và currentContent là bắt buộc");
     }
 
-    if (!channelRules[channel]) {
+    if (!DEFAULT_CHANNEL_SETTINGS[channel]) {
       throw new Error(`Kênh không hợp lệ: ${channel}`);
     }
 
@@ -59,7 +181,7 @@ serve(async (req) => {
     // Load content metadata for brand context
     const { data: content, error: fetchError } = await supabase
       .from("multi_channel_contents")
-      .select("brand_name, brand_guideline, content_goal, topic, industry")
+      .select("brand_name, brand_guideline, content_goal, topic, industry, brand_template_id")
       .eq("id", contentId)
       .single();
 
@@ -67,6 +189,27 @@ serve(async (req) => {
       console.error("Fetch error:", fetchError);
       throw new Error("Không tìm thấy nội dung");
     }
+
+    // Load brand template to check emoji settings
+    let brandAllowEmoji = true;
+    if (content.brand_template_id) {
+      const { data: template } = await supabase
+        .from("brand_templates")
+        .select("allow_emoji")
+        .eq("id", content.brand_template_id)
+        .single();
+      if (template) {
+        brandAllowEmoji = template.allow_emoji ?? true;
+      }
+    }
+
+    const channelSettings = DEFAULT_CHANNEL_SETTINGS[channel];
+    const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings);
+
+    // Override emoji if brand doesn't allow
+    const emojiNote = !brandAllowEmoji 
+      ? "\n- Emoji: KHÔNG (Brand Voice yêu cầu)" 
+      : "";
 
     const systemPrompt = `Bạn là trợ lý AI chỉnh sửa nội dung theo yêu cầu của người dùng.
 
@@ -76,14 +219,17 @@ ${content.brand_guideline ? `Guideline: ${content.brand_guideline}` : ""}
 Topic: ${content.topic}
 ${content.industry ? `Industry: ${content.industry}` : ""}
 
-## QUY ƯỚC KÊNH ${channel.toUpperCase()}
-${channelRules[channel]}
+${channelRulesPrompt}${emojiNote}
 
 ## NHIỆM VỤ
 1. Nhận nội dung hiện tại và yêu cầu chỉnh sửa từ người dùng
 2. Chỉnh sửa nội dung theo ĐÚNG yêu cầu
 3. Giữ nguyên format và quy ước của kênh
 4. Trả về NỘI DUNG ĐÃ CHỈNH SỬA, không giải thích
+
+## KIỂM TRA CUỐI
+- Đảm bảo không vượt max length
+- Đảm bảo tuân thủ quy tắc emoji/hashtag của kênh
 
 ## ĐIỀU KHÔNG LÀM
 - Không giải thích vì sao sửa
@@ -97,7 +243,7 @@ ${currentContent}
 
 YÊU CẦU CHỈNH SỬA: ${instruction}
 
-Hãy chỉnh sửa nội dung theo yêu cầu trên.`;
+Hãy chỉnh sửa nội dung theo yêu cầu trên, giữ đúng format kênh ${channel}.`;
 
     const tools = [
       {
