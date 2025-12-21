@@ -304,8 +304,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       toast.error('Vui lòng nhập mô tả sản phẩm/dịch vụ');
       return;
     }
-    if (trimmedDesc.length < 10) {
-      toast.error('Mô tả cần ít nhất 10 ký tự để AI có thể phân tích');
+    const words = trimmedDesc.split(/\s+/).filter(w => w.length > 0);
+    if (words.length < 2) {
+      toast.error('Mô tả cần ít nhất 2 từ để AI có thể phân tích (ví dụ: "Dịch vụ Marketing")');
       return;
     }
 
