@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { 
   BRAND_POSITIONING_OPTIONS, 
@@ -7,7 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +26,40 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { Channel } from '@/types/multichannel';
+
+const channelIcons: Record<Channel, React.ReactNode> = {
+  website: <Globe className="w-3.5 h-3.5" />,
+  facebook: <Facebook className="w-3.5 h-3.5" />,
+  instagram: <Instagram className="w-3.5 h-3.5" />,
+  twitter: <Twitter className="w-3.5 h-3.5" />,
+  google_maps: <MapPin className="w-3.5 h-3.5" />,
+  linkedin: <Linkedin className="w-3.5 h-3.5" />,
+  email: <Mail className="w-3.5 h-3.5" />,
+  youtube: <Youtube className="w-3.5 h-3.5" />,
+  zalo_oa: <MessageCircle className="w-3.5 h-3.5" />,
+  telegram: <Send className="w-3.5 h-3.5" />,
+};
+
+const channelLabels: Record<Channel, string> = {
+  website: 'Website',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  twitter: 'X (Twitter)',
+  google_maps: 'Google Maps',
+  linkedin: 'LinkedIn',
+  email: 'Email',
+  youtube: 'YouTube',
+  zalo_oa: 'Zalo OA',
+  telegram: 'Telegram',
+};
 
 interface BrandCardProps {
   template: BrandTemplate;
@@ -38,6 +71,13 @@ interface BrandCardProps {
 
 export function BrandCard({ template, onEdit, onDelete, onSetDefault, onDuplicate }: BrandCardProps) {
   const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
+  
+  // Calculate channel overrides
+  const channelOverridesInfo = useMemo(() => {
+    if (!template.channel_overrides) return { count: 0, channels: [] as Channel[] };
+    const channels = Object.keys(template.channel_overrides) as Channel[];
+    return { count: channels.length, channels };
+  }, [template.channel_overrides]);
 
   return (
     <Card className={`relative gradient-card border-border/50 transition-all duration-300 ease-out hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 group overflow-hidden ${template.is_default ? 'ring-2 ring-primary/50' : ''}`}>
@@ -168,6 +208,44 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault, onDuplicat
           </div>
         )}
         
+        {/* Channel Overrides Badge */}
+        {channelOverridesInfo.count > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Badge 
+                variant="outline" 
+                className="cursor-pointer text-xs border-primary/50 hover:bg-primary/10 transition-colors"
+              >
+                <Settings2 className="w-3 h-3 mr-1" />
+                {channelOverridesInfo.count} kênh tuỳ chỉnh
+              </Badge>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="start">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Channel Settings Override</p>
+                <p className="text-xs text-muted-foreground">
+                  Các kênh sau có cấu hình riêng thay vì mặc định:
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {channelOverridesInfo.channels.map((channel) => (
+                    <Badge 
+                      key={channel} 
+                      variant="secondary" 
+                      className="text-xs gap-1"
+                    >
+                      {channelIcons[channel]}
+                      {channelLabels[channel]}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground pt-2 border-t border-border/50">
+                  Nhấn "Sửa" để xem chi tiết các tuỳ chỉnh
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
         <div className="flex items-center gap-2">
           <Badge variant={template.include_logo ? 'default' : 'outline'} className="text-xs">
             Logo: {template.include_logo ? 'Có' : 'Không'}
