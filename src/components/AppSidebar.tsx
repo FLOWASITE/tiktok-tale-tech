@@ -1,4 +1,4 @@
-import { Film, Images, Settings, Palette } from 'lucide-react';
+import { Film, Images, Settings, Palette, Bookmark } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import {
@@ -19,6 +19,7 @@ import {
 const menuItems = [
   { title: 'Kịch bản Video', url: '/', icon: Film },
   { title: 'Carousel Prompt', url: '/carousel', icon: Images },
+  { title: 'Quản lý Brand', url: '/brands', icon: Bookmark },
 ];
 
 export function AppSidebar() {
