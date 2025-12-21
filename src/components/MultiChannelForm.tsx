@@ -44,14 +44,16 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
   const [contentGoal, setContentGoal] = useState<ContentGoal>('education');
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(['facebook', 'instagram']);
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
+  const [hasSetDefault, setHasSetDefault] = useState(false);
 
-  // Set default template when templates load
+  // Set default template when templates load (only once)
   useEffect(() => {
-    if (templates.length > 0 && !brandTemplateId) {
+    if (templates.length > 0 && !hasSetDefault) {
       const defaultTemplate = templates.find(t => t.is_default) || templates[0];
       setBrandTemplateId(defaultTemplate.id);
+      setHasSetDefault(true);
     }
-  }, [templates, brandTemplateId]);
+  }, [templates, hasSetDefault]);
 
   const selectedTemplate = templates.find(t => t.id === brandTemplateId);
 
@@ -123,10 +125,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               <SelectContent>
                 {CONTENT_GOALS.map((goal) => (
                   <SelectItem key={goal.value} value={goal.value}>
-                    <div className="flex flex-col">
-                      <span>{goal.label}</span>
-                      <span className="text-xs text-muted-foreground">{goal.description}</span>
-                    </div>
+                    {goal.label} - {goal.description}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -147,19 +146,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               <SelectContent>
                 {templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
-                    <div className="flex items-center gap-2">
-                      {template.logo_url && (
-                        <img 
-                          src={template.logo_url} 
-                          alt="" 
-                          className="w-5 h-5 rounded object-cover"
-                        />
-                      )}
-                      <span>{template.name}</span>
-                      {template.is_default && (
-                        <span className="text-xs text-muted-foreground">(Mặc định)</span>
-                      )}
-                    </div>
+                    {template.name}{template.is_default ? ' (Mặc định)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
