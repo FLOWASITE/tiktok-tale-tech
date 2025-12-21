@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Sparkles, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
@@ -410,9 +411,7 @@ export default function Auth() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Mật khẩu phải có ít nhất 6 ký tự
-                    </p>
+                    <PasswordStrengthIndicator password={registerPassword} />
                   </div>
 
                   <Button 
