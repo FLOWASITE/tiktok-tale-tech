@@ -13,6 +13,7 @@ import Carousel from "./pages/Carousel";
 import Brands from "./pages/Brands";
 import MultiChannel from "./pages/MultiChannel";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -28,8 +29,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Public route */}
+              {/* Public routes */}
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               
               {/* Protected routes */}
               <Route

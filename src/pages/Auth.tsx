@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Loader2, Sparkles, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
+import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
@@ -43,6 +44,9 @@ export default function Auth() {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerFullName, setRegisterFullName] = useState('');
+  
+  // Forgot password
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -310,11 +314,16 @@ export default function Auth() {
                     <button
                       type="button"
                       className="text-sm text-primary hover:text-primary/80 hover:underline transition-colors"
-                      onClick={() => toast.info('Tính năng đang được phát triển')}
+                      onClick={() => setShowForgotPassword(true)}
                     >
                       Quên mật khẩu?
                     </button>
                   </div>
+                  
+                  <ForgotPasswordDialog 
+                    open={showForgotPassword} 
+                    onOpenChange={setShowForgotPassword} 
+                  />
 
                   <Button 
                     type="submit" 
