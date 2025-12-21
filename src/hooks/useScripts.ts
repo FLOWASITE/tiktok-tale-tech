@@ -77,12 +77,19 @@ export function useScripts() {
     fetchScripts();
   }, []);
 
+  const updateScript = (updatedScript: Script) => {
+    setScripts((prev) =>
+      prev.map((s) => (s.id === updatedScript.id ? updatedScript : s))
+    );
+  };
+
   return {
     scripts,
     loading,
     generating,
     generateScript,
     deleteScript,
+    updateScript,
     refetch: fetchScripts,
   };
 }

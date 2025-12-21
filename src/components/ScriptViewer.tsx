@@ -2,26 +2,82 @@ import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS } fro
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Download, FileText, Clock, User, Film, Check } from 'lucide-react';
-import { useState } from 'react';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Copy, Download, FileText, Clock, User, Film, Check, Edit2, Save, X, Hash } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { parseScriptContent, getPromptCount } from '@/utils/parsePrompts';
+import { PromptCard } from '@/components/PromptCard';
 
 interface ScriptViewerProps {
   script: Script | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onScriptUpdate?: (updatedScript: Script) => void;
 }
 
-export function ScriptViewer({ script, open, onOpenChange }: ScriptViewerProps) {
+export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: ScriptViewerProps) {
   const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (script) {
+      setEditedContent(script.content);
+      setIsEditing(false);
+    }
+  }, [script]);
 
   if (!script) return null;
+
+  const parsedPrompts = parseScriptContent(script.content);
+  const promptCount = getPromptCount(script.content);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(script.content);
     setCopied(true);
     toast.success('Đã sao chép kịch bản!');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleStartEdit = () => {
+    setEditedContent(script.content);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedContent(script.content);
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!script || editedContent === script.content) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('scripts')
+        .update({ content: editedContent, updated_at: new Date().toISOString() })
+        .eq('id', script.id);
+
+      if (error) throw error;
+
+      const updatedScript = { ...script, content: editedContent, updated_at: new Date().toISOString() };
+      onScriptUpdate?.(updatedScript);
+      setIsEditing(false);
+      toast.success('Đã lưu thay đổi!');
+    } catch (error) {
+      console.error('Error updating script:', error);
+      toast.error('Không thể lưu thay đổi');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportTxt = () => {
@@ -91,45 +147,125 @@ export function ScriptViewer({ script, open, onOpenChange }: ScriptViewerProps) 
             <User className="w-4 h-4" />
             {CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}
           </span>
+          {promptCount > 0 && (
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent/10 text-accent-foreground">
+              <Hash className="w-4 h-4" />
+              {promptCount} prompts
+            </span>
+          )}
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopy}
-            className="border-border hover:border-primary hover:bg-primary/10"
-          >
-            {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
-            {copied ? 'Đã sao chép' : 'Sao chép'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportTxt}
-            className="border-border hover:border-secondary hover:bg-secondary/10"
-          >
-            <FileText className="w-4 h-4 mr-1" />
-            Xuất TXT
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportWord}
-            className="border-border hover:border-secondary hover:bg-secondary/10"
-          >
-            <Download className="w-4 h-4 mr-1" />
-            Xuất Word
-          </Button>
+        <div className="flex gap-2 flex-wrap">
+          {isEditing ? (
+            <>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSaveEdit}
+                disabled={isSaving}
+                className="gradient-primary"
+              >
+                <Save className="w-4 h-4 mr-1" />
+                {isSaving ? 'Đang lưu...' : 'Lưu'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelEdit}
+                disabled={isSaving}
+                className="border-border hover:border-destructive hover:bg-destructive/10"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Hủy
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleStartEdit}
+                className="border-border hover:border-primary hover:bg-primary/10"
+              >
+                <Edit2 className="w-4 h-4 mr-1" />
+                Chỉnh sửa
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="border-border hover:border-primary hover:bg-primary/10"
+              >
+                {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                {copied ? 'Đã sao chép' : 'Sao chép'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportTxt}
+                className="border-border hover:border-secondary hover:bg-secondary/10"
+              >
+                <FileText className="w-4 h-4 mr-1" />
+                Xuất TXT
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportWord}
+                className="border-border hover:border-secondary hover:bg-secondary/10"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Xuất Word
+              </Button>
+            </>
+          )}
         </div>
 
-        {/* Script content */}
-        <ScrollArea className="h-[50vh] rounded-lg bg-muted/30 p-4 border border-border">
-          <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
-            {script.content}
-          </pre>
-        </ScrollArea>
+        {/* Script content with tabs */}
+        {isEditing ? (
+          <Textarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            className="h-[50vh] font-sans text-sm bg-muted/30 border-border resize-none"
+            placeholder="Nội dung kịch bản..."
+          />
+        ) : (
+          <Tabs defaultValue="prompts" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="prompts" className="data-[state=active]:bg-primary/10">
+                Theo Prompt ({parsedPrompts.length})
+              </TabsTrigger>
+              <TabsTrigger value="full" className="data-[state=active]:bg-primary/10">
+                Toàn bộ
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="prompts">
+              <ScrollArea className="h-[50vh] rounded-lg bg-muted/30 p-4 border border-border">
+                {parsedPrompts.length > 0 ? (
+                  <div className="space-y-3 pr-4">
+                    {parsedPrompts.map((prompt) => (
+                      <PromptCard key={prompt.promptNumber} prompt={prompt} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm text-center py-8">
+                    Không tìm thấy định dạng PROMPT trong kịch bản
+                  </p>
+                )}
+              </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="full">
+              <ScrollArea className="h-[50vh] rounded-lg bg-muted/30 p-4 border border-border">
+                <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+                  {script.content}
+                </pre>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        )}
       </DialogContent>
     </Dialog>
   );
