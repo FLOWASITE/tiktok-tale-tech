@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.regenerate-channel]
 verify_jwt = false
+
+[functions.ai-edit-channel]
+verify_jwt = false

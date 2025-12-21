@@ -8,6 +8,7 @@ export function useMultiChannelContents() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [regeneratingChannel, setRegeneratingChannel] = useState<string | null>(null);
+  const [aiEditingChannel, setAiEditingChannel] = useState<string | null>(null);
 
   const fetchContents = async () => {
     try {
@@ -250,6 +251,40 @@ export function useMultiChannelContents() {
     }
   };
 
+  const aiEditChannel = async (contentId: string, channel: Channel, instruction: string, currentContent: string): Promise<string | null> => {
+    setAiEditingChannel(channel);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-edit-channel', {
+        body: { contentId, channel, instruction, currentContent },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Lỗi khi chỉnh sửa với AI');
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: 'AI đã chỉnh sửa',
+        description: 'Xem trước và lưu nếu hài lòng',
+      });
+
+      return data.editedContent;
+    } catch (error) {
+      console.error('Error AI editing channel:', error);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Không thể chỉnh sửa với AI',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setAiEditingChannel(null);
+    }
+  };
+
   useEffect(() => {
     fetchContents();
   }, []);
@@ -259,9 +294,11 @@ export function useMultiChannelContents() {
     loading,
     generating,
     regeneratingChannel,
+    aiEditingChannel,
     generateContent,
     regenerateChannel,
     updateChannelContent,
+    aiEditChannel,
     deleteContent,
     refetch: fetchContents,
   };
