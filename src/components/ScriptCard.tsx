@@ -24,7 +24,9 @@ interface ScriptCardProps {
 
 export function ScriptCard({ script, onView, onDelete }: ScriptCardProps) {
   return (
-    <Card className="gradient-card border-border/50 hover:border-primary/30 transition-all duration-300 group overflow-hidden">
+    <Card className="relative gradient-card border-border/50 hover:border-primary/40 transition-all duration-300 ease-out group overflow-hidden hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1">
+      {/* Glow effect on hover */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
@@ -56,9 +58,9 @@ export function ScriptCard({ script, onView, onDelete }: ScriptCardProps) {
             variant="outline"
             size="sm"
             onClick={() => onView(script)}
-            className="flex-1 border-border hover:border-primary hover:bg-primary/10 hover:text-primary"
+            className="flex-1 border-border hover:border-primary hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Eye className="w-4 h-4 mr-1" />
+            <Eye className="w-4 h-4 mr-1 transition-transform duration-200 group-hover:scale-110" />
             Xem
           </Button>
           <AlertDialog>
@@ -66,7 +68,7 @@ export function ScriptCard({ script, onView, onDelete }: ScriptCardProps) {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-border hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
+                className="border-border hover:border-destructive hover:bg-destructive/10 hover:text-destructive transition-all duration-200 hover:scale-105 active:scale-95"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
