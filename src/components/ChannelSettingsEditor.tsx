@@ -334,6 +334,14 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
   };
 
   // Render channel list directly without collapsible wrapper
+  if (!CHANNELS || CHANNELS.length === 0) {
+    return (
+      <div className="p-4 rounded-lg border border-border/50 bg-muted/20">
+        <p className="text-sm text-muted-foreground">Không có danh sách kênh để cấu hình.</p>
+      </div>
+    );
+  }
+
   const channelList = (
     <div className="space-y-2">
       {CHANNELS.map((ch) => (
