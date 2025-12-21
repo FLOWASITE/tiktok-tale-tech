@@ -21,6 +21,100 @@ const CHARACTER_TYPE_LABELS: Record<string, string> = {
   ai_presenter: "Nhân vật trung tính (AI presenter)",
 };
 
+// Brand Voice label mappings
+const brandPositioningLabels: Record<string, string> = {
+  business: "Doanh nghiệp",
+  expert: "Chuyên gia",
+  agency: "Agency",
+  consultant: "Tư vấn",
+};
+
+const toneOfVoiceLabels: Record<string, string> = {
+  expert: "Chuyên gia",
+  calm: "Điềm tĩnh",
+  confident: "Tự tin",
+  friendly: "Thân thiện",
+  analytical: "Phân tích",
+  serious: "Nghiêm túc",
+  inspirational: "Truyền cảm hứng",
+};
+
+const formalityLevelLabels: Record<string, string> = {
+  very_formal: "Rất trang trọng",
+  professional: "Chuyên nghiệp",
+  neutral: "Trung lập",
+  casual: "Gần gũi",
+};
+
+const languageStyleLabels: Record<string, string> = {
+  clear_direct: "Rõ ràng, trực tiếp",
+  structured: "Có cấu trúc",
+  no_exaggeration: "Không khoa trương",
+  no_over_emotion: "Không cảm tính quá mức",
+};
+
+interface BrandVoice {
+  brand_positioning: string | null;
+  tone_of_voice: string[] | null;
+  formality_level: string | null;
+  language_style: string[] | null;
+  preferred_words: string[] | null;
+  forbidden_words: string[] | null;
+  allow_emoji: boolean;
+  compliance_rules: string[] | null;
+}
+
+const getBrandVoicePrompt = (voice: BrandVoice): string => {
+  const parts: string[] = [];
+  
+  parts.push(`## BRAND VOICE PROFILE (LUẬT CAO NHẤT)`);
+  parts.push(`Brand Voice là LUẬT CAO NHẤT. Mọi lời thoại trong kịch bản PHẢI tuân theo Brand Voice.`);
+  
+  if (voice.brand_positioning) {
+    const label = brandPositioningLabels[voice.brand_positioning] || voice.brand_positioning;
+    parts.push(`\n### Định vị thương hiệu: ${label}`);
+  }
+  
+  if (voice.tone_of_voice && voice.tone_of_voice.length > 0) {
+    const tones = voice.tone_of_voice.map(t => toneOfVoiceLabels[t] || t).join(", ");
+    parts.push(`\n### Tone of Voice cho lời thoại: ${tones}`);
+  }
+  
+  if (voice.formality_level) {
+    const label = formalityLevelLabels[voice.formality_level] || voice.formality_level;
+    parts.push(`\n### Mức trang trọng: ${label}`);
+  }
+  
+  if (voice.language_style && voice.language_style.length > 0) {
+    const styles = voice.language_style.map(s => languageStyleLabels[s] || s).join(", ");
+    parts.push(`\n### Phong cách ngôn ngữ: ${styles}`);
+  }
+  
+  parts.push(`\n### NGUYÊN TẮC BRAND VOICE CHO SCRIPT`);
+  parts.push(`1. Lời thoại trong mỗi prompt PHẢI đúng Tone of Voice`);
+  parts.push(`2. Giữ nhất quán xuyên suốt kịch bản - KHÔNG thay đổi giọng giữa các prompt`);
+  parts.push(`3. Ngữ điệu phải phù hợp với định vị thương hiệu`);
+  
+  if (voice.preferred_words && voice.preferred_words.length > 0) {
+    parts.push(`\n### TỪ NÊN DÙNG trong lời thoại`);
+    parts.push(voice.preferred_words.join(", "));
+  }
+  
+  if (voice.forbidden_words && voice.forbidden_words.length > 0) {
+    parts.push(`\n### TỪ CẤM (TUYỆT ĐỐI KHÔNG DÙNG trong lời thoại)`);
+    parts.push(voice.forbidden_words.join(", "));
+  }
+  
+  if (voice.compliance_rules && voice.compliance_rules.length > 0) {
+    parts.push(`\n### QUY TẮC TUÂN THỦ`);
+    voice.compliance_rules.forEach(rule => {
+      parts.push(`- ${rule}`);
+    });
+  }
+  
+  return parts.join("\n");
+};
+
 function getPromptCount(duration: number): string {
   switch (duration) {
     case 60:
@@ -40,13 +134,19 @@ function buildSystemPrompt(
   topic: string,
   duration: number,
   videoType: string,
-  characterType: string
+  characterType: string,
+  brandVoice?: BrandVoice
 ): string {
   const promptCount = getPromptCount(duration);
   const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ kiến thức";
   const characterTypeName = CHARACTER_TYPE_LABELS[characterType] || "Chuyên gia";
 
+  // Build Brand Voice section if available
+  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
+
   return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN & PROMPT VIDEO cho video ngắn TikTok (1–3 phút), phục vụ quy trình sản xuất: VEO 3 (HÌNH ẢNH) → Minimax (GIỌNG NÓI) → CapCut (DỰNG).
+
+${brandVoiceSection}
 
 THÔNG TIN ĐẦU VÀO:
 - Chủ đề: ${topic}
@@ -115,7 +215,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, duration, video_type, character_type } = await req.json();
+    const { topic, duration, video_type, character_type, brandTemplateId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -133,10 +233,38 @@ serve(async (req) => {
       );
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     console.log("Generating script for topic:", topic);
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
 
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type);
+    // Load Brand Voice from template if provided
+    let brandVoice: BrandVoice | undefined;
+    if (brandTemplateId) {
+      const { data: template } = await supabase
+        .from("brand_templates")
+        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules")
+        .eq("id", brandTemplateId)
+        .single();
+
+      if (template) {
+        brandVoice = {
+          brand_positioning: template.brand_positioning,
+          tone_of_voice: template.tone_of_voice,
+          formality_level: template.formality_level,
+          language_style: template.language_style,
+          preferred_words: template.preferred_words,
+          forbidden_words: template.forbidden_words,
+          allow_emoji: template.allow_emoji ?? true,
+          compliance_rules: template.compliance_rules,
+        };
+        console.log("Brand Voice loaded for script:", brandVoice.brand_positioning, brandVoice.tone_of_voice);
+      }
+    }
+
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -188,11 +316,6 @@ serve(async (req) => {
     }
 
     console.log("Script generated successfully, saving to database...");
-
-    // Save to database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Generate title from topic
     const title = topic.length > 50 ? topic.substring(0, 50) + "..." : topic;

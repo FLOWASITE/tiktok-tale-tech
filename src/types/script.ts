@@ -30,6 +30,7 @@ export interface ScriptFormData {
   duration: Duration;
   video_type: VideoType;
   character_type: CharacterType;
+  brandTemplateId?: string;
 }
 
 export const VIDEO_TYPE_LABELS: Record<VideoType, string> = {
