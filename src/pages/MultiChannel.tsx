@@ -26,6 +26,8 @@ export default function MultiChannel() {
     aiEditChannel, 
     deleteContent,
     updateStatus,
+    saveChannelImage,
+    deleteChannelImage,
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
@@ -354,6 +356,8 @@ export default function MultiChannel() {
         onRegenerate={handleRegenerate}
         onUpdateContent={handleUpdateContent}
         onAIEdit={handleAIEdit}
+        onSaveChannelImage={saveChannelImage}
+        onDeleteChannelImage={deleteChannelImage}
         regeneratingChannel={regeneratingChannel}
         aiEditingChannel={aiEditingChannel}
       />
