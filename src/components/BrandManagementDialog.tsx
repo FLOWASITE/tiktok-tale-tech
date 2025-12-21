@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Palette, Plus, ArrowLeft } from 'lucide-react';
+import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 
 // Type for form data without ownership fields
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
@@ -66,6 +67,11 @@ export function BrandManagementDialog() {
       const templateData = { ...data, logo_url: logoUrl };
 
       if (editingTemplate) {
+        if (!logoFile && !shouldDeleteLogo && !isBrandTemplateChanged(editingTemplate, templateData)) {
+          setShowForm(false);
+          setEditingTemplate(null);
+          return;
+        }
         await updateTemplate(editingTemplate.id, templateData);
       } else {
         await saveTemplate(templateData, scope);

@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List, Wand2, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 
 type SortOption = 'name' | 'created_at' | 'is_default';
 type FilterScope = 'all' | 'personal' | 'organization';
@@ -98,6 +99,12 @@ export default function Brands() {
       const templateData = { ...data, logo_url: logoUrl };
 
       if (editingTemplate) {
+        // Avoid "phantom saves" when user didn't change anything
+        if (!logoFile && !shouldDeleteLogo && !isBrandTemplateChanged(editingTemplate, templateData)) {
+          setDialogOpen(false);
+          setEditingTemplate(null);
+          return;
+        }
         await updateTemplate(editingTemplate.id, templateData);
       } else {
         await saveTemplate(templateData, scope);
