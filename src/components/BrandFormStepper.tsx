@@ -46,7 +46,12 @@ export function BrandFormStepper({ currentStep, onStepClick, completedSteps = []
             <button
               key={step.id}
               type="button"
-              onClick={() => isClickable && onStepClick?.(step.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isClickable) return;
+                onStepClick?.(step.id);
+              }}
               disabled={!isClickable}
               className={cn(
                 'flex items-center gap-2 text-xs transition-colors',

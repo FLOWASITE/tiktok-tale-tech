@@ -388,11 +388,17 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent accidental submits (Enter key / implicit buttons) before the final step.
+    if (currentStep !== 3) {
+      return;
+    }
+
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
     }
-    
+
     onSubmit(
       {
         name: name.trim(),

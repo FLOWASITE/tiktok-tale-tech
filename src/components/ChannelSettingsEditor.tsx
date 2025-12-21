@@ -124,8 +124,14 @@ function ChannelSettingRow({
                 Độ dài tối thiểu
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="w-3 h-3 text-muted-foreground" />
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center"
+                        aria-label="Xem giá trị mặc định"
+                      >
+                        <Info className="w-3 h-3 text-muted-foreground" />
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Mặc định: {defaults.min_length ?? 0} {defaults.length_unit === 'chars' ? 'ký tự' : 'chữ'}</p>
@@ -146,8 +152,14 @@ function ChannelSettingRow({
                 Độ dài tối đa
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="w-3 h-3 text-muted-foreground" />
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center"
+                        aria-label="Xem giá trị mặc định"
+                      >
+                        <Info className="w-3 h-3 text-muted-foreground" />
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Mặc định: {defaults.max_length} {defaults.length_unit === 'chars' ? 'ký tự' : 'chữ'}</p>
