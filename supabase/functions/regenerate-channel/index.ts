@@ -13,54 +13,15 @@ interface RegenerateRequest {
 }
 
 const channelRules: Record<string, string> = {
-  website: `WEBSITE/BLOG:
-- Độ dài: 800–1500 chữ
-- Cấu trúc bắt buộc:
-  • Tiêu đề rõ ràng (H1)
-  • Các heading H2, H3 phân cấp logic
-  • Mở vấn đề hấp dẫn
-  • Phân tích chuyên môn chi tiết
-  • Kết luận + CTA nhẹ
-- Giọng: Trung lập, phân tích, KHÔNG emoji
-- Format: Markdown với heading, bullet points, bold key terms`,
-
-  facebook: `FACEBOOK:
-- Độ dài: 120–300 chữ
-- Cấu trúc:
-  • 2 dòng đầu là HOOK mạnh (câu sốc, số liệu, câu hỏi)
-  • Nội dung chia đoạn ngắn 2-3 dòng
-  • CTA nhẹ cuối bài (không bán hàng thô)
-- Giọng: Gần gũi nhưng chuyên nghiệp, như chuyên gia chia sẻ
-- Có thể dùng emoji TIẾT CHẾ (1-3 emoji)`,
-
-  instagram: `INSTAGRAM:
-- Độ dài: 50–150 chữ
-- Cấu trúc:
-  • Ngắn gọn, súc tích
-  • Nhiều xuống dòng tạo nhịp đọc
-  • Hashtag cuối (3-5 hashtag liên quan)
-- Giọng: Thân thiện, trẻ trung, inspirational
-- KHÔNG link dài, KHÔNG lan man`,
-
-  twitter: `X (TWITTER):
-- Format: Thread 5-7 tweets, mỗi tweet ≤ 280 ký tự
-- Cấu trúc:
-  • Tweet 1: Hook mạnh, gây tò mò
-  • Tweet 2-5: Nội dung chính, mỗi tweet 1 ý
-  • Tweet 6-7: Kết luận + CTA
-- Giọng: Sắc nét, có lập trường rõ ràng
-- Câu ngắn, không giải thích dài dòng
-- Đánh số tweet (1/, 2/, ...)`,
-
-  google_maps: `GOOGLE MAPS:
-- Độ dài: 80–150 chữ
-- Nội dung:
-  • Thực tế, xác thực
-  • Gắn với hoạt động / dịch vụ cụ thể
-  • Như một bài đánh giá chuyên nghiệp
-- Giọng: Trung tính, khách quan
-- KHÔNG marketing quá đà
-- KHÔNG hashtag, KHÔNG emoji`,
+  website: `WEBSITE/BLOG: 800–1500 chữ, Markdown format, KHÔNG emoji`,
+  facebook: `FACEBOOK: 120–300 chữ, hook mạnh, emoji tiết chế`,
+  instagram: `INSTAGRAM: 50–150 chữ, ngắn gọn, hashtag cuối`,
+  twitter: `TWITTER: Thread 5-7 tweets, mỗi tweet ≤280 ký tự`,
+  google_maps: `GOOGLE MAPS: 80–150 chữ, trung tính, KHÔNG emoji`,
+  linkedin: `LINKEDIN: 300–700 chữ, B2B authority, insight`,
+  email: `EMAIL: 200–500 chữ, subject line + body + CTA`,
+  youtube: `YOUTUBE: Script 500-800 chữ, hook + content + CTA`,
+  zalo_oa: `ZALO OA: 100–200 chữ, thân thiện, local`,
 };
 
 const goalDescriptions: Record<string, string> = {
@@ -77,6 +38,10 @@ const channelFieldMap: Record<string, string> = {
   instagram: "instagram_content",
   twitter: "twitter_content",
   google_maps: "google_maps_content",
+  linkedin: "linkedin_content",
+  email: "email_content",
+  youtube: "youtube_content",
+  zalo_oa: "zalo_oa_content",
 };
 
 serve(async (req) => {

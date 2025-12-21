@@ -79,6 +79,50 @@ const getSystemPrompt = (
 - Giọng: Trung tính, khách quan
 - KHÔNG marketing quá đà
 - KHÔNG hashtag, KHÔNG emoji`,
+
+    linkedin: `LINKEDIN:
+- Độ dài: 300–700 chữ
+- Cấu trúc:
+  • Hook mạnh (insight, số liệu, câu hỏi thought-provoking)
+  • Chia đoạn ngắn, dễ đọc trên mobile
+  • Kết luận với perspective cá nhân
+  • CTA nhẹ (comment, share, follow)
+- Giọng: Chuyên nghiệp, B2B authority, có insight
+- Có thể dùng emoji TIẾT CHẾ
+- Thêm 3-5 hashtag cuối bài`,
+
+    email: `EMAIL MARKETING:
+- Độ dài: 200–500 chữ
+- Cấu trúc:
+  • Subject line hấp dẫn (không spam trigger)
+  • Opening line cá nhân hóa
+  • Value proposition rõ ràng
+  • CTA button text suggestion
+  • P.S. line (optional)
+- Giọng: Chuyên nghiệp nhưng thân thiện
+- KHÔNG dùng emoji trong subject
+- Clear CTA, không quá nhiều links`,
+
+    youtube: `YOUTUBE (Script/Description):
+- Độ dài: Script 3-5 phút (~500-800 chữ)
+- Cấu trúc:
+  • Hook 5 giây đầu
+  • Intro ngắn (ai, về gì)
+  • Nội dung chính (chia segments)
+  • CTA subscribe + comment
+  • Outro
+- Bổ sung: Title suggestion, Description SEO, Tags
+- Giọng: Năng động, dễ hiểu, engaging`,
+
+    zalo_oa: `ZALO OA:
+- Độ dài: 100–200 chữ
+- Cấu trúc:
+  • Lời chào thân thiện
+  • Thông tin chính ngắn gọn
+  • CTA rõ ràng (gọi điện, nhắn tin, xem thêm)
+- Giọng: Thân thiện, local, gần gũi
+- Có thể dùng emoji phù hợp
+- Format phù hợp mobile`,
   };
 
   const selectedChannelRules = channels
@@ -178,37 +222,26 @@ Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy
 
     // Build tool parameters based on selected channels
     const channelProperties: Record<string, object> = {};
-    
-    if (formData.channels.includes("website")) {
-      channelProperties.website_content = {
-        type: "string",
-        description: "Nội dung cho Website/Blog (800-1500 chữ, markdown format, không emoji)",
-      };
-    }
-    if (formData.channels.includes("facebook")) {
-      channelProperties.facebook_content = {
-        type: "string",
-        description: "Nội dung cho Facebook (120-300 chữ, hook mạnh, chia đoạn ngắn)",
-      };
-    }
-    if (formData.channels.includes("instagram")) {
-      channelProperties.instagram_content = {
-        type: "string",
-        description: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag)",
-      };
-    }
-    if (formData.channels.includes("twitter")) {
-      channelProperties.twitter_content = {
-        type: "string",
-        description: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
-      };
-    }
-    if (formData.channels.includes("google_maps")) {
-      channelProperties.google_maps_content = {
-        type: "string",
-        description: "Nội dung cho Google Maps (80-150 chữ, trung tính, không emoji/hashtag)",
-      };
-    }
+    const channelDescriptions: Record<string, string> = {
+      website: "Nội dung cho Website/Blog (800-1500 chữ, markdown format, không emoji)",
+      facebook: "Nội dung cho Facebook (120-300 chữ, hook mạnh, chia đoạn ngắn)",
+      instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag)",
+      twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
+      google_maps: "Nội dung cho Google Maps (80-150 chữ, trung tính, không emoji/hashtag)",
+      linkedin: "Nội dung cho LinkedIn (300-700 chữ, B2B authority, insight)",
+      email: "Nội dung Email (200-500 chữ, subject line + body + CTA)",
+      youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
+      zalo_oa: "Nội dung Zalo OA (100-200 chữ, thân thiện, local)",
+    };
+
+    formData.channels.forEach(channel => {
+      if (channelDescriptions[channel]) {
+        channelProperties[`${channel}_content`] = {
+          type: "string",
+          description: channelDescriptions[channel],
+        };
+      }
+    });
 
     const tools = [
       {
@@ -297,6 +330,10 @@ Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy
         instagram_content: generatedData.instagram_content || null,
         twitter_content: generatedData.twitter_content || null,
         google_maps_content: generatedData.google_maps_content || null,
+        linkedin_content: generatedData.linkedin_content || null,
+        email_content: generatedData.email_content || null,
+        youtube_content: generatedData.youtube_content || null,
+        zalo_oa_content: generatedData.zalo_oa_content || null,
       })
       .select()
       .single();

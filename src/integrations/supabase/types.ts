@@ -114,11 +114,13 @@ export type Database = {
           brand_template_id: string | null
           content_goal: string
           created_at: string
+          email_content: string | null
           facebook_content: string | null
           google_maps_content: string | null
           id: string
           industry: string | null
           instagram_content: string | null
+          linkedin_content: string | null
           primary_color: string | null
           selected_channels: string[]
           title: string
@@ -126,6 +128,8 @@ export type Database = {
           twitter_content: string | null
           updated_at: string
           website_content: string | null
+          youtube_content: string | null
+          zalo_oa_content: string | null
         }
         Insert: {
           brand_guideline?: string | null
@@ -133,11 +137,13 @@ export type Database = {
           brand_template_id?: string | null
           content_goal: string
           created_at?: string
+          email_content?: string | null
           facebook_content?: string | null
           google_maps_content?: string | null
           id?: string
           industry?: string | null
           instagram_content?: string | null
+          linkedin_content?: string | null
           primary_color?: string | null
           selected_channels: string[]
           title: string
@@ -145,6 +151,8 @@ export type Database = {
           twitter_content?: string | null
           updated_at?: string
           website_content?: string | null
+          youtube_content?: string | null
+          zalo_oa_content?: string | null
         }
         Update: {
           brand_guideline?: string | null
@@ -152,11 +160,13 @@ export type Database = {
           brand_template_id?: string | null
           content_goal?: string
           created_at?: string
+          email_content?: string | null
           facebook_content?: string | null
           google_maps_content?: string | null
           id?: string
           industry?: string | null
           instagram_content?: string | null
+          linkedin_content?: string | null
           primary_color?: string | null
           selected_channels?: string[]
           title?: string
@@ -164,6 +174,8 @@ export type Database = {
           twitter_content?: string | null
           updated_at?: string
           website_content?: string | null
+          youtube_content?: string | null
+          zalo_oa_content?: string | null
         }
         Relationships: [
           {

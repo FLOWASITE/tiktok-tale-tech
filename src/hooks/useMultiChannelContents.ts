@@ -3,6 +3,31 @@ import { supabase } from '@/integrations/supabase/client';
 import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 
+// Helper to transform database data to MultiChannelContent
+const transformContent = (data: any): MultiChannelContent => ({
+  id: data.id,
+  title: data.title,
+  topic: data.topic,
+  industry: data.industry,
+  content_goal: data.content_goal as ContentGoal,
+  selected_channels: data.selected_channels as Channel[],
+  brand_template_id: data.brand_template_id,
+  brand_name: data.brand_name,
+  brand_guideline: data.brand_guideline,
+  primary_color: data.primary_color,
+  website_content: data.website_content,
+  facebook_content: data.facebook_content,
+  instagram_content: data.instagram_content,
+  twitter_content: data.twitter_content,
+  google_maps_content: data.google_maps_content,
+  linkedin_content: data.linkedin_content,
+  email_content: data.email_content,
+  youtube_content: data.youtube_content,
+  zalo_oa_content: data.zalo_oa_content,
+  created_at: data.created_at,
+  updated_at: data.updated_at,
+});
+
 export function useMultiChannelContents() {
   const [contents, setContents] = useState<MultiChannelContent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,27 +44,7 @@ export function useMultiChannelContents() {
 
       if (error) throw error;
       
-      // Transform the data to match our TypeScript interface
-      const transformedData: MultiChannelContent[] = (data || []).map(item => ({
-        id: item.id,
-        title: item.title,
-        topic: item.topic,
-        industry: item.industry,
-        content_goal: item.content_goal as ContentGoal,
-        selected_channels: item.selected_channels as Channel[],
-        brand_template_id: item.brand_template_id,
-        brand_name: item.brand_name,
-        brand_guideline: item.brand_guideline,
-        primary_color: item.primary_color,
-        website_content: item.website_content,
-        facebook_content: item.facebook_content,
-        instagram_content: item.instagram_content,
-        twitter_content: item.twitter_content,
-        google_maps_content: item.google_maps_content,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-      }));
-
+      const transformedData = (data || []).map(transformContent);
       setContents(transformedData);
     } catch (error) {
       console.error('Error fetching contents:', error);
@@ -68,26 +73,7 @@ export function useMultiChannelContents() {
         throw new Error(data.error);
       }
 
-      const newContent: MultiChannelContent = {
-        id: data.id,
-        title: data.title,
-        topic: data.topic,
-        industry: data.industry,
-        content_goal: data.content_goal as ContentGoal,
-        selected_channels: data.selected_channels as Channel[],
-        brand_template_id: data.brand_template_id,
-        brand_name: data.brand_name,
-        brand_guideline: data.brand_guideline,
-        primary_color: data.primary_color,
-        website_content: data.website_content,
-        facebook_content: data.facebook_content,
-        instagram_content: data.instagram_content,
-        twitter_content: data.twitter_content,
-        google_maps_content: data.google_maps_content,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-
+      const newContent = transformContent(data);
       setContents(prev => [newContent, ...prev]);
       
       toast({
@@ -124,27 +110,7 @@ export function useMultiChannelContents() {
         throw new Error(data.error);
       }
 
-      const updatedContent: MultiChannelContent = {
-        id: data.id,
-        title: data.title,
-        topic: data.topic,
-        industry: data.industry,
-        content_goal: data.content_goal as ContentGoal,
-        selected_channels: data.selected_channels as Channel[],
-        brand_template_id: data.brand_template_id,
-        brand_name: data.brand_name,
-        brand_guideline: data.brand_guideline,
-        primary_color: data.primary_color,
-        website_content: data.website_content,
-        facebook_content: data.facebook_content,
-        instagram_content: data.instagram_content,
-        twitter_content: data.twitter_content,
-        google_maps_content: data.google_maps_content,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-
-      // Update the content in the list
+      const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
       toast({
@@ -174,6 +140,10 @@ export function useMultiChannelContents() {
         instagram: 'instagram_content',
         twitter: 'twitter_content',
         google_maps: 'google_maps_content',
+        linkedin: 'linkedin_content',
+        email: 'email_content',
+        youtube: 'youtube_content',
+        zalo_oa: 'zalo_oa_content',
       };
 
       const updateField = fieldMap[channel];
@@ -187,26 +157,7 @@ export function useMultiChannelContents() {
 
       if (error) throw error;
 
-      const updatedContent: MultiChannelContent = {
-        id: data.id,
-        title: data.title,
-        topic: data.topic,
-        industry: data.industry,
-        content_goal: data.content_goal as ContentGoal,
-        selected_channels: data.selected_channels as Channel[],
-        brand_template_id: data.brand_template_id,
-        brand_name: data.brand_name,
-        brand_guideline: data.brand_guideline,
-        primary_color: data.primary_color,
-        website_content: data.website_content,
-        facebook_content: data.facebook_content,
-        instagram_content: data.instagram_content,
-        twitter_content: data.twitter_content,
-        google_maps_content: data.google_maps_content,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-
+      const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
       toast({
