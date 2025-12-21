@@ -14,8 +14,8 @@ export function Header() {
               </div>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gradient">Content AI</h1>
-              <p className="text-xs text-muted-foreground">Tạo nội dung chuyên nghiệp</p>
+              <h1 className="text-xl font-bold text-gradient">Flowa</h1>
+              <p className="text-xs text-muted-foreground">One Flow. All Content.</p>
             </div>
           </div>
 
