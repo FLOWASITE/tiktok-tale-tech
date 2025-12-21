@@ -28,6 +28,7 @@ import {
   SLIDE_COUNT_OPTIONS,
 } from '@/types/carousel';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { Images, Loader2, Save, Trash2, Bookmark } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -64,14 +65,16 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
 
   // Load default template on mount
   useEffect(() => {
-    if (!templatesLoading && templates.length > 0) {
+    if (!templatesLoading && templates.length > 0 && !selectedTemplateId) {
       const defaultTemplate = templates.find(t => t.is_default);
       if (defaultTemplate) {
         applyTemplate(defaultTemplate);
         setSelectedTemplateId(defaultTemplate.id);
       }
     }
-  }, [templatesLoading, templates]);
+  }, [templatesLoading, templates, selectedTemplateId]);
+
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
   const applyTemplate = (template: BrandTemplate) => {
     setBrandName(template.brand_name);
@@ -272,6 +275,9 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
             ))}
           </SelectContent>
         </Select>
+        {selectedTemplate && (
+          <BrandPreviewCard template={selectedTemplate} defaultOpen={true} />
+        )}
       </div>
 
       {/* Brand Name */}

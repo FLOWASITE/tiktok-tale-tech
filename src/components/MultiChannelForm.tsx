@@ -106,16 +106,29 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
     return () => clearTimeout(timer);
   }, [topic, industry, contentGoal, selectedChannels, brandTemplateId, hasLoadedDraft]);
 
-  // Set default template when templates load (only once)
+  // Set default template when templates load (only once) + auto-fill industry
   useEffect(() => {
     if (templates.length > 0 && !hasSetDefault && !brandTemplateId) {
       const defaultTemplate = templates.find(t => t.is_default) || templates[0];
       setBrandTemplateId(defaultTemplate.id);
+      // Auto-fill industry from default template
+      if (defaultTemplate.industry?.length && !industry) {
+        setIndustry(defaultTemplate.industry.join(', '));
+      }
       setHasSetDefault(true);
     }
   }, [templates, hasSetDefault, brandTemplateId]);
 
   const selectedTemplate = templates.find(t => t.id === brandTemplateId);
+
+  // Auto-fill industry when template changes
+  useEffect(() => {
+    if (selectedTemplate && !industry) {
+      if (selectedTemplate.industry?.length) {
+        setIndustry(selectedTemplate.industry.join(', '));
+      }
+    }
+  }, [selectedTemplate?.id]);
 
   // Estimate generation time
   const estimatedTime = useMemo(() => {
@@ -315,8 +328,8 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                   ))}
                 </SelectContent>
               </Select>
-              {selectedTemplate && (
-                <BrandPreviewCard template={selectedTemplate} />
+            {selectedTemplate && (
+                <BrandPreviewCard template={selectedTemplate} defaultOpen={true} />
               )}
             </div>
 
