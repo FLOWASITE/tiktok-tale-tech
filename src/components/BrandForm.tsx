@@ -603,7 +603,22 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form
+      onSubmit={handleSubmit}
+      onKeyDown={(e) => {
+        // Block implicit submit via Enter before final step (except in multi-line textareas)
+        if (e.key === 'Enter' && currentStep !== 3 && e.target instanceof HTMLElement) {
+          const tag = e.target.tagName?.toLowerCase();
+          if (tag !== 'textarea') {
+            e.preventDefault();
+          }
+        }
+      }}
+      className="space-y-5"
+    >
+      {/* Hidden submit prevents some browsers from auto-submitting unexpected controls */}
+      <button type="submit" disabled hidden aria-hidden="true" />
+
       {/* Stepper */}
       <BrandFormStepper
         currentStep={currentStep}

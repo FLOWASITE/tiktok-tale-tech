@@ -158,22 +158,37 @@ export function BrandVoiceSection({
       <div className="space-y-2">
         <Label>Tone of Voice <span className="text-xs text-muted-foreground">(chọn 1-3)</span></Label>
         <div className="flex flex-wrap gap-2">
-          {TONE_OF_VOICE_OPTIONS.map(opt => (
-            <Badge
-              key={opt.value}
-              variant={toneOfVoice.includes(opt.value) ? 'default' : 'outline'}
-              className={`cursor-pointer transition-all ${
-                toneOfVoice.includes(opt.value) 
-                  ? '' 
-                  : toneOfVoice.length >= 3 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : 'hover:bg-primary/10'
-              }`}
-              onClick={() => toggleTone(opt.value)}
-            >
-              {opt.label}
-            </Badge>
-          ))}
+          {TONE_OF_VOICE_OPTIONS.map(opt => {
+            const isSelected = toneOfVoice.includes(opt.value);
+            const isDisabled = !isSelected && toneOfVoice.length >= 3;
+
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  if (isDisabled) return;
+                  toggleTone(opt.value);
+                }}
+                disabled={isDisabled}
+                className="text-left"
+                aria-pressed={isSelected}
+              >
+                <Badge
+                  variant={isSelected ? 'default' : 'outline'}
+                  className={`cursor-pointer transition-all ${
+                    isSelected
+                      ? ''
+                      : isDisabled
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-primary/10'
+                  }`}
+                >
+                  {opt.label}
+                </Badge>
+              </button>
+            );
+          })}
         </div>
       </div>
 
