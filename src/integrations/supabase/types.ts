@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      brand_templates: {
+        Row: {
+          brand_guideline: string
+          brand_name: string
+          created_at: string
+          id: string
+          include_logo: boolean
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          brand_guideline: string
+          brand_name: string
+          created_at?: string
+          id?: string
+          include_logo?: boolean
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          brand_guideline?: string
+          brand_name?: string
+          created_at?: string
+          id?: string
+          include_logo?: boolean
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       carousels: {
         Row: {
           ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]
