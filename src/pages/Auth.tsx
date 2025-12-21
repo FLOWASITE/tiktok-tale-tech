@@ -7,10 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2, Zap, Palette, Share2, Bot } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2, Zap, Palette, Share2, Bot } from 'lucide-react';
 import { z } from 'zod';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
+import logoImage from '@/assets/logo.png';
 
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
@@ -134,9 +135,7 @@ export default function Auth() {
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
             <div className="absolute inset-0 rounded-full bg-secondary/20 animate-ping" style={{ animationDelay: '0.5s' }} />
-            <div className="relative gradient-primary rounded-full p-4 logo-pulse">
-              <Sparkles className="h-8 w-8 text-primary-foreground" />
-            </div>
+            <img src={logoImage} alt="Flowa Logo" className="relative w-16 h-16 object-contain logo-pulse" />
           </div>
           <p className="text-muted-foreground animate-pulse">Đang tải...</p>
         </div>
@@ -187,10 +186,8 @@ export default function Auth() {
           {/* Logo with glow */}
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="absolute inset-0 gradient-primary rounded-2xl blur-xl opacity-50 animate-pulse-glow" />
-              <div className="relative gradient-primary rounded-2xl p-4 logo-pulse">
-                <Sparkles className="h-10 w-10 text-primary-foreground" />
-              </div>
+              <div className="absolute inset-0 rounded-2xl blur-xl opacity-50 animate-pulse-glow bg-primary/30" />
+              <img src={logoImage} alt="Flowa Logo" className="relative w-16 h-16 object-contain logo-pulse" />
             </div>
             <div>
               <span className="text-5xl font-bold text-gradient text-glow">Flowa</span>
@@ -261,9 +258,7 @@ export default function Auth() {
           <div className="relative rounded-2xl bg-card/95 backdrop-blur-xl p-8 shadow-2xl">
             {/* Mobile logo */}
             <div className="lg:hidden pb-6 flex items-center justify-center gap-3">
-              <div className="gradient-primary rounded-xl p-2.5 logo-pulse">
-                <Sparkles className="h-7 w-7 text-primary-foreground" />
-              </div>
+              <img src={logoImage} alt="Flowa Logo" className="w-12 h-12 object-contain logo-pulse" />
               <span className="text-3xl font-bold text-gradient">Flowa</span>
             </div>
 
