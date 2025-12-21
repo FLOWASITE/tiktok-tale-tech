@@ -10,6 +10,7 @@ export interface BrandTemplate {
   include_logo: boolean;
   is_default: boolean;
   logo_url: string | null;
+  primary_color: string;
   created_at: string;
   updated_at: string;
 }

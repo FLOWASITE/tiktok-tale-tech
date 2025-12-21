@@ -107,6 +107,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       include_logo: includeLogo,
       is_default: false,
       logo_url: null,
+      primary_color: '#000000',
     });
 
     if (result) {
@@ -241,6 +242,15 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
             {templates.map((template) => (
               <SelectItem key={template.id} value={template.id}>
                 <div className="flex items-center gap-2">
+                  {template.logo_url && (
+                    <img src={template.logo_url} alt="" className="w-4 h-4 rounded object-contain" />
+                  )}
+                  {template.primary_color && !template.logo_url && (
+                    <div 
+                      className="w-4 h-4 rounded-full border border-border" 
+                      style={{ backgroundColor: template.primary_color }}
+                    />
+                  )}
                   <span>{template.name}</span>
                   {template.is_default && (
                     <span className="text-xs text-primary">(Mặc định)</span>

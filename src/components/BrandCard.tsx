@@ -2,7 +2,7 @@ import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit2, Trash2, Star, Check } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +14,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface BrandCardProps {
   template: BrandTemplate;
@@ -23,13 +31,15 @@ interface BrandCardProps {
 }
 
 export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCardProps) {
+  const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
+
   return (
-    <Card className={`gradient-card border-border/50 transition-all hover:border-primary/30 ${template.is_default ? 'ring-2 ring-primary/50' : ''}`}>
-      <CardHeader className="pb-2">
+    <Card className={`gradient-card border-border/50 transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5 ${template.is_default ? 'ring-2 ring-primary/50' : ''}`}>
+      <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
-          {/* Logo */}
+          {/* Logo - larger */}
           {template.logo_url ? (
-            <div className="w-12 h-12 rounded-lg border border-border overflow-hidden bg-muted shrink-0">
+            <div className="w-14 h-14 rounded-lg border border-border overflow-hidden bg-muted shrink-0">
               <img
                 src={template.logo_url}
                 alt={`${template.brand_name} logo`}
@@ -37,8 +47,14 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
               />
             </div>
           ) : (
-            <div className="w-12 h-12 rounded-lg border border-dashed border-border flex items-center justify-center bg-muted/50 shrink-0">
-              <span className="text-lg font-bold text-muted-foreground">
+            <div 
+              className="w-14 h-14 rounded-lg border border-dashed border-border flex items-center justify-center shrink-0"
+              style={{ backgroundColor: template.primary_color ? `${template.primary_color}20` : undefined }}
+            >
+              <span 
+                className="text-xl font-bold"
+                style={{ color: template.primary_color || 'hsl(var(--muted-foreground))' }}
+              >
                 {template.brand_name.charAt(0).toUpperCase()}
               </span>
             </div>
@@ -49,23 +65,55 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
               {template.is_default && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500 shrink-0" />}
               {template.name}
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">{template.brand_name}</p>
+            <p className="text-sm text-muted-foreground mt-1 truncate">{template.brand_name}</p>
+            <div className="flex items-center gap-2 mt-1.5">
+              {/* Primary Color indicator */}
+              {template.primary_color && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="w-4 h-4 rounded-full border border-border shrink-0"
+                        style={{ backgroundColor: template.primary_color }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Màu chủ đạo: {template.primary_color}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {formattedDate}
+              </span>
+            </div>
           </div>
+          
           {template.is_default && (
-            <Badge variant="secondary" className="shrink-0">
+            <Badge variant="secondary" className="shrink-0 text-xs">
               Mặc định
             </Badge>
           )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground line-clamp-2">
-          {template.brand_guideline}
-        </p>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="text-xs text-muted-foreground line-clamp-3 cursor-help">
+                {template.brand_guideline}
+              </p>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-sm">
+              <p className="text-xs whitespace-pre-wrap">{template.brand_guideline}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2">
           <Badge variant={template.include_logo ? 'default' : 'outline'} className="text-xs">
-            Logo trong carousel: {template.include_logo ? 'Có' : 'Không'}
+            Logo: {template.include_logo ? 'Có' : 'Không'}
           </Badge>
         </div>
 

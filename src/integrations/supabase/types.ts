@@ -24,6 +24,7 @@ export type Database = {
           is_default: boolean
           logo_url: string | null
           name: string
+          primary_color: string | null
           updated_at: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           is_default?: boolean
           logo_url?: string | null
           name: string
+          primary_color?: string | null
           updated_at?: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           is_default?: boolean
           logo_url?: string | null
           name?: string
+          primary_color?: string | null
           updated_at?: string
         }
         Relationships: []
