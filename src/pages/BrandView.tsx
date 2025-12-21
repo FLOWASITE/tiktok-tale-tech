@@ -156,6 +156,8 @@ export default function BrandView() {
       await updateTemplate(template.id, templateData);
       setEditDialogOpen(false);
       toast.success('Đã cập nhật brand template');
+      // Auto refresh data after successful edit
+      await refetch();
     } finally {
       setSaving(false);
     }
