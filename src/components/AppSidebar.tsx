@@ -1,4 +1,4 @@
-import { Film, Images, Settings, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Film, Images, Settings, Palette } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import {
@@ -13,6 +13,7 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarRail,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 
 const menuItems = [
@@ -64,6 +65,24 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator className="my-2" />
+
+        <SidebarGroup>
+          <SidebarGroupLabel className={isCollapsed ? 'sr-only' : ''}>
+            Khác
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Cài đặt" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Settings className="w-4 h-4 flex-shrink-0" />
+                  <span className={isCollapsed ? 'sr-only' : ''}>Cài đặt</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
