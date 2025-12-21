@@ -78,8 +78,9 @@ export function useMultiChannelContents() {
       setContents(prev => [newContent, ...prev]);
       
       toast({
-        title: 'Thành công',
-        description: 'Đã tạo nội dung đa kênh',
+        title: '✨ Tạo nội dung thành công!',
+        description: `Đã tạo ${data.selected_channels?.length || 0} kênh cho "${data.title}"`,
+        className: 'success-highlight animate-success',
       });
 
       return newContent;
@@ -88,9 +89,10 @@ export function useMultiChannelContents() {
       // Refetch to check if content was created despite error (timeout issue)
       await fetchContents();
       toast({
-        title: 'Lỗi kết nối',
+        title: '⚠️ Lỗi kết nối',
         description: 'Có thể nội dung đã được tạo. Vui lòng kiểm tra danh sách.',
         variant: 'destructive',
+        className: 'animate-error-shake',
       });
       return null;
     } finally {
@@ -117,17 +119,19 @@ export function useMultiChannelContents() {
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
       toast({
-        title: 'Thành công',
-        description: `Đã tạo lại nội dung cho kênh`,
+        title: '🔄 Đã tạo lại nội dung',
+        description: `Kênh đã được cập nhật với nội dung mới`,
+        className: 'animate-success',
       });
 
       return updatedContent;
     } catch (error) {
       console.error('Error regenerating channel:', error);
       toast({
-        title: 'Lỗi',
-        description: error instanceof Error ? error.message : 'Không thể tạo lại nội dung',
+        title: '❌ Không thể tạo lại',
+        description: error instanceof Error ? error.message : 'Vui lòng thử lại sau',
         variant: 'destructive',
+        className: 'animate-error-shake',
       });
       return null;
     } finally {
@@ -165,17 +169,19 @@ export function useMultiChannelContents() {
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
       toast({
-        title: 'Đã lưu',
+        title: '💾 Đã lưu thành công',
         description: 'Nội dung đã được cập nhật',
+        className: 'animate-success',
       });
 
       return updatedContent;
     } catch (error) {
       console.error('Error updating channel content:', error);
       toast({
-        title: 'Lỗi',
-        description: 'Không thể lưu nội dung',
+        title: '❌ Lỗi lưu nội dung',
+        description: 'Không thể lưu. Vui lòng thử lại.',
         variant: 'destructive',
+        className: 'animate-error-shake',
       });
       return null;
     }
@@ -193,15 +199,16 @@ export function useMultiChannelContents() {
       setContents(prev => prev.filter(c => c.id !== id));
       
       toast({
-        title: 'Đã xóa',
-        description: 'Đã xóa nội dung thành công',
+        title: '🗑️ Đã xóa',
+        description: 'Nội dung đã được xóa thành công',
       });
     } catch (error) {
       console.error('Error deleting content:', error);
       toast({
-        title: 'Lỗi',
-        description: 'Không thể xóa nội dung',
+        title: '❌ Không thể xóa',
+        description: 'Vui lòng thử lại sau',
         variant: 'destructive',
+        className: 'animate-error-shake',
       });
     }
   };
@@ -222,17 +229,19 @@ export function useMultiChannelContents() {
       }
 
       toast({
-        title: 'AI đã chỉnh sửa',
-        description: 'Xem trước và lưu nếu hài lòng',
+        title: '🤖 AI đã chỉnh sửa',
+        description: 'Xem trước kết quả và lưu nếu hài lòng',
+        className: 'animate-success',
       });
 
       return data.editedContent;
     } catch (error) {
       console.error('Error AI editing channel:', error);
       toast({
-        title: 'Lỗi',
+        title: '❌ Lỗi AI',
         description: error instanceof Error ? error.message : 'Không thể chỉnh sửa với AI',
         variant: 'destructive',
+        className: 'animate-error-shake',
       });
       return null;
     } finally {

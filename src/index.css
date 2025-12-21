@@ -144,8 +144,108 @@ All colors MUST be HSL.
     box-shadow: 0 0 40px hsl(199 89% 48% / 0.3);
   }
 
+  /* ========== ANIMATION UTILITIES ========== */
+
+  /* Basic fade animations */
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out forwards;
+  }
+
+  .animate-fade-out {
+    animation: fade-out 0.3s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.4s ease-out forwards;
+  }
+
+  .animate-slide-down {
+    animation: slide-down 0.3s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.3s ease-out forwards;
+  }
+
   .animate-float {
     animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background-size: 200% 100%;
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 1s ease-in-out infinite;
+  }
+
+  .animate-success {
+    animation: success-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  .animate-error-shake {
+    animation: error-shake 0.5s ease-in-out;
+  }
+
+  /* Keyframes */
+  @keyframes fade-in {
+    0% { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes fade-out {
+    0% { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+    100% { 
+      opacity: 0; 
+      transform: translateY(-10px); 
+    }
+  }
+
+  @keyframes slide-up {
+    0% { 
+      opacity: 0; 
+      transform: translateY(20px); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes slide-down {
+    0% { 
+      opacity: 0; 
+      transform: translateY(-20px); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes scale-in {
+    0% { 
+      opacity: 0; 
+      transform: scale(0.95); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: scale(1); 
+    }
   }
 
   @keyframes float {
@@ -153,13 +253,39 @@ All colors MUST be HSL.
     50% { transform: translateY(-10px); }
   }
 
-  .animate-pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
-
   @keyframes pulse-glow {
     0%, 100% { opacity: 0.5; }
     50% { opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  @keyframes success-pop {
+    0% { 
+      opacity: 0; 
+      transform: scale(0.8); 
+    }
+    50% { 
+      transform: scale(1.05); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: scale(1); 
+    }
+  }
+
+  @keyframes error-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
   }
 
   /* Card animation utilities */
@@ -184,17 +310,6 @@ All colors MUST be HSL.
   .stagger-item {
     @apply opacity-0;
     animation: fade-in 0.4s ease-out forwards;
-  }
-
-  @keyframes fade-in {
-    0% { 
-      opacity: 0; 
-      transform: translateY(10px); 
-    }
-    100% { 
-      opacity: 1; 
-      transform: translateY(0); 
-    }
   }
 
   .stagger-item:nth-child(1) { animation-delay: 0ms; }
@@ -225,5 +340,38 @@ All colors MUST be HSL.
   /* Dialog/Modal backdrop blur enhancement */
   .backdrop-blur-enhanced {
     backdrop-filter: blur(8px) saturate(180%);
+  }
+
+  /* Success state styling */
+  .success-highlight {
+    @apply border-green-500/50 bg-green-500/5;
+    box-shadow: 0 0 20px hsl(142 76% 36% / 0.2);
+  }
+
+  /* Error state styling */
+  .error-highlight {
+    @apply border-destructive/50 bg-destructive/5;
+  }
+
+  /* Loading shimmer background */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
+  }
+
+  /* Content transition */
+  .content-transition {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* Smooth height transition */
+  .height-transition {
+    transition: height 0.3s ease-out, opacity 0.3s ease-out;
   }
 }

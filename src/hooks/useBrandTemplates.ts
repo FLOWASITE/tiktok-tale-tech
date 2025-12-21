@@ -47,7 +47,10 @@ export function useBrandTemplates() {
       setTemplates(data as BrandTemplate[]);
     } catch (error) {
       console.error('Error fetching templates:', error);
-      toast.error('Không thể tải danh sách template');
+      toast.error('Không thể tải danh sách template', {
+        description: 'Vui lòng tải lại trang',
+        className: 'animate-error-shake',
+      });
     } finally {
       setLoading(false);
     }
@@ -65,11 +68,16 @@ export function useBrandTemplates() {
       
       const newTemplate = data as BrandTemplate;
       setTemplates((prev) => [...prev, newTemplate]);
-      toast.success('Đã lưu template!');
+      toast.success('✨ Đã lưu template!', {
+        description: `Template "${newTemplate.name}" đã được tạo`,
+      });
       return newTemplate;
     } catch (error) {
       console.error('Error saving template:', error);
-      toast.error('Không thể lưu template');
+      toast.error('❌ Không thể lưu template', {
+        description: 'Vui lòng thử lại',
+        className: 'animate-error-shake',
+      });
       return null;
     }
   };
@@ -87,11 +95,15 @@ export function useBrandTemplates() {
       
       const updatedTemplate = data as BrandTemplate;
       setTemplates((prev) => prev.map((t) => t.id === id ? updatedTemplate : t));
-      toast.success('Đã cập nhật template!');
+      toast.success('💾 Đã cập nhật template!', {
+        description: 'Thay đổi đã được lưu',
+      });
       return updatedTemplate;
     } catch (error) {
       console.error('Error updating template:', error);
-      toast.error('Không thể cập nhật template');
+      toast.error('❌ Không thể cập nhật template', {
+        className: 'animate-error-shake',
+      });
       return null;
     }
   };
@@ -116,11 +128,15 @@ export function useBrandTemplates() {
         ...t,
         is_default: t.id === id
       })));
-      toast.success('Đã đặt làm mặc định!');
+      toast.success('⭐ Đã đặt làm mặc định!', {
+        description: 'Template này sẽ được sử dụng cho các nội dung mới',
+      });
       return true;
     } catch (error) {
       console.error('Error setting default template:', error);
-      toast.error('Không thể đặt làm mặc định');
+      toast.error('❌ Không thể đặt làm mặc định', {
+        className: 'animate-error-shake',
+      });
       return false;
     }
   };
@@ -147,11 +163,15 @@ export function useBrandTemplates() {
       
       const newTemplate = data as BrandTemplate;
       setTemplates((prev) => [...prev, newTemplate]);
-      toast.success('Đã tạo bản sao template!');
+      toast.success('📋 Đã tạo bản sao!', {
+        description: `Template "${newTemplate.name}" đã được tạo`,
+      });
       return newTemplate;
     } catch (error) {
       console.error('Error duplicating template:', error);
-      toast.error('Không thể tạo bản sao template');
+      toast.error('❌ Không thể tạo bản sao', {
+        className: 'animate-error-shake',
+      });
       return null;
     }
   };
@@ -173,10 +193,12 @@ export function useBrandTemplates() {
       const { error } = await supabase.from('brand_templates').delete().eq('id', id);
       if (error) throw error;
       setTemplates((prev) => prev.filter((t) => t.id !== id));
-      toast.success('Đã xóa template!');
+      toast.success('🗑️ Đã xóa template!');
     } catch (error) {
       console.error('Error deleting template:', error);
-      toast.error('Không thể xóa template');
+      toast.error('❌ Không thể xóa template', {
+        className: 'animate-error-shake',
+      });
     }
   };
 
