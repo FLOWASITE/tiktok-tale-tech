@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Index from "./pages/Index";
 import Carousel from "./pages/Carousel";
 import Brands from "./pages/Brands";
+import MultiChannel from "./pages/MultiChannel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/carousel" element={<Carousel />} />
               <Route path="/brands" element={<Brands />} />
+              <Route path="/multichannel" element={<MultiChannel />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
