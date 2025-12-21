@@ -84,9 +84,11 @@ export function useMultiChannelContents() {
       return newContent;
     } catch (error) {
       console.error('Error generating content:', error);
+      // Refetch to check if content was created despite error (timeout issue)
+      await fetchContents();
       toast({
-        title: 'Lỗi',
-        description: error instanceof Error ? error.message : 'Không thể tạo nội dung',
+        title: 'Lỗi kết nối',
+        description: 'Có thể nội dung đã được tạo. Vui lòng kiểm tra danh sách.',
         variant: 'destructive',
       });
       return null;
