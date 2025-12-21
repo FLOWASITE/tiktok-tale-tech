@@ -947,29 +947,31 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       )}
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-4 border-t">
-        <div>
-          {currentStep > 1 && (
-            <Button type="button" variant="outline" onClick={handleBack} disabled={isLoading}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Quay lại
+      <div className="sticky bottom-0 z-10 -mx-1 px-1 pt-4 pb-3 border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between">
+          <div>
+            {currentStep > 1 && (
+              <Button type="button" variant="outline" onClick={handleBack} disabled={isLoading}>
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Quay lại
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
+              Hủy
             </Button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
-            Hủy
-          </Button>
-          {currentStep < 3 ? (
-            <Button type="button" onClick={handleNext} disabled={isLoading}>
-              Tiếp theo
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          ) : (
-            <Button type="submit" disabled={isLoading || !brandName.trim()}>
-              {isLoading ? 'Đang lưu...' : template ? 'Cập nhật' : 'Tạo mới'}
-            </Button>
-          )}
+            {currentStep < 3 ? (
+              <Button type="button" onClick={handleNext} disabled={isLoading}>
+                Tiếp theo
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            ) : (
+              <Button type="submit" disabled={isLoading || !brandName.trim()}>
+                {isLoading ? 'Đang lưu...' : template ? 'Cập nhật' : 'Tạo mới'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </form>
