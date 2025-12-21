@@ -112,9 +112,13 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
   const [generatingAll, setGeneratingAll] = useState(false);
 
   const { apiKey, isConfigured } = useGeminiApiKey();
-  const { generating, generatedImages, generateImage, getImageForSlide } = useImageGeneration();
+  const { generating, generatedImages, generateImage, getImageForSlide, deleteImage } = useImageGeneration();
 
   if (!carousel) return null;
+
+  const handleDeleteImage = async (slideNumber: number) => {
+    await deleteImage(slideNumber, carousel.id);
+  };
 
   const handleCopyAll = async () => {
     try {
@@ -307,6 +311,7 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
               <GeneratedImagesGallery
                 images={generatedImages}
                 totalSlides={carousel.slide_count}
+                onDeleteImage={handleDeleteImage}
               />
             </TabsContent>
 
