@@ -14,7 +14,9 @@ import {
   Hash,
   SmilePlus,
   Type,
-  Loader2
+  Loader2,
+  Wrench,
+  CheckCircle2
 } from 'lucide-react';
 import { ComplianceIssue, ContentAnalysis } from '@/hooks/useContentAnalysis';
 
@@ -130,6 +132,20 @@ function getContextAwareActions(analysis: ContentAnalysis): QuickAction[] {
   return actions.sort((a, b) => b.priority - a.priority);
 }
 
+function generateFixAllInstruction(issues: ComplianceIssue[]): string {
+  if (issues.length === 0) return '';
+  
+  const instructions = issues.map((issue, index) => {
+    return `${index + 1}. ${issue.autoFixInstruction}`;
+  });
+  
+  return `Sửa TẤT CẢ các lỗi sau trong nội dung, thực hiện đồng thời và giữ nguyên ý chính:
+
+${instructions.join('\n')}
+
+Đảm bảo output vẫn tự nhiên, mạch lạc sau khi sửa tất cả các lỗi trên.`;
+}
+
 export function SmartQuickActions({ 
   analysis, 
   onAction, 
@@ -143,8 +159,26 @@ export function SmartQuickActions({
   const fixActions = contextActions.filter(a => a.priority >= 80);
   const enhanceActions = contextActions.filter(a => a.priority < 80).slice(0, 4);
   
+  // Generate fix all instruction
+  const fixAllInstruction = useMemo(() => generateFixAllInstruction(analysis.issues), [analysis.issues]);
+  const hasMultipleIssues = analysis.issues.length > 1;
+  
+  const handleFixAll = () => {
+    if (fixAllInstruction) {
+      onAction(fixAllInstruction);
+    }
+  };
+  
   return (
     <div className="space-y-3">
+      {/* Compliant status */}
+      {analysis.issues.length === 0 && (
+        <div className="flex items-center gap-2 text-green-500 animate-fade-in">
+          <CheckCircle2 className="w-4 h-4" />
+          <span className="text-sm font-medium">Nội dung đạt chuẩn compliance</span>
+        </div>
+      )}
+      
       {/* Apply Brand Voice - Primary action */}
       {hasBrandVoice && (
         <div className="flex items-center gap-2">
@@ -156,7 +190,7 @@ export function SmartQuickActions({
                   size="sm"
                   onClick={onApplyBrandVoice}
                   disabled={isLoading}
-                  className="gap-1.5 gradient-primary text-primary-foreground"
+                  className="gap-1.5 gradient-primary text-primary-foreground transition-all duration-300 hover:shadow-lg hover:shadow-primary/25"
                 >
                   {isLoading ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -178,12 +212,52 @@ export function SmartQuickActions({
         </div>
       )}
       
+      {/* Fix All Issues - Show when multiple issues */}
+      {hasMultipleIssues && (
+        <div className="animate-fade-in">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleFixAll}
+                  disabled={isLoading}
+                  className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/25 group"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Wrench className="w-3.5 h-3.5 transition-transform group-hover:rotate-12" />
+                  )}
+                  Sửa tất cả ({analysis.issues.length} lỗi)
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-medium mb-1">AI sẽ tự động sửa:</p>
+                <ul className="text-xs space-y-0.5">
+                  {analysis.issues.map((issue, i) => (
+                    <li key={i} className="flex items-start gap-1">
+                      <span className="text-amber-400">•</span>
+                      <span>{issue.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
+      
       {/* Fix Actions - Issues that need fixing */}
       {fixActions.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs text-amber-500">
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Sửa nhanh</span>
+            {hasMultipleIssues && (
+              <span className="text-muted-foreground">(hoặc chọn từng lỗi)</span>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {fixActions.map((action, index) => {
@@ -197,7 +271,7 @@ export function SmartQuickActions({
                         size="sm"
                         onClick={() => onAction(action.instruction)}
                         disabled={isLoading}
-                        className="gap-1.5 text-xs"
+                        className="gap-1.5 text-xs transition-all duration-200 hover:scale-105"
                       >
                         <Icon className="w-3 h-3" />
                         {action.label}
@@ -231,7 +305,7 @@ export function SmartQuickActions({
                   size="sm"
                   onClick={() => onAction(action.instruction)}
                   disabled={isLoading}
-                  className="gap-1.5 text-xs"
+                  className="gap-1.5 text-xs transition-all duration-200 hover:scale-105"
                 >
                   <Icon className="w-3 h-3" />
                   {action.label}
