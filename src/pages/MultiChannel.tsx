@@ -1,25 +1,83 @@
 import { useState, useMemo } from 'react';
-import { Loader2, FileText, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, FileText, Sparkles, CheckSquare } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
-import { MultiChannelFilters } from '@/components/MultiChannelFilters';
+import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
+import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
-import { MultiChannelContent, ContentGoal, Channel } from '@/types/multichannel';
+import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
+import { toast } from 'sonner';
 
 export default function MultiChannel() {
-  const { contents, loading, generating, regeneratingChannel, aiEditingChannel, generateContent, regenerateChannel, updateChannelContent, aiEditChannel, deleteContent } = useMultiChannelContents();
+  const { 
+    contents, 
+    loading, 
+    generating, 
+    regeneratingChannel, 
+    aiEditingChannel, 
+    generateContent, 
+    regenerateChannel, 
+    updateChannelContent, 
+    aiEditChannel, 
+    deleteContent,
+    updateStatus,
+  } = useMultiChannelContents();
+  
+  const { templates: brandTemplates } = useBrandTemplates();
   
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [generatingChannelCount, setGeneratingChannelCount] = useState(0);
   
+  // Bulk Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState<ContentGoal | 'all'>('all');
   const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<ContentStatus | 'all'>('all');
+  const [brandFilter, setBrandFilter] = useState<string | 'all'>('all');
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+  const [tagFilter, setTagFilter] = useState<string>('all');
+
+  // Get all unique tags from contents
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    contents.forEach(content => {
+      content.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [contents]);
+
+  // Calculate active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (goalFilter !== 'all') count++;
+    if (channelFilter !== 'all') count++;
+    if (statusFilter !== 'all') count++;
+    if (brandFilter !== 'all') count++;
+    if (dateRange.from || dateRange.to) count++;
+    if (tagFilter !== 'all') count++;
+    return count;
+  }, [goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter]);
+
+  const clearFilters = () => {
+    setGoalFilter('all');
+    setChannelFilter('all');
+    setStatusFilter('all');
+    setBrandFilter('all');
+    setDateRange({ from: undefined, to: undefined });
+    setTagFilter('all');
+    setSearchQuery('');
+  };
 
   const filteredContents = useMemo(() => {
     return contents.filter((content) => {
@@ -41,9 +99,36 @@ export default function MultiChannel() {
         return false;
       }
 
+      // Status filter
+      if (statusFilter !== 'all' && content.status !== statusFilter) {
+        return false;
+      }
+
+      // Brand filter
+      if (brandFilter !== 'all' && content.brand_template_id !== brandFilter) {
+        return false;
+      }
+
+      // Date range filter
+      if (dateRange.from) {
+        const contentDate = new Date(content.created_at);
+        if (contentDate < dateRange.from) return false;
+      }
+      if (dateRange.to) {
+        const contentDate = new Date(content.created_at);
+        const endOfDay = new Date(dateRange.to);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (contentDate > endOfDay) return false;
+      }
+
+      // Tag filter
+      if (tagFilter !== 'all' && !content.tags?.includes(tagFilter)) {
+        return false;
+      }
+
       return true;
     });
-  }, [contents, searchQuery, goalFilter, channelFilter]);
+  }, [contents, searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter]);
 
   const handleView = (content: MultiChannelContent) => {
     setSelectedContent(content);
@@ -77,6 +162,65 @@ export default function MultiChannel() {
 
   const handleDelete = async (id: string) => {
     await deleteContent(id);
+    selectedIds.delete(id);
+    setSelectedIds(new Set(selectedIds));
+  };
+
+  // Bulk Actions
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(filteredContents.map(c => c.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    const idsToDelete = Array.from(selectedIds);
+    let successCount = 0;
+    
+    for (const id of idsToDelete) {
+      try {
+        await deleteContent(id);
+        successCount++;
+      } catch (error) {
+        console.error(`Error deleting ${id}:`, error);
+      }
+    }
+    
+    setSelectedIds(new Set());
+    setIsBulkDeleting(false);
+    toast.success(`Đã xóa ${successCount}/${idsToDelete.length} nội dung`);
+  };
+
+  const handleBulkStatusChange = async (status: ContentStatus) => {
+    setIsBulkUpdating(true);
+    const idsToUpdate = Array.from(selectedIds);
+    let successCount = 0;
+    
+    for (const id of idsToUpdate) {
+      try {
+        await updateStatus(id, status);
+        successCount++;
+      } catch (error) {
+        console.error(`Error updating ${id}:`, error);
+      }
+    }
+    
+    setSelectedIds(new Set());
+    setIsBulkUpdating(false);
+    toast.success(`Đã cập nhật ${successCount}/${idsToUpdate.length} nội dung`);
   };
 
   return (
@@ -96,7 +240,7 @@ export default function MultiChannel() {
           </div>
 
           {/* Right Column - Content List */}
-          <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+          <div className="lg:col-span-8 xl:col-span-9 space-y-4">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -105,10 +249,22 @@ export default function MultiChannel() {
                   Nội dung đã tạo
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {contents.length} bộ nội dung
+                  {filteredContents.length} / {contents.length} bộ nội dung
                 </p>
               </div>
             </div>
+
+            {/* Bulk Actions Bar */}
+            <BulkActionsBar
+              selectedCount={selectedIds.size}
+              totalCount={filteredContents.length}
+              onSelectAll={selectAll}
+              onClearSelection={clearSelection}
+              onBulkDelete={handleBulkDelete}
+              onBulkStatusChange={handleBulkStatusChange}
+              isDeleting={isBulkDeleting}
+              isUpdating={isBulkUpdating}
+            />
 
             {/* Filters */}
             <MultiChannelFilters
@@ -118,6 +274,18 @@ export default function MultiChannel() {
               onGoalFilterChange={setGoalFilter}
               channelFilter={channelFilter}
               onChannelFilterChange={setChannelFilter}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              brandFilter={brandFilter}
+              onBrandFilterChange={setBrandFilter}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              tagFilter={tagFilter}
+              onTagFilterChange={setTagFilter}
+              brandTemplates={brandTemplates}
+              availableTags={availableTags}
+              onClearFilters={clearFilters}
+              activeFilterCount={activeFilterCount}
             />
 
             {/* Generating Skeleton */}
@@ -154,9 +322,17 @@ export default function MultiChannel() {
                 {filteredContents.map((content, index) => (
                   <div
                     key={content.id}
-                    className="stagger-item"
+                    className="stagger-item relative"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
+                    {/* Selection Checkbox */}
+                    <div className="absolute top-2 left-2 z-20">
+                      <Checkbox
+                        checked={selectedIds.has(content.id)}
+                        onCheckedChange={() => toggleSelection(content.id)}
+                        className="bg-background/80 backdrop-blur border-border"
+                      />
+                    </div>
                     <MultiChannelCard
                       content={content}
                       onView={handleView}
