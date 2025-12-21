@@ -203,7 +203,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, 3));
     }
