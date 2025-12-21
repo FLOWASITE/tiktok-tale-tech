@@ -1,19 +1,23 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { useCarousels } from '@/hooks/useCarousels';
 import { Carousel } from '@/types/carousel';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Images, Sparkles } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Images, Sparkles, Plus, X } from 'lucide-react';
 
 const CarouselPage = () => {
+  const navigate = useNavigate();
   const { carousels, loading, generating, generateCarousel, deleteCarousel, updateCarousel } = useCarousels();
   const [selectedCarousel, setSelectedCarousel] = useState<Carousel | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [filters, setFilters] = useState<CarouselFiltersState>({
     search: '',
     platform: 'all',
@@ -22,7 +26,6 @@ const CarouselPage = () => {
 
   const filteredCarousels = useMemo(() => {
     return carousels.filter((carousel) => {
-      // Search filter
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const matchesSearch =
@@ -31,12 +34,10 @@ const CarouselPage = () => {
         if (!matchesSearch) return false;
       }
 
-      // Platform filter
       if (filters.platform !== 'all' && carousel.platform !== filters.platform) {
         return false;
       }
 
-      // AI Tool filter
       if (filters.aiTool !== 'all' && carousel.ai_tool !== filters.aiTool) {
         return false;
       }
@@ -51,6 +52,7 @@ const CarouselPage = () => {
   };
 
   const handleGenerateCarousel = async (formData: Parameters<typeof generateCarousel>[0]) => {
+    setFormSheetOpen(false);
     const newCarousel = await generateCarousel(formData);
     if (newCarousel) {
       setSelectedCarousel(newCarousel);
@@ -59,101 +61,114 @@ const CarouselPage = () => {
   };
 
   return (
-    <div className="relative">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="container py-8 relative">
-        <div className="grid lg:grid-cols-[400px_1fr] gap-8">
-          {/* Left column - Form */}
-          <div className="space-y-6">
-            <Card className="gradient-card border-border/50 overflow-hidden">
-              <CardHeader className="border-b border-border/50">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="p-2 rounded-lg gradient-primary">
-                    <Sparkles className="w-4 h-4 text-primary-foreground" />
-                  </div>
-                  Tạo Carousel Mới
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} />
-              </CardContent>
-            </Card>
+    <div className="min-h-screen relative">
+      {/* Header Bar */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <Images className="w-5 h-5 text-primary" />
+              Quản lý Carousel Prompt
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {filteredCarousels.length} / {carousels.length} carousel
+            </p>
           </div>
-
-          {/* Right column - Carousel list */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Images className="w-5 h-5 text-primary" />
-                Carousel Đã Tạo
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({filteredCarousels.length}/{carousels.length})
-                </span>
-              </h2>
-            </div>
-
-            {/* Filters */}
-            <CarouselFilters filters={filters} onFiltersChange={setFilters} />
-
-            {loading ? (
-              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="gradient-card border-border/50">
-                    <CardHeader>
-                      <Skeleton className="h-5 w-3/4" />
-                      <Skeleton className="h-3 w-1/4 mt-2" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex gap-2 mb-4">
-                        <Skeleton className="h-6 w-20" />
-                        <Skeleton className="h-6 w-24" />
-                      </div>
-                      <div className="flex gap-2">
-                        <Skeleton className="h-8 flex-1" />
-                        <Skeleton className="h-8 w-8" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : filteredCarousels.length === 0 ? (
-              <Card className="gradient-card border-border/50 border-dashed">
-                <CardContent className="py-16 text-center">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                    <Images className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-medium text-foreground mb-2">
-                    {carousels.length === 0 ? 'Chưa có carousel nào' : 'Không tìm thấy carousel'}
-                  </h3>
-                  <p className="text-muted-foreground text-sm">
-                    {carousels.length === 0
-                      ? 'Nhập chủ đề và nhấn "Tạo Prompt Carousel" để bắt đầu'
-                      : 'Thử thay đổi bộ lọc để xem thêm carousel'}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <ScrollArea className="h-[calc(100vh-350px)]">
-                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 pr-4">
-                  {filteredCarousels.map((carousel) => (
-                    <CarouselCard
-                      key={carousel.id}
-                      carousel={carousel}
-                      onView={handleViewCarousel}
-                      onDelete={deleteCarousel}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Thêm mới
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/dashboard')}
+              className="h-9 w-9"
+              title="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
         </div>
       </div>
+
+      <div className="p-6 space-y-4">
+        {/* Filters */}
+        <CarouselFilters filters={filters} onFiltersChange={setFilters} />
+
+        {/* Content Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <Card key={i} className="gradient-card border-border/50">
+                <div className="p-4">
+                  <Skeleton className="h-5 w-3/4 mb-2" />
+                  <Skeleton className="h-3 w-1/4 mb-4" />
+                  <div className="flex gap-2 mb-4">
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-6 w-24" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 flex-1" />
+                    <Skeleton className="h-8 w-8" />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : filteredCarousels.length === 0 ? (
+          <div className="text-center py-20 animate-fade-in">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
+              <Images className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              {carousels.length === 0 ? 'Chưa có carousel nào' : 'Không tìm thấy carousel'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+              {carousels.length === 0
+                ? 'Nhấn nút "Thêm mới" để tạo carousel prompt đầu tiên.'
+                : 'Thử thay đổi bộ lọc để xem thêm carousel.'}
+            </p>
+            {carousels.length === 0 && (
+              <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Tạo carousel mới
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredCarousels.map((carousel, index) => (
+              <div
+                key={carousel.id}
+                className="stagger-item"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <CarouselCard
+                  carousel={carousel}
+                  onView={handleViewCarousel}
+                  onDelete={deleteCarousel}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Form Sheet */}
+      <Sheet open={formSheetOpen} onOpenChange={setFormSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Tạo Carousel Mới
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Carousel viewer dialog */}
       <CarouselViewer
