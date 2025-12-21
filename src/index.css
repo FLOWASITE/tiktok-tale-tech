@@ -374,4 +374,196 @@ All colors MUST be HSL.
   .height-transition {
     transition: height 0.3s ease-out, opacity 0.3s ease-out;
   }
+
+  /* ========== AUTH PAGE SPECIAL EFFECTS ========== */
+
+  /* Animated gradient border */
+  .gradient-border {
+    position: relative;
+    background: hsl(var(--card));
+    border-radius: var(--radius);
+  }
+
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: calc(var(--radius) + 2px);
+    background: linear-gradient(
+      135deg,
+      hsl(340 82% 52%) 0%,
+      hsl(199 89% 48%) 50%,
+      hsl(340 82% 52%) 100%
+    );
+    background-size: 200% 200%;
+    animation: gradient-rotate 3s linear infinite;
+    z-index: -1;
+  }
+
+  .gradient-border::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--card));
+    border-radius: var(--radius);
+    z-index: -1;
+  }
+
+  @keyframes gradient-rotate {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Glassmorphism effect */
+  .glass {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  /* Floating orbs animation */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    animation: orb-float 8s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: 400px;
+    height: 400px;
+    background: hsl(340 82% 52% / 0.15);
+    top: -10%;
+    left: -10%;
+    animation-delay: 0s;
+  }
+
+  .orb-2 {
+    width: 350px;
+    height: 350px;
+    background: hsl(199 89% 48% / 0.15);
+    bottom: -10%;
+    right: -10%;
+    animation-delay: 2s;
+  }
+
+  .orb-3 {
+    width: 250px;
+    height: 250px;
+    background: hsl(280 70% 50% / 0.1);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation-delay: 4s;
+  }
+
+  @keyframes orb-float {
+    0%, 100% {
+      transform: translate(0, 0) scale(1);
+    }
+    25% {
+      transform: translate(20px, -20px) scale(1.05);
+    }
+    50% {
+      transform: translate(-10px, 10px) scale(0.95);
+    }
+    75% {
+      transform: translate(-20px, -10px) scale(1.02);
+    }
+  }
+
+  /* Particle dots */
+  .particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: hsl(var(--primary) / 0.5);
+    border-radius: 50%;
+    animation: particle-float 4s ease-in-out infinite;
+  }
+
+  @keyframes particle-float {
+    0%, 100% {
+      opacity: 0.3;
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-20px) scale(1.2);
+    }
+  }
+
+  /* Typewriter text effect */
+  .typewriter {
+    overflow: hidden;
+    border-right: 2px solid hsl(var(--primary));
+    white-space: nowrap;
+    animation: 
+      typing 3s steps(30, end),
+      blink-caret 0.75s step-end infinite;
+  }
+
+  @keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  @keyframes blink-caret {
+    from, to { border-color: transparent; }
+    50% { border-color: hsl(var(--primary)); }
+  }
+
+  /* Glow text */
+  .text-glow {
+    text-shadow: 
+      0 0 20px hsl(340 82% 52% / 0.5),
+      0 0 40px hsl(340 82% 52% / 0.3),
+      0 0 60px hsl(340 82% 52% / 0.1);
+  }
+
+  /* Hover lift effect */
+  .hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+      0 20px 40px -10px hsl(var(--primary) / 0.3),
+      0 10px 20px -5px hsl(var(--foreground) / 0.1);
+  }
+
+  /* Logo pulse */
+  .logo-pulse {
+    animation: logo-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes logo-pulse {
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(340 82% 52% / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 40px hsl(340 82% 52% / 0.6), 0 0 60px hsl(199 89% 48% / 0.3);
+    }
+  }
+
+  /* Input focus glow */
+  .input-glow:focus-within {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1), 0 0 20px hsl(var(--primary) / 0.1);
+  }
+
+  /* Morphing background shapes */
+  .morph-shape {
+    animation: morph 8s ease-in-out infinite;
+  }
+
+  @keyframes morph {
+    0%, 100% {
+      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    }
+    50% {
+      border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+    }
+  }
 }
