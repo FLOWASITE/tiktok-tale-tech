@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Carousel, CarouselFormData, CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
 
 export function useCarousels() {
+  const { user } = useAuth();
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
   const fetchCarousels = async () => {
+    if (!user) {
+      setCarousels([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('carousels')
@@ -33,10 +41,15 @@ export function useCarousels() {
   };
 
   const generateCarousel = async (formData: CarouselFormData): Promise<Carousel | null> => {
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để tạo carousel');
+      return null;
+    }
+
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-carousel', {
-        body: formData,
+        body: { ...formData, user_id: user.id },
       });
 
       if (error) {
@@ -92,7 +105,7 @@ export function useCarousels() {
 
   useEffect(() => {
     fetchCarousels();
-  }, []);
+  }, [user]);
 
   return {
     carousels,

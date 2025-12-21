@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
@@ -32,10 +33,17 @@ export interface BrandTemplate {
 const BUCKET_NAME = 'brand-logos';
 
 export function useBrandTemplates() {
+  const { user } = useAuth();
   const [templates, setTemplates] = useState<BrandTemplate[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTemplates = async () => {
+    if (!user) {
+      setTemplates([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('brand_templates')
@@ -57,10 +65,15 @@ export function useBrandTemplates() {
   };
 
   const saveTemplate = async (template: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<BrandTemplate | null> => {
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để tạo template');
+      return null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('brand_templates')
-        .insert(template)
+        .insert({ ...template, user_id: user.id })
         .select()
         .single();
 
@@ -110,7 +123,7 @@ export function useBrandTemplates() {
 
   const setDefaultTemplate = async (id: string): Promise<boolean> => {
     try {
-      // First, unset all defaults
+      // First, unset all defaults for this user
       await supabase
         .from('brand_templates')
         .update({ is_default: false })
@@ -142,6 +155,11 @@ export function useBrandTemplates() {
   };
 
   const duplicateTemplate = async (id: string): Promise<BrandTemplate | null> => {
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để tạo bản sao');
+      return null;
+    }
+
     try {
       const template = templates.find(t => t.id === id);
       if (!template) throw new Error('Template not found');
@@ -151,6 +169,7 @@ export function useBrandTemplates() {
         ...templateData,
         name: `${template.name} (Copy)`,
         is_default: false,
+        user_id: user.id,
       };
       
       const { data, error } = await supabase
@@ -205,7 +224,7 @@ export function useBrandTemplates() {
   const uploadLogo = async (file: File): Promise<string | null> => {
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const fileName = `${user?.id}/${crypto.randomUUID()}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
@@ -244,7 +263,7 @@ export function useBrandTemplates() {
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [user]);
 
   return {
     templates,
