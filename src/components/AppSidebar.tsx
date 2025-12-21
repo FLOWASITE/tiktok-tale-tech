@@ -1,4 +1,4 @@
-import { Film, Images, Settings, Palette, Bookmark, Layers, LayoutDashboard } from 'lucide-react';
+import { Film, Images, Settings, Palette, Bookmark, Layers, LayoutDashboard, User } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import {
@@ -22,6 +22,7 @@ const menuItems = [
   { title: 'Kịch bản Video', url: '/scripts', icon: Film },
   { title: 'Carousel Prompt', url: '/carousel', icon: Images },
   { title: 'Quản lý Brand', url: '/brands', icon: Bookmark },
+  { title: 'Tài khoản', url: '/account', icon: User },
 ];
 
 export function AppSidebar() {
