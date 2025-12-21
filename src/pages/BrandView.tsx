@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { 
   BRAND_POSITIONING_OPTIONS, 
@@ -8,10 +8,17 @@ import {
   FORMALITY_LEVEL_OPTIONS,
   LANGUAGE_STYLE_OPTIONS 
 } from '@/components/BrandVoiceSection';
+import { BrandForm } from '@/components/BrandForm';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   ArrowLeft, 
   Edit2, 
@@ -44,6 +51,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Channel } from '@/types/multichannel';
 import { toast } from 'sonner';
+import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,12 +90,26 @@ const channelLabels: Record<Channel, string> = {
   telegram: 'Telegram',
 };
 
+// Type for form data without ownership fields
+type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
+
 export default function BrandView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentOrganization } = useOrganizationContext();
-  const { templates, loading, deleteTemplate, setDefaultTemplate, duplicateTemplate } = useBrandTemplates();
+  const { 
+    templates, 
+    loading, 
+    updateTemplate, 
+    deleteTemplate, 
+    setDefaultTemplate, 
+    duplicateTemplate,
+    uploadLogo,
+    deleteLogo 
+  } = useBrandTemplates();
   const [template, setTemplate] = useState<BrandTemplate | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!loading && id) {
@@ -95,6 +117,46 @@ export default function BrandView() {
       setTemplate(found || null);
     }
   }, [templates, loading, id]);
+
+  const handleSubmit = async (
+    data: BrandFormData,
+    scope: BrandScope,
+    logoFile?: File | null,
+    shouldDeleteLogo?: boolean
+  ) => {
+    if (!template) return;
+    
+    setSaving(true);
+    try {
+      let logoUrl = data.logo_url;
+
+      if (shouldDeleteLogo && template.logo_url) {
+        await deleteLogo(template.logo_url);
+        logoUrl = null;
+      }
+
+      if (logoFile) {
+        if (template.logo_url) {
+          await deleteLogo(template.logo_url);
+        }
+        logoUrl = await uploadLogo(logoFile);
+      }
+
+      const templateData = { ...data, logo_url: logoUrl };
+
+      // Avoid "phantom saves" when user didn't change anything
+      if (!logoFile && !shouldDeleteLogo && !isBrandTemplateChanged(template, templateData)) {
+        setEditDialogOpen(false);
+        return;
+      }
+      
+      await updateTemplate(template.id, templateData);
+      setEditDialogOpen(false);
+      toast.success('Đã cập nhật brand template');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -214,11 +276,9 @@ export default function BrandView() {
             <Copy className="w-4 h-4 mr-1" />
             Sao chép
           </Button>
-          <Button size="sm" asChild>
-            <Link to={`/brands?edit=${template.id}`}>
-              <Edit2 className="w-4 h-4 mr-1" />
-              Chỉnh sửa
-            </Link>
+          <Button size="sm" onClick={() => setEditDialogOpen(true)}>
+            <Edit2 className="w-4 h-4 mr-1" />
+            Chỉnh sửa
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -464,6 +524,24 @@ export default function BrandView() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5 text-primary" />
+              Chỉnh sửa Brand Template
+            </DialogTitle>
+          </DialogHeader>
+          <BrandForm
+            template={template}
+            onSubmit={handleSubmit}
+            onCancel={() => setEditDialogOpen(false)}
+            isLoading={saving}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
