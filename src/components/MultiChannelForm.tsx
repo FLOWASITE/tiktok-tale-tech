@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CONTENT_GOALS, CHANNELS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -173,10 +174,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               </SelectContent>
             </Select>
             {selectedTemplate && (
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {selectedTemplate.brand_name}
-                {selectedTemplate.industry && selectedTemplate.industry.length > 0 && ` • ${selectedTemplate.industry.join(', ')}`}
-              </p>
+              <BrandPreviewCard template={selectedTemplate} />
             )}
           </div>
 
