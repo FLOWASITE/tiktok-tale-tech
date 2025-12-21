@@ -209,6 +209,45 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Brand Template - First */}
+            <div className="space-y-2">
+              <Label>Brand Template</Label>
+              <Select
+                value={brandTemplateId}
+                onValueChange={setBrandTemplateId}
+                disabled={isLoading || loadingTemplates}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      <span className="flex items-center gap-2">
+                        {template.primary_color && (
+                          <span
+                            className="w-3 h-3 rounded-full inline-block"
+                            style={{ backgroundColor: template.primary_color }}
+                          />
+                        )}
+                        <span>{template.name}</span>
+                        {template.is_default && (
+                          <span className="text-xs text-muted-foreground">(Mặc định)</span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedTemplate && (
+                <BrandAppliedInfo 
+                  template={selectedTemplate} 
+                  selectedChannels={selectedChannels}
+                  industry={industry}
+                />
+              )}
+            </div>
+
             {/* Topic */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -297,45 +336,6 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                   })}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Brand Template */}
-            <div className="space-y-2">
-              <Label>Brand Template</Label>
-              <Select
-                value={brandTemplateId}
-                onValueChange={setBrandTemplateId}
-                disabled={isLoading || loadingTemplates}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      <span className="flex items-center gap-2">
-                        {template.primary_color && (
-                          <span
-                            className="w-3 h-3 rounded-full inline-block"
-                            style={{ backgroundColor: template.primary_color }}
-                          />
-                        )}
-                        <span>{template.name}</span>
-                        {template.is_default && (
-                          <span className="text-xs text-muted-foreground">(Mặc định)</span>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            {selectedTemplate && (
-                <BrandAppliedInfo 
-                  template={selectedTemplate} 
-                  selectedChannels={selectedChannels}
-                  industry={industry}
-                />
-              )}
             </div>
 
             {/* Channels by Category */}
