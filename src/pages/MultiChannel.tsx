@@ -375,17 +375,27 @@ export default function MultiChannel() {
 
       {/* Form Sheet - Full Screen */}
       <Sheet open={formSheetOpen} onOpenChange={setFormSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-full md:max-w-2xl lg:max-w-3xl overflow-y-auto p-0">
+        <SheetContent side="right" className="w-full sm:max-w-full md:max-w-2xl lg:max-w-3xl overflow-y-auto p-0 [&>button]:hidden">
           <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
-            <SheetHeader>
-              <SheetTitle className="flex items-center gap-2">
-                <Plus className="w-5 h-5 text-primary" />
-                Tạo nội dung đa kênh mới
-              </SheetTitle>
-              <p className="text-sm text-muted-foreground">
-                Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc
-              </p>
-            </SheetHeader>
+            <div className="flex items-start justify-between gap-4">
+              <SheetHeader className="flex-1">
+                <SheetTitle className="flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-primary" />
+                  Tạo nội dung đa kênh mới
+                </SheetTitle>
+                <p className="text-sm text-muted-foreground">
+                  Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc
+                </p>
+              </SheetHeader>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setFormSheetOpen(false)}
+                className="h-9 w-9 shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
           <div className="p-6">
             <MultiChannelForm
