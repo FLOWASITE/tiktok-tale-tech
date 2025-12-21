@@ -106,6 +106,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       brand_guideline: brandGuideline.trim(),
       include_logo: includeLogo,
       is_default: false,
+      logo_url: null,
     });
 
     if (result) {

@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Palette, Plus, ArrowLeft } from 'lucide-react';
 
 export function BrandManagementDialog() {
-  const { templates, loading, saveTemplate, updateTemplate, deleteTemplate, setDefaultTemplate } = useBrandTemplates();
+  const { templates, loading, saveTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, uploadLogo, deleteLogo } = useBrandTemplates();
   const [open, setOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<BrandTemplate | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -35,13 +35,36 @@ export function BrandManagementDialog() {
     setShowForm(false);
   };
 
-  const handleSubmit = async (data: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleSubmit = async (
+    data: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>,
+    logoFile?: File | null,
+    shouldDeleteLogo?: boolean
+  ) => {
     setSaving(true);
     try {
+      let logoUrl = data.logo_url;
+
+      // Handle logo deletion
+      if (shouldDeleteLogo && editingTemplate?.logo_url) {
+        await deleteLogo(editingTemplate.logo_url);
+        logoUrl = null;
+      }
+
+      // Handle new logo upload
+      if (logoFile) {
+        // Delete old logo first if exists
+        if (editingTemplate?.logo_url) {
+          await deleteLogo(editingTemplate.logo_url);
+        }
+        logoUrl = await uploadLogo(logoFile);
+      }
+
+      const templateData = { ...data, logo_url: logoUrl };
+
       if (editingTemplate) {
-        await updateTemplate(editingTemplate.id, data);
+        await updateTemplate(editingTemplate.id, templateData);
       } else {
-        await saveTemplate(data);
+        await saveTemplate(templateData);
       }
       setShowForm(false);
       setEditingTemplate(null);

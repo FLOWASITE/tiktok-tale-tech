@@ -9,9 +9,12 @@ export interface BrandTemplate {
   brand_guideline: string;
   include_logo: boolean;
   is_default: boolean;
+  logo_url: string | null;
   created_at: string;
   updated_at: string;
 }
+
+const BUCKET_NAME = 'brand-logos';
 
 export function useBrandTemplates() {
   const [templates, setTemplates] = useState<BrandTemplate[]>([]);
@@ -109,6 +112,18 @@ export function useBrandTemplates() {
 
   const deleteTemplate = async (id: string) => {
     try {
+      // Get template to check for logo
+      const template = templates.find(t => t.id === id);
+      if (template?.logo_url) {
+        // Extract file path from URL and delete from storage
+        const url = new URL(template.logo_url);
+        const pathParts = url.pathname.split('/');
+        const filePath = pathParts.slice(pathParts.indexOf(BUCKET_NAME) + 1).join('/');
+        if (filePath) {
+          await supabase.storage.from(BUCKET_NAME).remove([filePath]);
+        }
+      }
+      
       const { error } = await supabase.from('brand_templates').delete().eq('id', id);
       if (error) throw error;
       setTemplates((prev) => prev.filter((t) => t.id !== id));
@@ -116,6 +131,46 @@ export function useBrandTemplates() {
     } catch (error) {
       console.error('Error deleting template:', error);
       toast.error('Không thể xóa template');
+    }
+  };
+
+  const uploadLogo = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(fileName, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(fileName);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      toast.error('Không thể upload logo');
+      return null;
+    }
+  };
+
+  const deleteLogo = async (logoUrl: string): Promise<boolean> => {
+    try {
+      const url = new URL(logoUrl);
+      const pathParts = url.pathname.split('/');
+      const filePath = pathParts.slice(pathParts.indexOf(BUCKET_NAME) + 1).join('/');
+      
+      if (!filePath) return false;
+      
+      const { error } = await supabase.storage.from(BUCKET_NAME).remove([filePath]);
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting logo:', error);
+      return false;
     }
   };
 
@@ -130,6 +185,8 @@ export function useBrandTemplates() {
     updateTemplate,
     deleteTemplate,
     setDefaultTemplate,
+    uploadLogo,
+    deleteLogo,
     refetch: fetchTemplates,
   };
 }
