@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, Settings, Sparkles, Palette, HelpCircle, Check, Shield } from 'lucide-react';
+import { User, LogOut, Settings, Sparkles, Palette, HelpCircle, Check, Shield, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -101,6 +101,11 @@ export function UserAvatar() {
           <DropdownMenuItem onClick={() => navigate('/account')}>
             <User className="mr-2 h-4 w-4" />
             Tài khoản
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => navigate('/organization')}>
+            <Building2 className="mr-2 h-4 w-4" />
+            Tổ chức
           </DropdownMenuItem>
           
           {isAdmin && (
