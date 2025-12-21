@@ -166,7 +166,8 @@ export function MultiChannelViewer({
     historyCount,
   } = useUndoRedo('');
 
-  // Draft auto-save hook
+  // Draft auto-save hook - use stable id
+  const contentId = content?.id || null;
   const {
     hasDraft,
     lastSaved: draftLastSaved,
@@ -174,7 +175,7 @@ export function MultiChannelViewer({
     loadDraft,
     saveDraft,
     clearDraft,
-  } = useDraft(content?.id || null, editingChannel);
+  } = useDraft(contentId, editingChannel);
 
   // Auto-save draft when editing
   useEffect(() => {
@@ -195,6 +196,30 @@ export function MultiChannelViewer({
     }
   }, [open, resetEditContent]);
 
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!editingChannel) return;
+      
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingChannel, undo, redo]);
+
+  // Early return after all hooks
   if (!content) return null;
 
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
@@ -293,29 +318,6 @@ export function MultiChannelViewer({
       setIsSaving(false);
     }
   };
-
-  // Keyboard shortcuts for undo/redo
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!editingChannel) return;
-      
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          redo();
-        } else {
-          undo();
-        }
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
-        e.preventDefault();
-        redo();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editingChannel, undo, redo]);
 
   const handleAIEdit = async (channel: Channel, instruction: string) => {
     if (!onAIEdit || aiEditingChannel) return;
