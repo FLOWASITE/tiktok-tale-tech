@@ -55,6 +55,7 @@ export type Database = {
           caption_suggestion: string | null
           created_at: string
           cta_suggestion: string | null
+          generated_images: Json | null
           id: string
           include_logo: boolean
           platform: Database["public"]["Enums"]["carousel_platform"]
@@ -71,6 +72,7 @@ export type Database = {
           caption_suggestion?: string | null
           created_at?: string
           cta_suggestion?: string | null
+          generated_images?: Json | null
           id?: string
           include_logo?: boolean
           platform?: Database["public"]["Enums"]["carousel_platform"]
@@ -87,6 +89,7 @@ export type Database = {
           caption_suggestion?: string | null
           created_at?: string
           cta_suggestion?: string | null
+          generated_images?: Json | null
           id?: string
           include_logo?: boolean
           platform?: Database["public"]["Enums"]["carousel_platform"]
