@@ -165,6 +165,66 @@ export function useMultiChannelContents() {
     }
   };
 
+  const updateChannelContent = async (contentId: string, channel: Channel, newContent: string): Promise<MultiChannelContent | null> => {
+    try {
+      const fieldMap: Record<Channel, string> = {
+        website: 'website_content',
+        facebook: 'facebook_content',
+        instagram: 'instagram_content',
+        twitter: 'twitter_content',
+        google_maps: 'google_maps_content',
+      };
+
+      const updateField = fieldMap[channel];
+      
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ [updateField]: newContent })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent: MultiChannelContent = {
+        id: data.id,
+        title: data.title,
+        topic: data.topic,
+        industry: data.industry,
+        content_goal: data.content_goal as ContentGoal,
+        selected_channels: data.selected_channels as Channel[],
+        brand_template_id: data.brand_template_id,
+        brand_name: data.brand_name,
+        brand_guideline: data.brand_guideline,
+        primary_color: data.primary_color,
+        website_content: data.website_content,
+        facebook_content: data.facebook_content,
+        instagram_content: data.instagram_content,
+        twitter_content: data.twitter_content,
+        google_maps_content: data.google_maps_content,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: 'Đã lưu',
+        description: 'Nội dung đã được cập nhật',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error updating channel content:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể lưu nội dung',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
   const deleteContent = async (id: string) => {
     try {
       const { error } = await supabase
@@ -201,6 +261,7 @@ export function useMultiChannelContents() {
     regeneratingChannel,
     generateContent,
     regenerateChannel,
+    updateChannelContent,
     deleteContent,
     refetch: fetchContents,
   };
