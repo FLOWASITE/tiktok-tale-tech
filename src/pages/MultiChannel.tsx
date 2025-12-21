@@ -9,7 +9,7 @@ import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { MultiChannelContent, ContentGoal, Channel } from '@/types/multichannel';
 
 export default function MultiChannel() {
-  const { contents, loading, generating, generateContent, deleteContent } = useMultiChannelContents();
+  const { contents, loading, generating, regeneratingChannel, generateContent, regenerateChannel, deleteContent } = useMultiChannelContents();
   
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -46,6 +46,14 @@ export default function MultiChannel() {
   const handleView = (content: MultiChannelContent) => {
     setSelectedContent(content);
     setViewerOpen(true);
+  };
+
+  const handleRegenerate = async (contentId: string, channel: Channel) => {
+    const updated = await regenerateChannel(contentId, channel);
+    if (updated) {
+      setSelectedContent(updated);
+    }
+    return updated;
   };
 
   const handleDelete = async (id: string) => {
@@ -138,6 +146,8 @@ export default function MultiChannel() {
         content={selectedContent}
         open={viewerOpen}
         onOpenChange={setViewerOpen}
+        onRegenerate={handleRegenerate}
+        regeneratingChannel={regeneratingChannel}
       />
     </div>
   );
