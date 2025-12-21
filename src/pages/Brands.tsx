@@ -267,7 +267,7 @@ export default function Brands() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Palette className="w-6 h-6 text-primary" />
-            Quản lý Brand Templates
+            Quản lý Brand
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Quản lý thương hiệu và phong cách nội dung
@@ -414,9 +414,9 @@ export default function Brands() {
             </div>
           ) : (
             <>
-              <h3 className="text-xl font-semibold">Chưa có Brand Template nào</h3>
+              <h3 className="text-xl font-semibold">Chưa có Brand nào</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Brand Template giúp tạo nội dung nhất quán với phong cách thương hiệu của bạn. Bắt đầu bằng cách tạo template đầu tiên hoặc để AI gợi ý cho bạn.
+                Brand giúp tạo nội dung nhất quán với phong cách thương hiệu của bạn. Bắt đầu bằng cách tạo brand đầu tiên hoặc để AI gợi ý cho bạn.
               </p>
               <div className="flex justify-center gap-3 pt-2">
                 <Button onClick={handleCreate}>
@@ -472,7 +472,7 @@ export default function Brands() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Palette className="w-5 h-5 text-primary" />
-              {editingTemplate ? 'Chỉnh sửa Brand Template' : 'Tạo Brand Template mới'}
+              {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
             </DialogTitle>
           </DialogHeader>
           <BrandForm
