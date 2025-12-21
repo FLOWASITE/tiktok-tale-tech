@@ -1029,6 +1029,13 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               languageStyle={languageStyle}
               preferredWords={preferredWords}
               forbiddenWords={forbiddenWords}
+              hasLogo={!!logoFile || !!logoPreview || !!template?.logo_url}
+              onGuidelineGenerated={(result) => {
+                setBrandGuideline(result.guideline);
+                if (result.example_good) setGuidelineExampleGood(result.example_good);
+                if (result.example_bad) setGuidelineExampleBad(result.example_bad);
+                if (result.key_principles) setGuidelineKeyPrinciples(result.key_principles);
+              }}
               onApply={(suggestions) => {
                 if (suggestions.brand_positioning) setBrandPositioning(suggestions.brand_positioning);
                 if (suggestions.tone_of_voice) setToneOfVoice(suggestions.tone_of_voice);
