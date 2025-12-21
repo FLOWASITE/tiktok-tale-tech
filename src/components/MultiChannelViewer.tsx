@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { MultiChannelContent, Channel, CONTENT_GOALS } from '@/types/multichannel';
+import { MultiChannelContent, Channel, CONTENT_GOALS, ChannelImage } from '@/types/multichannel';
 import { DEFAULT_CHANNEL_SETTINGS } from '@/types/channelSettings';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
@@ -27,6 +27,7 @@ import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
 import { SmartQuickActions } from '@/components/SmartQuickActions';
 import { ImagePromptEditor } from '@/components/ImagePromptEditor';
 import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
+import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -35,6 +36,8 @@ interface MultiChannelViewerProps {
   onRegenerate?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | null>;
   onUpdateContent?: (contentId: string, channel: Channel, newContent: string) => Promise<MultiChannelContent | null>;
   onAIEdit?: (contentId: string, channel: Channel, instruction: string, currentContent: string) => Promise<string | null>;
+  onSaveChannelImage?: (contentId: string, channel: Channel, imageData: ChannelImage) => Promise<MultiChannelContent | void>;
+  onDeleteChannelImage?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | void>;
   regeneratingChannel?: string | null;
   aiEditingChannel?: string | null;
 }
@@ -154,6 +157,8 @@ export function MultiChannelViewer({
   onRegenerate,
   onUpdateContent,
   onAIEdit,
+  onSaveChannelImage,
+  onDeleteChannelImage,
   regeneratingChannel,
   aiEditingChannel,
 }: MultiChannelViewerProps) {
@@ -167,6 +172,8 @@ export function MultiChannelViewer({
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [imageEditorChannel, setImageEditorChannel] = useState<Channel | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
+  const [showGallery, setShowGallery] = useState(false);
+  const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo hook for edit content
@@ -420,37 +427,75 @@ export function MultiChannelViewer({
                 </Badge>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportAll}>
-              <Download className="w-4 h-4 mr-1.5" />
-              Export
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Gallery Toggle Button */}
+              <Button 
+                variant={showGallery ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setShowGallery(!showGallery)}
+                className="gap-1.5"
+              >
+                <Images className="w-4 h-4" />
+                Thư viện ảnh
+                {Object.keys(content.channel_images || {}).length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {Object.keys(content.channel_images || {}).length}
+                  </Badge>
+                )}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportAll}>
+                <Download className="w-4 h-4 mr-1.5" />
+                Export
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue={firstChannel} className="flex-1 flex flex-col">
-          <div className="px-6 pt-4">
-            <TabsList className="w-full justify-start gap-1 h-auto flex-wrap bg-transparent p-0">
-              {content.selected_channels.map((channel) => {
-                const config = channelConfig[channel];
-                const isRegenerating = regeneratingChannel === channel;
-                return (
-                  <TabsTrigger
-                    key={channel}
-                    value={channel}
-                    disabled={isRegenerating}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg data-[state=active]:${config.bgColor} data-[state=active]:${config.color}`}
-                  >
-                    {isRegenerating ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <span className={config.color}>{config.icon}</span>
-                    )}
-                    <span>{config.label}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+        {showGallery ? (
+          <div className="p-6">
+            <ChannelImagesGallery
+              channelImages={content.channel_images || {}}
+              selectedChannels={content.selected_channels}
+              onDeleteImage={onDeleteChannelImage ? async (channel) => {
+                setDeletingImageChannel(channel);
+                try {
+                  await onDeleteChannelImage(content.id, channel);
+                } finally {
+                  setDeletingImageChannel(null);
+                }
+              } : undefined}
+              isDeleting={deletingImageChannel}
+            />
           </div>
+        ) : (
+          <Tabs defaultValue={firstChannel} className="flex-1 flex flex-col">
+            <div className="px-6 pt-4">
+              <TabsList className="w-full justify-start gap-1 h-auto flex-wrap bg-transparent p-0">
+                {content.selected_channels.map((channel) => {
+                  const config = channelConfig[channel];
+                  const isRegenerating = regeneratingChannel === channel;
+                  const hasImage = !!(content.channel_images?.[channel]?.url);
+                  return (
+                    <TabsTrigger
+                      key={channel}
+                      value={channel}
+                      disabled={isRegenerating}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg data-[state=active]:${config.bgColor} data-[state=active]:${config.color}`}
+                    >
+                      {isRegenerating ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <span className={config.color}>{config.icon}</span>
+                      )}
+                      <span>{config.label}</span>
+                      {hasImage && (
+                        <span className="w-2 h-2 rounded-full bg-green-500" title="Có ảnh" />
+                      )}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
 
           {content.selected_channels.map((channel) => {
             const channelContent = getContentForChannel(content, channel);
@@ -853,7 +898,8 @@ export function MultiChannelViewer({
               </TabsContent>
             );
           })}
-        </Tabs>
+          </Tabs>
+        )}
       </DialogContent>
       
       {/* Image Prompt Editor Modal */}
