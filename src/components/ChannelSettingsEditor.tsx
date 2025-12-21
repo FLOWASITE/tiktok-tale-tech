@@ -38,6 +38,7 @@ interface ChannelSettingsEditorProps {
   value: ChannelOverrides;
   onChange: (value: ChannelOverrides) => void;
   defaultExpanded?: boolean;
+  showWrapper?: boolean;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -272,7 +273,7 @@ function ChannelSettingRow({
   );
 }
 
-export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false }: ChannelSettingsEditorProps) {
+export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false, showWrapper = true }: ChannelSettingsEditorProps) {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
   
   const hasAnyOverrides = Object.keys(value).some(
@@ -332,6 +333,26 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
     onChange({});
   };
 
+  // Render channel list directly without collapsible wrapper
+  const channelList = (
+    <div className="space-y-2">
+      {CHANNELS.map((ch) => (
+        <ChannelSettingRow
+          key={ch.value}
+          channel={ch.value}
+          override={value[ch.value]}
+          onUpdate={(update) => handleUpdateChannel(ch.value, update)}
+          onReset={() => handleResetChannel(ch.value)}
+        />
+      ))}
+    </div>
+  );
+
+  // When showWrapper is false, just render the channel list
+  if (!showWrapper) {
+    return channelList;
+  }
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border border-border/50 rounded-lg">
       <CollapsibleTrigger asChild>
@@ -371,17 +392,7 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
             </Button>
           )}
 
-          <div className="space-y-2">
-            {CHANNELS.map((ch) => (
-              <ChannelSettingRow
-                key={ch.value}
-                channel={ch.value}
-                override={value[ch.value]}
-                onUpdate={(update) => handleUpdateChannel(ch.value, update)}
-                onReset={() => handleResetChannel(ch.value)}
-              />
-            ))}
-          </div>
+          {channelList}
         </div>
       </CollapsibleContent>
     </Collapsible>
