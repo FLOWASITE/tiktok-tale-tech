@@ -1,6 +1,7 @@
-import { Film, Images, Settings, Palette, Bookmark, Layers, LayoutDashboard, User } from 'lucide-react';
+import { Film, Images, Settings, Palette, Bookmark, Layers, LayoutDashboard, User, Shield } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
+import { useAdmin } from '@/hooks/useAdmin';
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +28,7 @@ const menuItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { isAdmin } = useAdmin();
   const isCollapsed = state === 'collapsed';
 
   return (
@@ -72,6 +74,33 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <>
+            <SidebarSeparator className="my-2" />
+            <SidebarGroup>
+              <SidebarGroupLabel className={isCollapsed ? 'sr-only' : ''}>
+                Quản trị
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Admin Panel">
+                      <NavLink
+                        to="/admin"
+                        className="flex items-center gap-3 text-red-500/80 hover:text-red-500 transition-colors"
+                        activeClassName="bg-red-500/10 text-red-500 font-medium"
+                      >
+                        <Shield className="w-4 h-4 flex-shrink-0" />
+                        <span className={isCollapsed ? 'sr-only' : ''}>Admin Panel</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         <SidebarSeparator className="my-2" />
 

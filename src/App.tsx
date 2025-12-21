@@ -14,6 +14,7 @@ import Brands from "./pages/Brands";
 import MultiChannel from "./pages/MultiChannel";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +88,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Account />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Admin />
                     </AppLayout>
                   </ProtectedRoute>
                 }
