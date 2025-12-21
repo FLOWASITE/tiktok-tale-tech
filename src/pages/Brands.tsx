@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
+import { BrandBulkActionsBar } from '@/components/BrandBulkActionsBar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -19,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List } from 'lucide-react';
+import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List, Wand2, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +54,9 @@ export default function Brands() {
   const [sortBy, setSortBy] = useState<SortOption>('is_default');
   const [filterScope, setFilterScope] = useState<FilterScope>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCreate = () => {
     setEditingTemplate(null);
@@ -139,7 +145,6 @@ export default function Brands() {
             is_default: false,
             logo_url: null,
             primary_color: template.primary_color ?? '#000000',
-            // Brand Voice defaults for import
             brand_positioning: template.brand_positioning ?? null,
             tone_of_voice: template.tone_of_voice ?? null,
             formality_level: template.formality_level ?? null,
@@ -162,36 +167,94 @@ export default function Brands() {
     }
   };
 
+  // Selection handlers
+  const handleSelectChange = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(filteredTemplates.map(t => t.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+    setIsSelectionMode(false);
+  };
+
+  const handleBulkDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const idsToDelete = Array.from(selectedIds);
+      for (const id of idsToDelete) {
+        await deleteTemplate(id);
+      }
+      toast.success(`Đã xóa ${idsToDelete.length} templates!`);
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+    } catch {
+      toast.error('Có lỗi xảy ra khi xóa templates');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkExport = () => {
+    const selectedTemplates = templates.filter(t => selectedIds.has(t.id));
+    const exportData = selectedTemplates.map(({ id, created_at, updated_at, user_id, organization_id, ...rest }) => rest);
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `brand-templates-selected-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Đã xuất ${selectedTemplates.length} templates!`);
+  };
+
+  const toggleSelectionMode = () => {
+    if (isSelectionMode) {
+      handleClearSelection();
+    } else {
+      setIsSelectionMode(true);
+    }
+  };
+
   // Filter and sort templates
-  const filteredTemplates = templates
-    .filter(t => {
-      // Search filter
-      const matchesSearch = 
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.brand_name.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Scope filter
-      let matchesScope = true;
-      if (filterScope === 'personal') {
-        matchesScope = !!t.user_id && !t.organization_id;
-      } else if (filterScope === 'organization') {
-        matchesScope = !!t.organization_id;
-      }
-      
-      return matchesSearch && matchesScope;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'created_at':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'is_default':
-          return (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0);
-        default:
-          return 0;
-      }
-    });
+  const filteredTemplates = useMemo(() => {
+    return templates
+      .filter(t => {
+        const matchesSearch = 
+          t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          t.brand_name.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        let matchesScope = true;
+        if (filterScope === 'personal') {
+          matchesScope = !!t.user_id && !t.organization_id;
+        } else if (filterScope === 'organization') {
+          matchesScope = !!t.organization_id;
+        }
+        
+        return matchesSearch && matchesScope;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'name':
+            return a.name.localeCompare(b.name);
+          case 'created_at':
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          case 'is_default':
+            return (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0);
+          default:
+            return 0;
+        }
+      });
+  }, [templates, searchQuery, filterScope, sortBy]);
 
   // Count templates by scope
   const personalCount = templates.filter(t => !!t.user_id && !t.organization_id).length;
@@ -207,7 +270,7 @@ export default function Brands() {
             Quản lý Brand Templates
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {templates.length} templates
+            Quản lý thương hiệu và phong cách nội dung
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -231,6 +294,28 @@ export default function Brands() {
             Tạo mới
           </Button>
         </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="p-4">
+          <p className="text-2xl font-bold text-primary">{templates.length}</p>
+          <p className="text-xs text-muted-foreground">Tổng brands</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-muted-foreground" />
+            <p className="text-2xl font-bold">{personalCount}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">Cá nhân</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-muted-foreground" />
+            <p className="text-2xl font-bold">{orgCount}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">Tổ chức</p>
+        </Card>
       </div>
 
       {/* Tabs for scope filtering */}
@@ -278,6 +363,16 @@ export default function Brands() {
             </SelectContent>
           </Select>
           
+          {/* Selection mode toggle */}
+          <Button
+            variant={isSelectionMode ? 'secondary' : 'outline'}
+            size="icon"
+            onClick={toggleSelectionMode}
+            disabled={filteredTemplates.length === 0}
+          >
+            <CheckSquare className="w-4 h-4" />
+          </Button>
+          
           {/* View mode toggle */}
           <div className="flex border rounded-md">
             <Button
@@ -306,23 +401,33 @@ export default function Brands() {
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
       ) : filteredTemplates.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-            <Palette className="w-8 h-8 text-muted-foreground" />
+        <div className="text-center py-16 space-y-4">
+          <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+            <Palette className="w-12 h-12 text-primary" />
           </div>
           {searchQuery || filterScope !== 'all' ? (
-            <p className="text-muted-foreground">
-              Không tìm thấy template nào phù hợp
-            </p>
+            <div>
+              <h3 className="text-lg font-semibold">Không tìm thấy</h3>
+              <p className="text-muted-foreground text-sm">
+                Không có template nào phù hợp với bộ lọc hiện tại
+              </p>
+            </div>
           ) : (
             <>
-              <p className="text-muted-foreground mb-4">
-                Chưa có brand template nào
+              <h3 className="text-xl font-semibold">Chưa có Brand Template nào</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Brand Template giúp tạo nội dung nhất quán với phong cách thương hiệu của bạn. Bắt đầu bằng cách tạo template đầu tiên hoặc để AI gợi ý cho bạn.
               </p>
-              <Button onClick={handleCreate}>
-                <Plus className="w-4 h-4 mr-2" />
-                Tạo template đầu tiên
-              </Button>
+              <div className="flex justify-center gap-3 pt-2">
+                <Button onClick={handleCreate}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Tạo Brand đầu tiên
+                </Button>
+                <Button variant="outline" onClick={handleCreate}>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Dùng AI tạo nhanh
+                </Button>
+              </div>
             </>
           )}
         </div>
@@ -336,15 +441,30 @@ export default function Brands() {
             <BrandCard
               key={template.id}
               template={template}
+              organizationName={currentOrganization?.name}
               onEdit={handleEdit}
               onDelete={deleteTemplate}
               onSetDefault={setDefaultTemplate}
               onDuplicate={duplicateTemplate}
               compact={viewMode === 'list'}
+              selectable={isSelectionMode}
+              selected={selectedIds.has(template.id)}
+              onSelectChange={handleSelectChange}
             />
           ))}
         </div>
       )}
+
+      {/* Bulk Actions Bar */}
+      <BrandBulkActionsBar
+        selectedCount={selectedIds.size}
+        totalCount={filteredTemplates.length}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+        onBulkDelete={handleBulkDelete}
+        onBulkExport={handleBulkExport}
+        isDeleting={isDeleting}
+      />
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
