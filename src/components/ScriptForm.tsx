@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { 
   ScriptFormData, 
   VideoType, 
@@ -20,12 +21,24 @@ interface ScriptFormProps {
 }
 
 export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
+  const { templates, loading: templatesLoading } = useBrandTemplates();
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: '',
     duration: 60,
     video_type: 'expert_share',
     character_type: 'male_expert',
+    brandTemplateId: undefined,
   });
+
+  // Set default template on load
+  useEffect(() => {
+    if (!templatesLoading && templates.length > 0 && !formData.brandTemplateId) {
+      const defaultTemplate = templates.find(t => t.is_default);
+      if (defaultTemplate) {
+        setFormData(prev => ({ ...prev, brandTemplateId: defaultTemplate.id }));
+      }
+    }
+  }, [templates, templatesLoading, formData.brandTemplateId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +61,35 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           className="min-h-[100px] bg-muted/50 border-border focus:border-primary focus:ring-primary/20 resize-none"
           disabled={isLoading}
         />
+      </div>
+
+      {/* Brand Template Select */}
+      <div className="space-y-2">
+        <Label htmlFor="brandTemplate" className="text-foreground font-medium">
+          Brand Template <span className="text-xs text-muted-foreground">(Brand Voice)</span>
+        </Label>
+        <Select
+          value={formData.brandTemplateId || 'none'}
+          onValueChange={(value) => setFormData({ ...formData, brandTemplateId: value === 'none' ? undefined : value })}
+          disabled={isLoading || templatesLoading}
+        >
+          <SelectTrigger className="bg-muted/50 border-border focus:border-primary">
+            <SelectValue placeholder="Chọn Brand Template..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Không sử dụng</SelectItem>
+            {templates.map((template) => (
+              <SelectItem key={template.id} value={template.id}>
+                {template.name} {template.is_default && '(Mặc định)'}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {formData.brandTemplateId && (
+          <p className="text-xs text-muted-foreground">
+            Kịch bản sẽ tuân theo Brand Voice đã cấu hình trong template
+          </p>
+        )}
       </div>
 
       {/* Duration Select */}
