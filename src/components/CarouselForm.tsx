@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   CarouselFormData,
   Platform,
   AITool,
@@ -20,7 +27,20 @@ import {
   AI_TOOL_OPTIONS,
   SLIDE_COUNT_OPTIONS,
 } from '@/types/carousel';
-import { Images, Loader2 } from 'lucide-react';
+import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { Images, Loader2, Save, Trash2, Bookmark } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface CarouselFormProps {
   onSubmit: (data: CarouselFormData) => void;
@@ -28,6 +48,8 @@ interface CarouselFormProps {
 }
 
 export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
+  const { templates, loading: templatesLoading, saveTemplate, deleteTemplate } = useBrandTemplates();
+  
   const [topic, setTopic] = useState('');
   const [platform, setPlatform] = useState<Platform>('facebook');
   const [slideCount, setSlideCount] = useState(6);
@@ -35,6 +57,63 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
   const [brandName, setBrandName] = useState('Thuế Hộ by TAF.vn');
   const [brandGuideline, setBrandGuideline] = useState(DEFAULT_BRAND_GUIDELINE);
   const [includeLogo, setIncludeLogo] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+
+  // Load default template on mount
+  useEffect(() => {
+    if (!templatesLoading && templates.length > 0) {
+      const defaultTemplate = templates.find(t => t.is_default);
+      if (defaultTemplate) {
+        applyTemplate(defaultTemplate);
+        setSelectedTemplateId(defaultTemplate.id);
+      }
+    }
+  }, [templatesLoading, templates]);
+
+  const applyTemplate = (template: BrandTemplate) => {
+    setBrandName(template.brand_name);
+    setBrandGuideline(template.brand_guideline);
+    setIncludeLogo(template.include_logo);
+  };
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (templateId === 'custom') {
+      // Reset to default values for custom
+      setBrandName('');
+      setBrandGuideline('');
+      setIncludeLogo(true);
+    } else {
+      const template = templates.find(t => t.id === templateId);
+      if (template) {
+        applyTemplate(template);
+      }
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!newTemplateName.trim() || !brandName.trim() || !brandGuideline.trim()) {
+      toast.error('Vui lòng điền đầy đủ thông tin');
+      return;
+    }
+
+    const result = await saveTemplate({
+      name: newTemplateName.trim(),
+      brand_name: brandName.trim(),
+      brand_guideline: brandGuideline.trim(),
+      include_logo: includeLogo,
+      is_default: false,
+    });
+
+    if (result) {
+      setSaveDialogOpen(false);
+      setNewTemplateName('');
+      setSelectedTemplateId(result.id);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +201,46 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
         </Select>
       </div>
 
+      {/* Brand Template Selector */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium flex items-center gap-1.5">
+            <Bookmark className="w-4 h-4" />
+            Brand Template
+          </Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setSaveDialogOpen(true)}
+            className="h-7 text-xs"
+          >
+            <Save className="w-3 h-3 mr-1" />
+            Lưu Template
+          </Button>
+        </div>
+        <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
+          <SelectTrigger className="bg-background/50 border-border/50">
+            <SelectValue placeholder="Chọn template..." />
+          </SelectTrigger>
+          <SelectContent className="bg-popover border-border">
+            <SelectItem value="custom">
+              <span className="text-muted-foreground">Tùy chỉnh mới...</span>
+            </SelectItem>
+            {templates.map((template) => (
+              <SelectItem key={template.id} value={template.id}>
+                <div className="flex items-center gap-2">
+                  <span>{template.name}</span>
+                  {template.is_default && (
+                    <span className="text-xs text-primary">(Mặc định)</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Brand Name */}
       <div className="space-y-2">
         <Label htmlFor="brandName" className="text-sm font-medium">
@@ -138,9 +257,46 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
 
       {/* Brand Guideline */}
       <div className="space-y-2">
-        <Label htmlFor="brandGuideline" className="text-sm font-medium">
-          Brand Guideline
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="brandGuideline" className="text-sm font-medium">
+            Brand Guideline
+          </Label>
+          {selectedTemplateId && selectedTemplateId !== 'custom' && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Xóa Template
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận xóa template</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có chắc chắn muốn xóa template này? Hành động này không thể hoàn tác.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      deleteTemplate(selectedTemplateId);
+                      setSelectedTemplateId('custom');
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Xóa
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
         <Textarea
           id="brandGuideline"
           placeholder="Nhập hướng dẫn về thương hiệu..."
@@ -181,6 +337,43 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
           </>
         )}
       </Button>
+
+      {/* Save Template Dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lưu Brand Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="templateName">Tên Template</Label>
+              <Input
+                id="templateName"
+                placeholder="VD: Template chính của công ty"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium mb-1">Sẽ lưu:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Tên brand: {brandName || '(chưa nhập)'}</li>
+                <li>Brand guideline: {brandGuideline ? `${brandGuideline.slice(0, 50)}...` : '(chưa nhập)'}</li>
+                <li>Logo: {includeLogo ? 'Có' : 'Không'}</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleSaveTemplate}>
+              <Save className="w-4 h-4 mr-2" />
+              Lưu Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

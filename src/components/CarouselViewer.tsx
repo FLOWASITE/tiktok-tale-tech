@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone } from 'lucide-react';
+import { Copy, Check, Images, MessageSquare, Megaphone, Download } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
@@ -31,6 +31,74 @@ const aiToolLabels: Record<string, string> = {
   midjourney: 'Midjourney',
   dalle: 'DALL·E',
   leonardo: 'Leonardo',
+};
+
+const generateExportContent = (carousel: Carousel): string => {
+  const header = `═══════════════════════════════════════════════════════════════
+CAROUSEL PROMPTS - ${carousel.title}
+═══════════════════════════════════════════════════════════════
+
+📋 Thông tin:
+- Chủ đề: ${carousel.topic}
+- Nền tảng: ${platformLabels[carousel.platform]}
+- Công cụ AI: ${aiToolLabels[carousel.ai_tool]}
+- Số slides: ${carousel.slide_count}
+- Brand: ${carousel.brand_name}
+- Ngày tạo: ${new Date(carousel.created_at).toLocaleDateString('vi-VN')}
+
+═══════════════════════════════════════════════════════════════
+PROMPTS CHO TỪNG SLIDE
+═══════════════════════════════════════════════════════════════
+
+`;
+
+  const slidesContent = carousel.slides_content.map((slide) => `
+───────────────────────────────────────────────────────────────
+📌 SLIDE ${slide.slideNumber}/${carousel.slide_count}
+───────────────────────────────────────────────────────────────
+
+[1] MỤC TIÊU SLIDE:
+${slide.objective}
+
+[2] NỘI DUNG CHỮ TRÊN ẢNH:
+${slide.textContent}
+
+[3] PHONG CÁCH THIẾT KẾ:
+${slide.designStyle}
+
+[4] MÀU SẮC – BỐ CỤC:
+${slide.colorLayout}
+
+[5] TỈ LỆ KHUNG HÌNH:
+${slide.aspectRatio}
+
+[6] YÊU CẦU KỸ THUẬT:
+${slide.technicalRequirements}
+
+🎨 PROMPT HOÀN CHỈNH (Copy để sử dụng):
+────────────────────────────────────────
+${slide.fullPrompt}
+────────────────────────────────────────
+`).join('\n');
+
+  const footer = `
+
+═══════════════════════════════════════════════════════════════
+GỢI Ý ĐĂNG BÀI
+═══════════════════════════════════════════════════════════════
+
+📝 CAPTION:
+${carousel.caption_suggestion || 'Chưa có gợi ý'}
+
+📣 CTA KÉO TƯƠNG TÁC:
+${carousel.cta_suggestion || 'Chưa có gợi ý'}
+
+═══════════════════════════════════════════════════════════════
+Được tạo bởi Content AI - ${new Date().toLocaleDateString('vi-VN')}
+═══════════════════════════════════════════════════════════════
+`;
+
+  return header + slidesContent + footer;
 };
 
 export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerProps) {
@@ -76,6 +144,20 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
     }
   };
 
+  const handleExportTxt = () => {
+    const content = generateExportContent(carousel);
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `carousel-${carousel.title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Đã xuất file TXT!');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
@@ -98,19 +180,28 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
                 <Badge variant="outline">{carousel.brand_name}</Badge>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyAll}
-              className="shrink-0"
-            >
-              {copiedAll ? (
-                <Check className="w-4 h-4 text-green-500" />
-              ) : (
-                <Copy className="w-4 h-4" />
-              )}
-              <span className="ml-1.5">Copy Tất Cả</span>
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportTxt}
+              >
+                <Download className="w-4 h-4" />
+                <span className="ml-1.5">Export TXT</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyAll}
+              >
+                {copiedAll ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+                <span className="ml-1.5">Copy Tất Cả</span>
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
