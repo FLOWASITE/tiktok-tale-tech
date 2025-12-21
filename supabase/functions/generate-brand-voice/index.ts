@@ -14,11 +14,11 @@ serve(async (req) => {
   try {
     const { description, industry, generateGuideline } = await req.json();
     
-    // Validate: require at least 2 meaningful words instead of character count
-    const words = (description || '').trim().split(/\s+/).filter((w: string) => w.length > 0);
-    if (words.length < 2) {
+    // Validate: require at least 1 meaningful word (min 2 characters)
+    const trimmedDesc = (description || '').trim();
+    if (trimmedDesc.length < 2) {
       return new Response(
-        JSON.stringify({ error: 'Vui lòng mô tả chi tiết hơn (ít nhất 2 từ, ví dụ: "Dịch vụ Marketing")' }),
+        JSON.stringify({ error: 'Vui lòng nhập mô tả sản phẩm/dịch vụ của bạn' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
