@@ -315,6 +315,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
       if (data?.suggestions) {
         const s = data.suggestions;
+        console.log('AI Brand Voice suggestions:', s);
         if (s.brand_positioning) setBrandPositioning(s.brand_positioning);
         if (s.tone_of_voice) setToneOfVoice(s.tone_of_voice);
         if (s.formality_level) setFormalityLevel(s.formality_level);
@@ -323,9 +324,17 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         if (s.forbidden_words) setForbiddenWords(s.forbidden_words);
         if (s.allow_emoji !== undefined) setAllowEmoji(s.allow_emoji);
         
+        // Also set brand guideline from reasoning if available
+        if (s.reasoning && !brandGuideline.trim()) {
+          setBrandGuideline(s.reasoning);
+        }
+        
         setShowQuickStart(false);
         setCurrentStep(1);
-        toast.success('Đã tạo Brand Voice với AI!');
+        toast.success('Đã tạo Brand Voice với AI! Vui lòng nhập Tên Thương hiệu.');
+      } else {
+        console.error('No suggestions in response:', data);
+        toast.error('Không nhận được đề xuất từ AI.');
       }
     } catch (error) {
       console.error('Error generating brand voice:', error);
