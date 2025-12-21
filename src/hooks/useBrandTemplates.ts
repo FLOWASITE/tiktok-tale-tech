@@ -6,7 +6,7 @@ export interface BrandTemplate {
   id: string;
   name: string;
   brand_name: string;
-  industry: string | null;
+  industry: string[] | null;
   brand_guideline: string;
   include_logo: boolean;
   is_default: boolean;

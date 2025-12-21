@@ -201,8 +201,9 @@ serve(async (req) => {
         brandGuideline = template.brand_guideline;
         primaryColor = template.primary_color;
         // Use industry from template if not provided in form
-        if (!industry && template.industry) {
-          industry = template.industry;
+        // template.industry is now an array
+        if (!industry && template.industry && Array.isArray(template.industry) && template.industry.length > 0) {
+          industry = template.industry.join(', ');
         }
       }
     }

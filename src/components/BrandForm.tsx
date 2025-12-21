@@ -54,7 +54,8 @@ interface BrandFormProps {
 export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandFormProps) {
   const [name, setName] = useState('');
   const [brandName, setBrandName] = useState('');
-  const [industry, setIndustry] = useState('');
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [searchValue, setSearchValue] = useState('');
   const [brandGuideline, setBrandGuideline] = useState('');
   const [includeLogo, setIncludeLogo] = useState(true);
   const [isDefault, setIsDefault] = useState(false);
@@ -69,7 +70,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
     if (template) {
       setName(template.name);
       setBrandName(template.brand_name);
-      setIndustry(template.industry || '');
+      setIndustries(template.industry || []);
       setBrandGuideline(template.brand_guideline);
       setIncludeLogo(template.include_logo);
       setIsDefault(template.is_default);
@@ -80,7 +81,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
     } else {
       setName('');
       setBrandName('');
-      setIndustry('');
+      setIndustries([]);
       setBrandGuideline(DEFAULT_BRAND_GUIDELINE);
       setIncludeLogo(true);
       setIsDefault(false);
@@ -90,6 +91,26 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       setDeleteLogo(false);
     }
   }, [template]);
+
+  const toggleIndustry = (item: string) => {
+    setIndustries(prev => 
+      prev.includes(item) 
+        ? prev.filter(i => i !== item) 
+        : [...prev, item]
+    );
+  };
+
+  const addCustomIndustry = () => {
+    const trimmed = searchValue.trim();
+    if (trimmed && !industries.includes(trimmed)) {
+      setIndustries(prev => [...prev, trimmed]);
+      setSearchValue('');
+    }
+  };
+
+  const removeIndustry = (item: string) => {
+    setIndustries(prev => prev.filter(i => i !== item));
+  };
 
   const handleFileSelect = useCallback((file: File) => {
     if (file && file.type.startsWith('image/')) {
@@ -140,7 +161,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       {
         name: name.trim(),
         brand_name: brandName.trim(),
-        industry: industry.trim() || null,
+        industry: industries.length > 0 ? industries : null,
         brand_guideline: brandGuideline.trim(),
         include_logo: includeLogo,
         is_default: isDefault,
@@ -181,6 +202,26 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
 
           <div className="space-y-2">
             <Label>Ngành nghề</Label>
+            {/* Selected industries */}
+            {industries.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {industries.map((item) => (
+                  <span
+                    key={item}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-primary/10 text-primary border border-primary/20"
+                  >
+                    {item}
+                    <button
+                      type="button"
+                      onClick={() => removeIndustry(item)}
+                      className="hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -188,10 +229,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
                   role="combobox"
                   className={cn(
                     'w-full justify-between font-normal',
-                    !industry && 'text-muted-foreground'
+                    industries.length === 0 && 'text-muted-foreground'
                   )}
                 >
-                  {industry || 'Chọn hoặc nhập ngành nghề...'}
+                  {industries.length === 0 
+                    ? 'Chọn ngành nghề...' 
+                    : `${industries.length} ngành đã chọn`}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -199,28 +242,34 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
                 <Command>
                   <CommandInput 
                     placeholder="Tìm hoặc nhập ngành..." 
-                    value={industry}
-                    onValueChange={setIndustry}
+                    value={searchValue}
+                    onValueChange={setSearchValue}
                   />
                   <CommandList>
-                    <CommandEmpty>
-                      <div className="p-2 text-sm">
-                        Nhấn Enter để sử dụng: <span className="font-medium">{industry}</span>
-                      </div>
-                    </CommandEmpty>
+                    {searchValue.trim() && !SUGGESTED_INDUSTRIES.some(i => 
+                      i.toLowerCase() === searchValue.trim().toLowerCase()
+                    ) && (
+                      <CommandItem
+                        onSelect={addCustomIndustry}
+                        className="text-primary"
+                      >
+                        <Check className="mr-2 h-4 w-4 opacity-0" />
+                        Thêm "{searchValue.trim()}"
+                      </CommandItem>
+                    )}
                     <CommandGroup heading="Gợi ý">
                       {SUGGESTED_INDUSTRIES.filter(item => 
-                        item.toLowerCase().includes(industry.toLowerCase())
+                        item.toLowerCase().includes(searchValue.toLowerCase())
                       ).map((item) => (
                         <CommandItem
                           key={item}
                           value={item}
-                          onSelect={() => setIndustry(item)}
+                          onSelect={() => toggleIndustry(item)}
                         >
                           <Check
                             className={cn(
                               'mr-2 h-4 w-4',
-                              industry === item ? 'opacity-100' : 'opacity-0'
+                              industries.includes(item) ? 'opacity-100' : 'opacity-0'
                             )}
                           />
                           {item}
