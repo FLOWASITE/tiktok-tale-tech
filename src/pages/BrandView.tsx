@@ -79,91 +79,99 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ChannelSettings } from '@/types/channelSettings';
 
-// Channel Override Detail Component
-function ChannelOverrideDetail({ 
+// All Channels list
+const ALL_CHANNELS: Channel[] = [
+  'website', 'facebook', 'instagram', 'twitter', 'google_maps',
+  'linkedin', 'email', 'youtube', 'zalo_oa', 'telegram'
+];
+
+// Channel Settings Detail Component - shows ALL settings for a channel
+function ChannelSettingsDetail({ 
   channel, 
   override, 
-  defaults 
+  defaults,
+  hasOverride
 }: { 
   channel: Channel; 
   override: ChannelOverride | undefined;
   defaults: ChannelSettings;
+  hasOverride: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   
-  if (!override) return null;
-  
   const lengthUnit = defaults.length_unit === 'chars' ? 'ký tự' : 'chữ';
   
-  // Get override values with fallback to defaults
-  const minLength = override.min_length ?? defaults.min_length ?? 0;
-  const maxLength = override.max_length ?? defaults.max_length;
-  const hookRequired = override.hook_required ?? defaults.hook_required;
-  const ctaPolicy = override.cta_policy ?? defaults.cta_policy;
-  const emojiAllowed = override.emoji_allowed ?? defaults.emoji_allowed;
-  const emojiLimit = override.emoji_limit ?? defaults.emoji_limit ?? 0;
-  const hashtagLimit = override.hashtag_limit ?? defaults.hashtag_limit;
-  const linkPosition = override.link_position ?? defaults.link_position;
+  // Get effective values (override or defaults)
+  const minLength = override?.min_length ?? defaults.min_length ?? 0;
+  const maxLength = override?.max_length ?? defaults.max_length;
+  const hookRequired = override?.hook_required ?? defaults.hook_required;
+  const ctaPolicy = override?.cta_policy ?? defaults.cta_policy;
+  const emojiAllowed = override?.emoji_allowed ?? defaults.emoji_allowed;
+  const emojiLimit = override?.emoji_limit ?? defaults.emoji_limit ?? 0;
+  const hashtagLimit = override?.hashtag_limit ?? defaults.hashtag_limit;
+  const linkPosition = override?.link_position ?? defaults.link_position;
   
-  // Build list of changed fields
-  const changes: { label: string; value: string; icon: React.ReactNode }[] = [];
-  
-  if (override.min_length !== undefined || override.max_length !== undefined) {
-    changes.push({
+  // All settings to display
+  const allSettings: { label: string; value: string; icon: React.ReactNode; isOverridden: boolean }[] = [
+    {
       label: 'Độ dài',
       value: `${minLength}-${maxLength} ${lengthUnit}`,
-      icon: <Type className="w-3.5 h-3.5" />
-    });
-  }
-  if (override.hook_required !== undefined) {
-    changes.push({
+      icon: <Type className="w-3.5 h-3.5" />,
+      isOverridden: override?.min_length !== undefined || override?.max_length !== undefined
+    },
+    {
       label: 'Hook',
       value: hookRequired ? 'Bắt buộc' : 'Không bắt buộc',
-      icon: <Megaphone className="w-3.5 h-3.5" />
-    });
-  }
-  if (override.cta_policy !== undefined) {
-    changes.push({
+      icon: <Megaphone className="w-3.5 h-3.5" />,
+      isOverridden: override?.hook_required !== undefined
+    },
+    {
       label: 'CTA',
       value: ctaPolicyLabels[ctaPolicy] || ctaPolicy,
-      icon: <Megaphone className="w-3.5 h-3.5" />
-    });
-  }
-  if (override.emoji_allowed !== undefined || override.emoji_limit !== undefined) {
-    changes.push({
+      icon: <Megaphone className="w-3.5 h-3.5" />,
+      isOverridden: override?.cta_policy !== undefined
+    },
+    {
       label: 'Emoji',
       value: emojiAllowed ? `Cho phép (max ${emojiLimit})` : 'Không',
-      icon: <Smile className="w-3.5 h-3.5" />
-    });
-  }
-  if (override.hashtag_limit !== undefined) {
-    changes.push({
+      icon: <Smile className="w-3.5 h-3.5" />,
+      isOverridden: override?.emoji_allowed !== undefined || override?.emoji_limit !== undefined
+    },
+    {
       label: 'Hashtag',
       value: hashtagLimit > 0 ? `Tối đa ${hashtagLimit}` : 'Không',
-      icon: <Hash className="w-3.5 h-3.5" />
-    });
-  }
-  if (override.link_position !== undefined) {
-    changes.push({
+      icon: <Hash className="w-3.5 h-3.5" />,
+      isOverridden: override?.hashtag_limit !== undefined
+    },
+    {
       label: 'Link',
       value: linkPositionLabels[linkPosition] || linkPosition,
-      icon: <LinkIcon className="w-3.5 h-3.5" />
-    });
-  }
+      icon: <LinkIcon className="w-3.5 h-3.5" />,
+      isOverridden: override?.link_position !== undefined
+    }
+  ];
   
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex w-full items-center justify-between p-3 rounded-lg border border-border/50 hover:border-border cursor-pointer transition-colors bg-muted/30"
+          className={`flex w-full items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+            hasOverride 
+              ? 'border-primary/30 bg-primary/5 hover:border-primary/50' 
+              : 'border-border/50 bg-muted/20 hover:border-border'
+          }`}
         >
           <div className="flex items-center gap-3">
-            <span className="text-muted-foreground">{channelIcons[channel]}</span>
+            <span className={hasOverride ? 'text-primary' : 'text-muted-foreground'}>
+              {channelIcons[channel]}
+            </span>
             <span className="font-medium text-sm">{channelLabels[channel]}</span>
-            <Badge variant="secondary" className="text-xs">
-              {changes.length} thay đổi
-            </Badge>
+            {hasOverride && (
+              <Badge variant="default" className="text-xs">
+                Đã tùy chỉnh
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
@@ -174,14 +182,30 @@ function ChannelOverrideDetail({
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="p-4 border border-t-0 border-border/50 rounded-b-lg bg-muted/10 space-y-3">
+        <div className={`p-4 border border-t-0 rounded-b-lg space-y-3 ${
+          hasOverride ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-muted/10'
+        }`}>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {changes.map((change, idx) => (
-              <div key={idx} className="flex items-start gap-2 p-2 rounded-md bg-background border border-border/30">
-                <span className="text-muted-foreground mt-0.5">{change.icon}</span>
+            {allSettings.map((setting, idx) => (
+              <div 
+                key={idx} 
+                className={`flex items-start gap-2 p-2 rounded-md border ${
+                  setting.isOverridden 
+                    ? 'bg-primary/10 border-primary/20' 
+                    : 'bg-background border-border/30'
+                }`}
+              >
+                <span className={setting.isOverridden ? 'text-primary mt-0.5' : 'text-muted-foreground mt-0.5'}>
+                  {setting.icon}
+                </span>
                 <div>
-                  <p className="text-xs text-muted-foreground">{change.label}</p>
-                  <p className="text-sm font-medium">{change.value}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    {setting.label}
+                    {setting.isOverridden && (
+                      <span className="text-[10px] text-primary font-medium">(tùy chỉnh)</span>
+                    )}
+                  </p>
+                  <p className="text-sm font-medium">{setting.value}</p>
                 </div>
               </div>
             ))}
@@ -675,52 +699,40 @@ export default function BrandView() {
         </Card>
       </div>
 
-      {/* Channel Overrides */}
+      {/* Channel Settings - All Channels */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-primary" />
-            Channel Settings Override
+            Channel Settings
+            {overrideChannels.length > 0 && (
+              <Badge variant="secondary" className="text-xs ml-2">
+                {overrideChannels.length} kênh tùy chỉnh
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {overrideChannels.length > 0 ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Các kênh sau có cấu hình riêng thay vì mặc định:
-              </p>
-              <div className="space-y-2">
-                {overrideChannels.map(channel => {
-                  const override = channelOverrides?.[channel] as ChannelOverride | undefined;
-                  const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
-                  
-                  return (
-                    <ChannelOverrideDetail
-                      key={channel}
-                      channel={channel}
-                      override={override}
-                      defaults={defaults}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground italic">
-                Chưa có cấu hình riêng cho kênh nào. Tất cả kênh sử dụng cài đặt mặc định.
-              </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setEditDialogOpen(true)}
-                className="gap-1.5"
-              >
-                <Settings2 className="w-4 h-4" />
-                Cấu hình channel settings
-              </Button>
-            </div>
-          )}
+          <p className="text-sm text-muted-foreground mb-4">
+            Cấu hình cho từng kênh social media. Kênh được đánh dấu <span className="text-primary font-medium">"Đã tùy chỉnh"</span> có settings khác với mặc định.
+          </p>
+          <div className="space-y-2">
+            {ALL_CHANNELS.map(channel => {
+              const override = channelOverrides?.[channel] as ChannelOverride | undefined;
+              const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
+              const hasOverride = override && Object.keys(override).length > 0;
+              
+              return (
+                <ChannelSettingsDetail
+                  key={channel}
+                  channel={channel}
+                  override={override}
+                  defaults={defaults}
+                  hasOverride={!!hasOverride}
+                />
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 
