@@ -48,7 +48,6 @@ const channelColors: Record<Channel, string> = {
 export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps) {
   const { templates, loading: loadingTemplates } = useBrandTemplates();
   const [topic, setTopic] = useState('');
-  const [industry, setIndustry] = useState('');
   const [contentGoal, setContentGoal] = useState<ContentGoal>('education');
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(['facebook', 'instagram']);
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
@@ -79,7 +78,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
 
     await onSubmit({
       topic: topic.trim(),
-      industry: industry.trim() || undefined,
+      industry: selectedTemplate?.industry || undefined,
       contentGoal,
       channels: selectedChannels,
       brandTemplateId: brandTemplateId || undefined,
@@ -113,18 +112,6 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               onChange={(e) => setTopic(e.target.value)}
               placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024"
               className="min-h-[80px] resize-none"
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Industry */}
-          <div className="space-y-2">
-            <Label htmlFor="industry">Ngành / Bối cảnh (tùy chọn)</Label>
-            <Input
-              id="industry"
-              value={industry}
-              onChange={(e) => setIndustry(e.target.value)}
-              placeholder="VD: Tài chính, Bất động sản, F&B..."
               disabled={isLoading}
             />
           </div>
@@ -185,7 +172,8 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             </Select>
             {selectedTemplate && (
               <p className="text-xs text-muted-foreground line-clamp-2">
-                {selectedTemplate.brand_name} • {selectedTemplate.brand_guideline?.slice(0, 80)}...
+                {selectedTemplate.brand_name}
+                {selectedTemplate.industry && ` • ${selectedTemplate.industry}`}
               </p>
             )}
           </div>

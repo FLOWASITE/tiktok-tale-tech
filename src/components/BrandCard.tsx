@@ -68,6 +68,9 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
               {template.name}
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1 truncate">{template.brand_name}</p>
+            {template.industry && (
+              <p className="text-xs text-muted-foreground truncate">{template.industry}</p>
+            )}
             <div className="flex items-center gap-2 mt-1.5">
               {/* Primary Color indicator */}
               {template.primary_color && (

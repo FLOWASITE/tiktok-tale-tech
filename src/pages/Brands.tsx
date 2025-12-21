@@ -120,6 +120,7 @@ export default function Brands() {
           await saveTemplate({
             name: template.name,
             brand_name: template.brand_name,
+            industry: template.industry ?? null,
             brand_guideline: template.brand_guideline,
             include_logo: template.include_logo ?? true,
             is_default: false,
