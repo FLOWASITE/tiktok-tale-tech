@@ -187,6 +187,7 @@ serve(async (req) => {
     let brandName = "Thương hiệu";
     let brandGuideline: string | null = null;
     let primaryColor: string | null = null;
+    let industry: string | null = formData.industry || null;
 
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
@@ -199,6 +200,10 @@ serve(async (req) => {
         brandName = template.brand_name;
         brandGuideline = template.brand_guideline;
         primaryColor = template.primary_color;
+        // Use industry from template if not provided in form
+        if (!industry && template.industry) {
+          industry = template.industry;
+        }
       }
     }
 
@@ -213,7 +218,7 @@ serve(async (req) => {
     const userPrompt = `Tạo nội dung đa kênh cho chủ đề:
 "${formData.topic}"
 
-${formData.industry ? `Ngành/Bối cảnh: ${formData.industry}` : ""}
+${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
 
@@ -318,7 +323,7 @@ Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy
       .insert({
         title: generatedData.title,
         topic: formData.topic,
-        industry: formData.industry || null,
+        industry: industry,
         content_goal: formData.contentGoal,
         selected_channels: formData.channels,
         brand_template_id: formData.brandTemplateId || null,

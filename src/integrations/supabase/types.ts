@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           id: string
           include_logo: boolean
+          industry: string | null
           is_default: boolean
           logo_url: string | null
           name: string
@@ -33,6 +34,7 @@ export type Database = {
           created_at?: string
           id?: string
           include_logo?: boolean
+          industry?: string | null
           is_default?: boolean
           logo_url?: string | null
           name: string
@@ -45,6 +47,7 @@ export type Database = {
           created_at?: string
           id?: string
           include_logo?: boolean
+          industry?: string | null
           is_default?: boolean
           logo_url?: string | null
           name?: string

@@ -19,6 +19,7 @@ interface BrandFormProps {
 export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandFormProps) {
   const [name, setName] = useState('');
   const [brandName, setBrandName] = useState('');
+  const [industry, setIndustry] = useState('');
   const [brandGuideline, setBrandGuideline] = useState('');
   const [includeLogo, setIncludeLogo] = useState(true);
   const [isDefault, setIsDefault] = useState(false);
@@ -33,6 +34,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
     if (template) {
       setName(template.name);
       setBrandName(template.brand_name);
+      setIndustry(template.industry || '');
       setBrandGuideline(template.brand_guideline);
       setIncludeLogo(template.include_logo);
       setIsDefault(template.is_default);
@@ -43,6 +45,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
     } else {
       setName('');
       setBrandName('');
+      setIndustry('');
       setBrandGuideline(DEFAULT_BRAND_GUIDELINE);
       setIncludeLogo(true);
       setIsDefault(false);
@@ -102,6 +105,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       {
         name: name.trim(),
         brand_name: brandName.trim(),
+        industry: industry.trim() || null,
         brand_guideline: brandGuideline.trim(),
         include_logo: includeLogo,
         is_default: isDefault,
@@ -137,6 +141,16 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
               onChange={(e) => setBrandName(e.target.value)}
               placeholder="VD: Thuế Hộ by TAF.vn"
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="industry">Ngành nghề</Label>
+            <Input
+              id="industry"
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              placeholder="VD: Tài chính, Kế toán, F&B..."
             />
           </div>
 

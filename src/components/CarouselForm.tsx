@@ -103,6 +103,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
     const result = await saveTemplate({
       name: newTemplateName.trim(),
       brand_name: brandName.trim(),
+      industry: null,
       brand_guideline: brandGuideline.trim(),
       include_logo: includeLogo,
       is_default: false,
