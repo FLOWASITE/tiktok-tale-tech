@@ -36,6 +36,7 @@ export type Database = {
           primary_color: string | null
           tone_of_voice: string[] | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           allow_emoji?: boolean | null
@@ -58,6 +59,7 @@ export type Database = {
           primary_color?: string | null
           tone_of_voice?: string[] | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           allow_emoji?: boolean | null
@@ -80,6 +82,7 @@ export type Database = {
           primary_color?: string | null
           tone_of_voice?: string[] | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -100,6 +103,7 @@ export type Database = {
           title: string
           topic: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
@@ -117,6 +121,7 @@ export type Database = {
           title: string
           topic: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
@@ -134,6 +139,7 @@ export type Database = {
           title?: string
           topic?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -161,6 +167,7 @@ export type Database = {
           topic: string
           twitter_content: string | null
           updated_at: string
+          user_id: string | null
           website_content: string | null
           youtube_content: string | null
           zalo_oa_content: string | null
@@ -188,6 +195,7 @@ export type Database = {
           topic: string
           twitter_content?: string | null
           updated_at?: string
+          user_id?: string | null
           website_content?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
@@ -215,6 +223,7 @@ export type Database = {
           topic?: string
           twitter_content?: string | null
           updated_at?: string
+          user_id?: string | null
           website_content?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
@@ -229,6 +238,33 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scripts: {
         Row: {
           character_type: string
@@ -239,6 +275,7 @@ export type Database = {
           title: string
           topic: string
           updated_at: string
+          user_id: string | null
           video_type: string
         }
         Insert: {
@@ -250,6 +287,7 @@ export type Database = {
           title: string
           topic: string
           updated_at?: string
+          user_id?: string | null
           video_type?: string
         }
         Update: {
@@ -261,7 +299,29 @@ export type Database = {
           title?: string
           topic?: string
           updated_at?: string
+          user_id?: string | null
           video_type?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -270,9 +330,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok"
     }
@@ -402,6 +469,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
       carousel_platform: ["facebook", "tiktok"],
     },

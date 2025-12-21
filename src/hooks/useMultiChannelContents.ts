@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 
@@ -33,6 +34,7 @@ const transformContent = (data: any): MultiChannelContent => ({
 });
 
 export function useMultiChannelContents() {
+  const { user } = useAuth();
   const [contents, setContents] = useState<MultiChannelContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -40,6 +42,12 @@ export function useMultiChannelContents() {
   const [aiEditingChannel, setAiEditingChannel] = useState<string | null>(null);
 
   const fetchContents = async () => {
+    if (!user) {
+      setContents([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('multi_channel_contents')
@@ -63,10 +71,19 @@ export function useMultiChannelContents() {
   };
 
   const generateContent = async (formData: MultiChannelFormData): Promise<MultiChannelContent | null> => {
+    if (!user) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng đăng nhập để tạo nội dung',
+        variant: 'destructive',
+      });
+      return null;
+    }
+
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-multichannel', {
-        body: formData,
+        body: { ...formData, user_id: user.id },
       });
 
       if (error) {
@@ -398,7 +415,7 @@ export function useMultiChannelContents() {
 
   useEffect(() => {
     fetchContents();
-  }, []);
+  }, [user]);
 
   return {
     contents,

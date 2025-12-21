@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Script, ScriptFormData } from '@/types/script';
 import { toast } from 'sonner';
 
 export function useScripts() {
+  const { user } = useAuth();
   const [scripts, setScripts] = useState<Script[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
   const fetchScripts = async () => {
+    if (!user) {
+      setScripts([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('scripts')
@@ -26,10 +34,15 @@ export function useScripts() {
   };
 
   const generateScript = async (formData: ScriptFormData): Promise<Script | null> => {
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để tạo kịch bản');
+      return null;
+    }
+
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-script', {
-        body: formData,
+        body: { ...formData, user_id: user.id },
       });
 
       if (error) {
@@ -75,7 +88,7 @@ export function useScripts() {
 
   useEffect(() => {
     fetchScripts();
-  }, []);
+  }, [user]);
 
   const updateScript = (updatedScript: Script) => {
     setScripts((prev) =>
