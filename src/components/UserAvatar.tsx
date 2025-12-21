@@ -61,7 +61,11 @@ export function UserAvatar() {
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled className="cursor-not-allowed opacity-50">
+        <DropdownMenuItem onClick={() => navigate('/account')}>
+          <User className="mr-2 h-4 w-4" />
+          Tài khoản
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate('/account')}>
           <Settings className="mr-2 h-4 w-4" />
           Cài đặt
         </DropdownMenuItem>

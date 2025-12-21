@@ -13,6 +13,7 @@ import Carousel from "./pages/Carousel";
 import Brands from "./pages/Brands";
 import MultiChannel from "./pages/MultiChannel";
 import Auth from "./pages/Auth";
+import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <MultiChannel />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/account"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Account />
                     </AppLayout>
                   </ProtectedRoute>
                 }
