@@ -126,6 +126,15 @@ export default function Brands() {
             is_default: false,
             logo_url: null,
             primary_color: template.primary_color ?? '#000000',
+            // Brand Voice defaults for import
+            brand_positioning: template.brand_positioning ?? null,
+            tone_of_voice: template.tone_of_voice ?? null,
+            formality_level: template.formality_level ?? null,
+            language_style: template.language_style ?? null,
+            preferred_words: template.preferred_words ?? null,
+            forbidden_words: template.forbidden_words ?? null,
+            allow_emoji: template.allow_emoji ?? true,
+            compliance_rules: template.compliance_rules ?? null,
           });
           successCount++;
         }

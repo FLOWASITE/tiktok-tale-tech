@@ -109,6 +109,15 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       is_default: false,
       logo_url: null,
       primary_color: '#000000',
+      // Brand Voice defaults
+      brand_positioning: null,
+      tone_of_voice: null,
+      formality_level: null,
+      language_style: null,
+      preferred_words: null,
+      forbidden_words: null,
+      allow_emoji: true,
+      compliance_rules: null,
     });
 
     if (result) {

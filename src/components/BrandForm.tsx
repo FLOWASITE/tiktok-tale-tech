@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
+import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check } from 'lucide-react';
 import {
@@ -52,6 +53,7 @@ interface BrandFormProps {
 }
 
 export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandFormProps) {
+  // Basic info
   const [name, setName] = useState('');
   const [brandName, setBrandName] = useState('');
   const [industries, setIndustries] = useState<string[]>([]);
@@ -66,6 +68,16 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Brand Voice Profile
+  const [brandPositioning, setBrandPositioning] = useState('');
+  const [toneOfVoice, setToneOfVoice] = useState<string[]>([]);
+  const [formalityLevel, setFormalityLevel] = useState('');
+  const [languageStyle, setLanguageStyle] = useState<string[]>([]);
+  const [preferredWords, setPreferredWords] = useState<string[]>([]);
+  const [forbiddenWords, setForbiddenWords] = useState<string[]>([]);
+  const [allowEmoji, setAllowEmoji] = useState(true);
+  const [complianceRules, setComplianceRules] = useState<string[]>([]);
+
   useEffect(() => {
     if (template) {
       setName(template.name);
@@ -78,6 +90,15 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       setLogoPreview(template.logo_url);
       setLogoFile(null);
       setDeleteLogo(false);
+      // Brand Voice
+      setBrandPositioning(template.brand_positioning || '');
+      setToneOfVoice(template.tone_of_voice || []);
+      setFormalityLevel(template.formality_level || '');
+      setLanguageStyle(template.language_style || []);
+      setPreferredWords(template.preferred_words || []);
+      setForbiddenWords(template.forbidden_words || []);
+      setAllowEmoji(template.allow_emoji ?? true);
+      setComplianceRules(template.compliance_rules || []);
     } else {
       setName('');
       setBrandName('');
@@ -89,6 +110,15 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       setLogoPreview(null);
       setLogoFile(null);
       setDeleteLogo(false);
+      // Brand Voice defaults
+      setBrandPositioning('');
+      setToneOfVoice([]);
+      setFormalityLevel('');
+      setLanguageStyle([]);
+      setPreferredWords([]);
+      setForbiddenWords([]);
+      setAllowEmoji(true);
+      setComplianceRules([]);
     }
   }, [template]);
 
@@ -167,6 +197,15 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
         is_default: isDefault,
         primary_color: primaryColor,
         logo_url: deleteLogo ? null : template?.logo_url || null,
+        // Brand Voice Profile
+        brand_positioning: brandPositioning || null,
+        tone_of_voice: toneOfVoice.length > 0 ? toneOfVoice : null,
+        formality_level: formalityLevel || null,
+        language_style: languageStyle.length > 0 ? languageStyle : null,
+        preferred_words: preferredWords.length > 0 ? preferredWords : null,
+        forbidden_words: forbiddenWords.length > 0 ? forbiddenWords : null,
+        allow_emoji: allowEmoji,
+        compliance_rules: complianceRules.length > 0 ? complianceRules : null,
       },
       logoFile,
       deleteLogo
@@ -176,7 +215,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid gap-5 md:grid-cols-2">
-        {/* Left Column */}
+        {/* Left Column - Basic Info */}
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Tên Template *</Label>
@@ -202,7 +241,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
 
           <div className="space-y-2">
             <Label>Ngành nghề</Label>
-            {/* Selected industries */}
             {industries.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {industries.map((item) => (
@@ -284,7 +322,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
 
           <BrandColorPicker value={primaryColor} onChange={setPrimaryColor} />
 
-          {/* Logo upload with drag & drop */}
+          {/* Logo upload */}
           <div className="space-y-2">
             <Label>Logo</Label>
             <div
@@ -344,7 +382,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
           </div>
         </div>
 
-        {/* Right Column */}
+        {/* Right Column - Brand Voice & Guideline */}
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="brandGuideline">Brand Guideline</Label>
@@ -353,7 +391,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
               value={brandGuideline}
               onChange={(e) => setBrandGuideline(e.target.value)}
               placeholder="Mô tả phong cách, màu sắc, tone of voice..."
-              rows={8}
+              rows={5}
               className="resize-none"
             />
           </div>
@@ -383,6 +421,26 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
           </div>
         </div>
       </div>
+
+      {/* Brand Voice Profile Section - Full Width */}
+      <BrandVoiceSection
+        brandPositioning={brandPositioning}
+        onBrandPositioningChange={setBrandPositioning}
+        toneOfVoice={toneOfVoice}
+        onToneOfVoiceChange={setToneOfVoice}
+        formalityLevel={formalityLevel}
+        onFormalityLevelChange={setFormalityLevel}
+        languageStyle={languageStyle}
+        onLanguageStyleChange={setLanguageStyle}
+        preferredWords={preferredWords}
+        onPreferredWordsChange={setPreferredWords}
+        forbiddenWords={forbiddenWords}
+        onForbiddenWordsChange={setForbiddenWords}
+        allowEmoji={allowEmoji}
+        onAllowEmojiChange={setAllowEmoji}
+        complianceRules={complianceRules}
+        onComplianceRulesChange={setComplianceRules}
+      />
 
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>

@@ -1,8 +1,13 @@
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
+import { 
+  BRAND_POSITIONING_OPTIONS, 
+  TONE_OF_VOICE_OPTIONS, 
+  FORMALITY_LEVEL_OPTIONS 
+} from '@/components/BrandVoiceSection';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit2, Trash2, Star, Check, Calendar } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -106,7 +111,7 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <p className="text-xs text-muted-foreground line-clamp-3 cursor-help">
+              <p className="text-xs text-muted-foreground line-clamp-2 cursor-help">
                 {template.brand_guideline}
               </p>
             </TooltipTrigger>
@@ -115,6 +120,52 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+
+        {/* Brand Voice Summary */}
+        {(template.tone_of_voice?.length || template.formality_level || template.brand_positioning) && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Volume2 className="w-3 h-3 text-muted-foreground shrink-0" />
+            {template.brand_positioning && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {BRAND_POSITIONING_OPTIONS.find(o => o.value === template.brand_positioning)?.label || template.brand_positioning}
+              </Badge>
+            )}
+            {template.tone_of_voice?.slice(0, 2).map(tone => (
+              <Badge key={tone} variant="secondary" className="text-[10px] px-1.5 py-0">
+                {TONE_OF_VOICE_OPTIONS.find(o => o.value === tone)?.label || tone}
+              </Badge>
+            ))}
+            {template.formality_level && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {FORMALITY_LEVEL_OPTIONS.find(o => o.value === template.formality_level)?.label || template.formality_level}
+              </Badge>
+            )}
+            {template.allow_emoji === false && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Ban className="w-3 h-3 text-destructive" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Không dùng emoji</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {template.allow_emoji !== false && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Smile className="w-3 h-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Cho phép emoji</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )}
         
         <div className="flex items-center gap-2">
           <Badge variant={template.include_logo ? 'default' : 'outline'} className="text-xs">

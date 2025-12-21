@@ -16,42 +16,66 @@ export type Database = {
     Tables: {
       brand_templates: {
         Row: {
+          allow_emoji: boolean | null
           brand_guideline: string
           brand_name: string
+          brand_positioning: string | null
+          compliance_rules: string[] | null
           created_at: string
+          forbidden_words: string[] | null
+          formality_level: string | null
           id: string
           include_logo: boolean
           industry: string[] | null
           is_default: boolean
+          language_style: string[] | null
           logo_url: string | null
           name: string
+          preferred_words: string[] | null
           primary_color: string | null
+          tone_of_voice: string[] | null
           updated_at: string
         }
         Insert: {
+          allow_emoji?: boolean | null
           brand_guideline: string
           brand_name: string
+          brand_positioning?: string | null
+          compliance_rules?: string[] | null
           created_at?: string
+          forbidden_words?: string[] | null
+          formality_level?: string | null
           id?: string
           include_logo?: boolean
           industry?: string[] | null
           is_default?: boolean
+          language_style?: string[] | null
           logo_url?: string | null
           name: string
+          preferred_words?: string[] | null
           primary_color?: string | null
+          tone_of_voice?: string[] | null
           updated_at?: string
         }
         Update: {
+          allow_emoji?: boolean | null
           brand_guideline?: string
           brand_name?: string
+          brand_positioning?: string | null
+          compliance_rules?: string[] | null
           created_at?: string
+          forbidden_words?: string[] | null
+          formality_level?: string | null
           id?: string
           include_logo?: boolean
           industry?: string[] | null
           is_default?: boolean
+          language_style?: string[] | null
           logo_url?: string | null
           name?: string
+          preferred_words?: string[] | null
           primary_color?: string | null
+          tone_of_voice?: string[] | null
           updated_at?: string
         }
         Relationships: []

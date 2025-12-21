@@ -14,6 +14,15 @@ export interface BrandTemplate {
   primary_color: string;
   created_at: string;
   updated_at: string;
+  // Brand Voice Profile
+  brand_positioning: string | null;
+  tone_of_voice: string[] | null;
+  formality_level: string | null;
+  language_style: string[] | null;
+  preferred_words: string[] | null;
+  forbidden_words: string[] | null;
+  allow_emoji: boolean;
+  compliance_rules: string[] | null;
 }
 
 const BUCKET_NAME = 'brand-logos';
