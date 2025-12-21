@@ -165,16 +165,21 @@ const Index = () => {
         )}
       </div>
 
-      {/* Form Sheet */}
+      {/* Form Sheet - Full Screen */}
       <Sheet open={formSheetOpen} onOpenChange={setFormSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              Tạo Kịch Bản Mới
-            </SheetTitle>
-          </SheetHeader>
-          <div className="mt-6">
+        <SheetContent side="right" className="w-full sm:max-w-full md:max-w-xl lg:max-w-2xl overflow-y-auto p-0">
+          <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Tạo Kịch Bản Video Mới
+              </SheetTitle>
+              <p className="text-sm text-muted-foreground">
+                Điền thông tin để AI tạo kịch bản video chuyên nghiệp
+              </p>
+            </SheetHeader>
+          </div>
+          <div className="p-6">
             <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} />
           </div>
         </SheetContent>
