@@ -216,28 +216,99 @@ serve(async (req) => {
       throw new Error("Không tìm thấy nội dung");
     }
 
-    // Load brand template to check emoji settings and channel overrides
-    let brandAllowEmoji = true;
-    let channelOverrides: ChannelOverrides = null;
+    // Load FULL brand voice profile from brand template
+    interface BrandVoiceProfile {
+      allow_emoji: boolean;
+      tone_of_voice: string[] | null;
+      language_style: string[] | null;
+      formality_level: string | null;
+      preferred_words: string[] | null;
+      forbidden_words: string[] | null;
+      compliance_rules: string[] | null;
+      brand_positioning: string | null;
+      channel_overrides: ChannelOverrides;
+    }
+
+    let brandVoice: BrandVoiceProfile = {
+      allow_emoji: true,
+      tone_of_voice: null,
+      language_style: null,
+      formality_level: null,
+      preferred_words: null,
+      forbidden_words: null,
+      compliance_rules: null,
+      brand_positioning: null,
+      channel_overrides: null,
+    };
+
     if (content.brand_template_id) {
       const { data: template } = await supabase
         .from("brand_templates")
-        .select("allow_emoji, channel_overrides")
+        .select(`
+          allow_emoji, 
+          channel_overrides,
+          tone_of_voice,
+          language_style,
+          formality_level,
+          preferred_words,
+          forbidden_words,
+          compliance_rules,
+          brand_positioning
+        `)
         .eq("id", content.brand_template_id)
         .single();
+      
       if (template) {
-        brandAllowEmoji = template.allow_emoji ?? true;
-        channelOverrides = template.channel_overrides || null;
+        brandVoice = {
+          allow_emoji: template.allow_emoji ?? true,
+          tone_of_voice: template.tone_of_voice,
+          language_style: template.language_style,
+          formality_level: template.formality_level,
+          preferred_words: template.preferred_words,
+          forbidden_words: template.forbidden_words,
+          compliance_rules: template.compliance_rules,
+          brand_positioning: template.brand_positioning,
+          channel_overrides: template.channel_overrides || null,
+        };
       }
     }
 
-    const channelSettings = mergeChannelSettings(channel, channelOverrides);
+    const channelSettings = mergeChannelSettings(channel, brandVoice.channel_overrides);
     const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings);
 
-    // Override emoji if brand doesn't allow
-    const emojiNote = !brandAllowEmoji 
-      ? "\n- Emoji: KHÔNG (Brand Voice yêu cầu)" 
-      : "";
+    // Build Brand Voice section
+    const buildBrandVoicePrompt = (): string => {
+      const parts: string[] = [];
+      
+      if (brandVoice.tone_of_voice?.length) {
+        parts.push(`- Giọng điệu: ${brandVoice.tone_of_voice.join(", ")}`);
+      }
+      if (brandVoice.language_style?.length) {
+        parts.push(`- Phong cách ngôn ngữ: ${brandVoice.language_style.join(", ")}`);
+      }
+      if (brandVoice.formality_level) {
+        parts.push(`- Mức độ formal: ${brandVoice.formality_level}`);
+      }
+      if (brandVoice.brand_positioning) {
+        parts.push(`- Định vị: ${brandVoice.brand_positioning}`);
+      }
+      if (!brandVoice.allow_emoji) {
+        parts.push(`- Emoji: KHÔNG SỬ DỤNG`);
+      }
+      if (brandVoice.preferred_words?.length) {
+        parts.push(`- Từ ưu tiên: ${brandVoice.preferred_words.slice(0, 10).join(", ")}`);
+      }
+      if (brandVoice.forbidden_words?.length) {
+        parts.push(`- Từ CẤM: ${brandVoice.forbidden_words.slice(0, 10).join(", ")}`);
+      }
+      if (brandVoice.compliance_rules?.length) {
+        parts.push(`- Quy tắc tuân thủ:\n  + ${brandVoice.compliance_rules.slice(0, 5).join("\n  + ")}`);
+      }
+      
+      return parts.length > 0 ? `\n## BRAND VOICE PROFILE\n${parts.join("\n")}` : "";
+    };
+
+    const brandVoicePrompt = buildBrandVoicePrompt();
 
     const systemPrompt = `Bạn là trợ lý AI chỉnh sửa nội dung theo yêu cầu của người dùng.
 
@@ -246,23 +317,28 @@ Brand: ${content.brand_name}
 ${content.brand_guideline ? `Guideline: ${content.brand_guideline}` : ""}
 Topic: ${content.topic}
 ${content.industry ? `Industry: ${content.industry}` : ""}
+${brandVoicePrompt}
 
-${channelRulesPrompt}${emojiNote}
+${channelRulesPrompt}
 
 ## NHIỆM VỤ
 1. Nhận nội dung hiện tại và yêu cầu chỉnh sửa từ người dùng
 2. Chỉnh sửa nội dung theo ĐÚNG yêu cầu
 3. Giữ nguyên format và quy ước của kênh
-4. Trả về NỘI DUNG ĐÃ CHỈNH SỬA, không giải thích
+4. TUÂN THỦ Brand Voice Profile (giọng điệu, từ cấm, quy tắc)
+5. Trả về NỘI DUNG ĐÃ CHỈNH SỬA, không giải thích
 
 ## KIỂM TRA CUỐI
 - Đảm bảo không vượt max length
 - Đảm bảo tuân thủ quy tắc emoji/hashtag của kênh
+- Đảm bảo KHÔNG dùng từ cấm
+- Đảm bảo đúng giọng điệu brand
 
 ## ĐIỀU KHÔNG LÀM
 - Không giải thích vì sao sửa
 - Không thêm bình luận
-- Không thay đổi ngoài yêu cầu`;
+- Không thay đổi ngoài yêu cầu
+- Không dùng từ trong danh sách cấm`;
 
     const userPrompt = `NỘI DUNG HIỆN TẠI:
 ---
