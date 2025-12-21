@@ -15,12 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List, Wand2, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
@@ -473,23 +468,28 @@ export default function Brands() {
         isDeleting={isDeleting}
       />
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Palette className="w-5 h-5 text-primary" />
-              {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
-            </DialogTitle>
-          </DialogHeader>
-          <BrandForm
-            template={editingTemplate}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            isLoading={saving}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Create/Edit Panel - Below Header */}
+      <SlidePanel
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={
+          <>
+            <Palette className="w-5 h-5 text-primary" />
+            {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
+          </>
+        }
+        description={editingTemplate 
+          ? 'Cập nhật thông tin thương hiệu của bạn' 
+          : 'Điền thông tin để tạo brand mới cho nội dung'}
+        className="md:max-w-xl lg:max-w-2xl"
+      >
+        <BrandForm
+          template={editingTemplate}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          isLoading={saving}
+        />
+      </SlidePanel>
     </div>
   );
 }
