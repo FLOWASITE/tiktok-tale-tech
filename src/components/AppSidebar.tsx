@@ -1,8 +1,20 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import { useNavigate } from 'react-router-dom';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 import logoImage from '@/assets/logo.png';
 import {
   Sidebar,
@@ -30,7 +42,50 @@ const menuItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { isAdmin } = useAdmin();
+  const { user, signOut } = useAuth();
+  const { profile } = useProfile();
+  const navigate = useNavigate();
   const isCollapsed = state === 'collapsed';
+
+  const getAvatarUrl = () => {
+    return profile?.avatar_url || user?.user_metadata?.avatar_url;
+  };
+
+  const getInitials = () => {
+    if (profile?.full_name) {
+      return profile.full_name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return user?.email?.charAt(0).toUpperCase() || 'U';
+  };
+
+  const getDisplayName = () => {
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
+    return user?.email?.split('@')[0] || 'User';
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Đã đăng xuất');
+    navigate('/auth');
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
@@ -103,9 +158,55 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-2">
-        <div className={`text-[10px] text-muted-foreground text-center ${isCollapsed ? 'hidden' : ''}`}>
-          AI Content Platform
-        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="w-full data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  tooltip={getDisplayName()}
+                >
+                  <Avatar className="h-8 w-8 border border-border">
+                    <AvatarImage src={getAvatarUrl()} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {!isCollapsed && (
+                    <>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-medium truncate">{getDisplayName()}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                      </div>
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    </>
+                  )}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="start"
+                className="w-56 bg-popover"
+              >
+                <DropdownMenuItem onClick={() => navigate('/account')}>
+                  Tài khoản
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/organization')}>
+                  Tổ chức
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Đăng xuất
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
 
       <SidebarRail />
