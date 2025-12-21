@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import Carousel from "./pages/Carousel";
 import Brands from "./pages/Brands";
+import BrandView from "./pages/BrandView";
 import MultiChannel from "./pages/MultiChannel";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -73,6 +74,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Brands />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/brands/:id"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <BrandView />
                     </AppLayout>
                   </ProtectedRoute>
                 }
