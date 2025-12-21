@@ -14,7 +14,8 @@ export type Channel =
   | 'linkedin'
   | 'email'
   | 'youtube'
-  | 'zalo_oa';
+  | 'zalo_oa'
+  | 'telegram';
 
 export interface MultiChannelContent {
   id: string;
@@ -36,6 +37,7 @@ export interface MultiChannelContent {
   email_content: string | null;
   youtube_content: string | null;
   zalo_oa_content: string | null;
+  telegram_content: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -68,6 +70,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   // Direct
   { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'direct' },
   { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'direct' },
+  { value: 'telegram', label: 'Telegram', icon: 'Send', color: 'sky', category: 'direct' },
   // Local
   { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'local' },
 ];

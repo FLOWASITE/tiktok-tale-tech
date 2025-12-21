@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -79,14 +79,14 @@ const channelConfig: Record<Channel, {
     icon: <Linkedin className="w-4 h-4" />, 
     color: 'text-sky-400',
     bgColor: 'bg-sky-500/10',
-    maxLength: '300-700 chữ'
+    maxLength: '150-400 chữ'
   },
   email: { 
     label: 'Email', 
     icon: <Mail className="w-4 h-4" />, 
     color: 'text-amber-400',
     bgColor: 'bg-amber-500/10',
-    maxLength: '200-500 chữ'
+    maxLength: '150-400 chữ'
   },
   youtube: { 
     label: 'YouTube', 
@@ -100,7 +100,14 @@ const channelConfig: Record<Channel, {
     icon: <MessageCircle className="w-4 h-4" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
-    maxLength: '100-200 chữ'
+    maxLength: '60-150 chữ'
+  },
+  telegram: { 
+    label: 'Telegram', 
+    icon: <Send className="w-4 h-4" />, 
+    color: 'text-sky-400',
+    bgColor: 'bg-sky-500/10',
+    maxLength: '100-500 chữ'
   },
 };
 
@@ -122,6 +129,7 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
     case 'email': return content.email_content;
     case 'youtube': return content.youtube_content;
     case 'zalo_oa': return content.zalo_oa_content;
+    case 'telegram': return content.telegram_content;
     default: return null;
   }
 }

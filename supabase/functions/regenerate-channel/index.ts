@@ -99,7 +99,7 @@ const getBrandVoicePrompt = (voice: BrandVoice): string => {
   
   parts.push(`\n### EMOJI`);
   if (voice.allow_emoji) {
-    parts.push(`Có thể dùng emoji TIẾT CHẾ theo từng kênh (Website/Google Maps: KHÔNG emoji)`);
+    parts.push(`Có thể dùng emoji TIẾT CHẾ theo từng kênh (Website/Google Maps/Zalo OA/Telegram/Email: KHÔNG emoji)`);
   } else {
     parts.push(`TUYỆT ĐỐI KHÔNG dùng emoji trong bất kỳ kênh nào`);
   }
@@ -114,24 +114,152 @@ const getBrandVoicePrompt = (voice: BrandVoice): string => {
   return parts.join("\n");
 };
 
-const channelRules: Record<string, string> = {
-  website: `WEBSITE/BLOG: 800–1500 chữ, Markdown format, KHÔNG emoji`,
-  facebook: `FACEBOOK: 120–300 chữ, hook mạnh, emoji tiết chế`,
-  instagram: `INSTAGRAM: 50–150 chữ, ngắn gọn, hashtag cuối`,
-  twitter: `TWITTER: Thread 5-7 tweets, mỗi tweet ≤280 ký tự`,
-  google_maps: `GOOGLE MAPS: 80–150 chữ, trung tính, KHÔNG emoji`,
-  linkedin: `LINKEDIN: 300–700 chữ, B2B authority, insight`,
-  email: `EMAIL: 200–500 chữ, subject line + body + CTA`,
-  youtube: `YOUTUBE: Script 500-800 chữ, hook + content + CTA`,
-  zalo_oa: `ZALO OA: 100–200 chữ, thân thiện, local`,
+// ============================================
+// CHANNEL SETTINGS ENGINE
+// ============================================
+
+interface ChannelSettings {
+  min_length?: number;
+  max_length: number;
+  length_unit: 'words' | 'chars';
+  hook_required: boolean;
+  hook_style?: string;
+  bullet_allowed: boolean;
+  cta_policy: 'required' | 'optional' | 'soft' | 'none';
+  has_subject_line?: boolean;
+  emoji_allowed: boolean;
+  emoji_limit?: number;
+  hashtag_limit: number;
+  hashtag_position?: 'none' | 'end' | 'inline';
+  line_break_style: 'many' | 'short' | 'normal' | 'minimal';
+  link_position: 'body' | 'end' | 'allowed' | 'none';
+  format_description?: string;
+}
+
+const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
+  website: {
+    min_length: 800, max_length: 1500, length_unit: 'words',
+    hook_required: false, hook_style: 'không cần giật tít',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
+  },
+  facebook: {
+    min_length: 120, max_length: 300, length_unit: 'words',
+    hook_required: true, hook_style: 'BẮT BUỘC 2 dòng đầu là hook mạnh',
+    bullet_allowed: true, cta_policy: 'optional',
+    emoji_allowed: true, emoji_limit: 3,
+    hashtag_limit: 3, hashtag_position: 'end',
+    line_break_style: 'short', link_position: 'body',
+    format_description: 'Xuống dòng ngắn, chia đoạn 2-3 dòng',
+  },
+  instagram: {
+    min_length: 50, max_length: 150, length_unit: 'words',
+    hook_required: true, hook_style: 'hook ngắn gọn',
+    bullet_allowed: false, cta_policy: 'optional',
+    emoji_allowed: true, emoji_limit: 5,
+    hashtag_limit: 5, hashtag_position: 'end',
+    line_break_style: 'many', link_position: 'none',
+    format_description: 'Nhiều xuống dòng, hashtag cuối',
+  },
+  twitter: {
+    min_length: 0, max_length: 280, length_unit: 'chars',
+    hook_required: true, hook_style: 'quan điểm ngay câu đầu',
+    bullet_allowed: false, cta_policy: 'none',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 1, hashtag_position: 'end',
+    line_break_style: 'minimal', link_position: 'allowed',
+    format_description: 'Thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số',
+  },
+  google_maps: {
+    min_length: 80, max_length: 150, length_unit: 'words',
+    hook_required: false, hook_style: 'không',
+    bullet_allowed: false, cta_policy: 'none',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'none',
+    format_description: 'Thực tế, xác thực, khách quan',
+  },
+  linkedin: {
+    min_length: 150, max_length: 400, length_unit: 'words',
+    hook_required: true, hook_style: 'nhẹ, không giật tít',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: true, emoji_limit: 2,
+    hashtag_limit: 3, hashtag_position: 'end',
+    line_break_style: 'normal', link_position: 'allowed',
+    format_description: 'Chuyên nghiệp, B2B authority',
+  },
+  email: {
+    min_length: 150, max_length: 400, length_unit: 'words',
+    hook_required: false, bullet_allowed: true, cta_policy: 'required',
+    has_subject_line: true, emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Có Subject line, đoạn ngắn, CTA rõ',
+  },
+  youtube: {
+    min_length: 500, max_length: 800, length_unit: 'words',
+    hook_required: true, hook_style: 'hook 5 giây đầu',
+    bullet_allowed: true, cta_policy: 'required',
+    emoji_allowed: true, emoji_limit: 3,
+    hashtag_limit: 5, hashtag_position: 'end',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Script Hook + Intro + Content + CTA + Outro',
+  },
+  zalo_oa: {
+    min_length: 60, max_length: 150, length_unit: 'words',
+    hook_required: true, hook_style: 'trực diện',
+    bullet_allowed: false, cta_policy: 'required',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'short', link_position: 'allowed',
+    format_description: 'Thông báo rõ việc, thân thiện local',
+  },
+  telegram: {
+    min_length: 100, max_length: 500, length_unit: 'words',
+    hook_required: false, hook_style: 'không cần giật',
+    bullet_allowed: true, cta_policy: 'optional',
+    emoji_allowed: false, emoji_limit: 0,
+    hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'allowed',
+    format_description: 'Bullet, dễ đọc, linh hoạt',
+  },
 };
 
+function buildChannelRulesPrompt(channel: string, settings: ChannelSettings, brandAllowEmoji: boolean): string {
+  const parts: string[] = [];
+  parts.push(`### ${channel.toUpperCase()}`);
+  
+  const lengthLabel = settings.length_unit === 'chars' ? 'ký tự' : 'chữ';
+  parts.push(`- Độ dài: ${settings.min_length || 0}–${settings.max_length} ${lengthLabel}`);
+  parts.push(`- Hook: ${settings.hook_required ? settings.hook_style || 'BẮT BUỘC' : 'Không bắt buộc'}`);
+  
+  const ctaLabels: Record<string, string> = { required: 'Bắt buộc', soft: 'Mềm', optional: 'Tuỳ chọn', none: 'Không' };
+  parts.push(`- CTA: ${ctaLabels[settings.cta_policy]}`);
+  
+  if (!brandAllowEmoji) {
+    parts.push(`- Emoji: KHÔNG (Brand Voice yêu cầu)`);
+  } else if (settings.emoji_allowed) {
+    parts.push(`- Emoji: Tối đa ${settings.emoji_limit}`);
+  } else {
+    parts.push(`- Emoji: KHÔNG`);
+  }
+  
+  parts.push(`- Hashtag: ${settings.hashtag_limit > 0 ? `Tối đa ${settings.hashtag_limit}` : 'KHÔNG'}`);
+  if (settings.format_description) parts.push(`- Format: ${settings.format_description}`);
+  if (settings.has_subject_line) parts.push(`- Bao gồm Subject line`);
+  
+  return parts.join('\n');
+}
+
 const goalDescriptions: Record<string, string> = {
-  education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
-  awareness: "Nhận diện - Tăng nhận biết thương hiệu. Tone: Ấn tượng, đáng nhớ, consistent brand voice.",
-  engagement: "Tương tác - Khuyến khích bình luận, chia sẻ. Tone: Gần gũi, đặt câu hỏi, tạo tranh luận.",
-  expertise: "Xây chuyên gia - Thể hiện chuyên môn sâu. Tone: Chuyên nghiệp, có insight, data-driven.",
-  conversion: "Chuyển đổi - Thúc đẩy hành động. Tone: Thuyết phục, urgency nhẹ, clear CTA.",
+  education: "Giáo dục - Chia sẻ kiến thức chuyên sâu",
+  awareness: "Nhận diện - Tăng nhận biết thương hiệu",
+  engagement: "Tương tác - Khuyến khích bình luận, chia sẻ",
+  expertise: "Xây chuyên gia - Thể hiện chuyên môn sâu",
+  conversion: "Chuyển đổi - Thúc đẩy hành động",
 };
 
 const channelFieldMap: Record<string, string> = {
@@ -144,6 +272,7 @@ const channelFieldMap: Record<string, string> = {
   email: "email_content",
   youtube: "youtube_content",
   zalo_oa: "zalo_oa_content",
+  telegram: "telegram_content",
 };
 
 serve(async (req) => {
@@ -159,7 +288,7 @@ serve(async (req) => {
       throw new Error("contentId và channel là bắt buộc");
     }
 
-    if (!channelRules[channel]) {
+    if (!DEFAULT_CHANNEL_SETTINGS[channel]) {
       throw new Error(`Kênh không hợp lệ: ${channel}`);
     }
 
@@ -210,8 +339,10 @@ serve(async (req) => {
 
     // Build Brand Voice section
     const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
+    const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
+    const channelRulesPrompt = buildChannelRulesPrompt(channel, DEFAULT_CHANNEL_SETTINGS[channel], brandAllowEmoji);
 
-    const systemPrompt = `Bạn là hệ thống AI tạo NỘI DUNG cho doanh nghiệp (B2B).
+    const systemPrompt = `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG cho doanh nghiệp (B2B).
 
 ${brandVoiceSection}
 
@@ -223,8 +354,14 @@ ${content.primary_color ? `Màu chủ đạo: ${content.primary_color}` : ""}
 ## MỤC TIÊU NỘI DUNG
 ${goalDescriptions[content.content_goal] || content.content_goal}
 
-## QUY ƯỚC CHO KÊNH ${channel.toUpperCase()}
-${channelRules[channel]}
+## QUY ƯỚC CHO KÊNH (SOCIAL CHANNEL SETTINGS)
+Brand Voice là LUẬT NỀN. Channel Settings là LUẬT TRIỂN KHAI.
+
+${channelRulesPrompt}
+
+## KIỂM TRA CUỐI (BẮT BUỘC)
+- Có vượt max length không? → TỰ RÚT GỌN
+- Có vi phạm emoji / hashtag không? → TỰ ĐIỀU CHỈNH
 
 ## NGUYÊN TẮC BẮT BUỘC
 1. Tạo nội dung MỚI HOÀN TOÀN, khác với phiên bản trước
@@ -234,15 +371,15 @@ ${channelRules[channel]}
 
 ## ĐIỀU TUYỆT ĐỐI KHÔNG LÀM
 - Không giải thích vì sao viết như vậy
-- Không bình luận ngoài nội dung
-- Không dùng emoji nếu kênh không cho phép${brandVoice && !brandVoice.allow_emoji ? "\n- KHÔNG dùng emoji (Brand Voice yêu cầu)" : ""}`;
+- Không bình luận ngoài nội dung${brandVoice && !brandVoice.allow_emoji ? "\n- KHÔNG dùng emoji (Brand Voice yêu cầu)" : ""}`;
 
     const userPrompt = `Viết lại nội dung cho kênh ${channel.toUpperCase()} với chủ đề:
 "${content.topic}"
 
 ${content.industry ? `Ngành/Bối cảnh: ${content.industry}` : ""}
 
-Tạo một phiên bản MỚI, KHÁC BIỆT với nội dung cũ, nhưng vẫn giữ thông điệp lõi.`;
+Tạo một phiên bản MỚI, KHÁC BIỆT với nội dung cũ, nhưng vẫn giữ thông điệp lõi.
+Nội dung sẵn sàng đăng ngay.`;
 
     const tools = [
       {
