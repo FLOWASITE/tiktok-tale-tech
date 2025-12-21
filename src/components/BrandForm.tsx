@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { BrandVoicePreview } from '@/components/BrandVoicePreview';
+import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check, User, Building2 } from 'lucide-react';
@@ -496,24 +497,41 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       </div>
 
       {/* Brand Voice Profile Section - Full Width */}
-      <BrandVoiceSection
-        brandPositioning={brandPositioning}
-        onBrandPositioningChange={setBrandPositioning}
-        toneOfVoice={toneOfVoice}
-        onToneOfVoiceChange={setToneOfVoice}
-        formalityLevel={formalityLevel}
-        onFormalityLevelChange={setFormalityLevel}
-        languageStyle={languageStyle}
-        onLanguageStyleChange={setLanguageStyle}
-        preferredWords={preferredWords}
-        onPreferredWordsChange={setPreferredWords}
-        forbiddenWords={forbiddenWords}
-        onForbiddenWordsChange={setForbiddenWords}
-        allowEmoji={allowEmoji}
-        onAllowEmojiChange={setAllowEmoji}
-        complianceRules={complianceRules}
-        onComplianceRulesChange={setComplianceRules}
-      />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-medium">Brand Voice Profile</Label>
+          <AIBrandVoiceGenerator
+            currentIndustry={industries}
+            onApply={(suggestions) => {
+              if (suggestions.brand_positioning) setBrandPositioning(suggestions.brand_positioning);
+              if (suggestions.tone_of_voice) setToneOfVoice(suggestions.tone_of_voice);
+              if (suggestions.formality_level) setFormalityLevel(suggestions.formality_level);
+              if (suggestions.language_style) setLanguageStyle(suggestions.language_style);
+              if (suggestions.preferred_words) setPreferredWords(suggestions.preferred_words);
+              if (suggestions.forbidden_words) setForbiddenWords(suggestions.forbidden_words);
+              if (suggestions.allow_emoji !== undefined) setAllowEmoji(suggestions.allow_emoji);
+            }}
+          />
+        </div>
+        <BrandVoiceSection
+          brandPositioning={brandPositioning}
+          onBrandPositioningChange={setBrandPositioning}
+          toneOfVoice={toneOfVoice}
+          onToneOfVoiceChange={setToneOfVoice}
+          formalityLevel={formalityLevel}
+          onFormalityLevelChange={setFormalityLevel}
+          languageStyle={languageStyle}
+          onLanguageStyleChange={setLanguageStyle}
+          preferredWords={preferredWords}
+          onPreferredWordsChange={setPreferredWords}
+          forbiddenWords={forbiddenWords}
+          onForbiddenWordsChange={setForbiddenWords}
+          allowEmoji={allowEmoji}
+          onAllowEmojiChange={setAllowEmoji}
+          complianceRules={complianceRules}
+          onComplianceRulesChange={setComplianceRules}
+        />
+      </div>
 
       {/* Channel Settings Override Section */}
       <ChannelSettingsEditor
