@@ -12,13 +12,24 @@ serve(async (req) => {
   }
 
   try {
-    const { description, industry, generateGuideline } = await req.json();
+    const { 
+      // New inputs: accept full Brand Template data
+      brand_name,
+      brand_guideline,
+      industry,
+      primary_color,
+      brand_positioning,
+      tone_of_voice,
+      formality_level,
+      language_style,
+      preferred_words,
+      forbidden_words,
+    } = await req.json();
     
-    // Validate: require at least 1 meaningful word (min 2 characters)
-    const trimmedDesc = (description || '').trim();
-    if (trimmedDesc.length < 2) {
+    // Validate: require at least brand_guideline
+    if (!brand_guideline?.trim()) {
       return new Response(
-        JSON.stringify({ error: 'Vui lòng nhập mô tả sản phẩm/dịch vụ của bạn' }),
+        JSON.stringify({ error: 'Vui lòng tạo Brand Guideline trước khi tạo Brand Voice' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -32,25 +43,50 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `Bạn là chuyên gia về Brand Strategy và Content Marketing. Nhiệm vụ của bạn là phân tích mô tả sản phẩm/dịch vụ và đề xuất Brand Voice phù hợp.
+    // Build context from existing Brand Template data
+    const industryStr = Array.isArray(industry) ? industry.join(', ') : (industry || 'Chưa xác định');
+    const toneStr = Array.isArray(tone_of_voice) ? tone_of_voice.join(', ') : '';
+    const styleStr = Array.isArray(language_style) ? language_style.join(', ') : '';
+    const preferredStr = Array.isArray(preferred_words) ? preferred_words.join(', ') : '';
+    const forbiddenStr = Array.isArray(forbidden_words) ? forbidden_words.join(', ') : '';
 
-Lưu ý quan trọng:
-- suggested_brand_name: Gợi ý 1 tên thương hiệu phù hợp với mô tả (có thể là tiếng Việt hoặc tiếng Anh, 2-4 từ, dễ nhớ)
-- suggested_industry: Chọn 1 ngành phù hợp nhất từ: Tài chính & Kế toán, Bất động sản, F&B, Công nghệ thông tin, Giáo dục & Đào tạo, Y tế & Sức khỏe, Du lịch & Khách sạn, Thương mại điện tử, Marketing & Truyền thông, Thời trang & Làm đẹp, hoặc ngành khác phù hợp
-- tone_of_voice: Chọn 2-4 giá trị phù hợp nhất từ: professional, friendly, authoritative, playful, empathetic, inspirational, educational, conversational
-- language_style: Chọn 2-3 giá trị phù hợp nhất từ: simple, technical, storytelling, data_driven, emotional, humorous, direct, poetic
-- preferred_words: Đề xuất 5-10 từ/cụm từ đặc trưng cho ngành (tiếng Việt)
-- forbidden_words: Đề xuất 3-5 từ nên tránh (tiếng Việt)
-- Trả lời bằng tiếng Việt cho các trường text tự do`;
+    const systemPrompt = `Bạn là chuyên gia về Brand Voice và Content Strategy. 
 
-    const userPrompt = `Phân tích và đề xuất Brand Voice cho sản phẩm/dịch vụ sau:
+NHIỆM VỤ: Dựa trên Brand Guideline đã có, tinh chỉnh và bổ sung Brand Voice cho thương hiệu.
 
-Mô tả: ${description}
-${industry ? `Ngành nghề: ${industry}` : ''}
+NGUYÊN TẮC:
+1. KHÔNG đề xuất lại những gì đã có trong Brand Guideline
+2. BỔ SUNG chi tiết cụ thể hơn cho việc viết content
+3. preferred_words: Đề xuất 5-10 từ/cụm từ ĐẶC THÙ NGÀNH
+4. forbidden_words: Đề xuất 3-5 từ cần TRÁNH (chung chung, sáo rỗng)
+5. Tất cả phải bằng tiếng Việt
+6. Emoji policy dựa trên mức độ trang trọng và ngành
 
-Hãy sử dụng function suggest_brand_voice để trả về kết quả.`;
+VÍ DỤ TỐT preferred_words cho ngành Kế toán:
+- "tuân thủ thuế", "tối ưu thuế", "deadline nộp hồ sơ", "quyết toán", "sổ sách kế toán"
 
-    console.log("Calling Lovable AI for brand voice generation with tool calling...");
+VÍ DỤ TỐT forbidden_words:
+- "số 1", "hàng đầu", "uy tín nhất", "cam kết 100%", "giá rẻ nhất"`;
+
+    const userPrompt = `Phân tích và bổ sung Brand Voice cho thương hiệu:
+
+BRAND GUIDELINE ĐÃ CÓ:
+${brand_guideline}
+
+THÔNG TIN BỔ SUNG:
+- Tên thương hiệu: ${brand_name || 'Chưa đặt tên'}
+- Ngành: ${industryStr}
+- Màu chủ đạo: ${primary_color || 'Chưa chọn'}
+- Định vị: ${brand_positioning || 'Chưa có'}
+- Tone đã chọn: ${toneStr || 'Chưa chọn'}
+- Phong cách: ${styleStr || 'Chưa chọn'}
+- Mức trang trọng: ${formality_level || 'Chưa chọn'}
+- Từ ưu tiên hiện tại: ${preferredStr || 'Chưa có'}
+- Từ cấm hiện tại: ${forbiddenStr || 'Chưa có'}
+
+Hãy sử dụng function suggest_brand_voice để trả về kết quả bổ sung.`;
+
+    console.log("Calling Lovable AI for brand voice refinement based on guideline...");
 
     // Use tool calling to ensure structured JSON output
     const tools = [
@@ -58,59 +94,53 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả.`;
         type: "function",
         function: {
           name: "suggest_brand_voice",
-          description: "Đề xuất Brand Voice dựa trên mô tả sản phẩm/dịch vụ",
+          description: "Bổ sung và tinh chỉnh Brand Voice dựa trên Brand Guideline",
           parameters: {
             type: "object",
             properties: {
-              suggested_brand_name: {
-                type: "string",
-                description: "Tên thương hiệu gợi ý (ngắn gọn, dễ nhớ, 2-4 từ)"
-              },
-              suggested_industry: {
-                type: "string",
-                description: "Ngành nghề phù hợp nhất"
-              },
               brand_positioning: {
                 type: "string",
-                description: "Câu định vị thương hiệu ngắn gọn (1-2 câu, tiếng Việt)"
+                description: "Câu định vị thương hiệu được tinh chỉnh (1-2 câu, tiếng Việt). Chỉ cập nhật nếu cần cải thiện."
               },
               tone_of_voice: {
                 type: "array",
                 items: { type: "string" },
-                description: "Danh sách 2-4 tone phù hợp"
+                description: "Danh sách 2-4 tone phù hợp: professional, friendly, authoritative, playful, empathetic, inspirational, educational, conversational"
               },
               formality_level: {
                 type: "string",
                 enum: ["formal", "semi_formal", "casual", "friendly"],
-                description: "Mức độ trang trọng"
+                description: "Mức độ trang trọng phù hợp nhất"
               },
               language_style: {
                 type: "array",
                 items: { type: "string" },
-                description: "Danh sách 2-3 phong cách ngôn ngữ"
+                description: "Danh sách 2-3 phong cách: simple, technical, storytelling, data_driven, emotional, humorous, direct, poetic"
               },
               preferred_words: {
                 type: "array",
                 items: { type: "string" },
-                description: "5-10 từ/cụm từ nên dùng (tiếng Việt)"
+                description: "5-10 từ/cụm từ ĐẶC THÙ NGÀNH nên dùng (tiếng Việt)"
               },
               forbidden_words: {
                 type: "array",
                 items: { type: "string" },
-                description: "3-5 từ nên tránh (tiếng Việt)"
+                description: "3-5 từ CHUNG CHUNG cần tránh (tiếng Việt)"
               },
               allow_emoji: {
                 type: "boolean",
-                description: "Có cho phép dùng emoji không"
+                description: "Có nên dùng emoji không - dựa vào formality và ngành"
+              },
+              pronoun_suggestion: {
+                type: "string",
+                description: "Gợi ý cách xưng hô: 'mình/bạn', 'chúng tôi/quý khách', 'tôi/anh chị', etc."
               },
               reasoning: {
                 type: "string",
-                description: "Giải thích ngắn gọn lý do cho các đề xuất (tiếng Việt)"
+                description: "Giải thích ngắn gọn lý do cho các đề xuất bổ sung (tiếng Việt)"
               }
             },
             required: [
-              "suggested_brand_name",
-              "suggested_industry", 
               "brand_positioning",
               "tone_of_voice",
               "formality_level",
@@ -118,6 +148,7 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả.`;
               "preferred_words",
               "forbidden_words",
               "allow_emoji",
+              "pronoun_suggestion",
               "reasoning"
             ],
             additionalProperties: false
@@ -190,7 +221,7 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả.`;
       }
       
       return new Response(
-        JSON.stringify({ error: 'AI không thể tạo đề xuất. Vui lòng mô tả chi tiết hơn về sản phẩm/dịch vụ của bạn.' }),
+        JSON.stringify({ error: 'AI không thể tạo đề xuất. Vui lòng thử lại.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -206,15 +237,7 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả.`;
       );
     }
 
-    console.log("Brand voice generated successfully via tool call");
-
-    // If generateGuideline was requested, also return the reasoning as guideline
-    if (generateGuideline && suggestions.reasoning) {
-      return new Response(
-        JSON.stringify({ suggestions, guideline: suggestions.reasoning }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    console.log("Brand voice refined successfully via tool call");
 
     return new Response(
       JSON.stringify({ suggestions }),
