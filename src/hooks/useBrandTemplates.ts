@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 
 import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
@@ -17,6 +18,9 @@ export interface BrandTemplate {
   primary_color: string;
   created_at: string;
   updated_at: string;
+  // Ownership
+  user_id: string | null;
+  organization_id: string | null;
   // Brand Voice Profile
   brand_positioning: string | null;
   tone_of_voice: string[] | null;
@@ -30,10 +34,13 @@ export interface BrandTemplate {
   channel_overrides: ChannelOverrides | null;
 }
 
+export type BrandScope = 'personal' | 'organization';
+
 const BUCKET_NAME = 'brand-logos';
 
 export function useBrandTemplates() {
   const { user } = useAuth();
+  const { currentOrganization } = useOrganizationContext();
   const [templates, setTemplates] = useState<BrandTemplate[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,11 +52,20 @@ export function useBrandTemplates() {
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('brand_templates')
         .select('*')
         .order('is_default', { ascending: false })
         .order('name', { ascending: true });
+
+      // Filter by user_id OR organization_id
+      if (currentOrganization) {
+        query = query.or(`user_id.eq.${user.id},organization_id.eq.${currentOrganization.id}`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setTemplates(data as BrandTemplate[]);
@@ -64,16 +80,25 @@ export function useBrandTemplates() {
     }
   };
 
-  const saveTemplate = async (template: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<BrandTemplate | null> => {
+  const saveTemplate = async (
+    template: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>,
+    scope: BrandScope = 'personal'
+  ): Promise<BrandTemplate | null> => {
     if (!user) {
       toast.error('Vui lòng đăng nhập để tạo template');
       return null;
     }
 
     try {
+      const insertData = {
+        ...template,
+        user_id: scope === 'personal' ? user.id : null,
+        organization_id: scope === 'organization' && currentOrganization ? currentOrganization.id : null,
+      };
+
       const { data, error } = await supabase
         .from('brand_templates')
-        .insert({ ...template, user_id: user.id })
+        .insert(insertData)
         .select()
         .single();
 
@@ -123,11 +148,25 @@ export function useBrandTemplates() {
 
   const setDefaultTemplate = async (id: string): Promise<boolean> => {
     try {
-      // First, unset all defaults for this user
-      await supabase
-        .from('brand_templates')
-        .update({ is_default: false })
-        .neq('id', id);
+      // First, unset all defaults for this user/org
+      const template = templates.find(t => t.id === id);
+      if (!template) return false;
+
+      // Unset defaults based on scope
+      if (template.organization_id) {
+        await supabase
+          .from('brand_templates')
+          .update({ is_default: false })
+          .eq('organization_id', template.organization_id)
+          .neq('id', id);
+      } else if (template.user_id) {
+        await supabase
+          .from('brand_templates')
+          .update({ is_default: false })
+          .eq('user_id', template.user_id)
+          .is('organization_id', null)
+          .neq('id', id);
+      }
       
       // Then set the new default
       const { error } = await supabase
@@ -139,7 +178,12 @@ export function useBrandTemplates() {
       
       setTemplates((prev) => prev.map((t) => ({
         ...t,
-        is_default: t.id === id
+        is_default: t.id === id ? true : (
+          // Only unset default for same scope
+          template.organization_id 
+            ? (t.organization_id === template.organization_id ? false : t.is_default)
+            : (t.user_id === template.user_id && !t.organization_id ? false : t.is_default)
+        )
       })));
       toast.success('⭐ Đã đặt làm mặc định!', {
         description: 'Template này sẽ được sử dụng cho các nội dung mới',
@@ -154,7 +198,7 @@ export function useBrandTemplates() {
     }
   };
 
-  const duplicateTemplate = async (id: string): Promise<BrandTemplate | null> => {
+  const duplicateTemplate = async (id: string, scope?: BrandScope): Promise<BrandTemplate | null> => {
     if (!user) {
       toast.error('Vui lòng đăng nhập để tạo bản sao');
       return null;
@@ -164,12 +208,17 @@ export function useBrandTemplates() {
       const template = templates.find(t => t.id === id);
       if (!template) throw new Error('Template not found');
       
-      const { id: _, created_at, updated_at, is_default, ...templateData } = template;
+      const { id: _, created_at, updated_at, is_default, user_id, organization_id, ...templateData } = template;
+      
+      // Determine scope for duplicate
+      const targetScope = scope || (template.organization_id ? 'organization' : 'personal');
+      
       const duplicatedData = {
         ...templateData,
         name: `${template.name} (Copy)`,
         is_default: false,
-        user_id: user.id,
+        user_id: targetScope === 'personal' ? user.id : null,
+        organization_id: targetScope === 'organization' && currentOrganization ? currentOrganization.id : null,
       };
       
       const { data, error } = await supabase
@@ -263,7 +312,7 @@ export function useBrandTemplates() {
 
   useEffect(() => {
     fetchTemplates();
-  }, [user]);
+  }, [user, currentOrganization?.id]);
 
   return {
     templates,

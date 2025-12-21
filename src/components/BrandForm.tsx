@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrandTemplate } from '@/hooks/useBrandTemplates';
+import { BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
+import { BrandVoicePreview } from '@/components/BrandVoicePreview';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
-import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check, User, Building2 } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -46,14 +49,22 @@ const SUGGESTED_INDUSTRIES = [
   'Tư vấn & Dịch vụ chuyên nghiệp',
 ];
 
+// Type for form data without ownership fields
+type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
+
 interface BrandFormProps {
   template?: BrandTemplate | null;
-  onSubmit: (data: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>, logoFile?: File | null, deleteLogo?: boolean) => void;
+  onSubmit: (data: BrandFormData, scope: BrandScope, logoFile?: File | null, deleteLogo?: boolean) => void;
   onCancel: () => void;
   isLoading?: boolean;
 }
 
 export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandFormProps) {
+  const { currentOrganization } = useOrganizationContext();
+  
+  // Scope selection
+  const [scope, setScope] = useState<BrandScope>('personal');
+  
   // Basic info
   const [name, setName] = useState('');
   const [brandName, setBrandName] = useState('');
@@ -94,6 +105,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       setLogoPreview(template.logo_url);
       setLogoFile(null);
       setDeleteLogo(false);
+      // Set scope based on existing template
+      setScope(template.organization_id ? 'organization' : 'personal');
       // Brand Voice
       setBrandPositioning(template.brand_positioning || '');
       setToneOfVoice(template.tone_of_voice || []);
@@ -115,6 +128,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       setLogoPreview(null);
       setLogoFile(null);
       setDeleteLogo(false);
+      setScope('personal');
       // Brand Voice defaults
       setBrandPositioning('');
       setToneOfVoice([]);
@@ -214,6 +228,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
         compliance_rules: complianceRules.length > 0 ? complianceRules : null,
         channel_overrides: Object.keys(channelOverrides).length > 0 ? channelOverrides : null,
       },
+      scope,
       logoFile,
       deleteLogo
     );
@@ -221,6 +236,45 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Scope Selection */}
+      <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+        <Label className="text-sm font-medium">Phạm vi sử dụng</Label>
+        <RadioGroup 
+          value={scope} 
+          onValueChange={(v) => setScope(v as BrandScope)}
+          className="flex flex-col gap-2"
+          disabled={!!template} // Can't change scope when editing
+        >
+          <div className="flex items-center space-x-3 p-3 rounded-md border bg-background hover:bg-muted/50 transition-colors">
+            <RadioGroupItem value="personal" id="personal" />
+            <Label htmlFor="personal" className="flex-1 cursor-pointer flex items-center gap-2">
+              <User className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="font-medium text-sm">Cá nhân</p>
+                <p className="text-xs text-muted-foreground">Chỉ bạn có thể sử dụng template này</p>
+              </div>
+            </Label>
+          </div>
+          {currentOrganization && (
+            <div className="flex items-center space-x-3 p-3 rounded-md border bg-background hover:bg-muted/50 transition-colors">
+              <RadioGroupItem value="organization" id="organization" />
+              <Label htmlFor="organization" className="flex-1 cursor-pointer flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm">{currentOrganization.name}</p>
+                  <p className="text-xs text-muted-foreground">Tất cả thành viên trong tổ chức có thể sử dụng</p>
+                </div>
+              </Label>
+            </div>
+          )}
+        </RadioGroup>
+        {template && (
+          <p className="text-xs text-muted-foreground italic">
+            * Không thể thay đổi phạm vi khi chỉnh sửa template
+          </p>
+        )}
+      </div>
+
       <div className="grid gap-5 md:grid-cols-2">
         {/* Left Column - Basic Info */}
         <div className="space-y-4">
@@ -389,7 +443,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
           </div>
         </div>
 
-        {/* Right Column - Brand Voice & Guideline */}
+        {/* Right Column - Brand Voice Preview & Guideline */}
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="brandGuideline">Brand Guideline</Label>
@@ -426,6 +480,18 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
               </Label>
             </div>
           </div>
+
+          {/* Brand Voice Preview */}
+          <BrandVoicePreview
+            brandName={brandName}
+            positioning={brandPositioning}
+            toneOfVoice={toneOfVoice}
+            formalityLevel={formalityLevel}
+            languageStyle={languageStyle}
+            allowEmoji={allowEmoji}
+            preferredWords={preferredWords}
+            forbiddenWords={forbiddenWords}
+          />
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
 import { Button } from '@/components/ui/button';
@@ -17,12 +18,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Palette, Plus, Search, Download, Upload, Loader2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 type SortOption = 'name' | 'created_at' | 'is_default';
+type FilterScope = 'all' | 'personal' | 'organization';
+type ViewMode = 'grid' | 'list';
+
+// Type for form data without ownership fields
+type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
 
 export default function Brands() {
+  const { currentOrganization } = useOrganizationContext();
   const { 
     templates, 
     loading, 
@@ -40,6 +49,8 @@ export default function Brands() {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('is_default');
+  const [filterScope, setFilterScope] = useState<FilterScope>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const handleCreate = () => {
     setEditingTemplate(null);
@@ -57,7 +68,8 @@ export default function Brands() {
   };
 
   const handleSubmit = async (
-    data: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>,
+    data: BrandFormData,
+    scope: BrandScope,
     logoFile?: File | null,
     shouldDeleteLogo?: boolean
   ) => {
@@ -82,7 +94,7 @@ export default function Brands() {
       if (editingTemplate) {
         await updateTemplate(editingTemplate.id, templateData);
       } else {
-        await saveTemplate(templateData);
+        await saveTemplate(templateData, scope);
       }
       setDialogOpen(false);
       setEditingTemplate(null);
@@ -92,7 +104,7 @@ export default function Brands() {
   };
 
   const handleExport = () => {
-    const exportData = templates.map(({ id, created_at, updated_at, ...rest }) => rest);
+    const exportData = templates.map(({ id, created_at, updated_at, user_id, organization_id, ...rest }) => rest);
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -137,7 +149,7 @@ export default function Brands() {
             allow_emoji: template.allow_emoji ?? true,
             compliance_rules: template.compliance_rules ?? null,
             channel_overrides: template.channel_overrides ?? null,
-          });
+          }, 'personal');
           successCount++;
         }
       }
@@ -152,10 +164,22 @@ export default function Brands() {
 
   // Filter and sort templates
   const filteredTemplates = templates
-    .filter(t => 
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.brand_name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    .filter(t => {
+      // Search filter
+      const matchesSearch = 
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.brand_name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Scope filter
+      let matchesScope = true;
+      if (filterScope === 'personal') {
+        matchesScope = !!t.user_id && !t.organization_id;
+      } else if (filterScope === 'organization') {
+        matchesScope = !!t.organization_id;
+      }
+      
+      return matchesSearch && matchesScope;
+    })
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
@@ -168,6 +192,10 @@ export default function Brands() {
           return 0;
       }
     });
+
+  // Count templates by scope
+  const personalCount = templates.filter(t => !!t.user_id && !t.organization_id).length;
+  const orgCount = templates.filter(t => !!t.organization_id).length;
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -205,6 +233,28 @@ export default function Brands() {
         </div>
       </div>
 
+      {/* Tabs for scope filtering */}
+      <Tabs value={filterScope} onValueChange={(v) => setFilterScope(v as FilterScope)}>
+        <TabsList>
+          <TabsTrigger value="all" className="gap-1.5">
+            Tất cả
+            <span className="text-xs text-muted-foreground">({templates.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="personal" className="gap-1.5">
+            <User className="w-3.5 h-3.5" />
+            Cá nhân
+            <span className="text-xs text-muted-foreground">({personalCount})</span>
+          </TabsTrigger>
+          {currentOrganization && (
+            <TabsTrigger value="organization" className="gap-1.5">
+              <Building2 className="w-3.5 h-3.5" />
+              {currentOrganization.name}
+              <span className="text-xs text-muted-foreground">({orgCount})</span>
+            </TabsTrigger>
+          )}
+        </TabsList>
+      </Tabs>
+
       {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -216,19 +266,41 @@ export default function Brands() {
             className="pl-9"
           />
         </div>
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Sắp xếp theo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="is_default">Mặc định trước</SelectItem>
-            <SelectItem value="name">Tên A-Z</SelectItem>
-            <SelectItem value="created_at">Mới nhất</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Sắp xếp theo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="is_default">Mặc định trước</SelectItem>
+              <SelectItem value="name">Tên A-Z</SelectItem>
+              <SelectItem value="created_at">Mới nhất</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* View mode toggle */}
+          <div className="flex border rounded-md">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('rounded-r-none', viewMode === 'grid' && 'bg-muted')}
+              onClick={() => setViewMode('grid')}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('rounded-l-none', viewMode === 'list' && 'bg-muted')}
+              onClick={() => setViewMode('list')}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Templates Grid */}
+      {/* Templates Grid/List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -238,7 +310,7 @@ export default function Brands() {
           <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
             <Palette className="w-8 h-8 text-muted-foreground" />
           </div>
-          {searchQuery ? (
+          {searchQuery || filterScope !== 'all' ? (
             <p className="text-muted-foreground">
               Không tìm thấy template nào phù hợp
             </p>
@@ -255,7 +327,11 @@ export default function Brands() {
           )}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={cn(
+          viewMode === 'grid' 
+            ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3' 
+            : 'flex flex-col gap-3'
+        )}>
           {filteredTemplates.map((template) => (
             <BrandCard
               key={template.id}
@@ -264,6 +340,7 @@ export default function Brands() {
               onDelete={deleteTemplate}
               onSetDefault={setDefaultTemplate}
               onDuplicate={duplicateTemplate}
+              compact={viewMode === 'list'}
             />
           ))}
         </div>

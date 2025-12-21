@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,13 +30,15 @@ import { AI_PROVIDERS, AIProviderType } from '@/types/aiProvider';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
+// Type for form data without ownership fields
+type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
+
 export function SettingsDropdown() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [brandOpen, setBrandOpen] = useState(false);
   const { config, getProviderConfig, setSelectedProvider } = useAIProviders();
   const activeProvider = AI_PROVIDERS.find(p => p.id === config.selectedProvider);
   const isConfigured = !!getProviderConfig(config.selectedProvider);
-  const configuredProviders = AI_PROVIDERS.filter(p => !!getProviderConfig(p.id));
 
   const handleQuickSwitch = (providerId: AIProviderType) => {
     if (!getProviderConfig(providerId)) {
@@ -176,7 +178,8 @@ function BrandManagementDialogInner({ open, onOpenChange }: { open: boolean; onO
   };
 
   const handleSubmit = async (
-    data: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>,
+    data: BrandFormData,
+    scope: BrandScope,
     logoFile?: File | null,
     shouldDeleteLogo?: boolean
   ) => {
@@ -201,7 +204,7 @@ function BrandManagementDialogInner({ open, onOpenChange }: { open: boolean; onO
       if (editingTemplate) {
         await updateTemplate(editingTemplate.id, templateData);
       } else {
-        await saveTemplate(templateData);
+        await saveTemplate(templateData, scope);
       }
       setShowForm(false);
       setEditingTemplate(null);
