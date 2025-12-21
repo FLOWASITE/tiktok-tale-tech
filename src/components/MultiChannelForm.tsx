@@ -23,6 +23,7 @@ import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedi
 import { MultiChannelFormData, ContentGoal, Channel, CONTENT_GOALS, CHANNELS, TOPIC_SUGGESTIONS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
+import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -329,7 +330,11 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                 </SelectContent>
               </Select>
             {selectedTemplate && (
-                <BrandPreviewCard template={selectedTemplate} defaultOpen={true} />
+                <BrandAppliedInfo 
+                  template={selectedTemplate} 
+                  selectedChannels={selectedChannels}
+                  industry={industry}
+                />
               )}
             </div>
 
