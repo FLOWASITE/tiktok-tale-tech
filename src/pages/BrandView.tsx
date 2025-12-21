@@ -45,7 +45,8 @@ import {
   Send,
   Loader2,
   Copy,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -105,8 +106,10 @@ export default function BrandView() {
     setDefaultTemplate, 
     duplicateTemplate,
     uploadLogo,
-    deleteLogo 
+    deleteLogo,
+    refetch
   } = useBrandTemplates();
+  const [refreshing, setRefreshing] = useState(false);
   const [template, setTemplate] = useState<BrandTemplate | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -266,6 +269,19 @@ export default function BrandView() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={async () => {
+              setRefreshing(true);
+              await refetch();
+              setRefreshing(false);
+              toast.success('Đã làm mới dữ liệu');
+            }}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
           {!template.is_default && (
             <Button variant="outline" size="sm" onClick={handleSetDefault}>
               <Check className="w-4 h-4 mr-1" />
