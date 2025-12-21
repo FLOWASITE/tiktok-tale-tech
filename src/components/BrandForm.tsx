@@ -110,6 +110,11 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   // AI Quick Start
   const [aiDescription, setAiDescription] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  
+  // Guideline AI results
+  const [guidelineExampleGood, setGuidelineExampleGood] = useState('');
+  const [guidelineExampleBad, setGuidelineExampleBad] = useState('');
+  const [guidelineKeyPrinciples, setGuidelineKeyPrinciples] = useState<string[]>([]);
   const [isGeneratingGuideline, setIsGeneratingGuideline] = useState(false);
 
   useEffect(() => {
@@ -375,28 +380,46 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   };
 
   const handleGenerateGuideline = async () => {
-    if (!brandName.trim() || toneOfVoice.length === 0) {
-      toast.error('Cần có tên brand và tone of voice để tạo guideline');
+    if (!brandName.trim()) {
+      toast.error('Cần có tên brand để tạo guideline');
       return;
     }
 
     setIsGeneratingGuideline(true);
+    // Clear previous examples
+    setGuidelineExampleGood('');
+    setGuidelineExampleBad('');
+    setGuidelineKeyPrinciples([]);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('generate-brand-voice', {
+      const { data, error } = await supabase.functions.invoke('generate-brand-guideline', {
         body: {
-          description: `Tạo brand guideline ngắn gọn cho thương hiệu "${brandName}" với định vị "${brandPositioning || 'chưa xác định'}", tone of voice: ${toneOfVoice.join(', ')}, phong cách ${formalityLevel || 'semi_formal'}.`,
-          generateGuideline: true,
+          brand_name: brandName.trim(),
+          industry: industries,
+          primary_color: primaryColor,
+          has_logo: !!logoFile || !!logoPreview || !!template?.logo_url,
+          tone_of_voice: toneOfVoice,
+          formality_level: formalityLevel,
+          brand_positioning: brandPositioning,
+          language_style: languageStyle,
+          preferred_words: preferredWords,
+          forbidden_words: forbiddenWords,
         },
       });
 
       if (error) throw error;
 
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
       if (data?.guideline) {
         setBrandGuideline(data.guideline);
-        toast.success('Đã tạo Brand Guideline!');
-      } else if (data?.suggestions?.reasoning) {
-        setBrandGuideline(data.suggestions.reasoning);
-        toast.success('Đã tạo Brand Guideline!');
+        setGuidelineExampleGood(data.example_good || '');
+        setGuidelineExampleBad(data.example_bad || '');
+        setGuidelineKeyPrinciples(data.key_principles || []);
+        toast.success('Đã tạo Brand Guideline chi tiết!');
       }
     } catch (error) {
       console.error('Error generating guideline:', error);
@@ -862,7 +885,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="brandGuideline">Brand Guideline</Label>
                   <Button
@@ -870,7 +893,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                     variant="ghost"
                     size="sm"
                     onClick={handleGenerateGuideline}
-                    disabled={isGeneratingGuideline || !brandName.trim() || toneOfVoice.length === 0}
+                    disabled={isGeneratingGuideline || !brandName.trim()}
                     className="gap-1 h-7 text-xs"
                   >
                     {isGeneratingGuideline ? (
@@ -878,7 +901,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                     ) : (
                       <Wand2 className="w-3 h-3" />
                     )}
-                    AI Gợi ý
+                    AI Tạo Guideline
                   </Button>
                 </div>
                 <Textarea
@@ -889,6 +912,49 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                   rows={4}
                   className="resize-none"
                 />
+                
+                {/* AI Guideline Preview với ví dụ tốt/xấu */}
+                {(guidelineExampleGood || guidelineExampleBad || guidelineKeyPrinciples.length > 0) && (
+                  <div className="mt-3 space-y-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                    <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                      <Sparkles className="w-4 h-4" />
+                      AI Preview
+                    </div>
+                    
+                    {guidelineKeyPrinciples.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">Nguyên tắc chính:</p>
+                        <ul className="text-xs space-y-1 list-disc list-inside text-foreground/80">
+                          {guidelineKeyPrinciples.map((principle, idx) => (
+                            <li key={idx}>{principle}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    {guidelineExampleGood && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Ví dụ đúng:
+                        </p>
+                        <p className="text-xs p-2 rounded bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 text-green-800 dark:text-green-300">
+                          "{guidelineExampleGood}"
+                        </p>
+                      </div>
+                    )}
+                    
+                    {guidelineExampleBad && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
+                          <X className="w-3 h-3" /> Ví dụ sai (tránh):
+                        </p>
+                        <p className="text-xs p-2 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-300 line-through">
+                          "{guidelineExampleBad}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
