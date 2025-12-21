@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Sparkles, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
@@ -33,6 +34,9 @@ export default function Auth() {
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('rememberMe') === 'true';
+  });
   
   // Register form
   const [registerEmail, setRegisterEmail] = useState('');
@@ -282,6 +286,33 @@ export default function Auth() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="remember-me" 
+                        checked={rememberMe}
+                        onCheckedChange={(checked) => {
+                          setRememberMe(checked === true);
+                          localStorage.setItem('rememberMe', checked === true ? 'true' : 'false');
+                        }}
+                        className="border-muted-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <Label 
+                        htmlFor="remember-me" 
+                        className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                      >
+                        Ghi nhớ đăng nhập
+                      </Label>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-sm text-primary hover:text-primary/80 hover:underline transition-colors"
+                      onClick={() => toast.info('Tính năng đang được phát triển')}
+                    >
+                      Quên mật khẩu?
+                    </button>
                   </div>
 
                   <Button 
