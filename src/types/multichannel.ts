@@ -10,7 +10,11 @@ export type Channel =
   | 'facebook'
   | 'instagram'
   | 'twitter'
-  | 'google_maps';
+  | 'google_maps'
+  | 'linkedin'
+  | 'email'
+  | 'youtube'
+  | 'zalo_oa';
 
 export interface MultiChannelContent {
   id: string;
@@ -28,6 +32,10 @@ export interface MultiChannelContent {
   instagram_content: string | null;
   twitter_content: string | null;
   google_maps_content: string | null;
+  linkedin_content: string | null;
+  email_content: string | null;
+  youtube_content: string | null;
+  zalo_oa_content: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,10 +56,18 @@ export const CONTENT_GOALS: { value: ContentGoal; label: string; description: st
   { value: 'conversion', label: 'Chuyển đổi', description: 'Thúc đẩy hành động mua hàng' },
 ];
 
-export const CHANNELS: { value: Channel; label: string; icon: string; color: string }[] = [
-  { value: 'website', label: 'Website/Blog', icon: 'Globe', color: 'blue' },
-  { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo' },
-  { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink' },
-  { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate' },
-  { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green' },
+export const CHANNELS: { value: Channel; label: string; icon: string; color: string; category: string }[] = [
+  // Content Platforms
+  { value: 'website', label: 'Website/Blog', icon: 'Globe', color: 'blue', category: 'content' },
+  { value: 'youtube', label: 'YouTube', icon: 'Youtube', color: 'red', category: 'content' },
+  // Social Media
+  { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'social' },
+  { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'social' },
+  { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'social' },
+  { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'social' },
+  // Direct
+  { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'direct' },
+  { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'direct' },
+  // Local
+  { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'local' },
 ];

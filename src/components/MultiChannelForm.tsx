@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CONTENT_GOALS, CHANNELS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 
@@ -27,6 +27,10 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   instagram: <Instagram className="w-4 h-4" />,
   twitter: <Twitter className="w-4 h-4" />,
   google_maps: <MapPin className="w-4 h-4" />,
+  linkedin: <Linkedin className="w-4 h-4" />,
+  email: <Mail className="w-4 h-4" />,
+  youtube: <Youtube className="w-4 h-4" />,
+  zalo_oa: <MessageCircle className="w-4 h-4" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -35,6 +39,10 @@ const channelColors: Record<Channel, string> = {
   instagram: 'text-pink-500',
   twitter: 'text-slate-500',
   google_maps: 'text-green-500',
+  linkedin: 'text-sky-500',
+  email: 'text-amber-500',
+  youtube: 'text-red-500',
+  zalo_oa: 'text-blue-500',
 };
 
 export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps) {
@@ -78,54 +86,67 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
     });
   };
 
-  const canSubmit = topic.trim() && selectedChannels.length > 0 && !isLoading;
+  // Group channels by category
+  const channelCategories = [
+    { name: 'Nền tảng nội dung', channels: CHANNELS.filter(c => c.category === 'content') },
+    { name: 'Mạng xã hội', channels: CHANNELS.filter(c => c.category === 'social') },
+    { name: 'Kênh trực tiếp', channels: CHANNELS.filter(c => c.category === 'direct') },
+    { name: 'Địa phương', channels: CHANNELS.filter(c => c.category === 'local') },
+  ];
 
   return (
-    <Card className="gradient-card">
+    <Card className="gradient-card border-border/50">
       <CardHeader className="pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" />
-          Tạo Nội Dung Đa Kênh
+          Tạo nội dung đa kênh
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Topic */}
           <div className="space-y-2">
-            <Label htmlFor="topic">Chủ đề nội dung *</Label>
+            <Label htmlFor="topic">Chủ đề / Ý tưởng</Label>
             <Textarea
               id="topic"
-              placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="min-h-[100px] resize-none"
+              placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024"
+              className="min-h-[80px] resize-none"
               disabled={isLoading}
             />
           </div>
 
           {/* Industry */}
           <div className="space-y-2">
-            <Label htmlFor="industry">Ngành / Bối cảnh (tuỳ chọn)</Label>
+            <Label htmlFor="industry">Ngành / Bối cảnh (tùy chọn)</Label>
             <Input
               id="industry"
-              placeholder="VD: Thuế & Kế toán, Bất động sản, Công nghệ..."
               value={industry}
               onChange={(e) => setIndustry(e.target.value)}
+              placeholder="VD: Tài chính, Bất động sản, F&B..."
               disabled={isLoading}
             />
           </div>
 
           {/* Content Goal */}
           <div className="space-y-2">
-            <Label>Mục tiêu nội dung *</Label>
-            <Select value={contentGoal} onValueChange={(v) => setContentGoal(v as ContentGoal)} disabled={isLoading}>
+            <Label>Mục tiêu nội dung</Label>
+            <Select
+              value={contentGoal}
+              onValueChange={(value) => setContentGoal(value as ContentGoal)}
+              disabled={isLoading}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {CONTENT_GOALS.map((goal) => (
                   <SelectItem key={goal.value} value={goal.value}>
-                    {goal.label} - {goal.description}
+                    <div className="flex flex-col">
+                      <span>{goal.label}</span>
+                      <span className="text-xs text-muted-foreground">{goal.description}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -134,108 +155,78 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
 
           {/* Brand Template */}
           <div className="space-y-2">
-            <Label>Brand Template *</Label>
+            <Label>Brand Template</Label>
             <Select
               value={brandTemplateId}
               onValueChange={setBrandTemplateId}
               disabled={isLoading || loadingTemplates}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Chọn brand template..." />
+                <SelectValue placeholder="Chọn template..." />
               </SelectTrigger>
               <SelectContent>
                 {templates.map((template) => (
-                  <SelectItem
-                    key={template.id}
-                    value={template.id}
-                    textValue={template.name}
-                    className="py-2"
-                  >
-                    <span className="flex items-center gap-2">
-                      {template.logo_url ? (
-                        <img
-                          src={template.logo_url}
-                          alt=""
-                          className="w-5 h-5 rounded object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <span
-                          className="w-5 h-5 rounded flex-shrink-0 border border-border"
-                          style={{ backgroundColor: template.primary_color || 'hsl(var(--muted))' }}
+                  <SelectItem key={template.id} value={template.id}>
+                    <div className="flex items-center gap-2">
+                      {template.primary_color && (
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: template.primary_color }}
                         />
                       )}
-                      <span className="flex items-center gap-1.5">
-                        {template.primary_color && (
-                          <span
-                            className="w-3 h-3 rounded-full flex-shrink-0 border border-border/50"
-                            style={{ backgroundColor: template.primary_color }}
-                          />
-                        )}
-                        <span>{template.name}</span>
-                        {template.is_default && (
-                          <span className="text-xs text-muted-foreground">(Mặc định)</span>
-                        )}
-                      </span>
-                    </span>
+                      <span>{template.name}</span>
+                      {template.is_default && (
+                        <span className="text-xs text-muted-foreground">(Mặc định)</span>
+                      )}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            
-            {/* Brand Preview */}
             {selectedTemplate && (
-              <div className="p-3 rounded-lg bg-muted/50 border border-border/50 space-y-1">
-                <div className="flex items-center gap-2">
-                  {selectedTemplate.primary_color && (
-                    <div 
-                      className="w-4 h-4 rounded-full border border-border"
-                      style={{ backgroundColor: selectedTemplate.primary_color }}
-                    />
-                  )}
-                  <span className="text-sm font-medium">{selectedTemplate.brand_name}</span>
-                </div>
-                {selectedTemplate.brand_guideline && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {selectedTemplate.brand_guideline}
-                  </p>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {selectedTemplate.brand_name} • {selectedTemplate.brand_guideline?.slice(0, 80)}...
+              </p>
             )}
           </div>
 
-          {/* Channels */}
+          {/* Channels by Category */}
           <div className="space-y-3">
-            <Label>Kênh xuất bản * (chọn ít nhất 1)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {CHANNELS.map((channel) => (
-                <div
-                  key={channel.value}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                    selectedChannels.includes(channel.value)
-                      ? 'bg-primary/10 border-primary'
-                      : 'bg-muted/30 border-border/50 hover:border-border'
-                  } ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
-                  onClick={() => !isLoading && handleChannelToggle(channel.value)}
-                >
-                  <Checkbox
-                    checked={selectedChannels.includes(channel.value)}
-                    onCheckedChange={() => handleChannelToggle(channel.value)}
-                    disabled={isLoading}
-                  />
-                  <div className={`${channelColors[channel.value]}`}>
-                    {channelIcons[channel.value]}
-                  </div>
-                  <span className="text-sm">{channel.label}</span>
+            <Label>Kênh xuất bản</Label>
+            {channelCategories.map((category) => (
+              <div key={category.name} className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">{category.name}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {category.channels.map((channel) => (
+                    <label
+                      key={channel.value}
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        selectedChannels.includes(channel.value)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border/50 hover:border-border'
+                      } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <Checkbox
+                        checked={selectedChannels.includes(channel.value)}
+                        onCheckedChange={() => handleChannelToggle(channel.value)}
+                        disabled={isLoading}
+                      />
+                      <span className={channelColors[channel.value]}>
+                        {channelIcons[channel.value]}
+                      </span>
+                      <span className="text-sm">{channel.label}</span>
+                    </label>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
 
-          {/* Submit Button */}
+          {/* Submit */}
           <Button
             type="submit"
             className="w-full"
-            disabled={!canSubmit}
+            disabled={isLoading || !topic.trim() || selectedChannels.length === 0}
           >
             {isLoading ? (
               <>
@@ -245,7 +236,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                Tạo Nội Dung ({selectedChannels.length} kênh)
+                Tạo nội dung ({selectedChannels.length} kênh)
               </>
             )}
           </Button>

@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Clock } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Clock, Linkedin, Mail, Youtube, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -28,6 +28,10 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   instagram: <Instagram className="w-3 h-3" />,
   twitter: <Twitter className="w-3 h-3" />,
   google_maps: <MapPin className="w-3 h-3" />,
+  linkedin: <Linkedin className="w-3 h-3" />,
+  email: <Mail className="w-3 h-3" />,
+  youtube: <Youtube className="w-3 h-3" />,
+  zalo_oa: <MessageCircle className="w-3 h-3" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -36,6 +40,10 @@ const channelColors: Record<Channel, string> = {
   instagram: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
   twitter: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
   google_maps: 'bg-green-500/20 text-green-400 border-green-500/30',
+  linkedin: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  email: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  youtube: 'bg-red-500/20 text-red-400 border-red-500/30',
+  zalo_oa: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
 };
 
 const goalColors: Record<string, string> = {

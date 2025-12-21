@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -74,6 +74,34 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-green-500/10',
     maxLength: '80-150 chữ'
   },
+  linkedin: { 
+    label: 'LinkedIn', 
+    icon: <Linkedin className="w-4 h-4" />, 
+    color: 'text-sky-400',
+    bgColor: 'bg-sky-500/10',
+    maxLength: '300-700 chữ'
+  },
+  email: { 
+    label: 'Email', 
+    icon: <Mail className="w-4 h-4" />, 
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/10',
+    maxLength: '200-500 chữ'
+  },
+  youtube: { 
+    label: 'YouTube', 
+    icon: <Youtube className="w-4 h-4" />, 
+    color: 'text-red-400',
+    bgColor: 'bg-red-500/10',
+    maxLength: 'Script 3-5 phút'
+  },
+  zalo_oa: { 
+    label: 'Zalo OA', 
+    icon: <MessageCircle className="w-4 h-4" />, 
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/10',
+    maxLength: '100-200 chữ'
+  },
 };
 
 const quickActions = [
@@ -90,6 +118,10 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
     case 'instagram': return content.instagram_content;
     case 'twitter': return content.twitter_content;
     case 'google_maps': return content.google_maps_content;
+    case 'linkedin': return content.linkedin_content;
+    case 'email': return content.email_content;
+    case 'youtube': return content.youtube_content;
+    case 'zalo_oa': return content.zalo_oa_content;
     default: return null;
   }
 }
