@@ -16,10 +16,13 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelContent, Channel, CONTENT_GOALS } from '@/types/multichannel';
+import { DEFAULT_CHANNEL_SETTINGS } from '@/types/channelSettings';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useDraft } from '@/hooks/useDraft';
 import { MarkdownToolbar } from '@/components/MarkdownToolbar';
+import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
+import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -460,6 +463,17 @@ export function MultiChannelViewer({
                 value={channel}
                 className="flex-1 mt-0 p-6 pt-4"
               >
+                <div className="space-y-3 mb-3">
+                  {/* Content Length Indicator */}
+                  <ContentLengthIndicator 
+                    content={displayContent} 
+                    settings={DEFAULT_CHANNEL_SETTINGS[channel]} 
+                  />
+                  
+                  {/* Channel Rules Panel */}
+                  <ChannelRulesPanel channel={channel} />
+                </div>
+
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground">
