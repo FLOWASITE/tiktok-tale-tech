@@ -78,7 +78,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
 
     await onSubmit({
       topic: topic.trim(),
-      industry: selectedTemplate?.industry || undefined,
+      industry: selectedTemplate?.industry?.join(', ') || undefined,
       contentGoal,
       channels: selectedChannels,
       brandTemplateId: brandTemplateId || undefined,
@@ -173,7 +173,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             {selectedTemplate && (
               <p className="text-xs text-muted-foreground line-clamp-2">
                 {selectedTemplate.brand_name}
-                {selectedTemplate.industry && ` • ${selectedTemplate.industry}`}
+                {selectedTemplate.industry && selectedTemplate.industry.length > 0 && ` • ${selectedTemplate.industry.join(', ')}`}
               </p>
             )}
           </div>
