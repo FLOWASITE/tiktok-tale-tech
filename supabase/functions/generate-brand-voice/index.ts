@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { description, industry } = await req.json();
+    const { description, industry, generateGuideline } = await req.json();
     
-    if (!description) {
+    if (!description || description.trim().length < 10) {
       return new Response(
-        JSON.stringify({ error: 'Vui lòng nhập mô tả sản phẩm/dịch vụ' }),
+        JSON.stringify({ error: 'Vui lòng nhập mô tả chi tiết hơn (ít nhất 10 ký tự)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -32,28 +32,13 @@ serve(async (req) => {
 
     const systemPrompt = `Bạn là chuyên gia về Brand Strategy và Content Marketing. Nhiệm vụ của bạn là phân tích mô tả sản phẩm/dịch vụ và đề xuất Brand Voice phù hợp.
 
-Dựa vào mô tả được cung cấp, hãy đề xuất các thiết lập Brand Voice theo format JSON sau:
-
-{
-  "suggested_brand_name": "Tên thương hiệu gợi ý (ngắn gọn, dễ nhớ, 2-4 từ)",
-  "suggested_industry": "Ngành nghề phù hợp nhất",
-  "brand_positioning": "Câu định vị thương hiệu ngắn gọn (1-2 câu)",
-  "tone_of_voice": ["professional", "friendly", "authoritative", "playful", "empathetic", "inspirational", "educational", "conversational"],
-  "formality_level": "formal | semi_formal | casual | friendly",
-  "language_style": ["simple", "technical", "storytelling", "data_driven", "emotional", "humorous", "direct", "poetic"],
-  "preferred_words": ["từ nên dùng 1", "từ nên dùng 2", ...],
-  "forbidden_words": ["từ không dùng 1", "từ không dùng 2", ...],
-  "allow_emoji": true | false,
-  "reasoning": "Giải thích ngắn gọn lý do cho các đề xuất"
-}
-
-Lưu ý:
-- suggested_brand_name: Gợi ý 1 tên thương hiệu phù hợp với mô tả (có thể là tiếng Việt hoặc tiếng Anh)
+Lưu ý quan trọng:
+- suggested_brand_name: Gợi ý 1 tên thương hiệu phù hợp với mô tả (có thể là tiếng Việt hoặc tiếng Anh, 2-4 từ, dễ nhớ)
 - suggested_industry: Chọn 1 ngành phù hợp nhất từ: Tài chính & Kế toán, Bất động sản, F&B, Công nghệ thông tin, Giáo dục & Đào tạo, Y tế & Sức khỏe, Du lịch & Khách sạn, Thương mại điện tử, Marketing & Truyền thông, Thời trang & Làm đẹp, hoặc ngành khác phù hợp
-- tone_of_voice: Chọn 2-4 giá trị phù hợp nhất từ danh sách
-- language_style: Chọn 2-3 giá trị phù hợp nhất
-- preferred_words: Đề xuất 5-10 từ/cụm từ đặc trưng cho ngành
-- forbidden_words: Đề xuất 3-5 từ nên tránh
+- tone_of_voice: Chọn 2-4 giá trị phù hợp nhất từ: professional, friendly, authoritative, playful, empathetic, inspirational, educational, conversational
+- language_style: Chọn 2-3 giá trị phù hợp nhất từ: simple, technical, storytelling, data_driven, emotional, humorous, direct, poetic
+- preferred_words: Đề xuất 5-10 từ/cụm từ đặc trưng cho ngành (tiếng Việt)
+- forbidden_words: Đề xuất 3-5 từ nên tránh (tiếng Việt)
 - Trả lời bằng tiếng Việt cho các trường text tự do`;
 
     const userPrompt = `Phân tích và đề xuất Brand Voice cho sản phẩm/dịch vụ sau:
@@ -61,9 +46,83 @@ Lưu ý:
 Mô tả: ${description}
 ${industry ? `Ngành nghề: ${industry}` : ''}
 
-Hãy trả về JSON với các đề xuất phù hợp.`;
+Hãy sử dụng function suggest_brand_voice để trả về kết quả.`;
 
-    console.log("Calling Lovable AI for brand voice generation...");
+    console.log("Calling Lovable AI for brand voice generation with tool calling...");
+
+    // Use tool calling to ensure structured JSON output
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "suggest_brand_voice",
+          description: "Đề xuất Brand Voice dựa trên mô tả sản phẩm/dịch vụ",
+          parameters: {
+            type: "object",
+            properties: {
+              suggested_brand_name: {
+                type: "string",
+                description: "Tên thương hiệu gợi ý (ngắn gọn, dễ nhớ, 2-4 từ)"
+              },
+              suggested_industry: {
+                type: "string",
+                description: "Ngành nghề phù hợp nhất"
+              },
+              brand_positioning: {
+                type: "string",
+                description: "Câu định vị thương hiệu ngắn gọn (1-2 câu, tiếng Việt)"
+              },
+              tone_of_voice: {
+                type: "array",
+                items: { type: "string" },
+                description: "Danh sách 2-4 tone phù hợp"
+              },
+              formality_level: {
+                type: "string",
+                enum: ["formal", "semi_formal", "casual", "friendly"],
+                description: "Mức độ trang trọng"
+              },
+              language_style: {
+                type: "array",
+                items: { type: "string" },
+                description: "Danh sách 2-3 phong cách ngôn ngữ"
+              },
+              preferred_words: {
+                type: "array",
+                items: { type: "string" },
+                description: "5-10 từ/cụm từ nên dùng (tiếng Việt)"
+              },
+              forbidden_words: {
+                type: "array",
+                items: { type: "string" },
+                description: "3-5 từ nên tránh (tiếng Việt)"
+              },
+              allow_emoji: {
+                type: "boolean",
+                description: "Có cho phép dùng emoji không"
+              },
+              reasoning: {
+                type: "string",
+                description: "Giải thích ngắn gọn lý do cho các đề xuất (tiếng Việt)"
+              }
+            },
+            required: [
+              "suggested_brand_name",
+              "suggested_industry", 
+              "brand_positioning",
+              "tone_of_voice",
+              "formality_level",
+              "language_style",
+              "preferred_words",
+              "forbidden_words",
+              "allow_emoji",
+              "reasoning"
+            ],
+            additionalProperties: false
+          }
+        }
+      }
+    ];
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -77,7 +136,8 @@ Hãy trả về JSON với các đề xuất phù hợp.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        temperature: 0.7,
+        tools,
+        tool_choice: { type: "function", function: { name: "suggest_brand_voice" } },
       }),
     });
 
@@ -105,32 +165,54 @@ Hãy trả về JSON với các đề xuất phù hợp.`;
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    console.log("AI response received:", JSON.stringify(data).slice(0, 500));
     
-    if (!content) {
-      console.error("No content in AI response");
+    // Extract from tool call response
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall || toolCall.function?.name !== "suggest_brand_voice") {
+      // Fallback: try to parse content as JSON
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        try {
+          const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
+          const suggestions = JSON.parse(jsonStr);
+          console.log("Brand voice generated from content fallback");
+          return new Response(
+            JSON.stringify({ suggestions }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch {
+          console.error("No valid tool call or parseable content in response");
+        }
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Invalid AI response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'AI không thể tạo đề xuất. Vui lòng mô tả chi tiết hơn về sản phẩm/dịch vụ của bạn.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse JSON from the response
     let suggestions;
     try {
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
-      suggestions = JSON.parse(jsonStr);
+      suggestions = JSON.parse(toolCall.function.arguments);
     } catch (parseError) {
-      console.error("Failed to parse AI response as JSON:", parseError, content);
+      console.error("Failed to parse tool call arguments:", parseError, toolCall.function.arguments);
       return new Response(
         JSON.stringify({ error: 'Failed to parse AI suggestions' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log("Brand voice generated successfully");
+    console.log("Brand voice generated successfully via tool call");
+
+    // If generateGuideline was requested, also return the reasoning as guideline
+    if (generateGuideline && suggestions.reasoning) {
+      return new Response(
+        JSON.stringify({ suggestions, guideline: suggestions.reasoning }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ suggestions }),
