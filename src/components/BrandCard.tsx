@@ -67,9 +67,10 @@ interface BrandCardProps {
   onDelete: (id: string) => void;
   onSetDefault: (id: string) => void;
   onDuplicate?: (id: string) => void;
+  compact?: boolean;
 }
 
-export function BrandCard({ template, onEdit, onDelete, onSetDefault, onDuplicate }: BrandCardProps) {
+export function BrandCard({ template, onEdit, onDelete, onSetDefault, onDuplicate, compact = false }: BrandCardProps) {
   const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
   
   // Calculate channel overrides
