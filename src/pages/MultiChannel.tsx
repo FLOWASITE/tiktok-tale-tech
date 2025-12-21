@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Loader2, FileText, Sparkles } from 'lucide-react';
+import { Loader2, FileText, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters } from '@/components/MultiChannelFilters';
+import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { MultiChannelContent, ContentGoal, Channel } from '@/types/multichannel';
 
@@ -13,6 +14,7 @@ export default function MultiChannel() {
   
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [generatingChannelCount, setGeneratingChannelCount] = useState(0);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +48,11 @@ export default function MultiChannel() {
   const handleView = (content: MultiChannelContent) => {
     setSelectedContent(content);
     setViewerOpen(true);
+  };
+
+  const handleGenerateContent = async (data: any) => {
+    setGeneratingChannelCount(data.channels?.length || 3);
+    await generateContent(data);
   };
 
   const handleRegenerate = async (contentId: string, channel: Channel) => {
@@ -82,7 +89,7 @@ export default function MultiChannel() {
           <div className="lg:col-span-4 xl:col-span-3">
             <div className="lg:sticky lg:top-6">
               <MultiChannelForm
-                onSubmit={async (data) => { await generateContent(data); }}
+                onSubmit={handleGenerateContent}
                 isLoading={generating}
               />
             </div>
@@ -113,13 +120,23 @@ export default function MultiChannel() {
               onChannelFilterChange={setChannelFilter}
             />
 
+            {/* Generating Skeleton */}
+            {generating && (
+              <ContentGeneratingSkeleton 
+                channelCount={generatingChannelCount} 
+                message="AI đang tạo nội dung đa kênh..."
+              />
+            )}
+
             {/* Content Grid */}
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <CardLoadingSkeleton key={i} />
+                ))}
               </div>
             ) : filteredContents.length === 0 ? (
-              <div className="text-center py-20">
+              <div className="text-center py-20 animate-fade-in">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
                   <Sparkles className="w-8 h-8 text-muted-foreground" />
                 </div>

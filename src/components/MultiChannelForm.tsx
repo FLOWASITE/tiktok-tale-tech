@@ -213,19 +213,20 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
           {/* Submit */}
           <Button
             type="submit"
-            className="w-full"
+            className="w-full relative overflow-hidden group/btn transition-all duration-300 hover:shadow-lg hover:shadow-primary/25"
             disabled={isLoading || !topic.trim() || selectedChannels.length === 0}
           >
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
             {isLoading ? (
-              <>
+              <span className="flex items-center animate-pulse">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Đang tạo nội dung...
-              </>
+              </span>
             ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
+              <span className="flex items-center">
+                <Sparkles className="w-4 h-4 mr-2 transition-transform duration-300 group-hover/btn:rotate-12" />
                 Tạo nội dung ({selectedChannels.length} kênh)
-              </>
+              </span>
             )}
           </Button>
         </form>

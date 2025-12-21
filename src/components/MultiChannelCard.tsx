@@ -65,10 +65,13 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
   });
 
   return (
-    <div className="relative gradient-card p-4 rounded-xl border border-border/50 hover:border-primary/30 transition-all duration-300 group">
+    <div className="relative gradient-card p-4 rounded-xl border border-border/50 hover:border-primary/30 transition-all duration-300 ease-out group hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 overflow-hidden">
+      {/* Hover glow effect */}
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/0 via-primary/0 to-secondary/0 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-secondary/5 transition-all duration-500 pointer-events-none" />
+      
       {/* Header */}
-      <div className="mb-3">
-        <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+      <div className="relative mb-3">
+        <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200">
           {content.title}
         </h3>
         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
@@ -77,8 +80,8 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
       </div>
 
       {/* Meta */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        <Badge variant="outline" className={goalColors[content.content_goal]}>
+      <div className="relative flex flex-wrap gap-2 mb-3">
+        <Badge variant="outline" className={`${goalColors[content.content_goal]} transition-transform duration-200 group-hover:scale-105`}>
           {goalLabel}
         </Badge>
         {content.industry && (
@@ -89,11 +92,12 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
       </div>
 
       {/* Channels */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {content.selected_channels.map((channel) => (
+      <div className="relative flex flex-wrap gap-1.5 mb-4">
+        {content.selected_channels.map((channel, index) => (
           <div
             key={channel}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs ${channelColors[channel]}`}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs ${channelColors[channel]} transition-all duration-200 group-hover:scale-105`}
+            style={{ transitionDelay: `${index * 30}ms` }}
           >
             {channelIcons[channel]}
           </div>
@@ -101,24 +105,24 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
       </div>
 
       {/* Brand & Time */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+      <div className="relative flex items-center justify-between text-xs text-muted-foreground mb-3">
         <div className="flex items-center gap-1.5">
           {content.primary_color && (
             <div
-              className="w-3 h-3 rounded-full border border-border"
+              className="w-3 h-3 rounded-full border border-border transition-transform duration-200 group-hover:scale-110"
               style={{ backgroundColor: content.primary_color }}
             />
           )}
           <span className="truncate max-w-[120px]">{content.brand_name}</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity duration-200">
           <Clock className="w-3 h-3" />
           <span>{timeAgo}</span>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="relative flex gap-2">
         <Button
           variant="outline"
           size="sm"
