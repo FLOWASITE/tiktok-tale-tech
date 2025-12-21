@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,9 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Palette, Plus, ArrowLeft } from 'lucide-react';
+
+// Type for form data without ownership fields
+type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
 
 export function BrandManagementDialog() {
   const { templates, loading, saveTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, uploadLogo, deleteLogo } = useBrandTemplates();
@@ -36,7 +39,8 @@ export function BrandManagementDialog() {
   };
 
   const handleSubmit = async (
-    data: Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>,
+    data: BrandFormData,
+    scope: BrandScope,
     logoFile?: File | null,
     shouldDeleteLogo?: boolean
   ) => {
@@ -64,7 +68,7 @@ export function BrandManagementDialog() {
       if (editingTemplate) {
         await updateTemplate(editingTemplate.id, templateData);
       } else {
-        await saveTemplate(templateData);
+        await saveTemplate(templateData, scope);
       }
       setShowForm(false);
       setEditingTemplate(null);
