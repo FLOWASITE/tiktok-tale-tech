@@ -20,9 +20,10 @@ import { useState } from 'react';
 interface BrandPreviewCardProps {
   template: BrandTemplate;
   defaultOpen?: boolean;
+  showFullInfo?: boolean;
 }
 
-export function BrandPreviewCard({ template, defaultOpen = false }: BrandPreviewCardProps) {
+export function BrandPreviewCard({ template, defaultOpen = false, showFullInfo = false }: BrandPreviewCardProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   
   const channelOverridesCount = useMemo(() => {
@@ -119,6 +120,23 @@ export function BrandPreviewCard({ template, defaultOpen = false }: BrandPreview
       
       <CollapsibleContent>
         <div className="mt-2 p-3 rounded-lg border border-border/50 bg-background space-y-3">
+          {/* Industry */}
+          {template.industry && template.industry.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Info className="w-3 h-3" />
+                <span>Ngành nghề</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {template.industry.map((ind) => (
+                  <Badge key={ind} variant="secondary" className="text-xs">
+                    {ind}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Brand Positioning */}
           {template.brand_positioning && (
             <div className="space-y-1">
@@ -127,6 +145,19 @@ export function BrandPreviewCard({ template, defaultOpen = false }: BrandPreview
                 <span>Định vị</span>
               </div>
               <p className="text-sm line-clamp-2">{template.brand_positioning}</p>
+            </div>
+          )}
+
+          {/* Brand Guideline Preview (if showFullInfo) */}
+          {showFullInfo && template.brand_guideline && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Info className="w-3 h-3" />
+                <span>Brand Guideline</span>
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+                {template.brand_guideline}
+              </p>
             </div>
           )}
           

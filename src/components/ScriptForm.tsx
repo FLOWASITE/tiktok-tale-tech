@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { 
   ScriptFormData, 
   VideoType, 
@@ -39,6 +40,8 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
       }
     }
   }, [templates, templatesLoading, formData.brandTemplateId]);
+
+  const selectedTemplate = templates.find(t => t.id === formData.brandTemplateId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,15 +83,24 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
             <SelectItem value="none">Không sử dụng</SelectItem>
             {templates.map((template) => (
               <SelectItem key={template.id} value={template.id}>
-                {template.name} {template.is_default && '(Mặc định)'}
+                <span className="flex items-center gap-2">
+                  {template.primary_color && (
+                    <span
+                      className="w-3 h-3 rounded-full inline-block"
+                      style={{ backgroundColor: template.primary_color }}
+                    />
+                  )}
+                  <span>{template.name}</span>
+                  {template.is_default && (
+                    <span className="text-xs text-muted-foreground">(Mặc định)</span>
+                  )}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {formData.brandTemplateId && (
-          <p className="text-xs text-muted-foreground">
-            Kịch bản sẽ tuân theo Brand Voice đã cấu hình trong template
-          </p>
+        {selectedTemplate && (
+          <BrandPreviewCard template={selectedTemplate} defaultOpen={true} />
         )}
       </div>
 
