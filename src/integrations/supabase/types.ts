@@ -107,6 +107,74 @@ export type Database = {
         }
         Relationships: []
       }
+      multi_channel_contents: {
+        Row: {
+          brand_guideline: string | null
+          brand_name: string
+          brand_template_id: string | null
+          content_goal: string
+          created_at: string
+          facebook_content: string | null
+          google_maps_content: string | null
+          id: string
+          industry: string | null
+          instagram_content: string | null
+          primary_color: string | null
+          selected_channels: string[]
+          title: string
+          topic: string
+          twitter_content: string | null
+          updated_at: string
+          website_content: string | null
+        }
+        Insert: {
+          brand_guideline?: string | null
+          brand_name: string
+          brand_template_id?: string | null
+          content_goal: string
+          created_at?: string
+          facebook_content?: string | null
+          google_maps_content?: string | null
+          id?: string
+          industry?: string | null
+          instagram_content?: string | null
+          primary_color?: string | null
+          selected_channels: string[]
+          title: string
+          topic: string
+          twitter_content?: string | null
+          updated_at?: string
+          website_content?: string | null
+        }
+        Update: {
+          brand_guideline?: string | null
+          brand_name?: string
+          brand_template_id?: string | null
+          content_goal?: string
+          created_at?: string
+          facebook_content?: string | null
+          google_maps_content?: string | null
+          id?: string
+          industry?: string | null
+          instagram_content?: string | null
+          primary_color?: string | null
+          selected_channels?: string[]
+          title?: string
+          topic?: string
+          twitter_content?: string | null
+          updated_at?: string
+          website_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multi_channel_contents_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scripts: {
         Row: {
           character_type: string

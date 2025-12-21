@@ -4,6 +4,8 @@ import { ChevronRight, Home } from 'lucide-react';
 const routeNames: Record<string, string> = {
   '/': 'Kịch bản Video',
   '/carousel': 'Carousel Prompt',
+  '/brands': 'Quản lý Brand',
+  '/multichannel': 'Nội dung đa kênh',
 };
 
 export function Breadcrumb() {
