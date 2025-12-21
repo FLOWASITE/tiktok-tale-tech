@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Header } from '@/components/Header';
 import { ScriptForm } from '@/components/ScriptForm';
 import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
+import { ScriptFilters, ScriptFilters as ScriptFiltersType } from '@/components/ScriptFilters';
 import { useScripts } from '@/hooks/useScripts';
 import { Script } from '@/types/script';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +12,45 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileVideo, Sparkles } from 'lucide-react';
 
 const Index = () => {
-  const { scripts, loading, generating, generateScript, deleteScript } = useScripts();
+  const { scripts, loading, generating, generateScript, deleteScript, updateScript } = useScripts();
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [filters, setFilters] = useState<ScriptFiltersType>({
+    search: '',
+    videoType: 'all',
+    characterType: 'all',
+    duration: 'all',
+  });
+
+  const filteredScripts = useMemo(() => {
+    return scripts.filter((script) => {
+      // Search filter
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const matchesSearch =
+          script.title.toLowerCase().includes(searchLower) ||
+          script.topic.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Video type filter
+      if (filters.videoType !== 'all' && script.video_type !== filters.videoType) {
+        return false;
+      }
+
+      // Character type filter
+      if (filters.characterType !== 'all' && script.character_type !== filters.characterType) {
+        return false;
+      }
+
+      // Duration filter
+      if (filters.duration !== 'all' && script.duration !== filters.duration) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [scripts, filters]);
 
   const handleViewScript = (script: Script) => {
     setSelectedScript(script);
@@ -26,6 +63,11 @@ const Index = () => {
       setSelectedScript(newScript);
       setViewerOpen(true);
     }
+  };
+
+  const handleScriptUpdate = (updatedScript: Script) => {
+    updateScript(updatedScript);
+    setSelectedScript(updatedScript);
   };
 
   return (
@@ -64,10 +106,13 @@ const Index = () => {
                 <FileVideo className="w-5 h-5 text-primary" />
                 Kịch Bản Đã Tạo
                 <span className="text-sm font-normal text-muted-foreground">
-                  ({scripts.length})
+                  ({filteredScripts.length}/{scripts.length})
                 </span>
               </h2>
             </div>
+
+            {/* Filters */}
+            <ScriptFilters filters={filters} onFiltersChange={setFilters} />
 
             {loading ? (
               <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -90,24 +135,26 @@ const Index = () => {
                   </Card>
                 ))}
               </div>
-            ) : scripts.length === 0 ? (
+            ) : filteredScripts.length === 0 ? (
               <Card className="gradient-card border-border/50 border-dashed">
                 <CardContent className="py-16 text-center">
                   <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                     <FileVideo className="w-8 h-8 text-muted-foreground" />
                   </div>
                   <h3 className="text-lg font-medium text-foreground mb-2">
-                    Chưa có kịch bản nào
+                    {scripts.length === 0 ? 'Chưa có kịch bản nào' : 'Không tìm thấy kịch bản'}
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    Nhập chủ đề và nhấn "Tạo kịch bản AI" để bắt đầu
+                    {scripts.length === 0
+                      ? 'Nhập chủ đề và nhấn "Tạo kịch bản AI" để bắt đầu'
+                      : 'Thử thay đổi bộ lọc để xem thêm kịch bản'}
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              <ScrollArea className="h-[calc(100vh-250px)]">
+              <ScrollArea className="h-[calc(100vh-350px)]">
                 <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 pr-4">
-                  {scripts.map((script) => (
+                  {filteredScripts.map((script) => (
                     <ScriptCard
                       key={script.id}
                       script={script}
@@ -127,6 +174,7 @@ const Index = () => {
         script={selectedScript}
         open={viewerOpen}
         onOpenChange={setViewerOpen}
+        onScriptUpdate={handleScriptUpdate}
       />
     </div>
   );
