@@ -15,12 +15,116 @@ interface FormData {
   brandTemplateId?: string;
 }
 
+// Brand Voice label mappings
+const brandPositioningLabels: Record<string, string> = {
+  business: "Doanh nghiệp",
+  expert: "Chuyên gia",
+  agency: "Agency",
+  consultant: "Tư vấn",
+};
+
+const toneOfVoiceLabels: Record<string, string> = {
+  expert: "Chuyên gia",
+  calm: "Điềm tĩnh",
+  confident: "Tự tin",
+  friendly: "Thân thiện",
+  analytical: "Phân tích",
+  serious: "Nghiêm túc",
+  inspirational: "Truyền cảm hứng",
+};
+
+const formalityLevelLabels: Record<string, string> = {
+  very_formal: "Rất trang trọng",
+  professional: "Chuyên nghiệp",
+  neutral: "Trung lập",
+  casual: "Gần gũi",
+};
+
+const languageStyleLabels: Record<string, string> = {
+  clear_direct: "Rõ ràng, trực tiếp",
+  structured: "Có cấu trúc",
+  no_exaggeration: "Không khoa trương",
+  no_over_emotion: "Không cảm tính quá mức",
+};
+
+interface BrandVoice {
+  brand_positioning: string | null;
+  tone_of_voice: string[] | null;
+  formality_level: string | null;
+  language_style: string[] | null;
+  preferred_words: string[] | null;
+  forbidden_words: string[] | null;
+  allow_emoji: boolean;
+  compliance_rules: string[] | null;
+}
+
+const getBrandVoicePrompt = (voice: BrandVoice): string => {
+  const parts: string[] = [];
+  
+  parts.push(`## BRAND VOICE PROFILE (LUẬT CAO NHẤT)`);
+  parts.push(`Brand Voice là LUẬT CAO NHẤT. Mọi nội dung PHẢI tuân theo Brand Voice.`);
+  
+  if (voice.brand_positioning) {
+    const label = brandPositioningLabels[voice.brand_positioning] || voice.brand_positioning;
+    parts.push(`\n### Định vị thương hiệu: ${label}`);
+  }
+  
+  if (voice.tone_of_voice && voice.tone_of_voice.length > 0) {
+    const tones = voice.tone_of_voice.map(t => toneOfVoiceLabels[t] || t).join(", ");
+    parts.push(`\n### Tone of Voice: ${tones}`);
+  }
+  
+  if (voice.formality_level) {
+    const label = formalityLevelLabels[voice.formality_level] || voice.formality_level;
+    parts.push(`\n### Mức trang trọng: ${label}`);
+  }
+  
+  if (voice.language_style && voice.language_style.length > 0) {
+    const styles = voice.language_style.map(s => languageStyleLabels[s] || s).join(", ");
+    parts.push(`\n### Phong cách ngôn ngữ: ${styles}`);
+  }
+  
+  parts.push(`\n### NGUYÊN TẮC BRAND VOICE BẮT BUỘC`);
+  parts.push(`1. Brand Voice OVERRIDE mọi style khác`);
+  parts.push(`2. Không được "sáng tạo giọng mới"`);
+  parts.push(`3. Không thay đổi giọng giữa các kênh`);
+  parts.push(`4. Nếu yêu cầu MÂU THUẪN với Brand Voice → ƯU TIÊN Brand Voice`);
+  parts.push(`5. KHÔNG thông báo hay giải thích về Brand Voice trong output`);
+  
+  if (voice.preferred_words && voice.preferred_words.length > 0) {
+    parts.push(`\n### TỪ PHẢI DÙNG (ưu tiên sử dụng)`);
+    parts.push(voice.preferred_words.join(", "));
+  }
+  
+  if (voice.forbidden_words && voice.forbidden_words.length > 0) {
+    parts.push(`\n### TỪ CẤM (TUYỆT ĐỐI KHÔNG DÙNG)`);
+    parts.push(voice.forbidden_words.join(", "));
+  }
+  
+  parts.push(`\n### EMOJI`);
+  if (voice.allow_emoji) {
+    parts.push(`Có thể dùng emoji TIẾT CHẾ theo từng kênh (Website/Google Maps: KHÔNG emoji)`);
+  } else {
+    parts.push(`TUYỆT ĐỐI KHÔNG dùng emoji trong bất kỳ kênh nào`);
+  }
+  
+  if (voice.compliance_rules && voice.compliance_rules.length > 0) {
+    parts.push(`\n### QUY TẮC TUÂN THỦ`);
+    voice.compliance_rules.forEach(rule => {
+      parts.push(`- ${rule}`);
+    });
+  }
+  
+  return parts.join("\n");
+};
+
 const getSystemPrompt = (
   brandName: string, 
   brandGuideline: string | null,
   primaryColor: string | null,
   contentGoal: string,
-  channels: string[]
+  channels: string[],
+  brandVoice?: BrandVoice
 ): string => {
   const goalDescriptions: Record<string, string> = {
     education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
@@ -130,7 +234,12 @@ const getSystemPrompt = (
     .filter(Boolean)
     .join("\n\n");
 
+  // Build Brand Voice section if available
+  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
+
   return `Bạn là hệ thống AI tạo NỘI DUNG ĐA KÊNH cho doanh nghiệp (B2B).
+
+${brandVoiceSection}
 
 ## NGUYÊN TẮC LÕI
 ONE TOPIC → ONE CORE MESSAGE → MULTI-CHANNEL CONTENT
@@ -161,7 +270,7 @@ ${selectedChannelRules}
 - Không giải thích vì sao viết như vậy
 - Không bình luận ngoài nội dung
 - Không thêm kênh không được yêu cầu
-- Không dùng emoji cho Website và Google Maps
+- Không dùng emoji cho Website và Google Maps${brandVoice && !brandVoice.allow_emoji ? "\n- KHÔNG dùng emoji ở BẤT KỲ kênh nào (Brand Voice yêu cầu)" : ""}
 - Không lặp lại câu chữ giữa các kênh`;
 };
 
@@ -188,6 +297,7 @@ serve(async (req) => {
     let brandGuideline: string | null = null;
     let primaryColor: string | null = null;
     let industry: string | null = formData.industry || null;
+    let brandVoice: BrandVoice | undefined;
 
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
@@ -201,10 +311,21 @@ serve(async (req) => {
         brandGuideline = template.brand_guideline;
         primaryColor = template.primary_color;
         // Use industry from template if not provided in form
-        // template.industry is now an array
         if (!industry && template.industry && Array.isArray(template.industry) && template.industry.length > 0) {
           industry = template.industry.join(', ');
         }
+        // Extract Brand Voice
+        brandVoice = {
+          brand_positioning: template.brand_positioning,
+          tone_of_voice: template.tone_of_voice,
+          formality_level: template.formality_level,
+          language_style: template.language_style,
+          preferred_words: template.preferred_words,
+          forbidden_words: template.forbidden_words,
+          allow_emoji: template.allow_emoji ?? true,
+          compliance_rules: template.compliance_rules,
+        };
+        console.log("Brand Voice loaded:", brandVoice.brand_positioning, brandVoice.tone_of_voice);
       }
     }
 
@@ -213,7 +334,8 @@ serve(async (req) => {
       brandGuideline,
       primaryColor,
       formData.contentGoal,
-      formData.channels
+      formData.channels,
+      brandVoice
     );
 
     const userPrompt = `Tạo nội dung đa kênh cho chủ đề:
