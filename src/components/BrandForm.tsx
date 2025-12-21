@@ -476,6 +476,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    type="button"
                     variant="outline"
                     role="combobox"
                     className={cn(
@@ -698,6 +699,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
+                      type="button"
                       variant="outline"
                       role="combobox"
                       className={cn(
