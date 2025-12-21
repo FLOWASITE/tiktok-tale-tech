@@ -7,6 +7,7 @@ export function useMultiChannelContents() {
   const [contents, setContents] = useState<MultiChannelContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [regeneratingChannel, setRegeneratingChannel] = useState<string | null>(null);
 
   const fetchContents = async () => {
     try {
@@ -107,6 +108,63 @@ export function useMultiChannelContents() {
     }
   };
 
+  const regenerateChannel = async (contentId: string, channel: Channel): Promise<MultiChannelContent | null> => {
+    setRegeneratingChannel(channel);
+    try {
+      const { data, error } = await supabase.functions.invoke('regenerate-channel', {
+        body: { contentId, channel },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Lỗi khi tạo lại nội dung');
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const updatedContent: MultiChannelContent = {
+        id: data.id,
+        title: data.title,
+        topic: data.topic,
+        industry: data.industry,
+        content_goal: data.content_goal as ContentGoal,
+        selected_channels: data.selected_channels as Channel[],
+        brand_template_id: data.brand_template_id,
+        brand_name: data.brand_name,
+        brand_guideline: data.brand_guideline,
+        primary_color: data.primary_color,
+        website_content: data.website_content,
+        facebook_content: data.facebook_content,
+        instagram_content: data.instagram_content,
+        twitter_content: data.twitter_content,
+        google_maps_content: data.google_maps_content,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      // Update the content in the list
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: 'Thành công',
+        description: `Đã tạo lại nội dung cho kênh`,
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error regenerating channel:', error);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Không thể tạo lại nội dung',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setRegeneratingChannel(null);
+    }
+  };
+
   const deleteContent = async (id: string) => {
     try {
       const { error } = await supabase
@@ -140,7 +198,9 @@ export function useMultiChannelContents() {
     contents,
     loading,
     generating,
+    regeneratingChannel,
     generateContent,
+    regenerateChannel,
     deleteContent,
     refetch: fetchContents,
   };

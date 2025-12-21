@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, X } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,6 +17,8 @@ interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRegenerate?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | null>;
+  regeneratingChannel?: string | null;
 }
 
 const channelConfig: Record<Channel, { 
@@ -82,7 +84,13 @@ function countCharacters(text: string): number {
   return text.length;
 }
 
-export function MultiChannelViewer({ content, open, onOpenChange }: MultiChannelViewerProps) {
+export function MultiChannelViewer({ 
+  content, 
+  open, 
+  onOpenChange, 
+  onRegenerate,
+  regeneratingChannel 
+}: MultiChannelViewerProps) {
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
 
   if (!content) return null;
@@ -108,6 +116,11 @@ export function MultiChannelViewer({ content, open, onOpenChange }: MultiChannel
         variant: 'destructive',
       });
     }
+  };
+
+  const handleRegenerate = async (channel: Channel) => {
+    if (!onRegenerate || regeneratingChannel) return;
+    await onRegenerate(content.id, channel);
   };
 
   const handleExportAll = () => {
@@ -180,13 +193,19 @@ export function MultiChannelViewer({ content, open, onOpenChange }: MultiChannel
             <TabsList className="w-full justify-start gap-1 h-auto flex-wrap bg-transparent p-0">
               {content.selected_channels.map((channel) => {
                 const config = channelConfig[channel];
+                const isRegenerating = regeneratingChannel === channel;
                 return (
                   <TabsTrigger
                     key={channel}
                     value={channel}
+                    disabled={isRegenerating}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg data-[state=active]:${config.bgColor} data-[state=active]:${config.color}`}
                   >
-                    <span className={config.color}>{config.icon}</span>
+                    {isRegenerating ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <span className={config.color}>{config.icon}</span>
+                    )}
                     <span>{config.label}</span>
                   </TabsTrigger>
                 );
@@ -199,6 +218,7 @@ export function MultiChannelViewer({ content, open, onOpenChange }: MultiChannel
             const config = channelConfig[channel];
             const wordCount = channelContent ? countWords(channelContent) : 0;
             const charCount = channelContent ? countCharacters(channelContent) : 0;
+            const isRegenerating = regeneratingChannel === channel;
 
             return (
               <TabsContent
@@ -218,29 +238,58 @@ export function MultiChannelViewer({ content, open, onOpenChange }: MultiChannel
                       {wordCount} chữ / {charCount} ký tự
                     </span>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy(channel)}
-                    className="gap-1.5"
-                  >
-                    {copiedChannel === channel ? (
-                      <>
-                        <Check className="w-4 h-4 text-green-500" />
-                        Đã copy
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        Copy
-                      </>
+                  <div className="flex items-center gap-2">
+                    {onRegenerate && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRegenerate(channel)}
+                        disabled={isRegenerating || !!regeneratingChannel}
+                        className="gap-1.5"
+                      >
+                        {isRegenerating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Đang tạo lại...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4" />
+                            Tạo lại
+                          </>
+                        )}
+                      </Button>
                     )}
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopy(channel)}
+                      disabled={isRegenerating}
+                      className="gap-1.5"
+                    >
+                      {copiedChannel === channel ? (
+                        <>
+                          <Check className="w-4 h-4 text-green-500" />
+                          Đã copy
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
                   <div className="p-4">
-                    {channelContent ? (
+                    {isRegenerating ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                        <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                        <p>Đang tạo lại nội dung...</p>
+                      </div>
+                    ) : channelContent ? (
                       <div className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap">
                         {channelContent}
                       </div>
