@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, Loader2, Wand2, Check, X, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, Wand2, Check, X, Edit3, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -98,68 +100,82 @@ export function AIBrandVoiceGenerator({
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<'guideline' | 'voice' | null>(null);
   const [suggestions, setSuggestions] = useState<BrandVoiceSuggestions | null>(null);
-  const [generatedGuideline, setGeneratedGuideline] = useState<string | null>(null);
+  
+  // Two-step flow state
+  const [step, setStep] = useState<'initial' | 'edit-guideline' | 'results'>('initial');
+  const [editableGuideline, setEditableGuideline] = useState('');
+  const [guidelineExamples, setGuidelineExamples] = useState<{
+    example_good?: string;
+    example_bad?: string;
+    key_principles?: string[];
+  }>({});
 
   // Check if guideline exists
   const hasGuideline = !!brandGuideline?.trim();
 
-  const handleGenerate = async () => {
+  // Step 1: Generate Guideline only (if needed)
+  const handleGenerateGuideline = async () => {
     setLoading(true);
-    setSuggestions(null);
-    setGeneratedGuideline(null);
+    setLoadingStep('guideline');
 
     try {
-      let effectiveGuideline = brandGuideline?.trim() || '';
-
-      // Step 1: If no guideline, generate one first
-      if (!effectiveGuideline) {
-        setLoadingStep('guideline');
-        
-        const { data: guidelineData, error: guidelineError } = await supabase.functions.invoke(
-          'generate-brand-guideline',
-          {
-            body: {
-              brand_name: brandName || 'Thương hiệu',
-              industry: currentIndustry,
-              primary_color: primaryColor,
-              has_logo: hasLogo || false,
-              tone_of_voice: toneOfVoice,
-              formality_level: formalityLevel,
-              brand_positioning: brandPositioning,
-              language_style: languageStyle,
-              preferred_words: preferredWords,
-              forbidden_words: forbiddenWords,
-            },
-          }
-        );
-
-        if (guidelineError) throw guidelineError;
-        if (guidelineData?.error) throw new Error(guidelineData.error);
-        if (!guidelineData?.guideline) throw new Error('Không nhận được Brand Guideline từ AI');
-
-        effectiveGuideline = guidelineData.guideline;
-        setGeneratedGuideline(effectiveGuideline);
-
-        // Notify parent about the generated guideline
-        if (onGuidelineGenerated) {
-          onGuidelineGenerated({
-            guideline: effectiveGuideline,
-            example_good: guidelineData.example_good,
-            example_bad: guidelineData.example_bad,
-            key_principles: guidelineData.key_principles,
-          });
+      const { data: guidelineData, error: guidelineError } = await supabase.functions.invoke(
+        'generate-brand-guideline',
+        {
+          body: {
+            brand_name: brandName || 'Thương hiệu',
+            industry: currentIndustry,
+            primary_color: primaryColor,
+            has_logo: hasLogo || false,
+            tone_of_voice: toneOfVoice,
+            formality_level: formalityLevel,
+            brand_positioning: brandPositioning,
+            language_style: languageStyle,
+            preferred_words: preferredWords,
+            forbidden_words: forbiddenWords,
+          },
         }
+      );
 
-        toast.success('Đã tạo Brand Guideline!');
+      if (guidelineError) throw guidelineError;
+      if (guidelineData?.error) throw new Error(guidelineData.error);
+      if (!guidelineData?.guideline) throw new Error('Không nhận được Brand Guideline từ AI');
+
+      setEditableGuideline(guidelineData.guideline);
+      setGuidelineExamples({
+        example_good: guidelineData.example_good,
+        example_bad: guidelineData.example_bad,
+        key_principles: guidelineData.key_principles,
+      });
+      setStep('edit-guideline');
+      toast.success('Đã tạo Brand Guideline! Bạn có thể chỉnh sửa trước khi tiếp tục.');
+    } catch (error) {
+      console.error('Error generating guideline:', error);
+      toast.error(error instanceof Error ? error.message : 'Không thể tạo guideline');
+    } finally {
+      setLoading(false);
+      setLoadingStep(null);
+    }
+  };
+
+  // Step 2: Generate Brand Voice from Guideline
+  const handleGenerateVoice = async (guidelineToUse: string) => {
+    setLoading(true);
+    setLoadingStep('voice');
+
+    try {
+      // If we generated a new guideline, notify parent
+      if (step === 'edit-guideline' && onGuidelineGenerated) {
+        onGuidelineGenerated({
+          guideline: guidelineToUse,
+          ...guidelineExamples,
+        });
       }
-
-      // Step 2: Generate Brand Voice
-      setLoadingStep('voice');
 
       const { data, error } = await supabase.functions.invoke('generate-brand-voice', {
         body: {
           brand_name: brandName,
-          brand_guideline: effectiveGuideline,
+          brand_guideline: guidelineToUse,
           industry: currentIndustry,
           primary_color: primaryColor,
           brand_positioning: brandPositioning,
@@ -175,6 +191,7 @@ export function AIBrandVoiceGenerator({
 
       if (data?.suggestions) {
         setSuggestions(data.suggestions);
+        setStep('results');
         toast.success('Đã tạo đề xuất Brand Voice!');
       } else if (data?.error) {
         throw new Error(data.error);
@@ -186,6 +203,26 @@ export function AIBrandVoiceGenerator({
       setLoading(false);
       setLoadingStep(null);
     }
+  };
+
+  // Combined handler for main button
+  const handleMainAction = () => {
+    if (hasGuideline) {
+      // Already has guideline, go straight to voice generation
+      handleGenerateVoice(brandGuideline!);
+    } else {
+      // No guideline, generate one first
+      handleGenerateGuideline();
+    }
+  };
+
+  // Continue from edit step
+  const handleContinueFromEdit = () => {
+    if (!editableGuideline.trim()) {
+      toast.error('Vui lòng nhập Brand Guideline');
+      return;
+    }
+    handleGenerateVoice(editableGuideline);
   };
 
   const handleApply = () => {
@@ -202,13 +239,16 @@ export function AIBrandVoiceGenerator({
       toast.success('Đã áp dụng Brand Voice!');
       setOpen(false);
       setSuggestions(null);
-      setGeneratedGuideline(null);
+      setStep('initial');
+      setEditableGuideline('');
     }
   };
 
   const handleReset = () => {
     setSuggestions(null);
-    setGeneratedGuideline(null);
+    setStep('initial');
+    setEditableGuideline('');
+    setGuidelineExamples({});
   };
 
   return (
@@ -268,48 +308,120 @@ export function AIBrandVoiceGenerator({
             </CardContent>
           </Card>
 
-          {/* Info about auto-flow when no guideline */}
-          {!hasGuideline && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-              <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-              <div className="text-sm text-blue-800 dark:text-blue-200">
-                <p className="font-medium">Tự động tạo Guideline</p>
-                <p className="text-xs mt-1 opacity-80">
-                  Chưa có Brand Guideline? Không sao! AI sẽ tự động tạo Guideline trước, sau đó tạo Brand Voice.
-                </p>
+          {/* Step: Initial - Show info and generate button */}
+          {step === 'initial' && (
+            <>
+              {/* Info about auto-flow when no guideline */}
+              {!hasGuideline && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                  <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-medium">2 bước tạo Brand Voice</p>
+                    <p className="text-xs mt-1 opacity-80">
+                      Bước 1: AI tạo Brand Guideline → Bạn chỉnh sửa → Bước 2: AI tạo Brand Voice
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Generate button */}
+              <Button 
+                onClick={handleMainAction} 
+                disabled={loading}
+                className="w-full gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {loadingStep === 'guideline' ? 'Đang tạo Guideline...' : 'Đang tạo Brand Voice...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    {hasGuideline ? 'Tạo Brand Voice từ Guideline' : 'Bắt đầu tạo Guideline'}
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+
+          {/* Step: Edit Guideline */}
+          {step === 'edit-guideline' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-300">
+                <Check className="w-4 h-4" />
+                Bước 1/2: Chỉnh sửa Brand Guideline
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editGuideline" className="text-sm flex items-center gap-1">
+                  <Edit3 className="w-3 h-3" />
+                  Brand Guideline (có thể chỉnh sửa)
+                </Label>
+                <Textarea
+                  id="editGuideline"
+                  value={editableGuideline}
+                  onChange={(e) => setEditableGuideline(e.target.value)}
+                  rows={6}
+                  className="resize-none text-sm"
+                  placeholder="Brand Guideline..."
+                />
+              </div>
+
+              {/* Examples preview */}
+              {(guidelineExamples.example_good || guidelineExamples.example_bad) && (
+                <div className="space-y-2 p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs font-medium text-muted-foreground">Ví dụ AI gợi ý:</p>
+                  {guidelineExamples.example_good && (
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3 h-3 text-green-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-green-700 dark:text-green-300">"{guidelineExamples.example_good}"</p>
+                    </div>
+                  )}
+                  {guidelineExamples.example_bad && (
+                    <div className="flex items-start gap-1.5">
+                      <X className="w-3 h-3 text-red-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-red-700 dark:text-red-300 line-through">"{guidelineExamples.example_bad}"</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setStep('initial');
+                    setEditableGuideline('');
+                  }}
+                  className="flex-1"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Hủy
+                </Button>
+                <Button 
+                  onClick={handleContinueFromEdit}
+                  disabled={loading || !editableGuideline.trim()}
+                  className="flex-1 gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang tạo Brand Voice...
+                    </>
+                  ) : (
+                    <>
+                      Tiếp tục
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}
 
-          {/* Generated Guideline Preview */}
-          {generatedGuideline && (
-            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-              <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✓ Guideline đã tạo:</p>
-              <p className="text-xs text-green-800 dark:text-green-200 line-clamp-3">{generatedGuideline}</p>
-            </div>
-          )}
-
-          {/* Generate button */}
-          <Button 
-            onClick={handleGenerate} 
-            disabled={loading}
-            className="w-full gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {loadingStep === 'guideline' ? 'Đang tạo Guideline...' : 'Đang tạo Brand Voice...'}
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                {hasGuideline ? 'Tạo Brand Voice từ Guideline' : 'Tạo Guideline + Brand Voice'}
-              </>
-            )}
-          </Button>
-
-          {/* Results Section */}
-          {suggestions && (
+          {/* Step: Results - Show Brand Voice suggestions */}
+          {step === 'results' && suggestions && (
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -415,7 +527,7 @@ export function AIBrandVoiceGenerator({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          {suggestions && (
+          {step === 'results' && suggestions && (
             <>
               <Button type="button" variant="outline" onClick={handleReset}>
                 <X className="w-4 h-4 mr-2" />
