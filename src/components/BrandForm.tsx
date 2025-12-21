@@ -297,8 +297,13 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   };
 
   const handleAIQuickStart = async () => {
-    if (!aiDescription.trim()) {
+    const trimmedDesc = aiDescription.trim();
+    if (!trimmedDesc) {
       toast.error('Vui lòng nhập mô tả sản phẩm/dịch vụ');
+      return;
+    }
+    if (trimmedDesc.length < 10) {
+      toast.error('Mô tả cần ít nhất 10 ký tự để AI có thể phân tích');
       return;
     }
 
@@ -306,12 +311,24 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     try {
       const { data, error } = await supabase.functions.invoke('generate-brand-voice', {
         body: {
-          description: aiDescription.trim(),
+          description: trimmedDesc,
           industry: industries.join(', '),
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle specific error messages from the edge function
+        const errorMsg = typeof error === 'object' && error !== null && 'message' in error
+          ? (error as { message: string }).message
+          : String(error);
+        throw new Error(errorMsg);
+      }
+
+      if (data?.error) {
+        // Edge function returned an error in the response body
+        toast.error(data.error);
+        return;
+      }
 
       if (data?.suggestions) {
         const s = data.suggestions;
@@ -348,7 +365,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       }
     } catch (error) {
       console.error('Error generating brand voice:', error);
-      toast.error('Không thể tạo đề xuất. Vui lòng thử lại.');
+      const msg = error instanceof Error ? error.message : 'Không thể tạo đề xuất. Vui lòng thử lại.';
+      toast.error(msg);
     } finally {
       setIsGeneratingAI(false);
     }
