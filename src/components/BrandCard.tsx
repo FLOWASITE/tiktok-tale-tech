@@ -34,7 +34,9 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
   const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
 
   return (
-    <Card className={`gradient-card border-border/50 transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5 ${template.is_default ? 'ring-2 ring-primary/50' : ''}`}>
+    <Card className={`relative gradient-card border-border/50 transition-all duration-300 ease-out hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 group overflow-hidden ${template.is_default ? 'ring-2 ring-primary/50' : ''}`}>
+      {/* Glow effect on hover */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           {/* Logo - larger */}
@@ -132,14 +134,14 @@ export function BrandCard({ template, onEdit, onDelete, onSetDefault }: BrandCar
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 transition-all duration-200 hover:scale-110 hover:bg-primary/10"
             onClick={() => onEdit(template)}
           >
             <Edit2 className="w-4 h-4" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive transition-all duration-200 hover:scale-110 hover:bg-destructive/10">
                 <Trash2 className="w-4 h-4" />
               </Button>
             </AlertDialogTrigger>
