@@ -10,10 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone, Download } from 'lucide-react';
+import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
+import { GeminiApiKeyInput } from './GeminiApiKeyInput';
+import { GeneratedImagesGallery } from './GeneratedImagesGallery';
+import { useGeminiApiKey } from '@/hooks/useGeminiApiKey';
+import { useImageGeneration } from '@/hooks/useImageGeneration';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
@@ -105,6 +109,10 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
+  const [generatingAll, setGeneratingAll] = useState(false);
+
+  const { apiKey, isConfigured } = useGeminiApiKey();
+  const { generating, generatedImages, generateImage, getImageForSlide } = useImageGeneration();
 
   if (!carousel) return null;
 
@@ -158,6 +166,33 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
     toast.success('Đã xuất file TXT!');
   };
 
+  const handleGenerateImage = async (slideNumber: number, prompt: string) => {
+    if (!isConfigured || !apiKey) {
+      toast.error('Vui lòng cấu hình Gemini API Key trước');
+      return;
+    }
+    await generateImage(prompt, apiKey, carousel.id, slideNumber);
+  };
+
+  const handleGenerateAllImages = async () => {
+    if (!isConfigured || !apiKey) {
+      toast.error('Vui lòng cấu hình Gemini API Key trước');
+      return;
+    }
+
+    setGeneratingAll(true);
+    toast.info(`Bắt đầu tạo ${carousel.slides_content.length} ảnh...`);
+
+    for (const slide of carousel.slides_content) {
+      await generateImage(slide.fullPrompt, apiKey, carousel.id, slide.slideNumber);
+      // Small delay between requests to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    setGeneratingAll(false);
+    toast.success('Đã tạo xong tất cả ảnh!');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
@@ -206,30 +241,73 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
         </DialogHeader>
 
         <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="mx-6 w-fit">
-            <TabsTrigger value="slides" className="gap-1.5">
-              <Images className="w-4 h-4" />
-              Prompts ({carousel.slides_content.length})
-            </TabsTrigger>
-            <TabsTrigger value="caption" className="gap-1.5">
-              <MessageSquare className="w-4 h-4" />
-              Caption
-            </TabsTrigger>
-            <TabsTrigger value="cta" className="gap-1.5">
-              <Megaphone className="w-4 h-4" />
-              CTA
-            </TabsTrigger>
-          </TabsList>
+          <div className="px-6 pt-2 space-y-3">
+            {/* Gemini API Key Input */}
+            <GeminiApiKeyInput />
+            
+            <TabsList className="w-fit">
+              <TabsTrigger value="slides" className="gap-1.5">
+                <Images className="w-4 h-4" />
+                Prompts ({carousel.slides_content.length})
+              </TabsTrigger>
+              <TabsTrigger value="images" className="gap-1.5">
+                <ImageIcon className="w-4 h-4" />
+                Ảnh đã tạo ({generatedImages.length})
+              </TabsTrigger>
+              <TabsTrigger value="caption" className="gap-1.5">
+                <MessageSquare className="w-4 h-4" />
+                Caption
+              </TabsTrigger>
+              <TabsTrigger value="cta" className="gap-1.5">
+                <Megaphone className="w-4 h-4" />
+                CTA
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <ScrollArea className="flex-1 px-6 py-4">
             <TabsContent value="slides" className="mt-0 space-y-4">
+              {/* Generate All Button */}
+              {isConfigured && (
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleGenerateAllImages}
+                    disabled={generatingAll || generating !== null}
+                    className="gap-2"
+                  >
+                    {generatingAll ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang tạo tất cả...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Tạo tất cả ảnh
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
               {carousel.slides_content.map((slide) => (
                 <SlidePromptCard
                   key={slide.slideNumber}
                   slide={slide}
                   totalSlides={carousel.slide_count}
+                  generatedImage={getImageForSlide(slide.slideNumber)}
+                  isGenerating={generating === slide.slideNumber}
+                  onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
+                  canGenerateImage={isConfigured && generating === null && !generatingAll}
                 />
               ))}
+            </TabsContent>
+
+            <TabsContent value="images" className="mt-0">
+              <GeneratedImagesGallery
+                images={generatedImages}
+                totalSlides={carousel.slide_count}
+              />
             </TabsContent>
 
             <TabsContent value="caption" className="mt-0">

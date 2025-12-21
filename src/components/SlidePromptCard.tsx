@@ -5,13 +5,26 @@ import { Badge } from '@/components/ui/badge';
 import { Copy, Check, Target, Type, Palette, Layout, Square, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ImageGeneratorButton } from './ImageGeneratorButton';
+import { GeneratedImage } from '@/hooks/useImageGeneration';
 
 interface SlidePromptCardProps {
   slide: CarouselSlide;
   totalSlides: number;
+  generatedImage?: GeneratedImage;
+  isGenerating?: boolean;
+  onGenerateImage?: () => void;
+  canGenerateImage?: boolean;
 }
 
-export function SlidePromptCard({ slide, totalSlides }: SlidePromptCardProps) {
+export function SlidePromptCard({
+  slide,
+  totalSlides,
+  generatedImage,
+  isGenerating = false,
+  onGenerateImage,
+  canGenerateImage = false,
+}: SlidePromptCardProps) {
   const [copiedFull, setCopiedFull] = useState(false);
 
   const handleCopyFullPrompt = async () => {
@@ -128,6 +141,19 @@ export function SlidePromptCard({ slide, totalSlides }: SlidePromptCardProps) {
             <p className="text-sm whitespace-pre-wrap font-mono">{slide.fullPrompt}</p>
           </div>
         </div>
+
+        {/* Image Generation Section */}
+        {onGenerateImage && (
+          <div className="pt-3 border-t border-border/50">
+            <ImageGeneratorButton
+              slideNumber={slide.slideNumber}
+              isGenerating={isGenerating}
+              generatedImage={generatedImage}
+              onGenerate={onGenerateImage}
+              disabled={!canGenerateImage}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
