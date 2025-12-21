@@ -237,7 +237,18 @@ export default function MultiChannel() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
+      {/* Close Button - Top Right */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate('/')}
+        className="absolute top-4 right-4 h-9 w-9 z-10"
+        title="Đóng"
+      >
+        <X className="h-5 w-5" />
+      </Button>
+
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column - Form */}
@@ -253,7 +264,7 @@ export default function MultiChannel() {
           {/* Right Column - Content List */}
           <div className="lg:col-span-8 xl:col-span-9 space-y-4">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pr-10">
               <div>
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary" />
@@ -263,15 +274,6 @@ export default function MultiChannel() {
                   {filteredContents.length} / {contents.length} bộ nội dung
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate('/')}
-                className="h-9 w-9"
-                title="Đóng"
-              >
-                <X className="h-5 w-5" />
-              </Button>
             </div>
 
             {/* Bulk Actions Bar */}
