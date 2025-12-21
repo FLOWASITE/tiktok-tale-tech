@@ -7,7 +7,42 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+
+const SUGGESTED_INDUSTRIES = [
+  'Tài chính & Kế toán',
+  'Bất động sản',
+  'F&B (Nhà hàng, Quán cà phê)',
+  'Công nghệ thông tin',
+  'Giáo dục & Đào tạo',
+  'Y tế & Sức khỏe',
+  'Du lịch & Khách sạn',
+  'Thương mại điện tử',
+  'Marketing & Truyền thông',
+  'Luật & Pháp lý',
+  'Xây dựng & Nội thất',
+  'Thời trang & Làm đẹp',
+  'Bán lẻ',
+  'Sản xuất & Công nghiệp',
+  'Nông nghiệp',
+  'Logistics & Vận tải',
+  'Bảo hiểm',
+  'Tư vấn & Dịch vụ chuyên nghiệp',
+];
 
 interface BrandFormProps {
   template?: BrandTemplate | null;
@@ -145,13 +180,57 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="industry">Ngành nghề</Label>
-            <Input
-              id="industry"
-              value={industry}
-              onChange={(e) => setIndustry(e.target.value)}
-              placeholder="VD: Tài chính, Kế toán, F&B..."
-            />
+            <Label>Ngành nghề</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={cn(
+                    'w-full justify-between font-normal',
+                    !industry && 'text-muted-foreground'
+                  )}
+                >
+                  {industry || 'Chọn hoặc nhập ngành nghề...'}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0 z-50 bg-popover" align="start">
+                <Command>
+                  <CommandInput 
+                    placeholder="Tìm hoặc nhập ngành..." 
+                    value={industry}
+                    onValueChange={setIndustry}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      <div className="p-2 text-sm">
+                        Nhấn Enter để sử dụng: <span className="font-medium">{industry}</span>
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup heading="Gợi ý">
+                      {SUGGESTED_INDUSTRIES.filter(item => 
+                        item.toLowerCase().includes(industry.toLowerCase())
+                      ).map((item) => (
+                        <CommandItem
+                          key={item}
+                          value={item}
+                          onSelect={() => setIndustry(item)}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              industry === item ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          {item}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <BrandColorPicker value={primaryColor} onChange={setPrimaryColor} />
