@@ -121,6 +121,37 @@ export function useBrandTemplates() {
     }
   };
 
+  const duplicateTemplate = async (id: string): Promise<BrandTemplate | null> => {
+    try {
+      const template = templates.find(t => t.id === id);
+      if (!template) throw new Error('Template not found');
+      
+      const { id: _, created_at, updated_at, is_default, ...templateData } = template;
+      const duplicatedData = {
+        ...templateData,
+        name: `${template.name} (Copy)`,
+        is_default: false,
+      };
+      
+      const { data, error } = await supabase
+        .from('brand_templates')
+        .insert(duplicatedData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      const newTemplate = data as BrandTemplate;
+      setTemplates((prev) => [...prev, newTemplate]);
+      toast.success('Đã tạo bản sao template!');
+      return newTemplate;
+    } catch (error) {
+      console.error('Error duplicating template:', error);
+      toast.error('Không thể tạo bản sao template');
+      return null;
+    }
+  };
+
   const deleteTemplate = async (id: string) => {
     try {
       // Get template to check for logo
@@ -195,6 +226,7 @@ export function useBrandTemplates() {
     saveTemplate,
     updateTemplate,
     deleteTemplate,
+    duplicateTemplate,
     setDefaultTemplate,
     uploadLogo,
     deleteLogo,

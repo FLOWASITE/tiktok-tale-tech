@@ -29,6 +29,7 @@ export default function Brands() {
     saveTemplate, 
     updateTemplate, 
     deleteTemplate, 
+    duplicateTemplate,
     setDefaultTemplate, 
     uploadLogo, 
     deleteLogo 
@@ -261,6 +262,7 @@ export default function Brands() {
               onEdit={handleEdit}
               onDelete={deleteTemplate}
               onSetDefault={setDefaultTemplate}
+              onDuplicate={duplicateTemplate}
             />
           ))}
         </div>
