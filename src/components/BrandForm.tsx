@@ -196,8 +196,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     const newErrors: Record<string, string> = {};
     
     if (step === 1) {
-      if (!name.trim()) newErrors.name = 'Tên template là bắt buộc';
-      if (!brandName.trim()) newErrors.brandName = 'Tên brand là bắt buộc';
+      if (!name.trim()) newErrors.name = 'Tên brand là bắt buộc';
+      if (!brandName.trim()) newErrors.brandName = 'Tên thương hiệu là bắt buộc';
     }
     
     setErrors(newErrors);
@@ -294,7 +294,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     setForbiddenWords(templateData.forbidden_words);
     setShowQuickStart(false);
     setCurrentStep(1);
-    toast.success('Đã áp dụng template ngành!');
+    toast.success('Đã áp dụng cài đặt ngành!');
   };
 
   const handleAIQuickStart = async () => {
@@ -518,7 +518,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                   <User className="w-4 h-4 text-muted-foreground" />
                   <div>
                     <p className="font-medium text-sm">Cá nhân</p>
-                    <p className="text-xs text-muted-foreground">Chỉ bạn có thể sử dụng template này</p>
+                    <p className="text-xs text-muted-foreground">Chỉ bạn có thể sử dụng brand này</p>
                   </div>
                 </Label>
               </div>
@@ -541,7 +541,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             {/* Left Column */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Tên Template *</Label>
+                <Label htmlFor="name">Tên Brand *</Label>
                 <Input
                   id="name"
                   value={name}
@@ -549,7 +549,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                     setName(e.target.value);
                     if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
                   }}
-                  placeholder="VD: Template công ty ABC"
+                  placeholder="VD: Brand công ty ABC"
                   className={errors.name ? 'border-destructive' : ''}
                 />
                 {errors.name && (
@@ -558,7 +558,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="brandName">Tên Brand *</Label>
+                <Label htmlFor="brandName">Tên Thương hiệu *</Label>
                 <Input
                   id="brandName"
                   value={brandName}
