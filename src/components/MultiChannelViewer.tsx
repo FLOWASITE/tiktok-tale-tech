@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,8 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { MultiChannelContent, Channel, CONTENT_GOALS } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -108,20 +110,32 @@ export function MultiChannelViewer({
 }: MultiChannelViewerProps) {
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
-  const [editContent, setEditContent] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [previewContent, setPreviewContent] = useState<string | null>(null);
+
+  // Undo/Redo hook for edit content
+  const {
+    value: editContent,
+    set: setEditContent,
+    undo,
+    redo,
+    reset: resetEditContent,
+    clear: clearHistory,
+    canUndo,
+    canRedo,
+    historyCount,
+  } = useUndoRedo('');
 
   // Reset state when dialog closes or content changes
   useEffect(() => {
     if (!open) {
       setEditingChannel(null);
-      setEditContent('');
+      resetEditContent('');
       setAiPrompt('');
       setPreviewContent(null);
     }
-  }, [open]);
+  }, [open, resetEditContent]);
 
   if (!content) return null;
 
@@ -157,7 +171,7 @@ export function MultiChannelViewer({
 
   const handleStartEdit = (channel: Channel) => {
     const currentContent = getContentForChannel(content, channel) || '';
-    setEditContent(currentContent);
+    resetEditContent(currentContent);
     setEditingChannel(channel);
     setPreviewContent(null);
     setAiPrompt('');
@@ -167,10 +181,10 @@ export function MultiChannelViewer({
     if (previewContent) {
       // If previewing, go back to original content in edit mode
       setPreviewContent(null);
-      setEditContent(getContentForChannel(content, editingChannel!) || '');
+      resetEditContent(getContentForChannel(content, editingChannel!) || '');
     } else {
       setEditingChannel(null);
-      setEditContent('');
+      resetEditContent('');
       setAiPrompt('');
     }
   };
@@ -185,7 +199,7 @@ export function MultiChannelViewer({
       const updated = await onUpdateContent(content.id, channel, contentToSave);
       if (updated) {
         setEditingChannel(null);
-        setEditContent('');
+        resetEditContent('');
         setPreviewContent(null);
         setAiPrompt('');
       }
@@ -193,6 +207,29 @@ export function MultiChannelViewer({
       setIsSaving(false);
     }
   };
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!editingChannel) return;
+      
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingChannel, undo, redo]);
 
   const handleAIEdit = async (channel: Channel, instruction: string) => {
     if (!onAIEdit || aiEditingChannel) return;
@@ -347,6 +384,45 @@ export function MultiChannelViewer({
                   <div className="flex items-center gap-2">
                     {isEditing ? (
                       <>
+                        {/* Undo/Redo buttons */}
+                        <TooltipProvider>
+                          <div className="flex items-center gap-1 mr-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={undo}
+                                  disabled={!canUndo || isSaving || isAIEditing}
+                                  className="h-8 w-8"
+                                >
+                                  <Undo2 className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Hoàn tác (Ctrl+Z)</p>
+                                {historyCount > 0 && <p className="text-xs text-muted-foreground">{historyCount} bước</p>}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={redo}
+                                  disabled={!canRedo || isSaving || isAIEditing}
+                                  className="h-8 w-8"
+                                >
+                                  <Redo2 className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Làm lại (Ctrl+Shift+Z)</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
+
                         <Button
                           variant="ghost"
                           size="sm"
