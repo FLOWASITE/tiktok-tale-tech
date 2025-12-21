@@ -36,6 +36,7 @@ interface MultiChannelViewerProps {
   onRegenerate?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | null>;
   onUpdateContent?: (contentId: string, channel: Channel, newContent: string) => Promise<MultiChannelContent | null>;
   onAIEdit?: (contentId: string, channel: Channel, instruction: string, currentContent: string) => Promise<string | null>;
+  onUpdateTitleTopic?: (contentId: string, title: string, topic: string) => Promise<MultiChannelContent | null>;
   onSaveChannelImage?: (contentId: string, channel: Channel, imageData: ChannelImage) => Promise<MultiChannelContent | void>;
   onDeleteChannelImage?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | void>;
   regeneratingChannel?: string | null;
@@ -157,6 +158,7 @@ export function MultiChannelViewer({
   onRegenerate,
   onUpdateContent,
   onAIEdit,
+  onUpdateTitleTopic,
   onSaveChannelImage,
   onDeleteChannelImage,
   regeneratingChannel,
@@ -175,6 +177,12 @@ export function MultiChannelViewer({
   const [showGallery, setShowGallery] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Edit Title/Topic state
+  const [isEditingHeader, setIsEditingHeader] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTopic, setEditTopic] = useState('');
+  const [isSavingHeader, setIsSavingHeader] = useState(false);
 
   // Undo/Redo hook for edit content
   const {
@@ -216,6 +224,9 @@ export function MultiChannelViewer({
       setPreviewContent(null);
       setShowMarkdownPreview(false);
       setShowDraftRestorePrompt(false);
+      setIsEditingHeader(false);
+      setEditTitle('');
+      setEditTopic('');
     }
   }, [open, resetEditContent]);
 
@@ -246,6 +257,39 @@ export function MultiChannelViewer({
   if (!content) return null;
 
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
+
+  // Header edit handlers
+  const handleStartEditHeader = () => {
+    setEditTitle(content.title);
+    setEditTopic(content.topic);
+    setIsEditingHeader(true);
+  };
+
+  const handleCancelEditHeader = () => {
+    setIsEditingHeader(false);
+    setEditTitle('');
+    setEditTopic('');
+  };
+
+  const handleSaveHeader = async () => {
+    if (!onUpdateTitleTopic || isSavingHeader) return;
+    if (!editTitle.trim()) {
+      toast({
+        title: 'Lỗi',
+        description: 'Tiêu đề không được để trống',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setIsSavingHeader(true);
+    try {
+      await onUpdateTitleTopic(content.id, editTitle.trim(), editTopic.trim());
+      setIsEditingHeader(false);
+    } finally {
+      setIsSavingHeader(false);
+    }
+  };
 
   const handleCopy = async (channel: Channel) => {
     const text = editingChannel === channel ? editContent : getContentForChannel(content, channel);
@@ -409,45 +453,108 @@ export function MultiChannelViewer({
         <DialogHeader className="p-6 pb-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <DialogTitle className="text-xl font-bold mb-2">
-                {content.title}
-              </DialogTitle>
-              <p className="text-sm text-muted-foreground mb-3">
-                {content.topic}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{goalLabel}</Badge>
-                {content.industry && (
-                  <Badge variant="outline" className="bg-muted/50">
-                    {content.industry}
-                  </Badge>
-                )}
-                <Badge variant="outline" className="bg-muted/50">
-                  {content.brand_name}
-                </Badge>
+              {isEditingHeader ? (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground font-medium">Tiêu đề</label>
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Nhập tiêu đề..."
+                      className="text-lg font-semibold"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground font-medium">Chủ đề</label>
+                    <Textarea
+                      value={editTopic}
+                      onChange={(e) => setEditTopic(e.target.value)}
+                      placeholder="Nhập chủ đề..."
+                      className="min-h-[60px] resize-none text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveHeader}
+                      disabled={isSavingHeader || !editTitle.trim()}
+                    >
+                      {isSavingHeader ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-1.5" />
+                      )}
+                      Lưu
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleCancelEditHeader}
+                      disabled={isSavingHeader}
+                    >
+                      <X className="w-4 h-4 mr-1.5" />
+                      Hủy
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 group">
+                    <DialogTitle className="text-xl font-bold">
+                      {content.title}
+                    </DialogTitle>
+                    {onUpdateTitleTopic && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={handleStartEditHeader}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3 mt-2">
+                    {content.topic}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">{goalLabel}</Badge>
+                    {content.industry && (
+                      <Badge variant="outline" className="bg-muted/50">
+                        {content.industry}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="bg-muted/50">
+                      {content.brand_name}
+                    </Badge>
+                  </div>
+                </>
+              )}
+            </div>
+            {!isEditingHeader && (
+              <div className="flex items-center gap-2">
+                {/* Gallery Toggle Button */}
+                <Button 
+                  variant={showGallery ? "default" : "outline"} 
+                  size="sm" 
+                  onClick={() => setShowGallery(!showGallery)}
+                  className="gap-1.5"
+                >
+                  <Images className="w-4 h-4" />
+                  Thư viện ảnh
+                  {Object.keys(content.channel_images || {}).length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                      {Object.keys(content.channel_images || {}).length}
+                    </Badge>
+                  )}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportAll}>
+                  <Download className="w-4 h-4 mr-1.5" />
+                  Export
+                </Button>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Gallery Toggle Button */}
-              <Button 
-                variant={showGallery ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setShowGallery(!showGallery)}
-                className="gap-1.5"
-              >
-                <Images className="w-4 h-4" />
-                Thư viện ảnh
-                {Object.keys(content.channel_images || {}).length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {Object.keys(content.channel_images || {}).length}
-                  </Badge>
-                )}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExportAll}>
-                <Download className="w-4 h-4 mr-1.5" />
-                Export
-              </Button>
-            </div>
+            )}
           </div>
         </DialogHeader>
 

@@ -26,6 +26,7 @@ export default function MultiChannel() {
     aiEditChannel, 
     deleteContent,
     updateStatus,
+    updateTitleTopic,
     saveChannelImage,
     deleteChannelImage,
   } = useMultiChannelContents();
@@ -160,6 +161,14 @@ export default function MultiChannel() {
 
   const handleAIEdit = async (contentId: string, channel: Channel, instruction: string, currentContent: string) => {
     return await aiEditChannel(contentId, channel, instruction, currentContent);
+  };
+
+  const handleUpdateTitleTopic = async (contentId: string, title: string, topic: string) => {
+    const updated = await updateTitleTopic(contentId, title, topic);
+    if (updated) {
+      setSelectedContent(updated);
+    }
+    return updated;
   };
 
   const handleDelete = async (id: string) => {
@@ -356,6 +365,7 @@ export default function MultiChannel() {
         onRegenerate={handleRegenerate}
         onUpdateContent={handleUpdateContent}
         onAIEdit={handleAIEdit}
+        onUpdateTitleTopic={handleUpdateTitleTopic}
         onSaveChannelImage={saveChannelImage}
         onDeleteChannelImage={deleteChannelImage}
         regeneratingChannel={regeneratingChannel}

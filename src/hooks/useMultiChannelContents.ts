@@ -311,6 +311,39 @@ export function useMultiChannelContents() {
     }
   };
 
+  // Update title and topic
+  const updateTitleTopic = async (contentId: string, title: string, topic: string): Promise<MultiChannelContent | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ title, topic })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: '✏️ Đã cập nhật',
+        description: 'Tiêu đề và chủ đề đã được lưu',
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error updating title/topic:', error);
+      toast({
+        title: '❌ Lỗi cập nhật',
+        description: 'Không thể cập nhật. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
   // Update tags
   const updateTags = async (contentId: string, tags: string[]): Promise<MultiChannelContent | null> => {
     try {
@@ -429,6 +462,7 @@ export function useMultiChannelContents() {
     aiEditChannel,
     deleteContent,
     saveChannelImage,
+    updateTitleTopic,
     updateTags,
     updateStatus,
     deleteChannelImage,
