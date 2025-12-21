@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,6 +25,8 @@ import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
 import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
 import { SmartQuickActions } from '@/components/SmartQuickActions';
+import { ImagePromptEditor } from '@/components/ImagePromptEditor';
+import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -162,6 +164,9 @@ export function MultiChannelViewer({
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
   const [showDraftRestorePrompt, setShowDraftRestorePrompt] = useState(false);
+  const [imageEditorOpen, setImageEditorOpen] = useState(false);
+  const [imageEditorChannel, setImageEditorChannel] = useState<Channel | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo hook for edit content
@@ -625,6 +630,29 @@ export function MultiChannelViewer({
                             )}
                           </Button>
                         )}
+                        {/* Image Generation Button */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setImageEditorChannel(channel);
+                                  setImageEditorOpen(true);
+                                }}
+                                disabled={isRegenerating || !!regeneratingChannel}
+                                className="gap-1.5"
+                              >
+                                <ImagePlus className="w-4 h-4" />
+                                <span className="hidden sm:inline">Tạo ảnh</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Tạo ảnh AI cho {channelConfig[channel].label}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <Button
                           variant="outline"
                           size="sm"
@@ -827,6 +855,26 @@ export function MultiChannelViewer({
           })}
         </Tabs>
       </DialogContent>
+      
+      {/* Image Prompt Editor Modal */}
+      {imageEditorChannel && (
+        <ImagePromptEditor
+          open={imageEditorOpen}
+          onOpenChange={setImageEditorOpen}
+          channel={imageEditorChannel}
+          contentId={content.id}
+          contentSummary={content.topic}
+          brandName={content.brand_name}
+          brandGuideline={content.brand_guideline || undefined}
+          primaryColor={content.primary_color || undefined}
+          onImageGenerated={(imageUrl) => {
+            setGeneratedImages(prev => ({
+              ...prev,
+              [imageEditorChannel]: imageUrl,
+            }));
+          }}
+        />
+      )}
     </Dialog>
   );
 }
