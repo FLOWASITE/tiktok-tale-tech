@@ -2,6 +2,7 @@ import { Film, Images, Bookmark, Layers, LayoutDashboard, User, Shield } from 'l
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import logoImage from '@/assets/logo.png';
 import {
   Sidebar,
@@ -34,18 +35,19 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
+      <SidebarHeader className="p-2">
+        <div className="flex items-center gap-3 px-2 py-2">
           <div className="relative flex-shrink-0">
-            <img src={logoImage} alt="Flowa Logo" className="w-10 h-10 object-contain" />
+            <img src={logoImage} alt="Flowa Logo" className="w-8 h-8 object-contain" />
           </div>
           {!isCollapsed && (
             <div className="overflow-hidden">
-              <h1 className="text-lg font-bold text-gradient truncate">Flowa</h1>
+              <h1 className="text-base font-bold text-gradient truncate">Flowa</h1>
               <p className="text-[10px] text-muted-foreground truncate">One Flow. All Content.</p>
             </div>
           )}
         </div>
+        <OrganizationSwitcher />
       </SidebarHeader>
 
       <SidebarContent>
