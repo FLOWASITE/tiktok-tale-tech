@@ -991,7 +991,16 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Brand Voice Profile</Label>
             <AIBrandVoiceGenerator
+              brandName={brandName}
+              brandGuideline={brandGuideline}
               currentIndustry={industries}
+              primaryColor={primaryColor}
+              brandPositioning={brandPositioning}
+              toneOfVoice={toneOfVoice}
+              formalityLevel={formalityLevel}
+              languageStyle={languageStyle}
+              preferredWords={preferredWords}
+              forbiddenWords={forbiddenWords}
               onApply={(suggestions) => {
                 if (suggestions.brand_positioning) setBrandPositioning(suggestions.brand_positioning);
                 if (suggestions.tone_of_voice) setToneOfVoice(suggestions.tone_of_voice);
