@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Loader2, FileText, Sparkles, CheckSquare, X } from 'lucide-react';
+import { FileText, Sparkles, X, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
@@ -10,6 +10,7 @@ import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
 import { MultiChannelStats } from '@/components/MultiChannelStats';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
@@ -39,6 +40,7 @@ export default function MultiChannel() {
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [generatingChannelCount, setGeneratingChannelCount] = useState(0);
+  const [formSheetOpen, setFormSheetOpen] = useState(false);
   
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -143,6 +145,7 @@ export default function MultiChannel() {
 
   const handleGenerateContent = async (data: any) => {
     setGeneratingChannelCount(data.channels?.length || 3);
+    setFormSheetOpen(false);
     await generateContent(data);
   };
 
@@ -239,43 +242,37 @@ export default function MultiChannel() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Close Button - Top Right */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate('/')}
-        className="absolute top-4 right-4 h-9 w-9 z-10"
-        title="Đóng"
-      >
-        <X className="h-5 w-5" />
-      </Button>
-
-      <div className="p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column - Form */}
-          <div className="lg:col-span-4 xl:col-span-3">
-            <div className="lg:sticky lg:top-6">
-              <MultiChannelForm
-                onSubmit={handleGenerateContent}
-                isLoading={generating}
-              />
-            </div>
+      {/* Header Bar */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              Quản lý nội dung đa kênh
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {filteredContents.length} / {contents.length} bộ nội dung
+            </p>
           </div>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Thêm mới
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/')}
+              className="h-9 w-9"
+              title="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
 
-          {/* Right Column - Content List */}
-          <div className="lg:col-span-8 xl:col-span-9 space-y-4">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pr-10">
-              <div>
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Nội dung đã tạo
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {filteredContents.length} / {contents.length} bộ nội dung
-                </p>
-              </div>
-            </div>
+      <div className="p-6 space-y-4">
 
             {/* Stats Dashboard */}
             <MultiChannelStats contents={contents} />
@@ -322,55 +319,77 @@ export default function MultiChannel() {
               />
             )}
 
-            {/* Content Grid */}
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {[...Array(6)].map((_, i) => (
-                  <CardLoadingSkeleton key={i} />
-                ))}
-              </div>
-            ) : filteredContents.length === 0 ? (
-              <div className="text-center py-20 animate-fade-in">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
-                  <Sparkles className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  {contents.length === 0 ? 'Chưa có nội dung nào' : 'Không tìm thấy nội dung'}
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                  {contents.length === 0
-                    ? 'Nhập chủ đề và chọn kênh để AI tạo nội dung đa kênh cho bạn.'
-                    : 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredContents.map((content, index) => (
-                  <div
-                    key={content.id}
-                    className="stagger-item relative"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    {/* Selection Checkbox */}
-                    <div className="absolute top-2 left-2 z-20">
-                      <Checkbox
-                        checked={selectedIds.has(content.id)}
-                        onCheckedChange={() => toggleSelection(content.id)}
-                        className="bg-background/80 backdrop-blur border-border"
-                      />
-                    </div>
-                    <MultiChannelCard
-                      content={content}
-                      onView={handleView}
-                      onDelete={handleDelete}
-                    />
-                  </div>
-                ))}
-              </div>
+        {/* Content Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <CardLoadingSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredContents.length === 0 ? (
+          <div className="text-center py-20 animate-fade-in">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
+              <Sparkles className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              {contents.length === 0 ? 'Chưa có nội dung nào' : 'Không tìm thấy nội dung'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+              {contents.length === 0
+                ? 'Nhấn nút "Thêm mới" để tạo nội dung đa kênh đầu tiên.'
+                : 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.'}
+            </p>
+            {contents.length === 0 && (
+              <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Tạo nội dung mới
+              </Button>
             )}
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredContents.map((content, index) => (
+              <div
+                key={content.id}
+                className="stagger-item relative"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* Selection Checkbox */}
+                <div className="absolute top-2 left-2 z-20">
+                  <Checkbox
+                    checked={selectedIds.has(content.id)}
+                    onCheckedChange={() => toggleSelection(content.id)}
+                    className="bg-background/80 backdrop-blur border-border"
+                  />
+                </div>
+                <MultiChannelCard
+                  content={content}
+                  onView={handleView}
+                  onDelete={handleDelete}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Form Sheet */}
+      <Sheet open={formSheetOpen} onOpenChange={setFormSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-primary" />
+              Tạo nội dung mới
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <MultiChannelForm
+              onSubmit={handleGenerateContent}
+              isLoading={generating}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Viewer Dialog */}
       <MultiChannelViewer
