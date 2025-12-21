@@ -316,41 +316,74 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
     setIsGeneratingAI(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-brand-voice', {
-        body: {
-          description: trimmedDesc,
-          industry: industries.join(', '),
-        },
-      });
+      // 1) Generate Brand Guideline first (source of truth)
+      const inferredBrandName = brandName.trim() || name.trim() || 'Thương hiệu';
 
-      if (error) {
-        // Handle specific error messages from the edge function
-        const errorMsg = typeof error === 'object' && error !== null && 'message' in error
-          ? (error as { message: string }).message
-          : String(error);
-        throw new Error(errorMsg);
+      const { data: guidelineData, error: guidelineError } = await supabase.functions.invoke(
+        'generate-brand-guideline',
+        {
+          body: {
+            brand_name: inferredBrandName,
+            industry: industries,
+            primary_color: primaryColor,
+            has_logo: !!logoFile || !!logoPreview || !!template?.logo_url,
+            tone_of_voice: toneOfVoice,
+            formality_level: formalityLevel,
+            brand_positioning: brandPositioning,
+            language_style: languageStyle,
+            preferred_words: preferredWords,
+            forbidden_words: forbiddenWords,
+            // Note: description is not required for guideline generation in current implementation
+          },
+        }
+      );
+
+      if (guidelineError) throw guidelineError;
+      if (guidelineData?.error) {
+        toast.error(guidelineData.error);
+        return;
       }
-
-      if (data?.error) {
-        // Edge function returned an error in the response body
-        toast.error(data.error);
+      if (!guidelineData?.guideline) {
+        toast.error('Không nhận được Brand Guideline từ AI.');
         return;
       }
 
-      if (data?.suggestions) {
-        const s = data.suggestions;
-        
-        // Auto-fill brand name if AI suggested one and user hasn't entered yet
-        if (s.suggested_brand_name && !brandName.trim()) {
-          setBrandName(s.suggested_brand_name);
-          setName(s.suggested_brand_name);
+      setBrandGuideline(guidelineData.guideline);
+      setGuidelineExampleGood(guidelineData.example_good || '');
+      setGuidelineExampleBad(guidelineData.example_bad || '');
+      setGuidelineKeyPrinciples(guidelineData.key_principles || []);
+
+      // 2) Generate Brand Voice based on the guideline
+      const { data: voiceData, error: voiceError } = await supabase.functions.invoke('generate-brand-voice', {
+        body: {
+          brand_name: inferredBrandName,
+          brand_guideline: guidelineData.guideline,
+          industry: industries,
+          primary_color: primaryColor,
+          brand_positioning: brandPositioning,
+          tone_of_voice: toneOfVoice,
+          formality_level: formalityLevel,
+          language_style: languageStyle,
+          preferred_words: preferredWords,
+          forbidden_words: forbiddenWords,
+        },
+      });
+
+      if (voiceError) throw voiceError;
+      if (voiceData?.error) {
+        toast.error(voiceData.error);
+        return;
+      }
+
+      if (voiceData?.suggestions) {
+        const s = voiceData.suggestions;
+
+        // Auto-fill brand name if user hasn't entered yet
+        if (!brandName.trim() && inferredBrandName !== 'Thương hiệu') {
+          setBrandName(inferredBrandName);
+          setName(inferredBrandName);
         }
-        
-        // Auto-fill industry if AI suggested one and user hasn't selected yet
-        if (s.suggested_industry && industries.length === 0) {
-          setIndustries([s.suggested_industry]);
-        }
-        
+
         if (s.brand_positioning) setBrandPositioning(s.brand_positioning);
         if (s.tone_of_voice) setToneOfVoice(s.tone_of_voice);
         if (s.formality_level) setFormalityLevel(s.formality_level);
@@ -359,19 +392,14 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         if (s.forbidden_words) setForbiddenWords(s.forbidden_words);
         if (s.allow_emoji !== undefined) setAllowEmoji(s.allow_emoji);
 
-        // Use AI reasoning as guideline when user hasn't customized it yet
-        if (s.reasoning && brandGuideline.trim() === DEFAULT_BRAND_GUIDELINE.trim()) {
-          setBrandGuideline(s.reasoning);
-        }
-
         setShowQuickStart(false);
         setCurrentStep(1);
-        toast.success('Đã tạo Brand Voice với AI!');
+        toast.success('Đã tạo Guideline & Brand Voice với AI!');
       } else {
-        toast.error('Không nhận được đề xuất từ AI.');
+        toast.error('Không nhận được Brand Voice từ AI.');
       }
     } catch (error) {
-      console.error('Error generating brand voice:', error);
+      console.error('Error generating guideline/brand voice:', error);
       const msg = error instanceof Error ? error.message : 'Không thể tạo đề xuất. Vui lòng thử lại.';
       toast.error(msg);
     } finally {

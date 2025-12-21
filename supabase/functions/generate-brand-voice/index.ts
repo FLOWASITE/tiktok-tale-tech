@@ -16,6 +16,8 @@ serve(async (req) => {
       // New inputs: accept full Brand Template data
       brand_name,
       brand_guideline,
+      // Backward-compatible inputs (older clients)
+      description,
       industry,
       primary_color,
       brand_positioning,
@@ -25,9 +27,12 @@ serve(async (req) => {
       preferred_words,
       forbidden_words,
     } = await req.json();
-    
-    // Validate: require at least brand_guideline
-    if (!brand_guideline?.trim()) {
+
+    // Prefer brand_guideline; fallback to description for backward compatibility
+    const effectiveGuideline = (brand_guideline || '').trim() || (description || '').trim();
+
+    // Validate: require guideline (or legacy description)
+    if (!effectiveGuideline) {
       return new Response(
         JSON.stringify({ error: 'Vui lòng tạo Brand Guideline trước khi tạo Brand Voice' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
