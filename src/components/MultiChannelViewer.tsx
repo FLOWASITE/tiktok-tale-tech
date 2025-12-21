@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,9 @@ interface MultiChannelViewerProps {
   onOpenChange: (open: boolean) => void;
   onRegenerate?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | null>;
   onUpdateContent?: (contentId: string, channel: Channel, newContent: string) => Promise<MultiChannelContent | null>;
+  onAIEdit?: (contentId: string, channel: Channel, instruction: string, currentContent: string) => Promise<string | null>;
   regeneratingChannel?: string | null;
+  aiEditingChannel?: string | null;
 }
 
 const channelConfig: Record<Channel, { 
@@ -67,6 +70,13 @@ const channelConfig: Record<Channel, {
   },
 };
 
+const quickActions = [
+  { label: 'Ngắn gọn hơn', icon: Minus, instruction: 'Viết ngắn gọn, súc tích hơn' },
+  { label: 'Thêm emoji', icon: Smile, instruction: 'Thêm emoji phù hợp để sinh động hơn' },
+  { label: 'CTA mạnh', icon: Target, instruction: 'Thêm hoặc cải thiện call-to-action cho thuyết phục hơn' },
+  { label: 'Chuyên nghiệp', icon: Briefcase, instruction: 'Viết lại với tone chuyên nghiệp, formal hơn' },
+];
+
 function getContentForChannel(content: MultiChannelContent, channel: Channel): string | null {
   switch (channel) {
     case 'website': return content.website_content;
@@ -92,18 +102,24 @@ export function MultiChannelViewer({
   onOpenChange, 
   onRegenerate,
   onUpdateContent,
-  regeneratingChannel 
+  onAIEdit,
+  regeneratingChannel,
+  aiEditingChannel,
 }: MultiChannelViewerProps) {
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [editContent, setEditContent] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
 
-  // Reset edit state when dialog closes or content changes
+  // Reset state when dialog closes or content changes
   useEffect(() => {
     if (!open) {
       setEditingChannel(null);
       setEditContent('');
+      setAiPrompt('');
+      setPreviewContent(null);
     }
   }, [open]);
 
@@ -135,6 +151,7 @@ export function MultiChannelViewer({
   const handleRegenerate = async (channel: Channel) => {
     if (!onRegenerate || regeneratingChannel) return;
     setEditingChannel(null);
+    setPreviewContent(null);
     await onRegenerate(content.id, channel);
   };
 
@@ -142,25 +159,65 @@ export function MultiChannelViewer({
     const currentContent = getContentForChannel(content, channel) || '';
     setEditContent(currentContent);
     setEditingChannel(channel);
+    setPreviewContent(null);
+    setAiPrompt('');
   };
 
   const handleCancelEdit = () => {
-    setEditingChannel(null);
-    setEditContent('');
+    if (previewContent) {
+      // If previewing, go back to original content in edit mode
+      setPreviewContent(null);
+      setEditContent(getContentForChannel(content, editingChannel!) || '');
+    } else {
+      setEditingChannel(null);
+      setEditContent('');
+      setAiPrompt('');
+    }
   };
 
   const handleSaveEdit = async (channel: Channel) => {
     if (!onUpdateContent || isSaving) return;
     
+    const contentToSave = previewContent || editContent;
+    
     setIsSaving(true);
     try {
-      const updated = await onUpdateContent(content.id, channel, editContent);
+      const updated = await onUpdateContent(content.id, channel, contentToSave);
       if (updated) {
         setEditingChannel(null);
         setEditContent('');
+        setPreviewContent(null);
+        setAiPrompt('');
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAIEdit = async (channel: Channel, instruction: string) => {
+    if (!onAIEdit || aiEditingChannel) return;
+    
+    const currentContent = previewContent || editContent;
+    if (!currentContent.trim()) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không có nội dung để chỉnh sửa',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const result = await onAIEdit(content.id, channel, instruction, currentContent);
+    if (result) {
+      setPreviewContent(result);
+      setAiPrompt('');
+    }
+  };
+
+  const handleApplyPreview = () => {
+    if (previewContent) {
+      setEditContent(previewContent);
+      setPreviewContent(null);
     }
   };
 
@@ -258,7 +315,8 @@ export function MultiChannelViewer({
             const channelContent = getContentForChannel(content, channel);
             const config = channelConfig[channel];
             const isEditing = editingChannel === channel;
-            const displayContent = isEditing ? editContent : (channelContent || '');
+            const isAIEditing = aiEditingChannel === channel;
+            const displayContent = previewContent || (isEditing ? editContent : (channelContent || ''));
             const wordCount = countWords(displayContent);
             const charCount = countCharacters(displayContent);
             const isRegenerating = regeneratingChannel === channel;
@@ -282,7 +340,7 @@ export function MultiChannelViewer({
                     </span>
                     {isEditing && (
                       <Badge variant="secondary" className="text-xs">
-                        Đang chỉnh sửa
+                        {previewContent ? 'Đang xem trước AI' : 'Đang chỉnh sửa'}
                       </Badge>
                     )}
                   </div>
@@ -293,17 +351,29 @@ export function MultiChannelViewer({
                           variant="ghost"
                           size="sm"
                           onClick={handleCancelEdit}
-                          disabled={isSaving}
+                          disabled={isSaving || isAIEditing}
                           className="gap-1.5"
                         >
                           <X className="w-4 h-4" />
-                          Hủy
+                          {previewContent ? 'Quay lại' : 'Hủy'}
                         </Button>
+                        {previewContent && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleApplyPreview}
+                            disabled={isSaving || isAIEditing}
+                            className="gap-1.5"
+                          >
+                            <Check className="w-4 h-4" />
+                            Chấp nhận
+                          </Button>
+                        )}
                         <Button
                           variant="default"
                           size="sm"
                           onClick={() => handleSaveEdit(channel)}
-                          disabled={isSaving}
+                          disabled={isSaving || isAIEditing}
                           className="gap-1.5"
                         >
                           {isSaving ? (
@@ -379,12 +449,81 @@ export function MultiChannelViewer({
                 </div>
 
                 {isEditing ? (
-                  <Textarea
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    className="h-[400px] resize-none font-mono text-sm"
-                    placeholder="Nhập nội dung..."
-                  />
+                  <div className="space-y-3">
+                    {/* AI Edit Panel */}
+                    {onAIEdit && (
+                      <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">Chỉnh sửa với AI</span>
+                        </div>
+                        
+                        {/* Quick Actions */}
+                        <div className="flex flex-wrap gap-2">
+                          {quickActions.map((action) => (
+                            <Button
+                              key={action.label}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAIEdit(channel, action.instruction)}
+                              disabled={isAIEditing}
+                              className="gap-1.5 text-xs"
+                            >
+                              <action.icon className="w-3 h-3" />
+                              {action.label}
+                            </Button>
+                          ))}
+                        </div>
+                        
+                        {/* Custom Prompt */}
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Hoặc nhập yêu cầu chỉnh sửa (VD: thêm số liệu thống kê, đổi tone hài hước...)"
+                            value={aiPrompt}
+                            onChange={(e) => setAiPrompt(e.target.value)}
+                            disabled={isAIEditing}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && aiPrompt.trim()) {
+                                handleAIEdit(channel, aiPrompt);
+                              }
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleAIEdit(channel, aiPrompt)}
+                            disabled={isAIEditing || !aiPrompt.trim()}
+                            className="gap-1.5 shrink-0"
+                          >
+                            {isAIEditing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Đang xử lý...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-4 h-4" />
+                                Áp dụng
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Editor */}
+                    <Textarea
+                      value={previewContent || editContent}
+                      onChange={(e) => {
+                        if (previewContent) {
+                          setPreviewContent(e.target.value);
+                        } else {
+                          setEditContent(e.target.value);
+                        }
+                      }}
+                      className="h-[320px] resize-none font-mono text-sm"
+                      placeholder="Nhập nội dung..."
+                    />
+                  </div>
                 ) : (
                   <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
                     <div className="p-4">
