@@ -97,7 +97,10 @@ function ChannelSettingRow({
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
-        <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-border cursor-pointer transition-colors">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between p-3 rounded-lg border border-border/50 hover:border-border cursor-pointer transition-colors"
+        >
           <div className="flex items-center gap-3">
             <span className="text-muted-foreground">{channelIcons[channel]}</span>
             <span className="font-medium text-sm">{channelInfo?.label || channel}</span>
@@ -113,7 +116,7 @@ function ChannelSettingRow({
             </span>
             {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </div>
-        </div>
+        </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="p-4 border border-t-0 border-border/50 rounded-b-lg space-y-4 bg-muted/20">
@@ -376,7 +379,10 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border border-border/50 rounded-lg">
       <CollapsibleTrigger asChild>
-        <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors rounded-lg">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors rounded-lg"
+        >
           <div className="flex items-center gap-3">
             <h3 className="font-semibold text-sm">Cài đặt kênh nâng cao</h3>
             {hasAnyOverrides && (
@@ -391,7 +397,7 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
             </span>
             {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </div>
-        </div>
+        </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="p-4 pt-0 space-y-3">
