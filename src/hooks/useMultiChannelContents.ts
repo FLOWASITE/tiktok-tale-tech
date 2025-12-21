@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal } from '@/types/multichannel';
+import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 
 // Helper to transform database data to MultiChannelContent
@@ -25,6 +25,9 @@ const transformContent = (data: any): MultiChannelContent => ({
   youtube_content: data.youtube_content,
   zalo_oa_content: data.zalo_oa_content,
   telegram_content: data.telegram_content,
+  channel_images: (data.channel_images || {}) as ChannelImages,
+  tags: data.tags || [],
+  status: (data.status || 'draft') as ContentStatus,
   created_at: data.created_at,
   updated_at: data.updated_at,
 });
@@ -249,6 +252,150 @@ export function useMultiChannelContents() {
     }
   };
 
+  // Save channel image to database
+  const saveChannelImage = async (contentId: string, channel: Channel, imageData: ChannelImage): Promise<MultiChannelContent | null> => {
+    try {
+      // Get current content to merge images
+      const currentContent = contents.find(c => c.id === contentId);
+      const currentImages = currentContent?.channel_images || {};
+      
+      const updatedImages: ChannelImages = {
+        ...currentImages,
+        [channel]: imageData,
+      };
+
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ channel_images: JSON.parse(JSON.stringify(updatedImages)) })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: '🖼️ Đã lưu ảnh',
+        description: 'Ảnh đã được lưu vào nội dung',
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error saving channel image:', error);
+      toast({
+        title: '❌ Lỗi lưu ảnh',
+        description: 'Không thể lưu ảnh. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
+  // Update tags
+  const updateTags = async (contentId: string, tags: string[]): Promise<MultiChannelContent | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ tags })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: '🏷️ Đã cập nhật tags',
+        description: `Đã lưu ${tags.length} tags`,
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error updating tags:', error);
+      toast({
+        title: '❌ Lỗi cập nhật tags',
+        description: 'Không thể cập nhật tags. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
+  // Update status
+  const updateStatus = async (contentId: string, status: ContentStatus): Promise<MultiChannelContent | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ status })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: '✅ Đã cập nhật trạng thái',
+        description: `Chuyển sang "${status}"`,
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: '❌ Lỗi cập nhật trạng thái',
+        description: 'Không thể cập nhật trạng thái. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
+  // Delete channel image
+  const deleteChannelImage = async (contentId: string, channel: Channel): Promise<MultiChannelContent | null> => {
+    try {
+      const currentContent = contents.find(c => c.id === contentId);
+      const currentImages = { ...currentContent?.channel_images };
+      delete currentImages[channel];
+
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: '🗑️ Đã xóa ảnh',
+        description: 'Ảnh đã được xóa khỏi nội dung',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error deleting channel image:', error);
+      toast({
+        title: '❌ Lỗi xóa ảnh',
+        description: 'Không thể xóa ảnh. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
   useEffect(() => {
     fetchContents();
   }, []);
@@ -264,6 +411,10 @@ export function useMultiChannelContents() {
     updateChannelContent,
     aiEditChannel,
     deleteContent,
+    saveChannelImage,
+    updateTags,
+    updateStatus,
+    deleteChannelImage,
     refetch: fetchContents,
   };
 }

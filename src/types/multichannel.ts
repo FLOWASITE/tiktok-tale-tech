@@ -17,6 +17,17 @@ export type Channel =
   | 'zalo_oa'
   | 'telegram';
 
+export type ContentStatus = 'draft' | 'review' | 'approved' | 'published';
+
+export interface ChannelImage {
+  url: string;
+  prompt: string;
+  provider: string;
+  generatedAt: string;
+}
+
+export type ChannelImages = Partial<Record<Channel, ChannelImage>>;
+
 export interface MultiChannelContent {
   id: string;
   title: string;
@@ -38,6 +49,9 @@ export interface MultiChannelContent {
   youtube_content: string | null;
   zalo_oa_content: string | null;
   telegram_content: string | null;
+  channel_images: ChannelImages;
+  tags: string[];
+  status: ContentStatus;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +70,13 @@ export const CONTENT_GOALS: { value: ContentGoal; label: string; description: st
   { value: 'engagement', label: 'Tương tác', description: 'Khuyến khích bình luận, chia sẻ' },
   { value: 'expertise', label: 'Xây chuyên gia', description: 'Thể hiện chuyên môn sâu' },
   { value: 'conversion', label: 'Chuyển đổi', description: 'Thúc đẩy hành động mua hàng' },
+];
+
+export const CONTENT_STATUSES: { value: ContentStatus; label: string; color: string }[] = [
+  { value: 'draft', label: 'Bản nháp', color: 'gray' },
+  { value: 'review', label: 'Đang xem xét', color: 'yellow' },
+  { value: 'approved', label: 'Đã duyệt', color: 'blue' },
+  { value: 'published', label: 'Đã đăng', color: 'green' },
 ];
 
 export const CHANNELS: { value: Channel; label: string; icon: string; color: string; category: string }[] = [
