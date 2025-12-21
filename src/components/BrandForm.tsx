@@ -930,33 +930,19 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       {/* Step 3: Channel Settings */}
       {currentStep === 3 && (
         <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-base">Cài đặt kênh nâng cao</h3>
-                <p className="text-sm text-muted-foreground">
-                  Tùy chỉnh rules cho từng kênh. Những setting không thay đổi sẽ dùng giá trị mặc định.
-                </p>
-              </div>
-              {Object.keys(channelOverrides).length > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setChannelOverrides({})}
-                  className="text-xs"
-                >
-                  Đặt lại tất cả
-                </Button>
-              )}
-            </div>
-            <ChannelSettingsEditor
-              value={channelOverrides}
-              onChange={setChannelOverrides}
-              defaultExpanded={true}
-              showWrapper={false}
-            />
+          <div className="p-4 rounded-lg border border-border/50 bg-muted/20">
+            <h3 className="font-semibold text-base">Cài đặt kênh</h3>
+            <p className="text-sm text-muted-foreground">
+              Chạm vào từng kênh để mở và chỉnh thông số.
+            </p>
           </div>
+
+          <ChannelSettingsEditor
+            value={channelOverrides}
+            onChange={setChannelOverrides}
+            defaultExpanded={true}
+            showWrapper={true}
+          />
         </div>
       )}
 
