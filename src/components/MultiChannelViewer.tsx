@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelContent, Channel, CONTENT_GOALS } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -116,6 +117,7 @@ export function MultiChannelViewer({
   const [aiPrompt, setAiPrompt] = useState('');
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo hook for edit content
   const {
@@ -612,7 +614,7 @@ export function MultiChannelViewer({
                         </div>
                         
                         {showMarkdownPreview ? (
-                          <ScrollArea className="h-[320px] rounded-lg border border-border/50 bg-background">
+                          <ScrollArea className="h-[280px] rounded-lg border border-border/50 bg-background">
                             <div className="p-4 prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:leading-relaxed prose-ul:list-disc prose-ol:list-decimal prose-li:my-1 prose-strong:font-semibold prose-a:text-primary prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic">
                               <ReactMarkdown>
                                 {previewContent || editContent || 'Nhập nội dung để xem trước...'}
@@ -620,18 +622,33 @@ export function MultiChannelViewer({
                             </div>
                           </ScrollArea>
                         ) : (
-                          <Textarea
-                            value={previewContent || editContent}
-                            onChange={(e) => {
-                              if (previewContent) {
-                                setPreviewContent(e.target.value);
-                              } else {
-                                setEditContent(e.target.value);
-                              }
-                            }}
-                            className="h-[320px] resize-none font-mono text-sm"
-                            placeholder="Nhập nội dung Markdown..."
-                          />
+                          <div className="space-y-2">
+                            <MarkdownToolbar
+                              textareaRef={textareaRef}
+                              value={previewContent || editContent}
+                              onChange={(val) => {
+                                if (previewContent) {
+                                  setPreviewContent(val);
+                                } else {
+                                  setEditContent(val);
+                                }
+                              }}
+                              disabled={isSaving || !!aiEditingChannel}
+                            />
+                            <Textarea
+                              ref={textareaRef}
+                              value={previewContent || editContent}
+                              onChange={(e) => {
+                                if (previewContent) {
+                                  setPreviewContent(e.target.value);
+                                } else {
+                                  setEditContent(e.target.value);
+                                }
+                              }}
+                              className="h-[260px] resize-none font-mono text-sm"
+                              placeholder="Nhập nội dung Markdown..."
+                            />
+                          </div>
                         )}
                       </div>
                     ) : (
