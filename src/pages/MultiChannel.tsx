@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { Loader2, FileText, Sparkles, CheckSquare } from 'lucide-react';
-import { Breadcrumb } from '@/components/Breadcrumb';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
@@ -236,8 +235,6 @@ export default function MultiChannel() {
 
   return (
     <div className="min-h-screen">
-      <Breadcrumb />
-
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column - Form */}
