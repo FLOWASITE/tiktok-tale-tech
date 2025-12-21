@@ -8,6 +8,7 @@ import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
+import { MultiChannelStats } from '@/components/MultiChannelStats';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -275,6 +276,9 @@ export default function MultiChannel() {
                 </p>
               </div>
             </div>
+
+            {/* Stats Dashboard */}
+            <MultiChannelStats contents={contents} />
 
             {/* Bulk Actions Bar */}
             <BulkActionsBar
