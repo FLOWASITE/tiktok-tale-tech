@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelContent, Channel, CONTENT_GOALS } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
@@ -113,6 +115,7 @@ export function MultiChannelViewer({
   const [isSaving, setIsSaving] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
 
   // Undo/Redo hook for edit content
   const {
@@ -134,6 +137,7 @@ export function MultiChannelViewer({
       resetEditContent('');
       setAiPrompt('');
       setPreviewContent(null);
+      setShowMarkdownPreview(false);
     }
   }, [open, resetEditContent]);
 
@@ -586,19 +590,64 @@ export function MultiChannelViewer({
                       </div>
                     )}
 
-                    {/* Editor */}
-                    <Textarea
-                      value={previewContent || editContent}
-                      onChange={(e) => {
-                        if (previewContent) {
-                          setPreviewContent(e.target.value);
-                        } else {
-                          setEditContent(e.target.value);
-                        }
-                      }}
-                      className="h-[320px] resize-none font-mono text-sm"
-                      placeholder="Nhập nội dung..."
-                    />
+                    {/* Editor with Markdown Preview for Website */}
+                    {channel === 'website' ? (
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          <ToggleGroup 
+                            type="single" 
+                            value={showMarkdownPreview ? 'preview' : 'edit'}
+                            onValueChange={(value) => setShowMarkdownPreview(value === 'preview')}
+                            className="bg-muted/50 p-1 rounded-lg"
+                          >
+                            <ToggleGroupItem value="edit" className="gap-1.5 text-xs px-3">
+                              <Code className="w-3.5 h-3.5" />
+                              Chỉnh sửa
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="preview" className="gap-1.5 text-xs px-3">
+                              <Eye className="w-3.5 h-3.5" />
+                              Xem trước
+                            </ToggleGroupItem>
+                          </ToggleGroup>
+                        </div>
+                        
+                        {showMarkdownPreview ? (
+                          <ScrollArea className="h-[320px] rounded-lg border border-border/50 bg-background">
+                            <div className="p-4 prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:leading-relaxed prose-ul:list-disc prose-ol:list-decimal prose-li:my-1 prose-strong:font-semibold prose-a:text-primary prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic">
+                              <ReactMarkdown>
+                                {previewContent || editContent || 'Nhập nội dung để xem trước...'}
+                              </ReactMarkdown>
+                            </div>
+                          </ScrollArea>
+                        ) : (
+                          <Textarea
+                            value={previewContent || editContent}
+                            onChange={(e) => {
+                              if (previewContent) {
+                                setPreviewContent(e.target.value);
+                              } else {
+                                setEditContent(e.target.value);
+                              }
+                            }}
+                            className="h-[320px] resize-none font-mono text-sm"
+                            placeholder="Nhập nội dung Markdown..."
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <Textarea
+                        value={previewContent || editContent}
+                        onChange={(e) => {
+                          if (previewContent) {
+                            setPreviewContent(e.target.value);
+                          } else {
+                            setEditContent(e.target.value);
+                          }
+                        }}
+                        className="h-[320px] resize-none font-mono text-sm"
+                        placeholder="Nhập nội dung..."
+                      />
+                    )}
                   </div>
                 ) : (
                   <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
