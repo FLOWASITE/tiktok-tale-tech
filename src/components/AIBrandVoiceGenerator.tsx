@@ -153,9 +153,23 @@ export function AIBrandVoiceGenerator({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      // Only open if has guideline
+      if (isOpen && !hasGuideline) {
+        toast.error('Vui lòng tạo Brand Guideline ở Step 1 trước');
+        return;
+      }
+      setOpen(isOpen);
+    }}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="gap-2">
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="sm" 
+          className="gap-2"
+          disabled={!hasGuideline}
+          title={!hasGuideline ? 'Cần tạo Brand Guideline trước' : undefined}
+        >
           <Wand2 className="w-4 h-4" />
           AI Gợi ý Brand Voice
         </Button>
