@@ -141,6 +141,14 @@ interface ChannelSettings {
   format_description?: string;
 }
 
+// Partial override type
+type ChannelOverride = Partial<Pick<ChannelSettings, 
+  'max_length' | 'min_length' | 'hook_required' | 'cta_policy' | 
+  'emoji_allowed' | 'emoji_limit' | 'hashtag_limit' | 'link_position'
+>>;
+
+type ChannelOverrides = Record<string, ChannelOverride> | null;
+
 const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   website: {
     min_length: 800,
@@ -378,13 +386,34 @@ function buildChannelRulesPrompt(
   return parts.join('\n');
 }
 
+// Helper: Merge default settings with brand overrides
+function mergeChannelSettings(channel: string, overrides: ChannelOverrides): ChannelSettings {
+  const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
+  if (!defaults) return DEFAULT_CHANNEL_SETTINGS.facebook; // Fallback
+  if (!overrides || !overrides[channel]) return defaults;
+  
+  const override = overrides[channel];
+  return {
+    ...defaults,
+    max_length: override.max_length ?? defaults.max_length,
+    min_length: override.min_length ?? defaults.min_length,
+    hook_required: override.hook_required ?? defaults.hook_required,
+    cta_policy: override.cta_policy ?? defaults.cta_policy,
+    emoji_allowed: override.emoji_allowed ?? defaults.emoji_allowed,
+    emoji_limit: override.emoji_limit ?? defaults.emoji_limit,
+    hashtag_limit: override.hashtag_limit ?? defaults.hashtag_limit,
+    link_position: override.link_position ?? defaults.link_position,
+  };
+}
+
 const getSystemPrompt = (
   brandName: string, 
   brandGuideline: string | null,
   primaryColor: string | null,
   contentGoal: string,
   channels: string[],
-  brandVoice?: BrandVoice
+  brandVoice?: BrandVoice,
+  channelOverrides?: ChannelOverrides
 ): string => {
   const goalDescriptions: Record<string, string> = {
     education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
@@ -396,11 +425,10 @@ const getSystemPrompt = (
 
   const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
   
-  // Build channel rules using the new settings engine
+  // Build channel rules using the new settings engine with overrides
   const selectedChannelRules = channels
     .map(ch => {
-      const settings = DEFAULT_CHANNEL_SETTINGS[ch];
-      if (!settings) return null;
+      const settings = mergeChannelSettings(ch, channelOverrides || null);
       return buildChannelRulesPrompt(ch, settings, brandAllowEmoji);
     })
     .filter(Boolean)
@@ -482,6 +510,7 @@ serve(async (req) => {
     let primaryColor: string | null = null;
     let industry: string | null = formData.industry || null;
     let brandVoice: BrandVoice | undefined;
+    let channelOverrides: ChannelOverrides = null;
 
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
@@ -509,7 +538,12 @@ serve(async (req) => {
           allow_emoji: template.allow_emoji ?? true,
           compliance_rules: template.compliance_rules,
         };
+        // Extract Channel Overrides
+        channelOverrides = template.channel_overrides || null;
         console.log("Brand Voice loaded:", brandVoice.brand_positioning, brandVoice.tone_of_voice);
+        if (channelOverrides) {
+          console.log("Channel overrides loaded:", Object.keys(channelOverrides));
+        }
       }
     }
 
@@ -519,7 +553,8 @@ serve(async (req) => {
       primaryColor,
       formData.contentGoal,
       formData.channels,
-      brandVoice
+      brandVoice,
+      channelOverrides
     );
 
     const userPrompt = `Tạo nội dung đa kênh cho chủ đề:

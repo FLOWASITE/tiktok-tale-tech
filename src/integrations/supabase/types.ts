@@ -20,6 +20,7 @@ export type Database = {
           brand_guideline: string
           brand_name: string
           brand_positioning: string | null
+          channel_overrides: Json | null
           compliance_rules: string[] | null
           created_at: string
           forbidden_words: string[] | null
@@ -41,6 +42,7 @@ export type Database = {
           brand_guideline: string
           brand_name: string
           brand_positioning?: string | null
+          channel_overrides?: Json | null
           compliance_rules?: string[] | null
           created_at?: string
           forbidden_words?: string[] | null
@@ -62,6 +64,7 @@ export type Database = {
           brand_guideline?: string
           brand_name?: string
           brand_positioning?: string | null
+          channel_overrides?: Json | null
           compliance_rules?: string[] | null
           created_at?: string
           forbidden_words?: string[] | null

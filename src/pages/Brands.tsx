@@ -136,6 +136,7 @@ export default function Brands() {
             forbidden_words: template.forbidden_words ?? null,
             allow_emoji: template.allow_emoji ?? true,
             compliance_rules: template.compliance_rules ?? null,
+            channel_overrides: template.channel_overrides ?? null,
           });
           successCount++;
         }

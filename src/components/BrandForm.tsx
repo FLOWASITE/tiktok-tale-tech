@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
+import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check } from 'lucide-react';
 import {
@@ -78,6 +79,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
   const [allowEmoji, setAllowEmoji] = useState(true);
   const [complianceRules, setComplianceRules] = useState<string[]>([]);
 
+  // Channel Settings Overrides
+  const [channelOverrides, setChannelOverrides] = useState<ChannelOverrides>({});
+
   useEffect(() => {
     if (template) {
       setName(template.name);
@@ -99,6 +103,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       setForbiddenWords(template.forbidden_words || []);
       setAllowEmoji(template.allow_emoji ?? true);
       setComplianceRules(template.compliance_rules || []);
+      setChannelOverrides(template.channel_overrides || {});
     } else {
       setName('');
       setBrandName('');
@@ -119,6 +124,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
       setForbiddenWords([]);
       setAllowEmoji(true);
       setComplianceRules([]);
+      setChannelOverrides({});
     }
   }, [template]);
 
@@ -206,6 +212,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
         forbidden_words: forbiddenWords.length > 0 ? forbiddenWords : null,
         allow_emoji: allowEmoji,
         compliance_rules: complianceRules.length > 0 ? complianceRules : null,
+        channel_overrides: Object.keys(channelOverrides).length > 0 ? channelOverrides : null,
       },
       logoFile,
       deleteLogo
@@ -440,6 +447,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading }: BrandForm
         onAllowEmojiChange={setAllowEmoji}
         complianceRules={complianceRules}
         onComplianceRulesChange={setComplianceRules}
+      />
+
+      {/* Channel Settings Override Section */}
+      <ChannelSettingsEditor
+        value={channelOverrides}
+        onChange={setChannelOverrides}
       />
 
       <div className="flex justify-end gap-2 pt-4 border-t">

@@ -136,6 +136,34 @@ interface ChannelSettings {
   format_description?: string;
 }
 
+// Partial override type
+type ChannelOverride = Partial<Pick<ChannelSettings, 
+  'max_length' | 'min_length' | 'hook_required' | 'cta_policy' | 
+  'emoji_allowed' | 'emoji_limit' | 'hashtag_limit' | 'link_position'
+>>;
+
+type ChannelOverrides = Record<string, ChannelOverride> | null;
+
+// Helper: Merge default settings with brand overrides
+function mergeChannelSettings(channel: string, overrides: ChannelOverrides): ChannelSettings {
+  const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
+  if (!defaults) return DEFAULT_CHANNEL_SETTINGS.facebook;
+  if (!overrides || !overrides[channel]) return defaults;
+  
+  const override = overrides[channel];
+  return {
+    ...defaults,
+    max_length: override.max_length ?? defaults.max_length,
+    min_length: override.min_length ?? defaults.min_length,
+    hook_required: override.hook_required ?? defaults.hook_required,
+    cta_policy: override.cta_policy ?? defaults.cta_policy,
+    emoji_allowed: override.emoji_allowed ?? defaults.emoji_allowed,
+    emoji_limit: override.emoji_limit ?? defaults.emoji_limit,
+    hashtag_limit: override.hashtag_limit ?? defaults.hashtag_limit,
+    link_position: override.link_position ?? defaults.link_position,
+  };
+}
+
 const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   website: {
     min_length: 800, max_length: 1500, length_unit: 'words',
@@ -313,12 +341,13 @@ serve(async (req) => {
       throw new Error("Không tìm thấy nội dung");
     }
 
-    // Load brand template to get Brand Voice if available
+    // Load brand template to get Brand Voice and Channel Overrides if available
     let brandVoice: BrandVoice | undefined;
+    let channelOverrides: ChannelOverrides = null;
     if (content.brand_template_id) {
       const { data: template } = await supabase
         .from("brand_templates")
-        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules")
+        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, channel_overrides")
         .eq("id", content.brand_template_id)
         .single();
 
@@ -333,14 +362,19 @@ serve(async (req) => {
           allow_emoji: template.allow_emoji ?? true,
           compliance_rules: template.compliance_rules,
         };
+        channelOverrides = template.channel_overrides || null;
         console.log("Brand Voice loaded for regeneration:", brandVoice.brand_positioning);
+        if (channelOverrides) {
+          console.log("Channel overrides loaded:", Object.keys(channelOverrides));
+        }
       }
     }
 
     // Build Brand Voice section
     const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
     const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
-    const channelRulesPrompt = buildChannelRulesPrompt(channel, DEFAULT_CHANNEL_SETTINGS[channel], brandAllowEmoji);
+    const channelSettings = mergeChannelSettings(channel, channelOverrides);
+    const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings, brandAllowEmoji);
 
     const systemPrompt = `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG cho doanh nghiệp (B2B).
 

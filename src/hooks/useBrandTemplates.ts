@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
+
 export interface BrandTemplate {
   id: string;
   name: string;
@@ -23,6 +25,8 @@ export interface BrandTemplate {
   forbidden_words: string[] | null;
   allow_emoji: boolean;
   compliance_rules: string[] | null;
+  // Channel Settings Overrides
+  channel_overrides: ChannelOverrides | null;
 }
 
 const BUCKET_NAME = 'brand-logos';
