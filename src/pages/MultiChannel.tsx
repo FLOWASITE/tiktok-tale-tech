@@ -10,7 +10,7 @@ import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
 import { MultiChannelStats } from '@/components/MultiChannelStats';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
@@ -373,38 +373,23 @@ export default function MultiChannel() {
         )}
       </div>
 
-      {/* Form Sheet - Full Screen */}
-      <Sheet open={formSheetOpen} onOpenChange={setFormSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-full md:max-w-2xl lg:max-w-3xl overflow-y-auto p-0 [&>button]:hidden">
-          <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <SheetHeader className="flex-1">
-                <SheetTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5 text-primary" />
-                  Tạo nội dung đa kênh mới
-                </SheetTitle>
-                <p className="text-sm text-muted-foreground">
-                  Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc
-                </p>
-              </SheetHeader>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setFormSheetOpen(false)}
-                className="h-9 w-9 shrink-0"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          <div className="p-6">
-            <MultiChannelForm
-              onSubmit={handleGenerateContent}
-              isLoading={generating}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Form Panel - Below Header */}
+      <SlidePanel
+        open={formSheetOpen}
+        onOpenChange={setFormSheetOpen}
+        title={
+          <>
+            <Plus className="w-5 h-5 text-primary" />
+            Tạo nội dung đa kênh mới
+          </>
+        }
+        description="Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc"
+      >
+        <MultiChannelForm
+          onSubmit={handleGenerateContent}
+          isLoading={generating}
+        />
+      </SlidePanel>
 
       {/* Viewer Dialog */}
       <MultiChannelViewer

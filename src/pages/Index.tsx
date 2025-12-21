@@ -9,7 +9,7 @@ import { Script } from '@/types/script';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import { FileVideo, Sparkles, Plus, X } from 'lucide-react';
 
 const Index = () => {
@@ -165,35 +165,21 @@ const Index = () => {
         )}
       </div>
 
-      {/* Form Sheet - Full Screen */}
-      <Sheet open={formSheetOpen} onOpenChange={setFormSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-full md:max-w-xl lg:max-w-2xl overflow-y-auto p-0 [&>button]:hidden">
-          <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <SheetHeader className="flex-1">
-                <SheetTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  Tạo Kịch Bản Video Mới
-                </SheetTitle>
-                <p className="text-sm text-muted-foreground">
-                  Điền thông tin để AI tạo kịch bản video chuyên nghiệp
-                </p>
-              </SheetHeader>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setFormSheetOpen(false)}
-                className="h-9 w-9 shrink-0"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          <div className="p-6">
-            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Form Panel - Below Header */}
+      <SlidePanel
+        open={formSheetOpen}
+        onOpenChange={setFormSheetOpen}
+        title={
+          <>
+            <Sparkles className="w-5 h-5 text-primary" />
+            Tạo Kịch Bản Video Mới
+          </>
+        }
+        description="Điền thông tin để AI tạo kịch bản video chuyên nghiệp"
+        className="md:max-w-xl lg:max-w-2xl"
+      >
+        <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} />
+      </SlidePanel>
 
       {/* Script viewer dialog */}
       <ScriptViewer
