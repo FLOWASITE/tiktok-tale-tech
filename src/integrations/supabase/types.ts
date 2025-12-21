@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      carousels: {
+        Row: {
+          ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]
+          brand_guideline: string | null
+          brand_name: string
+          caption_suggestion: string | null
+          created_at: string
+          cta_suggestion: string | null
+          id: string
+          include_logo: boolean
+          platform: Database["public"]["Enums"]["carousel_platform"]
+          slide_count: number
+          slides_content: Json
+          title: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
+          brand_guideline?: string | null
+          brand_name?: string
+          caption_suggestion?: string | null
+          created_at?: string
+          cta_suggestion?: string | null
+          id?: string
+          include_logo?: boolean
+          platform?: Database["public"]["Enums"]["carousel_platform"]
+          slide_count?: number
+          slides_content?: Json
+          title: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
+          brand_guideline?: string | null
+          brand_name?: string
+          caption_suggestion?: string | null
+          created_at?: string
+          cta_suggestion?: string | null
+          id?: string
+          include_logo?: boolean
+          platform?: Database["public"]["Enums"]["carousel_platform"]
+          slide_count?: number
+          slides_content?: Json
+          title?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scripts: {
         Row: {
           character_type: string
@@ -58,7 +109,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
+      carousel_platform: "facebook" | "tiktok"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -185,6 +237,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
+      carousel_platform: ["facebook", "tiktok"],
+    },
   },
 } as const
