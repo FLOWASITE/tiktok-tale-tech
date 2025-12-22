@@ -8,7 +8,9 @@ import {
   Plus,
   LayoutGrid,
   List,
-  Clock
+  Clock,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +29,7 @@ import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { PublishingQueue } from '@/components/PublishingQueue';
 import { CalendarDayView } from '@/components/CalendarDayView';
+import { Calendar } from '@/components/ui/calendar';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData } from '@/types/multichannel';
 import { supabase } from '@/integrations/supabase/client';
@@ -203,6 +206,7 @@ export default function ContentCalendar() {
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [showMiniCalendar, setShowMiniCalendar] = useState(true);
   
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
@@ -279,6 +283,11 @@ export default function ContentCalendar() {
       return true;
     });
   }, [schedules, statusFilter, channelFilter]);
+
+  // Get days that have schedules (for mini calendar highlighting)
+  const daysWithSchedules = useMemo(() => {
+    return schedules.map(s => format(parseISO(s.scheduled_at), 'yyyy-MM-dd'));
+  }, [schedules]);
 
   // Get days for current view
   const calendarDays = useMemo(() => {
@@ -423,10 +432,23 @@ export default function ContentCalendar() {
             Quản lý và lên lịch đăng bài theo ngày
           </p>
         </div>
-        <Button onClick={() => setFormOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Tạo nội dung
-        </Button>
+        <div className="flex items-center gap-2">
+          {viewMode !== 'queue' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMiniCalendar(!showMiniCalendar)}
+              className="gap-2"
+            >
+              {showMiniCalendar ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
+              <span className="hidden sm:inline">Mini Calendar</span>
+            </Button>
+          )}
+          <Button onClick={() => setFormOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Tạo nội dung
+          </Button>
+        </div>
       </div>
 
       {/* Controls */}
@@ -547,115 +569,176 @@ export default function ContentCalendar() {
         </Card>
       </div>
 
-      {/* Calendar View */}
+      {/* Calendar View with Mini Calendar Sidebar */}
       {viewMode === 'queue' ? (
         <Card>
           <CardContent className="p-4">
             <PublishingQueue />
           </CardContent>
         </Card>
-      ) : viewMode === 'day' ? (
-        <Card className="overflow-hidden">
-          <CardContent className="p-0 h-[600px]">
-            <CalendarDayView
-              date={currentDate}
-              schedules={filteredSchedules}
-              onScheduleClick={handleScheduleClick}
-              onScheduleDrop={async (scheduleId, newDate) => {
-                try {
-                  const schedule = schedules.find(s => s.id === scheduleId);
-                  if (!schedule) return;
-
-                  const { error } = await supabase
-                    .from('content_schedules')
-                    .update({ 
-                      scheduled_at: newDate.toISOString(),
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', scheduleId);
-
-                  if (error) throw error;
-
-                  // Log the reschedule
-                  await supabase.from('content_publishing_logs').insert({
-                    schedule_id: scheduleId,
-                    content_id: schedule.content_id,
-                    channel: schedule.channel,
-                    organization_id: currentOrganization?.id || null,
-                    action: 'rescheduled',
-                    performed_by: user?.id || null,
-                    performed_at: new Date().toISOString(),
-                    details: { 
-                      from: schedule.scheduled_at, 
-                      to: newDate.toISOString() 
-                    },
-                  });
-
-                  toast({
-                    title: 'Đã đổi lịch',
-                    description: `Đã chuyển sang ${format(newDate, 'dd/MM/yyyy HH:mm', { locale: vi })}`,
-                  });
-
-                  fetchSchedules();
-                } catch (error) {
-                  console.error('Error updating schedule:', error);
-                  toast({
-                    title: 'Lỗi',
-                    description: 'Không thể cập nhật lịch',
-                    variant: 'destructive',
-                  });
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
       ) : (
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <Card>
-            <CardContent className="p-0 overflow-hidden">
-              {/* Week days header */}
-              <div className="grid grid-cols-7 border-b border-border/30 bg-muted/30">
-                {weekDays.map((day) => (
-                  <div 
-                    key={day} 
-                    className="text-center py-2 text-xs font-medium text-muted-foreground border-r border-border/30 last:border-r-0"
-                  >
-                    {day}
+        <div className="flex gap-4">
+          {/* Mini Calendar Sidebar */}
+          {showMiniCalendar && (
+            <Card className="shrink-0 h-fit">
+              <CardContent className="p-3">
+                <Calendar
+                  mode="single"
+                  selected={currentDate}
+                  onSelect={(date) => date && setCurrentDate(date)}
+                  locale={vi}
+                  modifiers={{
+                    hasSchedule: (date) => daysWithSchedules.includes(format(date, 'yyyy-MM-dd')),
+                  }}
+                  modifiersClassNames={{
+                    hasSchedule: 'bg-primary/20 font-bold text-primary',
+                  }}
+                  className="rounded-md"
+                />
+                {/* Schedule count for today */}
+                <div className="mt-3 pt-3 border-t border-border">
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Lịch ngày {format(currentDate, 'dd/MM', { locale: vi })}
                   </div>
-                ))}
-              </div>
+                  <div className="space-y-1">
+                    {schedules
+                      .filter(s => format(parseISO(s.scheduled_at), 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd'))
+                      .slice(0, 5)
+                      .map(schedule => (
+                        <div 
+                          key={schedule.id}
+                          onClick={() => handleScheduleClick(schedule)}
+                          className="text-xs p-1.5 rounded bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1.5 truncate"
+                        >
+                          <span>{channelEmojis[schedule.channel as Channel]}</span>
+                          <span className="truncate">{schedule.content?.title || 'Không có tiêu đề'}</span>
+                          <span className="text-muted-foreground ml-auto shrink-0">
+                            {format(parseISO(schedule.scheduled_at), 'HH:mm')}
+                          </span>
+                        </div>
+                      ))
+                    }
+                    {schedules.filter(s => format(parseISO(s.scheduled_at), 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')).length === 0 && (
+                      <div className="text-xs text-muted-foreground italic">Không có lịch</div>
+                    )}
+                    {schedules.filter(s => format(parseISO(s.scheduled_at), 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')).length > 5 && (
+                      <div className="text-xs text-muted-foreground">
+                        +{schedules.filter(s => format(parseISO(s.scheduled_at), 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')).length - 5} lịch khác
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-              {/* Calendar grid */}
-              <div className={`grid grid-cols-7 ${viewMode === 'week' ? '' : ''}`}>
-                {calendarDays.map((date) => (
-                  <DroppableDayCell
-                    key={date.toISOString()}
-                    date={date}
-                    isCurrentMonth={isSameMonth(date, currentDate)}
+          {/* Main Calendar View */}
+          <div className="flex-1 min-w-0">
+            {viewMode === 'day' ? (
+              <Card className="overflow-hidden">
+                <CardContent className="p-0 h-[600px]">
+                  <CalendarDayView
+                    date={currentDate}
                     schedules={filteredSchedules}
                     onScheduleClick={handleScheduleClick}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                    onScheduleDrop={async (scheduleId, newDate) => {
+                      try {
+                        const schedule = schedules.find(s => s.id === scheduleId);
+                        if (!schedule) return;
 
-          {/* Drag Overlay */}
-          <DragOverlay>
-            {draggedSchedule && (
-              <div className="text-xs p-2 rounded bg-card border-2 border-primary shadow-lg">
-                <div className="flex items-center gap-1.5">
-                  <span>{channelEmojis[draggedSchedule.channel as Channel]}</span>
-                  <span className="font-medium">{draggedSchedule.content?.title}</span>
-                </div>
-              </div>
+                        const { error } = await supabase
+                          .from('content_schedules')
+                          .update({ 
+                            scheduled_at: newDate.toISOString(),
+                            updated_at: new Date().toISOString(),
+                          })
+                          .eq('id', scheduleId);
+
+                        if (error) throw error;
+
+                        // Log the reschedule
+                        await supabase.from('content_publishing_logs').insert({
+                          schedule_id: scheduleId,
+                          content_id: schedule.content_id,
+                          channel: schedule.channel,
+                          organization_id: currentOrganization?.id || null,
+                          action: 'rescheduled',
+                          performed_by: user?.id || null,
+                          performed_at: new Date().toISOString(),
+                          details: { 
+                            from: schedule.scheduled_at, 
+                            to: newDate.toISOString() 
+                          },
+                        });
+
+                        toast({
+                          title: 'Đã đổi lịch',
+                          description: `Đã chuyển sang ${format(newDate, 'dd/MM/yyyy HH:mm', { locale: vi })}`,
+                        });
+
+                        fetchSchedules();
+                      } catch (error) {
+                        console.error('Error updating schedule:', error);
+                        toast({
+                          title: 'Lỗi',
+                          description: 'Không thể cập nhật lịch',
+                          variant: 'destructive',
+                        });
+                      }
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <Card>
+                  <CardContent className="p-0 overflow-hidden">
+                    {/* Week days header */}
+                    <div className="grid grid-cols-7 border-b border-border/30 bg-muted/30">
+                      {weekDays.map((day) => (
+                        <div 
+                          key={day} 
+                          className="text-center py-2 text-xs font-medium text-muted-foreground border-r border-border/30 last:border-r-0"
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Calendar grid */}
+                    <div className={`grid grid-cols-7 ${viewMode === 'week' ? '' : ''}`}>
+                      {calendarDays.map((date) => (
+                        <DroppableDayCell
+                          key={date.toISOString()}
+                          date={date}
+                          isCurrentMonth={isSameMonth(date, currentDate)}
+                          schedules={filteredSchedules}
+                          onScheduleClick={handleScheduleClick}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Drag Overlay */}
+                <DragOverlay>
+                  {draggedSchedule && (
+                    <div className="text-xs p-2 rounded bg-card border-2 border-primary shadow-lg">
+                      <div className="flex items-center gap-1.5">
+                        <span>{channelEmojis[draggedSchedule.channel as Channel]}</span>
+                        <span className="font-medium">{draggedSchedule.content?.title}</span>
+                      </div>
+                    </div>
+                  )}
+                </DragOverlay>
+              </DndContext>
             )}
-          </DragOverlay>
-        </DndContext>
+          </div>
+        </div>
       )}
 
       {/* Create Content Form */}
