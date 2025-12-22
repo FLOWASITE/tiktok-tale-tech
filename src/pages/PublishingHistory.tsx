@@ -1,7 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { 
   Download, 
-  Filter, 
   Search,
   Calendar as CalendarIcon,
   TrendingUp,
@@ -10,7 +9,12 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  RefreshCw
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Loader2
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -40,16 +44,20 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { usePublishingLogs } from '@/hooks/usePublishingLogs';
-import { PublishingLog, PUBLISHING_ACTIONS } from '@/types/publishing';
-import { CHANNELS, Channel } from '@/types/multichannel';
+import { PUBLISHING_ACTIONS } from '@/types/publishing';
+import { CHANNELS } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
+
+const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 const channelColors: Record<string, string> = {
   facebook: '#4F46E5',
@@ -90,6 +98,15 @@ export default function PublishingHistory() {
     from: subDays(new Date(), 30),
     to: new Date(),
   });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [useInfiniteScroll, setUseInfiniteScroll] = useState(false);
+  const [displayedItems, setDisplayedItems] = useState(25);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const tableEndRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Filtered logs
   const filteredLogs = useMemo(() => {
@@ -108,6 +125,92 @@ export default function PublishingHistory() {
       return matchesSearch && matchesChannel && matchesAction && matchesDate;
     });
   }, [logs, searchQuery, channelFilter, actionFilter, dateRange]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setDisplayedItems(itemsPerPage);
+  }, [searchQuery, channelFilter, actionFilter, dateRange, itemsPerPage]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  
+  // Paginated or infinite scroll logs
+  const displayedLogs = useMemo(() => {
+    if (useInfiniteScroll) {
+      return filteredLogs.slice(0, displayedItems);
+    }
+    return filteredLogs.slice(startIndex, endIndex);
+  }, [filteredLogs, useInfiniteScroll, displayedItems, startIndex, endIndex]);
+
+  // Infinite scroll handler
+  const loadMore = useCallback(() => {
+    if (isLoadingMore || displayedItems >= filteredLogs.length) return;
+    
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setDisplayedItems(prev => Math.min(prev + itemsPerPage, filteredLogs.length));
+      setIsLoadingMore(false);
+    }, 300);
+  }, [isLoadingMore, displayedItems, filteredLogs.length, itemsPerPage]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (!useInfiniteScroll) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && displayedItems < filteredLogs.length) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (tableEndRef.current) {
+      observerRef.current.observe(tableEndRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [useInfiniteScroll, loadMore, displayedItems, filteredLogs.length]);
+
+  // Pagination navigation
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   // Statistics
   const stats = useMemo(() => {
@@ -411,6 +514,57 @@ export default function PublishingHistory() {
         </CardContent>
       </Card>
 
+      {/* Pagination Controls */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="infinite-scroll" className="text-sm">Cuộn vô hạn</Label>
+                <Switch
+                  id="infinite-scroll"
+                  checked={useInfiniteScroll}
+                  onCheckedChange={(checked) => {
+                    setUseInfiniteScroll(checked);
+                    setDisplayedItems(itemsPerPage);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Hiển thị</span>
+                <Select 
+                  value={itemsPerPage.toString()} 
+                  onValueChange={(v) => setItemsPerPage(Number(v))}
+                >
+                  <SelectTrigger className="w-[80px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ITEMS_PER_PAGE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt.toString()}>
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground">/ trang</span>
+              </div>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              {useInfiniteScroll ? (
+                <>Đang hiển thị {displayedItems} / {filteredLogs.length} mục</>
+              ) : (
+                <>
+                  Hiển thị {filteredLogs.length > 0 ? startIndex + 1 : 0} - {Math.min(endIndex, filteredLogs.length)} / {filteredLogs.length} mục
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* History Table */}
       <Card>
         <CardContent className="p-0">
@@ -426,54 +580,133 @@ export default function PublishingHistory() {
               <p>Không có lịch sử nào phù hợp với bộ lọc</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[180px]">Thời gian</TableHead>
-                  <TableHead>Kênh</TableHead>
-                  <TableHead>Hành động</TableHead>
-                  <TableHead>Chi tiết</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-mono text-sm">
-                      {format(parseISO(log.performed_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: channelColors[log.channel] || '#6B7280' }}
-                        />
-                        <span>{CHANNELS.find(c => c.value === log.channel)?.label || log.channel}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={cn('gap-1', actionColors[log.action])}>
-                        {actionIcons[log.action]}
-                        {PUBLISHING_ACTIONS.find(a => a.value === log.action)?.label || log.action}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[300px]">
-                      {log.error_message ? (
-                        <span className="text-destructive text-sm">{log.error_message}</span>
-                      ) : log.details && Object.keys(log.details).length > 0 ? (
-                        <span className="text-sm text-muted-foreground truncate block">
-                          {JSON.stringify(log.details)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[180px]">Thời gian</TableHead>
+                    <TableHead>Kênh</TableHead>
+                    <TableHead>Hành động</TableHead>
+                    <TableHead>Chi tiết</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {displayedLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="font-mono text-sm">
+                        {format(parseISO(log.performed_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: channelColors[log.channel] || '#6B7280' }}
+                          />
+                          <span>{CHANNELS.find(c => c.value === log.channel)?.label || log.channel}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={cn('gap-1', actionColors[log.action])}>
+                          {actionIcons[log.action]}
+                          {PUBLISHING_ACTIONS.find(a => a.value === log.action)?.label || log.action}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[300px]">
+                        {log.error_message ? (
+                          <span className="text-destructive text-sm">{log.error_message}</span>
+                        ) : log.details && Object.keys(log.details).length > 0 ? (
+                          <span className="text-sm text-muted-foreground truncate block">
+                            {JSON.stringify(log.details)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {/* Infinite scroll loader */}
+              {useInfiniteScroll && (
+                <div ref={tableEndRef} className="p-4 flex justify-center">
+                  {isLoadingMore ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Đang tải thêm...</span>
+                    </div>
+                  ) : displayedItems < filteredLogs.length ? (
+                    <Button variant="ghost" size="sm" onClick={loadMore}>
+                      Tải thêm ({filteredLogs.length - displayedItems} còn lại)
+                    </Button>
+                  ) : displayedItems > 0 ? (
+                    <span className="text-sm text-muted-foreground">Đã hiển thị tất cả</span>
+                  ) : null}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Traditional Pagination */}
+      {!useInfiniteScroll && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => goToPage(1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          {getPageNumbers().map((page, idx) => (
+            typeof page === 'number' ? (
+              <Button
+                key={idx}
+                variant={currentPage === page ? 'default' : 'outline'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => goToPage(page)}
+              >
+                {page}
+              </Button>
+            ) : (
+              <span key={idx} className="px-2 text-muted-foreground">...</span>
+            )
+          ))}
+          
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => goToPage(totalPages)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
