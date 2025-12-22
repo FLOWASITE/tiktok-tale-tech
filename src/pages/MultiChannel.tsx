@@ -241,38 +241,38 @@ export default function MultiChannel() {
   };
 
   return (
-    <div className="min-h-screen relative">
-      {/* Header Bar */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Header Bar - Compact */}
+      <div className="flex-shrink-0 bg-background/95 backdrop-blur border-b px-4 py-2">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              Quản lý nội dung đa kênh
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {filteredContents.length} / {contents.length} bộ nội dung
-            </p>
+          <div className="flex items-center gap-3">
+            <FileText className="w-4 h-4 text-primary" />
+            <div>
+              <h1 className="text-base font-semibold">Quản lý nội dung đa kênh</h1>
+              <p className="text-xs text-muted-foreground">
+                {filteredContents.length} / {contents.length} bộ nội dung
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
+            <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1.5 h-8">
+              <Plus className="w-3.5 h-3.5" />
               Thêm mới
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate('/')}
-              className="h-9 w-9"
+              className="h-8 w-8"
               title="Đóng"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-4">
+      <div className="flex-1 overflow-auto p-4 space-y-3">
 
             {/* Stats Dashboard */}
             <MultiChannelStats contents={contents} />
@@ -321,47 +321,47 @@ export default function MultiChannel() {
 
         {/* Content Row - Horizontal Scroll */}
         {loading ? (
-          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-[240px] sm:w-[280px] md:w-[300px] snap-start">
+              <div key={i} className="flex-shrink-0 w-[200px] sm:w-[220px] snap-start">
                 <CardLoadingSkeleton />
               </div>
             ))}
           </div>
         ) : filteredContents.length === 0 ? (
-          <div className="text-center py-12 sm:py-20 animate-fade-in">
-            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted/50 mb-4">
-              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+          <div className="text-center py-8 animate-fade-in">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-muted/50 mb-3">
+              <Sparkles className="w-5 h-5 text-muted-foreground" />
             </div>
-            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">
+            <h3 className="text-sm font-medium text-foreground mb-1">
               {contents.length === 0 ? 'Chưa có nội dung nào' : 'Không tìm thấy nội dung'}
             </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mb-4 px-4">
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto mb-3">
               {contents.length === 0
-                ? 'Nhấn nút "Thêm mới" để tạo nội dung đa kênh đầu tiên.'
-                : 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.'}
+                ? 'Nhấn "Thêm mới" để tạo nội dung.'
+                : 'Thử thay đổi bộ lọc.'}
             </p>
             {contents.length === 0 && (
-              <Button onClick={() => setFormSheetOpen(true)} className="gap-2" size="sm">
-                <Plus className="w-4 h-4" />
-                Tạo nội dung mới
+              <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1.5 h-7">
+                <Plus className="w-3.5 h-3.5" />
+                Tạo mới
               </Button>
             )}
           </div>
         ) : (
-          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
             {filteredContents.map((content, index) => (
               <div
                 key={content.id}
-                className="stagger-item relative flex-shrink-0 w-[240px] sm:w-[280px] md:w-[300px] snap-start"
+                className="stagger-item relative flex-shrink-0 w-[200px] sm:w-[220px] snap-start"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Selection Checkbox */}
-                <div className="absolute top-2 left-2 z-20">
+                <div className="absolute top-1.5 left-1.5 z-20">
                   <Checkbox
                     checked={selectedIds.has(content.id)}
                     onCheckedChange={() => toggleSelection(content.id)}
-                    className="bg-background/80 backdrop-blur border-border"
+                    className="h-4 w-4 bg-background/80 backdrop-blur border-border"
                   />
                 </div>
                 <MultiChannelCard
