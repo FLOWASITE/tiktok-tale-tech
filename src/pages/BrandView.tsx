@@ -59,7 +59,9 @@ import {
   Link as LinkIcon,
   Hash,
   Type,
-  Megaphone
+  Megaphone,
+  Music2,
+  AtSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';

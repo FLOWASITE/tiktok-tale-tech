@@ -18,7 +18,9 @@ import {
   Youtube,
   MessageCircle,
   Send,
-  Loader2
+  Loader2,
+  Music2,
+  AtSign
 } from 'lucide-react';
 import { Channel, ChannelImage, ChannelImages } from '@/types/multichannel';
 import { toast } from 'sonner';
