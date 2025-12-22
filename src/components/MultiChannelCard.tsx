@@ -107,19 +107,21 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
       <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/0 via-primary/0 to-secondary/0 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-secondary/5 transition-all duration-500 pointer-events-none" />
       
       {/* Top Row - Status & Industry */}
-      <div className="relative flex items-center justify-between mb-2">
+      <div className="relative flex items-center justify-between mb-2 pl-5">
         <Badge 
           variant="outline" 
           className={`text-[9px] px-1 py-0 ${statusColors[content.status || 'draft']}`}
         >
           {statusLabel}
         </Badge>
-        {content.industry && (
-          <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-500 border-amber-500/30">
-            <Building className="w-2.5 h-2.5 mr-0.5" />
-            {content.industry}
-          </Badge>
-        )}
+        <div className="flex items-center gap-1">
+          {content.industry && (
+            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-500 border-amber-500/30">
+              <Building className="w-2.5 h-2.5 mr-0.5" />
+              {content.industry}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Header - Title & Topic */}
