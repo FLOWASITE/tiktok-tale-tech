@@ -57,6 +57,7 @@ interface MultiChannelViewerProps {
 
 const channelConfig: Record<Channel, { 
   label: string; 
+  shortLabel: string;
   icon: React.ReactNode; 
   color: string;
   bgColor: string;
@@ -64,84 +65,96 @@ const channelConfig: Record<Channel, {
 }> = {
   website: { 
     label: 'Website/Blog', 
-    icon: <Globe className="w-4 h-4" />, 
+    shortLabel: 'Web',
+    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
     maxLength: '800-1500 chữ'
   },
   facebook: { 
     label: 'Facebook', 
-    icon: <Facebook className="w-4 h-4" />, 
+    shortLabel: 'FB',
+    icon: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-indigo-400',
     bgColor: 'bg-indigo-500/10',
     maxLength: '120-300 chữ'
   },
   instagram: { 
     label: 'Instagram', 
-    icon: <Instagram className="w-4 h-4" />, 
+    shortLabel: 'IG',
+    icon: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/10',
     maxLength: '50-150 chữ'
   },
   twitter: { 
     label: 'X (Twitter)', 
-    icon: <Twitter className="w-4 h-4" />, 
+    shortLabel: 'X',
+    icon: <Twitter className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/10',
     maxLength: 'Thread 5-7 tweets'
   },
   google_maps: { 
     label: 'Google Maps', 
-    icon: <MapPin className="w-4 h-4" />, 
+    shortLabel: 'Maps',
+    icon: <MapPin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-green-400',
     bgColor: 'bg-green-500/10',
     maxLength: '80-150 chữ'
   },
   linkedin: { 
     label: 'LinkedIn', 
-    icon: <Linkedin className="w-4 h-4" />, 
+    shortLabel: 'LI',
+    icon: <Linkedin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-sky-400',
     bgColor: 'bg-sky-500/10',
     maxLength: '150-400 chữ'
   },
   email: { 
     label: 'Email', 
-    icon: <Mail className="w-4 h-4" />, 
+    shortLabel: 'Mail',
+    icon: <Mail className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-amber-400',
     bgColor: 'bg-amber-500/10',
     maxLength: '150-400 chữ'
   },
   youtube: { 
     label: 'YouTube', 
-    icon: <Youtube className="w-4 h-4" />, 
+    shortLabel: 'YT',
+    icon: <Youtube className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-red-400',
     bgColor: 'bg-red-500/10',
     maxLength: 'Script 3-5 phút'
   },
   zalo_oa: { 
     label: 'Zalo OA', 
-    icon: <MessageCircle className="w-4 h-4" />, 
+    shortLabel: 'Zalo',
+    icon: <MessageCircle className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
     maxLength: '60-150 chữ'
   },
   telegram: { 
     label: 'Telegram', 
-    icon: <Send className="w-4 h-4" />, 
+    shortLabel: 'TG',
+    icon: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-sky-400',
     bgColor: 'bg-sky-500/10',
     maxLength: '100-500 chữ'
   },
   tiktok: { 
     label: 'TikTok', 
-    icon: <Music2 className="w-4 h-4" />, 
+    shortLabel: 'TT',
+    icon: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/10',
     maxLength: '50-150 chữ'
   },
   threads: { 
     label: 'Threads', 
-    icon: <AtSign className="w-4 h-4" />, 
+    shortLabel: 'Th',
+    icon: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/10',
     maxLength: 'Tối đa 500 ký tự'
@@ -486,8 +499,8 @@ export function MultiChannelViewer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="max-w-4xl w-[95vw] xs:w-full max-h-[95vh] xs:max-h-[90vh] p-0 overflow-hidden">
+        <DialogHeader className="p-3 xs:p-6 pb-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditingHeader ? (
@@ -538,73 +551,67 @@ export function MultiChannelViewer({
               ) : (
                 <>
                   <div className="flex items-center gap-2 group">
-                    <DialogTitle className="text-xl font-bold">
+                    <DialogTitle className="text-base xs:text-xl font-bold line-clamp-2">
                       {content.title}
                     </DialogTitle>
                     {onUpdateTitleTopic && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-6 w-6 xs:h-7 xs:w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                         onClick={handleStartEditHeader}
                       >
-                        <Pencil className="w-3.5 h-3.5" />
+                        <Pencil className="w-3 h-3 xs:w-3.5 xs:h-3.5" />
                       </Button>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3 mt-2">
+                  <p className="text-xs xs:text-sm text-muted-foreground mb-2 xs:mb-3 mt-1 xs:mt-2 line-clamp-2">
                     {content.topic}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{goalLabel}</Badge>
+                  <div className="flex flex-wrap items-center gap-1.5 xs:gap-2">
+                    <Badge variant="outline" className="text-[10px] xs:text-xs">{goalLabel}</Badge>
                     {content.industry && (
-                      <Badge variant="outline" className="bg-muted/50">
+                      <Badge variant="outline" className="bg-muted/50 text-[10px] xs:text-xs hidden xs:inline-flex">
                         {content.industry}
                       </Badge>
                     )}
-                    <Badge variant="outline" className="bg-muted/50">
+                    <Badge variant="outline" className="bg-muted/50 text-[10px] xs:text-xs hidden xs:inline-flex">
                       {content.brand_name}
                     </Badge>
-                    <span className="text-muted-foreground mx-1">•</span>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <span>Tạo bởi:</span>
-                      <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                    </div>
-                    <span className="text-muted-foreground mx-1">•</span>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>Tạo lúc: {new Date(content.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <span className="text-muted-foreground mx-1">•</span>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>Cập nhật: {new Date(content.updated_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
+                  </div>
+                  {/* Creator & Time - Hidden on very small screens */}
+                  <div className="hidden xs:flex flex-wrap items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                    <span>Tạo bởi:</span>
+                    <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                    <span className="mx-1">•</span>
+                    <span>{new Date(content.created_at).toLocaleDateString('vi-VN')}</span>
                   </div>
                 </>
               )}
             </div>
             {!isEditingHeader && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 xs:gap-2 flex-wrap xs:flex-nowrap">
                 {/* Team Panel Toggle Button */}
                 <Button 
                   variant={showTeamPanel ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); }}
-                  className="gap-1.5"
+                  className="gap-1 xs:gap-1.5 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
                 >
-                  <Users className="w-4 h-4" />
-                  Team
+                  <Users className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                  <span className="hidden xs:inline">Team</span>
                 </Button>
                 {/* Gallery Toggle Button */}
                 <Button 
                   variant={showGallery ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); }}
-                  className="gap-1.5"
+                  className="gap-1 xs:gap-1.5 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
                 >
-                  <Images className="w-4 h-4" />
-                  Ảnh
+                  <Images className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                  <span className="hidden xs:inline">Ảnh</span>
                   {Object.keys(content.channel_images || {}).length > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    <Badge variant="secondary" className="ml-0.5 xs:ml-1 h-4 xs:h-5 px-1 xs:px-1.5 text-[10px] xs:text-xs">
                       {Object.keys(content.channel_images || {}).length}
                     </Badge>
                   )}
@@ -614,7 +621,7 @@ export function MultiChannelViewer({
                   variant={showSchedule ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); }}
-                  className="gap-1.5"
+                  className="gap-1 xs:gap-1.5 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
                 >
                   <CalendarClock className="w-4 h-4" />
                   Lên lịch
