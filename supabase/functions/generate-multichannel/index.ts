@@ -504,6 +504,24 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get user from auth header
+    const authHeader = req.headers.get("authorization");
+    let userId: string | null = null;
+    if (authHeader) {
+      const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      userId = user?.id || null;
+    }
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Please login" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Load brand template if provided
     let brandName = "Thương hiệu";
     let brandGuideline: string | null = null;
@@ -665,6 +683,7 @@ Nội dung sẵn sàng đăng ngay.`;
     const { data: content, error: dbError } = await supabase
       .from("multi_channel_contents")
       .insert({
+        user_id: userId,
         title: generatedData.title,
         topic: formData.topic,
         industry: industry,
