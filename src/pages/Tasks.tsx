@@ -699,10 +699,14 @@ export default function Tasks() {
             <TasksKanbanBoard
               tasks={filteredTasks}
               currentUserId={user?.id}
+              currentRole={currentRole}
               onContentStatusChange={updateStatus}
               onAssignmentStatusChange={updateAssignmentStatus}
               onRefresh={handleRefresh}
               onDelete={deleteContent}
+              onSubmitForReview={submitForReview}
+              onApprove={approveContent}
+              onReject={rejectContent}
               selectedIds={selectedIds}
               onSelectionChange={setSelectedIds}
             />
@@ -715,10 +719,14 @@ export default function Tasks() {
                     assignments={assignments}
                     schedules={schedules}
                     currentUserId={user?.id}
+                    currentRole={currentRole}
                     onAssignmentStatusChange={updateAssignmentStatus}
                     onRefresh={handleRefresh}
                     onStatusChange={updateStatus}
                     onDelete={deleteContent}
+                    onSubmitForReview={submitForReview}
+                    onApprove={approveContent}
+                    onReject={rejectContent}
                     isSelected={selectedIds.has(content.id)}
                     onToggleSelect={() => handleToggleSelect(content.id)}
                   />

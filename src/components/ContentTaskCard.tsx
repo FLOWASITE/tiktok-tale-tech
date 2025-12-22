@@ -20,7 +20,8 @@ import {
   Target,
   Edit3,
   Trash2,
-  Send
+  Send,
+  XCircle
 } from 'lucide-react';
 import { formatDistanceToNow, format, isPast } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -31,16 +32,22 @@ import { ContentSchedule, PUBLISH_STATUSES } from '@/types/publishing';
 import { Link } from 'react-router-dom';
 import { useConfetti } from '@/hooks/useConfetti';
 import { getChannelColorClasses } from '@/utils/channelColors';
+import { OrgRole, canApproveContent, canSubmitForReview } from '@/types/organization';
+import { ApprovalDialog } from './ApprovalDialog';
 
 interface ContentTaskCardProps {
   content: MultiChannelContent;
   assignments: ContentAssignment[];
   schedules: ContentSchedule[];
   currentUserId?: string;
+  currentRole?: OrgRole | null;
   onAssignmentStatusChange: (assignmentId: string, newStatus: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
   onStatusChange?: (contentId: string, status: ContentStatus) => Promise<any>;
   onDelete?: (contentId: string) => Promise<void>;
+  onSubmitForReview?: (contentId: string, notes?: string) => Promise<any>;
+  onApprove?: (contentId: string, notes?: string) => Promise<any>;
+  onReject?: (contentId: string, reason: string) => Promise<any>;
   isSelected?: boolean;
   onToggleSelect?: () => void;
 }
@@ -50,16 +57,29 @@ export function ContentTaskCard({
   assignments,
   schedules,
   currentUserId,
+  currentRole,
   onAssignmentStatusChange,
   onRefresh,
   onStatusChange,
   onDelete,
+  onSubmitForReview,
+  onApprove,
+  onReject,
   isSelected,
   onToggleSelect,
 }: ContentTaskCardProps) {
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
   const { fireConfetti } = useConfetti();
+
+  // Approval dialog state
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | 'submit'>('submit');
+  const [isApproving, setIsApproving] = useState(false);
+
+  // Check permissions
+  const canApprove = currentRole ? canApproveContent(currentRole) : false;
+  const canSubmit = currentRole ? canSubmitForReview(currentRole) : false;
 
   const getStatusConfig = (status: string) => {
     return CONTENT_STATUSES.find(s => s.value === status) || CONTENT_STATUSES[0];
@@ -202,6 +222,30 @@ export function ContentTaskCard({
     }
   };
 
+  // Approval action handlers
+  const handleOpenApprovalDialog = (e: React.MouseEvent, action: 'approve' | 'reject' | 'submit') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setApprovalAction(action);
+    setApprovalDialogOpen(true);
+  };
+
+  const handleApprovalConfirm = async (contentId: string, action: 'approve' | 'reject' | 'submit', reason?: string) => {
+    setIsApproving(true);
+    try {
+      if (action === 'submit' && onSubmitForReview) {
+        await onSubmitForReview(contentId, reason);
+      } else if (action === 'approve' && onApprove) {
+        await onApprove(contentId, reason);
+      } else if (action === 'reject' && onReject && reason) {
+        await onReject(contentId, reason);
+      }
+      onRefresh();
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   return (
     <Card className={`relative group overflow-hidden task-card-hover rounded-2xl ${priorityClass} ${
       isOverdue ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-transparent deadline-urgent' : 'border-border/40'
@@ -220,14 +264,15 @@ export function ContentTaskCard({
       {/* Quick action buttons on hover */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
         <TooltipProvider delayDuration={200}>
-          {content.status === 'draft' && (
+          {/* Submit for review - only for draft and if user can submit */}
+          {content.status === 'draft' && canSubmit && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-yellow-500/20 hover:text-yellow-600"
-                  onClick={(e) => handleQuickStatusChange(e, 'review')}
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-amber-500/20 hover:text-amber-600"
+                  onClick={(e) => handleOpenApprovalDialog(e, 'submit')}
                 >
                   <Send className="h-3.5 w-3.5" />
                 </Button>
@@ -237,22 +282,41 @@ export function ContentTaskCard({
               </TooltipContent>
             </Tooltip>
           )}
-          {content.status === 'review' && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
-                  onClick={(e) => handleQuickStatusChange(e, 'approved')}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p className="text-xs">Duyệt</p>
-              </TooltipContent>
-            </Tooltip>
+          
+          {/* Approve/Reject - only for review status and if user can approve */}
+          {content.status === 'review' && canApprove && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
+                    onClick={(e) => handleOpenApprovalDialog(e, 'approve')}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Phê duyệt</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
+                    onClick={(e) => handleOpenApprovalDialog(e, 'reject')}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Từ chối</p>
+                </TooltipContent>
+              </Tooltip>
+            </>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -464,6 +528,16 @@ export function ContentTaskCard({
           </div>
         </div>
       </CardContent>
+
+      {/* Approval Dialog */}
+      <ApprovalDialog
+        open={approvalDialogOpen}
+        onOpenChange={setApprovalDialogOpen}
+        content={content}
+        action={approvalAction}
+        onConfirm={handleApprovalConfirm}
+        isLoading={isApproving}
+      />
     </Card>
   );
 }
