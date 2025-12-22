@@ -68,6 +68,8 @@ export interface MultiChannelContent {
   channel_statuses: ChannelStatuses;
   tags: string[];
   status: ContentStatus;
+  priority: string | null;
+  deadline: string | null;
   created_at: string;
   updated_at: string;
 }
