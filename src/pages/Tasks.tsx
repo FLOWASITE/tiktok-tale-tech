@@ -29,6 +29,7 @@ import {
   Filter
 } from 'lucide-react';
 import { ContentTaskCard } from '@/components/ContentTaskCard';
+import { TasksFAB } from '@/components/TasksFAB';
 import { TasksKanbanBoard, ContentTask } from '@/components/TasksKanbanBoard';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
@@ -715,6 +716,9 @@ export default function Tasks() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Floating Action Button */}
+      <TasksFAB />
     </div>
   );
 }
