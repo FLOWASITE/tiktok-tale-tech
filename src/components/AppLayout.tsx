@@ -5,6 +5,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Separator } from '@/components/ui/separator';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,8 @@ export function AppLayout({ children }: AppLayoutProps) {
           {/* Top Header Bar */}
           <header className="sticky top-0 z-40 h-14 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 gap-4">
             <SidebarTrigger className="h-8 w-8" />
+            <Separator orientation="vertical" className="h-6" />
+            <OrganizationSwitcher />
             <Separator orientation="vertical" className="h-6" />
             <Breadcrumb />
             
