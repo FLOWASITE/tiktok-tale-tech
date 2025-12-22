@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
-import { FileText, Sparkles, X, Plus } from 'lucide-react';
+import { FileText, Sparkles, X, Plus, LayoutGrid, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
+import { MultiChannelListView } from '@/components/MultiChannelListView';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
@@ -12,6 +14,7 @@ import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/Con
 import { MultiChannelStats } from '@/components/MultiChannelStats';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SlidePanel } from '@/components/ui/slide-panel';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
@@ -19,6 +22,7 @@ import { toast } from 'sonner';
 
 export default function MultiChannel() {
   const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { 
     contents, 
     loading, 
@@ -266,6 +270,14 @@ export default function MultiChannel() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'grid' | 'list')}>
+              <ToggleGroupItem value="grid" aria-label="Grid view" className="h-8 w-8 p-0">
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="List view" className="h-8 w-8 p-0">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1.5 h-8">
               <Plus className="w-3.5 h-3.5" />
               Thêm mới
@@ -331,13 +343,21 @@ export default function MultiChannel() {
               />
             )}
 
-        {/* Content Grid - Responsive */}
+        {/* Content Grid/List - Responsive */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {[...Array(6)].map((_, i) => (
-              <CardLoadingSkeleton key={i} />
-            ))}
-          </div>
+          viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {[...Array(6)].map((_, i) => (
+                <CardLoadingSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          )
         ) : filteredContents.length === 0 ? (
           <div className="text-center py-8 animate-fade-in">
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-muted/50 mb-3">
@@ -358,7 +378,7 @@ export default function MultiChannel() {
               </Button>
             )}
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredContents.map((content, index) => (
               <div
@@ -385,6 +405,14 @@ export default function MultiChannel() {
               </div>
             ))}
           </div>
+        ) : (
+          <MultiChannelListView
+            contents={filteredContents}
+            selectedIds={selectedIds}
+            onToggleSelection={toggleSelection}
+            onView={handleView}
+            onDelete={handleDelete}
+          />
         )}
       </div>
 
