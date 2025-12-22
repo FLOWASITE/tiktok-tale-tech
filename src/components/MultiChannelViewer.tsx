@@ -40,6 +40,7 @@ import { AssignmentDialog } from '@/components/AssignmentDialog';
 import { ApprovalHistory } from '@/components/ApprovalHistory';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
+import { AssignedApproverInfo } from '@/components/AssignedApproverInfo';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -586,6 +587,10 @@ export function MultiChannelViewer({
                     <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
                     <span className="mx-1">•</span>
                     <span>{new Date(content.created_at).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  {/* Assigned Approver Info */}
+                  <div className="hidden xs:block mt-2">
+                    <AssignedApproverInfo creatorId={content.user_id} compact />
                   </div>
                 </>
               )}
