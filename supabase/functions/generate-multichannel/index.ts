@@ -512,10 +512,8 @@ serve(async (req) => {
     if (authHeader) {
       try {
         const token = authHeader.replace("Bearer ", "");
-        const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-          global: { headers: { Authorization: `Bearer ${token}` } },
-        });
-        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+        // Use getUser with token directly instead of relying on session
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError) {
           console.error("Auth error:", authError.message);
         }
