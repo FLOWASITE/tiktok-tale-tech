@@ -1,4 +1,4 @@
-import { Carousel } from '@/types/carousel';
+import { Carousel, CarouselStatus } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import {
   Dialog,
@@ -18,11 +18,14 @@ import { GeminiApiKeyInput } from './GeminiApiKeyInput';
 import { GeneratedImagesGallery } from './GeneratedImagesGallery';
 import { useGeminiApiKey } from '@/hooks/useGeminiApiKey';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
+import { StatusSelector, ContentStatus } from '@/components/StatusSelector';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCarouselUpdate?: (updatedCarousel: Carousel) => void;
 }
 
 const platformLabels: Record<string, string> = {
@@ -105,7 +108,7 @@ ${carousel.cta_suggestion || 'Chưa có gợi ý'}
   return header + slidesContent + footer;
 };
 
-export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerProps) {
+export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate }: CarouselViewerProps) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
@@ -197,15 +200,42 @@ export function CarouselViewer({ carousel, open, onOpenChange }: CarouselViewerP
     toast.success('Đã tạo xong tất cả ảnh!');
   };
 
+  const handleStatusChange = async (newStatus: ContentStatus) => {
+    if (!carousel) return;
+
+    try {
+      const { error } = await supabase
+        .from('carousels')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', carousel.id);
+
+      if (error) throw error;
+
+      const updatedCarousel = { ...carousel, status: newStatus as CarouselStatus, updated_at: new Date().toISOString() };
+      onCarouselUpdate?.(updatedCarousel);
+      toast.success('Đã cập nhật trạng thái!');
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Không thể cập nhật trạng thái');
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <div className="flex items-start justify-between">
             <div>
-              <DialogTitle className="text-xl font-bold mb-2">
-                {carousel.title}
-              </DialogTitle>
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <DialogTitle className="text-xl font-bold">
+                  {carousel.title}
+                </DialogTitle>
+                <StatusSelector 
+                  status={(carousel.status as ContentStatus) || 'draft'} 
+                  onStatusChange={handleStatusChange}
+                  disabled={generatingAll}
+                />
+              </div>
               <p className="text-sm text-muted-foreground mb-3">{carousel.topic}</p>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{platformLabels[carousel.platform]}</Badge>

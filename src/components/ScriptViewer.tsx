@@ -1,4 +1,4 @@
-import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS } from '@/types/script';
+import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, ContentStatus } from '@/types/script';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { parseScriptContent, getPromptCount } from '@/utils/parsePrompts';
 import { PromptCard } from '@/components/PromptCard';
+import { StatusSelector } from '@/components/StatusSelector';
 
 interface ScriptViewerProps {
   script: Script | null;
@@ -80,6 +81,26 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
     }
   };
 
+  const handleStatusChange = async (newStatus: ContentStatus) => {
+    if (!script) return;
+
+    try {
+      const { error } = await supabase
+        .from('scripts')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', script.id);
+
+      if (error) throw error;
+
+      const updatedScript = { ...script, status: newStatus, updated_at: new Date().toISOString() };
+      onScriptUpdate?.(updatedScript);
+      toast.success('Đã cập nhật trạng thái!');
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Không thể cập nhật trạng thái');
+    }
+  };
+
   const handleExportTxt = () => {
     const content = `${script.title}\n${'='.repeat(50)}\n\nChủ đề: ${script.topic}\nThời lượng: ${DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}\nThể loại: ${VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}\nNhân vật: ${CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}\n\n${'='.repeat(50)}\n\n${script.content}`;
     
@@ -128,9 +149,16 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] gradient-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-gradient pr-8">
-            {script.title}
-          </DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <DialogTitle className="text-xl font-bold text-gradient pr-8">
+              {script.title}
+            </DialogTitle>
+            <StatusSelector 
+              status={script.status || 'draft'} 
+              onStatusChange={handleStatusChange}
+              disabled={isEditing || isSaving}
+            />
+          </div>
         </DialogHeader>
         
         {/* Metadata badges */}
