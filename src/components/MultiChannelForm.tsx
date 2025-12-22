@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -66,6 +66,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(['facebook', 'instagram']);
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [hasSetDefault, setHasSetDefault] = useState(false);
+  const topicRef = useRef<HTMLTextAreaElement>(null);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   // Load draft from localStorage
@@ -122,12 +123,16 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
 
   const selectedTemplate = templates.find(t => t.id === brandTemplateId);
 
-  // Auto-fill industry when template changes
+  // Auto-fill industry when template changes and focus topic field
   useEffect(() => {
     if (selectedTemplate && !industry) {
       if (selectedTemplate.industry?.length) {
         setIndustry(selectedTemplate.industry.join(', '));
       }
+    }
+    // Focus topic field when template is selected
+    if (selectedTemplate && hasSetDefault) {
+      topicRef.current?.focus();
     }
   }, [selectedTemplate?.id]);
 
@@ -255,6 +260,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                 <span className="text-xs text-muted-foreground">{topicLength}/500</span>
               </div>
               <Textarea
+                ref={topicRef}
                 id="topic"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value.slice(0, 500))}
