@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardCheck, Save, Loader2, Info } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ClipboardCheck, Save, Loader2, Info, Users, UserCog } from 'lucide-react';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { OrgRole, ORG_ROLE_LABELS } from '@/types/organization';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ApproverAssignmentManager } from '@/components/ApproverAssignmentManager';
 
 interface ApprovalSettingsCardProps {
   canEdit: boolean;
@@ -21,24 +23,35 @@ const ROLE_OPTIONS: { value: OrgRole; label: string; description: string }[] = [
 ];
 
 export function ApprovalSettingsCard({ canEdit }: ApprovalSettingsCardProps) {
-  const { skipApproval, approverRoles, loading, updating, updateApprovalSettings } = useOrganizationSettings();
+  const { 
+    skipApproval, 
+    approverRoles, 
+    useSpecificApprovers,
+    loading, 
+    updating, 
+    updateApprovalSettings,
+    updateUseSpecificApprovers 
+  } = useOrganizationSettings();
   
   const [localSkipApproval, setLocalSkipApproval] = useState(skipApproval);
   const [localApproverRoles, setLocalApproverRoles] = useState<OrgRole[]>(approverRoles);
+  const [localUseSpecificApprovers, setLocalUseSpecificApprovers] = useState(useSpecificApprovers);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     setLocalSkipApproval(skipApproval);
     setLocalApproverRoles(approverRoles);
-  }, [skipApproval, approverRoles]);
+    setLocalUseSpecificApprovers(useSpecificApprovers);
+  }, [skipApproval, approverRoles, useSpecificApprovers]);
 
   useEffect(() => {
     const skipChanged = localSkipApproval !== skipApproval;
     const rolesChanged = 
       localApproverRoles.length !== approverRoles.length ||
       !localApproverRoles.every(r => approverRoles.includes(r));
-    setHasChanges(skipChanged || rolesChanged);
-  }, [localSkipApproval, localApproverRoles, skipApproval, approverRoles]);
+    const modeChanged = localUseSpecificApprovers !== useSpecificApprovers;
+    setHasChanges(skipChanged || rolesChanged || modeChanged);
+  }, [localSkipApproval, localApproverRoles, localUseSpecificApprovers, skipApproval, approverRoles, useSpecificApprovers]);
 
   const handleRoleToggle = (role: OrgRole) => {
     if (role === 'owner') return; // Owner always has permission
@@ -51,8 +64,12 @@ export function ApprovalSettingsCard({ canEdit }: ApprovalSettingsCardProps) {
     });
   };
 
+  const handleModeChange = (value: string) => {
+    setLocalUseSpecificApprovers(value === 'specific');
+  };
+
   const handleSave = async () => {
-    await updateApprovalSettings(localSkipApproval, localApproverRoles);
+    await updateApprovalSettings(localSkipApproval, localApproverRoles, localUseSpecificApprovers);
   };
 
   if (loading) {
@@ -107,65 +124,137 @@ export function ApprovalSettingsCard({ canEdit }: ApprovalSettingsCardProps) {
           <>
             <Separator />
             
-            {/* Approver Roles Selection */}
+            {/* Approval Mode Selection */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium">
-                  Ai được phép duyệt nội dung?
-                </Label>
-                <Badge variant="secondary" className="text-xs">
-                  {localApproverRoles.length} vai trò
-                </Badge>
-              </div>
+              <Label className="text-sm font-medium">
+                Chế độ phân quyền duyệt
+              </Label>
               
-              <div className="space-y-2">
-                {ROLE_OPTIONS.map((option) => {
-                  const isOwner = option.value === 'owner';
-                  const isChecked = localApproverRoles.includes(option.value);
-                  
-                  return (
-                    <div
-                      key={option.value}
-                      className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
-                        isChecked 
-                          ? 'border-primary/50 bg-primary/5' 
-                          : 'border-border bg-background'
-                      }`}
-                    >
-                      <Checkbox
-                        id={`role-${option.value}`}
-                        checked={isChecked}
-                        onCheckedChange={() => handleRoleToggle(option.value)}
-                        disabled={!canEdit || isOwner}
-                      />
-                      <div className="flex-1">
-                        <Label
-                          htmlFor={`role-${option.value}`}
-                          className="text-sm font-medium cursor-pointer flex items-center gap-2"
-                        >
-                          {option.label}
-                          {isOwner && (
-                            <Badge variant="outline" className="text-xs">
-                              Mặc định
-                            </Badge>
-                          )}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          {option.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-300">
-                <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                <p className="text-xs">
-                  Người có vai trò được chọn sẽ thấy nút "Duyệt" và "Từ chối" khi có nội dung chờ duyệt.
-                </p>
-              </div>
+              <RadioGroup 
+                value={localUseSpecificApprovers ? 'specific' : 'role'}
+                onValueChange={handleModeChange}
+                disabled={!canEdit}
+                className="space-y-2"
+              >
+                <div className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors ${
+                  !localUseSpecificApprovers 
+                    ? 'border-primary/50 bg-primary/5' 
+                    : 'border-border bg-background'
+                }`}>
+                  <RadioGroupItem value="role" id="mode-role" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="mode-role" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Theo vai trò
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Ai có vai trò được chọn đều có thể duyệt mọi nội dung
+                    </p>
+                  </div>
+                </div>
+                
+                <div className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors ${
+                  localUseSpecificApprovers 
+                    ? 'border-primary/50 bg-primary/5' 
+                    : 'border-border bg-background'
+                }`}>
+                  <RadioGroupItem value="specific" id="mode-specific" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="mode-specific" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <UserCog className="h-4 w-4" />
+                      Phân công người duyệt cụ thể
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Chỉ định admin nào duyệt nội dung của thành viên nào
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
             </div>
+
+            <Separator />
+
+            {/* Role-based approvers */}
+            {!localUseSpecificApprovers && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">
+                    Ai được phép duyệt nội dung?
+                  </Label>
+                  <Badge variant="secondary" className="text-xs">
+                    {localApproverRoles.length} vai trò
+                  </Badge>
+                </div>
+                
+                <div className="space-y-2">
+                  {ROLE_OPTIONS.map((option) => {
+                    const isOwner = option.value === 'owner';
+                    const isChecked = localApproverRoles.includes(option.value);
+                    
+                    return (
+                      <div
+                        key={option.value}
+                        className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
+                          isChecked 
+                            ? 'border-primary/50 bg-primary/5' 
+                            : 'border-border bg-background'
+                        }`}
+                      >
+                        <Checkbox
+                          id={`role-${option.value}`}
+                          checked={isChecked}
+                          onCheckedChange={() => handleRoleToggle(option.value)}
+                          disabled={!canEdit || isOwner}
+                        />
+                        <div className="flex-1">
+                          <Label
+                            htmlFor={`role-${option.value}`}
+                            className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                          >
+                            {option.label}
+                            {isOwner && (
+                              <Badge variant="outline" className="text-xs">
+                                Mặc định
+                              </Badge>
+                            )}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            {option.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <p className="text-xs">
+                    Người có vai trò được chọn sẽ thấy nút "Duyệt" và "Từ chối" khi có nội dung chờ duyệt.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Specific approver assignments */}
+            {localUseSpecificApprovers && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">
+                    Phân công người duyệt
+                  </Label>
+                </div>
+                
+                <ApproverAssignmentManager canEdit={canEdit} />
+                
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <p className="text-xs">
+                    Chủ sở hữu luôn có quyền duyệt tất cả nội dung. Các admin chỉ duyệt được nội dung của những người được phân công.
+                  </p>
+                </div>
+              </div>
+            )}
           </>
         )}
 

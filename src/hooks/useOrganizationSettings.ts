@@ -7,6 +7,7 @@ import { OrgRole } from '@/types/organization';
 interface OrganizationApprovalSettings {
   skip_approval: boolean;
   approver_roles: OrgRole[];
+  use_specific_approvers: boolean;
 }
 
 export function useOrganizationSettings() {
@@ -14,6 +15,7 @@ export function useOrganizationSettings() {
   const [settings, setSettings] = useState<OrganizationApprovalSettings>({
     skip_approval: false,
     approver_roles: ['owner', 'admin'],
+    use_specific_approvers: false,
   });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -27,7 +29,7 @@ export function useOrganizationSettings() {
     try {
       const { data, error } = await supabase
         .from('organizations')
-        .select('skip_approval, approver_roles')
+        .select('skip_approval, approver_roles, use_specific_approvers')
         .eq('id', currentOrganization.id)
         .single();
 
@@ -36,6 +38,7 @@ export function useOrganizationSettings() {
       setSettings({
         skip_approval: data?.skip_approval ?? false,
         approver_roles: (data?.approver_roles as OrgRole[]) ?? ['owner', 'admin'],
+        use_specific_approvers: data?.use_specific_approvers ?? false,
       });
     } catch (error) {
       console.error('Error fetching organization settings:', error);
@@ -50,26 +53,34 @@ export function useOrganizationSettings() {
 
   const updateApprovalSettings = async (
     skipApproval: boolean,
-    approverRoles: OrgRole[]
+    approverRoles: OrgRole[],
+    useSpecificApprovers?: boolean
   ): Promise<boolean> => {
     if (!currentOrganization?.id) return false;
 
     setUpdating(true);
     try {
+      const updateData: any = {
+        skip_approval: skipApproval,
+        approver_roles: approverRoles,
+      };
+      
+      if (useSpecificApprovers !== undefined) {
+        updateData.use_specific_approvers = useSpecificApprovers;
+      }
+
       const { error } = await supabase
         .from('organizations')
-        .update({
-          skip_approval: skipApproval,
-          approver_roles: approverRoles,
-        })
+        .update(updateData)
         .eq('id', currentOrganization.id);
 
       if (error) throw error;
 
-      setSettings({
+      setSettings(prev => ({
         skip_approval: skipApproval,
         approver_roles: approverRoles,
-      });
+        use_specific_approvers: useSpecificApprovers ?? prev.use_specific_approvers,
+      }));
 
       await refreshOrganizations();
       toast.success('Đã cập nhật cài đặt phê duyệt');
@@ -83,12 +94,43 @@ export function useOrganizationSettings() {
     }
   };
 
+  const updateUseSpecificApprovers = async (useSpecificApprovers: boolean): Promise<boolean> => {
+    if (!currentOrganization?.id) return false;
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({ use_specific_approvers: useSpecificApprovers })
+        .eq('id', currentOrganization.id);
+
+      if (error) throw error;
+
+      setSettings(prev => ({
+        ...prev,
+        use_specific_approvers: useSpecificApprovers,
+      }));
+
+      await refreshOrganizations();
+      toast.success('Đã cập nhật chế độ phê duyệt');
+      return true;
+    } catch (error: any) {
+      console.error('Error updating use_specific_approvers:', error);
+      toast.error('Lỗi khi cập nhật: ' + error.message);
+      return false;
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return {
     skipApproval: settings.skip_approval,
     approverRoles: settings.approver_roles,
+    useSpecificApprovers: settings.use_specific_approvers,
     loading,
     updating,
     updateApprovalSettings,
+    updateUseSpecificApprovers,
     refetch: fetchSettings,
   };
 }

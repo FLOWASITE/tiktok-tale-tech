@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_assignments: {
+        Row: {
+          approver_id: string
+          created_at: string | null
+          created_by: string | null
+          creator_id: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string | null
+          created_by?: string | null
+          creator_id: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          creator_id?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_logs: {
         Row: {
           action: string
@@ -651,6 +686,7 @@ export type Database = {
           skip_approval: boolean | null
           slug: string
           updated_at: string
+          use_specific_approvers: boolean | null
         }
         Insert: {
           approver_roles?: string[] | null
@@ -663,6 +699,7 @@ export type Database = {
           skip_approval?: boolean | null
           slug: string
           updated_at?: string
+          use_specific_approvers?: boolean | null
         }
         Update: {
           approver_roles?: string[] | null
@@ -675,6 +712,7 @@ export type Database = {
           skip_approval?: boolean | null
           slug?: string
           updated_at?: string
+          use_specific_approvers?: boolean | null
         }
         Relationships: []
       }

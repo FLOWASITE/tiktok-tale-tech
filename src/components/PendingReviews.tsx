@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
-import { canApproveContent } from '@/types/organization';
+import { useApprovalAssignments } from '@/hooks/useApprovalAssignments';
+import { useAuth } from '@/contexts/AuthContext';
+import { canApproveContent, canApproveSpecificContent } from '@/types/organization';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Eye, CheckCircle, XCircle, ArrowRight, ClipboardCheck } from 'lucide-react';
@@ -15,14 +17,56 @@ import { toast } from 'sonner';
 export const PendingReviews = () => {
   const { contents, updateStatus, loading } = useMultiChannelContents();
   const { currentRole } = useOrganizationContext();
-  const { approverRoles, loading: settingsLoading } = useOrganizationSettings();
+  const { user } = useAuth();
+  const { approverRoles, useSpecificApprovers, loading: settingsLoading } = useOrganizationSettings();
+  const { assignments, loading: assignmentsLoading } = useApprovalAssignments();
 
-  // Check if current user can review based on dynamic approver roles
-  const canReview = currentRole ? canApproveContent(currentRole, approverRoles) : false;
+  // Check if current user can review based on role (for showing the component)
+  const canReviewByRole = currentRole ? canApproveContent(currentRole, approverRoles) : false;
 
+  // Filter pending contents based on approval mode
   const pendingContents = useMemo(() => {
-    return contents.filter(content => content.status === 'review');
-  }, [contents]);
+    const reviewContents = contents.filter(content => content.status === 'review');
+    
+    if (!user?.id || !currentRole) return [];
+    
+    // If using specific approvers mode, filter by assignments
+    if (useSpecificApprovers) {
+      return reviewContents.filter(content => {
+        // Owner can always approve
+        if (currentRole === 'owner') return true;
+        
+        // Check if current user is assigned to approve this creator's content
+        return canApproveSpecificContent(
+          user.id,
+          content.user_id || '',
+          useSpecificApprovers,
+          assignments,
+          currentRole,
+          approverRoles
+        );
+      });
+    }
+    
+    // Role-based mode: return all if user has approver role
+    return canReviewByRole ? reviewContents : [];
+  }, [contents, user?.id, currentRole, useSpecificApprovers, assignments, approverRoles, canReviewByRole]);
+
+  // Determine if component should show
+  const shouldShow = useMemo(() => {
+    if (!currentRole) return false;
+    
+    // Owner always sees the review panel
+    if (currentRole === 'owner') return true;
+    
+    // In specific approvers mode, show if user has any assignments
+    if (useSpecificApprovers) {
+      return assignments.some(a => a.approver_id === user?.id);
+    }
+    
+    // Role-based mode
+    return canReviewByRole;
+  }, [currentRole, useSpecificApprovers, assignments, user?.id, canReviewByRole]);
 
   const handleApprove = async (contentId: string) => {
     try {
@@ -42,7 +86,7 @@ export const PendingReviews = () => {
     }
   };
 
-  if (!canReview || settingsLoading) {
+  if (!shouldShow || settingsLoading || assignmentsLoading) {
     return null;
   }
 
