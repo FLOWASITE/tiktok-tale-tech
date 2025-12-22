@@ -947,29 +947,31 @@ export function MultiChannelViewer({
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                        {/* Assignment Button */}
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setAssignmentChannel(channel);
-                                  setAssignmentDialogOpen(true);
-                                }}
-                                disabled={isRegenerating || !!regeneratingChannel}
-                                className="gap-1.5"
-                              >
-                                <Users className="w-4 h-4" />
-                                <span className="hidden sm:inline">Phân công</span>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Phân công nhiệm vụ cho {channelConfig[channel].label}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        {/* Assignment Button - Only show for draft/review status, not for approved/published */}
+                        {!['approved', 'published'].includes(content.channel_statuses?.[channel] || 'draft') && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setAssignmentChannel(channel);
+                                    setAssignmentDialogOpen(true);
+                                  }}
+                                  disabled={isRegenerating || !!regeneratingChannel}
+                                  className="gap-1.5"
+                                >
+                                  <Users className="w-4 h-4" />
+                                  <span className="hidden sm:inline">Phân công</span>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Phân công nhiệm vụ cho {channelConfig[channel].label}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
