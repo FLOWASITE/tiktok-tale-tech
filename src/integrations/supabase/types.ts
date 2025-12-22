@@ -171,6 +171,7 @@ export type Database = {
           brand_name: string
           brand_template_id: string | null
           channel_images: Json | null
+          channel_statuses: Json | null
           content_goal: string
           created_at: string
           email_content: string | null
@@ -200,6 +201,7 @@ export type Database = {
           brand_name: string
           brand_template_id?: string | null
           channel_images?: Json | null
+          channel_statuses?: Json | null
           content_goal: string
           created_at?: string
           email_content?: string | null
@@ -229,6 +231,7 @@ export type Database = {
           brand_name?: string
           brand_template_id?: string | null
           channel_images?: Json | null
+          channel_statuses?: Json | null
           content_goal?: string
           created_at?: string
           email_content?: string | null
