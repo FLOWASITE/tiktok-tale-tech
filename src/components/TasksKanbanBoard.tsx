@@ -29,6 +29,7 @@ interface TasksKanbanBoardProps {
   onContentStatusChange: (contentId: string, status: ContentStatus) => Promise<any>;
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
+  onDelete?: (contentId: string) => Promise<void>;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
 }
@@ -67,6 +68,7 @@ export function TasksKanbanBoard({
   onContentStatusChange,
   onAssignmentStatusChange,
   onRefresh,
+  onDelete,
   selectedIds,
   onSelectionChange,
 }: TasksKanbanBoardProps) {
@@ -169,6 +171,8 @@ export function TasksKanbanBoard({
                   currentUserId={currentUserId}
                   onAssignmentStatusChange={onAssignmentStatusChange}
                   onRefresh={onRefresh}
+                  onStatusChange={onContentStatusChange}
+                  onDelete={onDelete}
                   isSelected={selectedIds.has(task.content.id)}
                   onToggleSelect={() => handleToggleSelect(task.content.id)}
                 />
