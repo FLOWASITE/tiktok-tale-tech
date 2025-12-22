@@ -23,12 +23,16 @@ import {
 } from '@/components/ui/tooltip';
 import { MultiChannelContent, Channel, CONTENT_GOALS, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
 import { QuickScheduleDialog } from '@/components/QuickScheduleDialog';
+import { CreatorCell } from '@/components/CreatorCell';
+import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
 
 interface MultiChannelCardProps {
   content: MultiChannelContent;
   onView: (content: MultiChannelContent) => void;
   onDelete: (id: string) => void;
   onScheduleComplete?: () => void;
+  creatorProfile?: CreatorProfile;
+  isLoadingProfile?: boolean;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -84,7 +88,7 @@ const statusDotColors: Record<ContentStatus, string> = {
   published: 'bg-green-400',
 };
 
-export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete }: MultiChannelCardProps) {
+export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete, creatorProfile, isLoadingProfile }: MultiChannelCardProps) {
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
@@ -234,6 +238,11 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
           </div>
         </div>
       )}
+
+      {/* Creator */}
+      <div className="relative flex items-center gap-1.5 mb-2 text-[10px]">
+        <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+      </div>
 
       {/* Brand & Time Footer */}
       <div className="relative flex items-center justify-between text-[10px] text-muted-foreground mb-2">

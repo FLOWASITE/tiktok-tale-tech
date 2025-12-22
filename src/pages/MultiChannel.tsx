@@ -19,6 +19,7 @@ import { SlidePanel } from '@/components/ui/slide-panel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
 
@@ -44,6 +45,10 @@ export default function MultiChannel() {
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
+  
+  // Fetch creator profiles for all contents
+  const userIds = useMemo(() => contents.map(c => c.user_id), [contents]);
+  const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
   
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -423,6 +428,8 @@ export default function MultiChannel() {
                   onScheduleComplete={() => {
                     toast.success('Đã lên lịch thành công');
                   }}
+                  creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
+                  isLoadingProfile={isLoadingProfiles}
                 />
               </div>
             ))}
