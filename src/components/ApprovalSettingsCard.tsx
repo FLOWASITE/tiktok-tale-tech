@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ClipboardCheck, Save, Loader2, Info, Users, UserCog } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { ClipboardCheck, Save, Loader2, Info, Users, UserCog, Send } from 'lucide-react';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { OrgRole, ORG_ROLE_LABELS } from '@/types/organization';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,22 +28,26 @@ export function ApprovalSettingsCard({ canEdit }: ApprovalSettingsCardProps) {
     skipApproval, 
     approverRoles, 
     useSpecificApprovers,
+    autoSubmitReview,
     loading, 
     updating, 
     updateApprovalSettings,
-    updateUseSpecificApprovers 
+    updateUseSpecificApprovers,
+    updateAutoSubmitReview
   } = useOrganizationSettings();
   
   const [localSkipApproval, setLocalSkipApproval] = useState(skipApproval);
   const [localApproverRoles, setLocalApproverRoles] = useState<OrgRole[]>(approverRoles);
   const [localUseSpecificApprovers, setLocalUseSpecificApprovers] = useState(useSpecificApprovers);
+  const [localAutoSubmitReview, setLocalAutoSubmitReview] = useState(autoSubmitReview);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     setLocalSkipApproval(skipApproval);
     setLocalApproverRoles(approverRoles);
     setLocalUseSpecificApprovers(useSpecificApprovers);
-  }, [skipApproval, approverRoles, useSpecificApprovers]);
+    setLocalAutoSubmitReview(autoSubmitReview);
+  }, [skipApproval, approverRoles, useSpecificApprovers, autoSubmitReview]);
 
   useEffect(() => {
     const skipChanged = localSkipApproval !== skipApproval;
@@ -50,8 +55,9 @@ export function ApprovalSettingsCard({ canEdit }: ApprovalSettingsCardProps) {
       localApproverRoles.length !== approverRoles.length ||
       !localApproverRoles.every(r => approverRoles.includes(r));
     const modeChanged = localUseSpecificApprovers !== useSpecificApprovers;
-    setHasChanges(skipChanged || rolesChanged || modeChanged);
-  }, [localSkipApproval, localApproverRoles, localUseSpecificApprovers, skipApproval, approverRoles, useSpecificApprovers]);
+    const autoSubmitChanged = localAutoSubmitReview !== autoSubmitReview;
+    setHasChanges(skipChanged || rolesChanged || modeChanged || autoSubmitChanged);
+  }, [localSkipApproval, localApproverRoles, localUseSpecificApprovers, localAutoSubmitReview, skipApproval, approverRoles, useSpecificApprovers, autoSubmitReview]);
 
   const handleRoleToggle = (role: OrgRole) => {
     if (role === 'owner') return; // Owner always has permission
@@ -70,6 +76,9 @@ export function ApprovalSettingsCard({ canEdit }: ApprovalSettingsCardProps) {
 
   const handleSave = async () => {
     await updateApprovalSettings(localSkipApproval, localApproverRoles, localUseSpecificApprovers);
+    if (localAutoSubmitReview !== autoSubmitReview) {
+      await updateAutoSubmitReview(localAutoSubmitReview);
+    }
   };
 
   if (loading) {
@@ -119,6 +128,32 @@ export function ApprovalSettingsCard({ canEdit }: ApprovalSettingsCardProps) {
             </p>
           </div>
         </div>
+
+        {/* Auto Submit Review Toggle - Only show when approval is required */}
+        {!localSkipApproval && (
+          <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
+            <div className="flex items-start gap-3">
+              <Send className="h-5 w-5 text-primary mt-0.5" />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  htmlFor="auto-submit-review"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Tự động gửi duyệt sau khi tạo nội dung
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Nội dung tạo mới sẽ tự động chuyển sang trạng thái "Chờ duyệt"
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="auto-submit-review"
+              checked={localAutoSubmitReview}
+              onCheckedChange={setLocalAutoSubmitReview}
+              disabled={!canEdit}
+            />
+          </div>
+        )}
 
         {!localSkipApproval && (
           <>

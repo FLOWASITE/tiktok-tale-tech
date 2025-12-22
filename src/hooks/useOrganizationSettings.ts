@@ -8,6 +8,7 @@ interface OrganizationApprovalSettings {
   skip_approval: boolean;
   approver_roles: OrgRole[];
   use_specific_approvers: boolean;
+  auto_submit_review: boolean;
 }
 
 export function useOrganizationSettings() {
@@ -16,6 +17,7 @@ export function useOrganizationSettings() {
     skip_approval: false,
     approver_roles: ['owner', 'admin'],
     use_specific_approvers: false,
+    auto_submit_review: false,
   });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -29,7 +31,7 @@ export function useOrganizationSettings() {
     try {
       const { data, error } = await supabase
         .from('organizations')
-        .select('skip_approval, approver_roles, use_specific_approvers')
+        .select('skip_approval, approver_roles, use_specific_approvers, auto_submit_review')
         .eq('id', currentOrganization.id)
         .single();
 
@@ -39,6 +41,7 @@ export function useOrganizationSettings() {
         skip_approval: data?.skip_approval ?? false,
         approver_roles: (data?.approver_roles as OrgRole[]) ?? ['owner', 'admin'],
         use_specific_approvers: data?.use_specific_approvers ?? false,
+        auto_submit_review: data?.auto_submit_review ?? false,
       });
     } catch (error) {
       console.error('Error fetching organization settings:', error);
@@ -77,6 +80,7 @@ export function useOrganizationSettings() {
       if (error) throw error;
 
       setSettings(prev => ({
+        ...prev,
         skip_approval: skipApproval,
         approver_roles: approverRoles,
         use_specific_approvers: useSpecificApprovers ?? prev.use_specific_approvers,
@@ -123,14 +127,45 @@ export function useOrganizationSettings() {
     }
   };
 
+  const updateAutoSubmitReview = async (autoSubmitReview: boolean): Promise<boolean> => {
+    if (!currentOrganization?.id) return false;
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({ auto_submit_review: autoSubmitReview })
+        .eq('id', currentOrganization.id);
+
+      if (error) throw error;
+
+      setSettings(prev => ({
+        ...prev,
+        auto_submit_review: autoSubmitReview,
+      }));
+
+      await refreshOrganizations();
+      toast.success('Đã cập nhật cài đặt tự động gửi duyệt');
+      return true;
+    } catch (error: any) {
+      console.error('Error updating auto_submit_review:', error);
+      toast.error('Lỗi khi cập nhật: ' + error.message);
+      return false;
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return {
     skipApproval: settings.skip_approval,
     approverRoles: settings.approver_roles,
     useSpecificApprovers: settings.use_specific_approvers,
+    autoSubmitReview: settings.auto_submit_review,
     loading,
     updating,
     updateApprovalSettings,
     updateUseSpecificApprovers,
+    updateAutoSubmitReview,
     refetch: fetchSettings,
   };
 }
