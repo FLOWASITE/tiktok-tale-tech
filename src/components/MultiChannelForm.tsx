@@ -31,18 +31,18 @@ interface MultiChannelFormProps {
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
-  website: <Globe className="w-4 h-4" />,
-  facebook: <Facebook className="w-4 h-4" />,
-  instagram: <Instagram className="w-4 h-4" />,
-  twitter: <Twitter className="w-4 h-4" />,
-  google_maps: <MapPin className="w-4 h-4" />,
-  linkedin: <Linkedin className="w-4 h-4" />,
-  email: <Mail className="w-4 h-4" />,
-  youtube: <Youtube className="w-4 h-4" />,
-  zalo_oa: <MessageCircle className="w-4 h-4" />,
-  telegram: <Send className="w-4 h-4" />,
-  tiktok: <Music2 className="w-4 h-4" />,
-  threads: <AtSign className="w-4 h-4" />,
+  website: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  facebook: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  instagram: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  twitter: <Twitter className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  google_maps: <MapPin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  linkedin: <Linkedin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  email: <Mail className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  youtube: <Youtube className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  zalo_oa: <MessageCircle className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  telegram: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  tiktok: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  threads: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -210,38 +210,38 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
   return (
     <TooltipProvider>
       <Card className="gradient-card border-border/50">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
+        <CardHeader className="p-3 xs:p-4 pb-2 xs:pb-4">
+          <CardTitle className="text-sm xs:text-lg flex items-center gap-1.5 xs:gap-2">
+            <Sparkles className="w-4 h-4 xs:w-5 xs:h-5 text-primary" />
             Tạo nội dung đa kênh
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <CardContent className="p-3 xs:p-4 pt-0">
+          <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-5">
             {/* Brand Template - First */}
-            <div className="space-y-2">
-              <Label>Brand Template</Label>
+            <div className="space-y-1.5 xs:space-y-2">
+              <Label className="text-xs xs:text-sm">Brand Template</Label>
               <Select
                 value={brandTemplateId}
                 onValueChange={setBrandTemplateId}
                 disabled={isLoading || loadingTemplates}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-xs xs:text-sm h-9 xs:h-10">
                   <SelectValue placeholder="Chọn template..." />
                 </SelectTrigger>
                 <SelectContent>
                   {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      <span className="flex items-center gap-2">
+                    <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
+                      <span className="flex items-center gap-1.5 xs:gap-2">
                         {template.primary_color && (
                           <span
-                            className="w-3 h-3 rounded-full inline-block"
+                            className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full inline-block"
                             style={{ backgroundColor: template.primary_color }}
                           />
                         )}
-                        <span>{template.name}</span>
+                        <span className="truncate max-w-[100px] xs:max-w-none">{template.name}</span>
                         {template.is_default && (
-                          <span className="text-xs text-muted-foreground">(Mặc định)</span>
+                          <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">(Mặc định)</span>
                         )}
                       </span>
                     </SelectItem>
@@ -258,10 +258,10 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             </div>
 
             {/* Topic */}
-            <div className="space-y-2">
+            <div className="space-y-1.5 xs:space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="topic">Chủ đề / Ý tưởng</Label>
-                <span className="text-xs text-muted-foreground">{topicLength}/500</span>
+                <Label htmlFor="topic" className="text-xs xs:text-sm">Chủ đề / Ý tưởng</Label>
+                <span className="text-[10px] xs:text-xs text-muted-foreground">{topicLength}/500</span>
               </div>
               <Textarea
                 ref={topicRef}
@@ -269,31 +269,31 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                 value={topic}
                 onChange={(e) => setTopic(e.target.value.slice(0, 500))}
                 placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024"
-                className="min-h-[100px] resize-y"
+                className="min-h-[80px] xs:min-h-[100px] resize-y text-sm xs:text-base"
                 disabled={isLoading}
               />
               {topicWarning && (
-                <p className="text-xs text-amber-500 flex items-center gap-1">
-                  <Info className="w-3 h-3" />
+                <p className="text-[10px] xs:text-xs text-amber-500 flex items-center gap-1">
+                  <Info className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
                   {topicWarning}
                 </p>
               )}
               
               {/* Topic Suggestions */}
-              <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Lightbulb className="w-3 h-3" />
+              <div className="space-y-1 xs:space-y-1.5">
+                <p className="text-[10px] xs:text-xs text-muted-foreground flex items-center gap-1">
+                  <Lightbulb className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
                   Gợi ý chủ đề:
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {TOPIC_SUGGESTIONS.slice(0, 4).map((suggestion, idx) => (
+                <div className="flex flex-wrap gap-1 xs:gap-1.5">
+                  {TOPIC_SUGGESTIONS.slice(0, 3).map((suggestion, idx) => (
                     <Badge
                       key={idx}
                       variant="outline"
-                      className="cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-colors text-xs"
+                      className="cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-colors text-[10px] xs:text-xs px-1.5 xs:px-2 py-0.5"
                       onClick={() => handleTopicSuggestion(suggestion)}
                     >
-                      {suggestion.length > 35 ? suggestion.slice(0, 35) + '...' : suggestion}
+                      {suggestion.length > 25 ? suggestion.slice(0, 25) + '...' : suggestion}
                     </Badge>
                   ))}
                 </div>
@@ -301,45 +301,46 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             </div>
 
             {/* Industry (Optional) */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="industry">Ngành nghề</Label>
-                <span className="text-xs text-muted-foreground">(tùy chọn)</span>
+            <div className="space-y-1.5 xs:space-y-2">
+              <div className="flex items-center gap-1.5 xs:gap-2">
+                <Label htmlFor="industry" className="text-xs xs:text-sm">Ngành nghề</Label>
+                <span className="text-[10px] xs:text-xs text-muted-foreground">(tùy chọn)</span>
               </div>
               <Input
                 id="industry"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                placeholder={selectedTemplate?.industry?.join(', ') || 'VD: Tài chính, Bất động sản, F&B...'}
+                placeholder={selectedTemplate?.industry?.join(', ') || 'VD: Tài chính, Bất động sản...'}
                 disabled={isLoading}
+                className="text-sm xs:text-base h-9 xs:h-10"
               />
               {selectedTemplate?.industry?.length && !industry && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] xs:text-xs text-muted-foreground">
                   Sử dụng từ Brand Template: {selectedTemplate.industry.join(', ')}
                 </p>
               )}
             </div>
 
             {/* Content Goal */}
-            <div className="space-y-2">
-              <Label>Mục tiêu nội dung</Label>
+            <div className="space-y-1.5 xs:space-y-2">
+              <Label className="text-xs xs:text-sm">Mục tiêu nội dung</Label>
               <Select
                 value={contentGoal}
                 onValueChange={(value) => setContentGoal(value as ContentGoal)}
                 disabled={isLoading}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-xs xs:text-sm h-9 xs:h-10">
                   <SelectValue placeholder="Chọn mục tiêu..." />
                 </SelectTrigger>
                 <SelectContent>
                   {CONTENT_GOALS.map((goal) => {
                     const Icon = goal.icon;
                     return (
-                      <SelectItem key={goal.value} value={goal.value}>
-                        <span className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-primary" />
+                      <SelectItem key={goal.value} value={goal.value} className="text-xs xs:text-sm">
+                        <span className="flex items-center gap-1.5 xs:gap-2">
+                          <Icon className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-primary" />
                           <span>{goal.label}</span>
-                          <span className="text-xs text-muted-foreground">- {goal.description}</span>
+                          <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">- {goal.description}</span>
                         </span>
                       </SelectItem>
                     );
@@ -349,26 +350,26 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             </div>
 
             {/* Channels by Category */}
-            <div className="space-y-3">
+            <div className="space-y-2 xs:space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Kênh xuất bản</Label>
-                <Badge variant="secondary" className="text-xs">
-                  Đã chọn: {selectedChannels.length}/{CHANNELS.length} kênh
+                <Label className="text-xs xs:text-sm">Kênh xuất bản</Label>
+                <Badge variant="secondary" className="text-[10px] xs:text-xs px-1.5 xs:px-2">
+                  {selectedChannels.length}/{CHANNELS.length} kênh
                 </Badge>
               </div>
               
               {/* Quick Select Buttons */}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 xs:gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleSelectAll}
                   disabled={isLoading}
-                  className="text-xs h-7"
+                  className="text-[10px] xs:text-xs h-6 xs:h-7 px-2"
                 >
-                  <CheckSquare className="w-3 h-3 mr-1" />
-                  Chọn tất cả
+                  <CheckSquare className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
+                  Tất cả
                 </Button>
                 <Button
                   type="button"
@@ -376,9 +377,9 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                   size="sm"
                   onClick={handleDeselectAll}
                   disabled={isLoading}
-                  className="text-xs h-7"
+                  className="text-[10px] xs:text-xs h-6 xs:h-7 px-2"
                 >
-                  <Square className="w-3 h-3 mr-1" />
+                  <Square className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
                   Bỏ chọn
                 </Button>
                 <Button
@@ -387,9 +388,9 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                   size="sm"
                   onClick={() => handleSelectCategory('social')}
                   disabled={isLoading}
-                  className="text-xs h-7"
+                  className="text-[10px] xs:text-xs h-6 xs:h-7 px-2"
                 >
-                  Social Media
+                  Social
                 </Button>
                 <Button
                   type="button"
@@ -397,28 +398,28 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                   size="sm"
                   onClick={() => handleSelectCategory('direct')}
                   disabled={isLoading}
-                  className="text-xs h-7"
+                  className="text-[10px] xs:text-xs h-6 xs:h-7 px-2"
                 >
-                  Kênh trực tiếp
+                  Trực tiếp
                 </Button>
               </div>
 
               {channelWarning && (
-                <p className="text-xs text-amber-500 flex items-center gap-1">
-                  <Info className="w-3 h-3" />
+                <p className="text-[10px] xs:text-xs text-amber-500 flex items-center gap-1">
+                  <Info className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
                   {channelWarning}
                 </p>
               )}
 
               {channelCategories.map((category) => (
-                <div key={category.key} className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">{category.name}</p>
-                  <div className="grid grid-cols-2 gap-2">
+                <div key={category.key} className="space-y-1.5 xs:space-y-2">
+                  <p className="text-[10px] xs:text-xs text-muted-foreground font-medium">{category.name}</p>
+                  <div className="grid grid-cols-2 gap-1.5 xs:gap-2">
                     {category.channels.map((channel) => (
                       <Tooltip key={channel.value}>
                         <TooltipTrigger asChild>
                           <label
-                            className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                            className={`flex items-center gap-1.5 xs:gap-2 p-2 xs:p-2.5 rounded-lg border cursor-pointer transition-all ${
                               selectedChannels.includes(channel.value)
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border/50 hover:border-border'
@@ -428,11 +429,12 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                               checked={selectedChannels.includes(channel.value)}
                               onCheckedChange={() => handleChannelToggle(channel.value)}
                               disabled={isLoading}
+                              className="w-3.5 h-3.5 xs:w-4 xs:h-4"
                             />
                             <span className={channelColors[channel.value]}>
                               {channelIcons[channel.value]}
                             </span>
-                            <span className="text-sm">{channel.label}</span>
+                            <span className="text-[11px] xs:text-sm truncate">{channel.label}</span>
                           </label>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[200px]">
@@ -447,8 +449,8 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
 
             {/* Estimated Time */}
             {selectedChannels.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Timer className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1.5 xs:gap-2 text-[10px] xs:text-xs text-muted-foreground">
+                <Timer className="w-3 h-3 xs:w-3.5 xs:h-3.5" />
                 <span>Ước tính: ~{estimatedTime} giây</span>
               </div>
             )}
@@ -456,19 +458,19 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             {/* Submit */}
             <Button
               type="submit"
-              className="w-full relative overflow-hidden group/btn transition-all duration-300 hover:shadow-lg hover:shadow-primary/25"
+              className="w-full relative overflow-hidden group/btn transition-all duration-300 hover:shadow-lg hover:shadow-primary/25 h-10 xs:h-11 text-sm xs:text-base"
               disabled={isLoading || !topic.trim() || selectedChannels.length === 0}
             >
               <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
               {isLoading ? (
                 <span className="flex items-center animate-pulse">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Đang tạo nội dung...
+                  <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 animate-spin" />
+                  <span className="text-xs xs:text-sm">Đang tạo nội dung...</span>
                 </span>
               ) : (
                 <span className="flex items-center">
-                  <Sparkles className="w-4 h-4 mr-2 transition-transform duration-300 group-hover/btn:rotate-12" />
-                  Tạo nội dung ({selectedChannels.length} kênh)
+                  <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 transition-transform duration-300 group-hover/btn:rotate-12" />
+                  <span className="text-xs xs:text-sm">Tạo nội dung ({selectedChannels.length} kênh)</span>
                 </span>
               )}
             </Button>

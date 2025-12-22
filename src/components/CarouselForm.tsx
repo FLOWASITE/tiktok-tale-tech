@@ -158,10 +158,10 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-3 xs:space-y-5">
       {/* Topic */}
-      <div className="space-y-2">
-        <Label htmlFor="topic" className="text-sm font-medium">
+      <div className="space-y-1.5 xs:space-y-2">
+        <Label htmlFor="topic" className="text-xs xs:text-sm font-medium">
           Chủ đề Carousel <span className="text-destructive">*</span>
         </Label>
         <Input
@@ -169,21 +169,21 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
           placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          className="bg-background/50 border-border/50 focus:border-primary"
+          className="bg-background/50 border-border/50 focus:border-primary text-sm xs:text-base h-9 xs:h-10"
         />
       </div>
 
       {/* Platform & Slide Count */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Nền tảng</Label>
+      <div className="grid grid-cols-2 gap-2 xs:gap-4">
+        <div className="space-y-1.5 xs:space-y-2">
+          <Label className="text-xs xs:text-sm font-medium">Nền tảng</Label>
           <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
-            <SelectTrigger className="bg-background/50 border-border/50">
+            <SelectTrigger className="bg-background/50 border-border/50 text-xs xs:text-sm h-9 xs:h-10">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border">
               {PLATFORM_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
+                <SelectItem key={opt.value} value={opt.value} className="text-xs xs:text-sm">
                   {opt.label}
                 </SelectItem>
               ))}
@@ -191,15 +191,15 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Số lượng ảnh</Label>
+        <div className="space-y-1.5 xs:space-y-2">
+          <Label className="text-xs xs:text-sm font-medium">Số lượng ảnh</Label>
           <Select value={String(slideCount)} onValueChange={(v) => setSlideCount(Number(v))}>
-            <SelectTrigger className="bg-background/50 border-border/50">
+            <SelectTrigger className="bg-background/50 border-border/50 text-xs xs:text-sm h-9 xs:h-10">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border">
               {SLIDE_COUNT_OPTIONS.map((count) => (
-                <SelectItem key={count} value={String(count)}>
+                <SelectItem key={count} value={String(count)} className="text-xs xs:text-sm">
                   {count} ảnh
                 </SelectItem>
               ))}
@@ -209,18 +209,18 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       </div>
 
       {/* AI Tool */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Công cụ tạo ảnh AI</Label>
+      <div className="space-y-1.5 xs:space-y-2">
+        <Label className="text-xs xs:text-sm font-medium">Công cụ tạo ảnh AI</Label>
         <Select value={aiTool} onValueChange={(v) => setAiTool(v as AITool)}>
-          <SelectTrigger className="bg-background/50 border-border/50">
+          <SelectTrigger className="bg-background/50 border-border/50 text-xs xs:text-sm h-9 xs:h-10">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-popover border-border">
             {AI_TOOL_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                <div className="flex items-center gap-2">
+              <SelectItem key={opt.value} value={opt.value} className="text-xs xs:text-sm">
+                <div className="flex items-center gap-1 xs:gap-2">
                   <span>{opt.label}</span>
-                  <span className="text-xs text-muted-foreground">({opt.description})</span>
+                  <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">({opt.description})</span>
                 </div>
               </SelectItem>
             ))}
@@ -229,10 +229,10 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       </div>
 
       {/* Brand Template Selector */}
-      <div className="space-y-2">
+      <div className="space-y-1.5 xs:space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium flex items-center gap-1.5">
-            <Bookmark className="w-4 h-4" />
+          <Label className="text-xs xs:text-sm font-medium flex items-center gap-1 xs:gap-1.5">
+            <Bookmark className="w-3 h-3 xs:w-4 xs:h-4" />
             Brand Template
           </Label>
           <Button
@@ -240,35 +240,36 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
             variant="ghost"
             size="sm"
             onClick={() => setSaveDialogOpen(true)}
-            className="h-7 text-xs"
+            className="h-6 xs:h-7 text-[10px] xs:text-xs px-2"
           >
-            <Save className="w-3 h-3 mr-1" />
-            Lưu Template
+            <Save className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
+            <span className="hidden xs:inline">Lưu Template</span>
+            <span className="xs:hidden">Lưu</span>
           </Button>
         </div>
         <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
-          <SelectTrigger className="bg-background/50 border-border/50">
+          <SelectTrigger className="bg-background/50 border-border/50 text-xs xs:text-sm h-9 xs:h-10">
             <SelectValue placeholder="Chọn template..." />
           </SelectTrigger>
           <SelectContent className="bg-popover border-border">
-            <SelectItem value="custom">
+            <SelectItem value="custom" className="text-xs xs:text-sm">
               <span className="text-muted-foreground">Tùy chỉnh mới...</span>
             </SelectItem>
             {templates.map((template) => (
-              <SelectItem key={template.id} value={template.id}>
-                <div className="flex items-center gap-2">
+              <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
+                <div className="flex items-center gap-1.5 xs:gap-2">
                   {template.logo_url && (
-                    <img src={template.logo_url} alt="" className="w-4 h-4 rounded object-contain" />
+                    <img src={template.logo_url} alt="" className="w-3 h-3 xs:w-4 xs:h-4 rounded object-contain" />
                   )}
                   {template.primary_color && !template.logo_url && (
                     <div 
-                      className="w-4 h-4 rounded-full border border-border" 
+                      className="w-3 h-3 xs:w-4 xs:h-4 rounded-full border border-border" 
                       style={{ backgroundColor: template.primary_color }}
                     />
                   )}
-                  <span>{template.name}</span>
+                  <span className="truncate max-w-[120px] xs:max-w-none">{template.name}</span>
                   {template.is_default && (
-                    <span className="text-xs text-primary">(Mặc định)</span>
+                    <span className="text-[10px] xs:text-xs text-primary hidden xs:inline">(Mặc định)</span>
                   )}
                 </div>
               </SelectItem>
@@ -281,8 +282,8 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       </div>
 
       {/* Brand Name */}
-      <div className="space-y-2">
-        <Label htmlFor="brandName" className="text-sm font-medium">
+      <div className="space-y-1.5 xs:space-y-2">
+        <Label htmlFor="brandName" className="text-xs xs:text-sm font-medium">
           Tên Brand
         </Label>
         <Input
@@ -290,14 +291,14 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
           placeholder="VD: Thuế Hộ by TAF.vn"
           value={brandName}
           onChange={(e) => setBrandName(e.target.value)}
-          className="bg-background/50 border-border/50 focus:border-primary"
+          className="bg-background/50 border-border/50 focus:border-primary text-sm xs:text-base h-9 xs:h-10"
         />
       </div>
 
       {/* Brand Guideline */}
-      <div className="space-y-2">
+      <div className="space-y-1.5 xs:space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="brandGuideline" className="text-sm font-medium">
+          <Label htmlFor="brandGuideline" className="text-xs xs:text-sm font-medium">
             Brand Guideline
           </Label>
           {selectedTemplateId && selectedTemplateId !== 'custom' && (
@@ -307,27 +308,28 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs text-destructive hover:text-destructive"
+                  className="h-6 xs:h-7 text-[10px] xs:text-xs text-destructive hover:text-destructive px-2"
                 >
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Xóa Template
+                  <Trash2 className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
+                  <span className="hidden xs:inline">Xóa Template</span>
+                  <span className="xs:hidden">Xóa</span>
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="max-w-[90vw] xs:max-w-lg">
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Xác nhận xóa template</AlertDialogTitle>
-                  <AlertDialogDescription>
+                  <AlertDialogTitle className="text-base xs:text-lg">Xác nhận xóa template</AlertDialogTitle>
+                  <AlertDialogDescription className="text-xs xs:text-sm">
                     Bạn có chắc chắn muốn xóa template này? Hành động này không thể hoàn tác.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogFooter className="gap-2 xs:gap-0">
+                  <AlertDialogCancel className="text-xs xs:text-sm h-8 xs:h-9">Hủy</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => {
                       deleteTemplate(selectedTemplateId);
                       setSelectedTemplateId('custom');
                     }}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs xs:text-sm h-8 xs:h-9"
                   >
                     Xóa
                   </AlertDialogAction>
@@ -341,8 +343,8 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
           placeholder="Nhập hướng dẫn về thương hiệu..."
           value={brandGuideline}
           onChange={(e) => setBrandGuideline(e.target.value)}
-          rows={5}
-          className="bg-background/50 border-border/50 focus:border-primary text-sm"
+          rows={4}
+          className="bg-background/50 border-border/50 focus:border-primary text-xs xs:text-sm min-h-[80px] xs:min-h-[100px]"
         />
       </div>
 
@@ -352,8 +354,9 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
           id="includeLogo"
           checked={includeLogo}
           onCheckedChange={(checked) => setIncludeLogo(checked as boolean)}
+          className="w-4 h-4 xs:w-5 xs:h-5"
         />
-        <Label htmlFor="includeLogo" className="text-sm font-normal cursor-pointer">
+        <Label htmlFor="includeLogo" className="text-xs xs:text-sm font-normal cursor-pointer">
           Bao gồm logo trong thiết kế
         </Label>
       </div>
@@ -362,52 +365,53 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       <Button
         type="submit"
         disabled={!topic.trim() || isLoading}
-        className="w-full gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
+        className="w-full gradient-primary text-primary-foreground hover:opacity-90 transition-opacity h-10 xs:h-11 text-sm xs:text-base"
       >
         {isLoading ? (
           <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Đang tạo prompts...
+            <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 animate-spin" />
+            <span className="text-xs xs:text-sm">Đang tạo prompts...</span>
           </>
         ) : (
           <>
-            <Images className="w-4 h-4 mr-2" />
-            Tạo Prompt Carousel
+            <Images className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2" />
+            <span className="text-xs xs:text-sm">Tạo Prompt Carousel</span>
           </>
         )}
       </Button>
 
       {/* Save Template Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[90vw] xs:max-w-md">
           <DialogHeader>
-            <DialogTitle>Lưu Brand Template</DialogTitle>
+            <DialogTitle className="text-base xs:text-lg">Lưu Brand Template</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="templateName">Tên Template</Label>
+          <div className="space-y-3 xs:space-y-4 py-3 xs:py-4">
+            <div className="space-y-1.5 xs:space-y-2">
+              <Label htmlFor="templateName" className="text-xs xs:text-sm">Tên Template</Label>
               <Input
                 id="templateName"
                 placeholder="VD: Template chính của công ty"
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
+                className="text-sm xs:text-base h-9 xs:h-10"
               />
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs xs:text-sm text-muted-foreground">
               <p className="font-medium mb-1">Sẽ lưu:</p>
-              <ul className="list-disc list-inside space-y-1">
+              <ul className="list-disc list-inside space-y-0.5 xs:space-y-1 text-[11px] xs:text-sm">
                 <li>Tên brand: {brandName || '(chưa nhập)'}</li>
-                <li>Brand guideline: {brandGuideline ? `${brandGuideline.slice(0, 50)}...` : '(chưa nhập)'}</li>
+                <li>Brand guideline: {brandGuideline ? `${brandGuideline.slice(0, 40)}...` : '(chưa nhập)'}</li>
                 <li>Logo: {includeLogo ? 'Có' : 'Không'}</li>
               </ul>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+          <DialogFooter className="gap-2 xs:gap-0">
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)} className="text-xs xs:text-sm h-8 xs:h-9">
               Hủy
             </Button>
-            <Button onClick={handleSaveTemplate}>
-              <Save className="w-4 h-4 mr-2" />
+            <Button onClick={handleSaveTemplate} className="text-xs xs:text-sm h-8 xs:h-9">
+              <Save className="w-3 h-3 xs:w-4 xs:h-4 mr-1 xs:mr-2" />
               Lưu Template
             </Button>
           </DialogFooter>

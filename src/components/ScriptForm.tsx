@@ -50,10 +50,10 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4 xs:space-y-6">
       {/* Topic Input */}
-      <div className="space-y-2">
-        <Label htmlFor="topic" className="text-foreground font-medium">
+      <div className="space-y-1.5 xs:space-y-2">
+        <Label htmlFor="topic" className="text-foreground font-medium text-xs xs:text-sm">
           Chủ đề video <span className="text-primary">*</span>
         </Label>
         <Textarea
@@ -61,38 +61,38 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm khi đầu tư chứng khoán..."
           value={formData.topic}
           onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-          className="min-h-[100px] bg-muted/50 border-border focus:border-primary focus:ring-primary/20 resize-none"
+          className="min-h-[80px] xs:min-h-[100px] bg-muted/50 border-border focus:border-primary focus:ring-primary/20 resize-none text-sm xs:text-base"
           disabled={isLoading}
         />
       </div>
 
       {/* Brand Template Select */}
-      <div className="space-y-2">
-        <Label htmlFor="brandTemplate" className="text-foreground font-medium">
-          Brand Template <span className="text-xs text-muted-foreground">(Brand Voice)</span>
+      <div className="space-y-1.5 xs:space-y-2">
+        <Label htmlFor="brandTemplate" className="text-foreground font-medium text-xs xs:text-sm">
+          Brand Template <span className="text-[10px] xs:text-xs text-muted-foreground">(Brand Voice)</span>
         </Label>
         <Select
           value={formData.brandTemplateId || 'none'}
           onValueChange={(value) => setFormData({ ...formData, brandTemplateId: value === 'none' ? undefined : value })}
           disabled={isLoading || templatesLoading}
         >
-          <SelectTrigger className="bg-muted/50 border-border focus:border-primary">
+          <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
             <SelectValue placeholder="Chọn Brand Template..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">Không sử dụng</SelectItem>
+            <SelectItem value="none" className="text-xs xs:text-sm">Không sử dụng</SelectItem>
             {templates.map((template) => (
-              <SelectItem key={template.id} value={template.id}>
-                <span className="flex items-center gap-2">
+              <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
+                <span className="flex items-center gap-1.5 xs:gap-2">
                   {template.primary_color && (
                     <span
-                      className="w-3 h-3 rounded-full inline-block"
+                      className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full inline-block"
                       style={{ backgroundColor: template.primary_color }}
                     />
                   )}
-                  <span>{template.name}</span>
+                  <span className="truncate max-w-[100px] xs:max-w-none">{template.name}</span>
                   {template.is_default && (
-                    <span className="text-xs text-muted-foreground">(Mặc định)</span>
+                    <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">(Mặc định)</span>
                   )}
                 </span>
               </SelectItem>
@@ -104,55 +104,58 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
         )}
       </div>
 
-      {/* Duration Select */}
-      <div className="space-y-2">
-        <Label htmlFor="duration" className="text-foreground font-medium">
-          Thời lượng video
-        </Label>
-        <Select
-          value={formData.duration.toString()}
-          onValueChange={(value) => setFormData({ ...formData, duration: parseInt(value) as Duration })}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="bg-muted/50 border-border focus:border-primary">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(DURATION_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Duration & Video Type - 2 columns on larger screens */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 xs:gap-4">
+        {/* Duration Select */}
+        <div className="space-y-1.5 xs:space-y-2">
+          <Label htmlFor="duration" className="text-foreground font-medium text-xs xs:text-sm">
+            Thời lượng video
+          </Label>
+          <Select
+            value={formData.duration.toString()}
+            onValueChange={(value) => setFormData({ ...formData, duration: parseInt(value) as Duration })}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(DURATION_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value} className="text-xs xs:text-sm">
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Video Type Select */}
-      <div className="space-y-2">
-        <Label htmlFor="video_type" className="text-foreground font-medium">
-          Thể loại video
-        </Label>
-        <Select
-          value={formData.video_type}
-          onValueChange={(value) => setFormData({ ...formData, video_type: value as VideoType })}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="bg-muted/50 border-border focus:border-primary">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(VIDEO_TYPE_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Video Type Select */}
+        <div className="space-y-1.5 xs:space-y-2">
+          <Label htmlFor="video_type" className="text-foreground font-medium text-xs xs:text-sm">
+            Thể loại video
+          </Label>
+          <Select
+            value={formData.video_type}
+            onValueChange={(value) => setFormData({ ...formData, video_type: value as VideoType })}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(VIDEO_TYPE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value} className="text-xs xs:text-sm">
+                  <span className="truncate">{label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Character Type Select */}
-      <div className="space-y-2">
-        <Label htmlFor="character_type" className="text-foreground font-medium">
+      <div className="space-y-1.5 xs:space-y-2">
+        <Label htmlFor="character_type" className="text-foreground font-medium text-xs xs:text-sm">
           Nhân vật
         </Label>
         <Select
@@ -160,12 +163,12 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           onValueChange={(value) => setFormData({ ...formData, character_type: value as CharacterType })}
           disabled={isLoading}
         >
-          <SelectTrigger className="bg-muted/50 border-border focus:border-primary">
+          <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {Object.entries(CHARACTER_TYPE_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
+              <SelectItem key={value} value={value} className="text-xs xs:text-sm">
                 {label}
               </SelectItem>
             ))}
@@ -177,17 +180,17 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
       <Button
         type="submit"
         disabled={isLoading || !formData.topic.trim()}
-        className="w-full h-12 gradient-primary hover:opacity-90 transition-all duration-300 glow-primary font-semibold text-base"
+        className="w-full h-10 xs:h-12 gradient-primary hover:opacity-90 transition-all duration-300 glow-primary font-semibold text-sm xs:text-base"
       >
         {isLoading ? (
           <>
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            Đang tạo kịch bản...
+            <Loader2 className="w-4 h-4 xs:w-5 xs:h-5 mr-1.5 xs:mr-2 animate-spin" />
+            <span className="text-xs xs:text-sm">Đang tạo kịch bản...</span>
           </>
         ) : (
           <>
-            <Sparkles className="w-5 h-5 mr-2" />
-            Tạo kịch bản AI
+            <Sparkles className="w-4 h-4 xs:w-5 xs:h-5 mr-1.5 xs:mr-2" />
+            <span className="text-xs xs:text-sm">Tạo kịch bản AI</span>
           </>
         )}
       </Button>
