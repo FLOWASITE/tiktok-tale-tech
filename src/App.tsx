@@ -14,6 +14,7 @@ import Carousel from "./pages/Carousel";
 import Brands from "./pages/Brands";
 import BrandView from "./pages/BrandView";
 import MultiChannel from "./pages/MultiChannel";
+import Tasks from "./pages/Tasks";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
@@ -45,6 +46,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Dashboard />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tasks"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Tasks />
                     </AppLayout>
                   </ProtectedRoute>
                 }
