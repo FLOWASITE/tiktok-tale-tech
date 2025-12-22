@@ -375,6 +375,9 @@ export default function MultiChannel() {
                   content={content}
                   onView={handleView}
                   onDelete={handleDelete}
+                  onScheduleComplete={() => {
+                    toast.success('Đã lên lịch thành công');
+                  }}
                 />
               </div>
             ))}
