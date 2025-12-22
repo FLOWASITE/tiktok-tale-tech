@@ -677,6 +677,7 @@ export type Database = {
       organizations: {
         Row: {
           approver_roles: string[] | null
+          auto_submit_review: boolean | null
           created_at: string
           id: string
           logo_url: string | null
@@ -690,6 +691,7 @@ export type Database = {
         }
         Insert: {
           approver_roles?: string[] | null
+          auto_submit_review?: boolean | null
           created_at?: string
           id?: string
           logo_url?: string | null
@@ -703,6 +705,7 @@ export type Database = {
         }
         Update: {
           approver_roles?: string[] | null
+          auto_submit_review?: boolean | null
           created_at?: string
           id?: string
           logo_url?: string | null

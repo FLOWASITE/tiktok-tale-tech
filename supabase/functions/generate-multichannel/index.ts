@@ -707,18 +707,21 @@ Nội dung sẵn sàng đăng ngay.`;
     const generatedData = JSON.parse(toolCall.function.arguments);
     console.log("Generated content:", generatedData.title);
 
-    // Check organization's skip_approval setting
+    // Check organization's approval settings
     let initialStatus = 'draft';
     if (organizationId) {
       const { data: orgSettings } = await supabase
         .from('organizations')
-        .select('skip_approval')
+        .select('skip_approval, auto_submit_review')
         .eq('id', organizationId)
         .single();
       
       if (orgSettings?.skip_approval) {
         initialStatus = 'approved';
         console.log('Skip approval enabled, setting status to approved');
+      } else if (orgSettings?.auto_submit_review) {
+        initialStatus = 'review';
+        console.log('Auto submit review enabled, setting status to review');
       }
     }
 
