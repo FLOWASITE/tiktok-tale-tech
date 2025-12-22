@@ -36,18 +36,18 @@ interface MultiChannelCardProps {
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
-  website: <Globe className="w-3 h-3" />,
-  facebook: <Facebook className="w-3 h-3" />,
-  instagram: <Instagram className="w-3 h-3" />,
-  twitter: <Twitter className="w-3 h-3" />,
-  google_maps: <MapPin className="w-3 h-3" />,
-  linkedin: <Linkedin className="w-3 h-3" />,
-  email: <Mail className="w-3 h-3" />,
-  youtube: <Youtube className="w-3 h-3" />,
-  zalo_oa: <MessageCircle className="w-3 h-3" />,
-  telegram: <Send className="w-3 h-3" />,
-  tiktok: <Music2 className="w-3 h-3" />,
-  threads: <AtSign className="w-3 h-3" />,
+  website: <Globe className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  facebook: <Facebook className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  instagram: <Instagram className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  twitter: <Twitter className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  google_maps: <MapPin className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  linkedin: <Linkedin className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  email: <Mail className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  youtube: <Youtube className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  zalo_oa: <MessageCircle className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  telegram: <Send className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  tiktok: <Music2 className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
+  threads: <AtSign className="w-2.5 h-2.5 xs:w-3 xs:h-3" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -129,78 +129,78 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
   const firstChannelContent = getFirstChannelContent();
 
   return (
-    <div className="relative gradient-card p-3 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-300 ease-out group hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 overflow-hidden">
+    <div className="relative gradient-card p-2 xs:p-3 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-300 ease-out group hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 overflow-hidden">
       {/* Hover glow effect */}
       <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/0 via-primary/0 to-secondary/0 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-secondary/5 transition-all duration-500 pointer-events-none" />
       
       {/* Top Row - Status & Industry */}
-      <div className="relative flex items-center justify-between mb-2 pl-5">
+      <div className="relative flex items-center justify-between mb-1.5 xs:mb-2 pl-4 xs:pl-5">
         <Badge 
           variant="outline" 
-          className={`text-[9px] px-1 py-0 ${statusColors[content.status || 'draft']}`}
+          className={`text-[8px] xs:text-[9px] px-1 py-0 ${statusColors[content.status || 'draft']}`}
         >
           {statusLabel}
         </Badge>
         <div className="flex items-center gap-1">
           {content.industry && (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-500 border-amber-500/30">
-              <Building className="w-2.5 h-2.5 mr-0.5" />
-              {content.industry}
+            <Badge variant="outline" className="text-[8px] xs:text-[9px] px-1 py-0 bg-amber-500/10 text-amber-500 border-amber-500/30">
+              <Building className="w-2 h-2 xs:w-2.5 xs:h-2.5 mr-0.5" />
+              <span className="hidden xs:inline">{content.industry}</span>
             </Badge>
           )}
         </div>
       </div>
 
       {/* Header - Title & Topic */}
-      <div className="relative mb-2">
-        <h3 className="font-medium text-sm text-foreground line-clamp-2 group-hover:text-primary transition-colors duration-200">
+      <div className="relative mb-1.5 xs:mb-2">
+        <h3 className="font-medium text-xs xs:text-sm text-foreground line-clamp-2 group-hover:text-primary transition-colors duration-200">
           {content.title}
         </h3>
-        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+        <p className="text-[10px] xs:text-xs text-muted-foreground line-clamp-1 mt-0.5">
           {content.topic}
         </p>
       </div>
 
-      {/* Content Preview */}
+      {/* Content Preview - Hidden on very small screens */}
       {firstChannelContent && (
-        <p className="relative text-[10px] text-muted-foreground line-clamp-2 mb-2 opacity-70 italic border-l-2 border-primary/30 pl-2">
+        <p className="relative hidden xs:block text-[10px] text-muted-foreground line-clamp-2 mb-2 opacity-70 italic border-l-2 border-primary/30 pl-2">
           "{firstChannelContent.slice(0, 100)}{firstChannelContent.length > 100 ? '...' : ''}"
         </p>
       )}
 
       {/* Meta Badges Row */}
-      <div className="relative flex flex-wrap items-center gap-1.5 mb-2">
-        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${goalColors[content.content_goal]}`}>
+      <div className="relative flex flex-wrap items-center gap-1 xs:gap-1.5 mb-1.5 xs:mb-2">
+        <Badge variant="outline" className={`text-[8px] xs:text-[10px] px-1 xs:px-1.5 py-0 h-3.5 xs:h-4 ${goalColors[content.content_goal]}`}>
           {goalLabel}
         </Badge>
         {imageCount > 0 && (
-          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-violet-500/20 text-violet-400 border-violet-500/30">
-            <Image className="w-2.5 h-2.5 mr-0.5" />
+          <Badge variant="outline" className="text-[8px] xs:text-[10px] px-1 py-0 h-3.5 xs:h-4 bg-violet-500/20 text-violet-400 border-violet-500/30">
+            <Image className="w-2 h-2 xs:w-2.5 xs:h-2.5 mr-0.5" />
             {imageCount}
           </Badge>
         )}
-        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
-          <FileText className="w-2.5 h-2.5 mr-0.5" />
+        <Badge variant="outline" className="text-[8px] xs:text-[10px] px-1 py-0 h-3.5 xs:h-4 bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+          <FileText className="w-2 h-2 xs:w-2.5 xs:h-2.5 mr-0.5" />
           {filledChannelsCount}/{content.selected_channels.length}
         </Badge>
       </div>
 
       {/* Channels with status indicators */}
       <TooltipProvider>
-        <div className="relative flex flex-wrap gap-1 mb-2">
-          {content.selected_channels.slice(0, 5).map((channel) => {
+        <div className="relative flex flex-wrap gap-0.5 xs:gap-1 mb-1.5 xs:mb-2">
+          {content.selected_channels.slice(0, 4).map((channel) => {
             const channelStatus = content.channel_statuses?.[channel] || 'draft';
             const channelStatusLabel = CONTENT_STATUSES.find(s => s.value === channelStatus)?.label || channelStatus;
             return (
               <Tooltip key={channel}>
                 <TooltipTrigger asChild>
                   <div
-                    className={`relative flex items-center p-1 rounded border ${channelColors[channel]}`}
+                    className={`relative flex items-center p-0.5 xs:p-1 rounded border ${channelColors[channel]}`}
                   >
                     {channelIcons[channel]}
                     {/* Status indicator dot */}
                     <span 
-                      className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${statusDotColors[channelStatus]} ring-1 ring-background`}
+                      className={`absolute -top-0.5 -right-0.5 w-1 h-1 xs:w-1.5 xs:h-1.5 rounded-full ${statusDotColors[channelStatus]} ring-1 ring-background`}
                     />
                   </div>
                 </TooltipTrigger>
@@ -211,17 +211,17 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
               </Tooltip>
             );
           })}
-          {content.selected_channels.length > 5 && (
-            <div className="flex items-center px-1.5 py-1 rounded border border-border text-[10px] text-muted-foreground">
-              +{content.selected_channels.length - 5}
+          {content.selected_channels.length > 4 && (
+            <div className="flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded border border-border text-[8px] xs:text-[10px] text-muted-foreground">
+              +{content.selected_channels.length - 4}
             </div>
           )}
         </div>
       </TooltipProvider>
 
-      {/* Tags */}
+      {/* Tags - Hidden on very small screens */}
       {content.tags && content.tags.length > 0 && (
-        <div className="relative flex items-center gap-1 mb-2">
+        <div className="relative hidden xs:flex items-center gap-1 mb-2">
           <Tag className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
           <div className="flex flex-wrap gap-1 overflow-hidden">
             {content.tags.slice(0, 3).map((tag, index) => (
@@ -239,42 +239,42 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
         </div>
       )}
 
-      {/* Creator */}
-      <div className="relative flex items-center gap-1.5 mb-2 text-[10px]">
+      {/* Creator - Smaller on mobile */}
+      <div className="relative flex items-center gap-1 xs:gap-1.5 mb-1.5 xs:mb-2 text-[9px] xs:text-[10px]">
         <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
       </div>
 
       {/* Brand & Time Footer */}
-      <div className="relative flex items-center justify-between text-[10px] text-muted-foreground mb-2">
+      <div className="relative flex items-center justify-between text-[9px] xs:text-[10px] text-muted-foreground mb-1.5 xs:mb-2">
         <div className="flex items-center gap-1 min-w-0 flex-1">
           {content.primary_color && (
             <div
-              className="w-2.5 h-2.5 rounded-full border border-border flex-shrink-0"
+              className="w-2 h-2 xs:w-2.5 xs:h-2.5 rounded-full border border-border flex-shrink-0"
               style={{ backgroundColor: content.primary_color }}
             />
           )}
-          <span className="truncate">{content.brand_name}</span>
+          <span className="truncate text-[8px] xs:text-[10px]">{content.brand_name}</span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 xs:gap-2 flex-shrink-0">
           {isUpdated && updateTimeAgo && (
-            <span className="flex items-center gap-0.5 text-[9px] opacity-60">
+            <span className="hidden xs:flex items-center gap-0.5 text-[8px] xs:text-[9px] opacity-60">
               <RefreshCw className="w-2 h-2" />
               {updateTimeAgo}
             </span>
           )}
-          <span className="opacity-70">{timeAgo}</span>
+          <span className="opacity-70 text-[8px] xs:text-[10px]">{timeAgo}</span>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="relative flex gap-1.5">
+      <div className="relative flex gap-1 xs:gap-1.5">
         <Button
           variant="outline"
           size="sm"
-          className="flex-1 h-7 text-xs hover:bg-primary/10 hover:text-primary hover:border-primary/50"
+          className="flex-1 h-6 xs:h-7 text-[10px] xs:text-xs hover:bg-primary/10 hover:text-primary hover:border-primary/50"
           onClick={() => onView(content)}
         >
-          <Eye className="w-3 h-3 mr-1" />
+          <Eye className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
           Xem
         </Button>
 
@@ -284,10 +284,10 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 w-7 p-0 hover:bg-blue-500/10 hover:text-blue-500 hover:border-blue-500/50"
+                className="h-6 w-6 xs:h-7 xs:w-7 p-0 hover:bg-blue-500/10 hover:text-blue-500 hover:border-blue-500/50"
                 onClick={() => setShowScheduleDialog(true)}
               >
-                <CalendarClock className="w-3 h-3" />
+                <CalendarClock className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Lên lịch đăng</TooltipContent>
@@ -299,9 +299,9 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
             <Button
               variant="outline"
               size="sm"
-              className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
+              className="h-6 w-6 xs:h-7 xs:w-7 p-0 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
             >
-              <Trash2 className="w-3 h-3" />
+              <Trash2 className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
