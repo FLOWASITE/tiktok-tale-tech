@@ -20,6 +20,7 @@ import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
+import PublishingHistory from "./pages/PublishingHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,6 +106,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <ContentCalendar />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/publishing-history"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <PublishingHistory />
                     </AppLayout>
                   </ProtectedRoute>
                 }
