@@ -147,8 +147,6 @@ export function CarouselStats({ carousels, loading }: CarouselStatsProps) {
     );
   }
 
-  if (carousels.length === 0) return null;
-
   return (
     <div className="space-y-2">
       {/* Summary Cards */}
