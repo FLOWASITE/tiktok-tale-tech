@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Clock, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image, Building, FileText, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -73,24 +73,58 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
     locale: vi,
   });
 
+  // Check if updated
+  const isUpdated = content.updated_at !== content.created_at;
+  const updateTimeAgo = isUpdated ? formatDistanceToNow(new Date(content.updated_at), {
+    addSuffix: true,
+    locale: vi,
+  }) : null;
+
+  // Count filled channels
+  const filledChannelsCount = content.selected_channels.filter(ch => {
+    const contentKey = `${ch}_content` as keyof MultiChannelContent;
+    return content[contentKey] && (content[contentKey] as string).length > 0;
+  }).length;
+
+  // Get first channel content preview
+  const getFirstChannelContent = (): string | null => {
+    for (const channel of content.selected_channels) {
+      const contentKey = `${channel}_content` as keyof MultiChannelContent;
+      const channelContent = content[contentKey] as string | null;
+      if (channelContent && channelContent.length > 0) {
+        // Strip markdown and get plain text
+        return channelContent.replace(/[#*_`~\[\]]/g, '').trim();
+      }
+    }
+    return null;
+  };
+
+  const firstChannelContent = getFirstChannelContent();
+
   return (
     <div className="relative gradient-card p-3 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-300 ease-out group hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 overflow-hidden">
       {/* Hover glow effect */}
       <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/0 via-primary/0 to-secondary/0 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-secondary/5 transition-all duration-500 pointer-events-none" />
       
-      {/* Status Badge - Top Right */}
-      <div className="absolute top-2 right-2 z-10">
+      {/* Top Row - Status & Industry */}
+      <div className="relative flex items-center justify-between mb-2">
         <Badge 
           variant="outline" 
           className={`text-[9px] px-1 py-0 ${statusColors[content.status || 'draft']}`}
         >
           {statusLabel}
         </Badge>
+        {content.industry && (
+          <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-500 border-amber-500/30">
+            <Building className="w-2.5 h-2.5 mr-0.5" />
+            {content.industry}
+          </Badge>
+        )}
       </div>
 
-      {/* Header */}
-      <div className="relative mb-2 pr-14">
-        <h3 className="font-medium text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200">
+      {/* Header - Title & Topic */}
+      <div className="relative mb-2">
+        <h3 className="font-medium text-sm text-foreground line-clamp-2 group-hover:text-primary transition-colors duration-200">
           {content.title}
         </h3>
         <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
@@ -98,8 +132,15 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
         </p>
       </div>
 
-      {/* Meta - Compact */}
-      <div className="relative flex items-center gap-1.5 mb-2">
+      {/* Content Preview */}
+      {firstChannelContent && (
+        <p className="relative text-[10px] text-muted-foreground line-clamp-2 mb-2 opacity-70 italic border-l-2 border-primary/30 pl-2">
+          "{firstChannelContent.slice(0, 100)}{firstChannelContent.length > 100 ? '...' : ''}"
+        </p>
+      )}
+
+      {/* Meta Badges Row */}
+      <div className="relative flex flex-wrap items-center gap-1.5 mb-2">
         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${goalColors[content.content_goal]}`}>
           {goalLabel}
         </Badge>
@@ -109,9 +150,13 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
             {imageCount}
           </Badge>
         )}
+        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+          <FileText className="w-2.5 h-2.5 mr-0.5" />
+          {filledChannelsCount}/{content.selected_channels.length}
+        </Badge>
       </div>
 
-      {/* Channels - Compact */}
+      {/* Channels */}
       <div className="relative flex flex-wrap gap-1 mb-2">
         {content.selected_channels.slice(0, 5).map((channel) => (
           <div
@@ -128,21 +173,49 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
         )}
       </div>
 
-      {/* Brand & Time - Compact */}
+      {/* Tags */}
+      {content.tags && content.tags.length > 0 && (
+        <div className="relative flex items-center gap-1 mb-2">
+          <Tag className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+          <div className="flex flex-wrap gap-1 overflow-hidden">
+            {content.tags.slice(0, 3).map((tag, index) => (
+              <span 
+                key={index} 
+                className="text-[9px] px-1.5 py-0.5 bg-muted/50 rounded text-muted-foreground truncate max-w-[60px]"
+              >
+                {tag}
+              </span>
+            ))}
+            {content.tags.length > 3 && (
+              <span className="text-[9px] text-muted-foreground">+{content.tags.length - 3}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Brand & Time Footer */}
       <div className="relative flex items-center justify-between text-[10px] text-muted-foreground mb-2">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 min-w-0 flex-1">
           {content.primary_color && (
             <div
-              className="w-2.5 h-2.5 rounded-full border border-border"
+              className="w-2.5 h-2.5 rounded-full border border-border flex-shrink-0"
               style={{ backgroundColor: content.primary_color }}
             />
           )}
-          <span className="truncate max-w-[80px]">{content.brand_name}</span>
+          <span className="truncate">{content.brand_name}</span>
         </div>
-        <span className="opacity-70">{timeAgo}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isUpdated && updateTimeAgo && (
+            <span className="flex items-center gap-0.5 text-[9px] opacity-60">
+              <RefreshCw className="w-2 h-2" />
+              {updateTimeAgo}
+            </span>
+          )}
+          <span className="opacity-70">{timeAgo}</span>
+        </div>
       </div>
 
-      {/* Actions - Compact */}
+      {/* Actions */}
       <div className="relative flex gap-1.5">
         <Button
           variant="outline"
