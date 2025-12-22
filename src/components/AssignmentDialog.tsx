@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,6 +19,7 @@ interface AssignmentDialogProps {
   contentId: string;
   contentTitle: string;
   selectedChannels: Channel[];
+  preselectedChannel?: Channel | null;
 }
 
 export const AssignmentDialog = ({
@@ -27,17 +28,25 @@ export const AssignmentDialog = ({
   contentId,
   contentTitle,
   selectedChannels,
+  preselectedChannel,
 }: AssignmentDialogProps) => {
   const { currentOrganization } = useOrganizationContext();
   const { members } = useOrganizationMembers(currentOrganization?.id);
   const { createAssignment } = useContentAssignments();
 
-  const [selectedChannel, setSelectedChannel] = useState<Channel | ''>('');
+  const [selectedChannel, setSelectedChannel] = useState<Channel | ''>(preselectedChannel || '');
   const [selectedMember, setSelectedMember] = useState('');
   const [priority, setPriority] = useState<AssignmentPriority>('normal');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Update channel when preselectedChannel changes
+  useEffect(() => {
+    if (preselectedChannel) {
+      setSelectedChannel(preselectedChannel);
+    }
+  }, [preselectedChannel]);
 
   const handleSubmit = async () => {
     if (!selectedChannel || !selectedMember) return;

@@ -187,7 +187,10 @@ export function MultiChannelViewer({
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+  const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
@@ -546,11 +549,21 @@ export function MultiChannelViewer({
             </div>
             {!isEditingHeader && (
               <div className="flex items-center gap-2">
+                {/* Team Panel Toggle Button */}
+                <Button 
+                  variant={showTeamPanel ? "default" : "outline"} 
+                  size="sm" 
+                  onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); }}
+                  className="gap-1.5"
+                >
+                  <Users className="w-4 h-4" />
+                  Team
+                </Button>
                 {/* Gallery Toggle Button */}
                 <Button 
                   variant={showGallery ? "default" : "outline"} 
                   size="sm" 
-                  onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); }}
+                  onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); }}
                   className="gap-1.5"
                 >
                   <Images className="w-4 h-4" />
@@ -565,7 +578,7 @@ export function MultiChannelViewer({
                 <Button 
                   variant={showSchedule ? "default" : "outline"} 
                   size="sm" 
-                  onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); }}
+                  onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); }}
                   className="gap-1.5"
                 >
                   <CalendarClock className="w-4 h-4" />
@@ -580,7 +593,14 @@ export function MultiChannelViewer({
           </div>
         </DialogHeader>
 
-        {showSchedule ? (
+        {showTeamPanel ? (
+          <div className="p-6">
+            <TeamWorkPanel 
+              contentId={content.id} 
+              onClose={() => setShowTeamPanel(false)} 
+            />
+          </div>
+        ) : showSchedule ? (
           <div className="p-6">
             <SchedulePanel content={content} />
           </div>
@@ -873,6 +893,29 @@ export function MultiChannelViewer({
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                        {/* Assignment Button */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setAssignmentChannel(channel);
+                                  setAssignmentDialogOpen(true);
+                                }}
+                                disabled={isRegenerating || !!regeneratingChannel}
+                                className="gap-1.5"
+                              >
+                                <Users className="w-4 h-4" />
+                                <span className="hidden sm:inline">Phân công</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Phân công nhiệm vụ cho {channelConfig[channel].label}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <Button
                           variant="outline"
                           size="sm"
@@ -1096,6 +1139,16 @@ export function MultiChannelViewer({
           }}
         />
       )}
+
+      {/* Assignment Dialog */}
+      <AssignmentDialog
+        open={assignmentDialogOpen}
+        onOpenChange={setAssignmentDialogOpen}
+        contentId={content.id}
+        contentTitle={content.title}
+        selectedChannels={content.selected_channels}
+        preselectedChannel={assignmentChannel}
+      />
     </Dialog>
   );
 }
