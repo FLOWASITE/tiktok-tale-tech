@@ -2,6 +2,7 @@ import { Carousel } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, Trash2, Images, Calendar } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -21,6 +22,8 @@ interface CarouselCardProps {
   carousel: Carousel;
   onView: (carousel: Carousel) => void;
   onDelete: (id: string) => void;
+  isSelected?: boolean;
+  onSelectionChange?: (id: string, selected: boolean) => void;
 }
 
 const platformLabels: Record<string, string> = {
@@ -35,14 +38,29 @@ const aiToolLabels: Record<string, string> = {
   leonardo: 'Leonardo',
 };
 
-export function CarouselCard({ carousel, onView, onDelete }: CarouselCardProps) {
+export function CarouselCard({ carousel, onView, onDelete, isSelected, onSelectionChange }: CarouselCardProps) {
   const timeAgo = formatDistanceToNow(new Date(carousel.created_at), {
     addSuffix: true,
     locale: vi,
   });
 
   return (
-    <Card className="relative gradient-card border-border/50 hover:border-primary/40 transition-all duration-300 ease-out group overflow-hidden hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1">
+    <Card className={`relative gradient-card border-border/50 hover:border-primary/40 transition-all duration-300 ease-out group overflow-hidden hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 ${isSelected ? 'ring-2 ring-primary border-primary' : ''}`}>
+      {/* Checkbox for selection */}
+      {onSelectionChange && (
+        <div className={`absolute top-3 left-3 z-10 transition-opacity ${
+          isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => 
+              onSelectionChange(carousel.id, checked as boolean)
+            }
+            onClick={(e) => e.stopPropagation()}
+            className="bg-background/90 border-primary/50 data-[state=checked]:bg-primary"
+          />
+        </div>
+      )}
       {/* Glow effect on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
       <CardHeader className="pb-3">

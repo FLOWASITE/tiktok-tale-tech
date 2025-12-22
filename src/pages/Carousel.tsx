@@ -204,6 +204,14 @@ const CarouselPage = () => {
                   carousel={carousel}
                   onView={handleViewCarousel}
                   onDelete={deleteCarousel}
+                  isSelected={selectedIds.includes(carousel.id)}
+                  onSelectionChange={(id, selected) => {
+                    if (selected) {
+                      setSelectedIds(prev => [...prev, id]);
+                    } else {
+                      setSelectedIds(prev => prev.filter(i => i !== id));
+                    }
+                  }}
                 />
               </div>
             ))}
