@@ -23,20 +23,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MultiChannelContent, ContentStatus, Channel } from '@/types/multichannel';
+import { MultiChannelContent, ContentStatus, Channel, CONTENT_STATUSES } from '@/types/multichannel';
 
 const statusColors: Record<ContentStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
   review: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
   approved: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
   published: 'bg-green-500/20 text-green-700 dark:text-green-400',
-};
-
-const statusLabels: Record<ContentStatus, string> = {
-  draft: 'Nháp',
-  review: 'Chờ duyệt',
-  approved: 'Đã duyệt',
-  published: 'Đã đăng',
 };
 
 const channelLabels: Record<Channel, string> = {
@@ -137,8 +130,11 @@ export function MultiChannelListView({
                 </div>
               </TableCell>
               <TableCell>
-                <Badge className={`${statusColors[content.status || 'draft']} text-[10px]`}>
-                  {statusLabels[content.status || 'draft']}
+                <Badge 
+                  variant="outline"
+                  className={`${statusColors[content.status || 'draft']} text-[10px]`}
+                >
+                  {CONTENT_STATUSES.find(s => s.value === content.status)?.label || content.status || 'Nháp'}
                 </Badge>
               </TableCell>
               <TableCell>
