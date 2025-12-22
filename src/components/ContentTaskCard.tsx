@@ -450,28 +450,47 @@ export function ContentTaskCard({
         {uniqueAssignees.length > 0 && (
           <div className="flex items-center gap-2">
             <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <div className="flex -space-x-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <TooltipProvider>
-                {uniqueAssignees.slice(0, 4).map(assignee => (
+                {uniqueAssignees.slice(0, 3).map(assignee => (
                   <Tooltip key={assignee.id}>
-                    <TooltipTrigger>
-                      <Avatar className="w-6 h-6 border-2 border-background ring-1 ring-border/50">
-                        <AvatarImage src={assignee.avatar_url || undefined} />
-                        <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
-                          {assignee.full_name?.charAt(0) || assignee.email.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 bg-muted/50 rounded-full pl-0.5 pr-2 py-0.5 border border-border/50 hover:bg-muted transition-colors">
+                        <Avatar className="w-5 h-5 border border-background">
+                          <AvatarImage src={assignee.avatar_url || undefined} />
+                          <AvatarFallback className="text-[8px] font-medium bg-primary/10 text-primary">
+                            {(assignee.full_name || assignee.email || '?')[0].toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[60px]">
+                          {assignee.full_name?.split(' ').pop() || assignee.email?.split('@')[0]}
+                        </span>
+                      </div>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      {assignee.full_name || assignee.email}
+                    <TooltipContent side="top">
+                      <p className="text-xs font-medium">{assignee.full_name || assignee.email}</p>
+                      <p className="text-[10px] text-muted-foreground">Người được giao</p>
                     </TooltipContent>
                   </Tooltip>
                 ))}
               </TooltipProvider>
-              {uniqueAssignees.length > 4 && (
-                <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium">
-                  +{uniqueAssignees.length - 4}
-                </div>
+              {uniqueAssignees.length > 3 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="h-5 px-1.5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground border border-border/50">
+                        +{uniqueAssignees.length - 3}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <div className="space-y-1">
+                        {uniqueAssignees.slice(3).map(assignee => (
+                          <p key={assignee.id} className="text-xs">{assignee.full_name || assignee.email}</p>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>
