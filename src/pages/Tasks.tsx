@@ -4,8 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, RefreshCw, ListTodo, ClipboardList } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Search, Filter, RefreshCw, ListTodo, ClipboardList, LayoutGrid, Columns3 } from 'lucide-react';
 import { ContentTaskCard } from '@/components/ContentTaskCard';
+import { TasksKanbanBoard, ContentTask } from '@/components/TasksKanbanBoard';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useContentAssignments } from '@/hooks/useContentAssignments';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
@@ -16,10 +18,11 @@ import { ASSIGNMENT_STATUSES, AssignmentStatus, AssignmentPriority, ASSIGNMENT_P
 
 export default function Tasks() {
   const { user } = useAuth();
-  const { contents, loading: loadingContents, refetch: refetchContents } = useMultiChannelContents();
+  const { contents, loading: loadingContents, refetch: refetchContents, updateStatus } = useMultiChannelContents();
   const { assignments, myAssignments, isLoading: loadingAssignments, refreshAssignments, updateAssignmentStatus } = useContentAssignments();
   const { allSchedules, fetchAllSchedules, isLoading: loadingSchedules } = useContentSchedules();
 
+  const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -128,10 +131,20 @@ export default function Tasks() {
             Theo dõi và quản lý tất cả nội dung đã tạo
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Làm mới
-        </Button>
+        <div className="flex items-center gap-2">
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'grid' | 'kanban')}>
+            <ToggleGroupItem value="grid" aria-label="Grid view" className="data-[state=on]:bg-primary/10">
+              <LayoutGrid className="w-4 h-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="kanban" aria-label="Kanban view" className="data-[state=on]:bg-primary/10">
+              <Columns3 className="w-4 h-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Làm mới
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -238,6 +251,14 @@ export default function Tasks() {
                   : 'Hãy tạo nội dung mới từ các phân hệ'}
               </p>
             </div>
+          ) : viewMode === 'kanban' ? (
+            <TasksKanbanBoard
+              tasks={filteredTasks}
+              currentUserId={user?.id}
+              onContentStatusChange={updateStatus}
+              onAssignmentStatusChange={updateAssignmentStatus}
+              onRefresh={handleRefresh}
+            />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredTasks.map(({ content, assignments, schedules }) => (
