@@ -17,6 +17,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { CreatorCell } from '@/components/CreatorCell';
+import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
 
 interface CarouselCardProps {
   carousel: Carousel;
@@ -24,6 +26,8 @@ interface CarouselCardProps {
   onDelete: (id: string) => void;
   isSelected?: boolean;
   onSelectionChange?: (id: string, selected: boolean) => void;
+  creatorProfile?: CreatorProfile;
+  isLoadingProfile?: boolean;
 }
 
 const platformLabels: Record<string, string> = {
@@ -38,7 +42,7 @@ const aiToolLabels: Record<string, string> = {
   leonardo: 'Leonardo',
 };
 
-export function CarouselCard({ carousel, onView, onDelete, isSelected, onSelectionChange }: CarouselCardProps) {
+export function CarouselCard({ carousel, onView, onDelete, isSelected, onSelectionChange, creatorProfile, isLoadingProfile }: CarouselCardProps) {
   const timeAgo = formatDistanceToNow(new Date(carousel.created_at), {
     addSuffix: true,
     locale: vi,
@@ -93,9 +97,14 @@ export function CarouselCard({ carousel, onView, onDelete, isSelected, onSelecti
           </Badge>
         </div>
 
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
           {carousel.topic}
         </p>
+
+        {/* Creator */}
+        <div className="flex items-center gap-1.5 mb-3 text-[10px]">
+          <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+        </div>
 
         <div className="flex gap-2">
           <Button

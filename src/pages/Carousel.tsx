@@ -7,6 +7,7 @@ import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilt
 import { CarouselStats } from '@/components/CarouselStats';
 import { CarouselListView } from '@/components/CarouselListView';
 import { useCarousels } from '@/hooks/useCarousels';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,11 @@ import { toast } from 'sonner';
 const CarouselPage = () => {
   const navigate = useNavigate();
   const { carousels, loading, generating, generateCarousel, deleteCarousel, updateCarousel } = useCarousels();
+  
+  // Fetch creator profiles for all carousels
+  const userIds = useMemo(() => carousels.map(c => c.user_id), [carousels]);
+  const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
+  
   const [selectedCarousel, setSelectedCarousel] = useState<Carousel | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
@@ -212,6 +218,8 @@ const CarouselPage = () => {
                       setSelectedIds(prev => prev.filter(i => i !== id));
                     }
                   }}
+                  creatorProfile={carousel.user_id ? creatorProfiles[carousel.user_id] : undefined}
+                  isLoadingProfile={isLoadingProfiles}
                 />
               </div>
             ))}

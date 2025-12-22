@@ -16,14 +16,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { CreatorCell } from '@/components/CreatorCell';
+import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
 
 interface ScriptCardProps {
   script: Script;
   onView: (script: Script) => void;
   onDelete: (id: string) => void;
+  creatorProfile?: CreatorProfile;
+  isLoadingProfile?: boolean;
 }
 
-export function ScriptCard({ script, onView, onDelete }: ScriptCardProps) {
+export function ScriptCard({ script, onView, onDelete, creatorProfile, isLoadingProfile }: ScriptCardProps) {
   return (
     <Card className="relative gradient-card border-border/50 hover:border-primary/40 transition-all duration-300 ease-out group overflow-hidden hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1">
       {/* Glow effect on hover */}
@@ -57,6 +61,11 @@ export function ScriptCard({ script, onView, onDelete }: ScriptCardProps) {
             <User className="w-3 h-3" />
             {CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}
           </span>
+        </div>
+
+        {/* Creator */}
+        <div className="flex items-center gap-1.5 mb-3 text-[10px]">
+          <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
         </div>
         
         <div className="flex gap-2">
