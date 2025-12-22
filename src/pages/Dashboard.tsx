@@ -18,7 +18,8 @@ import {
   Layers, 
   Bookmark,
   ArrowRight,
-  Zap
+  Zap,
+  Users
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -110,6 +111,13 @@ const Dashboard = () => {
       icon: Bookmark,
       href: '/brands',
       gradient: 'from-amber-500 to-orange-500',
+    },
+    { 
+      title: 'Quản lý tổ chức', 
+      description: 'Thành viên & phân quyền',
+      icon: Users,
+      href: '/organization',
+      gradient: 'from-emerald-500 to-teal-500',
     },
   ];
 
