@@ -13,6 +13,8 @@ export type CharacterType =
 
 export type Duration = 60 | 90 | 120 | 180;
 
+export type ContentStatus = 'draft' | 'review' | 'approved' | 'published';
+
 export interface Script {
   id: string;
   title: string;
@@ -21,9 +23,17 @@ export interface Script {
   video_type: VideoType;
   character_type: CharacterType;
   content: string;
+  status: ContentStatus;
   created_at: string;
   updated_at: string;
 }
+
+export const STATUS_CONFIG: Record<ContentStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
+  draft: { label: 'Nháp', variant: 'secondary' },
+  review: { label: 'Chờ duyệt', variant: 'outline' },
+  approved: { label: 'Đã duyệt', variant: 'default' },
+  published: { label: 'Đã đăng', variant: 'default' },
+};
 
 export interface ScriptFormData {
   topic: string;

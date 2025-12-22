@@ -1,6 +1,7 @@
-import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS } from '@/types/script';
+import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, STATUS_CONFIG } from '@/types/script';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Eye, Trash2, Clock, User, Film } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -32,6 +33,11 @@ export function ScriptCard({ script, onView, onDelete }: ScriptCardProps) {
           <CardTitle className="text-lg font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
             {script.title}
           </CardTitle>
+          {script.status && (
+            <Badge variant={STATUS_CONFIG[script.status]?.variant || 'secondary'} className="shrink-0">
+              {STATUS_CONFIG[script.status]?.label || script.status}
+            </Badge>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           {formatDistanceToNow(new Date(script.created_at), { addSuffix: true, locale: vi })}
