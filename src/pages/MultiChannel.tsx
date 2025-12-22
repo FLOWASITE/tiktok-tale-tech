@@ -12,6 +12,8 @@ import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
 import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
 import { MultiChannelStats } from '@/components/MultiChannelStats';
+import { PostCreationPrompt } from '@/components/PostCreationPrompt';
+import { AssignmentDialog } from '@/components/AssignmentDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SlidePanel } from '@/components/ui/slide-panel';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -53,6 +55,11 @@ export default function MultiChannel() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [bulkScheduleOpen, setBulkScheduleOpen] = useState(false);
+
+  // Post-creation assignment prompt state
+  const [showPostCreationPrompt, setShowPostCreationPrompt] = useState(false);
+  const [newlyCreatedContent, setNewlyCreatedContent] = useState<MultiChannelContent | null>(null);
+  const [showAssignmentDialog, setShowAssignmentDialog] = useState(false);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,7 +169,13 @@ export default function MultiChannel() {
   const handleGenerateContent = async (data: any) => {
     setGeneratingChannelCount(data.channels?.length || 3);
     setFormSheetOpen(false);
-    await generateContent(data);
+    const result = await generateContent(data);
+    
+    // Show post-creation prompt if content was created successfully
+    if (result) {
+      setNewlyCreatedContent(result);
+      setShowPostCreationPrompt(true);
+    }
   };
 
   const handleRegenerate = async (contentId: string, channel: Channel) => {
@@ -472,6 +485,32 @@ export default function MultiChannel() {
           toast.success('Đã lên lịch hàng loạt thành công!');
         }}
       />
+
+      {/* Post-creation prompt */}
+      {newlyCreatedContent && (
+        <PostCreationPrompt
+          open={showPostCreationPrompt}
+          onOpenChange={setShowPostCreationPrompt}
+          contentTitle={newlyCreatedContent.title}
+          contentId={newlyCreatedContent.id}
+          onAssign={() => setShowAssignmentDialog(true)}
+          onSkip={() => {
+            setSelectedContent(newlyCreatedContent);
+            setViewerOpen(true);
+          }}
+        />
+      )}
+
+      {/* Assignment dialog after creation */}
+      {newlyCreatedContent && (
+        <AssignmentDialog
+          open={showAssignmentDialog}
+          onOpenChange={setShowAssignmentDialog}
+          contentId={newlyCreatedContent.id}
+          contentTitle={newlyCreatedContent.title}
+          selectedChannels={newlyCreatedContent.selected_channels}
+        />
+      )}
     </div>
   );
 }
