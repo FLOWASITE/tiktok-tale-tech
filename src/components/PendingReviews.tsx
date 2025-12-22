@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
+import { canApproveContent } from '@/types/organization';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Eye, CheckCircle, XCircle, ArrowRight, ClipboardCheck } from 'lucide-react';
@@ -13,9 +15,10 @@ import { toast } from 'sonner';
 export const PendingReviews = () => {
   const { contents, updateStatus, loading } = useMultiChannelContents();
   const { currentRole } = useOrganizationContext();
+  const { approverRoles, loading: settingsLoading } = useOrganizationSettings();
 
-  // Only show for admin/owner roles
-  const canReview = currentRole === 'owner' || currentRole === 'admin';
+  // Check if current user can review based on dynamic approver roles
+  const canReview = currentRole ? canApproveContent(currentRole, approverRoles) : false;
 
   const pendingContents = useMemo(() => {
     return contents.filter(content => content.status === 'review');
@@ -39,7 +42,7 @@ export const PendingReviews = () => {
     }
   };
 
-  if (!canReview) {
+  if (!canReview || settingsLoading) {
     return null;
   }
 

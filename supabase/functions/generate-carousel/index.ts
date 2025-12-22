@@ -413,6 +413,21 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
     const generatedData = JSON.parse(toolCall.function.arguments);
     console.log("Generated carousel:", generatedData.title);
 
+    // Check organization's skip_approval setting
+    let initialStatus = 'draft';
+    if (organizationId) {
+      const { data: orgSettings } = await supabase
+        .from('organizations')
+        .select('skip_approval')
+        .eq('id', organizationId)
+        .single();
+      
+      if (orgSettings?.skip_approval) {
+        initialStatus = 'approved';
+        console.log('Skip approval enabled, setting status to approved');
+      }
+    }
+
     // Save to database
     const { data: carousel, error: dbError } = await supabase
       .from("carousels")
@@ -430,6 +445,7 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
         slides_content: generatedData.slides,
         caption_suggestion: generatedData.captionSuggestion,
         cta_suggestion: generatedData.ctaSuggestion,
+        status: initialStatus,
       })
       .select()
       .single();
