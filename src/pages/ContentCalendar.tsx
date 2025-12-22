@@ -590,7 +590,15 @@ export default function ContentCalendar() {
       {viewMode === 'queue' ? (
         <Card>
           <CardContent className="p-4">
-            <PublishingQueue />
+            <PublishingQueue
+              onViewContent={(contentId) => {
+                const content = contents.find(c => c.id === contentId);
+                if (content) {
+                  setSelectedContent(content);
+                  setViewerOpen(true);
+                }
+              }}
+            />
           </CardContent>
         </Card>
       ) : (
