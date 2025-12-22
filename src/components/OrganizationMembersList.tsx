@@ -386,7 +386,12 @@ export function OrganizationMembersList({
                           onValueChange={(v) => onUpdateRole(member.id, v as OrgRole)}
                         >
                           <SelectTrigger className="w-36 h-8">
-                            <SelectValue />
+                            <SelectValue>
+                              <div className="flex items-center gap-2">
+                                {React.createElement(ROLE_ICONS[member.role], { className: "h-3 w-3" })}
+                                <span>{ORG_ROLE_LABELS[member.role]}</span>
+                              </div>
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {(['admin', 'member', 'viewer'] as OrgRole[]).map((role) => (
