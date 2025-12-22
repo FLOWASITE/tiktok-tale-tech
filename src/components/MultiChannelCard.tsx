@@ -74,111 +74,83 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
   });
 
   return (
-    <div className="relative gradient-card p-4 rounded-xl border border-border/50 hover:border-primary/30 transition-all duration-300 ease-out group hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 overflow-hidden">
+    <div className="relative gradient-card p-3 rounded-lg border border-border/50 hover:border-primary/30 transition-all duration-300 ease-out group hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 overflow-hidden">
       {/* Hover glow effect */}
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/0 via-primary/0 to-secondary/0 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-secondary/5 transition-all duration-500 pointer-events-none" />
+      <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/0 via-primary/0 to-secondary/0 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-secondary/5 transition-all duration-500 pointer-events-none" />
       
       {/* Status Badge - Top Right */}
-      <div className="absolute top-3 right-3 z-10">
+      <div className="absolute top-2 right-2 z-10">
         <Badge 
           variant="outline" 
-          className={`text-[10px] px-1.5 py-0.5 ${statusColors[content.status || 'draft']}`}
+          className={`text-[9px] px-1 py-0 ${statusColors[content.status || 'draft']}`}
         >
           {statusLabel}
         </Badge>
       </div>
 
       {/* Header */}
-      <div className="relative mb-3 pr-16">
-        <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200">
+      <div className="relative mb-2 pr-14">
+        <h3 className="font-medium text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200">
           {content.title}
         </h3>
-        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
           {content.topic}
         </p>
       </div>
 
-      {/* Meta */}
-      <div className="relative flex flex-wrap gap-2 mb-3">
-        <Badge variant="outline" className={`${goalColors[content.content_goal]} transition-transform duration-200 group-hover:scale-105`}>
+      {/* Meta - Compact */}
+      <div className="relative flex items-center gap-1.5 mb-2">
+        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${goalColors[content.content_goal]}`}>
           {goalLabel}
         </Badge>
-        {content.industry && (
-          <Badge variant="outline" className="bg-muted/50">
-            {content.industry}
-          </Badge>
-        )}
         {imageCount > 0 && (
-          <Badge variant="outline" className="bg-violet-500/20 text-violet-400 border-violet-500/30">
-            <Image className="w-3 h-3 mr-1" />
+          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-violet-500/20 text-violet-400 border-violet-500/30">
+            <Image className="w-2.5 h-2.5 mr-0.5" />
             {imageCount}
           </Badge>
         )}
       </div>
 
-      {/* Tags */}
-      {content.tags && content.tags.length > 0 && (
-        <div className="relative flex flex-wrap gap-1 mb-3">
-          <Tag className="w-3 h-3 text-muted-foreground mr-0.5" />
-          {content.tags.slice(0, 3).map((tag) => (
-            <Badge 
-              key={tag} 
-              variant="secondary" 
-              className="text-[10px] px-1.5 py-0 h-5 bg-secondary/50 hover:bg-secondary"
-            >
-              {tag}
-            </Badge>
-          ))}
-          {content.tags.length > 3 && (
-            <Badge 
-              variant="secondary" 
-              className="text-[10px] px-1.5 py-0 h-5 bg-secondary/50"
-            >
-              +{content.tags.length - 3}
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {/* Channels */}
-      <div className="relative flex flex-wrap gap-1.5 mb-4">
-        {content.selected_channels.map((channel, index) => (
+      {/* Channels - Compact */}
+      <div className="relative flex flex-wrap gap-1 mb-2">
+        {content.selected_channels.slice(0, 5).map((channel) => (
           <div
             key={channel}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs ${channelColors[channel]} transition-all duration-200 group-hover:scale-105`}
-            style={{ transitionDelay: `${index * 30}ms` }}
+            className={`flex items-center p-1 rounded border ${channelColors[channel]}`}
           >
             {channelIcons[channel]}
           </div>
         ))}
+        {content.selected_channels.length > 5 && (
+          <div className="flex items-center px-1.5 py-1 rounded border border-border text-[10px] text-muted-foreground">
+            +{content.selected_channels.length - 5}
+          </div>
+        )}
       </div>
 
-      {/* Brand & Time */}
-      <div className="relative flex items-center justify-between text-xs text-muted-foreground mb-3">
-        <div className="flex items-center gap-1.5">
+      {/* Brand & Time - Compact */}
+      <div className="relative flex items-center justify-between text-[10px] text-muted-foreground mb-2">
+        <div className="flex items-center gap-1">
           {content.primary_color && (
             <div
-              className="w-3 h-3 rounded-full border border-border transition-transform duration-200 group-hover:scale-110"
+              className="w-2.5 h-2.5 rounded-full border border-border"
               style={{ backgroundColor: content.primary_color }}
             />
           )}
-          <span className="truncate max-w-[120px]">{content.brand_name}</span>
+          <span className="truncate max-w-[80px]">{content.brand_name}</span>
         </div>
-        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity duration-200">
-          <Clock className="w-3 h-3" />
-          <span>{timeAgo}</span>
-        </div>
+        <span className="opacity-70">{timeAgo}</span>
       </div>
 
-      {/* Actions */}
-      <div className="relative flex gap-2">
+      {/* Actions - Compact */}
+      <div className="relative flex gap-1.5">
         <Button
           variant="outline"
           size="sm"
-          className="flex-1 hover:bg-primary/10 hover:text-primary hover:border-primary/50"
+          className="flex-1 h-7 text-xs hover:bg-primary/10 hover:text-primary hover:border-primary/50"
           onClick={() => onView(content)}
         >
-          <Eye className="w-4 h-4 mr-1.5" />
+          <Eye className="w-3 h-3 mr-1" />
           Xem
         </Button>
 
@@ -187,9 +159,9 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
             <Button
               variant="outline"
               size="sm"
-              className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
+              className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3 h-3" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
