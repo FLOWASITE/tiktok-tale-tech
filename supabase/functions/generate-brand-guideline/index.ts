@@ -8,24 +8,54 @@ const corsHeaders = {
 
 // B2B/B2C detection based on industry
 const INDUSTRY_TARGET_MAP: Record<string, 'B2B' | 'B2C' | 'both'> = {
+  // Nhóm Tài chính
   'Tài chính & Kế toán': 'B2B',
-  'Bất động sản': 'both',
-  'F&B (Nhà hàng, Quán cà phê)': 'B2C',
+  'Ngân hàng & Tín dụng': 'both',
+  'Bảo hiểm': 'both',
+  'Crypto & Fintech': 'both',
+  
+  // Nhóm Công nghệ
   'Công nghệ thông tin': 'B2B',
-  'Giáo dục & Đào tạo': 'both',
-  'Y tế & Sức khỏe': 'both',
-  'Du lịch & Khách sạn': 'B2C',
+  'Viễn thông': 'both',
+  'Game & Giải trí số': 'B2C',
+  'Startup & Khởi nghiệp': 'B2B',
+  
+  // Nhóm Bán hàng
   'Thương mại điện tử': 'B2C',
-  'Marketing & Truyền thông': 'B2B',
-  'Luật & Pháp lý': 'B2B',
-  'Xây dựng & Nội thất': 'both',
-  'Thời trang & Làm đẹp': 'B2C',
   'Bán lẻ': 'B2C',
+  'Nhập khẩu & Xuất khẩu': 'B2B',
+  
+  // Nhóm Dịch vụ
+  'Y tế & Sức khỏe': 'both',
+  'Giáo dục & Đào tạo': 'both',
+  'Luật & Pháp lý': 'B2B',
+  'Tư vấn & Dịch vụ chuyên nghiệp': 'B2B',
+  'HR & Tuyển dụng': 'B2B',
+  
+  // Nhóm Lifestyle
+  'F&B (Nhà hàng, Quán cà phê)': 'B2C',
+  'Du lịch & Khách sạn': 'B2C',
+  'Thời trang & Làm đẹp': 'B2C',
+  'Mỹ phẩm & Chăm sóc da': 'B2C',
+  'Fitness & Thể thao': 'B2C',
+  'Pet & Thú cưng': 'B2C',
+  
+  // Nhóm Bất động sản & Xây dựng
+  'Bất động sản': 'both',
+  'Xây dựng & Nội thất': 'both',
+  'Nội thất & Trang trí': 'B2C',
+  
+  // Nhóm Sản xuất & Logistics
   'Sản xuất & Công nghiệp': 'B2B',
   'Nông nghiệp': 'both',
   'Logistics & Vận tải': 'B2B',
-  'Bảo hiểm': 'both',
-  'Tư vấn & Dịch vụ chuyên nghiệp': 'B2B',
+  'Automotive': 'both',
+  
+  // Nhóm Khác
+  'Marketing & Truyền thông': 'B2B',
+  'Sự kiện & Hội nghị': 'both',
+  'Dịch vụ gia đình': 'B2C',
+  'Mẹ & Bé': 'B2C',
 };
 
 // Color to tone mapping
