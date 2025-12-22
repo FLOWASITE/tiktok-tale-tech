@@ -7,7 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, GripVertical, Calendar, User, Clock, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Eye, GripVertical, Calendar, User, Clock, AlertCircle, CheckCircle2, Sparkles, Edit3, Send, Trash2, CalendarPlus } from 'lucide-react';
+import { ContentStatus, CONTENT_STATUSES } from '@/types/multichannel';
 import { format, isPast, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ContentTask } from './TasksKanbanBoard';
@@ -19,6 +20,8 @@ interface KanbanCardProps {
   currentUserId?: string;
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
+  onStatusChange?: (contentId: string, status: ContentStatus) => Promise<any>;
+  onDelete?: (contentId: string) => Promise<void>;
   isDragging?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -29,6 +32,8 @@ export function KanbanCard({
   currentUserId,
   onAssignmentStatusChange,
   onRefresh,
+  onStatusChange,
+  onDelete,
   isDragging,
   isSelected,
   onToggleSelect,
@@ -86,6 +91,25 @@ export function KanbanCard({
     : 'priority-normal'
     : '';
 
+  // Quick action handlers
+  const handleQuickStatusChange = async (e: React.MouseEvent, status: ContentStatus) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onStatusChange) {
+      await onStatusChange(content.id, status);
+      onRefresh();
+    }
+  };
+
+  const handleQuickDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onDelete && window.confirm('Bạn có chắc chắn muốn xóa nội dung này?')) {
+      await onDelete(content.id);
+      onRefresh();
+    }
+  };
+
   return (
     <Card
       ref={setNodeRef}
@@ -107,6 +131,78 @@ export function KanbanCard({
           checked={isSelected} 
           className="h-4 w-4 bg-background/90 backdrop-blur-sm border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-sm"
         />
+      </div>
+
+      {/* Quick action buttons on hover */}
+      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
+        <TooltipProvider delayDuration={200}>
+          {content.status === 'draft' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-yellow-500/20 hover:text-yellow-600"
+                  onClick={(e) => handleQuickStatusChange(e, 'review')}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">Gửi duyệt</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {content.status === 'review' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
+                  onClick={(e) => handleQuickStatusChange(e, 'approved')}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">Duyệt</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-primary/20 hover:text-primary"
+                asChild
+              >
+                <Link to={`/multichannel?edit=${content.id}`} onClick={(e) => e.stopPropagation()}>
+                  <Edit3 className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Chỉnh sửa</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
+                onClick={handleQuickDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Xóa</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Gradient overlay on hover */}

@@ -693,6 +693,7 @@ export default function Tasks() {
               onContentStatusChange={updateStatus}
               onAssignmentStatusChange={updateAssignmentStatus}
               onRefresh={handleRefresh}
+              onDelete={deleteContent}
               selectedIds={selectedIds}
               onSelectionChange={setSelectedIds}
             />
