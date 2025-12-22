@@ -264,6 +264,18 @@ serve(async (req) => {
       );
     }
 
+    // Get user's organization_id
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .single();
+    
+    const organizationId = orgMember?.organization_id || null;
+    console.log("User organization_id:", organizationId);
+
     // Load Brand Voice from template if provided
     let brandVoice: BrandVoice | undefined;
     if (formData.brandTemplateId) {
@@ -401,6 +413,7 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
       .from("carousels")
       .insert({
         user_id: userId,
+        organization_id: organizationId,
         title: generatedData.title,
         topic: formData.topic,
         platform: formData.platform,
