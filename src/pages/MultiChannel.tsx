@@ -319,13 +319,11 @@ export default function MultiChannel() {
               />
             )}
 
-        {/* Content Row - Horizontal Scroll */}
+        {/* Content Grid - Responsive */}
         {loading ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-[200px] sm:w-[220px] snap-start">
-                <CardLoadingSkeleton />
-              </div>
+              <CardLoadingSkeleton key={i} />
             ))}
           </div>
         ) : filteredContents.length === 0 ? (
@@ -349,11 +347,11 @@ export default function MultiChannel() {
             )}
           </div>
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredContents.map((content, index) => (
               <div
                 key={content.id}
-                className="stagger-item relative flex-shrink-0 w-[200px] sm:w-[220px] snap-start"
+                className="stagger-item relative"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Selection Checkbox */}

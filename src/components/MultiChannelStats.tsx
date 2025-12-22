@@ -174,117 +174,166 @@ export function MultiChannelStats({ contents }: MultiChannelStatsProps) {
   }
 
   return (
-    <>
-      <div className="flex items-center gap-4 p-2 rounded-lg bg-muted/30 border border-border/50">
-        <div className="flex items-center gap-1.5 text-xs">
-          <BarChart3 className="w-3.5 h-3.5 text-primary" />
-          <span className="font-medium">{stats.total}</span>
-          <span className="text-muted-foreground">tổng</span>
-        </div>
-        <div className="h-4 w-px bg-border" />
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="font-medium text-green-500">{stats.last7Days}</span>
-          <span className="text-muted-foreground">tuần qua</span>
-        </div>
-        <div className="h-4 w-px bg-border" />
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="font-medium text-blue-500">{stats.last30Days}</span>
-          <span className="text-muted-foreground">tháng qua</span>
-        </div>
-        {stats.topChannel && (
-          <>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-primary">{channelIcons[stats.topChannel.channel]}</span>
-              <span className="font-medium">{stats.topChannel.count}</span>
-              <span className="text-muted-foreground hidden sm:inline">phổ biến</span>
+    <div className="space-y-2">
+      {/* Summary Cards - 4 cards grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Card className="p-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-full bg-primary/10">
+              <BarChart3 className="w-3.5 h-3.5 text-primary" />
             </div>
-          </>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="h-6 px-2 text-xs ml-auto"
-        >
-          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </Button>
+            <div className="min-w-0">
+              <p className="text-lg font-bold leading-none">{stats.total}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Tổng nội dung</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-full bg-green-500/10">
+              <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-lg font-bold leading-none text-green-500">{stats.last7Days}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">7 ngày qua</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-full bg-blue-500/10">
+              <Calendar className="w-3.5 h-3.5 text-blue-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-lg font-bold leading-none text-blue-500">{stats.last30Days}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">30 ngày qua</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-2.5">
+          <div className="flex items-center gap-2">
+            {stats.topChannel ? (
+              <>
+                <div className="p-1.5 rounded-full bg-violet-500/10">
+                  <span className="text-violet-500">{channelIcons[stats.topChannel.channel]}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold leading-none text-violet-500">{stats.topChannel.count}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Kênh phổ biến</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-1.5 rounded-full bg-muted">
+                  <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold leading-none">0</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Kênh phổ biến</p>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
       </div>
 
-    {/* Expanded Stats */}
-    {isExpanded && (
-      <Card className="border-border/50 mt-2">
-        <CardContent className="p-3 space-y-3">
-          {/* Daily Chart */}
-          <div className="space-y-1">
-            <h4 className="text-xs font-medium flex items-center gap-1.5">
-              <Calendar className="w-3 h-3" />
-              7 ngày qua
-            </h4>
-            <div className="h-[100px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.dailyData}>
-                  <XAxis 
-                    dataKey="day" 
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                    width={20}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                      fontSize: '11px',
-                    }}
-                    formatter={(value) => [`${value} bài`, '']}
-                  />
-                  <Bar 
-                    dataKey="count" 
-                    fill="hsl(var(--primary))" 
-                    radius={[3, 3, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+      {/* Expand/Collapse Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="h-6 px-2 text-xs w-full"
+      >
+        {isExpanded ? (
+          <>
+            <ChevronUp className="w-3 h-3 mr-1" />
+            Ẩn chi tiết
+          </>
+        ) : (
+          <>
+            <ChevronDown className="w-3 h-3 mr-1" />
+            Xem chi tiết
+          </>
+        )}
+      </Button>
 
-          {/* Channel & Status */}
-          <div className="grid grid-cols-2 gap-3">
+      {/* Expanded Stats */}
+      {isExpanded && (
+        <Card className="border-border/50">
+          <CardContent className="p-3 space-y-3">
+            {/* Daily Chart */}
             <div className="space-y-1">
-              <h4 className="text-xs font-medium">Top kênh</h4>
-              <div className="space-y-0.5">
-                {stats.channelData.slice(0, 3).map((item) => (
-                  <div key={item.channel} className="flex items-center gap-1.5 text-xs">
-                    <span className="text-primary">{channelIcons[item.channel]}</span>
-                    <span className="flex-1 truncate text-muted-foreground">{item.label}</span>
-                    <span className="font-medium">{item.count}</span>
-                  </div>
-                ))}
+              <h4 className="text-xs font-medium flex items-center gap-1.5">
+                <Calendar className="w-3 h-3" />
+                7 ngày qua
+              </h4>
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.dailyData}>
+                    <XAxis 
+                      dataKey="day" 
+                      tick={{ fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                      width={20}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                      }}
+                      formatter={(value) => [`${value} bài`, '']}
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      fill="hsl(var(--primary))" 
+                      radius={[3, 3, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
-            <div className="space-y-1">
-              <h4 className="text-xs font-medium">Trạng thái</h4>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-gray-500/10">
-                  Nháp: {stats.statusCounts.draft}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-500">
-                  Đã đăng: {stats.statusCounts.published}
-                </Badge>
+
+            {/* Channel & Status */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <h4 className="text-xs font-medium">Top kênh</h4>
+                <div className="space-y-0.5">
+                  {stats.channelData.slice(0, 3).map((item) => (
+                    <div key={item.channel} className="flex items-center gap-1.5 text-xs">
+                      <span className="text-primary">{channelIcons[item.channel]}</span>
+                      <span className="flex-1 truncate text-muted-foreground">{item.label}</span>
+                      <span className="font-medium">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-medium">Trạng thái</h4>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-gray-500/10">
+                    Nháp: {stats.statusCounts.draft}
+                  </Badge>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-500">
+                    Đã đăng: {stats.statusCounts.published}
+                  </Badge>
+                </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    )}
-  </>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
