@@ -5,13 +5,27 @@ import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselStats } from '@/components/CarouselStats';
+import { CarouselListView } from '@/components/CarouselListView';
 import { useCarousels } from '@/hooks/useCarousels';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SlidePanel } from '@/components/ui/slide-panel';
-import { Images, Sparkles, Plus, X } from 'lucide-react';
+import { Images, Sparkles, Plus, X, LayoutGrid, List, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 const CarouselPage = () => {
   const navigate = useNavigate();
@@ -19,6 +33,8 @@ const CarouselPage = () => {
   const [selectedCarousel, setSelectedCarousel] = useState<Carousel | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<CarouselFiltersState>({
     search: '',
     platform: 'all',
@@ -60,6 +76,13 @@ const CarouselPage = () => {
       setViewerOpen(true);
     }
   };
+  const handleBulkDelete = async () => {
+    for (const id of selectedIds) {
+      await deleteCarousel(id);
+    }
+    toast.success(`Đã xóa ${selectedIds.length} carousel`);
+    setSelectedIds([]);
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -76,6 +99,27 @@ const CarouselPage = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* View Toggle */}
+            <div className="flex items-center border rounded-lg p-1 bg-muted/30">
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setViewMode('grid')}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setViewMode('list')}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
             <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
               <Plus className="w-4 h-4" />
               Thêm mới
@@ -140,6 +184,14 @@ const CarouselPage = () => {
               </Button>
             )}
           </div>
+        ) : viewMode === 'list' ? (
+          <CarouselListView
+            carousels={filteredCarousels}
+            onView={handleViewCarousel}
+            onDelete={deleteCarousel}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredCarousels.map((carousel, index) => (
@@ -155,6 +207,52 @@ const CarouselPage = () => {
                 />
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Bulk Actions Bar */}
+        {selectedIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 bg-background border border-border/50 rounded-lg shadow-lg">
+            <Badge variant="secondary" className="text-xs">
+              {selectedIds.length} đã chọn
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds([])}
+              className="h-8 text-xs"
+            >
+              Bỏ chọn
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Xóa
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có chắc muốn xóa {selectedIds.length} carousel đã chọn?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleBulkDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Xóa
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </div>
