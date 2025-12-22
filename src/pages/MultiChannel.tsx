@@ -62,6 +62,7 @@ export default function MultiChannel() {
   const [brandFilter, setBrandFilter] = useState<string | 'all'>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [tagFilter, setTagFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
   // Get all unique tags from contents
   const availableTags = useMemo(() => {
@@ -81,8 +82,9 @@ export default function MultiChannel() {
     if (brandFilter !== 'all') count++;
     if (dateRange.from || dateRange.to) count++;
     if (tagFilter !== 'all') count++;
+    if (priorityFilter !== 'all') count++;
     return count;
-  }, [goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter]);
+  }, [goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
 
   const clearFilters = () => {
     setGoalFilter('all');
@@ -91,6 +93,7 @@ export default function MultiChannel() {
     setBrandFilter('all');
     setDateRange({ from: undefined, to: undefined });
     setTagFilter('all');
+    setPriorityFilter('all');
     setSearchQuery('');
   };
 
@@ -141,9 +144,15 @@ export default function MultiChannel() {
         return false;
       }
 
+      // Priority filter
+      if (priorityFilter !== 'all') {
+        const contentPriority = content.priority || 'normal';
+        if (contentPriority !== priorityFilter) return false;
+      }
+
       return true;
     });
-  }, [contents, searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter]);
+  }, [contents, searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
 
   const handleView = (content: MultiChannelContent) => {
     setSelectedContent(content);
@@ -413,6 +422,8 @@ export default function MultiChannel() {
             onView={handleView}
             onDelete={handleDelete}
             onChannelStatusChange={updateChannelStatus}
+            priorityFilter={priorityFilter}
+            onPriorityFilterChange={setPriorityFilter}
           />
         )}
       </div>

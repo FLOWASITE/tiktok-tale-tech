@@ -131,6 +131,8 @@ interface MultiChannelListViewProps {
   onView: (content: MultiChannelContent) => void;
   onDelete: (id: string) => void;
   onChannelStatusChange?: (contentId: string, channel: Channel, status: ContentStatus) => Promise<unknown>;
+  priorityFilter?: string;
+  onPriorityFilterChange?: (priority: string) => void;
 }
 
 // Helper function to get status summary
@@ -213,6 +215,8 @@ export function MultiChannelListView({
   onView,
   onDelete,
   onChannelStatusChange,
+  priorityFilter = 'all',
+  onPriorityFilterChange,
 }: MultiChannelListViewProps) {
   const [sortField, setSortField] = useState<SortField | null>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -253,11 +257,56 @@ export function MultiChannelListView({
 
   return (
     <TooltipProvider>
-      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="w-[40px]"></TableHead>
+      <div className="space-y-3">
+        {/* Quick Priority Filter */}
+        {onPriorityFilterChange && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Lọc nhanh:</span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant={priorityFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onPriorityFilterChange('all')}
+              >
+                Tất cả
+              </Button>
+              <Button
+                variant={priorityFilter === 'high' ? 'default' : 'outline'}
+                size="sm"
+                className={`h-7 text-xs gap-1 ${priorityFilter === 'high' ? '' : 'text-red-500 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950'}`}
+                onClick={() => onPriorityFilterChange('high')}
+              >
+                <AlertCircle className="w-3 h-3" />
+                Cao
+              </Button>
+              <Button
+                variant={priorityFilter === 'normal' ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => onPriorityFilterChange('normal')}
+              >
+                <Clock className="w-3 h-3" />
+                Bình thường
+              </Button>
+              <Button
+                variant={priorityFilter === 'low' ? 'default' : 'outline'}
+                size="sm"
+                className={`h-7 text-xs gap-1 ${priorityFilter === 'low' ? '' : 'text-blue-500 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-950'}`}
+                onClick={() => onPriorityFilterChange('low')}
+              >
+                <Clock className="w-3 h-3" />
+                Thấp
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableHead className="w-[40px]"></TableHead>
               <TableHead className="min-w-[280px]">
                 <SortableHeader
                   label="Nội dung"
@@ -592,6 +641,7 @@ export function MultiChannelListView({
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
     </TooltipProvider>
   );
