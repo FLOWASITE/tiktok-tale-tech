@@ -1,11 +1,10 @@
-import { Trash2, CheckCircle, X, MoreHorizontal } from 'lucide-react';
+import { Trash2, CheckCircle, X, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -28,6 +27,7 @@ interface BulkActionsBarProps {
   onClearSelection: () => void;
   onBulkDelete: () => void;
   onBulkStatusChange: (status: ContentStatus) => void;
+  onBulkSchedule?: () => void;
   isDeleting?: boolean;
   isUpdating?: boolean;
 }
@@ -39,6 +39,7 @@ export function BulkActionsBar({
   onClearSelection,
   onBulkDelete,
   onBulkStatusChange,
+  onBulkSchedule,
   isDeleting,
   isUpdating,
 }: BulkActionsBarProps) {
@@ -60,6 +61,19 @@ export function BulkActionsBar({
       </Button>
 
       <div className="h-4 w-px bg-border" />
+
+      {/* Bulk Schedule Button */}
+      {onBulkSchedule && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBulkSchedule}
+          className="h-6 text-[10px] px-2 text-primary hover:text-primary"
+        >
+          <CalendarClock className="w-3 h-3 mr-1" />
+          Lên lịch
+        </Button>
+      )}
 
       {/* Change Status Dropdown */}
       <DropdownMenu>

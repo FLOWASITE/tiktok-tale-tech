@@ -7,6 +7,7 @@ import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
+import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
 import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
 import { MultiChannelStats } from '@/components/MultiChannelStats';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,6 +48,7 @@ export default function MultiChannel() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkScheduleOpen, setBulkScheduleOpen] = useState(false);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -294,6 +296,7 @@ export default function MultiChannel() {
               onClearSelection={clearSelection}
               onBulkDelete={handleBulkDelete}
               onBulkStatusChange={handleBulkStatusChange}
+              onBulkSchedule={() => setBulkScheduleOpen(true)}
               isDeleting={isBulkDeleting}
               isUpdating={isBulkUpdating}
             />
@@ -417,6 +420,17 @@ export default function MultiChannel() {
         onUpdateChannelStatus={handleUpdateChannelStatus}
         regeneratingChannel={regeneratingChannel}
         aiEditingChannel={aiEditingChannel}
+      />
+
+      {/* Bulk Schedule Dialog */}
+      <BulkScheduleDialog
+        open={bulkScheduleOpen}
+        onOpenChange={setBulkScheduleOpen}
+        contents={filteredContents.filter(c => selectedIds.has(c.id))}
+        onScheduleComplete={() => {
+          clearSelection();
+          toast.success('Đã lên lịch hàng loạt thành công!');
+        }}
       />
     </div>
   );
