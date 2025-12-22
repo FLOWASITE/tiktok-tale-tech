@@ -21,7 +21,8 @@ import {
   Edit3,
   Trash2,
   Send,
-  XCircle
+  XCircle,
+  User
 } from 'lucide-react';
 import { formatDistanceToNow, format, isPast } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -34,6 +35,7 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { getChannelColorClasses } from '@/utils/channelColors';
 import { OrgRole, canApproveContent, canSubmitForReview } from '@/types/organization';
 import { ApprovalDialog } from './ApprovalDialog';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 
 interface ContentTaskCardProps {
   content: MultiChannelContent;
@@ -71,6 +73,11 @@ export function ContentTaskCard({
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
   const { fireConfetti } = useConfetti();
+  
+  // Get creator profile
+  const creatorIds = content.user_id ? [content.user_id] : [];
+  const { profiles: creatorProfiles } = useCreatorProfiles(creatorIds);
+  const creator = content.user_id ? creatorProfiles[content.user_id] : null;
 
   // Approval dialog state
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
@@ -507,6 +514,32 @@ export function ContentTaskCard({
                 {CHANNELS.find(c => c.value === nextSchedule.channel)?.label}
               </Badge>
             )}
+          </div>
+        )}
+
+        {/* Creator info */}
+        {creator && (
+          <div className="flex items-center gap-2 pt-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="w-5 h-5 border border-border/50">
+                      <AvatarImage src={creator.avatar_url || undefined} />
+                      <AvatarFallback className="text-[8px] font-medium bg-muted">
+                        {creator.full_name?.charAt(0) || creator.email.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
+                      {creator.full_name || creator.email.split('@')[0]}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Người tạo: {creator.full_name || creator.email}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
 
