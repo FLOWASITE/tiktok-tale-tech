@@ -37,6 +37,8 @@ import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
 import { SchedulePanel } from '@/components/SchedulePanel';
 import { TeamWorkPanel } from '@/components/TeamWorkPanel';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorCell } from '@/components/CreatorCell';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -285,6 +287,10 @@ export function MultiChannelViewer({
   }, [editingChannel, undo, redo]);
 
   // Early return after all hooks
+  // Fetch creator profile
+  const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([content?.user_id]);
+  const creatorProfile = content?.user_id ? profiles[content.user_id] : undefined;
+
   if (!content) return null;
 
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
@@ -549,7 +555,7 @@ export function MultiChannelViewer({
                   <p className="text-sm text-muted-foreground mb-3 mt-2">
                     {content.topic}
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{goalLabel}</Badge>
                     {content.industry && (
                       <Badge variant="outline" className="bg-muted/50">
@@ -559,6 +565,11 @@ export function MultiChannelViewer({
                     <Badge variant="outline" className="bg-muted/50">
                       {content.brand_name}
                     </Badge>
+                    <span className="text-muted-foreground mx-1">•</span>
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <span>Tạo bởi:</span>
+                      <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                    </div>
                   </div>
                 </>
               )}
