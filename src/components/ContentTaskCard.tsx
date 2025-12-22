@@ -310,8 +310,8 @@ export function ContentTaskCard({
           <div className={`flex-1 min-w-0 ${isSelected ? 'ml-6' : ''}`}>
             <div className="flex items-center gap-2 mb-1">
               <Badge 
-                variant="secondary" 
-                className={`text-[10px] sm:text-xs shrink-0 ${statusConfig.color}`}
+                variant="outline" 
+                className={`text-[10px] sm:text-xs shrink-0 font-medium ${statusConfig.bgClass} ${statusConfig.textClass} ${statusConfig.borderClass}`}
               >
                 {statusConfig.label}
               </Badge>

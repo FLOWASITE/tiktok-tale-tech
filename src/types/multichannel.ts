@@ -95,11 +95,11 @@ export const CONTENT_GOALS: { value: ContentGoal; label: string; description: st
   { value: 'conversion', label: 'Chuyển đổi', description: 'Thúc đẩy hành động mua hàng', icon: Target },
 ];
 
-export const CONTENT_STATUSES: { value: ContentStatus; label: string; color: string }[] = [
-  { value: 'draft', label: 'Bản nháp', color: 'gray' },
-  { value: 'review', label: 'Đang xem xét', color: 'yellow' },
-  { value: 'approved', label: 'Đã duyệt', color: 'blue' },
-  { value: 'published', label: 'Đã đăng', color: 'green' },
+export const CONTENT_STATUSES: { value: ContentStatus; label: string; color: string; bgClass: string; textClass: string; borderClass: string }[] = [
+  { value: 'draft', label: 'Bản nháp', color: 'gray', bgClass: 'bg-slate-500/15', textClass: 'text-slate-600 dark:text-slate-400', borderClass: 'border-slate-500/30' },
+  { value: 'review', label: 'Chờ duyệt', color: 'yellow', bgClass: 'bg-amber-500/15', textClass: 'text-amber-600 dark:text-amber-400', borderClass: 'border-amber-500/30' },
+  { value: 'approved', label: 'Đã duyệt', color: 'blue', bgClass: 'bg-blue-500/15', textClass: 'text-blue-600 dark:text-blue-400', borderClass: 'border-blue-500/30' },
+  { value: 'published', label: 'Đã đăng', color: 'green', bgClass: 'bg-emerald-500/15', textClass: 'text-emerald-600 dark:text-emerald-400', borderClass: 'border-emerald-500/30' },
 ];
 
 export const CHANNELS: { value: Channel; label: string; icon: string; color: string; category: string; description: string }[] = [

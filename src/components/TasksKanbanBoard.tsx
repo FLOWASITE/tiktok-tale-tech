@@ -39,15 +39,15 @@ interface TasksKanbanBoardProps {
 const KANBAN_COLUMNS: { id: ContentStatus; label: string; color: string; icon: React.ReactNode }[] = [
   { 
     id: 'draft', 
-    label: 'Nháp', 
-    color: 'bg-gradient-to-r from-muted/80 to-muted/40',
-    icon: <FileEdit className="w-4 h-4 text-muted-foreground" />
+    label: 'Bản nháp', 
+    color: 'bg-gradient-to-r from-slate-500/20 to-slate-500/10',
+    icon: <FileEdit className="w-4 h-4 text-slate-500" />
   },
   { 
     id: 'review', 
     label: 'Chờ duyệt', 
-    color: 'bg-gradient-to-r from-yellow-500/20 to-yellow-500/10',
-    icon: <Clock className="w-4 h-4 text-yellow-500" />
+    color: 'bg-gradient-to-r from-amber-500/20 to-amber-500/10',
+    icon: <Clock className="w-4 h-4 text-amber-500" />
   },
   { 
     id: 'approved', 
@@ -58,8 +58,8 @@ const KANBAN_COLUMNS: { id: ContentStatus; label: string; color: string; icon: R
   { 
     id: 'published', 
     label: 'Đã đăng', 
-    color: 'bg-gradient-to-r from-green-500/20 to-green-500/10',
-    icon: <Send className="w-4 h-4 text-green-500" />
+    color: 'bg-gradient-to-r from-emerald-500/20 to-emerald-500/10',
+    icon: <Send className="w-4 h-4 text-emerald-500" />
   },
 ];
 
