@@ -1,4 +1,4 @@
-import { Moon, Sun, Leaf } from "lucide-react";
+import { Moon, Sun, Leaf, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,8 @@ export function ThemeToggle() {
         return <Moon className="h-4 w-4" />;
       case "lime":
         return <Leaf className="h-4 w-4" />;
+      case "system":
+        return <Monitor className="h-4 w-4" />;
       default:
         return <Sun className="h-4 w-4" />;
     }
@@ -33,6 +35,8 @@ export function ThemeToggle() {
         return "Tối";
       case "lime":
         return "Vàng chanh";
+      case "system":
+        return "Hệ thống";
       default:
         return "Sáng";
     }
@@ -65,6 +69,10 @@ export function ThemeToggle() {
         <DropdownMenuItem onClick={() => setTheme("lime")} className="gap-2">
           <Leaf className="h-4 w-4" />
           Vàng chanh
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")} className="gap-2">
+          <Monitor className="h-4 w-4" />
+          Theo hệ thống
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
