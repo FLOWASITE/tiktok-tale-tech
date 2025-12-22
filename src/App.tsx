@@ -19,6 +19,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import OrganizationSettings from "./pages/OrganizationSettings";
+import ContentCalendar from "./pages/ContentCalendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -94,6 +95,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <MultiChannel />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/calendar"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <ContentCalendar />
                     </AppLayout>
                   </ProtectedRoute>
                 }
