@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -35,6 +35,8 @@ import { ImagePromptEditor } from '@/components/ImagePromptEditor';
 import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
 import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
 import { SchedulePanel } from '@/components/SchedulePanel';
+import { TeamWorkPanel } from '@/components/TeamWorkPanel';
+import { AssignmentDialog } from '@/components/AssignmentDialog';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
