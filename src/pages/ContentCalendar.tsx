@@ -446,7 +446,7 @@ export default function ContentCalendar() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Lịch nội dung</h1>
+          <h1 className="text-2xl font-bold">Quản lý lịch đăng</h1>
           <p className="text-muted-foreground text-sm">
             Quản lý và lên lịch đăng bài theo ngày
           </p>

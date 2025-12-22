@@ -33,7 +33,7 @@ import {
 
 const menuItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Lịch nội dung', url: '/calendar', icon: CalendarDays },
+  { title: 'Quản lý lịch đăng', url: '/calendar', icon: CalendarDays },
   { title: 'Nội dung đa kênh', url: '/multichannel', icon: Layers },
   { title: 'Kịch bản Video', url: '/scripts', icon: Film },
   { title: 'Carousel Prompt', url: '/carousel', icon: Images },
