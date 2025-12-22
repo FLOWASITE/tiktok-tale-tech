@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { parseScriptContent, getPromptCount } from '@/utils/parsePrompts';
 import { PromptCard } from '@/components/PromptCard';
 import { StatusSelector } from '@/components/StatusSelector';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorCell } from '@/components/CreatorCell';
 
 interface ScriptViewerProps {
   script: Script | null;
@@ -24,6 +26,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Fetch creator profile
+  const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([script?.user_id]);
+  const creatorProfile = script?.user_id ? profiles[script.user_id] : undefined;
 
   useEffect(() => {
     if (script) {
@@ -162,7 +168,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
         </DialogHeader>
         
         {/* Metadata badges */}
-        <div className="flex flex-wrap gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary/10 text-primary">
             <Clock className="w-4 h-4" />
             {DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}
@@ -181,6 +187,11 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
               {promptCount} prompts
             </span>
           )}
+          <span className="text-muted-foreground mx-1">•</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Tạo bởi:</span>
+            <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+          </div>
         </div>
 
         {/* Action buttons */}

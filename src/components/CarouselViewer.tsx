@@ -20,6 +20,8 @@ import { useGeminiApiKey } from '@/hooks/useGeminiApiKey';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
 import { StatusSelector, ContentStatus } from '@/components/StatusSelector';
 import { supabase } from '@/integrations/supabase/client';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorCell } from '@/components/CreatorCell';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
@@ -116,6 +118,10 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
   const { apiKey, isConfigured } = useGeminiApiKey();
   const { generating, generatedImages, generateImage, getImageForSlide, deleteImage } = useImageGeneration();
+  
+  // Fetch creator profile
+  const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([carousel?.user_id]);
+  const creatorProfile = carousel?.user_id ? profiles[carousel.user_id] : undefined;
 
   if (!carousel) return null;
 
@@ -237,7 +243,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                 />
               </div>
               <p className="text-sm text-muted-foreground mb-3">{carousel.topic}</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{platformLabels[carousel.platform]}</Badge>
                 <Badge variant="outline">
                   <Images className="w-3 h-3 mr-1" />
@@ -247,6 +253,11 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   {aiToolLabels[carousel.ai_tool]}
                 </Badge>
                 <Badge variant="outline">{carousel.brand_name}</Badge>
+                <span className="text-muted-foreground mx-1">•</span>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span>Tạo bởi:</span>
+                  <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                </div>
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
