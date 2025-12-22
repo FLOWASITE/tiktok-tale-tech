@@ -17,14 +17,18 @@ import {
   SendHorizontal,
   Sparkles,
   ArrowRight,
-  Target
+  Target,
+  Edit3,
+  Trash2,
+  Send
 } from 'lucide-react';
 import { formatDistanceToNow, format, isPast } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { MultiChannelContent, CHANNELS, Channel, CONTENT_STATUSES } from '@/types/multichannel';
+import { MultiChannelContent, CHANNELS, Channel, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
 import { ContentAssignment, ASSIGNMENT_STATUSES, AssignmentStatus, ASSIGNMENT_PRIORITIES } from '@/types/assignment';
 import { ContentSchedule, PUBLISH_STATUSES } from '@/types/publishing';
+import { Link } from 'react-router-dom';
 
 interface ContentTaskCardProps {
   content: MultiChannelContent;
@@ -33,6 +37,8 @@ interface ContentTaskCardProps {
   currentUserId?: string;
   onAssignmentStatusChange: (assignmentId: string, newStatus: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
+  onStatusChange?: (contentId: string, status: ContentStatus) => Promise<any>;
+  onDelete?: (contentId: string) => Promise<void>;
   isSelected?: boolean;
   onToggleSelect?: () => void;
 }
@@ -44,6 +50,8 @@ export function ContentTaskCard({
   currentUserId,
   onAssignmentStatusChange,
   onRefresh,
+  onStatusChange,
+  onDelete,
   isSelected,
   onToggleSelect,
 }: ContentTaskCardProps) {
@@ -168,6 +176,25 @@ export function ContentTaskCard({
     : 'priority-normal'
     : '';
 
+  // Quick action handlers
+  const handleQuickStatusChange = async (e: React.MouseEvent, status: ContentStatus) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onStatusChange) {
+      await onStatusChange(content.id, status);
+      onRefresh();
+    }
+  };
+
+  const handleQuickDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onDelete && window.confirm('Bạn có chắc chắn muốn xóa nội dung này?')) {
+      await onDelete(content.id);
+      onRefresh();
+    }
+  };
+
   return (
     <Card className={`relative group overflow-hidden task-card-hover rounded-2xl ${priorityClass} ${
       isOverdue ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-transparent deadline-urgent' : 'border-border/40'
@@ -181,6 +208,78 @@ export function ContentTaskCard({
           checked={isSelected} 
           className="h-4 w-4 bg-background/90 backdrop-blur-sm border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-sm"
         />
+      </div>
+
+      {/* Quick action buttons on hover */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
+        <TooltipProvider delayDuration={200}>
+          {content.status === 'draft' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-yellow-500/20 hover:text-yellow-600"
+                  onClick={(e) => handleQuickStatusChange(e, 'review')}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">Gửi duyệt</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {content.status === 'review' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
+                  onClick={(e) => handleQuickStatusChange(e, 'approved')}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">Duyệt</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-primary/20 hover:text-primary"
+                asChild
+              >
+                <Link to={`/multichannel?edit=${content.id}`} onClick={(e) => e.stopPropagation()}>
+                  <Edit3 className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Chỉnh sửa</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
+                onClick={handleQuickDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Xóa</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Gradient overlay */}

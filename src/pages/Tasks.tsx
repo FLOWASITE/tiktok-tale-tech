@@ -708,6 +708,8 @@ export default function Tasks() {
                     currentUserId={user?.id}
                     onAssignmentStatusChange={updateAssignmentStatus}
                     onRefresh={handleRefresh}
+                    onStatusChange={updateStatus}
+                    onDelete={deleteContent}
                     isSelected={selectedIds.has(content.id)}
                     onToggleSelect={() => handleToggleSelect(content.id)}
                   />
