@@ -4,6 +4,7 @@ import { ScriptForm } from '@/components/ScriptForm';
 import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { ScriptFilters, ScriptFilters as ScriptFiltersType } from '@/components/ScriptFilters';
+import { ScriptStats } from '@/components/ScriptStats';
 import { useScripts } from '@/hooks/useScripts';
 import { Script } from '@/types/script';
 import { Card, CardContent } from '@/components/ui/card';
@@ -103,6 +104,9 @@ const Index = () => {
       </div>
 
       <div className="p-6 space-y-4">
+        {/* Stats Cards */}
+        <ScriptStats scripts={scripts} loading={loading} />
+
         {/* Filters */}
         <ScriptFilters filters={filters} onFiltersChange={setFilters} />
 
