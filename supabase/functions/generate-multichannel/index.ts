@@ -13,6 +13,7 @@ interface FormData {
   contentGoal: string;
   channels: string[];
   brandTemplateId?: string;
+  organization_id?: string;
 }
 
 // Brand Voice label mappings
@@ -532,17 +533,22 @@ serve(async (req) => {
       );
     }
 
-    // Get user's organization_id
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .single();
+    // Get organization_id: prefer from request body, fallback to query
+    let organizationId = formData.organization_id || null;
     
-    const organizationId = orgMember?.organization_id || null;
-    console.log("User organization_id:", organizationId);
+    if (!organizationId) {
+      // Fallback: get first org where user is a member
+      const { data: orgMember } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single();
+      
+      organizationId = orgMember?.organization_id || null;
+    }
+    console.log("Using organization_id:", organizationId, "(from request:", !!formData.organization_id, ")");
 
     // Load brand template if provided
     let brandName = "Thương hiệu";
