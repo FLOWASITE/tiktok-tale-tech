@@ -14,7 +14,7 @@ import { vi } from 'date-fns/locale';
 import { ContentTask } from './TasksKanbanBoard';
 import { CHANNELS } from '@/types/multichannel';
 import { ASSIGNMENT_STATUSES, ASSIGNMENT_PRIORITIES, AssignmentStatus } from '@/types/assignment';
-
+import { useConfetti } from '@/hooks/useConfetti';
 interface KanbanCardProps {
   task: ContentTask;
   currentUserId?: string;
@@ -39,6 +39,7 @@ export function KanbanCard({
   onToggleSelect,
 }: KanbanCardProps) {
   const { content, assignments, schedules } = task;
+  const { fireConfetti } = useConfetti();
 
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: content.id,
@@ -98,6 +99,10 @@ export function KanbanCard({
     if (onStatusChange) {
       await onStatusChange(content.id, status);
       onRefresh();
+      // Fire confetti when publishing
+      if (status === 'published') {
+        fireConfetti();
+      }
     }
   };
 

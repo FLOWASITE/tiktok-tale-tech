@@ -29,6 +29,7 @@ import { MultiChannelContent, CHANNELS, Channel, CONTENT_STATUSES, ContentStatus
 import { ContentAssignment, ASSIGNMENT_STATUSES, AssignmentStatus, ASSIGNMENT_PRIORITIES } from '@/types/assignment';
 import { ContentSchedule, PUBLISH_STATUSES } from '@/types/publishing';
 import { Link } from 'react-router-dom';
+import { useConfetti } from '@/hooks/useConfetti';
 
 interface ContentTaskCardProps {
   content: MultiChannelContent;
@@ -57,6 +58,7 @@ export function ContentTaskCard({
 }: ContentTaskCardProps) {
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
+  const { fireConfetti } = useConfetti();
 
   const getStatusConfig = (status: string) => {
     return CONTENT_STATUSES.find(s => s.value === status) || CONTENT_STATUSES[0];
@@ -183,6 +185,10 @@ export function ContentTaskCard({
     if (onStatusChange) {
       await onStatusChange(content.id, status);
       onRefresh();
+      // Fire confetti when publishing
+      if (status === 'published') {
+        fireConfetti();
+      }
     }
   };
 
