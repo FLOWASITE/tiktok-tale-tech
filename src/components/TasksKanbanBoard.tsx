@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -10,14 +10,14 @@ import {
   DragEndEvent,
   DragOverEvent,
 } from '@dnd-kit/core';
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { MultiChannelContent, ContentStatus, CONTENT_STATUSES } from '@/types/multichannel';
 import { ContentAssignment, AssignmentStatus, ASSIGNMENT_STATUSES } from '@/types/assignment';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
+import { FileEdit, Clock, CheckCircle, Send } from 'lucide-react';
 
 export interface ContentTask {
   content: MultiChannelContent;
@@ -34,11 +34,31 @@ interface TasksKanbanBoardProps {
 }
 
 // Define columns based on content status
-const KANBAN_COLUMNS: { id: ContentStatus; label: string; color: string }[] = [
-  { id: 'draft', label: 'Nháp', color: 'bg-muted' },
-  { id: 'review', label: 'Chờ duyệt', color: 'bg-yellow-500/20' },
-  { id: 'approved', label: 'Đã duyệt', color: 'bg-blue-500/20' },
-  { id: 'published', label: 'Đã đăng', color: 'bg-green-500/20' },
+const KANBAN_COLUMNS: { id: ContentStatus; label: string; color: string; icon: React.ReactNode }[] = [
+  { 
+    id: 'draft', 
+    label: 'Nháp', 
+    color: 'bg-gradient-to-r from-muted/80 to-muted/40',
+    icon: <FileEdit className="w-4 h-4 text-muted-foreground" />
+  },
+  { 
+    id: 'review', 
+    label: 'Chờ duyệt', 
+    color: 'bg-gradient-to-r from-yellow-500/20 to-yellow-500/10',
+    icon: <Clock className="w-4 h-4 text-yellow-500" />
+  },
+  { 
+    id: 'approved', 
+    label: 'Đã duyệt', 
+    color: 'bg-gradient-to-r from-blue-500/20 to-blue-500/10',
+    icon: <CheckCircle className="w-4 h-4 text-blue-500" />
+  },
+  { 
+    id: 'published', 
+    label: 'Đã đăng', 
+    color: 'bg-gradient-to-r from-green-500/20 to-green-500/10',
+    icon: <Send className="w-4 h-4 text-green-500" />
+  },
 ];
 
 export function TasksKanbanBoard({
@@ -119,27 +139,31 @@ export function TasksKanbanBoard({
       onDragEnd={handleDragEnd}
       onDragOver={handleDragOver}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {KANBAN_COLUMNS.map(column => (
-          <KanbanColumn
-            key={column.id}
-            id={column.id}
-            label={column.label}
-            color={column.color}
-            count={columnTasks[column.id].length}
-          >
-            {columnTasks[column.id].map(task => (
-              <KanbanCard
-                key={task.content.id}
-                task={task}
-                currentUserId={currentUserId}
-                onAssignmentStatusChange={onAssignmentStatusChange}
-                onRefresh={onRefresh}
-              />
-            ))}
-          </KanbanColumn>
-        ))}
-      </div>
+      <ScrollArea className="w-full">
+        <div className="flex gap-3 sm:gap-4 pb-4 min-w-max">
+          {KANBAN_COLUMNS.map(column => (
+            <KanbanColumn
+              key={column.id}
+              id={column.id}
+              label={column.label}
+              color={column.color}
+              count={columnTasks[column.id].length}
+              icon={column.icon}
+            >
+              {columnTasks[column.id].map(task => (
+                <KanbanCard
+                  key={task.content.id}
+                  task={task}
+                  currentUserId={currentUserId}
+                  onAssignmentStatusChange={onAssignmentStatusChange}
+                  onRefresh={onRefresh}
+                />
+              ))}
+            </KanbanColumn>
+          ))}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
 
       <DragOverlay>
         {activeTask && (
