@@ -174,211 +174,117 @@ export function MultiChannelStats({ contents }: MultiChannelStatsProps) {
   }
 
   return (
-    <Card className="border-border/50">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-primary" />
-            Thống kê nội dung
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="h-8 px-2"
-          >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="w-4 h-4 mr-1" />
-                Thu gọn
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4 mr-1" />
-                Xem thêm
-              </>
-            )}
-          </Button>
+    <>
+      <div className="flex items-center gap-4 p-2 rounded-lg bg-muted/30 border border-border/50">
+        <div className="flex items-center gap-1.5 text-xs">
+          <BarChart3 className="w-3.5 h-3.5 text-primary" />
+          <span className="font-medium">{stats.total}</span>
+          <span className="text-muted-foreground">tổng</span>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-muted/30 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-primary">{stats.total}</div>
-            <div className="text-xs text-muted-foreground">Tổng nội dung</div>
-          </div>
-          <div className="bg-muted/30 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-green-500">{stats.last7Days}</div>
-            <div className="text-xs text-muted-foreground">7 ngày qua</div>
-          </div>
-          <div className="bg-muted/30 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-blue-500">{stats.last30Days}</div>
-            <div className="text-xs text-muted-foreground">30 ngày qua</div>
-          </div>
-          <div className="bg-muted/30 rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 text-lg font-bold">
-              {stats.topChannel && (
-                <>
-                  <span className="text-primary">
-                    {channelIcons[stats.topChannel.channel]}
-                  </span>
-                  <span className="text-sm">{stats.topChannel.count}</span>
-                </>
-              )}
-            </div>
-            <div className="text-xs text-muted-foreground">Kênh phổ biến</div>
-          </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="font-medium text-green-500">{stats.last7Days}</span>
+          <span className="text-muted-foreground">tuần qua</span>
         </div>
-
-        {/* Expanded Stats */}
-        {isExpanded && (
-          <div className="space-y-4 pt-2 animate-fade-in">
-            {/* Daily Chart */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Nội dung theo ngày (7 ngày qua)
-              </h4>
-              <div className="h-[160px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.dailyData}>
-                    <XAxis 
-                      dataKey="day" 
-                      tick={{ fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={false}
-                      allowDecimals={false}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(value) => [`${value} bài`, 'Số lượng']}
-                    />
-                    <Bar 
-                      dataKey="count" 
-                      fill="hsl(var(--primary))" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="font-medium text-blue-500">{stats.last30Days}</span>
+          <span className="text-muted-foreground">tháng qua</span>
+        </div>
+        {stats.topChannel && (
+          <>
+            <div className="h-4 w-px bg-border" />
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-primary">{channelIcons[stats.topChannel.channel]}</span>
+              <span className="font-medium">{stats.topChannel.count}</span>
+              <span className="text-muted-foreground hidden sm:inline">phổ biến</span>
             </div>
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="h-6 px-2 text-xs ml-auto"
+        >
+          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </Button>
+      </div>
 
-            {/* Channel & Goal Distribution */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Top Channels */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Top 5 kênh phổ biến
-                </h4>
-                <div className="space-y-1.5">
-                  {stats.channelData.map((item, idx) => (
-                    <div key={item.channel} className="flex items-center gap-2">
-                      <span className="text-muted-foreground w-4 text-xs">{idx + 1}.</span>
-                      <span className="text-primary">{channelIcons[item.channel]}</span>
-                      <span className="text-sm flex-1 truncate">{item.label}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {item.count}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
+    {/* Expanded Stats */}
+    {isExpanded && (
+      <Card className="border-border/50 mt-2">
+        <CardContent className="p-3 space-y-3">
+          {/* Daily Chart */}
+          <div className="space-y-1">
+            <h4 className="text-xs font-medium flex items-center gap-1.5">
+              <Calendar className="w-3 h-3" />
+              7 ngày qua
+            </h4>
+            <div className="h-[100px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.dailyData}>
+                  <XAxis 
+                    dataKey="day" 
+                    tick={{ fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                    width={20}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                    }}
+                    formatter={(value) => [`${value} bài`, '']}
+                  />
+                  <Bar 
+                    dataKey="count" 
+                    fill="hsl(var(--primary))" 
+                    radius={[3, 3, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-              {/* Goals Distribution */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Hash className="w-4 h-4" />
-                  Phân bố mục tiêu
-                </h4>
-                {stats.goalData.length > 0 ? (
-                  <div className="h-[120px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={stats.goalData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={30}
-                          outerRadius={50}
-                          paddingAngle={2}
-                          dataKey="count"
-                        >
-                          {stats.goalData.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={CHART_COLORS[index % CHART_COLORS.length]} 
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                          }}
-                          formatter={(value, name, props) => [
-                            `${value} bài`,
-                            props.payload.label
-                          ]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+          {/* Channel & Status */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <h4 className="text-xs font-medium">Top kênh</h4>
+              <div className="space-y-0.5">
+                {stats.channelData.slice(0, 3).map((item) => (
+                  <div key={item.channel} className="flex items-center gap-1.5 text-xs">
+                    <span className="text-primary">{channelIcons[item.channel]}</span>
+                    <span className="flex-1 truncate text-muted-foreground">{item.label}</span>
+                    <span className="font-medium">{item.count}</span>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Chưa có dữ liệu</p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {stats.goalData.map((item, idx) => (
-                    <Badge 
-                      key={item.goal} 
-                      variant="outline" 
-                      className="text-xs"
-                      style={{ borderColor: CHART_COLORS[idx % CHART_COLORS.length] }}
-                    >
-                      {item.label}: {item.count}
-                    </Badge>
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
-
-            {/* Status Distribution */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Trạng thái nội dung
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="bg-gray-500/10 text-gray-500">
+            <div className="space-y-1">
+              <h4 className="text-xs font-medium">Trạng thái</h4>
+              <div className="flex flex-wrap gap-1">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-gray-500/10">
                   Nháp: {stats.statusCounts.draft}
                 </Badge>
-                <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500">
-                  Xem xét: {stats.statusCounts.review}
-                </Badge>
-                <Badge variant="secondary" className="bg-blue-500/10 text-blue-500">
-                  Đã duyệt: {stats.statusCounts.approved}
-                </Badge>
-                <Badge variant="secondary" className="bg-green-500/10 text-green-500">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-500">
                   Đã đăng: {stats.statusCounts.published}
                 </Badge>
               </div>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    )}
+  </>
   );
 }
