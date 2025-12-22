@@ -522,8 +522,17 @@ export function useMultiChannelContents() {
       const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
 
-      // Create notification for admins/owners
+      // Log the approval action
       if (currentOrganization && user) {
+        await supabase.from('approval_logs').insert({
+          content_id: contentId,
+          organization_id: currentOrganization.id,
+          action: 'submitted',
+          performed_by: user.id,
+          notes: notes || null,
+        });
+
+        // Create notification for admins/owners
         const { data: admins } = await supabase
           .from('organization_members')
           .select('user_id')
@@ -586,6 +595,17 @@ export function useMultiChannelContents() {
       const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
 
+      // Log the approval action
+      if (currentOrganization && user) {
+        await supabase.from('approval_logs').insert({
+          content_id: contentId,
+          organization_id: currentOrganization.id,
+          action: 'approved',
+          performed_by: user.id,
+          notes: notes || null,
+        });
+      }
+
       // Notify content creator
       if (currentOrganization && contentToApprove?.user_id && contentToApprove.user_id !== user?.id) {
         await supabase.from('notifications').insert({
@@ -635,6 +655,17 @@ export function useMultiChannelContents() {
 
       const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+
+      // Log the rejection action
+      if (currentOrganization && user) {
+        await supabase.from('approval_logs').insert({
+          content_id: contentId,
+          organization_id: currentOrganization.id,
+          action: 'rejected',
+          performed_by: user.id,
+          notes: reason,
+        });
+      }
 
       // Notify content creator with rejection reason
       if (currentOrganization && contentToReject?.user_id && contentToReject.user_id !== user?.id) {

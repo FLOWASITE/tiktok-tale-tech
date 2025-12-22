@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_logs: {
+        Row: {
+          action: string
+          content_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string | null
+          performed_by: string
+        }
+        Insert: {
+          action: string
+          content_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          performed_by: string
+        }
+        Update: {
+          action?: string
+          content_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          performed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_logs_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_templates: {
         Row: {
           allow_emoji: boolean | null
