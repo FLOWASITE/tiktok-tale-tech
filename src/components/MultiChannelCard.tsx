@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image, Building, FileText, RefreshCw } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,11 +22,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { MultiChannelContent, Channel, CONTENT_GOALS, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
+import { QuickScheduleDialog } from '@/components/QuickScheduleDialog';
 
 interface MultiChannelCardProps {
   content: MultiChannelContent;
   onView: (content: MultiChannelContent) => void;
   onDelete: (id: string) => void;
+  onScheduleComplete?: () => void;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -77,7 +80,9 @@ const statusDotColors: Record<ContentStatus, string> = {
   published: 'bg-green-400',
 };
 
-export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCardProps) {
+export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete }: MultiChannelCardProps) {
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
   const statusLabel = CONTENT_STATUSES.find(s => s.value === content.status)?.label || content.status;
   const imageCount = Object.keys(content.channel_images || {}).length;
@@ -260,6 +265,22 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
           Xem
         </Button>
 
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0 hover:bg-blue-500/10 hover:text-blue-500 hover:border-blue-500/50"
+                onClick={() => setShowScheduleDialog(true)}
+              >
+                <CalendarClock className="w-3 h-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Lên lịch đăng</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
@@ -289,6 +310,14 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      {/* Quick Schedule Dialog */}
+      <QuickScheduleDialog
+        content={content}
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        onScheduleComplete={onScheduleComplete}
+      />
     </div>
   );
 }
