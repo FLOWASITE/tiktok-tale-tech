@@ -54,7 +54,7 @@ export function OrganizationSwitcher() {
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="justify-start gap-2 px-3 h-9 min-w-[180px]"
+            className="justify-start gap-2 px-3 h-9 min-w-[220px]"
           >
             <div
               className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium"
@@ -74,7 +74,7 @@ export function OrganizationSwitcher() {
               )}
             </div>
             <div className="flex flex-col items-start text-left min-w-0 flex-1">
-              <span className="text-sm font-medium truncate max-w-[140px]">
+              <span className="text-sm font-medium truncate max-w-[180px]">
                 {currentOrganization.name}
               </span>
               <span className="text-[10px] text-muted-foreground leading-tight">
