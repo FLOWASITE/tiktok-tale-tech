@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,8 @@ import {
   CalendarCheck,
   Users,
   FileText,
+  CalendarDays,
+  CalendarRange,
   Sparkles
 } from 'lucide-react';
 import { ContentTaskCard } from '@/components/ContentTaskCard';
@@ -47,6 +50,7 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -60,7 +64,7 @@ export default function Tasks() {
   // Clear selection when filters or tab changes
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [activeTab, statusFilter, channelFilter, priorityFilter, searchQuery]);
+  }, [activeTab, statusFilter, channelFilter, priorityFilter, deadlineFilter, searchQuery]);
 
   const handleRefresh = () => {
     refetchContents();
@@ -98,6 +102,19 @@ export default function Tasks() {
     }
   }, [contentTasks, activeTab, myAssignments]);
 
+  // Get deadline date range helper
+  const getDeadlineDateRange = useCallback((filter: 'today' | 'week' | 'month') => {
+    const now = new Date();
+    switch (filter) {
+      case 'today':
+        return { start: startOfDay(now), end: endOfDay(now) };
+      case 'week':
+        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+      case 'month':
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+    }
+  }, []);
+
   // Apply filters
   const filteredTasks = useMemo(() => {
     return filteredByTab.filter(ct => {
@@ -116,9 +133,25 @@ export default function Tasks() {
         const hasPriority = ct.assignments.some(a => a.priority === priorityFilter);
         if (!hasPriority) return false;
       }
+      // Deadline filter
+      if (deadlineFilter !== 'all') {
+        const range = getDeadlineDateRange(deadlineFilter);
+        // Check content deadline
+        const hasMatchingDeadline = ct.content.deadline && 
+          isWithinInterval(parseISO(ct.content.deadline), range);
+        // Check assignment due dates
+        const hasMatchingAssignment = ct.assignments.some(a => 
+          a.due_date && isWithinInterval(parseISO(a.due_date), range)
+        );
+        // Check schedule dates
+        const hasMatchingSchedule = ct.schedules.some(s => 
+          s.scheduled_at && isWithinInterval(parseISO(s.scheduled_at), range)
+        );
+        if (!hasMatchingDeadline && !hasMatchingAssignment && !hasMatchingSchedule) return false;
+      }
       return true;
     });
-  }, [filteredByTab, searchQuery, statusFilter, channelFilter, priorityFilter]);
+  }, [filteredByTab, searchQuery, statusFilter, channelFilter, priorityFilter, deadlineFilter, getDeadlineDateRange]);
 
   const isLoading = loadingContents || loadingAssignments || loadingSchedules;
 
@@ -368,6 +401,46 @@ export default function Tasks() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Quick Deadline Filters */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={deadlineFilter === 'all' ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={() => setDeadlineFilter('all')}
+          className="h-8 text-xs sm:text-sm"
+        >
+          <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
+          Tất cả
+        </Button>
+        <Button
+          variant={deadlineFilter === 'today' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDeadlineFilter('today')}
+          className={`h-8 text-xs sm:text-sm ${deadlineFilter === 'today' ? 'bg-primary hover:bg-primary/90' : ''}`}
+        >
+          <Clock className="w-3.5 h-3.5 mr-1.5" />
+          Hôm nay
+        </Button>
+        <Button
+          variant={deadlineFilter === 'week' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDeadlineFilter('week')}
+          className={`h-8 text-xs sm:text-sm ${deadlineFilter === 'week' ? 'bg-blue-500 hover:bg-blue-600 text-white' : ''}`}
+        >
+          <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
+          Tuần này
+        </Button>
+        <Button
+          variant={deadlineFilter === 'month' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDeadlineFilter('month')}
+          className={`h-8 text-xs sm:text-sm ${deadlineFilter === 'month' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}`}
+        >
+          <CalendarCheck className="w-3.5 h-3.5 mr-1.5" />
+          Tháng này
+        </Button>
       </div>
 
       {/* Filters */}
