@@ -321,39 +321,39 @@ export default function MultiChannel() {
 
         {/* Content Row - Horizontal Scroll */}
         {loading ? (
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-[280px]">
+              <div key={i} className="flex-shrink-0 w-[240px] sm:w-[280px] md:w-[300px] snap-start">
                 <CardLoadingSkeleton />
               </div>
             ))}
           </div>
         ) : filteredContents.length === 0 ? (
-          <div className="text-center py-20 animate-fade-in">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
-              <Sparkles className="w-8 h-8 text-muted-foreground" />
+          <div className="text-center py-12 sm:py-20 animate-fade-in">
+            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted/50 mb-4">
+              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-2">
+            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">
               {contents.length === 0 ? 'Chưa có nội dung nào' : 'Không tìm thấy nội dung'}
             </h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mb-4 px-4">
               {contents.length === 0
                 ? 'Nhấn nút "Thêm mới" để tạo nội dung đa kênh đầu tiên.'
                 : 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.'}
             </p>
             {contents.length === 0 && (
-              <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
+              <Button onClick={() => setFormSheetOpen(true)} className="gap-2" size="sm">
                 <Plus className="w-4 h-4" />
                 Tạo nội dung mới
               </Button>
             )}
           </div>
         ) : (
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory">
             {filteredContents.map((content, index) => (
               <div
                 key={content.id}
-                className="stagger-item relative flex-shrink-0 w-[280px]"
+                className="stagger-item relative flex-shrink-0 w-[240px] sm:w-[280px] md:w-[300px] snap-start"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Selection Checkbox */}
