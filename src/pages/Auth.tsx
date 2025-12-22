@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2, Zap, Palette, Share2, Bot } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2, Zap, Palette, Share2, Bot, AlertCircle, XCircle } from 'lucide-react';
 import { z } from 'zod';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
@@ -55,6 +55,10 @@ export default function Auth() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerFullName, setRegisterFullName] = useState('');
   
+  // Error state
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  
   // Forgot password
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
@@ -68,13 +72,14 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError(null);
     
     try {
       emailSchema.parse(loginEmail);
       passwordSchema.parse(loginPassword);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        toast.error(err.errors[0].message);
+        setLoginError(err.errors[0].message);
         return;
       }
     }
@@ -85,11 +90,11 @@ export default function Auth() {
     
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        toast.error('Email hoặc mật khẩu không đúng');
+        setLoginError('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại thông tin đăng nhập.');
       } else if (error.message.includes('Email not confirmed')) {
-        toast.error('Vui lòng xác nhận email trước khi đăng nhập');
+        setLoginError('Vui lòng xác nhận email trước khi đăng nhập.');
       } else {
-        toast.error('Đăng nhập thất bại. Vui lòng thử lại.');
+        setLoginError('Đăng nhập thất bại. Vui lòng thử lại sau.');
       }
       return;
     }
@@ -99,13 +104,14 @@ export default function Auth() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRegisterError(null);
     
     try {
       emailSchema.parse(registerEmail);
       passwordSchema.parse(registerPassword);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        toast.error(err.errors[0].message);
+        setRegisterError(err.errors[0].message);
         return;
       }
     }
@@ -116,11 +122,13 @@ export default function Auth() {
     
     if (error) {
       if (error.message.includes('User already registered')) {
-        toast.error('Email này đã được đăng ký. Vui lòng đăng nhập.');
-        setActiveTab('login');
-        setLoginEmail(registerEmail);
+        setRegisterError('Email này đã được đăng ký. Vui lòng đăng nhập.');
+        setTimeout(() => {
+          setActiveTab('login');
+          setLoginEmail(registerEmail);
+        }, 1500);
       } else {
-        toast.error('Đăng ký thất bại. Vui lòng thử lại.');
+        setRegisterError('Đăng ký thất bại. Vui lòng thử lại sau.');
       }
       return;
     }
@@ -292,6 +300,35 @@ export default function Auth() {
               
               <TabsContent value="login" className="space-y-4 animate-fade-in">
                 <form onSubmit={handleLogin} className="space-y-4">
+                  {/* Error Alert */}
+                  {loginError && (
+                    <div className="relative overflow-hidden rounded-xl border border-destructive/50 bg-destructive/10 p-4 animate-shake">
+                      <div className="flex gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/20">
+                            <XCircle className="h-5 w-5 text-destructive" />
+                          </div>
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium text-destructive">
+                            Đăng nhập không thành công
+                          </p>
+                          <p className="text-sm text-destructive/80">
+                            {loginError}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLoginError(null)}
+                          className="flex-shrink-0 text-destructive/60 hover:text-destructive transition-colors"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {/* Animated border */}
+                      <div className="absolute bottom-0 left-0 h-1 bg-destructive/30 animate-pulse w-full" />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="login-email" className="text-sm font-medium">
                       Email
@@ -399,6 +436,35 @@ export default function Auth() {
               
               <TabsContent value="register" className="space-y-4 animate-fade-in">
                 <form onSubmit={handleRegister} className="space-y-4">
+                  {/* Error Alert */}
+                  {registerError && (
+                    <div className="relative overflow-hidden rounded-xl border border-destructive/50 bg-destructive/10 p-4 animate-shake">
+                      <div className="flex gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/20">
+                            <XCircle className="h-5 w-5 text-destructive" />
+                          </div>
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium text-destructive">
+                            Đăng ký không thành công
+                          </p>
+                          <p className="text-sm text-destructive/80">
+                            {registerError}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRegisterError(null)}
+                          className="flex-shrink-0 text-destructive/60 hover:text-destructive transition-colors"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {/* Animated border */}
+                      <div className="absolute bottom-0 left-0 h-1 bg-destructive/30 animate-pulse w-full" />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="register-name" className="text-sm font-medium">
                       Họ và tên
