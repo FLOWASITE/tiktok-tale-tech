@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2 } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2, User } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -39,7 +39,6 @@ const menuItems = [
   { title: 'Kịch bản Video', url: '/scripts', icon: Film },
   { title: 'Carousel Prompt', url: '/carousel', icon: Images },
   { title: 'Quản lý Brand', url: '/brands', icon: Bookmark },
-  { title: 'Cài đặt tổ chức', url: '/organization', icon: Building2 },
 ];
 
 export function AppSidebar() {
@@ -192,10 +191,12 @@ export function AppSidebar() {
                 className="w-56 bg-popover"
               >
                 <DropdownMenuItem onClick={() => navigate('/account')}>
+                  <User className="mr-2 h-4 w-4" />
                   Tài khoản
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/organization')}>
-                  Tổ chức
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Cài đặt tổ chức
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
