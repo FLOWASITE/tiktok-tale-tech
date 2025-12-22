@@ -56,6 +56,8 @@ import {
   CharacterType,
   Duration
 } from '@/types/script';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorCell } from '@/components/CreatorCell';
 
 type SortField = 'title' | 'created_at' | 'duration' | 'video_type';
 type SortDirection = 'asc' | 'desc';
@@ -93,6 +95,10 @@ export function ScriptListView({
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [deleteScript, setDeleteScript] = useState<Script | null>(null);
+
+  // Fetch creator profiles
+  const userIds = useMemo(() => scripts.map(s => s.user_id), [scripts]);
+  const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
 
   const sortedScripts = useMemo(() => {
     return [...scripts].sort((a, b) => {
@@ -213,6 +219,7 @@ export function ScriptListView({
                   {getSortIcon('duration')}
                 </Button>
               </TableHead>
+              <TableHead>Người tạo</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -273,6 +280,12 @@ export function ScriptListView({
                     <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                     {script.duration}s
                   </span>
+                </TableCell>
+                <TableCell>
+                  <CreatorCell 
+                    profile={script.user_id ? creatorProfiles[script.user_id] : undefined}
+                    isLoading={isLoadingProfiles}
+                  />
                 </TableCell>
                 <TableCell>
                   <Tooltip>

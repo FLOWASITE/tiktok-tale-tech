@@ -66,6 +66,8 @@ import {
   CONTENT_STATUSES,
   CONTENT_GOALS,
 } from '@/types/multichannel';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorCell } from '@/components/CreatorCell';
 
 type SortField = 'title' | 'created_at' | 'completed_channels' | 'priority';
 type SortDirection = 'asc' | 'desc';
@@ -225,6 +227,10 @@ export function MultiChannelListView({
   const [sortField, setSortField] = useState<SortField | null>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+  // Fetch creator profiles
+  const userIds = useMemo(() => contents.map(c => c.user_id), [contents]);
+  const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -339,6 +345,7 @@ export function MultiChannelListView({
                   onSort={handleSort}
                 />
               </TableHead>
+              <TableHead>Người tạo</TableHead>
               <TableHead className="min-w-[130px]">
                 <SortableHeader
                   label="Thời gian"
@@ -553,6 +560,13 @@ export function MultiChannelListView({
                         })}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  </TableCell>
+                  {/* Creator */}
+                  <TableCell className="py-3">
+                    <CreatorCell 
+                      profile={content.user_id ? creatorProfiles[content.user_id] : undefined}
+                      isLoading={isLoadingProfiles}
+                    />
                   </TableCell>
                   
                   {/* Date & Deadline */}

@@ -27,6 +27,7 @@ export interface Carousel {
   caption_suggestion: string | null;
   cta_suggestion: string | null;
   status: CarouselStatus;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 }
