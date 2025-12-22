@@ -155,8 +155,6 @@ export function ScriptStats({ scripts, loading }: ScriptStatsProps) {
     );
   }
 
-  if (scripts.length === 0) return null;
-
   return (
     <div className="space-y-2">
       {/* Summary Cards */}
