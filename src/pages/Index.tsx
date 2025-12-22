@@ -5,13 +5,17 @@ import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { ScriptFilters, ScriptFilters as ScriptFiltersType } from '@/components/ScriptFilters';
 import { ScriptStats } from '@/components/ScriptStats';
+import { ScriptListView } from '@/components/ScriptListView';
 import { useScripts } from '@/hooks/useScripts';
 import { Script } from '@/types/script';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SlidePanel } from '@/components/ui/slide-panel';
-import { FileVideo, Sparkles, Plus, X } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { FileVideo, Sparkles, Plus, X, LayoutGrid, List, Trash2 } from 'lucide-react';
+
+type ViewMode = 'grid' | 'list';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -19,6 +23,8 @@ const Index = () => {
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<ScriptFiltersType>({
     search: '',
     videoType: 'all',
@@ -86,6 +92,37 @@ const Index = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <ToggleGroup 
+              type="single" 
+              value={viewMode} 
+              onValueChange={(value) => value && setViewMode(value as ViewMode)}
+              className="border rounded-lg"
+            >
+              <ToggleGroupItem value="grid" aria-label="Grid view" className="h-9 w-9 p-0">
+                <LayoutGrid className="w-4 h-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="List view" className="h-9 w-9 p-0">
+                <List className="w-4 h-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+
+            {/* Bulk Delete Button */}
+            {selectedIds.length > 0 && (
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => {
+                  selectedIds.forEach(id => deleteScript(id));
+                  setSelectedIds([]);
+                }}
+                className="gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa ({selectedIds.length})
+              </Button>
+            )}
+
             <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
               <Plus className="w-4 h-4" />
               Thêm mới
@@ -150,6 +187,14 @@ const Index = () => {
               </Button>
             )}
           </div>
+        ) : viewMode === 'list' ? (
+          <ScriptListView
+            scripts={filteredScripts}
+            onView={handleViewScript}
+            onDelete={deleteScript}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredScripts.map((script, index) => (
