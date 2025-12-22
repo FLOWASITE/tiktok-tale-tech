@@ -26,7 +26,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem themes={["light", "dark", "lime"]}>
+    <ThemeProvider attribute="class" defaultTheme="dark" storageKey="app-theme" themes={["light", "dark", "lime"]}>
       <AuthProvider>
         <OrganizationProvider>
           <TooltipProvider>
