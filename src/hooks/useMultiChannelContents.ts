@@ -34,6 +34,7 @@ const transformContent = (data: any): MultiChannelContent => ({
   status: (data.status || 'draft') as ContentStatus,
   priority: data.priority,
   deadline: data.deadline,
+  user_id: data.user_id,
   created_at: data.created_at,
   updated_at: data.updated_at,
 });

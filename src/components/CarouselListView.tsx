@@ -47,6 +47,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Carousel, Platform, AITool } from '@/types/carousel';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorCell } from '@/components/CreatorCell';
 
 type SortField = 'title' | 'created_at' | 'slide_count' | 'platform';
 type SortDirection = 'asc' | 'desc';
@@ -93,6 +95,10 @@ export function CarouselListView({
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [deleteCarousel, setDeleteCarousel] = useState<Carousel | null>(null);
+
+  // Fetch creator profiles
+  const userIds = useMemo(() => carousels.map(c => c.user_id), [carousels]);
+  const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
 
   const sortedCarousels = useMemo(() => {
     return [...carousels].sort((a, b) => {
@@ -214,6 +220,7 @@ export function CarouselListView({
                 </Button>
               </TableHead>
               <TableHead>Brand</TableHead>
+              <TableHead>Người tạo</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -278,6 +285,12 @@ export function CarouselListView({
                   <span className="text-sm text-muted-foreground line-clamp-1">
                     {carousel.brand_name}
                   </span>
+                </TableCell>
+                <TableCell>
+                  <CreatorCell 
+                    profile={carousel.user_id ? creatorProfiles[carousel.user_id] : undefined}
+                    isLoading={isLoadingProfiles}
+                  />
                 </TableCell>
                 <TableCell>
                   <Tooltip>

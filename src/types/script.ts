@@ -24,6 +24,7 @@ export interface Script {
   character_type: CharacterType;
   content: string;
   status: ContentStatus;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 }

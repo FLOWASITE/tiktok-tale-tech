@@ -74,6 +74,7 @@ export interface MultiChannelContent {
   status: ContentStatus;
   priority: string | null;
   deadline: string | null;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 }
