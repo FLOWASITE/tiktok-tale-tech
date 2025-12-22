@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -39,6 +39,7 @@ const menuItems = [
   { title: 'Kịch bản Video', url: '/scripts', icon: Film },
   { title: 'Carousel Prompt', url: '/carousel', icon: Images },
   { title: 'Quản lý Brand', url: '/brands', icon: Bookmark },
+  { title: 'Cài đặt tổ chức', url: '/organization', icon: Building2 },
 ];
 
 export function AppSidebar() {
