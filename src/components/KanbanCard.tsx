@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
@@ -7,8 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, GripVertical, Calendar, User, Clock, AlertCircle, CheckCircle2, Sparkles, Edit3, Send, Trash2, CalendarPlus } from 'lucide-react';
-import { ContentStatus, CONTENT_STATUSES } from '@/types/multichannel';
+import { Eye, GripVertical, Calendar, User, Clock, AlertCircle, CheckCircle2, Sparkles, Edit3, Send, Trash2, XCircle } from 'lucide-react';
+import { ContentStatus, CONTENT_STATUSES, MultiChannelContent } from '@/types/multichannel';
 import { format, isPast, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ContentTask } from './TasksKanbanBoard';
@@ -16,13 +17,20 @@ import { CHANNELS } from '@/types/multichannel';
 import { ASSIGNMENT_STATUSES, ASSIGNMENT_PRIORITIES, AssignmentStatus } from '@/types/assignment';
 import { useConfetti } from '@/hooks/useConfetti';
 import { getChannelColorClasses } from '@/utils/channelColors';
+import { OrgRole, canApproveContent, canSubmitForReview } from '@/types/organization';
+import { ApprovalDialog } from './ApprovalDialog';
+
 interface KanbanCardProps {
   task: ContentTask;
   currentUserId?: string;
+  currentRole?: OrgRole | null;
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
   onStatusChange?: (contentId: string, status: ContentStatus) => Promise<any>;
   onDelete?: (contentId: string) => Promise<void>;
+  onSubmitForReview?: (contentId: string, notes?: string) => Promise<any>;
+  onApprove?: (contentId: string, notes?: string) => Promise<any>;
+  onReject?: (contentId: string, reason: string) => Promise<any>;
   isDragging?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -31,16 +39,29 @@ interface KanbanCardProps {
 export function KanbanCard({
   task,
   currentUserId,
+  currentRole,
   onAssignmentStatusChange,
   onRefresh,
   onStatusChange,
   onDelete,
+  onSubmitForReview,
+  onApprove,
+  onReject,
   isDragging,
   isSelected,
   onToggleSelect,
 }: KanbanCardProps) {
   const { content, assignments, schedules } = task;
   const { fireConfetti } = useConfetti();
+  
+  // Approval dialog state
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | 'submit'>('submit');
+  const [isApproving, setIsApproving] = useState(false);
+
+  // Check permissions
+  const canApprove = currentRole ? canApproveContent(currentRole) : false;
+  const canSubmit = currentRole ? canSubmitForReview(currentRole) : false;
 
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: content.id,
@@ -116,6 +137,30 @@ export function KanbanCard({
     }
   };
 
+  // Approval action handlers
+  const handleOpenApprovalDialog = (e: React.MouseEvent, action: 'approve' | 'reject' | 'submit') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setApprovalAction(action);
+    setApprovalDialogOpen(true);
+  };
+
+  const handleApprovalConfirm = async (contentId: string, action: 'approve' | 'reject' | 'submit', reason?: string) => {
+    setIsApproving(true);
+    try {
+      if (action === 'submit' && onSubmitForReview) {
+        await onSubmitForReview(contentId, reason);
+      } else if (action === 'approve' && onApprove) {
+        await onApprove(contentId, reason);
+      } else if (action === 'reject' && onReject && reason) {
+        await onReject(contentId, reason);
+      }
+      onRefresh();
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   return (
     <Card
       ref={setNodeRef}
@@ -142,14 +187,15 @@ export function KanbanCard({
       {/* Quick action buttons on hover */}
       <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
         <TooltipProvider delayDuration={200}>
-          {content.status === 'draft' && (
+          {/* Submit for review - only for draft and if user can submit */}
+          {content.status === 'draft' && canSubmit && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-yellow-500/20 hover:text-yellow-600"
-                  onClick={(e) => handleQuickStatusChange(e, 'review')}
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-amber-500/20 hover:text-amber-600"
+                  onClick={(e) => handleOpenApprovalDialog(e, 'submit')}
                 >
                   <Send className="h-3.5 w-3.5" />
                 </Button>
@@ -159,22 +205,41 @@ export function KanbanCard({
               </TooltipContent>
             </Tooltip>
           )}
-          {content.status === 'review' && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
-                  onClick={(e) => handleQuickStatusChange(e, 'approved')}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p className="text-xs">Duyệt</p>
-              </TooltipContent>
-            </Tooltip>
+          
+          {/* Approve - only for review status and if user can approve */}
+          {content.status === 'review' && canApprove && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
+                    onClick={(e) => handleOpenApprovalDialog(e, 'approve')}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Phê duyệt</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
+                    onClick={(e) => handleOpenApprovalDialog(e, 'reject')}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Từ chối</p>
+                </TooltipContent>
+              </Tooltip>
+            </>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -374,6 +439,16 @@ export function KanbanCard({
           </Button>
         </div>
       </CardContent>
+
+      {/* Approval Dialog */}
+      <ApprovalDialog
+        open={approvalDialogOpen}
+        onOpenChange={setApprovalDialogOpen}
+        content={content}
+        action={approvalAction}
+        onConfirm={handleApprovalConfirm}
+        isLoading={isApproving}
+      />
     </Card>
   );
 }

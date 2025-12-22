@@ -17,6 +17,7 @@ import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { FileEdit, Clock, CheckCircle, Send } from 'lucide-react';
 import { useConfetti } from '@/hooks/useConfetti';
+import { OrgRole } from '@/types/organization';
 
 export interface ContentTask {
   content: MultiChannelContent;
@@ -27,10 +28,14 @@ export interface ContentTask {
 interface TasksKanbanBoardProps {
   tasks: ContentTask[];
   currentUserId?: string;
+  currentRole?: OrgRole | null;
   onContentStatusChange: (contentId: string, status: ContentStatus) => Promise<any>;
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
   onDelete?: (contentId: string) => Promise<void>;
+  onSubmitForReview?: (contentId: string, notes?: string) => Promise<any>;
+  onApprove?: (contentId: string, notes?: string) => Promise<any>;
+  onReject?: (contentId: string, reason: string) => Promise<any>;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
 }
@@ -66,10 +71,14 @@ const KANBAN_COLUMNS: { id: ContentStatus; label: string; color: string; icon: R
 export function TasksKanbanBoard({
   tasks,
   currentUserId,
+  currentRole,
   onContentStatusChange,
   onAssignmentStatusChange,
   onRefresh,
   onDelete,
+  onSubmitForReview,
+  onApprove,
+  onReject,
   selectedIds,
   onSelectionChange,
 }: TasksKanbanBoardProps) {
@@ -174,10 +183,14 @@ export function TasksKanbanBoard({
                   key={task.content.id}
                   task={task}
                   currentUserId={currentUserId}
+                  currentRole={currentRole}
                   onAssignmentStatusChange={onAssignmentStatusChange}
                   onRefresh={onRefresh}
                   onStatusChange={onContentStatusChange}
                   onDelete={onDelete}
+                  onSubmitForReview={onSubmitForReview}
+                  onApprove={onApprove}
+                  onReject={onReject}
                   isSelected={selectedIds.has(task.content.id)}
                   onToggleSelect={() => handleToggleSelect(task.content.id)}
                 />
@@ -193,6 +206,7 @@ export function TasksKanbanBoard({
           <KanbanCard
             task={activeTask}
             currentUserId={currentUserId}
+            currentRole={currentRole}
             onAssignmentStatusChange={onAssignmentStatusChange}
             onRefresh={onRefresh}
             isDragging
