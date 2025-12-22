@@ -1,6 +1,5 @@
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { Breadcrumb } from '@/components/Breadcrumb';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Separator } from '@/components/ui/separator';
@@ -24,9 +23,6 @@ export function AppLayout({ children }: AppLayoutProps) {
             <SidebarTrigger className="h-8 w-8" />
             <Separator orientation="vertical" className="h-6" />
             <OrganizationSwitcher />
-            <Separator orientation="vertical" className="h-6" />
-            <Breadcrumb />
-            
             <div className="flex-1" />
             
             <div className="flex items-center gap-2">
