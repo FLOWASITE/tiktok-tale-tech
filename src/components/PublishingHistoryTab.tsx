@@ -89,7 +89,7 @@ const actionColors: Record<string, string> = {
   rescheduled: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
 };
 
-export default function PublishingHistory() {
+export function PublishingHistoryTab() {
   const { logs, isLoading, fetchLogs } = usePublishingLogs();
   const [searchQuery, setSearchQuery] = useState('');
   const [channelFilter, setChannelFilter] = useState<string>('all');
@@ -279,7 +279,6 @@ export default function PublishingHistory() {
   };
 
   const exportToExcel = () => {
-    // For Excel, we create an HTML table that Excel can parse
     const headers = ['Thời gian', 'Kênh', 'Hành động', 'Lỗi', 'Chi tiết'];
     const rows = filteredLogs.map(log => [
       format(parseISO(log.performed_at), 'dd/MM/yyyy HH:mm'),
@@ -312,13 +311,9 @@ export default function PublishingHistory() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Lịch sử đăng bài</h1>
-          <p className="text-muted-foreground">Theo dõi và thống kê lịch sử đăng bài của bạn</p>
-        </div>
+    <div className="space-y-4">
+      {/* Header with Export */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="h-4 w-4 mr-2" />
@@ -328,7 +323,7 @@ export default function PublishingHistory() {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Excel
           </Button>
-          <Button size="sm" onClick={() => fetchLogs()}>
+          <Button size="sm" variant="outline" onClick={() => fetchLogs()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Làm mới
           </Button>
@@ -336,55 +331,55 @@ export default function PublishingHistory() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <BarChart3 className="h-5 w-5 text-primary" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <BarChart3 className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Tổng hoạt động</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs text-muted-foreground">Tổng</p>
+                <p className="text-lg font-bold">{stats.total}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/10">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-green-500/10">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Đã đăng</p>
-                <p className="text-2xl font-bold text-green-600">{stats.published}</p>
+                <p className="text-xs text-muted-foreground">Đã đăng</p>
+                <p className="text-lg font-bold text-green-600">{stats.published}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-yellow-500/10">
-                <Clock className="h-5 w-5 text-yellow-500" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-yellow-500/10">
+                <Clock className="h-4 w-4 text-yellow-500" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Lên lịch</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.scheduled}</p>
+                <p className="text-xs text-muted-foreground">Lên lịch</p>
+                <p className="text-lg font-bold text-yellow-600">{stats.scheduled}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-destructive/10">
-                <XCircle className="h-5 w-5 text-destructive" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-destructive/10">
+                <XCircle className="h-4 w-4 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Thất bại</p>
-                <p className="text-2xl font-bold text-destructive">{stats.failed}</p>
+                <p className="text-xs text-muted-foreground">Thất bại</p>
+                <p className="text-lg font-bold text-destructive">{stats.failed}</p>
               </div>
             </div>
           </CardContent>
@@ -393,55 +388,53 @@ export default function PublishingHistory() {
 
       {/* Charts */}
       <div className="grid md:grid-cols-3 gap-4">
-        {/* Daily Activity Chart */}
         <Card className="md:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
               Hoạt động theo ngày
             </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-[200px] w-full" />
+              <Skeleton className="h-[160px] w-full" />
             ) : (
-              <ChartContainer config={chartConfig} className="h-[200px] w-full">
+              <ChartContainer config={chartConfig} className="h-[160px] w-full">
                 <BarChart data={dailyChartData}>
-                  <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="date" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis fontSize={10} tickLine={false} axisLine={false} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="published" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="scheduled" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="failed" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="published" fill="hsl(var(--chart-1))" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="scheduled" fill="hsl(var(--chart-2))" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="failed" fill="hsl(var(--chart-3))" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ChartContainer>
             )}
           </CardContent>
         </Card>
 
-        {/* Channel Distribution */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Phân bố theo kênh</CardTitle>
+            <CardTitle className="text-sm">Phân bố kênh</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-[200px] w-full" />
+              <Skeleton className="h-[160px] w-full" />
             ) : channelDistribution.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {channelDistribution.slice(0, 5).map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div 
-                      className="w-3 h-3 rounded-full" 
+                      className="w-2.5 h-2.5 rounded-full" 
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="flex-1 text-sm truncate">{item.name}</span>
-                    <span className="text-sm font-medium">{item.value}</span>
+                    <span className="flex-1 text-xs truncate">{item.name}</span>
+                    <span className="text-xs font-medium">{item.value}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[160px] flex items-center justify-center text-muted-foreground text-sm">
                 Không có dữ liệu
               </div>
             )}
@@ -451,21 +444,21 @@ export default function PublishingHistory() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[180px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Tìm kiếm..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-8 h-9"
                 />
               </div>
             </div>
             <Select value={channelFilter} onValueChange={setChannelFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[140px] h-9">
                 <SelectValue placeholder="Tất cả kênh" />
               </SelectTrigger>
               <SelectContent>
@@ -478,11 +471,11 @@ export default function PublishingHistory() {
               </SelectContent>
             </Select>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Tất cả hành động" />
+              <SelectTrigger className="w-[140px] h-9">
+                <SelectValue placeholder="Hành động" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả hành động</SelectItem>
+                <SelectItem value="all">Tất cả</SelectItem>
                 {PUBLISHING_ACTIONS.map((action) => (
                   <SelectItem key={action.value} value={action.value}>
                     {action.label}
@@ -492,9 +485,9 @@ export default function PublishingHistory() {
             </Select>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="min-w-[200px] justify-start">
+                <Button variant="outline" size="sm" className="h-9">
                   <CalendarIcon className="h-4 w-4 mr-2" />
-                  {format(dateRange.from, 'dd/MM')} - {format(dateRange.to, 'dd/MM/yyyy')}
+                  {format(dateRange.from, 'dd/MM')} - {format(dateRange.to, 'dd/MM')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -515,76 +508,69 @@ export default function PublishingHistory() {
       </Card>
 
       {/* Pagination Controls */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="infinite-scroll" className="text-sm">Cuộn vô hạn</Label>
-                <Switch
-                  id="infinite-scroll"
-                  checked={useInfiniteScroll}
-                  onCheckedChange={(checked) => {
-                    setUseInfiniteScroll(checked);
-                    setDisplayedItems(itemsPerPage);
-                    setCurrentPage(1);
-                  }}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Hiển thị</span>
-                <Select 
-                  value={itemsPerPage.toString()} 
-                  onValueChange={(v) => setItemsPerPage(Number(v))}
-                >
-                  <SelectTrigger className="w-[80px] h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ITEMS_PER_PAGE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt.toString()}>
-                        {opt}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-muted-foreground">/ trang</span>
-              </div>
-            </div>
-            
-            <div className="text-sm text-muted-foreground">
-              {useInfiniteScroll ? (
-                <>Đang hiển thị {displayedItems} / {filteredLogs.length} mục</>
-              ) : (
-                <>
-                  Hiển thị {filteredLogs.length > 0 ? startIndex + 1 : 0} - {Math.min(endIndex, filteredLogs.length)} / {filteredLogs.length} mục
-                </>
-              )}
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="infinite-scroll" className="text-xs">Cuộn vô hạn</Label>
+            <Switch
+              id="infinite-scroll"
+              checked={useInfiniteScroll}
+              onCheckedChange={(checked) => {
+                setUseInfiniteScroll(checked);
+                setDisplayedItems(itemsPerPage);
+                setCurrentPage(1);
+              }}
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-1.5">
+            <Select 
+              value={itemsPerPage.toString()} 
+              onValueChange={(v) => setItemsPerPage(Number(v))}
+            >
+              <SelectTrigger className="w-[70px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ITEMS_PER_PAGE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt.toString()}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">/ trang</span>
+          </div>
+        </div>
+        
+        <div className="text-xs text-muted-foreground">
+          {useInfiniteScroll ? (
+            <>{displayedItems} / {filteredLogs.length} mục</>
+          ) : (
+            <>{filteredLogs.length > 0 ? startIndex + 1 : 0} - {Math.min(endIndex, filteredLogs.length)} / {filteredLogs.length}</>
+          )}
+        </div>
+      </div>
 
       {/* History Table */}
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-2">
               {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Không có lịch sử nào phù hợp với bộ lọc</p>
+              <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Không có lịch sử phù hợp</p>
             </div>
           ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[180px]">Thời gian</TableHead>
+                    <TableHead className="w-[150px]">Thời gian</TableHead>
                     <TableHead>Kênh</TableHead>
                     <TableHead>Hành động</TableHead>
                     <TableHead>Chi tiết</TableHead>
@@ -593,29 +579,29 @@ export default function PublishingHistory() {
                 <TableBody>
                   {displayedLogs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-xs">
                         {format(parseISO(log.performed_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <div 
                             className="w-2 h-2 rounded-full"
                             style={{ backgroundColor: channelColors[log.channel] || '#6B7280' }}
                           />
-                          <span>{CHANNELS.find(c => c.value === log.channel)?.label || log.channel}</span>
+                          <span className="text-sm">{CHANNELS.find(c => c.value === log.channel)?.label || log.channel}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={cn('gap-1', actionColors[log.action])}>
+                        <Badge variant="secondary" className={cn('gap-1 text-xs', actionColors[log.action])}>
                           {actionIcons[log.action]}
                           {PUBLISHING_ACTIONS.find(a => a.value === log.action)?.label || log.action}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[300px]">
+                      <TableCell className="max-w-[250px]">
                         {log.error_message ? (
-                          <span className="text-destructive text-sm">{log.error_message}</span>
+                          <span className="text-destructive text-xs">{log.error_message}</span>
                         ) : log.details && Object.keys(log.details).length > 0 ? (
-                          <span className="text-sm text-muted-foreground truncate block">
+                          <span className="text-xs text-muted-foreground truncate block">
                             {JSON.stringify(log.details)}
                           </span>
                         ) : (
@@ -627,20 +613,19 @@ export default function PublishingHistory() {
                 </TableBody>
               </Table>
               
-              {/* Infinite scroll loader */}
               {useInfiniteScroll && (
-                <div ref={tableEndRef} className="p-4 flex justify-center">
+                <div ref={tableEndRef} className="p-3 flex justify-center">
                   {isLoadingMore ? (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Đang tải thêm...</span>
+                      <span className="text-xs">Đang tải...</span>
                     </div>
                   ) : displayedItems < filteredLogs.length ? (
                     <Button variant="ghost" size="sm" onClick={loadMore}>
                       Tải thêm ({filteredLogs.length - displayedItems} còn lại)
                     </Button>
                   ) : displayedItems > 0 ? (
-                    <span className="text-sm text-muted-foreground">Đã hiển thị tất cả</span>
+                    <span className="text-xs text-muted-foreground">Đã hiển thị tất cả</span>
                   ) : null}
                 </div>
               )}
@@ -652,23 +637,11 @@ export default function PublishingHistory() {
       {/* Traditional Pagination */}
       {!useInfiniteScroll && totalPages > 1 && (
         <div className="flex items-center justify-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => goToPage(1)}
-            disabled={currentPage === 1}
-          >
-            <ChevronsLeft className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goToPage(1)} disabled={currentPage === 1}>
+            <ChevronsLeft className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => goToPage(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
+            <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
           
           {getPageNumbers().map((page, idx) => (
@@ -677,33 +650,21 @@ export default function PublishingHistory() {
                 key={idx}
                 variant={currentPage === page ? 'default' : 'outline'}
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 text-xs"
                 onClick={() => goToPage(page)}
               >
                 {page}
               </Button>
             ) : (
-              <span key={idx} className="px-2 text-muted-foreground">...</span>
+              <span key={idx} className="px-1 text-muted-foreground text-xs">...</span>
             )
           ))}
           
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
+            <ChevronRight className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => goToPage(totalPages)}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronsRight className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages}>
+            <ChevronsRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       )}

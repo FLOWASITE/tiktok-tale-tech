@@ -10,7 +10,8 @@ import {
   List,
   Clock,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import { SlidePanel } from '@/components/ui/slide-panel';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { PublishingQueue } from '@/components/PublishingQueue';
+import { PublishingHistoryTab } from '@/components/PublishingHistoryTab';
 import { CalendarDayView } from '@/components/CalendarDayView';
 import { Calendar } from '@/components/ui/calendar';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
@@ -214,7 +216,7 @@ function DroppableDayCell({
 
 export default function ContentCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'queue'>('month');
+  const [viewMode, setViewMode] = useState<'history' | 'month' | 'week' | 'day' | 'queue'>('history');
   const [schedules, setSchedules] = useState<ScheduleWithContent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<PublishStatus | 'all'>('all');
@@ -479,6 +481,10 @@ export default function ContentCalendar() {
               onValueChange={(v) => v && setViewMode(v as typeof viewMode)}
               className="bg-muted/50 p-1 rounded-lg"
             >
+              <ToggleGroupItem value="history" className="gap-1.5 text-xs px-3">
+                <History className="w-3.5 h-3.5" />
+                Lịch sử
+              </ToggleGroupItem>
               <ToggleGroupItem value="month" className="gap-1.5 text-xs px-3">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Tháng
@@ -498,7 +504,7 @@ export default function ContentCalendar() {
             </ToggleGroup>
 
             {/* Navigation */}
-            {viewMode !== 'queue' && (
+            {viewMode !== 'queue' && viewMode !== 'history' && (
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={goToPrevious}>
                   <ChevronLeft className="w-4 h-4" />
@@ -520,74 +526,80 @@ export default function ContentCalendar() {
               </div>
             )}
 
-            {/* Filters */}
-            <div className="flex items-center gap-2">
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as PublishStatus | 'all')}>
-                <SelectTrigger className="w-[130px] h-9">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  {PUBLISH_STATUSES.map(s => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Filters - hide for history tab */}
+            {viewMode !== 'history' && (
+              <div className="flex items-center gap-2">
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as PublishStatus | 'all')}>
+                  <SelectTrigger className="w-[130px] h-9">
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    {PUBLISH_STATUSES.map(s => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as Channel | 'all')}>
-                <SelectTrigger className="w-[130px] h-9">
-                  <SelectValue placeholder="Kênh" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả kênh</SelectItem>
-                  {CHANNELS.map(c => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as Channel | 'all')}>
+                  <SelectTrigger className="w-[130px] h-9">
+                    <SelectValue placeholder="Kênh" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả kênh</SelectItem>
+                    {CHANNELS.map(c => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
-        <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-900/10">
-          <CardContent className="p-3 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {schedules.filter(s => s.publish_status === 'scheduled').length}
-            </div>
-            <div className="text-xs text-muted-foreground">Đang chờ</div>
-          </CardContent>
-        </Card>
-        <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10">
-          <CardContent className="p-3 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {schedules.filter(s => s.publish_status === 'published').length}
-            </div>
-            <div className="text-xs text-muted-foreground">Đã đăng</div>
-          </CardContent>
-        </Card>
-        <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10">
-          <CardContent className="p-3 text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {schedules.filter(s => s.publish_status === 'failed').length}
-            </div>
-            <div className="text-xs text-muted-foreground">Thất bại</div>
-          </CardContent>
-        </Card>
-        <Card className="border-muted bg-muted/30">
-          <CardContent className="p-3 text-center">
-            <div className="text-2xl font-bold text-muted-foreground">
-              {schedules.filter(s => s.publish_status === 'cancelled').length}
-            </div>
-            <div className="text-xs text-muted-foreground">Đã hủy</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Stats - hide for history tab */}
+      {viewMode !== 'history' && (
+        <div className="grid grid-cols-4 gap-3">
+          <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-900/10">
+            <CardContent className="p-3 text-center">
+              <div className="text-2xl font-bold text-yellow-600">
+                {schedules.filter(s => s.publish_status === 'scheduled').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Đang chờ</div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10">
+            <CardContent className="p-3 text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {schedules.filter(s => s.publish_status === 'published').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Đã đăng</div>
+            </CardContent>
+          </Card>
+          <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10">
+            <CardContent className="p-3 text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {schedules.filter(s => s.publish_status === 'failed').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Thất bại</div>
+            </CardContent>
+          </Card>
+          <Card className="border-muted bg-muted/30">
+            <CardContent className="p-3 text-center">
+              <div className="text-2xl font-bold text-muted-foreground">
+                {schedules.filter(s => s.publish_status === 'cancelled').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Đã hủy</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* Calendar View with Mini Calendar Sidebar */}
-      {viewMode === 'queue' ? (
+      {/* History Tab */}
+      {viewMode === 'history' ? (
+        <PublishingHistoryTab />
+      ) : viewMode === 'queue' ? (
         <Card>
           <CardContent className="p-4">
             <PublishingQueue
