@@ -21,16 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useSidebar } from '@/components/ui/sidebar';
-
-interface OrganizationSwitcherProps {
-  collapsed?: boolean;
-}
-
-export function OrganizationSwitcher({ collapsed }: OrganizationSwitcherProps) {
-  const { state } = useSidebar();
-  const isCollapsed = collapsed ?? state === 'collapsed';
-  
+export function OrganizationSwitcher() {
   const { 
     organizations, 
     currentOrganization, 
@@ -63,12 +54,10 @@ export function OrganizationSwitcher({ collapsed }: OrganizationSwitcherProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-2 px-2 h-auto py-2 ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
+            className="justify-start gap-2 px-2 h-auto py-1.5"
           >
             <div
-              className="flex h-8 w-8 items-center justify-center rounded-md text-xs font-medium"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium"
               style={{ 
                 backgroundColor: currentOrganization.primary_color + '20',
                 color: currentOrganization.primary_color 
@@ -78,25 +67,21 @@ export function OrganizationSwitcher({ collapsed }: OrganizationSwitcherProps) {
                 <img 
                   src={currentOrganization.logo_url} 
                   alt={currentOrganization.name}
-                  className="h-6 w-6 rounded object-cover"
+                  className="h-5 w-5 rounded object-cover"
                 />
               ) : (
                 <Building2 className="h-4 w-4" />
               )}
             </div>
-            {!isCollapsed && (
-              <>
-                <div className="flex flex-col items-start text-left flex-1 min-w-0">
-                  <span className="text-sm font-medium truncate w-full">
-                    {currentOrganization.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {ORG_ROLE_LABELS[currentOrganization.role]}
-                  </span>
-                </div>
-                <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
-              </>
-            )}
+            <div className="flex flex-col items-start text-left min-w-0">
+              <span className="text-sm font-medium truncate max-w-[120px]">
+                {currentOrganization.name}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {ORG_ROLE_LABELS[currentOrganization.role]}
+              </span>
+            </div>
+            <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">

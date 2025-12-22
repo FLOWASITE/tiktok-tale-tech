@@ -5,7 +5,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
-import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -102,7 +102,6 @@ export function AppSidebar() {
             </div>
           )}
         </div>
-        <OrganizationSwitcher />
       </SidebarHeader>
 
       <SidebarContent>
