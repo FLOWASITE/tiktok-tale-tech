@@ -16,6 +16,7 @@ import { ContentAssignment, AssignmentStatus } from '@/types/assignment';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { FileEdit, Clock, CheckCircle, Send } from 'lucide-react';
+import { useConfetti } from '@/hooks/useConfetti';
 
 export interface ContentTask {
   content: MultiChannelContent;
@@ -73,7 +74,7 @@ export function TasksKanbanBoard({
   onSelectionChange,
 }: TasksKanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<ContentTask | null>(null);
-
+  const { fireConfetti } = useConfetti();
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -127,6 +128,10 @@ export function TasksKanbanBoard({
       
       if (task && task.content.status !== newStatus) {
         await onContentStatusChange(activeId, newStatus);
+        // Fire confetti when dropping to published
+        if (newStatus === 'published') {
+          fireConfetti();
+        }
       }
     }
   };

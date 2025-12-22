@@ -40,12 +40,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CHANNELS, Channel, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
 import { ASSIGNMENT_STATUSES, AssignmentStatus, AssignmentPriority, ASSIGNMENT_PRIORITIES } from '@/types/assignment';
 import { toast } from 'sonner';
+import { useConfetti } from '@/hooks/useConfetti';
 
 export default function Tasks() {
   const { user } = useAuth();
   const { contents, loading: loadingContents, refetch: refetchContents, updateStatus, deleteContent } = useMultiChannelContents();
   const { assignments, myAssignments, isLoading: loadingAssignments, refreshAssignments, updateAssignmentStatus } = useContentAssignments();
   const { allSchedules, fetchAllSchedules, isLoading: loadingSchedules } = useContentSchedules();
+  const { fireConfetti } = useConfetti();
 
   const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
   const [activeTab, setActiveTab] = useState('all');
@@ -218,12 +220,17 @@ export default function Tasks() {
       toast.success(`Đã cập nhật trạng thái ${selectedIds.size} nội dung`);
       setSelectedIds(new Set());
       handleRefresh();
+      
+      // Fire confetti when publishing
+      if (status === 'published') {
+        fireConfetti();
+      }
     } catch (error) {
       toast.error('Có lỗi khi cập nhật trạng thái');
     } finally {
       setIsUpdating(false);
     }
-  }, [selectedIds, updateStatus]);
+  }, [selectedIds, updateStatus, fireConfetti]);
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
