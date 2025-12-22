@@ -21,39 +21,51 @@ export function KanbanColumn({ id, label, color, count, children, icon }: Kanban
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-[280px] sm:w-80 rounded-xl border-2 transition-all duration-200 ${
+      className={`flex-shrink-0 w-[300px] sm:w-[320px] rounded-2xl border-2 transition-all duration-300 ${
         isOver 
-          ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10 scale-[1.01]' 
-          : 'border-border/50 bg-gradient-to-b from-background to-muted/20 hover:border-border'
+          ? 'border-primary bg-primary/5 shadow-xl shadow-primary/15 scale-[1.02] kanban-column-drop-active' 
+          : 'border-border/40 bg-gradient-to-b from-background to-muted/10 hover:border-border/60 hover:shadow-lg'
       }`}
     >
       {/* Column Header */}
-      <div className={`p-3 sm:p-4 rounded-t-[10px] ${color} border-b border-border/30`}>
+      <div className={`p-4 rounded-t-[14px] ${color} border-b border-border/20`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {icon}
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-background/50 backdrop-blur-sm">
+              {icon}
+            </div>
             <h3 className="font-semibold text-sm sm:text-base">{label}</h3>
           </div>
           <Badge 
             variant="secondary" 
-            className="text-xs font-bold min-w-[28px] justify-center bg-background/80 backdrop-blur-sm"
+            className="text-xs font-bold min-w-[32px] h-7 justify-center bg-background/80 backdrop-blur-sm shadow-sm count-badge-animate"
           >
             {count}
           </Badge>
         </div>
+        {/* Mini progress indicator */}
+        <div className="mt-3 h-1 bg-background/30 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-background/60 rounded-full transition-all duration-500"
+            style={{ width: count > 0 ? '100%' : '0%' }}
+          />
+        </div>
       </div>
 
       {/* Column Content */}
-      <ScrollArea className="h-[calc(100vh-380px)] min-h-[350px] sm:min-h-[400px]">
-        <div className="p-2 sm:p-3 space-y-2 sm:space-y-3">
+      <ScrollArea className="h-[calc(100vh-400px)] min-h-[380px] sm:min-h-[420px]">
+        <div className="p-3 space-y-3">
           {children}
           {count === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
-              <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center mb-3">
-                <InboxIcon className="w-6 h-6 text-muted-foreground/40" />
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-4 empty-state-icon">
+                <InboxIcon className="w-8 h-8 text-muted-foreground/30" />
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground/60 font-medium">
+              <p className="text-sm text-muted-foreground/50 font-medium">
                 Kéo thả nội dung vào đây
+              </p>
+              <p className="text-xs text-muted-foreground/30 mt-1">
+                Drop items here
               </p>
             </div>
           )}

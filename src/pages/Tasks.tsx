@@ -24,7 +24,9 @@ import {
   FileText,
   CalendarDays,
   CalendarRange,
-  Sparkles
+  Sparkles,
+  X,
+  Filter
 } from 'lucide-react';
 import { ContentTaskCard } from '@/components/ContentTaskCard';
 import { TasksKanbanBoard, ContentTask } from '@/components/TasksKanbanBoard';
@@ -239,42 +241,68 @@ export default function Tasks() {
     }
   }, [selectedIds, deleteContent]);
 
+  // Active filters count
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter !== 'all') count++;
+    if (channelFilter !== 'all') count++;
+    if (priorityFilter !== 'all') count++;
+    if (deadlineFilter !== 'all') count++;
+    if (searchQuery) count++;
+    return count;
+  }, [statusFilter, channelFilter, priorityFilter, deadlineFilter, searchQuery]);
+
+  const clearAllFilters = () => {
+    setStatusFilter('all');
+    setChannelFilter('all');
+    setPriorityFilter('all');
+    setDeadlineFilter('all');
+    setSearchQuery('');
+  };
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-              </div>
-              <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+    <div className="space-y-5 sm:space-y-6 animate-fade-in">
+      {/* Header with animated gradient background */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/3 p-4 sm:p-6 border border-border/50">
+        {/* Animated background orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-pulse-glow" />
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-secondary/10 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
+        </div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl gradient-primary flex items-center justify-center shadow-lg glow-primary">
+              <ClipboardList className="w-6 h-6 sm:w-7 sm:h-7 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gradient">
                 Quản lý công việc
-              </span>
-            </h1>
-            <p className="text-muted-foreground text-xs sm:text-sm mt-1 ml-10 sm:ml-12">
-              Theo dõi tiến độ và quản lý nội dung của bạn
-            </p>
+              </h1>
+              <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
+                Theo dõi tiến độ và quản lý nội dung của bạn
+              </p>
+            </div>
           </div>
+
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <ToggleGroup 
               type="single" 
               value={viewMode} 
               onValueChange={(v) => v && setViewMode(v as 'grid' | 'kanban')}
-              className="bg-muted/50 p-1 rounded-lg"
+              className="bg-background/80 backdrop-blur-sm p-1 rounded-xl border border-border/50 shadow-sm"
             >
               <ToggleGroupItem 
                 value="grid" 
                 aria-label="Grid view" 
-                className="data-[state=on]:bg-background data-[state=on]:shadow-sm h-8 w-8 sm:h-9 sm:w-9"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md h-9 w-9 rounded-lg transition-all"
               >
                 <LayoutGrid className="w-4 h-4" />
               </ToggleGroupItem>
               <ToggleGroupItem 
                 value="kanban" 
                 aria-label="Kanban view" 
-                className="data-[state=on]:bg-background data-[state=on]:shadow-sm h-8 w-8 sm:h-9 sm:w-9"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md h-9 w-9 rounded-lg transition-all"
               >
                 <Columns3 className="w-4 h-4" />
               </ToggleGroupItem>
@@ -284,7 +312,7 @@ export default function Tasks() {
               size="sm" 
               onClick={handleRefresh} 
               disabled={isLoading}
-              className="h-8 sm:h-9 px-3"
+              className="h-9 px-3 bg-background/80 backdrop-blur-sm border-border/50 hover:bg-background hover:border-primary/30 transition-all"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               <span className="ml-2 hidden sm:inline">Làm mới</span>
@@ -292,86 +320,90 @@ export default function Tasks() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-          <Card className="border-border/50 bg-gradient-to-br from-background to-muted/20">
+        {/* Stats Cards with hover effects */}
+        <div className="relative grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mt-5">
+          <Card className="stat-card-glow border-border/50 bg-background/80 backdrop-blur-sm overflow-hidden group">
             <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4 text-primary" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <FileText className="w-5 h-5 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg sm:text-xl font-bold">{stats.total}</p>
+                  <p className="text-xl sm:text-2xl font-bold number-animate">{stats.total}</p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Tổng nội dung</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 bg-gradient-to-br from-background to-green-500/5">
+          <Card className="stat-card-glow border-border/50 bg-background/80 backdrop-blur-sm overflow-hidden group">
             <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/20 to-green-500/5 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg sm:text-xl font-bold text-green-500">{stats.completed}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-500 number-animate">{stats.completed}</p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Đã đăng</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 bg-gradient-to-br from-background to-yellow-500/5">
+          <Card className="stat-card-glow border-border/50 bg-background/80 backdrop-blur-sm overflow-hidden group">
             <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
-                  <Clock className="w-4 h-4 text-yellow-500" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-500/5 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <Clock className="w-5 h-5 text-yellow-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg sm:text-xl font-bold text-yellow-500">{stats.inReview}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-yellow-500 number-animate">{stats.inReview}</p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Chờ duyệt</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 bg-gradient-to-br from-background to-blue-500/5">
+          <Card className="stat-card-glow border-border/50 bg-background/80 backdrop-blur-sm overflow-hidden group">
             <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <CalendarCheck className="w-4 h-4 text-blue-500" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/5 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <CalendarCheck className="w-5 h-5 text-blue-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg sm:text-xl font-bold text-blue-500">{stats.scheduled}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-blue-500 number-animate">{stats.scheduled}</p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Đã lên lịch</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 bg-gradient-to-br from-background to-purple-500/5">
+          <Card className="stat-card-glow border-border/50 bg-background/80 backdrop-blur-sm overflow-hidden group">
             <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4 text-purple-500" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <Users className="w-5 h-5 text-purple-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg sm:text-xl font-bold text-purple-500">{stats.myPending}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-500 number-animate">{stats.myPending}</p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Việc của tôi</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className={`border-border/50 ${stats.overdue > 0 ? 'bg-gradient-to-br from-background to-red-500/10 border-red-500/30' : 'bg-gradient-to-br from-background to-muted/20'}`}>
+          <Card className={`stat-card-glow border-border/50 bg-background/80 backdrop-blur-sm overflow-hidden group ${
+            stats.overdue > 0 ? 'border-red-500/40 deadline-urgent' : ''
+          }`}>
             <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${stats.overdue > 0 ? 'bg-red-500/10' : 'bg-muted'}`}>
-                  <AlertCircle className={`w-4 h-4 ${stats.overdue > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+              <div className="flex items-center gap-2.5">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform ${
+                  stats.overdue > 0 ? 'bg-gradient-to-br from-red-500/20 to-red-500/5' : 'bg-muted/50'
+                }`}>
+                  <AlertCircle className={`w-5 h-5 ${stats.overdue > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
                 </div>
                 <div className="min-w-0">
-                  <p className={`text-lg sm:text-xl font-bold ${stats.overdue > 0 ? 'text-red-500' : ''}`}>{stats.overdue}</p>
+                  <p className={`text-xl sm:text-2xl font-bold number-animate ${stats.overdue > 0 ? 'text-red-500' : ''}`}>{stats.overdue}</p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Quá hạn</p>
                 </div>
               </div>
@@ -379,101 +411,148 @@ export default function Tasks() {
           </Card>
         </div>
 
-        {/* Progress Bar */}
+        {/* Enhanced Progress Bar */}
         {stats.total > 0 && (
-          <Card className="border-border/50 overflow-hidden">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-2">
+          <Card className="mt-4 border-border/50 bg-background/80 backdrop-blur-sm overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-primary" />
-                  <span className="text-xs sm:text-sm font-medium">Tiến độ hoàn thành</span>
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">Tiến độ hoàn thành</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-primary" />
-                  <span className="text-xs sm:text-sm font-bold text-primary">{stats.completionRate}%</span>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary animate-pulse-glow" />
+                  <span className="text-lg font-bold text-gradient">{stats.completionRate}%</span>
                 </div>
               </div>
-              <Progress value={stats.completionRate} className="h-2" />
-              <div className="flex justify-between mt-2 text-[10px] sm:text-xs text-muted-foreground">
-                <span>{stats.completed} đã đăng</span>
-                <span>{stats.total - stats.completed} còn lại</span>
+              <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden progress-shine">
+                <div 
+                  className="h-full gradient-primary rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${stats.completionRate}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-green-500" />
+                  {stats.completed} đã đăng
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-muted-foreground" />
+                  {stats.total - stats.completed} còn lại
+                </span>
               </div>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Quick Deadline Filters */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={deadlineFilter === 'all' ? 'secondary' : 'outline'}
-          size="sm"
-          onClick={() => setDeadlineFilter('all')}
-          className="h-8 text-xs sm:text-sm"
-        >
-          <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
-          Tất cả
-        </Button>
-        <Button
-          variant={deadlineFilter === 'today' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDeadlineFilter('today')}
-          className={`h-8 text-xs sm:text-sm ${deadlineFilter === 'today' ? 'bg-primary hover:bg-primary/90' : ''}`}
-        >
-          <Clock className="w-3.5 h-3.5 mr-1.5" />
-          Hôm nay
-        </Button>
-        <Button
-          variant={deadlineFilter === 'week' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDeadlineFilter('week')}
-          className={`h-8 text-xs sm:text-sm ${deadlineFilter === 'week' ? 'bg-blue-500 hover:bg-blue-600 text-white' : ''}`}
-        >
-          <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
-          Tuần này
-        </Button>
-        <Button
-          variant={deadlineFilter === 'month' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDeadlineFilter('month')}
-          className={`h-8 text-xs sm:text-sm ${deadlineFilter === 'month' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}`}
-        >
-          <CalendarCheck className="w-3.5 h-3.5 mr-1.5" />
-          Tháng này
-        </Button>
+      {/* Quick Deadline Filters with enhanced styling */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground mr-2">
+          <Filter className="w-4 h-4" />
+          <span className="hidden sm:inline font-medium">Deadline:</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            variant={deadlineFilter === 'all' ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => setDeadlineFilter('all')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              deadlineFilter === 'all' ? 'bg-primary/10 text-primary border-primary/20' : 'hover:border-primary/30'
+            }`}
+          >
+            <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
+            Tất cả
+          </Button>
+          <Button
+            variant={deadlineFilter === 'today' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDeadlineFilter('today')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              deadlineFilter === 'today' ? 'bg-primary hover:bg-primary/90 shadow-md glow-primary' : 'hover:border-primary/30'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 mr-1.5" />
+            Hôm nay
+          </Button>
+          <Button
+            variant={deadlineFilter === 'week' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDeadlineFilter('week')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              deadlineFilter === 'week' ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md' : 'hover:border-blue-500/30'
+            }`}
+          >
+            <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
+            Tuần này
+          </Button>
+          <Button
+            variant={deadlineFilter === 'month' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDeadlineFilter('month')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              deadlineFilter === 'month' ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-md' : 'hover:border-purple-500/30'
+            }`}
+          >
+            <CalendarCheck className="w-3.5 h-3.5 mr-1.5" />
+            Tháng này
+          </Button>
+        </div>
+        
+        {/* Active filters counter and clear button */}
+        {activeFiltersCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearAllFilters}
+            className="h-8 text-xs rounded-full px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto"
+          >
+            <X className="w-3.5 h-3.5 mr-1" />
+            Xóa {activeFiltersCount} bộ lọc
+          </Button>
+        )}
       </div>
 
-      {/* Filters */}
+      {/* Filters with enhanced styling */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative flex-1 group">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
           <Input
             placeholder="Tìm kiếm theo tiêu đề, chủ đề..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 sm:h-10 text-sm"
+            className="pl-10 h-10 text-sm rounded-xl border-border/50 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
           />
         </div>
         <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 sm:h-10 w-full sm:w-36 text-xs sm:text-sm">
+            <SelectTrigger className={`h-10 w-full sm:w-36 text-xs sm:text-sm rounded-xl border-border/50 bg-background/80 backdrop-blur-sm transition-all ${
+              statusFilter !== 'all' ? 'border-primary/50 ring-2 ring-primary/20' : ''
+            }`}>
               <SelectValue placeholder="Trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
               {CONTENT_STATUSES.map(status => (
                 <SelectItem key={status.value} value={status.value}>
-                  {status.label}
+                  <span className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${status.color}`} />
+                    {status.label}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={channelFilter} onValueChange={setChannelFilter}>
-            <SelectTrigger className="h-9 sm:h-10 w-full sm:w-36 text-xs sm:text-sm">
+            <SelectTrigger className={`h-10 w-full sm:w-36 text-xs sm:text-sm rounded-xl border-border/50 bg-background/80 backdrop-blur-sm transition-all ${
+              channelFilter !== 'all' ? 'border-primary/50 ring-2 ring-primary/20' : ''
+            }`}>
               <SelectValue placeholder="Kênh" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả kênh</SelectItem>
               {CHANNELS.map(channel => (
                 <SelectItem key={channel.value} value={channel.value}>
                   {channel.label}
@@ -482,14 +561,23 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="h-9 sm:h-10 w-full sm:w-36 text-xs sm:text-sm">
+            <SelectTrigger className={`h-10 w-full sm:w-36 text-xs sm:text-sm rounded-xl border-border/50 bg-background/80 backdrop-blur-sm transition-all ${
+              priorityFilter !== 'all' ? 'border-primary/50 ring-2 ring-primary/20' : ''
+            }`}>
               <SelectValue placeholder="Ưu tiên" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả mức độ</SelectItem>
               {ASSIGNMENT_PRIORITIES.map(priority => (
                 <SelectItem key={priority.value} value={priority.value}>
-                  {priority.label}
+                  <span className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${
+                      priority.value === 'urgent' ? 'bg-red-500' :
+                      priority.value === 'high' ? 'bg-orange-500' :
+                      priority.value === 'normal' ? 'bg-blue-500' : 'bg-muted-foreground'
+                    }`} />
+                    {priority.label}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -497,58 +585,66 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs with enhanced styling */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:inline-flex sm:h-10 bg-muted/50 p-1 rounded-lg">
+        <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:inline-flex sm:h-11 bg-muted/30 backdrop-blur-sm p-1.5 rounded-xl border border-border/50">
           <TabsTrigger 
             value="all" 
-            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md gap-1 sm:gap-1.5 px-2 sm:px-4"
+            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground rounded-lg gap-1.5 sm:gap-2 px-3 sm:px-4 transition-all"
           >
             <span className="hidden xs:inline">Tất cả</span>
             <span className="xs:hidden">All</span>
-            <Badge variant="secondary" className="text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-1.5 min-w-[18px]">
+            <Badge variant="secondary" className={`text-[10px] sm:text-xs h-5 px-1.5 min-w-[20px] ${
+              activeTab === 'all' ? 'bg-primary/10 text-primary' : ''
+            }`}>
               {tabCounts.all}
             </Badge>
           </TabsTrigger>
           <TabsTrigger 
             value="my" 
-            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md gap-1 sm:gap-1.5 px-2 sm:px-4"
+            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground rounded-lg gap-1.5 sm:gap-2 px-3 sm:px-4 transition-all"
           >
             <span className="hidden xs:inline">Của tôi</span>
             <span className="xs:hidden">My</span>
-            <Badge variant="secondary" className="text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-1.5 min-w-[18px]">
+            <Badge variant="secondary" className={`text-[10px] sm:text-xs h-5 px-1.5 min-w-[20px] ${
+              activeTab === 'my' ? 'bg-primary/10 text-primary' : ''
+            }`}>
               {tabCounts.my}
             </Badge>
           </TabsTrigger>
           <TabsTrigger 
             value="review" 
-            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md gap-1 sm:gap-1.5 px-2 sm:px-4"
+            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground rounded-lg gap-1.5 sm:gap-2 px-3 sm:px-4 transition-all"
           >
             <span className="hidden xs:inline">Chờ duyệt</span>
             <span className="xs:hidden">Review</span>
             <Badge 
               variant="secondary" 
-              className={`text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-1.5 min-w-[18px] ${tabCounts.review > 0 ? 'bg-yellow-500/20 text-yellow-600' : ''}`}
+              className={`text-[10px] sm:text-xs h-5 px-1.5 min-w-[20px] ${
+                tabCounts.review > 0 ? 'bg-yellow-500/20 text-yellow-600' : ''
+              } ${activeTab === 'review' ? 'bg-yellow-500/30' : ''}`}
             >
               {tabCounts.review}
             </Badge>
           </TabsTrigger>
           <TabsTrigger 
             value="scheduled" 
-            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md gap-1 sm:gap-1.5 px-2 sm:px-4"
+            className="text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground rounded-lg gap-1.5 sm:gap-2 px-3 sm:px-4 transition-all"
           >
             <span className="hidden xs:inline">Đã lên lịch</span>
             <span className="xs:hidden">Plan</span>
             <Badge 
               variant="secondary" 
-              className={`text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-1.5 min-w-[18px] ${tabCounts.scheduled > 0 ? 'bg-blue-500/20 text-blue-600' : ''}`}
+              className={`text-[10px] sm:text-xs h-5 px-1.5 min-w-[20px] ${
+                tabCounts.scheduled > 0 ? 'bg-blue-500/20 text-blue-600' : ''
+              } ${activeTab === 'scheduled' ? 'bg-blue-500/30' : ''}`}
             >
               {tabCounts.scheduled}
             </Badge>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-4 sm:mt-6 space-y-3">
+        <TabsContent value={activeTab} className="mt-5 sm:mt-6 space-y-4">
           {/* Bulk Actions Bar */}
           {filteredTasks.length > 0 && (
             <BulkActionsBar
@@ -564,21 +660,21 @@ export default function Tasks() {
           )}
 
           {isLoading ? (
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-56 sm:h-64 rounded-xl" />
+                <div key={i} className="h-64 rounded-2xl skeleton-shine" />
               ))}
             </div>
           ) : filteredTasks.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16 text-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-                  <ListTodo className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground/50" />
+            <Card className="border-dashed border-2 bg-muted/20">
+              <CardContent className="flex flex-col items-center justify-center py-16 sm:py-20 text-center">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-muted/80 to-muted/40 flex items-center justify-center mb-5 empty-state-icon">
+                  <ListTodo className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground/40" />
                 </div>
-                <h3 className="text-base sm:text-lg font-medium text-muted-foreground mb-1">
+                <h3 className="text-lg sm:text-xl font-semibold text-muted-foreground mb-2">
                   Không có nội dung nào
                 </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground/70 max-w-sm">
+                <p className="text-sm text-muted-foreground/70 max-w-md">
                   {activeTab === 'my'
                     ? 'Bạn chưa được phân công nội dung nào. Liên hệ quản lý để được giao việc.'
                     : activeTab === 'review'
@@ -600,19 +696,20 @@ export default function Tasks() {
               onSelectionChange={setSelectedIds}
             />
           ) : (
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredTasks.map(({ content, assignments, schedules }) => (
-                <ContentTaskCard
-                  key={content.id}
-                  content={content}
-                  assignments={assignments}
-                  schedules={schedules}
-                  currentUserId={user?.id}
-                  onAssignmentStatusChange={updateAssignmentStatus}
-                  onRefresh={handleRefresh}
-                  isSelected={selectedIds.has(content.id)}
-                  onToggleSelect={() => handleToggleSelect(content.id)}
-                />
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredTasks.map(({ content, assignments, schedules }, index) => (
+                <div key={content.id} className="stagger-item" style={{ animationDelay: `${index * 50}ms` }}>
+                  <ContentTaskCard
+                    content={content}
+                    assignments={assignments}
+                    schedules={schedules}
+                    currentUserId={user?.id}
+                    onAssignmentStatusChange={updateAssignmentStatus}
+                    onRefresh={handleRefresh}
+                    isSelected={selectedIds.has(content.id)}
+                    onToggleSelect={() => handleToggleSelect(content.id)}
+                  />
+                </div>
               ))}
             </div>
           )}
