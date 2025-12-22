@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { QuickSearch } from '@/components/QuickSearch';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -38,6 +39,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             {children}
           </main>
         </div>
+        
+        {/* Chat Panel */}
+        <ChatPanel />
       </div>
     </SidebarProvider>
   );
