@@ -228,12 +228,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <DialogTitle className="text-xl font-bold">
+      <DialogContent className="max-w-4xl w-[95vw] xs:w-full h-[95vh] xs:h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-3 xs:px-6 pt-3 xs:pt-6 pb-3 xs:pb-4 border-b border-border/50">
+          <div className="flex flex-col xs:flex-row xs:items-start xs:justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col xs:flex-row xs:items-start justify-between gap-2 mb-2">
+                <DialogTitle className="text-base xs:text-xl font-bold line-clamp-2">
                   {carousel.title}
                 </DialogTitle>
                 <StatusSelector 
@@ -242,101 +242,99 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   disabled={generatingAll}
                 />
               </div>
-              <p className="text-sm text-muted-foreground mb-3">{carousel.topic}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{platformLabels[carousel.platform]}</Badge>
-                <Badge variant="outline">
-                  <Images className="w-3 h-3 mr-1" />
+              <p className="text-xs xs:text-sm text-muted-foreground mb-2 xs:mb-3 line-clamp-2">{carousel.topic}</p>
+              <div className="flex flex-wrap items-center gap-1.5 xs:gap-2">
+                <Badge variant="secondary" className="text-[10px] xs:text-xs">{platformLabels[carousel.platform]}</Badge>
+                <Badge variant="outline" className="text-[10px] xs:text-xs">
+                  <Images className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
                   {carousel.slide_count} slides
                 </Badge>
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] xs:text-xs">
                   {aiToolLabels[carousel.ai_tool]}
                 </Badge>
-                <Badge variant="outline">{carousel.brand_name}</Badge>
-                <span className="text-muted-foreground mx-1">•</span>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <span>Tạo bởi:</span>
-                  <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                </div>
-                <span className="text-muted-foreground mx-1">•</span>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>Tạo lúc: {new Date(carousel.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                <span className="text-muted-foreground mx-1">•</span>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>Cập nhật: {new Date(carousel.updated_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
+                <Badge variant="outline" className="text-[10px] xs:text-xs hidden xs:inline-flex">{carousel.brand_name}</Badge>
+              </div>
+              {/* Creator & Time - Hidden on very small screens */}
+              <div className="hidden xs:flex flex-wrap items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                <span>Tạo bởi:</span>
+                <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                <span className="mx-1">•</span>
+                <span>{new Date(carousel.created_at).toLocaleDateString('vi-VN')}</span>
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex gap-1.5 xs:gap-2 shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleExportTxt}
+                className="h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
               >
-                <Download className="w-4 h-4" />
-                <span className="ml-1.5">Export TXT</span>
+                <Download className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline ml-1.5">Export</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleCopyAll}
+                className="h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
               >
                 {copiedAll ? (
-                  <Check className="w-4 h-4 text-green-500" />
+                  <Check className="w-3 h-3 xs:w-4 xs:h-4 text-green-500" />
                 ) : (
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-3 h-3 xs:w-4 xs:h-4" />
                 )}
-                <span className="ml-1.5">Copy Tất Cả</span>
+                <span className="hidden xs:inline ml-1.5">Copy</span>
               </Button>
             </div>
           </div>
         </DialogHeader>
 
         <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-6 pt-2 space-y-3">
+          <div className="px-3 xs:px-6 pt-2 space-y-2 xs:space-y-3">
             {/* Gemini API Key Input */}
             <GeminiApiKeyInput />
             
-            <TabsList className="w-fit">
-              <TabsTrigger value="slides" className="gap-1.5">
-                <Images className="w-4 h-4" />
-                Prompts ({carousel.slides_content.length})
+            <TabsList className="w-full xs:w-fit h-auto flex-wrap justify-start gap-1">
+              <TabsTrigger value="slides" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
+                <Images className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">Prompts</span> ({carousel.slides_content.length})
               </TabsTrigger>
-              <TabsTrigger value="images" className="gap-1.5">
-                <ImageIcon className="w-4 h-4" />
-                Ảnh đã tạo ({generatedImages.length})
+              <TabsTrigger value="images" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
+                <ImageIcon className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">Ảnh</span> ({generatedImages.length})
               </TabsTrigger>
-              <TabsTrigger value="caption" className="gap-1.5">
-                <MessageSquare className="w-4 h-4" />
-                Caption
+              <TabsTrigger value="caption" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
+                <MessageSquare className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">Caption</span>
               </TabsTrigger>
-              <TabsTrigger value="cta" className="gap-1.5">
-                <Megaphone className="w-4 h-4" />
-                CTA
+              <TabsTrigger value="cta" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
+                <Megaphone className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">CTA</span>
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <ScrollArea className="flex-1 px-6 py-4">
-            <TabsContent value="slides" className="mt-0 space-y-4">
+          <ScrollArea className="flex-1 px-3 xs:px-6 py-3 xs:py-4">
+            <TabsContent value="slides" className="mt-0 space-y-3 xs:space-y-4">
               {/* Generate All Button */}
               {isConfigured && (
                 <div className="flex justify-end">
                   <Button
                     onClick={handleGenerateAllImages}
                     disabled={generatingAll || generating !== null}
-                    className="gap-2"
+                    className="gap-1.5 xs:gap-2 h-8 xs:h-9 text-xs xs:text-sm"
+                    size="sm"
                   >
                     {generatingAll ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Đang tạo tất cả...
+                        <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 animate-spin" />
+                        <span className="hidden xs:inline">Đang tạo...</span>
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4" />
-                        Tạo tất cả ảnh
+                        <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                        <span className="hidden xs:inline">Tạo tất cả ảnh</span>
+                        <span className="xs:hidden">Tạo ảnh</span>
                       </>
                     )}
                   </Button>
@@ -365,57 +363,57 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
             </TabsContent>
 
             <TabsContent value="caption" className="mt-0">
-              <div className="gradient-card border border-border/50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                    Gợi ý Caption đăng bài
+              <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
+                <div className="flex items-center justify-between mb-3 xs:mb-4">
+                  <h3 className="font-semibold flex items-center gap-1.5 xs:gap-2 text-sm xs:text-base">
+                    <MessageSquare className="w-4 h-4 xs:w-5 xs:h-5 text-primary" />
+                    Gợi ý Caption
                   </h3>
                   {carousel.caption_suggestion && (
-                    <Button variant="outline" size="sm" onClick={handleCopyCaption}>
+                    <Button variant="outline" size="sm" onClick={handleCopyCaption} className="h-7 xs:h-8 text-xs">
                       {copiedCaption ? (
-                        <Check className="w-4 h-4 text-green-500" />
+                        <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-green-500" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
                       )}
-                      <span className="ml-1.5">Copy</span>
+                      <span className="ml-1 xs:ml-1.5 hidden xs:inline">Copy</span>
                     </Button>
                   )}
                 </div>
                 {carousel.caption_suggestion ? (
-                  <p className="text-sm whitespace-pre-wrap bg-muted/30 p-4 rounded-lg">
+                  <p className="text-xs xs:text-sm whitespace-pre-wrap bg-muted/30 p-3 xs:p-4 rounded-lg">
                     {carousel.caption_suggestion}
                   </p>
                 ) : (
-                  <p className="text-muted-foreground text-sm">Chưa có gợi ý caption</p>
+                  <p className="text-muted-foreground text-xs xs:text-sm">Chưa có gợi ý caption</p>
                 )}
               </div>
             </TabsContent>
 
             <TabsContent value="cta" className="mt-0">
-              <div className="gradient-card border border-border/50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Megaphone className="w-5 h-5 text-primary" />
-                    Gợi ý CTA kéo tương tác
+              <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
+                <div className="flex items-center justify-between mb-3 xs:mb-4">
+                  <h3 className="font-semibold flex items-center gap-1.5 xs:gap-2 text-sm xs:text-base">
+                    <Megaphone className="w-4 h-4 xs:w-5 xs:h-5 text-primary" />
+                    Gợi ý CTA
                   </h3>
                   {carousel.cta_suggestion && (
-                    <Button variant="outline" size="sm" onClick={handleCopyCta}>
+                    <Button variant="outline" size="sm" onClick={handleCopyCta} className="h-7 xs:h-8 text-xs">
                       {copiedCta ? (
-                        <Check className="w-4 h-4 text-green-500" />
+                        <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-green-500" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
                       )}
-                      <span className="ml-1.5">Copy</span>
+                      <span className="ml-1 xs:ml-1.5 hidden xs:inline">Copy</span>
                     </Button>
                   )}
                 </div>
                 {carousel.cta_suggestion ? (
-                  <p className="text-sm whitespace-pre-wrap bg-muted/30 p-4 rounded-lg">
+                  <p className="text-xs xs:text-sm whitespace-pre-wrap bg-muted/30 p-3 xs:p-4 rounded-lg">
                     {carousel.cta_suggestion}
                   </p>
                 ) : (
-                  <p className="text-muted-foreground text-sm">Chưa có gợi ý CTA</p>
+                  <p className="text-muted-foreground text-xs xs:text-sm">Chưa có gợi ý CTA</p>
                 )}
               </div>
             </TabsContent>
