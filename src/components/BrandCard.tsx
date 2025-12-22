@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +55,8 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   youtube: <Youtube className="w-3.5 h-3.5" />,
   zalo_oa: <MessageCircle className="w-3.5 h-3.5" />,
   telegram: <Send className="w-3.5 h-3.5" />,
+  tiktok: <Music2 className="w-3.5 h-3.5" />,
+  threads: <AtSign className="w-3.5 h-3.5" />,
 };
 
 const channelLabels: Record<Channel, string> = {
@@ -68,6 +70,8 @@ const channelLabels: Record<Channel, string> = {
   youtube: 'YouTube',
   zalo_oa: 'Zalo OA',
   telegram: 'Telegram',
+  tiktok: 'TikTok',
+  threads: 'Threads',
 };
 
 interface BrandCardProps {

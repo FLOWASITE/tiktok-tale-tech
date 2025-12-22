@@ -40,6 +40,8 @@ const channelLabels: Record<Channel, string> = {
   youtube: 'YouTube',
   zalo_oa: 'Zalo OA',
   telegram: 'Telegram',
+  tiktok: 'TikTok',
+  threads: 'Threads',
 };
 
 const channelColors: Record<Channel, string> = {
@@ -53,6 +55,8 @@ const channelColors: Record<Channel, string> = {
   youtube: 'bg-red-500/10 text-red-600 border-red-200',
   zalo_oa: 'bg-blue-500/10 text-blue-600 border-blue-200',
   telegram: 'bg-sky-500/10 text-sky-600 border-sky-200',
+  tiktok: 'bg-pink-500/10 text-pink-600 border-pink-200',
+  threads: 'bg-slate-500/10 text-slate-600 border-slate-200',
 };
 
 export function QuickScheduleDialog({ 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info } from 'lucide-react';
+import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,8 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   youtube: <Youtube className="w-4 h-4" />,
   zalo_oa: <MessageCircle className="w-4 h-4" />,
   telegram: <Send className="w-4 h-4" />,
+  tiktok: <Music2 className="w-4 h-4" />,
+  threads: <AtSign className="w-4 h-4" />,
 };
 
 const ctaPolicyOptions = [

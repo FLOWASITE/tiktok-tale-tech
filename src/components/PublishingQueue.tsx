@@ -69,6 +69,8 @@ const channelIcons: Record<Channel, string> = {
   youtube: '▶️',
   zalo_oa: '💬',
   telegram: '✈️',
+  tiktok: '🎵',
+  threads: '🧵',
 };
 
 const channelColors: Record<Channel, string> = {
@@ -82,6 +84,8 @@ const channelColors: Record<Channel, string> = {
   youtube: 'border-l-red-500',
   zalo_oa: 'border-l-blue-600',
   telegram: 'border-l-cyan-500',
+  tiktok: 'border-l-pink-500',
+  threads: 'border-l-slate-500',
 };
 
 export function PublishingQueue({ onViewContent }: PublishingQueueProps) {

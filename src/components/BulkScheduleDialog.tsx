@@ -55,6 +55,8 @@ const channelEmojis: Record<Channel, string> = {
   youtube: '▶️',
   zalo_oa: '💬',
   telegram: '✈️',
+  tiktok: '🎵',
+  threads: '🧵',
 };
 
 // Stagger intervals in minutes

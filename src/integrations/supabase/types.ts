@@ -368,6 +368,8 @@ export type Database = {
           status: string | null
           tags: string[] | null
           telegram_content: string | null
+          threads_content: string | null
+          tiktok_content: string | null
           title: string
           topic: string
           twitter_content: string | null
@@ -401,6 +403,8 @@ export type Database = {
           status?: string | null
           tags?: string[] | null
           telegram_content?: string | null
+          threads_content?: string | null
+          tiktok_content?: string | null
           title: string
           topic: string
           twitter_content?: string | null
@@ -434,6 +438,8 @@ export type Database = {
           status?: string | null
           tags?: string[] | null
           telegram_content?: string | null
+          threads_content?: string | null
+          tiktok_content?: string | null
           title?: string
           topic?: string
           twitter_content?: string | null

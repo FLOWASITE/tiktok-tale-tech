@@ -109,6 +109,8 @@ const channelLabels: Record<Channel, string> = {
   youtube: 'YT',
   zalo_oa: 'Zalo',
   telegram: 'TG',
+  tiktok: 'TT',
+  threads: 'TH',
 };
 
 const channelColors: Record<Channel, string> = {
@@ -122,6 +124,8 @@ const channelColors: Record<Channel, string> = {
   youtube: 'bg-red-500/20 text-red-700 dark:text-red-400',
   zalo_oa: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
   telegram: 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-400',
+  tiktok: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
+  threads: 'bg-slate-500/20 text-slate-700 dark:text-slate-400',
 };
 
 interface MultiChannelListViewProps {
