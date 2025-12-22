@@ -45,6 +45,15 @@ All colors MUST be HSL.
     --gradient-primary: linear-gradient(135deg, hsl(340 82% 52%) 0%, hsl(199 89% 48%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 97%) 100%);
     --gradient-glow: radial-gradient(circle at 50% 50%, hsl(340 82% 52% / 0.1) 0%, transparent 70%);
+    --gradient-header: linear-gradient(135deg, hsl(340 82% 52% / 0.08) 0%, hsl(199 89% 48% / 0.08) 50%, hsl(340 82% 52% / 0.03) 100%);
+    --gradient-stat-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 98%) 100%);
+
+    /* Task status colors */
+    --task-draft: 240 4.8% 60%;
+    --task-review: 45 93% 47%;
+    --task-approved: 217 91% 60%;
+    --task-published: 142 76% 36%;
+    --task-overdue: 0 84.2% 60.2%;
 
     /* Font */
     --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -97,6 +106,15 @@ All colors MUST be HSL.
     --gradient-primary: linear-gradient(135deg, hsl(340 82% 52%) 0%, hsl(199 89% 48%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(240 10% 6%) 0%, hsl(240 10% 4%) 100%);
     --gradient-glow: radial-gradient(circle at 50% 50%, hsl(340 82% 52% / 0.15) 0%, transparent 70%);
+    --gradient-header: linear-gradient(135deg, hsl(340 82% 52% / 0.12) 0%, hsl(199 89% 48% / 0.12) 50%, hsl(340 82% 52% / 0.05) 100%);
+    --gradient-stat-card: linear-gradient(180deg, hsl(240 10% 8%) 0%, hsl(240 10% 5%) 100%);
+
+    /* Task status colors */
+    --task-draft: 240 4.8% 50%;
+    --task-review: 45 93% 47%;
+    --task-approved: 217 91% 60%;
+    --task-published: 142 76% 36%;
+    --task-overdue: 0 84.2% 60.2%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -642,6 +660,229 @@ All colors MUST be HSL.
     }
     50% {
       border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+    }
+  }
+
+  /* ========== TASK MANAGEMENT SPECIAL EFFECTS ========== */
+
+  /* Stat card with glow effect */
+  .stat-card-glow {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .stat-card-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.08) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .stat-card-glow:hover::before {
+    opacity: 1;
+  }
+
+  .stat-card-glow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px -10px hsl(var(--primary) / 0.15);
+  }
+
+  /* Kanban column styling */
+  .kanban-column {
+    transition: all 0.3s ease;
+  }
+
+  .kanban-column-drop-active {
+    border-color: hsl(var(--primary)) !important;
+    background: hsl(var(--primary) / 0.05) !important;
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.2);
+  }
+
+  /* Task card effects */
+  .task-card-hover {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .task-card-hover:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 
+      0 20px 40px -15px hsl(var(--foreground) / 0.1),
+      0 0 0 1px hsl(var(--primary) / 0.1);
+  }
+
+  /* Priority left border */
+  .priority-urgent {
+    border-left: 3px solid hsl(0 84.2% 60.2%);
+  }
+
+  .priority-high {
+    border-left: 3px solid hsl(25 95% 53%);
+  }
+
+  .priority-normal {
+    border-left: 3px solid hsl(var(--border));
+  }
+
+  .priority-low {
+    border-left: 3px solid hsl(217 91% 60%);
+  }
+
+  /* Deadline pulse animation */
+  .deadline-urgent {
+    animation: deadline-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes deadline-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 hsl(0 84.2% 60.2% / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 6px hsl(0 84.2% 60.2% / 0);
+    }
+  }
+
+  /* Filter chip active state */
+  .filter-chip-active {
+    background: hsl(var(--primary) / 0.1);
+    border-color: hsl(var(--primary) / 0.3);
+    color: hsl(var(--primary));
+  }
+
+  /* Animated count badge */
+  .count-badge-animate {
+    animation: count-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes count-pop {
+    0% {
+      transform: scale(0.8);
+    }
+    50% {
+      transform: scale(1.2);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /* Progress bar shine effect */
+  .progress-shine {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-shine::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(0 0% 100% / 0.3),
+      transparent
+    );
+    animation: progress-shine 2s ease-in-out infinite;
+  }
+
+  @keyframes progress-shine {
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 200%;
+    }
+  }
+
+  /* Confetti animation */
+  @keyframes confetti-fall {
+    0% {
+      transform: translateY(-100vh) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
+  .confetti {
+    animation: confetti-fall 3s ease-in-out forwards;
+  }
+
+  /* Number counter animation */
+  .number-animate {
+    display: inline-block;
+    animation: number-slide-up 0.4s ease-out;
+  }
+
+  @keyframes number-slide-up {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Skeleton shimmer enhanced */
+  .skeleton-shine {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.08) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Icon bounce on hover */
+  .icon-bounce:hover {
+    animation: icon-bounce 0.5s ease-in-out;
+  }
+
+  @keyframes icon-bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    25% {
+      transform: translateY(-3px);
+    }
+    50% {
+      transform: translateY(0);
+    }
+    75% {
+      transform: translateY(-1px);
+    }
+  }
+
+  /* Drag overlay effect */
+  .drag-overlay {
+    box-shadow: 
+      0 25px 50px -12px hsl(var(--foreground) / 0.25),
+      0 0 0 2px hsl(var(--primary) / 0.5);
+    transform: rotate(3deg) scale(1.05);
+  }
+
+  /* Empty state illustration */
+  .empty-state-icon {
+    animation: empty-float 3s ease-in-out infinite;
+  }
+
+  @keyframes empty-float {
+    0%, 100% {
+      transform: translateY(0) rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(2deg);
     }
   }
 }

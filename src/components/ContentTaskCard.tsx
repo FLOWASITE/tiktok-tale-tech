@@ -160,18 +160,26 @@ export function ContentTaskCard({
     onToggleSelect?.();
   };
 
+  // Priority class
+  const priorityClass = myAssignment 
+    ? myAssignment.priority === 'urgent' ? 'priority-urgent'
+    : myAssignment.priority === 'high' ? 'priority-high'
+    : myAssignment.priority === 'low' ? 'priority-low'
+    : 'priority-normal'
+    : '';
+
   return (
-    <Card className={`relative group overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 ${
-      isOverdue ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-transparent' : 'border-border/50 hover:border-primary/30'
+    <Card className={`relative group overflow-hidden task-card-hover rounded-2xl ${priorityClass} ${
+      isOverdue ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-transparent deadline-urgent' : 'border-border/40'
     } ${isSelected ? 'ring-2 ring-primary border-primary bg-primary/5' : ''}`}>
       {/* Selection checkbox */}
       <div 
-        className={`absolute top-3 left-3 z-10 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+        className={`absolute top-4 left-4 z-10 transition-all duration-200 ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'}`}
         onClick={handleCheckboxClick}
       >
         <Checkbox 
           checked={isSelected} 
-          className="h-4 w-4 bg-background border-muted-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+          className="h-4 w-4 bg-background/90 backdrop-blur-sm border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-sm"
         />
       </div>
 

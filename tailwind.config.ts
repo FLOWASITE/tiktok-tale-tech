@@ -62,6 +62,13 @@ export default {
           DEFAULT: "hsl(var(--lime))",
           foreground: "hsl(var(--lime-foreground))",
         },
+        task: {
+          draft: "hsl(var(--task-draft))",
+          review: "hsl(var(--task-review))",
+          approved: "hsl(var(--task-approved))",
+          published: "hsl(var(--task-published))",
+          overdue: "hsl(var(--task-overdue))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

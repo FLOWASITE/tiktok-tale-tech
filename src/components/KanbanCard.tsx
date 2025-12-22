@@ -78,31 +78,39 @@ export function KanbanCard({
     onToggleSelect?.();
   };
 
+  // Priority class
+  const priorityClass = myAssignments.length > 0 
+    ? myAssignments[0].priority === 'urgent' ? 'priority-urgent'
+    : myAssignments[0].priority === 'high' ? 'priority-high'
+    : myAssignments[0].priority === 'low' ? 'priority-low'
+    : 'priority-normal'
+    : '';
+
   return (
     <Card
       ref={setNodeRef}
       style={style}
-      className={`cursor-grab active:cursor-grabbing group relative overflow-hidden ${
+      className={`cursor-grab active:cursor-grabbing group relative overflow-hidden task-card-hover ${priorityClass} ${
         isDragging 
-          ? 'opacity-95 shadow-2xl shadow-primary/20 rotate-2 scale-105' 
-          : 'hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30'
-      } ${hasOverdue ? 'border-red-500/30 bg-red-500/5' : 'border-border/50'} ${
+          ? 'opacity-95 shadow-2xl shadow-primary/25 rotate-2 scale-105 drag-overlay' 
+          : ''
+      } ${hasOverdue ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-transparent deadline-urgent' : 'border-border/40'} ${
         isSelected ? 'ring-2 ring-primary border-primary bg-primary/5' : ''
-      } transition-all duration-200`}
+      } rounded-xl`}
     >
       {/* Selection checkbox */}
       <div 
-        className={`absolute top-2 left-2 z-10 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+        className={`absolute top-2.5 left-2.5 z-10 transition-all duration-200 ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'}`}
         onClick={handleCheckboxClick}
       >
         <Checkbox 
           checked={isSelected} 
-          className="h-4 w-4 bg-background border-muted-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+          className="h-4 w-4 bg-background/90 backdrop-blur-sm border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-sm"
         />
       </div>
 
       {/* Gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
       
       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
         {/* Drag Handle & Title */}
