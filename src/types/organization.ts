@@ -70,6 +70,29 @@ export const canApproveContent = (
   return approverRoles.includes(role);
 };
 
+// Check if user can approve specific content based on specific approver mode
+export const canApproveSpecificContent = (
+  currentUserId: string,
+  contentCreatorId: string,
+  useSpecificApprovers: boolean,
+  assignments: { approver_id: string; creator_id: string }[],
+  role: OrgRole,
+  approverRoles: OrgRole[] = ['owner', 'admin']
+): boolean => {
+  // If not using specific approvers, fall back to role-based check
+  if (!useSpecificApprovers) {
+    return approverRoles.includes(role);
+  }
+  
+  // Owner always can approve
+  if (role === 'owner') return true;
+  
+  // Check if there's a specific assignment
+  return assignments.some(
+    a => a.approver_id === currentUserId && a.creator_id === contentCreatorId
+  );
+};
+
 export const canSubmitForReview = (role: OrgRole): boolean => {
   return role !== 'viewer';
 };
