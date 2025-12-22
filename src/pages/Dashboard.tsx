@@ -2,6 +2,9 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardStats } from '@/components/DashboardStats';
 import { RecentActivity, ActivityItem } from '@/components/RecentActivity';
+import { MyAssignments } from '@/components/MyAssignments';
+import { TodaySchedules } from '@/components/TodaySchedules';
+import { PendingReviews } from '@/components/PendingReviews';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useScripts } from '@/hooks/useScripts';
@@ -137,9 +140,9 @@ const Dashboard = () => {
         {/* Stats */}
         <DashboardStats stats={stats} loading={loading} />
 
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-[1fr_400px] gap-6">
-          {/* Quick Actions */}
+        {/* Main Content - 3 columns layout */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Column 1: Quick Actions & Tips */}
           <div className="space-y-6">
             <Card className="gradient-card border-border/50">
               <CardHeader>
@@ -149,7 +152,7 @@ const Dashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid gap-3">
                   {quickActions.map((action, index) => {
                     const Icon = action.icon;
                     return (
@@ -159,20 +162,20 @@ const Dashboard = () => {
                         className="stagger-item"
                         style={{ animationDelay: `${index * 100}ms` }}
                       >
-                        <Card className="gradient-card border-border/50 card-animated group h-full">
-                          <CardContent className="p-4 flex items-start gap-4">
-                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform`}>
-                              <Icon className="w-6 h-6 text-white" />
+                        <Card className="gradient-card border-border/50 card-animated group">
+                          <CardContent className="p-3 flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${action.gradient} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform`}>
+                              <Icon className="w-5 h-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-foreground group-hover:text-primary transition-colors">
+                              <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">
                                 {action.title}
                               </p>
-                              <p className="text-sm text-muted-foreground truncate">
+                              <p className="text-xs text-muted-foreground truncate">
                                 {action.description}
                               </p>
                             </div>
-                            <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />
+                            <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                           </CardContent>
                         </Card>
                       </Link>
@@ -186,17 +189,17 @@ const Dashboard = () => {
             <Card className="gradient-card border-border/50 overflow-hidden">
               <div className="relative">
                 <div className="absolute inset-0 gradient-primary opacity-10" />
-                <CardContent className="p-6 relative">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-background/80 backdrop-blur">
-                      <Sparkles className="w-6 h-6 text-primary" />
+                <CardContent className="p-5 relative">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-lg bg-background/80 backdrop-blur">
+                      <Sparkles className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground mb-1">
+                      <h3 className="font-semibold text-foreground mb-1 text-sm">
                         Mẹo sử dụng hiệu quả
                       </h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Tạo Brand Template với đầy đủ Brand Voice để AI tạo nội dung nhất quán hơn trên tất cả các kênh.
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Tạo Brand Template với đầy đủ Brand Voice để AI tạo nội dung nhất quán hơn.
                       </p>
                       <Button variant="secondary" size="sm" asChild>
                         <Link to="/brands">
@@ -209,10 +212,21 @@ const Dashboard = () => {
                 </CardContent>
               </div>
             </Card>
+
+            {/* Recent Activity */}
+            <RecentActivity activities={recentActivities} loading={loading} />
           </div>
 
-          {/* Recent Activity */}
-          <RecentActivity activities={recentActivities} loading={loading} />
+          {/* Column 2: My Assignments & Today Schedules */}
+          <div className="space-y-6">
+            <MyAssignments />
+            <TodaySchedules />
+          </div>
+
+          {/* Column 3: Pending Reviews (Admin only) */}
+          <div className="space-y-6">
+            <PendingReviews />
+          </div>
         </div>
       </div>
     </div>
