@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages } from '@/types/multichannel';
+import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages, ChannelStatuses, calculateMasterStatus } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 
 // Helper to transform database data to MultiChannelContent
@@ -27,6 +27,7 @@ const transformContent = (data: any): MultiChannelContent => ({
   zalo_oa_content: data.zalo_oa_content,
   telegram_content: data.telegram_content,
   channel_images: (data.channel_images || {}) as ChannelImages,
+  channel_statuses: (data.channel_statuses || {}) as ChannelStatuses,
   tags: data.tags || [],
   status: (data.status || 'draft') as ContentStatus,
   created_at: data.created_at,
@@ -377,7 +378,7 @@ export function useMultiChannelContents() {
     }
   };
 
-  // Update status
+  // Update master status
   const updateStatus = async (contentId: string, status: ContentStatus): Promise<MultiChannelContent | null> => {
     try {
       const { data, error } = await supabase
@@ -404,6 +405,55 @@ export function useMultiChannelContents() {
       toast({
         title: '❌ Lỗi cập nhật trạng thái',
         description: 'Không thể cập nhật trạng thái. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
+  // Update channel-specific status
+  const updateChannelStatus = async (contentId: string, channel: Channel, status: ContentStatus): Promise<MultiChannelContent | null> => {
+    try {
+      // Get current content to merge statuses
+      const currentContent = contents.find(c => c.id === contentId);
+      const currentStatuses = currentContent?.channel_statuses || {};
+      const selectedChannels = currentContent?.selected_channels || [];
+      
+      const updatedStatuses: ChannelStatuses = {
+        ...currentStatuses,
+        [channel]: status,
+      };
+
+      // Calculate new master status
+      const newMasterStatus = calculateMasterStatus(updatedStatuses, selectedChannels);
+
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ 
+          channel_statuses: JSON.parse(JSON.stringify(updatedStatuses)),
+          status: newMasterStatus 
+        })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: '✅ Đã cập nhật trạng thái kênh',
+        description: `${channel} → "${status}"`,
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error updating channel status:', error);
+      toast({
+        title: '❌ Lỗi cập nhật trạng thái',
+        description: 'Không thể cập nhật trạng thái kênh. Vui lòng thử lại.',
         variant: 'destructive',
       });
       return null;
@@ -465,6 +515,7 @@ export function useMultiChannelContents() {
     updateTitleTopic,
     updateTags,
     updateStatus,
+    updateChannelStatus,
     deleteChannelImage,
     refetch: fetchContents,
   };

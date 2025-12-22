@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,9 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { MultiChannelContent, Channel, CONTENT_GOALS, ChannelImage } from '@/types/multichannel';
+import { MultiChannelContent, Channel, CONTENT_GOALS, CONTENT_STATUSES, ChannelImage, ContentStatus } from '@/types/multichannel';
 import { DEFAULT_CHANNEL_SETTINGS } from '@/types/channelSettings';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
@@ -39,6 +45,7 @@ interface MultiChannelViewerProps {
   onUpdateTitleTopic?: (contentId: string, title: string, topic: string) => Promise<MultiChannelContent | null>;
   onSaveChannelImage?: (contentId: string, channel: Channel, imageData: ChannelImage) => Promise<MultiChannelContent | void>;
   onDeleteChannelImage?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | void>;
+  onUpdateChannelStatus?: (contentId: string, channel: Channel, status: ContentStatus) => Promise<MultiChannelContent | null>;
   regeneratingChannel?: string | null;
   aiEditingChannel?: string | null;
 }
@@ -161,6 +168,7 @@ export function MultiChannelViewer({
   onUpdateTitleTopic,
   onSaveChannelImage,
   onDeleteChannelImage,
+  onUpdateChannelStatus,
   regeneratingChannel,
   aiEditingChannel,
 }: MultiChannelViewerProps) {
@@ -636,6 +644,48 @@ export function MultiChannelViewer({
 
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
+                    {/* Channel Status Dropdown */}
+                    {onUpdateChannelStatus && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-6 px-2 text-xs gap-1"
+                          >
+                            <span 
+                              className={`w-2 h-2 rounded-full ${
+                                (content.channel_statuses?.[channel] || 'draft') === 'published' ? 'bg-green-400' :
+                                (content.channel_statuses?.[channel] || 'draft') === 'approved' ? 'bg-blue-400' :
+                                (content.channel_statuses?.[channel] || 'draft') === 'review' ? 'bg-yellow-400' :
+                                'bg-muted-foreground'
+                              }`}
+                            />
+                            {CONTENT_STATUSES.find(s => s.value === (content.channel_statuses?.[channel] || 'draft'))?.label || 'Bản nháp'}
+                            <ChevronDown className="w-3 h-3 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-36">
+                          {CONTENT_STATUSES.map((status) => (
+                            <DropdownMenuItem
+                              key={status.value}
+                              onClick={() => onUpdateChannelStatus(content.id, channel, status.value)}
+                              className={content.channel_statuses?.[channel] === status.value ? 'bg-muted' : ''}
+                            >
+                              <span 
+                                className={`w-2 h-2 rounded-full mr-2 ${
+                                  status.value === 'published' ? 'bg-green-400' :
+                                  status.value === 'approved' ? 'bg-blue-400' :
+                                  status.value === 'review' ? 'bg-yellow-400' :
+                                  'bg-muted-foreground'
+                                }`}
+                              />
+                              {status.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {config.maxLength}
                     </span>

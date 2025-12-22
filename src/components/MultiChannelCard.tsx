@@ -14,6 +14,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { MultiChannelContent, Channel, CONTENT_GOALS, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
 
 interface MultiChannelCardProps {
@@ -61,6 +67,14 @@ const statusColors: Record<ContentStatus, string> = {
   review: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   approved: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   published: 'bg-green-500/20 text-green-400 border-green-500/30',
+};
+
+// Status indicator colors for channel dots
+const statusDotColors: Record<ContentStatus, string> = {
+  draft: 'bg-muted-foreground',
+  review: 'bg-yellow-400',
+  approved: 'bg-blue-400',
+  published: 'bg-green-400',
 };
 
 export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCardProps) {
@@ -158,22 +172,39 @@ export function MultiChannelCard({ content, onView, onDelete }: MultiChannelCard
         </Badge>
       </div>
 
-      {/* Channels */}
-      <div className="relative flex flex-wrap gap-1 mb-2">
-        {content.selected_channels.slice(0, 5).map((channel) => (
-          <div
-            key={channel}
-            className={`flex items-center p-1 rounded border ${channelColors[channel]}`}
-          >
-            {channelIcons[channel]}
-          </div>
-        ))}
-        {content.selected_channels.length > 5 && (
-          <div className="flex items-center px-1.5 py-1 rounded border border-border text-[10px] text-muted-foreground">
-            +{content.selected_channels.length - 5}
-          </div>
-        )}
-      </div>
+      {/* Channels with status indicators */}
+      <TooltipProvider>
+        <div className="relative flex flex-wrap gap-1 mb-2">
+          {content.selected_channels.slice(0, 5).map((channel) => {
+            const channelStatus = content.channel_statuses?.[channel] || 'draft';
+            const channelStatusLabel = CONTENT_STATUSES.find(s => s.value === channelStatus)?.label || channelStatus;
+            return (
+              <Tooltip key={channel}>
+                <TooltipTrigger asChild>
+                  <div
+                    className={`relative flex items-center p-1 rounded border ${channelColors[channel]}`}
+                  >
+                    {channelIcons[channel]}
+                    {/* Status indicator dot */}
+                    <span 
+                      className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${statusDotColors[channelStatus]} ring-1 ring-background`}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  <p className="font-medium">{channel}</p>
+                  <p className="text-muted-foreground">{channelStatusLabel}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+          {content.selected_channels.length > 5 && (
+            <div className="flex items-center px-1.5 py-1 rounded border border-border text-[10px] text-muted-foreground">
+              +{content.selected_channels.length - 5}
+            </div>
+          )}
+        </div>
+      </TooltipProvider>
 
       {/* Tags */}
       {content.tags && content.tags.length > 0 && (

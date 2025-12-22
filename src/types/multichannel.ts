@@ -30,6 +30,19 @@ export interface ChannelImage {
 
 export type ChannelImages = Partial<Record<Channel, ChannelImage>>;
 
+// Status riêng cho từng channel
+export type ChannelStatuses = Partial<Record<Channel, ContentStatus>>;
+
+// Helper function to calculate master status from channel statuses
+export const calculateMasterStatus = (channelStatuses: ChannelStatuses, selectedChannels: Channel[]): ContentStatus => {
+  const statuses = selectedChannels.map(ch => channelStatuses[ch]).filter(Boolean) as ContentStatus[];
+  if (statuses.length === 0) return 'draft';
+  if (statuses.every(s => s === 'published')) return 'published';
+  if (statuses.every(s => s === 'approved' || s === 'published')) return 'approved';
+  if (statuses.some(s => s === 'review')) return 'review';
+  return 'draft';
+};
+
 export interface MultiChannelContent {
   id: string;
   title: string;
@@ -52,6 +65,7 @@ export interface MultiChannelContent {
   zalo_oa_content: string | null;
   telegram_content: string | null;
   channel_images: ChannelImages;
+  channel_statuses: ChannelStatuses;
   tags: string[];
   status: ContentStatus;
   created_at: string;
