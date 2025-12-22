@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { ContentTaskCard } from '@/components/ContentTaskCard';
 import { TasksKanbanBoard, ContentTask } from '@/components/TasksKanbanBoard';
+import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useContentAssignments } from '@/hooks/useContentAssignments';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
@@ -32,10 +33,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CHANNELS, Channel, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
 import { ASSIGNMENT_STATUSES, AssignmentStatus, AssignmentPriority, ASSIGNMENT_PRIORITIES } from '@/types/assignment';
+import { toast } from 'sonner';
 
 export default function Tasks() {
   const { user } = useAuth();
-  const { contents, loading: loadingContents, refetch: refetchContents, updateStatus } = useMultiChannelContents();
+  const { contents, loading: loadingContents, refetch: refetchContents, updateStatus, deleteContent } = useMultiChannelContents();
   const { assignments, myAssignments, isLoading: loadingAssignments, refreshAssignments, updateAssignmentStatus } = useContentAssignments();
   const { allSchedules, fetchAllSchedules, isLoading: loadingSchedules } = useContentSchedules();
 
@@ -45,17 +47,27 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchAllSchedules();
   }, []);
 
+  // Clear selection when filters or tab changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeTab, statusFilter, channelFilter, priorityFilter, searchQuery]);
+
   const handleRefresh = () => {
     refetchContents();
     refreshAssignments();
     fetchAllSchedules();
+    setSelectedIds(new Set());
   };
-
   // Aggregate data: content + assignments + schedules
   const contentTasks = useMemo(() => {
     return contents.map(content => {
@@ -137,6 +149,62 @@ export default function Tasks() {
       ).length,
     };
   }, [contentTasks, myAssignments]);
+
+  // Bulk action handlers
+  const handleSelectAll = useCallback(() => {
+    const allIds = filteredTasks.map(t => t.content.id);
+    setSelectedIds(new Set(allIds));
+  }, [filteredTasks]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleBulkStatusChange = useCallback(async (status: ContentStatus) => {
+    if (selectedIds.size === 0) return;
+    
+    setIsUpdating(true);
+    try {
+      const promises = Array.from(selectedIds).map(id => updateStatus(id, status));
+      await Promise.all(promises);
+      toast.success(`Đã cập nhật trạng thái ${selectedIds.size} nội dung`);
+      setSelectedIds(new Set());
+      handleRefresh();
+    } catch (error) {
+      toast.error('Có lỗi khi cập nhật trạng thái');
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [selectedIds, updateStatus]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      const promises = Array.from(selectedIds).map(id => deleteContent(id));
+      await Promise.all(promises);
+      toast.success(`Đã xóa ${selectedIds.size} nội dung`);
+      setSelectedIds(new Set());
+      handleRefresh();
+    } catch (error) {
+      toast.error('Có lỗi khi xóa nội dung');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedIds, deleteContent]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -407,7 +475,21 @@ export default function Tasks() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-4 sm:mt-6">
+        <TabsContent value={activeTab} className="mt-4 sm:mt-6 space-y-3">
+          {/* Bulk Actions Bar */}
+          {filteredTasks.length > 0 && (
+            <BulkActionsBar
+              selectedCount={selectedIds.size}
+              totalCount={filteredTasks.length}
+              onSelectAll={handleSelectAll}
+              onClearSelection={handleClearSelection}
+              onBulkDelete={handleBulkDelete}
+              onBulkStatusChange={handleBulkStatusChange}
+              isDeleting={isDeleting}
+              isUpdating={isUpdating}
+            />
+          )}
+
           {isLoading ? (
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -441,6 +523,8 @@ export default function Tasks() {
               onContentStatusChange={updateStatus}
               onAssignmentStatusChange={updateAssignmentStatus}
               onRefresh={handleRefresh}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
             />
           ) : (
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -453,6 +537,8 @@ export default function Tasks() {
                   currentUserId={user?.id}
                   onAssignmentStatusChange={updateAssignmentStatus}
                   onRefresh={handleRefresh}
+                  isSelected={selectedIds.has(content.id)}
+                  onToggleSelect={() => handleToggleSelect(content.id)}
                 />
               ))}
             </div>
