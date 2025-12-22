@@ -7,7 +7,8 @@ import {
   Loader2,
   Plus,
   LayoutGrid,
-  List
+  List,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import { SlidePanel } from '@/components/ui/slide-panel';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { PublishingQueue } from '@/components/PublishingQueue';
+import { CalendarDayView } from '@/components/CalendarDayView';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData } from '@/types/multichannel';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +47,8 @@ import {
   subMonths,
   addWeeks,
   subWeeks,
+  addDays,
+  subDays,
   isToday,
   parseISO
 } from 'date-fns';
@@ -190,7 +194,7 @@ function DroppableDayCell({
 
 export default function ContentCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'queue'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'queue'>('month');
   const [schedules, setSchedules] = useState<ScheduleWithContent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<PublishStatus | 'all'>('all');
@@ -295,16 +299,20 @@ export default function ContentCalendar() {
   const goToPrevious = () => {
     if (viewMode === 'month') {
       setCurrentDate(subMonths(currentDate, 1));
-    } else {
+    } else if (viewMode === 'week') {
       setCurrentDate(subWeeks(currentDate, 1));
+    } else if (viewMode === 'day') {
+      setCurrentDate(subDays(currentDate, 1));
     }
   };
 
   const goToNext = () => {
     if (viewMode === 'month') {
       setCurrentDate(addMonths(currentDate, 1));
-    } else {
+    } else if (viewMode === 'week') {
       setCurrentDate(addWeeks(currentDate, 1));
+    } else if (viewMode === 'day') {
+      setCurrentDate(addDays(currentDate, 1));
     }
   };
 
@@ -440,6 +448,10 @@ export default function ContentCalendar() {
                 <CalendarIcon className="w-3.5 h-3.5" />
                 Tuần
               </ToggleGroupItem>
+              <ToggleGroupItem value="day" className="gap-1.5 text-xs px-3">
+                <Clock className="w-3.5 h-3.5" />
+                Ngày
+              </ToggleGroupItem>
               <ToggleGroupItem value="queue" className="gap-1.5 text-xs px-3">
                 <List className="w-3.5 h-3.5" />
                 Hàng đợi
@@ -458,7 +470,9 @@ export default function ContentCalendar() {
                 <span className="font-semibold min-w-[180px] text-center">
                   {viewMode === 'month' 
                     ? format(currentDate, 'MMMM yyyy', { locale: vi })
-                    : `Tuần ${format(currentDate, 'w, yyyy', { locale: vi })}`
+                    : viewMode === 'week'
+                    ? `Tuần ${format(currentDate, 'w, yyyy', { locale: vi })}`
+                    : format(currentDate, 'dd MMMM yyyy', { locale: vi })
                   }
                 </span>
                 <Button variant="outline" size="sm" onClick={goToNext}>
@@ -538,6 +552,61 @@ export default function ContentCalendar() {
         <Card>
           <CardContent className="p-4">
             <PublishingQueue />
+          </CardContent>
+        </Card>
+      ) : viewMode === 'day' ? (
+        <Card className="overflow-hidden">
+          <CardContent className="p-0 h-[600px]">
+            <CalendarDayView
+              date={currentDate}
+              schedules={filteredSchedules}
+              onScheduleClick={handleScheduleClick}
+              onScheduleDrop={async (scheduleId, newDate) => {
+                try {
+                  const schedule = schedules.find(s => s.id === scheduleId);
+                  if (!schedule) return;
+
+                  const { error } = await supabase
+                    .from('content_schedules')
+                    .update({ 
+                      scheduled_at: newDate.toISOString(),
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', scheduleId);
+
+                  if (error) throw error;
+
+                  // Log the reschedule
+                  await supabase.from('content_publishing_logs').insert({
+                    schedule_id: scheduleId,
+                    content_id: schedule.content_id,
+                    channel: schedule.channel,
+                    organization_id: currentOrganization?.id || null,
+                    action: 'rescheduled',
+                    performed_by: user?.id || null,
+                    performed_at: new Date().toISOString(),
+                    details: { 
+                      from: schedule.scheduled_at, 
+                      to: newDate.toISOString() 
+                    },
+                  });
+
+                  toast({
+                    title: 'Đã đổi lịch',
+                    description: `Đã chuyển sang ${format(newDate, 'dd/MM/yyyy HH:mm', { locale: vi })}`,
+                  });
+
+                  fetchSchedules();
+                } catch (error) {
+                  console.error('Error updating schedule:', error);
+                  toast({
+                    title: 'Lỗi',
+                    description: 'Không thể cập nhật lịch',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            />
           </CardContent>
         </Card>
       ) : (
