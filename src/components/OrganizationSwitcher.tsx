@@ -53,8 +53,8 @@ export function OrganizationSwitcher() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
-            className="justify-start gap-2 px-2 h-auto py-1.5"
+            variant="outline"
+            className="justify-start gap-2 px-3 h-9 min-w-[180px]"
           >
             <div
               className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium"
@@ -73,11 +73,11 @@ export function OrganizationSwitcher() {
                 <Building2 className="h-4 w-4" />
               )}
             </div>
-            <div className="flex flex-col items-start text-left min-w-0">
-              <span className="text-sm font-medium truncate max-w-[120px]">
+            <div className="flex flex-col items-start text-left min-w-0 flex-1">
+              <span className="text-sm font-medium truncate max-w-[140px]">
                 {currentOrganization.name}
               </span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground leading-tight">
                 {ORG_ROLE_LABELS[currentOrganization.role]}
               </span>
             </div>
