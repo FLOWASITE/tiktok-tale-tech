@@ -112,6 +112,7 @@ export type Database = {
           platform: Database["public"]["Enums"]["carousel_platform"]
           slide_count: number
           slides_content: Json
+          status: string | null
           title: string
           topic: string
           updated_at: string
@@ -131,6 +132,7 @@ export type Database = {
           platform?: Database["public"]["Enums"]["carousel_platform"]
           slide_count?: number
           slides_content?: Json
+          status?: string | null
           title: string
           topic: string
           updated_at?: string
@@ -150,6 +152,7 @@ export type Database = {
           platform?: Database["public"]["Enums"]["carousel_platform"]
           slide_count?: number
           slides_content?: Json
+          status?: string | null
           title?: string
           topic?: string
           updated_at?: string
@@ -656,6 +659,7 @@ export type Database = {
           duration: number
           id: string
           organization_id: string | null
+          status: string | null
           title: string
           topic: string
           updated_at: string
@@ -669,6 +673,7 @@ export type Database = {
           duration?: number
           id?: string
           organization_id?: string | null
+          status?: string | null
           title: string
           topic: string
           updated_at?: string
@@ -682,6 +687,7 @@ export type Database = {
           duration?: number
           id?: string
           organization_id?: string | null
+          status?: string | null
           title?: string
           topic?: string
           updated_at?: string

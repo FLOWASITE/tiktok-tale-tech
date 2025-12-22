@@ -1,5 +1,6 @@
 export type Platform = 'facebook' | 'tiktok';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
+export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
 
 export interface CarouselSlide {
   slideNumber: number;
@@ -25,9 +26,17 @@ export interface Carousel {
   slides_content: CarouselSlide[];
   caption_suggestion: string | null;
   cta_suggestion: string | null;
+  status: CarouselStatus;
   created_at: string;
   updated_at: string;
 }
+
+export const CAROUSEL_STATUS_CONFIG: Record<CarouselStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
+  draft: { label: 'Nháp', variant: 'secondary' },
+  review: { label: 'Chờ duyệt', variant: 'outline' },
+  approved: { label: 'Đã duyệt', variant: 'default' },
+  published: { label: 'Đã đăng', variant: 'default' },
+};
 
 export interface CarouselFormData {
   topic: string;

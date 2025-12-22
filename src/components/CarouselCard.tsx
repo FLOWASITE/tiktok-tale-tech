@@ -1,4 +1,4 @@
-import { Carousel } from '@/types/carousel';
+import { Carousel, CAROUSEL_STATUS_CONFIG } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -64,10 +64,15 @@ export function CarouselCard({ carousel, onView, onDelete, isSelected, onSelecti
       {/* Glow effect on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base font-semibold line-clamp-2 group-hover:text-primary transition-colors">
             {carousel.title}
           </CardTitle>
+          {carousel.status && (
+            <Badge variant={CAROUSEL_STATUS_CONFIG[carousel.status]?.variant || 'secondary'} className="shrink-0">
+              {CAROUSEL_STATUS_CONFIG[carousel.status]?.label || carousel.status}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
           <Calendar className="w-3 h-3" />
