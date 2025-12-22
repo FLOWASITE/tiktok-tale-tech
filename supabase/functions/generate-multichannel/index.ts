@@ -506,16 +506,28 @@ serve(async (req) => {
 
     // Get user from auth header
     const authHeader = req.headers.get("authorization");
+    console.log("Auth header present:", !!authHeader);
+    
     let userId: string | null = null;
     if (authHeader) {
-      const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      userId = user?.id || null;
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+        });
+        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+        if (authError) {
+          console.error("Auth error:", authError.message);
+        }
+        userId = user?.id || null;
+        console.log("User ID from token:", userId);
+      } catch (authErr) {
+        console.error("Failed to parse auth:", authErr);
+      }
     }
 
     if (!userId) {
+      console.error("No valid user found from authorization header");
       return new Response(
         JSON.stringify({ error: "Unauthorized - Please login" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
