@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Progress } from '@/components/ui/progress';
 import { 
   Eye, 
   Calendar, 
@@ -11,10 +12,11 @@ import {
   Clock, 
   AlertCircle,
   CheckCircle2,
-  Circle,
   PlayCircle,
   SendHorizontal,
-  Layers
+  Sparkles,
+  ArrowRight,
+  Target
 } from 'lucide-react';
 import { formatDistanceToNow, format, isPast } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -84,6 +86,11 @@ export function ContentTaskCard({
     return acc;
   }, [] as NonNullable<ContentAssignment['assignee']>[]);
 
+  // Calculate completion progress
+  const totalAssignments = assignments.length;
+  const completedAssignments = assignments.filter(a => a.status === 'completed').length;
+  const completionProgress = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0;
+
   const getNextActionButton = () => {
     if (!myAssignment) return null;
 
@@ -97,10 +104,10 @@ export function ContentTaskCard({
             variant="outline" 
             onClick={() => handleStatusChange('in_progress')}
             disabled={isUpdating}
-            className="gap-1.5"
+            className="gap-1.5 h-8 text-xs hover:bg-primary/10 hover:text-primary hover:border-primary/30"
           >
             <PlayCircle className="w-3.5 h-3.5" />
-            Bắt đầu
+            <span className="hidden xs:inline">Bắt đầu</span>
           </Button>
         );
       case 'in_progress':
@@ -110,10 +117,10 @@ export function ContentTaskCard({
             variant="outline" 
             onClick={() => handleStatusChange('review')}
             disabled={isUpdating}
-            className="gap-1.5"
+            className="gap-1.5 h-8 text-xs hover:bg-yellow-500/10 hover:text-yellow-600 hover:border-yellow-500/30"
           >
             <SendHorizontal className="w-3.5 h-3.5" />
-            Gửi duyệt
+            <span className="hidden xs:inline">Gửi duyệt</span>
           </Button>
         );
       case 'review':
@@ -123,10 +130,10 @@ export function ContentTaskCard({
             variant="default" 
             onClick={() => handleStatusChange('completed')}
             disabled={isUpdating}
-            className="gap-1.5"
+            className="gap-1.5 h-8 text-xs"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Hoàn thành
+            <span className="hidden xs:inline">Hoàn thành</span>
           </Button>
         );
       default:
@@ -140,75 +147,120 @@ export function ContentTaskCard({
   const isOverdue = myAssignment?.due_date && isPast(new Date(myAssignment.due_date)) && 
     myAssignment.status !== 'completed' && myAssignment.status !== 'cancelled';
 
+  const priorityConfig = myAssignment ? 
+    ASSIGNMENT_PRIORITIES.find(p => p.value === myAssignment.priority) : null;
+
   return (
-    <Card className="relative gradient-card border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden hover:shadow-xl hover:shadow-primary/5">
-      {/* Glow effect */}
+    <Card className={`relative group overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 ${
+      isOverdue ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-transparent' : 'border-border/50 hover:border-primary/30'
+    }`}>
+      {/* Gradient overlay */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
       
-      <CardHeader className="pb-3">
+      {/* Priority indicator */}
+      {priorityConfig && myAssignment?.priority !== 'normal' && (
+        <div className={`absolute top-0 right-0 w-16 h-16 overflow-hidden`}>
+          <div className={`absolute top-2 right-[-20px] w-[80px] text-center text-[9px] font-bold py-0.5 rotate-45 ${
+            myAssignment?.priority === 'urgent' ? 'bg-red-500 text-white' :
+            myAssignment?.priority === 'high' ? 'bg-orange-500 text-white' :
+            'bg-muted text-muted-foreground'
+          }`}>
+            {priorityConfig.label}
+          </div>
+        </div>
+      )}
+      
+      <CardHeader className="pb-2 sm:pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base font-semibold line-clamp-1 group-hover:text-primary transition-colors">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge 
+                variant="secondary" 
+                className={`text-[10px] sm:text-xs shrink-0 ${statusConfig.color}`}
+              >
+                {statusConfig.label}
+              </Badge>
+              {completedAssignments === totalAssignments && totalAssignments > 0 && (
+                <Badge variant="secondary" className="text-[10px] bg-green-500/20 text-green-600 gap-0.5">
+                  <CheckCircle2 className="w-2.5 h-2.5" />
+                  Done
+                </Badge>
+              )}
+            </div>
+            <h3 className="text-sm sm:text-base font-semibold line-clamp-2 group-hover:text-primary transition-colors">
               {content.title}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 flex items-center gap-1">
+              <Target className="w-3 h-3 shrink-0" />
               {content.topic}
             </p>
           </div>
-          <Badge 
-            variant="secondary" 
-            className={`text-xs shrink-0 ${statusConfig.color}`}
-          >
-            {statusConfig.label}
-          </Badge>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pt-0">
         {/* Channels */}
         <div className="flex flex-wrap gap-1">
           {content.selected_channels.slice(0, 4).map(channel => {
             const info = getChannelInfo(channel);
             return info ? (
-              <Tooltip key={channel}>
-                <TooltipTrigger>
-                  <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                    {info.label}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>{info.description}</TooltipContent>
-              </Tooltip>
+              <TooltipProvider key={channel}>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-background/50">
+                      {info.label}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>{info.description}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : null;
           })}
           {content.selected_channels.length > 4 && (
-            <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
               +{content.selected_channels.length - 4}
             </Badge>
           )}
         </div>
 
+        {/* Progress bar for assignments */}
+        {totalAssignments > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Tiến độ
+              </span>
+              <span className="font-medium">{completedAssignments}/{totalAssignments}</span>
+            </div>
+            <Progress value={completionProgress} className="h-1.5" />
+          </div>
+        )}
+
         {/* Assignees */}
         {uniqueAssignees.length > 0 && (
           <div className="flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+            <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <div className="flex -space-x-1.5">
-              {uniqueAssignees.slice(0, 4).map(assignee => (
-                <Tooltip key={assignee.id}>
-                  <TooltipTrigger>
-                    <Avatar className="w-6 h-6 border-2 border-background">
-                      <AvatarImage src={assignee.avatar_url || undefined} />
-                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                        {assignee.full_name?.charAt(0) || assignee.email.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {assignee.full_name || assignee.email}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+              <TooltipProvider>
+                {uniqueAssignees.slice(0, 4).map(assignee => (
+                  <Tooltip key={assignee.id}>
+                    <TooltipTrigger>
+                      <Avatar className="w-6 h-6 border-2 border-background ring-1 ring-border/50">
+                        <AvatarImage src={assignee.avatar_url || undefined} />
+                        <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
+                          {assignee.full_name?.charAt(0) || assignee.email.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {assignee.full_name || assignee.email}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
               {uniqueAssignees.length > 4 && (
-                <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground">
+                <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium">
                   +{uniqueAssignees.length - 4}
                 </div>
               )}
@@ -218,22 +270,24 @@ export function ContentTaskCard({
 
         {/* My Assignment Status */}
         {myAssignment && myAssignmentStatus && (
-          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
-            <div className="flex items-center gap-2">
-              <Badge className={`text-xs ${myAssignmentStatus.color}`}>
+          <div className={`flex items-center justify-between gap-2 p-2.5 rounded-lg ${
+            isOverdue ? 'bg-red-500/10 border border-red-500/30' : 'bg-muted/50'
+          }`}>
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge className={`text-[10px] shrink-0 ${myAssignmentStatus.color}`}>
                 {myAssignmentStatus.label}
               </Badge>
               {isOverdue && (
-                <span className="flex items-center gap-1 text-xs text-destructive">
-                  <AlertCircle className="w-3 h-3" />
-                  Quá hạn
+                <span className="flex items-center gap-1 text-[10px] text-red-500 font-medium">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  <span className="hidden xs:inline">Quá hạn</span>
                 </span>
               )}
             </div>
-            {myAssignment.due_date && !isOverdue && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
+            {myAssignment.due_date && (
+              <span className={`text-[10px] flex items-center gap-1 shrink-0 ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
                 <Clock className="w-3 h-3" />
-                {format(new Date(myAssignment.due_date), 'dd/MM')}
+                {format(new Date(myAssignment.due_date), 'dd/MM HH:mm')}
               </span>
             )}
           </div>
@@ -241,13 +295,13 @@ export function ContentTaskCard({
 
         {/* Next Schedule */}
         {nextSchedule && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>
-              Đăng lúc {format(new Date(nextSchedule.scheduled_at), "HH:mm 'ngày' dd/MM", { locale: vi })}
+          <div className="flex items-center gap-2 text-xs p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span className="text-blue-600 font-medium truncate">
+              {format(new Date(nextSchedule.scheduled_at), "HH:mm 'ngày' dd/MM", { locale: vi })}
             </span>
             {CHANNELS.find(c => c.value === nextSchedule.channel) && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0">
+              <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-500/30 text-blue-500 bg-blue-500/10 shrink-0">
                 {CHANNELS.find(c => c.value === nextSchedule.channel)?.label}
               </Badge>
             )}
@@ -256,17 +310,18 @@ export function ContentTaskCard({
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-2 border-t border-border/50">
-          <span className="text-xs text-muted-foreground">{timeAgo}</span>
-          <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
+          <div className="flex items-center gap-1.5">
             {getNextActionButton()}
             <Button 
               size="sm" 
               variant="ghost" 
-              onClick={() => navigate('/multichannel')}
-              className="gap-1.5"
+              onClick={() => navigate(`/multichannel?view=${content.id}`)}
+              className="gap-1 h-8 text-xs hover:bg-primary/10 hover:text-primary"
             >
               <Eye className="w-3.5 h-3.5" />
-              Xem
+              <span className="hidden xs:inline">Xem</span>
+              <ArrowRight className="w-3 h-3 hidden xs:inline" />
             </Button>
           </div>
         </div>
