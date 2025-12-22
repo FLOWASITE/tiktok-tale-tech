@@ -570,6 +570,14 @@ export function MultiChannelViewer({
                       <span>Tạo bởi:</span>
                       <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
                     </div>
+                    <span className="text-muted-foreground mx-1">•</span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>Tạo lúc: {new Date(content.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <span className="text-muted-foreground mx-1">•</span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>Cập nhật: {new Date(content.updated_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
                   </div>
                 </>
               )}
