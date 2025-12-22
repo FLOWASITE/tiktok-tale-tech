@@ -10,11 +10,9 @@ import {
   DragEndEvent,
   DragOverEvent,
 } from '@dnd-kit/core';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { MultiChannelContent, ContentStatus, CONTENT_STATUSES } from '@/types/multichannel';
-import { ContentAssignment, AssignmentStatus, ASSIGNMENT_STATUSES } from '@/types/assignment';
+import { MultiChannelContent, ContentStatus } from '@/types/multichannel';
+import { ContentAssignment, AssignmentStatus } from '@/types/assignment';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { FileEdit, Clock, CheckCircle, Send } from 'lucide-react';
@@ -31,6 +29,8 @@ interface TasksKanbanBoardProps {
   onContentStatusChange: (contentId: string, status: ContentStatus) => Promise<any>;
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
 }
 
 // Define columns based on content status
@@ -67,6 +67,8 @@ export function TasksKanbanBoard({
   onContentStatusChange,
   onAssignmentStatusChange,
   onRefresh,
+  selectedIds,
+  onSelectionChange,
 }: TasksKanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<ContentTask | null>(null);
 
@@ -131,6 +133,16 @@ export function TasksKanbanBoard({
     // Optional: handle drag over for visual feedback
   };
 
+  const handleToggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    onSelectionChange(newSelected);
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -157,6 +169,8 @@ export function TasksKanbanBoard({
                   currentUserId={currentUserId}
                   onAssignmentStatusChange={onAssignmentStatusChange}
                   onRefresh={onRefresh}
+                  isSelected={selectedIds.has(task.content.id)}
+                  onToggleSelect={() => handleToggleSelect(task.content.id)}
                 />
               ))}
             </KanbanColumn>
@@ -173,6 +187,8 @@ export function TasksKanbanBoard({
             onAssignmentStatusChange={onAssignmentStatusChange}
             onRefresh={onRefresh}
             isDragging
+            isSelected={selectedIds.has(activeTask.content.id)}
+            onToggleSelect={() => {}}
           />
         )}
       </DragOverlay>

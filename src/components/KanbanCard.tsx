@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Eye, GripVertical, Calendar, User, Clock, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
 import { format, isPast, formatDistanceToNow } from 'date-fns';
@@ -19,6 +20,8 @@ interface KanbanCardProps {
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
   isDragging?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function KanbanCard({
@@ -27,6 +30,8 @@ export function KanbanCard({
   onAssignmentStatusChange,
   onRefresh,
   isDragging,
+  isSelected,
+  onToggleSelect,
 }: KanbanCardProps) {
   const { content, assignments, schedules } = task;
 
@@ -68,6 +73,11 @@ export function KanbanCard({
     locale: vi,
   });
 
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleSelect?.();
+  };
+
   return (
     <Card
       ref={setNodeRef}
@@ -76,8 +86,21 @@ export function KanbanCard({
         isDragging 
           ? 'opacity-95 shadow-2xl shadow-primary/20 rotate-2 scale-105' 
           : 'hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30'
-      } ${hasOverdue ? 'border-red-500/30 bg-red-500/5' : 'border-border/50'} transition-all duration-200`}
+      } ${hasOverdue ? 'border-red-500/30 bg-red-500/5' : 'border-border/50'} ${
+        isSelected ? 'ring-2 ring-primary border-primary bg-primary/5' : ''
+      } transition-all duration-200`}
     >
+      {/* Selection checkbox */}
+      <div 
+        className={`absolute top-2 left-2 z-10 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+        onClick={handleCheckboxClick}
+      >
+        <Checkbox 
+          checked={isSelected} 
+          className="h-4 w-4 bg-background border-muted-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+        />
+      </div>
+
       {/* Gradient overlay on hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
       
@@ -87,7 +110,7 @@ export function KanbanCard({
           <div
             {...attributes}
             {...listeners}
-            className="mt-0.5 p-1.5 rounded-md hover:bg-muted cursor-grab active:cursor-grabbing transition-colors"
+            className={`mt-0.5 p-1.5 rounded-md hover:bg-muted cursor-grab active:cursor-grabbing transition-colors ${isSelected ? 'ml-5' : ''}`}
           >
             <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
           </div>
