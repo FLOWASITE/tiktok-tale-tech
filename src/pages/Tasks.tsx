@@ -26,7 +26,11 @@ import {
   CalendarRange,
   Sparkles,
   X,
-  Filter
+  Filter,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  FileEdit
 } from 'lucide-react';
 import { ContentTaskCard } from '@/components/ContentTaskCard';
 import { TasksFAB } from '@/components/TasksFAB';
@@ -55,6 +59,7 @@ export default function Tasks() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'review' | 'approved' | 'draft'>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
@@ -71,7 +76,7 @@ export default function Tasks() {
   // Clear selection when filters or tab changes
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [activeTab, statusFilter, channelFilter, priorityFilter, deadlineFilter, searchQuery]);
+  }, [activeTab, statusFilter, approvalFilter, channelFilter, priorityFilter, deadlineFilter, searchQuery]);
 
   const handleRefresh = () => {
     refetchContents();
@@ -132,6 +137,8 @@ export default function Tasks() {
         if (!matchTitle && !matchTopic) return false;
       }
       if (statusFilter !== 'all' && ct.content.status !== statusFilter) return false;
+      // Approval status filter
+      if (approvalFilter !== 'all' && ct.content.status !== approvalFilter) return false;
       if (channelFilter !== 'all') {
         const hasChannel = ct.content.selected_channels.includes(channelFilter as Channel);
         if (!hasChannel) return false;
@@ -158,7 +165,7 @@ export default function Tasks() {
       }
       return true;
     });
-  }, [filteredByTab, searchQuery, statusFilter, channelFilter, priorityFilter, deadlineFilter, getDeadlineDateRange]);
+  }, [filteredByTab, searchQuery, statusFilter, approvalFilter, channelFilter, priorityFilter, deadlineFilter, getDeadlineDateRange]);
 
   const isLoading = loadingContents || loadingAssignments || loadingSchedules;
 
@@ -174,8 +181,10 @@ export default function Tasks() {
       a.status !== 'completed' && a.status !== 'cancelled'
     ).length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const approved = contents.filter(c => c.status === 'approved').length;
+    const draft = contents.filter(c => c.status === 'draft').length;
     
-    return { total, completed, inReview, scheduled, myPending, overdue, completionRate };
+    return { total, completed, inReview, approved, draft, scheduled, myPending, overdue, completionRate };
   }, [contents, allSchedules, myAssignments]);
 
   const tabCounts = useMemo(() => {
@@ -325,15 +334,17 @@ export default function Tasks() {
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (statusFilter !== 'all') count++;
+    if (approvalFilter !== 'all') count++;
     if (channelFilter !== 'all') count++;
     if (priorityFilter !== 'all') count++;
     if (deadlineFilter !== 'all') count++;
     if (searchQuery) count++;
     return count;
-  }, [statusFilter, channelFilter, priorityFilter, deadlineFilter, searchQuery]);
+  }, [statusFilter, approvalFilter, channelFilter, priorityFilter, deadlineFilter, searchQuery]);
 
   const clearAllFilters = () => {
     setStatusFilter('all');
+    setApprovalFilter('all');
     setChannelFilter('all');
     setPriorityFilter('all');
     setDeadlineFilter('all');
@@ -593,6 +604,74 @@ export default function Tasks() {
             Xóa {activeFiltersCount} bộ lọc
           </Button>
         )}
+      </div>
+
+      {/* Quick Approval Status Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground mr-2">
+          <Eye className="w-4 h-4" />
+          <span className="hidden sm:inline font-medium">Phê duyệt:</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            variant={approvalFilter === 'all' ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => setApprovalFilter('all')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              approvalFilter === 'all' ? 'bg-primary/10 text-primary border-primary/20' : 'hover:border-primary/30'
+            }`}
+          >
+            Tất cả
+          </Button>
+          <Button
+            variant={approvalFilter === 'review' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setApprovalFilter('review')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              approvalFilter === 'review' ? 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-md' : 'hover:border-yellow-500/30'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 mr-1.5" />
+            Chờ duyệt
+            {stats.inReview > 0 && (
+              <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
+                {stats.inReview}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant={approvalFilter === 'approved' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setApprovalFilter('approved')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              approvalFilter === 'approved' ? 'bg-green-500 hover:bg-green-600 text-white shadow-md' : 'hover:border-green-500/30'
+            }`}
+          >
+            <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
+            Đã duyệt
+            {stats.approved > 0 && (
+              <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
+                {stats.approved}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant={approvalFilter === 'draft' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setApprovalFilter('draft')}
+            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
+              approvalFilter === 'draft' ? 'bg-muted-foreground hover:bg-muted-foreground/90 text-white shadow-md' : 'hover:border-muted-foreground/30'
+            }`}
+          >
+            <FileEdit className="w-3.5 h-3.5 mr-1.5" />
+            Nháp/Từ chối
+            {stats.draft > 0 && (
+              <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
+                {stats.draft}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Filters with enhanced styling */}
