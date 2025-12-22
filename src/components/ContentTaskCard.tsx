@@ -30,6 +30,7 @@ import { ContentAssignment, ASSIGNMENT_STATUSES, AssignmentStatus, ASSIGNMENT_PR
 import { ContentSchedule, PUBLISH_STATUSES } from '@/types/publishing';
 import { Link } from 'react-router-dom';
 import { useConfetti } from '@/hooks/useConfetti';
+import { getChannelColorClasses } from '@/utils/channelColors';
 
 interface ContentTaskCardProps {
   content: MultiChannelContent;
@@ -341,7 +342,10 @@ export function ContentTaskCard({
               <TooltipProvider key={channel}>
                 <Tooltip>
                   <TooltipTrigger>
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-background/50">
+                    <Badge 
+                      variant="outline" 
+                      className={`text-[10px] px-1.5 py-0.5 font-medium ${getChannelColorClasses(channel)}`}
+                    >
                       {info.label}
                     </Badge>
                   </TooltipTrigger>

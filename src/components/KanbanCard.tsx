@@ -15,6 +15,7 @@ import { ContentTask } from './TasksKanbanBoard';
 import { CHANNELS } from '@/types/multichannel';
 import { ASSIGNMENT_STATUSES, ASSIGNMENT_PRIORITIES, AssignmentStatus } from '@/types/assignment';
 import { useConfetti } from '@/hooks/useConfetti';
+import { getChannelColorClasses } from '@/utils/channelColors';
 interface KanbanCardProps {
   task: ContentTask;
   currentUserId?: string;
@@ -241,7 +242,7 @@ export function KanbanCard({
               <Badge 
                 key={ch} 
                 variant="outline" 
-                className="text-[10px] py-0 px-1.5 bg-background/50"
+                className={`text-[10px] py-0 px-1.5 font-medium ${getChannelColorClasses(ch)}`}
               >
                 {channel.label}
               </Badge>
