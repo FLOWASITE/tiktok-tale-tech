@@ -85,25 +85,25 @@ const Index = () => {
 
   return (
     <div className="min-h-screen relative">
-      {/* Header Bar */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold flex items-center gap-2">
-              <FileVideo className="w-5 h-5 text-primary" />
-              Quản lý kịch bản Video
+      {/* Header Bar - Responsive */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-3 sm:px-6 py-3 sm:py-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-xl font-semibold flex items-center gap-2">
+              <FileVideo className="w-4 sm:w-5 h-4 sm:h-5 text-primary flex-shrink-0" />
+              <span className="truncate">Kịch bản Video</span>
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
               {filteredScripts.length} / {scripts.length} kịch bản
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {/* View Mode Toggle */}
             <ToggleGroup 
               type="single" 
               value={viewMode} 
               onValueChange={(value) => value && setViewMode(value as ViewMode)}
-              className="border rounded-lg"
+              className="hidden sm:flex border rounded-lg"
             >
               <ToggleGroupItem value="grid" aria-label="Grid view" className="h-9 w-9 p-0">
                 <LayoutGrid className="w-4 h-4" />
@@ -122,31 +122,31 @@ const Index = () => {
                   selectedIds.forEach(id => deleteScript(id));
                   setSelectedIds([]);
                 }}
-                className="gap-2"
+                className="gap-1 sm:gap-2 h-8 sm:h-9"
               >
                 <Trash2 className="w-4 h-4" />
-                Xóa ({selectedIds.length})
+                <span className="hidden sm:inline">Xóa</span> ({selectedIds.length})
               </Button>
             )}
 
-            <Button onClick={() => setFormSheetOpen(true)} className="gap-2">
+            <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-4">
               <Plus className="w-4 h-4" />
-              Thêm mới
+              <span className="hidden sm:inline">Thêm mới</span>
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate('/dashboard')}
-              className="h-9 w-9"
+              className="h-8 sm:h-9 w-8 sm:w-9"
               title="Đóng"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 sm:h-5 w-4 sm:w-5" />
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-4">
+      <div className="p-3 sm:p-6 space-y-3 sm:space-y-4">
         {/* Stats Cards */}
         <ScriptStats scripts={scripts} loading={loading} />
 
@@ -155,7 +155,7 @@ const Index = () => {
 
         {/* Content Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <Card key={i} className="gradient-card border-border/50">
                 <div className="p-4">
@@ -202,7 +202,7 @@ const Index = () => {
             onSelectionChange={setSelectedIds}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
             {filteredScripts.map((script, index) => (
               <div
                 key={script.id}

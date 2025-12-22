@@ -284,20 +284,20 @@ export default function MultiChannel() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header Bar - Compact */}
-      <div className="flex-shrink-0 bg-background/95 backdrop-blur border-b px-4 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FileText className="w-4 h-4 text-primary" />
-            <div>
-              <h1 className="text-base font-semibold">Quản lý nội dung đa kênh</h1>
-              <p className="text-xs text-muted-foreground">
+      {/* Header Bar - Compact & Responsive */}
+      <div className="flex-shrink-0 bg-background/95 backdrop-blur border-b px-3 sm:px-4 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-semibold truncate">Quản lý nội dung đa kênh</h1>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 {filteredContents.length} / {contents.length} bộ nội dung
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'grid' | 'list')}>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'grid' | 'list')} className="hidden sm:flex">
               <ToggleGroupItem value="grid" aria-label="Grid view" className="h-8 w-8 p-0">
                 <LayoutGrid className="h-4 w-4" />
               </ToggleGroupItem>
@@ -305,9 +305,9 @@ export default function MultiChannel() {
                 <List className="h-4 w-4" />
               </ToggleGroupItem>
             </ToggleGroup>
-            <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1.5 h-8">
+            <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1 sm:gap-1.5 h-8 px-2 sm:px-3">
               <Plus className="w-3.5 h-3.5" />
-              Thêm mới
+              <span className="hidden sm:inline">Thêm mới</span>
             </Button>
             <Button
               variant="ghost"
@@ -322,7 +322,7 @@ export default function MultiChannel() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-3">
+      <div className="flex-1 overflow-auto p-3 sm:p-4 space-y-3">
 
             {/* Stats Dashboard */}
             <MultiChannelStats contents={contents} />
@@ -373,7 +373,7 @@ export default function MultiChannel() {
         {/* Content Grid/List - Responsive */}
         {loading ? (
           viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
               {[...Array(6)].map((_, i) => (
                 <CardLoadingSkeleton key={i} />
               ))}
@@ -406,7 +406,7 @@ export default function MultiChannel() {
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
             {filteredContents.map((content, index) => (
               <div
                 key={content.id}
