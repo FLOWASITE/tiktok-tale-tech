@@ -104,6 +104,18 @@ const CHANNEL_IMAGE_CONFIG: Record<Channel, {
     style: 'Clean, informative, community-focused',
     tips: 'Clear information, brand consistency'
   },
+  tiktok: { 
+    size: '1080x1920', 
+    aspectRatio: '9:16',
+    style: 'Vertical, dynamic, trend-focused',
+    tips: 'Vertical format, bold text, trending style'
+  },
+  threads: { 
+    size: '1080x1080', 
+    aspectRatio: '1:1',
+    style: 'Minimal, text-focused, conversational',
+    tips: 'Simple imagery, text overlay, casual feel'
+  },
 };
 
 function generateAutoPrompt(

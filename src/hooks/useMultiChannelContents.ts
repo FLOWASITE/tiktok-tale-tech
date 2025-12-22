@@ -26,6 +26,8 @@ const transformContent = (data: any): MultiChannelContent => ({
   youtube_content: data.youtube_content,
   zalo_oa_content: data.zalo_oa_content,
   telegram_content: data.telegram_content,
+  tiktok_content: data.tiktok_content,
+  threads_content: data.threads_content,
   channel_images: (data.channel_images || {}) as ChannelImages,
   channel_statuses: (data.channel_statuses || {}) as ChannelStatuses,
   tags: data.tags || [],
@@ -175,6 +177,8 @@ export function useMultiChannelContents() {
         youtube: 'youtube_content',
         zalo_oa: 'zalo_oa_content',
         telegram: 'telegram_content',
+        tiktok: 'tiktok_content',
+        threads: 'threads_content',
       };
 
       const updateField = fieldMap[channel];

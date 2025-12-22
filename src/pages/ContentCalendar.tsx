@@ -90,6 +90,8 @@ const channelEmojis: Record<Channel, string> = {
   youtube: '▶️',
   zalo_oa: '💬',
   telegram: '✈️',
+  tiktok: '🎵',
+  threads: '🧵',
 };
 
 const channelColors: Record<Channel, { border: string; bg: string; text: string }> = {
@@ -103,6 +105,8 @@ const channelColors: Record<Channel, { border: string; bg: string; text: string 
   youtube: { border: 'border-l-red-500', bg: 'bg-red-500/10', text: 'text-red-700 dark:text-red-400' },
   zalo_oa: { border: 'border-l-blue-600', bg: 'bg-blue-600/10', text: 'text-blue-700 dark:text-blue-400' },
   telegram: { border: 'border-l-cyan-500', bg: 'bg-cyan-500/10', text: 'text-cyan-700 dark:text-cyan-400' },
+  tiktok: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', text: 'text-pink-700 dark:text-pink-400' },
+  threads: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', text: 'text-slate-700 dark:text-slate-400' },
 };
 
 // Draggable Schedule Item

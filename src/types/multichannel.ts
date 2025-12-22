@@ -17,7 +17,9 @@ export type Channel =
   | 'email'
   | 'youtube'
   | 'zalo_oa'
-  | 'telegram';
+  | 'telegram'
+  | 'tiktok'
+  | 'threads';
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'published';
 
@@ -64,6 +66,8 @@ export interface MultiChannelContent {
   youtube_content: string | null;
   zalo_oa_content: string | null;
   telegram_content: string | null;
+  tiktok_content: string | null;
+  threads_content: string | null;
   channel_images: ChannelImages;
   channel_statuses: ChannelStatuses;
   tags: string[];
@@ -104,6 +108,8 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   // Social Media
   { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'social', description: 'Post ngắn, hashtag, emoji phù hợp' },
   { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'social', description: 'Caption ngắn, 20-30 hashtag' },
+  { value: 'tiktok', label: 'TikTok', icon: 'Music2', color: 'pink', category: 'social', description: 'Script video ngắn 15-60s, hook 3 giây' },
+  { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'social', description: 'Text-based, tối đa 500 ký tự' },
   { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'social', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
   { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'social', description: 'Chuyên nghiệp, không emoji quá nhiều' },
   // Direct

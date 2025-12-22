@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -130,6 +130,20 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-sky-500/10',
     maxLength: '100-500 chữ'
   },
+  tiktok: { 
+    label: 'TikTok', 
+    icon: <Music2 className="w-4 h-4" />, 
+    color: 'text-pink-400',
+    bgColor: 'bg-pink-500/10',
+    maxLength: '50-150 chữ'
+  },
+  threads: { 
+    label: 'Threads', 
+    icon: <AtSign className="w-4 h-4" />, 
+    color: 'text-slate-400',
+    bgColor: 'bg-slate-500/10',
+    maxLength: 'Tối đa 500 ký tự'
+  },
 };
 
 import { analyzeContent } from '@/hooks/useContentAnalysis';
@@ -149,6 +163,8 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
     case 'youtube': return content.youtube_content;
     case 'zalo_oa': return content.zalo_oa_content;
     case 'telegram': return content.telegram_content;
+    case 'tiktok': return content.tiktok_content;
+    case 'threads': return content.threads_content;
     default: return null;
   }
 }

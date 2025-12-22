@@ -47,6 +47,8 @@ const channelEmojis: Record<Channel, string> = {
   youtube: '▶️',
   zalo_oa: '💬',
   telegram: '✈️',
+  tiktok: '🎵',
+  threads: '🧵',
 };
 
 const channelColors: Record<Channel, string> = {
@@ -60,6 +62,8 @@ const channelColors: Record<Channel, string> = {
   youtube: 'border-l-red-500 bg-red-500/10',
   zalo_oa: 'border-l-blue-500 bg-blue-500/10',
   telegram: 'border-l-sky-500 bg-sky-500/10',
+  tiktok: 'border-l-pink-500 bg-pink-500/10',
+  threads: 'border-l-slate-500 bg-slate-500/10',
 };
 
 // Generate hours array (0-23)

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -42,6 +42,8 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   youtube: <Youtube className="w-3 h-3" />,
   zalo_oa: <MessageCircle className="w-3 h-3" />,
   telegram: <Send className="w-3 h-3" />,
+  tiktok: <Music2 className="w-3 h-3" />,
+  threads: <AtSign className="w-3 h-3" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -55,6 +57,8 @@ const channelColors: Record<Channel, string> = {
   youtube: 'bg-red-500/20 text-red-400 border-red-500/30',
   zalo_oa: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   telegram: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  tiktok: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+  threads: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
 };
 
 const goalColors: Record<string, string> = {

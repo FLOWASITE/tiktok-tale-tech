@@ -19,7 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Lightbulb } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Lightbulb, Music2, AtSign } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CONTENT_GOALS, CHANNELS, TOPIC_SUGGESTIONS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
@@ -41,6 +41,8 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   youtube: <Youtube className="w-4 h-4" />,
   zalo_oa: <MessageCircle className="w-4 h-4" />,
   telegram: <Send className="w-4 h-4" />,
+  tiktok: <Music2 className="w-4 h-4" />,
+  threads: <AtSign className="w-4 h-4" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -54,6 +56,8 @@ const channelColors: Record<Channel, string> = {
   youtube: 'text-red-500',
   zalo_oa: 'text-blue-500',
   telegram: 'text-sky-500',
+  tiktok: 'text-pink-500',
+  threads: 'text-slate-600',
 };
 
 const DRAFT_KEY = 'multichannel_form_draft';

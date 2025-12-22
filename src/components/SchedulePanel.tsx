@@ -29,6 +29,8 @@ const channelLabels: Record<Channel, string> = {
   youtube: 'YouTube',
   zalo_oa: 'Zalo OA',
   telegram: 'Telegram',
+  tiktok: 'TikTok',
+  threads: 'Threads',
 };
 
 export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps) {

@@ -106,6 +106,18 @@ const channelConfig: Record<Channel, {
     color: 'text-sky-400',
     bgColor: 'bg-sky-500/20',
   },
+  tiktok: { 
+    label: 'TikTok', 
+    icon: <Music2 className="w-3 h-3" />, 
+    color: 'text-pink-400',
+    bgColor: 'bg-pink-500/20',
+  },
+  threads: { 
+    label: 'Threads', 
+    icon: <AtSign className="w-3 h-3" />, 
+    color: 'text-slate-400',
+    bgColor: 'bg-slate-500/20',
+  },
 };
 
 export function ChannelImagesGallery({

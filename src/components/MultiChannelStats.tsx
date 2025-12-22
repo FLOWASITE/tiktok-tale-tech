@@ -51,6 +51,8 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   youtube: <Youtube className="w-4 h-4" />,
   zalo_oa: <MessageCircle className="w-4 h-4" />,
   telegram: <Send className="w-4 h-4" />,
+  tiktok: <Music2 className="w-4 h-4" />,
+  threads: <AtSign className="w-4 h-4" />,
 };
 
 const CHART_COLORS = [
