@@ -165,6 +165,136 @@ export type Database = {
           },
         ]
       }
+      content_publishing_logs: {
+        Row: {
+          action: string
+          channel: string
+          content_id: string | null
+          created_at: string | null
+          details: Json | null
+          error_message: string | null
+          id: string
+          organization_id: string | null
+          performed_at: string | null
+          performed_by: string | null
+          schedule_id: string | null
+        }
+        Insert: {
+          action: string
+          channel: string
+          content_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          organization_id?: string | null
+          performed_at?: string | null
+          performed_by?: string | null
+          schedule_id?: string | null
+        }
+        Update: {
+          action?: string
+          channel?: string
+          content_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          organization_id?: string | null
+          performed_at?: string | null
+          performed_by?: string | null
+          schedule_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_publishing_logs_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_publishing_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_publishing_logs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "content_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_schedules: {
+        Row: {
+          channel: string
+          content_id: string
+          created_at: string | null
+          created_by: string | null
+          external_post_id: string | null
+          id: string
+          notes: string | null
+          organization_id: string | null
+          publish_error: string | null
+          publish_status: string | null
+          published_at: string | null
+          scheduled_at: string
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel: string
+          content_id: string
+          created_at?: string | null
+          created_by?: string | null
+          external_post_id?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          publish_error?: string | null
+          publish_status?: string | null
+          published_at?: string | null
+          scheduled_at: string
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel?: string
+          content_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          external_post_id?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          publish_error?: string | null
+          publish_status?: string | null
+          published_at?: string | null
+          scheduled_at?: string
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_schedules_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_schedules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       multi_channel_contents: {
         Row: {
           brand_guideline: string | null
@@ -172,8 +302,10 @@ export type Database = {
           brand_template_id: string | null
           channel_images: Json | null
           channel_statuses: Json | null
+          content_calendar_color: string | null
           content_goal: string
           created_at: string
+          deadline: string | null
           email_content: string | null
           facebook_content: string | null
           google_maps_content: string | null
@@ -183,6 +315,7 @@ export type Database = {
           linkedin_content: string | null
           organization_id: string | null
           primary_color: string | null
+          priority: string | null
           selected_channels: string[]
           status: string | null
           tags: string[] | null
@@ -202,8 +335,10 @@ export type Database = {
           brand_template_id?: string | null
           channel_images?: Json | null
           channel_statuses?: Json | null
+          content_calendar_color?: string | null
           content_goal: string
           created_at?: string
+          deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
           google_maps_content?: string | null
@@ -213,6 +348,7 @@ export type Database = {
           linkedin_content?: string | null
           organization_id?: string | null
           primary_color?: string | null
+          priority?: string | null
           selected_channels: string[]
           status?: string | null
           tags?: string[] | null
@@ -232,8 +368,10 @@ export type Database = {
           brand_template_id?: string | null
           channel_images?: Json | null
           channel_statuses?: Json | null
+          content_calendar_color?: string | null
           content_goal?: string
           created_at?: string
+          deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
           google_maps_content?: string | null
@@ -243,6 +381,7 @@ export type Database = {
           linkedin_content?: string | null
           organization_id?: string | null
           primary_color?: string | null
+          priority?: string | null
           selected_channels?: string[]
           status?: string | null
           tags?: string[] | null
