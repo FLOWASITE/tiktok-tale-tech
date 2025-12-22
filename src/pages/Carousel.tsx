@@ -4,6 +4,7 @@ import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
+import { CarouselStats } from '@/components/CarouselStats';
 import { useCarousels } from '@/hooks/useCarousels';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
@@ -93,6 +94,9 @@ const CarouselPage = () => {
       </div>
 
       <div className="p-6 space-y-4">
+        {/* Stats Cards */}
+        <CarouselStats carousels={carousels} loading={loading} />
+
         {/* Filters */}
         <CarouselFilters filters={filters} onFiltersChange={setFilters} />
 
