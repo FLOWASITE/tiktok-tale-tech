@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tooltip,
@@ -14,6 +14,7 @@ interface MemberAvatarProps {
   isOnline?: boolean;
   size?: 'sm' | 'md' | 'lg';
   showStatus?: boolean;
+  showTooltip?: boolean;
   className?: string;
 }
 
@@ -35,69 +36,104 @@ const statusPositionClasses = {
   lg: 'bottom-0.5 right-0.5',
 };
 
-export function MemberAvatar({
-  avatarUrl,
-  name,
-  email,
-  isOnline = false,
-  size = 'md',
-  showStatus = true,
-  className,
-}: MemberAvatarProps) {
-  const getInitials = () => {
-    if (name) {
-      return name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (email) {
-      return email.charAt(0).toUpperCase();
-    }
-    return 'U';
-  };
-
-  const statusLabel = isOnline ? 'Đang hoạt động' : 'Ngoại tuyến';
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className={cn('relative inline-block', className)}>
-          <Avatar className={cn(sizeClasses[size], 'border border-border')}>
-            <AvatarImage src={avatarUrl || undefined} />
-            <AvatarFallback className="text-sm bg-primary/10 text-primary font-medium">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
-          
-          {showStatus && (
-            <span
-              className={cn(
-                'absolute rounded-full border-background',
-                statusSizeClasses[size],
-                statusPositionClasses[size],
-                isOnline 
-                  ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]' 
-                  : 'bg-muted-foreground/40'
-              )}
-              aria-label={statusLabel}
-            />
-          )}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
-        <div className="flex items-center gap-2">
+// Inner component that can receive refs
+const MemberAvatarInner = forwardRef<HTMLDivElement, MemberAvatarProps & { statusLabel: string; initials: string }>(
+  ({ avatarUrl, name, email, isOnline = false, size = 'md', showStatus = true, className, statusLabel, initials }, ref) => {
+    return (
+      <div ref={ref} className={cn('relative inline-block', className)}>
+        <Avatar className={cn(sizeClasses[size], 'border border-border')}>
+          <AvatarImage src={avatarUrl || undefined} />
+          <AvatarFallback className="text-sm bg-primary/10 text-primary font-medium">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        
+        {showStatus && (
           <span
             className={cn(
-              'h-2 w-2 rounded-full',
-              isOnline ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+              'absolute rounded-full border-background',
+              statusSizeClasses[size],
+              statusPositionClasses[size],
+              isOnline 
+                ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]' 
+                : 'bg-muted-foreground/40'
             )}
+            aria-label={statusLabel}
           />
-          <span>{statusLabel}</span>
-        </div>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
+        )}
+      </div>
+    );
+  }
+);
+MemberAvatarInner.displayName = 'MemberAvatarInner';
+
+export const MemberAvatar = forwardRef<HTMLDivElement, MemberAvatarProps>(
+  ({ avatarUrl, name, email, isOnline = false, size = 'md', showStatus = true, showTooltip = true, className }, ref) => {
+    const getInitials = () => {
+      if (name) {
+        return name
+          .split(' ')
+          .map(n => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2);
+      }
+      if (email) {
+        return email.charAt(0).toUpperCase();
+      }
+      return 'U';
+    };
+
+    const statusLabel = isOnline ? 'Đang hoạt động' : 'Ngoại tuyến';
+    const initials = getInitials();
+
+    if (!showTooltip) {
+      return (
+        <MemberAvatarInner
+          ref={ref}
+          avatarUrl={avatarUrl}
+          name={name}
+          email={email}
+          isOnline={isOnline}
+          size={size}
+          showStatus={showStatus}
+          className={className}
+          statusLabel={statusLabel}
+          initials={initials}
+        />
+      );
+    }
+
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <MemberAvatarInner
+            ref={ref}
+            avatarUrl={avatarUrl}
+            name={name}
+            email={email}
+            isOnline={isOnline}
+            size={size}
+            showStatus={showStatus}
+            className={className}
+            statusLabel={statusLabel}
+            initials={initials}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'h-2 w-2 rounded-full',
+                isOnline ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+              )}
+            />
+            <span>{statusLabel}</span>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+);
+
+MemberAvatar.displayName = 'MemberAvatar';
