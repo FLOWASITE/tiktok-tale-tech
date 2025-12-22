@@ -1,4 +1,7 @@
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Search, X } from 'lucide-react';
 import { 
   Briefcase, 
   Building2, 
@@ -434,35 +437,89 @@ interface BrandTemplateSelectorProps {
 }
 
 export function BrandTemplateSelector({ onSelect, selectedIndustry }: BrandTemplateSelectorProps) {
-  const industries = Object.keys(INDUSTRY_TEMPLATES);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredIndustries = useMemo(() => {
+    const allIndustries = Object.keys(INDUSTRY_TEMPLATES);
+    
+    if (!searchQuery.trim()) {
+      return allIndustries;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    return allIndustries.filter((industry) => {
+      const template = INDUSTRY_TEMPLATES[industry];
+      return (
+        industry.toLowerCase().includes(query) ||
+        template.name.toLowerCase().includes(query) ||
+        template.brand_positioning.toLowerCase().includes(query) ||
+        template.preferred_words.some(word => word.toLowerCase().includes(query))
+      );
+    });
+  }, [searchQuery]);
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         Chọn ngành để bắt đầu với cài đặt sẵn phù hợp:
       </p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-        {industries.map((industry) => {
-          const template = INDUSTRY_TEMPLATES[industry];
-          const isSelected = selectedIndustry === industry;
-          
-          return (
-            <Card
-              key={industry}
-              className={`p-3 cursor-pointer transition-all hover:border-primary/50 hover:shadow-sm ${
-                isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''
-              }`}
-              onClick={() => onSelect({ ...template, industry })}
-            >
-              <div className="flex flex-col items-center gap-2 text-center">
-                <div className={`p-2 rounded-full ${isSelected ? 'bg-primary/10 text-primary' : 'bg-muted'}`}>
-                  {template.icon}
+      
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Tìm kiếm ngành... (VD: tài chính, thời trang, F&B)"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Results count */}
+      {searchQuery && (
+        <p className="text-xs text-muted-foreground">
+          Tìm thấy {filteredIndustries.length} ngành
+        </p>
+      )}
+
+      {/* Industry Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto pr-1">
+        {filteredIndustries.length > 0 ? (
+          filteredIndustries.map((industry) => {
+            const template = INDUSTRY_TEMPLATES[industry];
+            const isSelected = selectedIndustry === industry;
+            
+            return (
+              <Card
+                key={industry}
+                className={`p-3 cursor-pointer transition-all hover:border-primary/50 hover:shadow-sm ${
+                  isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''
+                }`}
+                onClick={() => onSelect({ ...template, industry })}
+              >
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className={`p-2 rounded-full ${isSelected ? 'bg-primary/10 text-primary' : 'bg-muted'}`}>
+                    {template.icon}
+                  </div>
+                  <span className="text-xs font-medium line-clamp-2">{template.name}</span>
                 </div>
-                <span className="text-xs font-medium line-clamp-2">{template.name}</span>
-              </div>
-            </Card>
-          );
-        })}
+              </Card>
+            );
+          })
+        ) : (
+          <div className="col-span-full py-8 text-center text-muted-foreground">
+            <p>Không tìm thấy ngành phù hợp</p>
+            <p className="text-xs mt-1">Thử từ khóa khác hoặc xóa bộ lọc</p>
+          </div>
+        )}
       </div>
     </div>
   );
