@@ -6,6 +6,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { Separator } from '@/components/ui/separator';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
+import { QuickSearch } from '@/components/QuickSearch';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -29,6 +30,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="flex-1" />
             
             <div className="flex items-center gap-2">
+              <QuickSearch />
               <NotificationDropdown />
               <ThemeToggle />
               <UserAvatar />
