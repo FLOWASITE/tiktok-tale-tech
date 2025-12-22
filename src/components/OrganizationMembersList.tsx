@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -45,6 +44,9 @@ import {
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MemberAvatar } from "@/components/MemberAvatar";
+import { usePresence } from "@/hooks/usePresence";
+import { useOrganizationContext } from "@/contexts/OrganizationContext";
 
 const ROLE_ICONS: Record<OrgRole, React.ElementType> = {
   owner: Crown,
@@ -81,6 +83,9 @@ export function OrganizationMembersList({
   onRemoveMember,
   updating,
 }: OrganizationMembersListProps) {
+  const { currentOrganization } = useOrganizationContext();
+  const { isOnline, onlineCount } = usePresence(currentOrganization?.id);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState<OrgRole | "all">("all");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -95,7 +100,6 @@ export function OrganizationMembersList({
   const [addMode, setAddMode] = useState<"invite" | "create">("create");
 
   const canManage = canManageMembers(currentRole);
-
   const filteredMembers = useMemo(() => {
     return members.filter((member) => {
       const matchesSearch = 
@@ -144,7 +148,15 @@ export function OrganizationMembersList({
               <Users className="h-5 w-5 text-primary" />
               Thành viên
             </CardTitle>
-            <CardDescription>{members.length} thành viên trong tổ chức</CardDescription>
+            <CardDescription className="flex items-center gap-3">
+              <span>{members.length} thành viên trong tổ chức</span>
+              {onlineCount > 0 && (
+                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  {onlineCount} đang hoạt động
+                </span>
+              )}
+            </CardDescription>
           </div>
           {canManage && (
             <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
@@ -357,12 +369,13 @@ export function OrganizationMembersList({
                   className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card/50 hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <Avatar className="h-10 w-10 border border-border">
-                      <AvatarImage src={member.profile?.avatar_url || undefined} />
-                      <AvatarFallback className="text-sm bg-primary/10 text-primary">
-                        {member.profile?.full_name?.[0] || member.profile?.email?.[0] || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
+                    <MemberAvatar
+                      avatarUrl={member.profile?.avatar_url}
+                      name={member.profile?.full_name}
+                      email={member.profile?.email}
+                      isOnline={isOnline(member.user_id)}
+                      size="md"
+                    />
                     <div className="min-w-0">
                       <p className="font-medium text-sm truncate">
                         {member.profile?.full_name || 'Chưa đặt tên'}
