@@ -37,6 +37,7 @@ import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
 import { SchedulePanel } from '@/components/SchedulePanel';
 import { TeamWorkPanel } from '@/components/TeamWorkPanel';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
+import { ApprovalHistory } from '@/components/ApprovalHistory';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
 
@@ -636,10 +637,16 @@ export function MultiChannelViewer({
         </DialogHeader>
 
         {showTeamPanel ? (
-          <div className="p-6">
+          <div className="p-6 space-y-6">
             <TeamWorkPanel 
               contentId={content.id} 
               onClose={() => setShowTeamPanel(false)} 
+            />
+            
+            {/* Approval History */}
+            <ApprovalHistory 
+              contentId={content.id} 
+              maxHeight="250px"
             />
           </div>
         ) : showSchedule ? (
