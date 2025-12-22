@@ -1,10 +1,28 @@
-import { useState, useEffect } from 'react';
-import { Calendar, Clock, ExternalLink, Filter, Loader2, CheckCircle2, XCircle, AlertCircle, Search } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  Calendar, 
+  Clock, 
+  ExternalLink, 
+  Loader2, 
+  CheckCircle2, 
+  XCircle, 
+  AlertCircle, 
+  Search,
+  Eye,
+  Pencil,
+  Check,
+  X,
+  SquareCheck,
+  Square,
+} from 'lucide-react';
+import { format, parseISO, isToday, isTomorrow, isPast, isFuture } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -12,14 +30,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
-import { Channel, CHANNELS } from '@/types/multichannel';
+import { Channel, CHANNELS, MultiChannelContent } from '@/types/multichannel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
-import { format, parseISO, isToday, isTomorrow, isPast, isFuture } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface ContentInfo {
   id: string;
@@ -29,6 +52,10 @@ interface ContentInfo {
 
 interface ScheduleWithContent extends ContentSchedule {
   content?: ContentInfo;
+}
+
+interface PublishingQueueProps {
+  onViewContent?: (contentId: string) => void;
 }
 
 const channelIcons: Record<Channel, string> = {
@@ -44,13 +71,36 @@ const channelIcons: Record<Channel, string> = {
   telegram: '✈️',
 };
 
-export function PublishingQueue() {
+const channelColors: Record<Channel, string> = {
+  website: 'border-l-blue-500',
+  facebook: 'border-l-indigo-500',
+  instagram: 'border-l-pink-500',
+  twitter: 'border-l-slate-500',
+  google_maps: 'border-l-green-500',
+  linkedin: 'border-l-sky-500',
+  email: 'border-l-amber-500',
+  youtube: 'border-l-red-500',
+  zalo_oa: 'border-l-blue-600',
+  telegram: 'border-l-cyan-500',
+};
+
+export function PublishingQueue({ onViewContent }: PublishingQueueProps) {
   const [schedules, setSchedules] = useState<ScheduleWithContent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PublishStatus | 'all'>('all');
   const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
   const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'tomorrow' | 'past' | 'future'>('all');
+  
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState<Date | undefined>();
+  const [editTime, setEditTime] = useState('');
+  
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
 
@@ -62,7 +112,6 @@ export function PublishingQueue() {
     }
 
     try {
-      // Fetch schedules
       const { data: schedulesData, error: schedulesError } = await supabase
         .from('content_schedules')
         .select('*')
@@ -71,10 +120,8 @@ export function PublishingQueue() {
 
       if (schedulesError) throw schedulesError;
 
-      // Get unique content IDs
       const contentIds = [...new Set((schedulesData || []).map(s => s.content_id))];
       
-      // Fetch content info
       const { data: contentsData } = await supabase
         .from('multi_channel_contents')
         .select('id, title, topic')
@@ -82,7 +129,6 @@ export function PublishingQueue() {
 
       const contentMap = new Map((contentsData || []).map(c => [c.id, c]));
 
-      // Merge data
       const merged: ScheduleWithContent[] = (schedulesData || []).map(s => ({
         ...s as ContentSchedule,
         content: contentMap.get(s.content_id) || undefined,
@@ -105,6 +151,110 @@ export function PublishingQueue() {
     fetchSchedules();
   }, [user, currentOrganization?.id]);
 
+  // Filter schedules
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter(s => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchTitle = s.content?.title?.toLowerCase().includes(query);
+        const matchTopic = s.content?.topic?.toLowerCase().includes(query);
+        if (!matchTitle && !matchTopic) return false;
+      }
+      if (statusFilter !== 'all' && s.publish_status !== statusFilter) return false;
+      if (channelFilter !== 'all' && s.channel !== channelFilter) return false;
+      if (timeFilter !== 'all') {
+        const scheduledDate = parseISO(s.scheduled_at);
+        if (timeFilter === 'today' && !isToday(scheduledDate)) return false;
+        if (timeFilter === 'tomorrow' && !isTomorrow(scheduledDate)) return false;
+        if (timeFilter === 'past' && !isPast(scheduledDate)) return false;
+        if (timeFilter === 'future' && !isFuture(scheduledDate)) return false;
+      }
+      return true;
+    });
+  }, [schedules, searchQuery, statusFilter, channelFilter, timeFilter]);
+
+  // Group by date
+  const groupedSchedules = useMemo(() => {
+    return filteredSchedules.reduce((groups, schedule) => {
+      const date = format(parseISO(schedule.scheduled_at), 'yyyy-MM-dd');
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(schedule);
+      return groups;
+    }, {} as Record<string, ScheduleWithContent[]>);
+  }, [filteredSchedules]);
+
+  // Selection handlers
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const selectAll = () => {
+    const scheduledIds = filteredSchedules
+      .filter(s => s.publish_status === 'scheduled')
+      .map(s => s.id);
+    setSelectedIds(new Set(scheduledIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Inline edit handlers
+  const startEditing = (schedule: ScheduleWithContent) => {
+    const date = parseISO(schedule.scheduled_at);
+    setEditingId(schedule.id);
+    setEditDate(date);
+    setEditTime(format(date, 'HH:mm'));
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditDate(undefined);
+    setEditTime('');
+  };
+
+  const saveEditing = async () => {
+    if (!editingId || !editDate) return;
+
+    const [hours, minutes] = editTime.split(':').map(Number);
+    const newDate = new Date(editDate);
+    newDate.setHours(hours, minutes, 0, 0);
+
+    try {
+      const { error } = await supabase
+        .from('content_schedules')
+        .update({ 
+          scheduled_at: newDate.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Đã cập nhật',
+        description: `Lịch đã được đổi sang ${format(newDate, 'dd/MM/yyyy HH:mm', { locale: vi })}`,
+      });
+      
+      cancelEditing();
+      fetchSchedules();
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể cập nhật lịch',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Single actions
   const handleMarkPublished = async (scheduleId: string) => {
     try {
       const { error } = await supabase
@@ -117,18 +267,11 @@ export function PublishingQueue() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Thành công',
-        description: 'Đã đánh dấu là đã đăng',
-      });
+      toast({ title: 'Thành công', description: 'Đã đánh dấu là đã đăng' });
       fetchSchedules();
     } catch (error) {
       console.error('Error marking as published:', error);
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể cập nhật trạng thái',
-        variant: 'destructive',
-      });
+      toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái', variant: 'destructive' });
     }
   };
 
@@ -141,56 +284,73 @@ export function PublishingQueue() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Đã hủy',
-        description: 'Lịch đăng đã được hủy',
-      });
+      toast({ title: 'Đã hủy', description: 'Lịch đăng đã được hủy' });
       fetchSchedules();
     } catch (error) {
       console.error('Error cancelling schedule:', error);
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể hủy lịch đăng',
-        variant: 'destructive',
-      });
+      toast({ title: 'Lỗi', description: 'Không thể hủy lịch đăng', variant: 'destructive' });
     }
   };
 
-  // Filter schedules
-  const filteredSchedules = schedules.filter(s => {
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchTitle = s.content?.title?.toLowerCase().includes(query);
-      const matchTopic = s.content?.topic?.toLowerCase().includes(query);
-      if (!matchTitle && !matchTopic) return false;
+  // Bulk actions
+  const handleBulkMarkPublished = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkProcessing(true);
+
+    let successCount = 0;
+    for (const id of selectedIds) {
+      try {
+        const { error } = await supabase
+          .from('content_schedules')
+          .update({ 
+            publish_status: 'published',
+            published_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+
+        if (!error) successCount++;
+      } catch (error) {
+        console.error('Error marking as published:', error);
+      }
     }
 
-    // Status filter
-    if (statusFilter !== 'all' && s.publish_status !== statusFilter) return false;
+    toast({
+      title: 'Thành công',
+      description: `Đã đánh dấu ${successCount}/${selectedIds.size} bài là đã đăng`,
+    });
+    
+    clearSelection();
+    setIsBulkProcessing(false);
+    fetchSchedules();
+  };
 
-    // Channel filter
-    if (channelFilter !== 'all' && s.channel !== channelFilter) return false;
+  const handleBulkCancel = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkProcessing(true);
 
-    // Time filter
-    if (timeFilter !== 'all') {
-      const scheduledDate = parseISO(s.scheduled_at);
-      if (timeFilter === 'today' && !isToday(scheduledDate)) return false;
-      if (timeFilter === 'tomorrow' && !isTomorrow(scheduledDate)) return false;
-      if (timeFilter === 'past' && !isPast(scheduledDate)) return false;
-      if (timeFilter === 'future' && !isFuture(scheduledDate)) return false;
+    let successCount = 0;
+    for (const id of selectedIds) {
+      try {
+        const { error } = await supabase
+          .from('content_schedules')
+          .update({ publish_status: 'cancelled' })
+          .eq('id', id);
+
+        if (!error) successCount++;
+      } catch (error) {
+        console.error('Error cancelling schedule:', error);
+      }
     }
 
-    return true;
-  });
-
-  // Group by date
-  const groupedSchedules = filteredSchedules.reduce((groups, schedule) => {
-    const date = format(parseISO(schedule.scheduled_at), 'yyyy-MM-dd');
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(schedule);
-    return groups;
-  }, {} as Record<string, ScheduleWithContent[]>);
+    toast({
+      title: 'Đã hủy',
+      description: `Đã hủy ${successCount}/${selectedIds.size} lịch đăng`,
+    });
+    
+    clearSelection();
+    setIsBulkProcessing(false);
+    fetchSchedules();
+  };
 
   const getDateLabel = (dateStr: string) => {
     const date = parseISO(dateStr);
@@ -215,6 +375,8 @@ export function PublishingQueue() {
       </div>
     );
   }
+
+  const scheduledCount = filteredSchedules.filter(s => s.publish_status === 'scheduled').length;
 
   return (
     <div className="space-y-4">
@@ -268,6 +430,64 @@ export function PublishingQueue() {
         </Select>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {(selectedIds.size > 0 || scheduledCount > 0) && (
+        <div className="flex items-center gap-2 p-2 bg-muted/50 border rounded-md">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={selectedIds.size === scheduledCount && scheduledCount > 0}
+              onCheckedChange={() => {
+                if (selectedIds.size === scheduledCount) {
+                  clearSelection();
+                } else {
+                  selectAll();
+                }
+              }}
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size > 0 ? `Đã chọn ${selectedIds.size}` : `${scheduledCount} đang chờ`}
+            </span>
+          </div>
+
+          {selectedIds.size > 0 && (
+            <>
+              <div className="h-4 w-px bg-border mx-2" />
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBulkMarkPublished}
+                disabled={isBulkProcessing}
+                className="h-7 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                Đánh dấu đã đăng
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBulkCancel}
+                disabled={isBulkProcessing}
+                className="h-7 text-xs text-destructive hover:bg-destructive/10"
+              >
+                <XCircle className="w-3.5 h-3.5 mr-1" />
+                Hủy hàng loạt
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+                className="h-7 text-xs ml-auto"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-900/10">
@@ -317,77 +537,172 @@ export function PublishingQueue() {
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([date, items]) => (
                 <div key={date}>
-                  <h3 className="font-semibold text-sm text-muted-foreground mb-3 sticky top-0 bg-background py-1">
-                    {getDateLabel(date)}
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-3 sticky top-0 bg-background py-1 z-10">
+                    {getDateLabel(date)} ({items.length})
                   </h3>
                   <div className="space-y-2">
                     {items.map((schedule) => {
                       const statusConfig = PUBLISH_STATUSES.find(s => s.value === schedule.publish_status);
                       const isPastDue = isPast(parseISO(schedule.scheduled_at)) && schedule.publish_status === 'scheduled';
+                      const isEditing = editingId === schedule.id;
+                      const isScheduled = schedule.publish_status === 'scheduled';
 
                       return (
                         <Card 
                           key={schedule.id} 
-                          className={`${isPastDue ? 'border-yellow-400' : ''}`}
+                          className={cn(
+                            'border-l-[3px] transition-all',
+                            channelColors[schedule.channel as Channel],
+                            isPastDue && 'ring-1 ring-yellow-400',
+                            selectedIds.has(schedule.id) && 'ring-2 ring-primary'
+                          )}
                         >
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-3">
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              {/* Checkbox for scheduled items */}
+                              {isScheduled && (
+                                <Checkbox
+                                  checked={selectedIds.has(schedule.id)}
+                                  onCheckedChange={() => toggleSelection(schedule.id)}
+                                  className="mt-1"
+                                />
+                              )}
+
                               <div className="flex-1 min-w-0">
+                                {/* Header row */}
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="text-lg">{channelIcons[schedule.channel as Channel]}</span>
-                                  <span className="font-medium truncate">{schedule.content?.title || 'Không có tiêu đề'}</span>
+                                  <span className="font-medium truncate flex-1">{schedule.content?.title || 'Không có tiêu đề'}</span>
                                   {getStatusIcon(schedule.publish_status)}
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  <span>{format(parseISO(schedule.scheduled_at), 'HH:mm')}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {CHANNELS.find(c => c.value === schedule.channel)?.label}
-                                  </Badge>
-                                  <Badge 
-                                    variant="outline"
-                                    className={`text-xs ${
-                                      schedule.publish_status === 'published' ? 'bg-green-500/10 text-green-600' :
-                                      schedule.publish_status === 'failed' ? 'bg-red-500/10 text-red-600' :
-                                      schedule.publish_status === 'cancelled' ? 'bg-muted text-muted-foreground' :
-                                      'bg-yellow-500/10 text-yellow-600'
-                                    }`}
-                                  >
-                                    {statusConfig?.label}
-                                  </Badge>
-                                  {isPastDue && (
-                                    <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-600">
-                                      <AlertCircle className="w-3 h-3 mr-1" />
-                                      Quá hạn
-                                    </Badge>
+
+                                {/* Time display/edit row */}
+                                <div className="flex items-center gap-2 text-sm">
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="outline" size="sm" className="h-7 text-xs">
+                                            <Calendar className="w-3 h-3 mr-1" />
+                                            {editDate ? format(editDate, 'dd/MM/yyyy') : 'Chọn ngày'}
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                          <CalendarComponent
+                                            mode="single"
+                                            selected={editDate}
+                                            onSelect={setEditDate}
+                                            locale={vi}
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                      <Input
+                                        type="time"
+                                        value={editTime}
+                                        onChange={(e) => setEditTime(e.target.value)}
+                                        className="h-7 w-24 text-xs"
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={saveEditing}
+                                        className="h-7 w-7 p-0 text-green-600"
+                                      >
+                                        <Check className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={cancelEditing}
+                                        className="h-7 w-7 p-0"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                                      <span className="text-muted-foreground">
+                                        {format(parseISO(schedule.scheduled_at), 'HH:mm')}
+                                      </span>
+                                      {isScheduled && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => startEditing(schedule)}
+                                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                                        >
+                                          <Pencil className="w-3 h-3" />
+                                        </Button>
+                                      )}
+                                      <Badge variant="outline" className="text-xs">
+                                        {CHANNELS.find(c => c.value === schedule.channel)?.label}
+                                      </Badge>
+                                      <Badge 
+                                        variant="outline"
+                                        className={cn(
+                                          'text-xs',
+                                          schedule.publish_status === 'published' && 'bg-green-500/10 text-green-600',
+                                          schedule.publish_status === 'failed' && 'bg-red-500/10 text-red-600',
+                                          schedule.publish_status === 'cancelled' && 'bg-muted text-muted-foreground',
+                                          schedule.publish_status === 'scheduled' && 'bg-yellow-500/10 text-yellow-600'
+                                        )}
+                                      >
+                                        {statusConfig?.label}
+                                      </Badge>
+                                      {isPastDue && (
+                                        <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-600">
+                                          <AlertCircle className="w-3 h-3 mr-1" />
+                                          Quá hạn
+                                        </Badge>
+                                      )}
+                                    </>
                                   )}
                                 </div>
+
                                 {schedule.notes && (
                                   <p className="text-xs text-muted-foreground mt-1">{schedule.notes}</p>
                                 )}
                               </div>
 
-                              {schedule.publish_status === 'scheduled' && (
-                                <div className="flex items-center gap-1">
+                              {/* Action buttons */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                {/* View content button */}
+                                {onViewContent && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                    onClick={() => handleMarkPublished(schedule.id)}
+                                    onClick={() => onViewContent(schedule.content_id)}
+                                    className="h-8 w-8 p-0"
+                                    title="Xem nội dung"
                                   >
-                                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                                    Đã đăng
+                                    <Eye className="w-4 h-4" />
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => handleCancelSchedule(schedule.id)}
-                                  >
-                                    <XCircle className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              )}
+                                )}
+
+                                {isScheduled && !isEditing && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      onClick={() => handleMarkPublished(schedule.id)}
+                                      title="Đánh dấu đã đăng"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => handleCancelSchedule(schedule.id)}
+                                      title="Hủy lịch"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
