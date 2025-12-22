@@ -62,3 +62,11 @@ export const canDeleteOrganization = (role: OrgRole): boolean => {
 export const canCreateContent = (role: OrgRole): boolean => {
   return role !== 'viewer';
 };
+
+export const canApproveContent = (role: OrgRole): boolean => {
+  return role === 'owner' || role === 'admin';
+};
+
+export const canSubmitForReview = (role: OrgRole): boolean => {
+  return role !== 'viewer';
+};

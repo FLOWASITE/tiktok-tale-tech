@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages, ChannelStatuses, calculateMasterStatus } from '@/types/multichannel';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages, ChannelStatuses, calculateMasterStatus, CONTENT_STATUSES } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 
 // Helper to transform database data to MultiChannelContent
@@ -41,11 +42,13 @@ const transformContent = (data: any): MultiChannelContent => ({
 
 export function useMultiChannelContents() {
   const { user } = useAuth();
+  const { currentOrganization } = useOrganizationContext();
   const [contents, setContents] = useState<MultiChannelContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [regeneratingChannel, setRegeneratingChannel] = useState<string | null>(null);
   const [aiEditingChannel, setAiEditingChannel] = useState<string | null>(null);
+  const [approvingContent, setApprovingContent] = useState(false);
 
   const fetchContents = async () => {
     if (!user) {
@@ -503,6 +506,168 @@ export function useMultiChannelContents() {
     }
   };
 
+  // Submit content for review
+  const submitForReview = async (contentId: string, notes?: string): Promise<MultiChannelContent | null> => {
+    setApprovingContent(true);
+    try {
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ status: 'review' })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+
+      // Create notification for admins/owners
+      if (currentOrganization && user) {
+        const { data: admins } = await supabase
+          .from('organization_members')
+          .select('user_id')
+          .eq('organization_id', currentOrganization.id)
+          .in('role', ['owner', 'admin']);
+
+        if (admins && admins.length > 0) {
+          const notifications = admins
+            .filter(a => a.user_id !== user.id)
+            .map(admin => ({
+              user_id: admin.user_id,
+              organization_id: currentOrganization.id,
+              type: 'content_submitted',
+              title: 'Nội dung mới chờ duyệt',
+              message: `"${updatedContent.title}" đã được gửi duyệt${notes ? `: ${notes}` : ''}`,
+              data: { content_id: contentId },
+            }));
+
+          if (notifications.length > 0) {
+            await supabase.from('notifications').insert(notifications);
+          }
+        }
+      }
+      
+      toast({
+        title: '📤 Đã gửi duyệt',
+        description: 'Nội dung đã được gửi đến quản trị viên',
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error submitting for review:', error);
+      toast({
+        title: '❌ Lỗi gửi duyệt',
+        description: 'Không thể gửi nội dung để duyệt. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setApprovingContent(false);
+    }
+  };
+
+  // Approve content
+  const approveContent = async (contentId: string, notes?: string): Promise<MultiChannelContent | null> => {
+    setApprovingContent(true);
+    try {
+      const contentToApprove = contents.find(c => c.id === contentId);
+      
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ status: 'approved' })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+
+      // Notify content creator
+      if (currentOrganization && contentToApprove?.user_id && contentToApprove.user_id !== user?.id) {
+        await supabase.from('notifications').insert({
+          user_id: contentToApprove.user_id,
+          organization_id: currentOrganization.id,
+          type: 'content_approved',
+          title: '✅ Nội dung đã được duyệt',
+          message: `"${updatedContent.title}" đã được phê duyệt${notes ? `. Ghi chú: ${notes}` : ''}`,
+          data: { content_id: contentId },
+        });
+      }
+      
+      toast({
+        title: '✅ Đã phê duyệt',
+        description: 'Nội dung đã được duyệt thành công',
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error approving content:', error);
+      toast({
+        title: '❌ Lỗi phê duyệt',
+        description: 'Không thể phê duyệt nội dung. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setApprovingContent(false);
+    }
+  };
+
+  // Reject content
+  const rejectContent = async (contentId: string, reason: string): Promise<MultiChannelContent | null> => {
+    setApprovingContent(true);
+    try {
+      const contentToReject = contents.find(c => c.id === contentId);
+      
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .update({ status: 'draft' })
+        .eq('id', contentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+
+      // Notify content creator with rejection reason
+      if (currentOrganization && contentToReject?.user_id && contentToReject.user_id !== user?.id) {
+        await supabase.from('notifications').insert({
+          user_id: contentToReject.user_id,
+          organization_id: currentOrganization.id,
+          type: 'content_rejected',
+          title: '❌ Nội dung bị từ chối',
+          message: `"${updatedContent.title}" đã bị từ chối. Lý do: ${reason}`,
+          data: { content_id: contentId, reason },
+        });
+      }
+      
+      toast({
+        title: '📝 Đã từ chối',
+        description: 'Nội dung đã được chuyển về nháp để chỉnh sửa',
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error rejecting content:', error);
+      toast({
+        title: '❌ Lỗi từ chối',
+        description: 'Không thể từ chối nội dung. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setApprovingContent(false);
+    }
+  };
+
   useEffect(() => {
     fetchContents();
   }, [user]);
@@ -513,6 +678,7 @@ export function useMultiChannelContents() {
     generating,
     regeneratingChannel,
     aiEditingChannel,
+    approvingContent,
     generateContent,
     regenerateChannel,
     updateChannelContent,
@@ -524,6 +690,9 @@ export function useMultiChannelContents() {
     updateStatus,
     updateChannelStatus,
     deleteChannelImage,
+    submitForReview,
+    approveContent,
+    rejectContent,
     refetch: fetchContents,
   };
 }

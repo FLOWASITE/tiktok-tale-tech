@@ -36,6 +36,7 @@ import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useContentAssignments } from '@/hooks/useContentAssignments';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CHANNELS, Channel, CONTENT_STATUSES, ContentStatus } from '@/types/multichannel';
 import { ASSIGNMENT_STATUSES, AssignmentStatus, AssignmentPriority, ASSIGNMENT_PRIORITIES } from '@/types/assignment';
@@ -44,10 +45,11 @@ import { useConfetti } from '@/hooks/useConfetti';
 
 export default function Tasks() {
   const { user } = useAuth();
-  const { contents, loading: loadingContents, refetch: refetchContents, updateStatus, deleteContent } = useMultiChannelContents();
+  const { contents, loading: loadingContents, refetch: refetchContents, updateStatus, deleteContent, submitForReview, approveContent, rejectContent } = useMultiChannelContents();
   const { assignments, myAssignments, isLoading: loadingAssignments, refreshAssignments, updateAssignmentStatus } = useContentAssignments();
   const { allSchedules, fetchAllSchedules, isLoading: loadingSchedules } = useContentSchedules();
   const { fireConfetti } = useConfetti();
+  const { currentRole } = useOrganizationContext();
 
   const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
   const [activeTab, setActiveTab] = useState('all');
