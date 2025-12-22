@@ -101,7 +101,7 @@ export function QuickSearch() {
             </CommandItem>
             <CommandItem onSelect={() => handleSelect('calendar')}>
               <Calendar className="mr-2 h-4 w-4" />
-              <span>Lịch nội dung</span>
+              <span>Quản lý lịch đăng</span>
             </CommandItem>
           </CommandGroup>
 
