@@ -32,7 +32,7 @@ import { OrganizationMembersList } from "@/components/OrganizationMembersList";
 
 export default function OrganizationSettings() {
   const { currentOrganization, currentRole, updateOrganization, deleteOrganization, updating } = useOrganization();
-  const { members, loading: membersLoading, inviteMember, updateMemberRole, removeMember, updating: membersUpdating } = useOrganizationMembers();
+  const { members, loading: membersLoading, inviteMember, createMember, updateMemberRole, removeMember, updating: membersUpdating } = useOrganizationMembers();
   const { contents } = useMultiChannelContents();
   
   const [orgName, setOrgName] = useState(currentOrganization?.name || "");
@@ -206,6 +206,7 @@ export default function OrganizationSettings() {
               loading={membersLoading}
               currentRole={currentRole}
               onInviteMember={inviteMember}
+              onCreateMember={createMember}
               onUpdateRole={updateMemberRole}
               onRemoveMember={removeMember}
               updating={membersUpdating}

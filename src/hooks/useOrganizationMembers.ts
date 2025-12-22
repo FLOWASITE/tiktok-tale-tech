@@ -84,6 +84,7 @@ export function useOrganizationMembers(organizationId?: string) {
     fetchMembers();
   }, [fetchMembers]);
 
+  // Invite existing user (legacy method)
   const inviteMember = async (email: string, role: OrgRole = 'member'): Promise<boolean> => {
     if (!orgId) return false;
 
@@ -126,6 +127,57 @@ export function useOrganizationMembers(organizationId?: string) {
     } catch (error: any) {
       console.error('Error inviting member:', error);
       toast.error('Lỗi khi thêm thành viên: ' + error.message);
+      return false;
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Create new member with default password
+  const createMember = async (
+    email: string,
+    role: OrgRole = 'member',
+    password: string = 'abc123',
+    fullName?: string
+  ): Promise<boolean> => {
+    if (!orgId) return false;
+
+    try {
+      setUpdating(true);
+
+      const { data, error } = await supabase.functions.invoke('create-org-member', {
+        body: {
+          email,
+          password,
+          fullName,
+          organizationId: orgId,
+          role,
+        },
+      });
+
+      if (error) {
+        console.error('Error creating member:', error);
+        toast.error('Lỗi khi tạo thành viên: ' + error.message);
+        return false;
+      }
+
+      if (data.error) {
+        toast.error(data.error);
+        return false;
+      }
+
+      await fetchMembers();
+      
+      if (data.isNewUser) {
+        toast.success(`Đã tạo tài khoản mới cho ${email} với mật khẩu mặc định`);
+      } else {
+        toast.success(`Đã thêm ${email} vào tổ chức`);
+      }
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error creating member:', error);
+      toast.error('Lỗi khi tạo thành viên: ' + error.message);
       return false;
     } finally {
       setUpdating(false);
@@ -183,6 +235,7 @@ export function useOrganizationMembers(organizationId?: string) {
     loading,
     updating,
     inviteMember,
+    createMember,
     updateMemberRole,
     removeMember,
     refreshMembers: fetchMembers,
