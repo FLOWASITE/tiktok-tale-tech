@@ -111,6 +111,56 @@ All colors MUST be HSL.
     --lime: 75 80% 45%;
     --lime-foreground: 0 0% 98%;
   }
+
+  /* Lime Theme - Yellow-green based theme */
+  .lime {
+    --background: 75 40% 97%;
+    --foreground: 75 50% 10%;
+
+    --card: 75 30% 95%;
+    --card-foreground: 75 50% 10%;
+
+    --popover: 75 30% 95%;
+    --popover-foreground: 75 50% 10%;
+
+    /* Lime primary colors */
+    --primary: 75 80% 45%;
+    --primary-foreground: 75 50% 10%;
+
+    --secondary: 85 70% 40%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 75 20% 90%;
+    --muted-foreground: 75 30% 40%;
+
+    --accent: 65 90% 50%;
+    --accent-foreground: 75 50% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 75 30% 85%;
+    --input: 75 30% 85%;
+    --ring: 75 80% 45%;
+
+    /* Custom gradients for lime theme */
+    --gradient-primary: linear-gradient(135deg, hsl(75 80% 45%) 0%, hsl(85 70% 40%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(75 30% 97%) 0%, hsl(75 25% 93%) 100%);
+    --gradient-glow: radial-gradient(circle at 50% 50%, hsl(75 80% 45% / 0.15) 0%, transparent 70%);
+
+    --sidebar-background: 75 25% 95%;
+    --sidebar-foreground: 75 40% 20%;
+    --sidebar-primary: 75 80% 45%;
+    --sidebar-primary-foreground: 75 50% 10%;
+    --sidebar-accent: 75 20% 90%;
+    --sidebar-accent-foreground: 75 40% 15%;
+    --sidebar-border: 75 30% 85%;
+    --sidebar-ring: 75 80% 45%;
+
+    /* Lime color stays the same */
+    --lime: 75 80% 50%;
+    --lime-foreground: 0 0% 10%;
+  }
 }
 
 @layer base {
