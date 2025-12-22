@@ -412,6 +412,7 @@ export default function MultiChannel() {
             onToggleSelection={toggleSelection}
             onView={handleView}
             onDelete={handleDelete}
+            onStatusChange={updateStatus}
           />
         )}
       </div>
