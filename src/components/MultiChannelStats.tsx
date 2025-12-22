@@ -20,6 +20,8 @@ import {
   Youtube,
   MessageCircle,
   Send,
+  Music2,
+  AtSign,
 } from 'lucide-react';
 import { MultiChannelContent, Channel, CONTENT_GOALS, CHANNELS } from '@/types/multichannel';
 import { format, subDays, startOfDay, isAfter } from 'date-fns';
