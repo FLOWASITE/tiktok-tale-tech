@@ -214,7 +214,12 @@ export function OrganizationMembersList({
                       <Label htmlFor="create-role">Vai trò</Label>
                       <Select value={createRole} onValueChange={(v) => setCreateRole(v as OrgRole)}>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            <div className="flex items-center gap-2">
+                              {React.createElement(ROLE_ICONS[createRole], { className: "h-4 w-4" })}
+                              <span>{ORG_ROLE_LABELS[createRole]}</span>
+                            </div>
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {(['admin', 'member', 'viewer'] as OrgRole[]).map((role) => (
@@ -251,7 +256,12 @@ export function OrganizationMembersList({
                       <Label htmlFor="invite-role">Vai trò</Label>
                       <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)}>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            <div className="flex items-center gap-2">
+                              {React.createElement(ROLE_ICONS[inviteRole], { className: "h-4 w-4" })}
+                              <span>{ORG_ROLE_LABELS[inviteRole]}</span>
+                            </div>
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {(['admin', 'member', 'viewer'] as OrgRole[]).map((role) => (
