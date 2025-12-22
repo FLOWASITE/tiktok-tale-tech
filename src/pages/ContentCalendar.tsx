@@ -90,6 +90,19 @@ const channelEmojis: Record<Channel, string> = {
   telegram: '✈️',
 };
 
+const channelColors: Record<Channel, { border: string; bg: string; text: string }> = {
+  website: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-700 dark:text-blue-400' },
+  facebook: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', text: 'text-indigo-700 dark:text-indigo-400' },
+  instagram: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', text: 'text-pink-700 dark:text-pink-400' },
+  twitter: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', text: 'text-slate-700 dark:text-slate-400' },
+  google_maps: { border: 'border-l-green-500', bg: 'bg-green-500/10', text: 'text-green-700 dark:text-green-400' },
+  linkedin: { border: 'border-l-sky-500', bg: 'bg-sky-500/10', text: 'text-sky-700 dark:text-sky-400' },
+  email: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-700 dark:text-amber-400' },
+  youtube: { border: 'border-l-red-500', bg: 'bg-red-500/10', text: 'text-red-700 dark:text-red-400' },
+  zalo_oa: { border: 'border-l-blue-600', bg: 'bg-blue-600/10', text: 'text-blue-700 dark:text-blue-400' },
+  telegram: { border: 'border-l-cyan-500', bg: 'bg-cyan-500/10', text: 'text-cyan-700 dark:text-cyan-400' },
+};
+
 // Draggable Schedule Item
 function DraggableScheduleItem({ 
   schedule, 
@@ -112,6 +125,9 @@ function DraggableScheduleItem({
     schedule.publish_status === 'cancelled' ? 'bg-muted-foreground' :
     'bg-yellow-500';
 
+  const channel = schedule.channel as Channel;
+  const colors = channelColors[channel] || { border: 'border-l-muted-foreground', bg: 'bg-muted/50', text: 'text-foreground' };
+
   return (
     <div
       ref={setNodeRef}
@@ -121,15 +137,16 @@ function DraggableScheduleItem({
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       className={`
         text-xs p-1.5 rounded cursor-grab active:cursor-grabbing
-        bg-card border border-border/50 shadow-sm
-        hover:shadow-md transition-shadow
-        ${isDragging ? 'opacity-50' : ''}
+        border-l-[3px] shadow-sm
+        hover:shadow-md transition-all
+        ${colors.border} ${colors.bg}
+        ${isDragging ? 'opacity-50 scale-105' : ''}
       `}
     >
       <div className="flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
-        <span>{channelEmojis[schedule.channel as Channel]}</span>
-        <span className="truncate font-medium">{schedule.content?.title || 'Không có tiêu đề'}</span>
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} />
+        <span>{channelEmojis[channel]}</span>
+        <span className={`truncate font-medium ${colors.text}`}>{schedule.content?.title || 'Không có tiêu đề'}</span>
       </div>
       <div className="text-muted-foreground text-[10px] mt-0.5">
         {format(parseISO(schedule.scheduled_at), 'HH:mm')}
