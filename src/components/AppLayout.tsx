@@ -4,6 +4,7 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Separator } from '@/components/ui/separator';
+import { NotificationDropdown } from '@/components/NotificationDropdown';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="flex-1" />
             
             <div className="flex items-center gap-2">
+              <NotificationDropdown />
               <ThemeToggle />
               <UserAvatar />
             </div>
