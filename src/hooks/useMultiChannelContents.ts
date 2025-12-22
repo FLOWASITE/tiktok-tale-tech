@@ -92,7 +92,11 @@ export function useMultiChannelContents() {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-multichannel', {
-        body: { ...formData, user_id: user.id },
+        body: { 
+          ...formData, 
+          user_id: user.id,
+          organization_id: currentOrganization?.id 
+        },
       });
 
       if (error) {

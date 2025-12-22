@@ -215,7 +215,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, duration, video_type, character_type, brandTemplateId } = await req.json();
+    const { topic, duration, video_type, character_type, brandTemplateId, organization_id: requestOrgId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -320,7 +320,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get("authorization");
     let userId: string | null = null;
-    let organizationId: string | null = null;
+    let organizationId: string | null = requestOrgId || null;
     
     if (authHeader) {
       const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -329,8 +329,8 @@ serve(async (req) => {
       const { data: { user } } = await supabaseAuth.auth.getUser();
       userId = user?.id || null;
       
-      if (userId) {
-        // Get user's organization_id
+      if (userId && !organizationId) {
+        // Fallback: get first org where user is a member
         const { data: orgMember } = await supabase
           .from("organization_members")
           .select("organization_id")
@@ -340,8 +340,8 @@ serve(async (req) => {
           .single();
         
         organizationId = orgMember?.organization_id || null;
-        console.log("User organization_id:", organizationId);
       }
+      console.log("Using organization_id:", organizationId, "(from request:", !!requestOrgId, ")");
     }
 
     // Generate title from topic

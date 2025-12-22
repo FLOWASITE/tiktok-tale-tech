@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Carousel, CarouselFormData, CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
 
 export function useCarousels() {
   const { user } = useAuth();
+  const { currentOrganization } = useOrganizationContext();
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -49,7 +51,11 @@ export function useCarousels() {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-carousel', {
-        body: { ...formData, user_id: user.id },
+        body: { 
+          ...formData, 
+          user_id: user.id,
+          organization_id: currentOrganization?.id 
+        },
       });
 
       if (error) {

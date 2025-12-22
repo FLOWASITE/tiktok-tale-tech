@@ -17,6 +17,7 @@ interface CarouselFormData {
   includeLogo: boolean;
   logoUrl?: string | null;
   brandTemplateId?: string;
+  organization_id?: string;
 }
 
 interface CarouselSlide {
@@ -264,17 +265,21 @@ serve(async (req) => {
       );
     }
 
-    // Get user's organization_id
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .single();
+    // Get organization_id: prefer from request body, fallback to query
+    let organizationId = formData.organization_id || null;
     
-    const organizationId = orgMember?.organization_id || null;
-    console.log("User organization_id:", organizationId);
+    if (!organizationId) {
+      const { data: orgMember } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single();
+      
+      organizationId = orgMember?.organization_id || null;
+    }
+    console.log("Using organization_id:", organizationId, "(from request:", !!formData.organization_id, ")");
 
     // Load Brand Voice from template if provided
     let brandVoice: BrandVoice | undefined;
