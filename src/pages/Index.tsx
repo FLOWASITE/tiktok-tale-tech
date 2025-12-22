@@ -7,6 +7,7 @@ import { ScriptFilters, ScriptFilters as ScriptFiltersType } from '@/components/
 import { ScriptStats } from '@/components/ScriptStats';
 import { ScriptListView } from '@/components/ScriptListView';
 import { useScripts } from '@/hooks/useScripts';
+import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { Script } from '@/types/script';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,11 @@ type ViewMode = 'grid' | 'list';
 const Index = () => {
   const navigate = useNavigate();
   const { scripts, loading, generating, generateScript, deleteScript, updateScript } = useScripts();
+  
+  // Fetch creator profiles for all scripts
+  const userIds = useMemo(() => scripts.map(s => s.user_id), [scripts]);
+  const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
+  
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
@@ -207,6 +213,8 @@ const Index = () => {
                   script={script}
                   onView={handleViewScript}
                   onDelete={deleteScript}
+                  creatorProfile={script.user_id ? creatorProfiles[script.user_id] : undefined}
+                  isLoadingProfile={isLoadingProfiles}
                 />
               </div>
             ))}
