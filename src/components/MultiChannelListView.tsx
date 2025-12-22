@@ -1,6 +1,7 @@
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Eye, Trash2, Calendar, Tag, ChevronDown } from 'lucide-react';
+import { Eye, Trash2, Calendar, Tag, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,8 +37,10 @@ import {
   ContentStatus, 
   Channel, 
   CONTENT_STATUSES,
-  CHANNELS 
 } from '@/types/multichannel';
+
+type SortField = 'title' | 'created_at' | 'completed_channels';
+type SortDirection = 'asc' | 'desc';
 
 const statusColors: Record<ContentStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -95,6 +98,49 @@ const getStatusSummary = (content: MultiChannelContent) => {
   return summary;
 };
 
+// Helper function to count completed channels (published)
+const getCompletedCount = (content: MultiChannelContent) => {
+  const channelStatuses = content.channel_statuses || {};
+  return content.selected_channels.filter(ch => channelStatuses[ch] === 'published').length;
+};
+
+// Sortable header component
+const SortableHeader = ({ 
+  label, 
+  field, 
+  currentField, 
+  direction, 
+  onSort,
+  className = ''
+}: { 
+  label: string; 
+  field: SortField; 
+  currentField: SortField | null;
+  direction: SortDirection;
+  onSort: (field: SortField) => void;
+  className?: string;
+}) => {
+  const isActive = currentField === field;
+  
+  return (
+    <button
+      onClick={() => onSort(field)}
+      className={`flex items-center gap-1 hover:text-foreground transition-colors ${className}`}
+    >
+      {label}
+      {isActive ? (
+        direction === 'asc' ? (
+          <ArrowUp className="w-3.5 h-3.5" />
+        ) : (
+          <ArrowDown className="w-3.5 h-3.5" />
+        )
+      ) : (
+        <ArrowUpDown className="w-3.5 h-3.5 opacity-50" />
+      )}
+    </button>
+  );
+};
+
 export function MultiChannelListView({
   contents,
   selectedIds,
@@ -103,24 +149,85 @@ export function MultiChannelListView({
   onDelete,
   onChannelStatusChange,
 }: MultiChannelListViewProps) {
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedContents = useMemo(() => {
+    if (!sortField) return contents;
+
+    return [...contents].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'title':
+          comparison = a.title.localeCompare(b.title, 'vi');
+          break;
+        case 'created_at':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'completed_channels':
+          comparison = getCompletedCount(a) - getCompletedCount(b);
+          break;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [contents, sortField, sortDirection]);
+
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-[40px]"></TableHead>
-            <TableHead className="min-w-[200px]">Tiêu đề</TableHead>
+            <TableHead className="min-w-[200px]">
+              <SortableHeader
+                label="Tiêu đề"
+                field="title"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
+            </TableHead>
             <TableHead className="min-w-[150px]">Thương hiệu</TableHead>
             <TableHead className="min-w-[200px]">Kênh</TableHead>
-            <TableHead className="min-w-[180px]">Trạng thái kênh</TableHead>
-            <TableHead className="min-w-[120px]">Ngày tạo</TableHead>
+            <TableHead className="min-w-[180px]">
+              <SortableHeader
+                label="Trạng thái kênh"
+                field="completed_channels"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
+            </TableHead>
+            <TableHead className="min-w-[120px]">
+              <SortableHeader
+                label="Ngày tạo"
+                field="created_at"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
+            </TableHead>
             <TableHead className="w-[100px] text-right">Thao tác</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {contents.map((content) => {
+          {sortedContents.map((content) => {
             const statusSummary = getStatusSummary(content);
             const channelStatuses = content.channel_statuses || {};
+            const completedCount = getCompletedCount(content);
+            const totalChannels = content.selected_channels.length;
             
             return (
               <TableRow key={content.id} className="group">
@@ -180,6 +287,13 @@ export function MultiChannelListView({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="flex items-center gap-2 hover:opacity-80 transition-opacity text-left">
+                        {/* Completed count badge */}
+                        <Badge 
+                          variant="outline" 
+                          className={`text-[10px] ${completedCount === totalChannels ? 'bg-green-500/20 text-green-700 dark:text-green-400' : ''}`}
+                        >
+                          {completedCount}/{totalChannels} đã đăng
+                        </Badge>
                         {/* Status summary dots */}
                         <div className="flex items-center gap-1">
                           {CONTENT_STATUSES.map((status) => {
