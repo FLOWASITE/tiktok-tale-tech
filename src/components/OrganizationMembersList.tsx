@@ -40,10 +40,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { 
-  Users, UserPlus, Trash2, Crown, Shield, User, Eye, Search, Calendar, Info 
+  Users, UserPlus, Trash2, Crown, Shield, User, Eye, Search, Calendar, Info, UserCog, Key
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ROLE_ICONS: Record<OrgRole, React.ElementType> = {
   owner: Crown,
@@ -64,6 +65,7 @@ interface OrganizationMembersListProps {
   loading: boolean;
   currentRole: OrgRole;
   onInviteMember: (email: string, role: OrgRole) => Promise<boolean>;
+  onCreateMember: (email: string, role: OrgRole, password: string, fullName?: string) => Promise<boolean>;
   onUpdateRole: (memberId: string, role: OrgRole) => Promise<boolean>;
   onRemoveMember: (memberId: string) => Promise<boolean>;
   updating: boolean;
@@ -74,6 +76,7 @@ export function OrganizationMembersList({
   loading,
   currentRole,
   onInviteMember,
+  onCreateMember,
   onUpdateRole,
   onRemoveMember,
   updating,
@@ -83,6 +86,13 @@ export function OrganizationMembersList({
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<OrgRole>("member");
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  
+  // State for manual creation
+  const [createEmail, setCreateEmail] = useState("");
+  const [createFullName, setCreateFullName] = useState("");
+  const [createRole, setCreateRole] = useState<OrgRole>("member");
+  const [createPassword, setCreatePassword] = useState("abc123");
+  const [addMode, setAddMode] = useState<"invite" | "create">("create");
 
   const canManage = canManageMembers(currentRole);
 
@@ -107,6 +117,24 @@ export function OrganizationMembersList({
     }
   };
 
+  const handleCreateMember = async () => {
+    if (!createEmail.trim()) return;
+    
+    const success = await onCreateMember(
+      createEmail.trim(), 
+      createRole, 
+      createPassword || "abc123",
+      createFullName.trim() || undefined
+    );
+    if (success) {
+      setShowInviteDialog(false);
+      setCreateEmail("");
+      setCreateFullName("");
+      setCreateRole("member");
+      setCreatePassword("abc123");
+    }
+  };
+
   return (
     <Card className="border-border/50">
       <CardHeader>
@@ -123,56 +151,138 @@ export function OrganizationMembersList({
               <DialogTrigger asChild>
                 <Button size="sm" className="shrink-0">
                   <UserPlus className="h-4 w-4 mr-2" />
-                  Mời thành viên
+                  Thêm thành viên
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Mời thành viên mới</DialogTitle>
+                  <DialogTitle>Thêm thành viên mới</DialogTitle>
                   <DialogDescription>
-                    Nhập email của người bạn muốn mời. Họ cần có tài khoản trong hệ thống.
+                    Tạo tài khoản mới hoặc mời người dùng đã có tài khoản.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-email">Email</Label>
-                    <Input
-                      id="invite-email"
-                      type="email"
-                      placeholder="example@email.com"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-role">Vai trò</Label>
-                    <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(['admin', 'member', 'viewer'] as OrgRole[]).map((role) => (
-                          <SelectItem key={role} value={role}>
-                            <div className="flex items-center gap-2">
-                              {React.createElement(ROLE_ICONS[role], { className: "h-4 w-4" })}
-                              <span>{ORG_ROLE_LABELS[role]}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {ROLE_DESCRIPTIONS[inviteRole]}
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
+                <Tabs value={addMode} onValueChange={(v) => setAddMode(v as "invite" | "create")} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="create" className="flex items-center gap-1.5">
+                      <UserCog className="h-4 w-4" />
+                      Tạo mới
+                    </TabsTrigger>
+                    <TabsTrigger value="invite" className="flex items-center gap-1.5">
+                      <UserPlus className="h-4 w-4" />
+                      Mời có sẵn
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="create" className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="create-email">Email *</Label>
+                      <Input
+                        id="create-email"
+                        type="email"
+                        placeholder="example@email.com"
+                        value={createEmail}
+                        onChange={(e) => setCreateEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="create-fullname">Họ và tên</Label>
+                      <Input
+                        id="create-fullname"
+                        type="text"
+                        placeholder="Nguyễn Văn A"
+                        value={createFullName}
+                        onChange={(e) => setCreateFullName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="create-password" className="flex items-center gap-1.5">
+                        <Key className="h-3.5 w-3.5" />
+                        Mật khẩu mặc định
+                      </Label>
+                      <Input
+                        id="create-password"
+                        type="text"
+                        placeholder="abc123"
+                        value={createPassword}
+                        onChange={(e) => setCreatePassword(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Thành viên nên đổi mật khẩu sau khi đăng nhập lần đầu
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="create-role">Vai trò</Label>
+                      <Select value={createRole} onValueChange={(v) => setCreateRole(v as OrgRole)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(['admin', 'member', 'viewer'] as OrgRole[]).map((role) => (
+                            <SelectItem key={role} value={role}>
+                              <div className="flex items-center gap-2">
+                                {React.createElement(ROLE_ICONS[role], { className: "h-4 w-4" })}
+                                <span>{ORG_ROLE_LABELS[role]}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {ROLE_DESCRIPTIONS[createRole]}
+                      </p>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="invite" className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-email">Email</Label>
+                      <Input
+                        id="invite-email"
+                        type="email"
+                        placeholder="example@email.com"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Người dùng cần có tài khoản trong hệ thống
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-role">Vai trò</Label>
+                      <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(['admin', 'member', 'viewer'] as OrgRole[]).map((role) => (
+                            <SelectItem key={role} value={role}>
+                              <div className="flex items-center gap-2">
+                                {React.createElement(ROLE_ICONS[role], { className: "h-4 w-4" })}
+                                <span>{ORG_ROLE_LABELS[role]}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {ROLE_DESCRIPTIONS[inviteRole]}
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+                <DialogFooter className="mt-4">
                   <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
                     Hủy
                   </Button>
-                  <Button onClick={handleInviteMember} disabled={updating || !inviteEmail.trim()}>
-                    {updating ? 'Đang mời...' : 'Gửi lời mời'}
-                  </Button>
+                  {addMode === "create" ? (
+                    <Button onClick={handleCreateMember} disabled={updating || !createEmail.trim()}>
+                      {updating ? 'Đang tạo...' : 'Tạo tài khoản'}
+                    </Button>
+                  ) : (
+                    <Button onClick={handleInviteMember} disabled={updating || !inviteEmail.trim()}>
+                      {updating ? 'Đang mời...' : 'Mời thành viên'}
+                    </Button>
+                  )}
                 </DialogFooter>
               </DialogContent>
             </Dialog>
