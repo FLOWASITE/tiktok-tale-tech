@@ -228,6 +228,12 @@ export function UserAvatar() {
             Tài khoản
           </DropdownMenuItem>
           
+          {currentOrganization && (
+            <DropdownMenuItem onClick={() => navigate('/organization')}>
+              <Settings className="mr-2 h-4 w-4" />
+              Cài đặt tổ chức
+            </DropdownMenuItem>
+          )}
           {/* Organization Switcher */}
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="gap-2">
@@ -272,13 +278,6 @@ export function UserAvatar() {
                   <Plus className="mr-2 h-4 w-4" />
                   Tạo tổ chức mới
                 </DropdownMenuItem>
-                
-                {currentOrganization && (
-                  <DropdownMenuItem onClick={() => navigate('/organization')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Cài đặt tổ chức
-                  </DropdownMenuItem>
-                )}
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
