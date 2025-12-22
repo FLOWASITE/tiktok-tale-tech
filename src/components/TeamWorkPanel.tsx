@@ -13,9 +13,10 @@ import { User, Clock, Trash2, CheckCircle } from 'lucide-react';
 
 interface TeamWorkPanelProps {
   contentId: string;
+  onClose?: () => void;
 }
 
-export const TeamWorkPanel = ({ contentId }: TeamWorkPanelProps) => {
+export const TeamWorkPanel = ({ contentId, onClose }: TeamWorkPanelProps) => {
   const { assignments, isLoading, updateAssignmentStatus, deleteAssignment } = useContentAssignments(contentId);
 
   const getChannel = (channelValue: string) => {
