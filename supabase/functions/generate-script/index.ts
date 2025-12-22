@@ -317,6 +317,33 @@ serve(async (req) => {
 
     console.log("Script generated successfully, saving to database...");
 
+    // Get user from auth header
+    const authHeader = req.headers.get("authorization");
+    let userId: string | null = null;
+    let organizationId: string | null = null;
+    
+    if (authHeader) {
+      const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      userId = user?.id || null;
+      
+      if (userId) {
+        // Get user's organization_id
+        const { data: orgMember } = await supabase
+          .from("organization_members")
+          .select("organization_id")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .single();
+        
+        organizationId = orgMember?.organization_id || null;
+        console.log("User organization_id:", organizationId);
+      }
+    }
+
     // Generate title from topic
     const title = topic.length > 50 ? topic.substring(0, 50) + "..." : topic;
 
@@ -329,6 +356,8 @@ serve(async (req) => {
         video_type,
         character_type,
         content,
+        user_id: userId,
+        organization_id: organizationId,
       })
       .select()
       .single();
