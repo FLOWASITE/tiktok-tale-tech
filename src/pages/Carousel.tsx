@@ -286,6 +286,10 @@ const CarouselPage = () => {
         carousel={selectedCarousel}
         open={viewerOpen}
         onOpenChange={setViewerOpen}
+        onCarouselUpdate={(updated) => {
+          updateCarousel(updated);
+          setSelectedCarousel(updated);
+        }}
       />
     </div>
   );
