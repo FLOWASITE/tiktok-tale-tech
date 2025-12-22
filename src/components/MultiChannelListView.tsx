@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Eye, Trash2, Calendar, Clock, Tag } from 'lucide-react';
+import { Eye, Trash2, Calendar, Tag, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,6 +23,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { MultiChannelContent, ContentStatus, Channel, CONTENT_STATUSES } from '@/types/multichannel';
 
 const statusColors: Record<ContentStatus, string> = {
@@ -51,6 +57,7 @@ interface MultiChannelListViewProps {
   onToggleSelection: (id: string) => void;
   onView: (content: MultiChannelContent) => void;
   onDelete: (id: string) => void;
+  onStatusChange?: (contentId: string, status: ContentStatus) => Promise<unknown>;
 }
 
 export function MultiChannelListView({
@@ -59,6 +66,7 @@ export function MultiChannelListView({
   onToggleSelection,
   onView,
   onDelete,
+  onStatusChange,
 }: MultiChannelListViewProps) {
   return (
     <div className="rounded-md border">
@@ -130,12 +138,44 @@ export function MultiChannelListView({
                 </div>
               </TableCell>
               <TableCell>
-                <Badge 
-                  variant="outline"
-                  className={`${statusColors[content.status || 'draft']} text-[10px]`}
-                >
-                  {CONTENT_STATUSES.find(s => s.value === content.status)?.label || content.status || 'Nháp'}
-                </Badge>
+                {onStatusChange ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+                        <Badge 
+                          variant="outline"
+                          className={`${statusColors[content.status || 'draft']} text-[10px]`}
+                        >
+                          {CONTENT_STATUSES.find(s => s.value === content.status)?.label || 'Nháp'}
+                        </Badge>
+                        <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="bg-popover z-50">
+                      {CONTENT_STATUSES.map((status) => (
+                        <DropdownMenuItem
+                          key={status.value}
+                          onClick={() => onStatusChange(content.id, status.value)}
+                          className="cursor-pointer"
+                        >
+                          <Badge 
+                            variant="outline"
+                            className={`${statusColors[status.value]} text-[10px] mr-2`}
+                          >
+                            {status.label}
+                          </Badge>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Badge 
+                    variant="outline"
+                    className={`${statusColors[content.status || 'draft']} text-[10px]`}
+                  >
+                    {CONTENT_STATUSES.find(s => s.value === content.status)?.label || 'Nháp'}
+                  </Badge>
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
