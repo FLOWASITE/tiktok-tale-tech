@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -34,6 +34,7 @@ import { SmartQuickActions } from '@/components/SmartQuickActions';
 import { ImagePromptEditor } from '@/components/ImagePromptEditor';
 import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
 import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
+import { SchedulePanel } from '@/components/SchedulePanel';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -183,6 +184,7 @@ export function MultiChannelViewer({
   const [imageEditorChannel, setImageEditorChannel] = useState<Channel | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const [showGallery, setShowGallery] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -546,16 +548,26 @@ export function MultiChannelViewer({
                 <Button 
                   variant={showGallery ? "default" : "outline"} 
                   size="sm" 
-                  onClick={() => setShowGallery(!showGallery)}
+                  onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); }}
                   className="gap-1.5"
                 >
                   <Images className="w-4 h-4" />
-                  Thư viện ảnh
+                  Ảnh
                   {Object.keys(content.channel_images || {}).length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                       {Object.keys(content.channel_images || {}).length}
                     </Badge>
                   )}
+                </Button>
+                {/* Schedule Button */}
+                <Button 
+                  variant={showSchedule ? "default" : "outline"} 
+                  size="sm" 
+                  onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); }}
+                  className="gap-1.5"
+                >
+                  <CalendarClock className="w-4 h-4" />
+                  Lên lịch
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleExportAll}>
                   <Download className="w-4 h-4 mr-1.5" />
@@ -566,7 +578,11 @@ export function MultiChannelViewer({
           </div>
         </DialogHeader>
 
-        {showGallery ? (
+        {showSchedule ? (
+          <div className="p-6">
+            <SchedulePanel content={content} />
+          </div>
+        ) : showGallery ? (
           <div className="p-6">
             <ChannelImagesGallery
               channelImages={content.channel_images || {}}
