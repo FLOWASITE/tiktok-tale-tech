@@ -45,7 +45,7 @@ import { useConfetti } from '@/hooks/useConfetti';
 
 export default function Tasks() {
   const { user } = useAuth();
-  const { contents, loading: loadingContents, refetch: refetchContents, updateStatus, deleteContent, submitForReview, approveContent, rejectContent } = useMultiChannelContents();
+  const { contents, loading: loadingContents, refetch: refetchContents, updateStatus, deleteContent, submitForReview, approveContent, rejectContent, bulkSubmitForReview, bulkApproveContent, bulkRejectContent, approvingContent } = useMultiChannelContents();
   const { assignments, myAssignments, isLoading: loadingAssignments, refreshAssignments, updateAssignmentStatus } = useContentAssignments();
   const { allSchedules, fetchAllSchedules, isLoading: loadingSchedules } = useContentSchedules();
   const { fireConfetti } = useConfetti();
@@ -250,6 +250,76 @@ export default function Tasks() {
       setIsDeleting(false);
     }
   }, [selectedIds, deleteContent]);
+
+  // Bulk approval handlers
+  const handleBulkApprove = useCallback(async (notes?: string) => {
+    if (selectedIds.size === 0) return;
+    
+    const reviewContentIds = Array.from(selectedIds).filter(id => {
+      const content = contents.find(c => c.id === id);
+      return content?.status === 'review';
+    });
+    
+    if (reviewContentIds.length === 0) {
+      toast.error('Không có nội dung nào đang chờ duyệt');
+      return;
+    }
+    
+    await bulkApproveContent(reviewContentIds, notes);
+    setSelectedIds(new Set());
+    handleRefresh();
+    fireConfetti();
+  }, [selectedIds, contents, bulkApproveContent, fireConfetti]);
+
+  const handleBulkReject = useCallback(async (reason: string) => {
+    if (selectedIds.size === 0) return;
+    
+    const reviewContentIds = Array.from(selectedIds).filter(id => {
+      const content = contents.find(c => c.id === id);
+      return content?.status === 'review';
+    });
+    
+    if (reviewContentIds.length === 0) {
+      toast.error('Không có nội dung nào đang chờ duyệt');
+      return;
+    }
+    
+    await bulkRejectContent(reviewContentIds, reason);
+    setSelectedIds(new Set());
+    handleRefresh();
+  }, [selectedIds, contents, bulkRejectContent]);
+
+  const handleBulkSubmitForReview = useCallback(async (notes?: string) => {
+    if (selectedIds.size === 0) return;
+    
+    const draftContentIds = Array.from(selectedIds).filter(id => {
+      const content = contents.find(c => c.id === id);
+      return content?.status === 'draft';
+    });
+    
+    if (draftContentIds.length === 0) {
+      toast.error('Không có nội dung nháp nào để gửi duyệt');
+      return;
+    }
+    
+    await bulkSubmitForReview(draftContentIds, notes);
+    setSelectedIds(new Set());
+    handleRefresh();
+  }, [selectedIds, contents, bulkSubmitForReview]);
+
+  // Check if selected items have reviewable or draft content
+  const selectedContentStatuses = useMemo(() => {
+    const selected = Array.from(selectedIds);
+    const hasReviewable = selected.some(id => {
+      const content = contents.find(c => c.id === id);
+      return content?.status === 'review';
+    });
+    const hasDraft = selected.some(id => {
+      const content = contents.find(c => c.id === id);
+      return content?.status === 'draft';
+    });
+    return { hasReviewable, hasDraft };
+  }, [selectedIds, contents]);
 
   // Active filters count
   const activeFiltersCount = useMemo(() => {
@@ -664,8 +734,15 @@ export default function Tasks() {
               onClearSelection={handleClearSelection}
               onBulkDelete={handleBulkDelete}
               onBulkStatusChange={handleBulkStatusChange}
+              onBulkApprove={handleBulkApprove}
+              onBulkReject={handleBulkReject}
+              onBulkSubmitForReview={handleBulkSubmitForReview}
               isDeleting={isDeleting}
               isUpdating={isUpdating}
+              isApproving={approvingContent}
+              currentRole={currentRole}
+              hasReviewableContent={selectedContentStatuses.hasReviewable}
+              hasDraftContent={selectedContentStatuses.hasDraft}
             />
           )}
 

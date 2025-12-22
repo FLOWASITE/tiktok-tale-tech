@@ -668,6 +668,171 @@ export function useMultiChannelContents() {
     }
   };
 
+  // Bulk submit for review
+  const bulkSubmitForReview = async (contentIds: string[], notes?: string): Promise<void> => {
+    setApprovingContent(true);
+    try {
+      const { error } = await supabase
+        .from('multi_channel_contents')
+        .update({ status: 'review' })
+        .in('id', contentIds);
+
+      if (error) throw error;
+
+      // Update local state
+      setContents(prev => prev.map(c => 
+        contentIds.includes(c.id) ? { ...c, status: 'review' as ContentStatus } : c
+      ));
+
+      // Create notifications for admins/owners
+      if (currentOrganization && user) {
+        const { data: admins } = await supabase
+          .from('organization_members')
+          .select('user_id')
+          .eq('organization_id', currentOrganization.id)
+          .in('role', ['owner', 'admin']);
+
+        if (admins && admins.length > 0) {
+          const notifications = admins
+            .filter(a => a.user_id !== user.id)
+            .map(admin => ({
+              user_id: admin.user_id,
+              organization_id: currentOrganization.id,
+              type: 'bulk_content_submitted',
+              title: 'Nhiều nội dung chờ duyệt',
+              message: `${contentIds.length} nội dung đã được gửi duyệt${notes ? `: ${notes}` : ''}`,
+              data: { content_ids: contentIds },
+            }));
+
+          if (notifications.length > 0) {
+            await supabase.from('notifications').insert(notifications);
+          }
+        }
+      }
+      
+      toast({
+        title: '📤 Đã gửi duyệt',
+        description: `${contentIds.length} nội dung đã được gửi đến quản trị viên`,
+        className: 'animate-success',
+      });
+    } catch (error) {
+      console.error('Error bulk submitting for review:', error);
+      toast({
+        title: '❌ Lỗi gửi duyệt',
+        description: 'Không thể gửi nội dung để duyệt. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+    } finally {
+      setApprovingContent(false);
+    }
+  };
+
+  // Bulk approve content
+  const bulkApproveContent = async (contentIds: string[], notes?: string): Promise<void> => {
+    setApprovingContent(true);
+    try {
+      const contentsToApprove = contents.filter(c => contentIds.includes(c.id));
+      
+      const { error } = await supabase
+        .from('multi_channel_contents')
+        .update({ status: 'approved' })
+        .in('id', contentIds);
+
+      if (error) throw error;
+
+      // Update local state
+      setContents(prev => prev.map(c => 
+        contentIds.includes(c.id) ? { ...c, status: 'approved' as ContentStatus } : c
+      ));
+
+      // Notify content creators
+      if (currentOrganization && user) {
+        const creatorIds = [...new Set(contentsToApprove.map(c => c.user_id).filter(id => id && id !== user.id))];
+        
+        const notifications = creatorIds.map(creatorId => ({
+          user_id: creatorId!,
+          organization_id: currentOrganization.id,
+          type: 'bulk_content_approved',
+          title: '✅ Nội dung đã được duyệt',
+          message: `${contentsToApprove.filter(c => c.user_id === creatorId).length} nội dung của bạn đã được phê duyệt${notes ? `. Ghi chú: ${notes}` : ''}`,
+          data: { content_ids: contentIds },
+        }));
+
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
+        }
+      }
+      
+      toast({
+        title: '✅ Đã phê duyệt',
+        description: `${contentIds.length} nội dung đã được duyệt thành công`,
+        className: 'animate-success',
+      });
+    } catch (error) {
+      console.error('Error bulk approving content:', error);
+      toast({
+        title: '❌ Lỗi phê duyệt',
+        description: 'Không thể phê duyệt nội dung. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+    } finally {
+      setApprovingContent(false);
+    }
+  };
+
+  // Bulk reject content
+  const bulkRejectContent = async (contentIds: string[], reason: string): Promise<void> => {
+    setApprovingContent(true);
+    try {
+      const contentsToReject = contents.filter(c => contentIds.includes(c.id));
+      
+      const { error } = await supabase
+        .from('multi_channel_contents')
+        .update({ status: 'draft' })
+        .in('id', contentIds);
+
+      if (error) throw error;
+
+      // Update local state
+      setContents(prev => prev.map(c => 
+        contentIds.includes(c.id) ? { ...c, status: 'draft' as ContentStatus } : c
+      ));
+
+      // Notify content creators with rejection reason
+      if (currentOrganization && user) {
+        const creatorIds = [...new Set(contentsToReject.map(c => c.user_id).filter(id => id && id !== user.id))];
+        
+        const notifications = creatorIds.map(creatorId => ({
+          user_id: creatorId!,
+          organization_id: currentOrganization.id,
+          type: 'bulk_content_rejected',
+          title: '❌ Nội dung bị từ chối',
+          message: `${contentsToReject.filter(c => c.user_id === creatorId).length} nội dung đã bị từ chối. Lý do: ${reason}`,
+          data: { content_ids: contentIds, reason },
+        }));
+
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
+        }
+      }
+      
+      toast({
+        title: '📝 Đã từ chối',
+        description: `${contentIds.length} nội dung đã được chuyển về nháp để chỉnh sửa`,
+        className: 'animate-success',
+      });
+    } catch (error) {
+      console.error('Error bulk rejecting content:', error);
+      toast({
+        title: '❌ Lỗi từ chối',
+        description: 'Không thể từ chối nội dung. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+    } finally {
+      setApprovingContent(false);
+    }
+  };
+
   useEffect(() => {
     fetchContents();
   }, [user]);
@@ -693,6 +858,9 @@ export function useMultiChannelContents() {
     submitForReview,
     approveContent,
     rejectContent,
+    bulkSubmitForReview,
+    bulkApproveContent,
+    bulkRejectContent,
     refetch: fetchContents,
   };
 }
