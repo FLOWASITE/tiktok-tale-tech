@@ -707,6 +707,21 @@ Nội dung sẵn sàng đăng ngay.`;
     const generatedData = JSON.parse(toolCall.function.arguments);
     console.log("Generated content:", generatedData.title);
 
+    // Check organization's skip_approval setting
+    let initialStatus = 'draft';
+    if (organizationId) {
+      const { data: orgSettings } = await supabase
+        .from('organizations')
+        .select('skip_approval')
+        .eq('id', organizationId)
+        .single();
+      
+      if (orgSettings?.skip_approval) {
+        initialStatus = 'approved';
+        console.log('Skip approval enabled, setting status to approved');
+      }
+    }
+
     // Save to database
     const { data: content, error: dbError } = await supabase
       .from("multi_channel_contents")
@@ -722,6 +737,7 @@ Nội dung sẵn sàng đăng ngay.`;
         brand_name: brandName,
         brand_guideline: brandGuideline,
         primary_color: primaryColor,
+        status: initialStatus,
         website_content: generatedData.website_content || null,
         facebook_content: generatedData.facebook_content || null,
         instagram_content: generatedData.instagram_content || null,

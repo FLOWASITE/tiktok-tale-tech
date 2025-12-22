@@ -641,32 +641,38 @@ export type Database = {
       }
       organizations: {
         Row: {
+          approver_roles: string[] | null
           created_at: string
           id: string
           logo_url: string | null
           name: string
           owner_id: string
           primary_color: string | null
+          skip_approval: boolean | null
           slug: string
           updated_at: string
         }
         Insert: {
+          approver_roles?: string[] | null
           created_at?: string
           id?: string
           logo_url?: string | null
           name: string
           owner_id: string
           primary_color?: string | null
+          skip_approval?: boolean | null
           slug: string
           updated_at?: string
         }
         Update: {
+          approver_roles?: string[] | null
           created_at?: string
           id?: string
           logo_url?: string | null
           name?: string
           owner_id?: string
           primary_color?: string | null
+          skip_approval?: boolean | null
           slug?: string
           updated_at?: string
         }

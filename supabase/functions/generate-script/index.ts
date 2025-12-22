@@ -347,6 +347,21 @@ serve(async (req) => {
     // Generate title from topic
     const title = topic.length > 50 ? topic.substring(0, 50) + "..." : topic;
 
+    // Check organization's skip_approval setting
+    let initialStatus = 'draft';
+    if (organizationId) {
+      const { data: orgSettings } = await supabase
+        .from('organizations')
+        .select('skip_approval')
+        .eq('id', organizationId)
+        .single();
+      
+      if (orgSettings?.skip_approval) {
+        initialStatus = 'approved';
+        console.log('Skip approval enabled, setting status to approved');
+      }
+    }
+
     const { data: savedScript, error: dbError } = await supabase
       .from("scripts")
       .insert({
@@ -358,6 +373,7 @@ serve(async (req) => {
         content,
         user_id: userId,
         organization_id: organizationId,
+        status: initialStatus,
       })
       .select()
       .single();

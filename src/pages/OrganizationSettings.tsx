@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { OrganizationStats } from "@/components/OrganizationStats";
 import { OrganizationMembersList } from "@/components/OrganizationMembersList";
+import { ApprovalSettingsCard } from "@/components/ApprovalSettingsCard";
 
 export default function OrganizationSettings() {
   const { currentOrganization, currentRole, updateOrganization, deleteOrganization, updating } = useOrganization();
@@ -214,6 +215,9 @@ export default function OrganizationSettings() {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
+            {/* Approval Settings Card */}
+            <ApprovalSettingsCard canEdit={canEdit} />
+
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
