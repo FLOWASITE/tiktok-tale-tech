@@ -115,6 +115,75 @@ const getBrandVoicePrompt = (voice: BrandVoice): string => {
 };
 
 // ============================================
+// INDUSTRY TARGET MAPPING FROM DATABASE
+// ============================================
+
+// Fetch industry target mapping from database
+async function fetchIndustryTargetMap(supabase: any): Promise<Map<string, 'B2B' | 'B2C' | 'both'>> {
+  const targetMap = new Map<string, 'B2B' | 'B2C' | 'both'>();
+  
+  try {
+    // Fetch all industry templates with their translations
+    const { data: templates, error } = await supabase
+      .from('industry_templates')
+      .select(`
+        code,
+        target_audience,
+        industry_template_translations(name, language_code)
+      `)
+      .eq('is_active', true);
+    
+    if (error) {
+      console.error('Error fetching industry templates:', error);
+      return targetMap;
+    }
+    
+    if (templates) {
+      for (const template of templates) {
+        const target = template.target_audience as 'B2B' | 'B2C' | 'both';
+        
+        // Map by code
+        targetMap.set(template.code, target);
+        
+        // Map by translated names
+        const translations = template.industry_template_translations as { name: string; language_code: string }[] | null;
+        if (translations) {
+          for (const trans of translations) {
+            targetMap.set(trans.name, target);
+          }
+        }
+      }
+    }
+    
+    console.log(`Loaded ${targetMap.size} industry target mappings from database`);
+  } catch (err) {
+    console.error('Failed to fetch industry target map:', err);
+  }
+  
+  return targetMap;
+}
+
+// Detect target audience from industry name using database mapping
+async function detectTargetAudience(
+  industry: string | null,
+  supabase: any
+): Promise<'B2B' | 'B2C' | 'both'> {
+  if (!industry) return 'B2B';
+  
+  const industryTargetMap = await fetchIndustryTargetMap(supabase);
+  const target = industryTargetMap.get(industry);
+  
+  if (target) {
+    console.log(`Industry "${industry}" mapped to target audience: ${target}`);
+    return target;
+  }
+  
+  // Default to B2B for unknown industries
+  console.log(`Industry "${industry}" not found in mapping, defaulting to B2B`);
+  return 'B2B';
+}
+
+// ============================================
 // CHANNEL SETTINGS ENGINE
 // ============================================
 
@@ -370,13 +439,24 @@ serve(async (req) => {
       }
     }
 
+    // Detect target audience from industry
+    const targetAudience = await detectTargetAudience(content.industry, supabase);
+    console.log(`Target audience for "${content.industry}": ${targetAudience}`);
+
     // Build Brand Voice section
     const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
     const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
     const channelSettings = mergeChannelSettings(channel, channelOverrides);
     const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings, brandAllowEmoji);
 
-    const systemPrompt = `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG cho doanh nghiệp (B2B).
+    // Build target audience description
+    const targetAudienceDesc = targetAudience === 'B2B' 
+      ? 'doanh nghiệp (B2B)' 
+      : targetAudience === 'B2C' 
+        ? 'người tiêu dùng (B2C)' 
+        : 'cả doanh nghiệp và người tiêu dùng (B2B + B2C)';
+
+    const systemPrompt = `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG cho ${targetAudienceDesc}.
 
 ${brandVoiceSection}
 
@@ -384,6 +464,8 @@ ${brandVoiceSection}
 Brand name: ${content.brand_name}
 ${content.brand_guideline ? `Brand guideline: ${content.brand_guideline}` : ""}
 ${content.primary_color ? `Màu chủ đạo: ${content.primary_color}` : ""}
+${content.industry ? `Ngành: ${content.industry}` : ""}
+Target Audience: ${targetAudience}
 
 ## MỤC TIÊU NỘI DUNG
 ${goalDescriptions[content.content_goal] || content.content_goal}
@@ -400,7 +482,7 @@ ${channelRulesPrompt}
 ## NGUYÊN TẮC BẮT BUỘC
 1. Tạo nội dung MỚI HOÀN TOÀN, khác với phiên bản trước
 2. Giữ cùng thông điệp lõi nhưng thay đổi cách diễn đạt
-3. Giọng văn: Chuyên nghiệp, rõ ràng, phù hợp B2B
+3. Giọng văn: Chuyên nghiệp, rõ ràng, phù hợp ${targetAudience}
 4. Tuân thủ chính xác format của kênh
 
 ## ĐIỀU TUYỆT ĐỐI KHÔNG LÀM
