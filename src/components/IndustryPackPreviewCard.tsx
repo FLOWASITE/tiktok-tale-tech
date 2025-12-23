@@ -10,7 +10,10 @@ import {
   Users, 
   Building2,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Scale,
+  FileText,
+  Zap
 } from 'lucide-react';
 import { IndustryMemory } from '@/hooks/useIndustryMemory';
 import { cn } from '@/lib/utils';
@@ -44,6 +47,8 @@ export function IndustryPackPreviewCard({
   const complianceRules = industryMemory.compliance_rules || [];
   const claimRestrictions = industryMemory.claim_restrictions || [];
   const brandVoice = industryMemory.brand_voice || {};
+  const metadata = industryMemory.metadata || { applies_to: [], legal_basis: [] };
+  const systemRules = industryMemory.system_rules || [];
 
   const visibleTerms = forbiddenTerms.slice(0, MAX_VISIBLE_TERMS);
   const remainingTermsCount = forbiddenTerms.length - MAX_VISIBLE_TERMS;
@@ -94,6 +99,40 @@ export function IndustryPackPreviewCard({
           <span className="text-muted-foreground">Đối tượng:</span>
           <span className="font-medium">{targetAudienceLabel}</span>
         </div>
+
+        {/* Legal Basis (NEW) */}
+        {metadata.legal_basis && metadata.legal_basis.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Scale className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">CĂN CỨ PHÁP LÝ</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {metadata.legal_basis.map((basis, idx) => (
+                <Badge key={idx} variant="outline" className="text-xs bg-blue-500/5 border-blue-500/20">
+                  {basis}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Applies To (NEW) */}
+        {metadata.applies_to && metadata.applies_to.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Áp dụng cho:</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {metadata.applies_to.map((item, idx) => (
+                <Badge key={idx} variant="secondary" className="text-xs">
+                  {item}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Separator />
 
@@ -162,6 +201,26 @@ export function IndustryPackPreviewCard({
               {claimRestrictions.length > 2 && (
                 <li className="list-disc text-muted-foreground/70">
                   …và {claimRestrictions.length - 2} hạn chế khác
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        {/* System Rules (NEW) */}
+        {systemRules.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-purple-500" />
+              <span className="text-sm font-medium text-purple-600 dark:text-purple-400">SYSTEM RULES (CAO NHẤT)</span>
+            </div>
+            <ul className="space-y-1 pl-6 text-sm text-muted-foreground">
+              {systemRules.slice(0, 3).map((rule, idx) => (
+                <li key={idx} className="list-disc">{rule}</li>
+              ))}
+              {systemRules.length > 3 && (
+                <li className="list-disc text-muted-foreground/70">
+                  …và {systemRules.length - 3} quy tắc khác
                 </li>
               )}
             </ul>

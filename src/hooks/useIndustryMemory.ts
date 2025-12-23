@@ -18,8 +18,24 @@ export interface IndustryMemory {
     formality_level?: string;
     language_style?: string[];
     allow_emoji?: boolean;
+    cta_policy?: 'soft' | 'medium' | 'hard'; // NEW
   };
-  channel_settings: Record<string, unknown>;
+  channel_settings: Record<string, {
+    risk_level: 'low' | 'medium' | 'high';
+    notes: string;
+  }>;
+  // NEW: Extended metadata
+  metadata: {
+    applies_to: string[];
+    legal_basis: string[];
+  };
+  // NEW: Argument patterns for AI reasoning
+  argument_patterns: {
+    valid_patterns: string[];
+    forbidden_patterns: string[];
+  };
+  // NEW: System rules (highest priority)
+  system_rules: string[];
   // Translation fields
   name: string;
   brand_positioning: string | null;
@@ -70,7 +86,7 @@ export function useIndustryMemory() {
     languageCode: string = 'vi'
   ): Promise<IndustryMemory | null> => {
     try {
-      // Fetch from industry_templates with new columns
+      // Fetch from industry_templates with new columns including metadata, argument_patterns, system_rules
       const { data, error } = await supabase
         .from('industry_templates')
         .select(`
@@ -84,6 +100,9 @@ export function useIndustryMemory() {
           compliance_rules,
           claim_restrictions,
           forbidden_terms,
+          metadata,
+          argument_patterns,
+          system_rules,
           industry_template_translations!inner (
             name,
             brand_positioning,
@@ -106,17 +125,21 @@ export function useIndustryMemory() {
         return null;
       }
 
-      // Cast to access all columns
+      // Cast to access all columns including new fields
       const rawData = data as unknown as {
         id: string;
         code: string;
         version: string;
         target_audience: string;
         brand_voice: IndustryMemory['brand_voice'];
-        channel_settings: Record<string, unknown>;
+        channel_settings: IndustryMemory['channel_settings'];
         compliance_rules: Array<{ rule: string; severity: string }> | null;
         claim_restrictions: Array<{ claim: string; alternative: string }> | null;
         forbidden_terms: string[] | null;
+        // NEW columns
+        metadata: IndustryMemory['metadata'] | null;
+        argument_patterns: IndustryMemory['argument_patterns'] | null;
+        system_rules: string[] | null;
         industry_template_translations: Array<{
           name: string;
           brand_positioning: string | null;
@@ -150,6 +173,11 @@ export function useIndustryMemory() {
         forbidden_terms: forbiddenTerms,
         brand_voice: rawData.brand_voice || {},
         channel_settings: rawData.channel_settings || {},
+        // NEW fields
+        metadata: rawData.metadata || { applies_to: [], legal_basis: [] },
+        argument_patterns: rawData.argument_patterns || { valid_patterns: [], forbidden_patterns: [] },
+        system_rules: rawData.system_rules || [],
+        // Translation fields
         name: translation?.name || rawData.code,
         brand_positioning: translation?.brand_positioning || null,
         preferred_words: translation?.preferred_words || [],
