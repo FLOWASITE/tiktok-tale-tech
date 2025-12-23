@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
@@ -72,7 +73,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setIsDefault(template.is_default);
       setPrimaryColor(template.primary_color || '#000000');
       setLogoPreview(template.logo_url);
-      setScope(template.organization_id ? 'organization' : 'personal');
+      setScope(template.user_id && template.organization_id ? 'both' : template.organization_id ? 'organization' : 'personal');
       setBrandPositioning(template.brand_positioning || '');
       setToneOfVoice(template.tone_of_voice || []);
       setFormalityLevel(template.formality_level || '');
@@ -191,7 +192,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <TooltipProvider>
+      <form onSubmit={handleSubmit} className="space-y-5">
       <button type="submit" disabled hidden aria-hidden="true" />
 
       <BrandFormStepper
@@ -406,6 +408,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           )}
         </div>
       </div>
-    </form>
+      </form>
+    </TooltipProvider>
   );
 }
