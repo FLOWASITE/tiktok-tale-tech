@@ -128,52 +128,67 @@ export function useIndustryTemplates(options: UseIndustryTemplatesOptions = {}) 
         return [];
       }
 
-      // Build query
-      let query = supabase
-        .from('industry_templates')
-        .select(`
-          id,
-          code,
-          target_audience,
-          category_id,
-          brand_voice,
-          channel_settings,
-          is_active,
-          status,
-          countries!inner (
-            code
-          ),
-          industry_categories (
-            code
-          ),
-          industry_template_translations!inner (
-            name,
-            short_name,
-            brand_positioning,
-            preferred_words,
-            forbidden_words
-          )
-        `)
-        .eq('country_id', country.id)
-        .eq('is_active', true)
-        .eq('status', 'stable')
-        .eq('industry_template_translations.language_code', languageCode)
-        .order('sort_order');
+      // Helper to build and execute query for a specific language
+      const fetchWithLanguage = async (lang: string, catId?: string | null) => {
+        let query = supabase
+          .from('industry_templates')
+          .select(`
+            id,
+            code,
+            target_audience,
+            category_id,
+            brand_voice,
+            channel_settings,
+            is_active,
+            status,
+            countries!inner (
+              code
+            ),
+            industry_categories (
+              code
+            ),
+            industry_template_translations!inner (
+              name,
+              short_name,
+              brand_positioning,
+              preferred_words,
+              forbidden_words
+            )
+          `)
+          .eq('country_id', country.id)
+          .eq('is_active', true)
+          .eq('status', 'stable')
+          .eq('industry_template_translations.language_code', lang)
+          .order('sort_order');
 
+        if (catId) {
+          query = query.eq('category_id', catId);
+        }
+
+        return query;
+      };
+
+      // Get category ID if provided
+      let categoryId: string | null = null;
       if (categoryCode) {
-        // Get category ID first
         const { data: cat } = await supabase
           .from('industry_categories')
           .select('id')
           .eq('code', categoryCode)
           .single();
-        
-        if (cat) {
-          query = query.eq('category_id', cat.id);
-        }
+        categoryId = cat?.id || null;
       }
 
-      const { data, error } = await query;
+      // Try with requested language first
+      let { data, error } = await fetchWithLanguage(languageCode, categoryId);
+
+      // Fallback to 'en' if no results and requested language wasn't 'en'
+      if ((!data || data.length === 0) && languageCode !== 'en') {
+        console.log(`Industry Templates: No ${languageCode} translations found for ${countryCode}, trying 'en' fallback`);
+        const fallbackResult = await fetchWithLanguage('en', categoryId);
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
 
       if (error) throw error;
 
