@@ -64,10 +64,168 @@ interface BrandVoice {
   compliance_rules: string[] | null;
 }
 
-const getBrandVoicePrompt = (voice: BrandVoice): string => {
+interface IndustryMemory {
+  id: string;
+  code: string;
+  name: string;
+  version: string;
+  target_audience: 'B2B' | 'B2C' | 'both';
+  compliance_rules: string[];
+  claim_restrictions: string[];
+  forbidden_terms: string[];
+  brand_voice: {
+    tone_of_voice?: string[];
+    formality_level?: string;
+    language_style?: string[];
+    allow_emoji?: boolean;
+  };
+  channel_settings: Record<string, unknown>;
+  preferred_words: string[];
+  forbidden_words: string[];
+}
+
+interface MergedRules {
+  forbidden_terms: string[];
+  compliance_rules: string[];
+  claim_restrictions: string[];
+  forbidden_words: string[];
+  preferred_words: string[];
+  tone_of_voice: string[];
+  formality_level: string;
+  language_style: string[];
+  allow_emoji: boolean;
+}
+
+// Fetch Industry Memory from database
+async function fetchIndustryMemory(
+  supabase: any, 
+  industryTemplateId: string, 
+  languageCode: string = 'vi'
+): Promise<IndustryMemory | null> {
+  try {
+    const { data, error } = await supabase
+      .from('industry_templates')
+      .select(`
+        id,
+        code,
+        target_audience,
+        brand_voice,
+        channel_settings,
+        industry_template_translations!inner (
+          name,
+          preferred_words,
+          forbidden_words
+        )
+      `)
+      .eq('id', industryTemplateId)
+      .eq('industry_template_translations.language_code', languageCode)
+      .single();
+
+    if (error || !data) {
+      console.error('Failed to fetch Industry Memory:', error);
+      return null;
+    }
+
+    const rawData = data as any;
+    const translation = rawData.industry_template_translations?.[0];
+
+    return {
+      id: rawData.id,
+      code: rawData.code,
+      name: translation?.name || rawData.code,
+      version: rawData.version || '1.0',
+      target_audience: rawData.target_audience,
+      compliance_rules: rawData.compliance_rules || [],
+      claim_restrictions: rawData.claim_restrictions || [],
+      forbidden_terms: translation?.forbidden_terms || [],
+      brand_voice: rawData.brand_voice || {},
+      channel_settings: rawData.channel_settings || {},
+      preferred_words: translation?.preferred_words || [],
+      forbidden_words: translation?.forbidden_words || [],
+    };
+  } catch (err) {
+    console.error('Error fetching Industry Memory:', err);
+    return null;
+  }
+}
+
+function buildMergedRules(
+  industryMemory: IndustryMemory | null,
+  brandVoice: BrandVoice
+): MergedRules {
+  if (!industryMemory) {
+    return {
+      forbidden_terms: [],
+      compliance_rules: brandVoice.compliance_rules || [],
+      claim_restrictions: [],
+      forbidden_words: brandVoice.forbidden_words || [],
+      preferred_words: brandVoice.preferred_words || [],
+      tone_of_voice: brandVoice.tone_of_voice || [],
+      formality_level: brandVoice.formality_level || 'professional',
+      language_style: brandVoice.language_style || [],
+      allow_emoji: brandVoice.allow_emoji ?? true,
+    };
+  }
+
+  return {
+    forbidden_terms: industryMemory.forbidden_terms,
+    compliance_rules: industryMemory.compliance_rules,
+    claim_restrictions: industryMemory.claim_restrictions,
+    forbidden_words: [
+      ...industryMemory.forbidden_words,
+      ...(brandVoice.forbidden_words || []),
+    ].filter((v, i, a) => a.indexOf(v) === i),
+    preferred_words: [
+      ...industryMemory.preferred_words,
+      ...(brandVoice.preferred_words || []),
+    ].filter((v, i, a) => a.indexOf(v) === i),
+    tone_of_voice: brandVoice.tone_of_voice?.length 
+      ? brandVoice.tone_of_voice 
+      : industryMemory.brand_voice.tone_of_voice || [],
+    formality_level: brandVoice.formality_level 
+      || industryMemory.brand_voice.formality_level 
+      || 'professional',
+    language_style: brandVoice.language_style?.length 
+      ? brandVoice.language_style 
+      : industryMemory.brand_voice.language_style || [],
+    allow_emoji: brandVoice.allow_emoji ?? industryMemory.brand_voice.allow_emoji ?? true,
+  };
+}
+
+const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): string => {
   const parts: string[] = [];
   
-  parts.push(`## BRAND VOICE PROFILE (LUẬT CAO NHẤT)`);
+  if (mergedRules && mergedRules.forbidden_terms.length > 0) {
+    parts.push(`## 🔒 INDUSTRY MEMORY (LUẬT CAO NHẤT - KHÔNG ĐƯỢC VI PHẠM)`);
+    parts.push(`Industry Memory là LUẬT KHÓA CỨNG. Mọi nội dung PHẢI tuân theo.`);
+    
+    if (mergedRules.forbidden_terms.length > 0) {
+      parts.push(`\n### ⛔ TỪ CẤM TUYỆT ĐỐI (Industry-level)`);
+      parts.push(`Các từ sau KHÔNG BAO GIỜ được dùng:`);
+      parts.push(mergedRules.forbidden_terms.join(", "));
+    }
+    
+    if (mergedRules.compliance_rules.length > 0) {
+      parts.push(`\n### 📜 QUY TẮC TUÂN THỦ NGÀNH`);
+      mergedRules.compliance_rules.forEach((rule, i) => {
+        parts.push(`${i + 1}. ${rule}`);
+      });
+    }
+    
+    if (mergedRules.claim_restrictions.length > 0) {
+      parts.push(`\n### ⚠️ HẠN CHẾ TUYÊN BỐ`);
+      mergedRules.claim_restrictions.forEach((claim) => {
+        parts.push(`- KHÔNG ĐƯỢC: ${claim}`);
+      });
+    }
+    
+    parts.push(`\n### NGUYÊN TẮC INDUSTRY MEMORY`);
+    parts.push(`1. Industry Memory OVERRIDE mọi yêu cầu khác nếu mâu thuẫn`);
+    parts.push(`2. Không được "sáng tạo" từ nằm trong danh sách cấm`);
+    parts.push(`3. Brand Voice có thể thay đổi tone, nhưng KHÔNG được vi phạm compliance`);
+  }
+  
+  parts.push(`\n## BRAND VOICE PROFILE (LUẬT CAO NHẤT)`);
   parts.push(`Brand Voice là LUẬT CAO NHẤT. Mọi lời thoại trong kịch bản PHẢI tuân theo Brand Voice.`);
   
   if (voice.brand_positioning) {
@@ -75,19 +233,22 @@ const getBrandVoicePrompt = (voice: BrandVoice): string => {
     parts.push(`\n### Định vị thương hiệu: ${label}`);
   }
   
-  if (voice.tone_of_voice && voice.tone_of_voice.length > 0) {
-    const tones = voice.tone_of_voice.map(t => toneOfVoiceLabels[t] || t).join(", ");
-    parts.push(`\n### Tone of Voice cho lời thoại: ${tones}`);
+  const tones = mergedRules?.tone_of_voice || voice.tone_of_voice || [];
+  if (tones.length > 0) {
+    const toneLabels = tones.map(t => toneOfVoiceLabels[t] || t).join(", ");
+    parts.push(`\n### Tone of Voice cho lời thoại: ${toneLabels}`);
   }
   
-  if (voice.formality_level) {
-    const label = formalityLevelLabels[voice.formality_level] || voice.formality_level;
+  const formality = mergedRules?.formality_level || voice.formality_level;
+  if (formality) {
+    const label = formalityLevelLabels[formality] || formality;
     parts.push(`\n### Mức trang trọng: ${label}`);
   }
   
-  if (voice.language_style && voice.language_style.length > 0) {
-    const styles = voice.language_style.map(s => languageStyleLabels[s] || s).join(", ");
-    parts.push(`\n### Phong cách ngôn ngữ: ${styles}`);
+  const styles = mergedRules?.language_style || voice.language_style || [];
+  if (styles.length > 0) {
+    const styleLabels = styles.map(s => languageStyleLabels[s] || s).join(", ");
+    parts.push(`\n### Phong cách ngôn ngữ: ${styleLabels}`);
   }
   
   parts.push(`\n### NGUYÊN TẮC BRAND VOICE CHO SCRIPT`);
@@ -95,14 +256,16 @@ const getBrandVoicePrompt = (voice: BrandVoice): string => {
   parts.push(`2. Giữ nhất quán xuyên suốt kịch bản - KHÔNG thay đổi giọng giữa các prompt`);
   parts.push(`3. Ngữ điệu phải phù hợp với định vị thương hiệu`);
   
-  if (voice.preferred_words && voice.preferred_words.length > 0) {
+  const preferredWords = mergedRules?.preferred_words || voice.preferred_words || [];
+  if (preferredWords.length > 0) {
     parts.push(`\n### TỪ NÊN DÙNG trong lời thoại`);
-    parts.push(voice.preferred_words.join(", "));
+    parts.push(preferredWords.join(", "));
   }
   
-  if (voice.forbidden_words && voice.forbidden_words.length > 0) {
+  const forbiddenWords = mergedRules?.forbidden_words || voice.forbidden_words || [];
+  if (forbiddenWords.length > 0) {
     parts.push(`\n### TỪ CẤM (TUYỆT ĐỐI KHÔNG DÙNG trong lời thoại)`);
-    parts.push(voice.forbidden_words.join(", "));
+    parts.push(forbiddenWords.join(", "));
   }
   
   if (voice.compliance_rules && voice.compliance_rules.length > 0) {
@@ -135,14 +298,15 @@ function buildSystemPrompt(
   duration: number,
   videoType: string,
   characterType: string,
-  brandVoice?: BrandVoice
+  brandVoice?: BrandVoice,
+  mergedRules?: MergedRules
 ): string {
   const promptCount = getPromptCount(duration);
   const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ kiến thức";
   const characterTypeName = CHARACTER_TYPE_LABELS[characterType] || "Chuyên gia";
 
   // Build Brand Voice section if available
-  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
+  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : "";
 
   return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN & PROMPT VIDEO cho video ngắn TikTok (1–3 phút), phục vụ quy trình sản xuất: VEO 3 (HÌNH ẢNH) → Minimax (GIỌNG NÓI) → CapCut (DỰNG).
 
@@ -240,12 +404,15 @@ serve(async (req) => {
     console.log("Generating script for topic:", topic);
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
 
-    // Load Brand Voice from template if provided
+    // Load Brand Voice and Industry Memory from template if provided
     let brandVoice: BrandVoice | undefined;
+    let industryMemory: IndustryMemory | null = null;
+    let mergedRules: MergedRules | undefined;
+    
     if (brandTemplateId) {
       const { data: template } = await supabase
         .from("brand_templates")
-        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules")
+        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id")
         .eq("id", brandTemplateId)
         .single();
 
@@ -261,10 +428,19 @@ serve(async (req) => {
           compliance_rules: template.compliance_rules,
         };
         console.log("Brand Voice loaded for script:", brandVoice.brand_positioning, brandVoice.tone_of_voice);
+        
+        // Load Industry Memory if brand has industry_template_id
+        if (template.industry_template_id) {
+          industryMemory = await fetchIndustryMemory(supabase, template.industry_template_id);
+          if (industryMemory) {
+            mergedRules = buildMergedRules(industryMemory, brandVoice);
+            console.log("Industry Memory loaded:", industryMemory.name, "version:", industryMemory.version);
+          }
+        }
       }
     }
 
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice);
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -374,6 +550,8 @@ serve(async (req) => {
         user_id: userId,
         organization_id: organizationId,
         status: initialStatus,
+        industry_template_id: industryMemory?.id || null,
+        industry_template_version: industryMemory?.version || null,
       })
       .select()
       .single();
