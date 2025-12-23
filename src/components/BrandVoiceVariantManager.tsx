@@ -39,6 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Plus, 
   FlaskConical, 
@@ -51,7 +52,9 @@ import {
   Smile,
   Ban,
   GitCompare,
-  ArrowLeftRight
+  ArrowLeftRight,
+  HelpCircle,
+  Lightbulb
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -239,6 +242,29 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
                 {variants.length} variant{variants.length > 1 ? 's' : ''}
               </Badge>
             )}
+            {/* Help tooltip */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                  <HelpCircle className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium">A/B Testing là gì?</p>
+                  <p>So sánh các phiên bản Brand Voice khác nhau để tìm ra phong cách nội dung hiệu quả nhất.</p>
+                  <div className="border-t pt-2 mt-2">
+                    <p className="font-medium">Cách sử dụng:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                      <li>Tạo "Control" variant từ Brand Voice hiện tại</li>
+                      <li>Thêm các variant mới với các điều chỉnh khác nhau</li>
+                      <li>So sánh sự khác biệt giữa các variant</li>
+                      <li>Áp dụng variant khi tạo nội dung</li>
+                    </ol>
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           </CardTitle>
           
           {/* Compare button - show when 2+ variants exist */}
@@ -258,17 +284,31 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
       <CardContent className="space-y-4">
         {/* Empty state - no control yet */}
         {variants.length === 0 && (
-          <div className="text-center py-6 space-y-4">
-            <FlaskConical className="w-12 h-12 mx-auto text-muted-foreground/50" />
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Chưa có variant nào. Tạo Control variant từ Brand Voice hiện tại để bắt đầu A/B test.
-              </p>
+          <div className="space-y-4">
+            <Alert className="bg-primary/5 border-primary/20">
+              <Lightbulb className="w-4 h-4 text-primary" />
+              <AlertDescription className="text-sm">
+                <span className="font-medium">Bắt đầu A/B Testing trong 3 bước:</span>
+                <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
+                  <li><strong>Tạo Control:</strong> Click nút bên dưới để tạo variant gốc từ Brand Voice hiện tại</li>
+                  <li><strong>Thêm Variant:</strong> Tạo các phiên bản khác với tone, formality hoặc emoji khác nhau</li>
+                  <li><strong>So sánh:</strong> Xem bảng so sánh để thấy sự khác biệt giữa các variant</li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+            
+            <div className="text-center py-4 space-y-4">
+              <FlaskConical className="w-12 h-12 mx-auto text-muted-foreground/50" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Chưa có variant nào. Bắt đầu bằng cách tạo Control variant.
+                </p>
+              </div>
+              <Button onClick={handleCreateControl} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                Tạo Control Variant
+              </Button>
             </div>
-            <Button onClick={handleCreateControl} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-              Tạo Control Variant
-            </Button>
           </div>
         )}
 
@@ -438,15 +478,32 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
               </div>
             ))}
 
+            {/* Hint when only control exists */}
+            {variants.length === 1 && controlVariant && (
+              <Alert className="bg-amber-500/10 border-amber-500/30">
+                <Lightbulb className="w-4 h-4 text-amber-600" />
+                <AlertDescription className="text-sm text-amber-700 dark:text-amber-300">
+                  <span className="font-medium">Bước tiếp theo:</span> Thêm variant mới với các điều chỉnh khác (tone, formality, emoji...) để bắt đầu so sánh A/B.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Add new variant button */}
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              onClick={handleOpenCreate}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Thêm Variant mới
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={handleOpenCreate}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Thêm Variant mới
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Tạo phiên bản Brand Voice mới với các điều chỉnh khác để test</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
 
