@@ -19,6 +19,7 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import AdminIndustries from "./pages/AdminIndustries";
 import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
 import NotFound from "./pages/NotFound";
@@ -136,6 +137,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Admin />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/industries"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AdminIndustries />
                     </AppLayout>
                   </ProtectedRoute>
                 }
