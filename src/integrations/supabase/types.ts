@@ -737,6 +737,7 @@ export type Database = {
       }
       industry_templates: {
         Row: {
+          argument_patterns: Json | null
           brand_voice: Json
           category_id: string | null
           channel_settings: Json | null
@@ -749,16 +750,19 @@ export type Database = {
           forbidden_terms: string[] | null
           id: string
           is_active: boolean
+          metadata: Json | null
           published_at: string | null
           published_by: string | null
           sort_order: number
           status: Database["public"]["Enums"]["industry_pack_status"]
+          system_rules: Json | null
           target_audience: string
           updated_at: string
           updated_by: string | null
           version: string | null
         }
         Insert: {
+          argument_patterns?: Json | null
           brand_voice?: Json
           category_id?: string | null
           channel_settings?: Json | null
@@ -771,16 +775,19 @@ export type Database = {
           forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           published_at?: string | null
           published_by?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["industry_pack_status"]
+          system_rules?: Json | null
           target_audience?: string
           updated_at?: string
           updated_by?: string | null
           version?: string | null
         }
         Update: {
+          argument_patterns?: Json | null
           brand_voice?: Json
           category_id?: string | null
           channel_settings?: Json | null
@@ -793,10 +800,12 @@ export type Database = {
           forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           published_at?: string | null
           published_by?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["industry_pack_status"]
+          system_rules?: Json | null
           target_audience?: string
           updated_at?: string
           updated_by?: string | null
