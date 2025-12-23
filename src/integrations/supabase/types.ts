@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_response_cache: {
+        Row: {
+          brand_template_id: string | null
+          brand_voice_version: string | null
+          cache_key: string
+          cache_scope: string
+          created_at: string
+          expires_at: string
+          function_name: string
+          hit_count: number
+          id: string
+          industry_memory_version: string | null
+          input_hash: string
+          last_hit_at: string | null
+          organization_id: string | null
+          response_data: Json
+          response_schema_version: string
+        }
+        Insert: {
+          brand_template_id?: string | null
+          brand_voice_version?: string | null
+          cache_key: string
+          cache_scope?: string
+          created_at?: string
+          expires_at: string
+          function_name: string
+          hit_count?: number
+          id?: string
+          industry_memory_version?: string | null
+          input_hash: string
+          last_hit_at?: string | null
+          organization_id?: string | null
+          response_data: Json
+          response_schema_version?: string
+        }
+        Update: {
+          brand_template_id?: string | null
+          brand_voice_version?: string | null
+          cache_key?: string
+          cache_scope?: string
+          created_at?: string
+          expires_at?: string
+          function_name?: string
+          hit_count?: number
+          id?: string
+          industry_memory_version?: string | null
+          input_hash?: string
+          last_hit_at?: string | null
+          organization_id?: string | null
+          response_data?: Json
+          response_schema_version?: string
+        }
+        Relationships: []
+      }
       approval_assignments: {
         Row: {
           approver_id: string
@@ -1455,6 +1509,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_expired_cache: { Args: never; Returns: number }
+      get_cache_stats: {
+        Args: { p_organization_id?: string }
+        Returns: {
+          avg_hit_count: number
+          cache_scope: string
+          function_name: string
+          newest_entry: string
+          oldest_entry: string
+          total_entries: number
+          total_hits: number
+        }[]
+      }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       get_user_usage: {
         Args: {
@@ -1478,6 +1545,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_cache_hit: { Args: { p_cache_key: string }; Returns: undefined }
       increment_industry_version: {
         Args: { current_version: string }
         Returns: string
