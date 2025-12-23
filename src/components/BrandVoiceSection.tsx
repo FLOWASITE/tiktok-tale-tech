@@ -1,6 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { X, Plus, ChevronDown, Mic2, Settings2, Info, Smile } from 'lucide-react';
@@ -297,7 +297,7 @@ export function BrandVoiceSection({
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {TONE_OF_VOICE_OPTIONS.map(opt => {
+            {TONE_OF_VOICE_OPTIONS.map((opt) => {
               const isSelected = toneOfVoice.includes(opt.value);
               const isDisabled = !isSelected && toneOfVoice.length >= 3;
 
@@ -310,22 +310,18 @@ export function BrandVoiceSection({
                     toggleTone(opt.value);
                   }}
                   disabled={isDisabled}
-                  className="text-left"
                   aria-pressed={isSelected}
+                  className={cn(
+                    badgeVariants({ variant: isSelected ? 'default' : 'outline' }),
+                    'text-xs gap-1 transition-all',
+                    isSelected ? '' : isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/10',
+                    isSelected && opt.suggestEmoji && 'pr-1.5'
+                  )}
                 >
-                  <Badge
-                    variant={isSelected ? 'default' : 'outline'}
-                    className={cn(
-                      "cursor-pointer transition-all text-xs gap-1",
-                      isSelected ? '' : isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/10',
-                      isSelected && opt.suggestEmoji && 'pr-1.5'
-                    )}
-                  >
-                    {opt.label}
-                    {isSelected && opt.suggestEmoji && (
-                      <Smile className="w-3 h-3 opacity-70" />
-                    )}
-                  </Badge>
+                  {opt.label}
+                  {isSelected && opt.suggestEmoji && (
+                    <Smile className="w-3 h-3 opacity-70" />
+                  )}
                 </button>
               );
             })}
