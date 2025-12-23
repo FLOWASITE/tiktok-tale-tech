@@ -19,6 +19,7 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminIndustries from "./pages/AdminIndustries";
 import AdminCountries from "./pages/AdminCountries";
 import AdminCategories from "./pages/AdminCategories";
@@ -139,6 +140,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Admin />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AdminDashboard />
                     </AppLayout>
                   </ProtectedRoute>
                 }
