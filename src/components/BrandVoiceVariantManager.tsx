@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useBrandVoiceVariants, BrandVoiceVariant } from '@/hooks/useBrandVoiceVariants';
+import { useBrandVoiceVariants, BrandVoiceVariant, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { 
   BRAND_POSITIONING_OPTIONS, 
@@ -8,6 +8,7 @@ import {
   LANGUAGE_STYLE_OPTIONS 
 } from '@/components/BrandVoiceSection';
 import { VariantComparisonTable } from '@/components/VariantComparisonTable';
+import { VariantSampleComparison } from '@/components/VariantSampleComparison';
 import { generateSampleText } from '@/utils/generateSampleText';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +62,8 @@ import {
   FileText,
   ChevronDown,
   Copy,
-  Wand2
+  Wand2,
+  LayoutGrid
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -84,8 +86,14 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [sampleComparisonOpen, setSampleComparisonOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState<BrandVoiceVariant | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Handler for when AI samples are generated
+  const handleSamplesGenerated = async (variantId: string, samples: ChannelSampleTexts) => {
+    await updateVariant(variantId, { sample_texts: samples });
+  };
   
   // Get control variant for comparison
   const controlVariant = variants.find(v => v.is_control) || null;
@@ -312,17 +320,28 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
             </Tooltip>
           </CardTitle>
           
-          {/* Compare button - show when 2+ variants exist */}
+          {/* Compare buttons - show when 2+ variants exist */}
           {variants.length >= 2 && controlVariant && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setComparisonOpen(true)}
-              className="gap-2"
-            >
-              <GitCompare className="w-4 h-4" />
-              So sánh Variants
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSampleComparisonOpen(true)}
+                className="gap-2"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                So sánh Samples
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setComparisonOpen(true)}
+                className="gap-2"
+              >
+                <GitCompare className="w-4 h-4" />
+                So sánh Variants
+              </Button>
+            </div>
           )}
         </div>
       </CardHeader>
@@ -761,6 +780,15 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
           onOpenChange={setComparisonOpen}
           controlVariant={controlVariant}
           variants={variants}
+        />
+
+        {/* Sample Comparison Dialog */}
+        <VariantSampleComparison
+          open={sampleComparisonOpen}
+          onOpenChange={setSampleComparisonOpen}
+          brandName={brandTemplate.brand_name}
+          variants={variants}
+          onSamplesGenerated={handleSamplesGenerated}
         />
       </CardContent>
     </Card>

@@ -219,6 +219,7 @@ export type Database = {
           organization_id: string | null
           preferred_words: string[] | null
           sample_text: string | null
+          sample_texts: Json | null
           tone_of_voice: string[] | null
           updated_at: string | null
           user_id: string | null
@@ -238,6 +239,7 @@ export type Database = {
           organization_id?: string | null
           preferred_words?: string[] | null
           sample_text?: string | null
+          sample_texts?: Json | null
           tone_of_voice?: string[] | null
           updated_at?: string | null
           user_id?: string | null
@@ -257,6 +259,7 @@ export type Database = {
           organization_id?: string | null
           preferred_words?: string[] | null
           sample_text?: string | null
+          sample_texts?: Json | null
           tone_of_voice?: string[] | null
           updated_at?: string | null
           user_id?: string | null
