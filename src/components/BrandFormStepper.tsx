@@ -1,35 +1,44 @@
 import { cn } from '@/lib/utils';
-import { Check, Info, Megaphone, Settings, Globe } from 'lucide-react';
+import { Check, User, Palette, Megaphone, Globe } from 'lucide-react';
 
 export interface Step {
   id: number;
   title: string;
+  shortTitle: string;
   icon: React.ReactNode;
 }
 
 export const BRAND_FORM_STEPS: Step[] = [
-  { id: 1, title: 'Thông tin cơ bản', icon: <Info className="w-4 h-4" /> },
-  { id: 2, title: 'Brand Voice', icon: <Megaphone className="w-4 h-4" /> },
-  { id: 3, title: 'Cài đặt kênh', icon: <Globe className="w-4 h-4" /> },
+  { id: 1, title: 'Nhận dạng', shortTitle: 'Identity', icon: <User className="w-4 h-4" /> },
+  { id: 2, title: 'Hình ảnh', shortTitle: 'Visual', icon: <Palette className="w-4 h-4" /> },
+  { id: 3, title: 'Brand Voice', shortTitle: 'Voice', icon: <Megaphone className="w-4 h-4" /> },
+  { id: 4, title: 'Kênh', shortTitle: 'Channels', icon: <Globe className="w-4 h-4" /> },
 ];
 
 interface BrandFormStepperProps {
   currentStep: number;
   onStepClick?: (step: number) => void;
   completedSteps?: number[];
+  validationErrors?: Record<number, boolean>;
 }
 
-export function BrandFormStepper({ currentStep, onStepClick, completedSteps = [] }: BrandFormStepperProps) {
+export function BrandFormStepper({ 
+  currentStep, 
+  onStepClick, 
+  completedSteps = [],
+  validationErrors = {}
+}: BrandFormStepperProps) {
   return (
     <div className="mb-6">
       {/* Progress bar */}
       <div className="flex items-center gap-1 mb-4">
-        {BRAND_FORM_STEPS.map((step, i) => (
+        {BRAND_FORM_STEPS.map((step) => (
           <div
             key={step.id}
             className={cn(
               'flex-1 h-1.5 rounded-full transition-colors',
-              currentStep >= step.id ? 'bg-primary' : 'bg-muted'
+              currentStep >= step.id ? 'bg-primary' : 'bg-muted',
+              validationErrors[step.id] && 'bg-amber-500'
             )}
           />
         ))}
@@ -40,6 +49,7 @@ export function BrandFormStepper({ currentStep, onStepClick, completedSteps = []
         {BRAND_FORM_STEPS.map((step) => {
           const isActive = currentStep === step.id;
           const isCompleted = completedSteps.includes(step.id) || currentStep > step.id;
+          const hasError = validationErrors[step.id];
           const isClickable = onStepClick && (isCompleted || step.id <= currentStep);
 
           return (
@@ -58,6 +68,7 @@ export function BrandFormStepper({ currentStep, onStepClick, completedSteps = []
                 isActive && 'text-primary font-medium',
                 isCompleted && !isActive && 'text-muted-foreground',
                 !isActive && !isCompleted && 'text-muted-foreground/50',
+                hasError && 'text-amber-600',
                 isClickable && 'cursor-pointer hover:text-primary'
               )}
             >
@@ -66,7 +77,8 @@ export function BrandFormStepper({ currentStep, onStepClick, completedSteps = []
                   'w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors',
                   isActive && 'bg-primary text-primary-foreground',
                   isCompleted && !isActive && 'bg-primary/20 text-primary',
-                  !isActive && !isCompleted && 'bg-muted text-muted-foreground'
+                  !isActive && !isCompleted && 'bg-muted text-muted-foreground',
+                  hasError && 'bg-amber-500/20 text-amber-600'
                 )}
               >
                 {isCompleted && !isActive ? (
@@ -83,7 +95,7 @@ export function BrandFormStepper({ currentStep, onStepClick, completedSteps = []
 
       {/* Mobile: current step indicator */}
       <div className="sm:hidden flex items-center justify-center gap-2 text-sm">
-        <span className="text-muted-foreground">Bước {currentStep}/3:</span>
+        <span className="text-muted-foreground">Bước {currentStep}/{BRAND_FORM_STEPS.length}:</span>
         <span className="font-medium">{BRAND_FORM_STEPS[currentStep - 1]?.title}</span>
       </div>
     </div>
