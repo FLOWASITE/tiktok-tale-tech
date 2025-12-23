@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2, User } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2, User, Globe } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -148,6 +148,18 @@ export function AppSidebar() {
                       >
                         <Shield className="w-4 h-4 flex-shrink-0" />
                         <span className={isCollapsed ? 'sr-only' : ''}>Admin Panel</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Industry Memory">
+                      <NavLink
+                        to="/admin/industries"
+                        className="flex items-center gap-3 text-primary/80 hover:text-primary transition-colors"
+                        activeClassName="bg-primary/10 text-primary font-medium"
+                      >
+                        <Globe className="w-4 h-4 flex-shrink-0" />
+                        <span className={isCollapsed ? 'sr-only' : ''}>Industry Memory</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
