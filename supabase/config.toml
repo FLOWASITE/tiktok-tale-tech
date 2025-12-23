@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.migrate-industry-templates]
 verify_jwt = false
+
+[functions.generate-brand-complete]
+verify_jwt = false
