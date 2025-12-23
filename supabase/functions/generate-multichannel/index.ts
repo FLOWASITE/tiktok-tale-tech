@@ -407,12 +407,84 @@ function mergeChannelSettings(channel: string, overrides: ChannelOverrides): Cha
   };
 }
 
+// Fetch industry target mapping from database
+async function fetchIndustryTargetMap(supabase: any): Promise<Map<string, 'B2B' | 'B2C' | 'both'>> {
+  const targetMap = new Map<string, 'B2B' | 'B2C' | 'both'>();
+  
+  try {
+    // Fetch all industry templates with their translations
+    const { data: templates, error } = await supabase
+      .from('industry_templates')
+      .select(`
+        code,
+        target_audience,
+        industry_template_translations(name, language_code)
+      `)
+      .eq('is_active', true);
+    
+    if (error) {
+      console.error('Error fetching industry templates:', error);
+      return targetMap;
+    }
+    
+    if (templates) {
+      for (const template of templates) {
+        const target = template.target_audience as 'B2B' | 'B2C' | 'both';
+        
+        // Map by code
+        targetMap.set(template.code, target);
+        
+        // Map by translated names
+        const translations = template.industry_template_translations as { name: string; language_code: string }[] | null;
+        if (translations) {
+          for (const trans of translations) {
+            targetMap.set(trans.name, target);
+          }
+        }
+      }
+    }
+    
+    console.log(`Loaded ${targetMap.size} industry target mappings from database`);
+  } catch (err) {
+    console.error('Failed to fetch industry target map:', err);
+  }
+  
+  return targetMap;
+}
+
+// Detect target audience from industry names using database mapping
+async function detectTargetAudience(
+  industries: string[],
+  supabase: any
+): Promise<'B2B' | 'B2C' | 'both'> {
+  if (!industries || industries.length === 0) return 'B2B';
+  
+  const industryTargetMap = await fetchIndustryTargetMap(supabase);
+  
+  let b2bCount = 0;
+  let b2cCount = 0;
+  let bothCount = 0;
+  
+  for (const industry of industries) {
+    const target = industryTargetMap.get(industry);
+    if (target === 'B2B') b2bCount++;
+    else if (target === 'B2C') b2cCount++;
+    else if (target === 'both') bothCount++;
+    else b2bCount++; // Default to B2B for unknown industries
+  }
+  
+  if (b2bCount > b2cCount && b2bCount > bothCount) return 'B2B';
+  if (b2cCount > b2bCount && b2cCount > bothCount) return 'B2C';
+  return 'both';
+}
+
 const getSystemPrompt = (
   brandName: string, 
   brandGuideline: string | null,
   primaryColor: string | null,
   contentGoal: string,
   channels: string[],
+  targetAudience: 'B2B' | 'B2C' | 'both',
   brandVoice?: BrandVoice,
   channelOverrides?: ChannelOverrides
 ): string => {
@@ -437,8 +509,15 @@ const getSystemPrompt = (
 
   // Build Brand Voice section if available
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
+  
+  // Target audience description
+  const audienceDescription = targetAudience === 'B2B' 
+    ? 'doanh nghiệp (B2B)' 
+    : targetAudience === 'B2C' 
+      ? 'người tiêu dùng (B2C)' 
+      : 'cả doanh nghiệp và người tiêu dùng (B2B & B2C)';
 
-  return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG ĐA KÊNH cho doanh nghiệp (B2B).
+  return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
 
@@ -451,6 +530,7 @@ ONE TOPIC → ONE CORE MESSAGE → MULTI-CHANNEL CONTENT
 
 ## BRAND CONTEXT
 Brand name: ${brandName}
+Đối tượng mục tiêu: ${audienceDescription}
 ${brandGuideline ? `Brand guideline: ${brandGuideline}` : ""}
 ${primaryColor ? `Màu chủ đạo: ${primaryColor}` : ""}
 
@@ -475,7 +555,7 @@ Trước khi xuất nội dung, tự kiểm tra:
 2. KHÔNG copy nguyên văn giữa các kênh
 3. Mỗi kênh phải đúng hành vi người đọc, đúng giới hạn kỹ thuật
 4. Giữ thông điệp lõi NHẤT QUÁN xuyên suốt
-5. Giọng văn: Chuyên nghiệp, rõ ràng, không quảng cáo lộ liễu, phù hợp B2B
+5. Giọng văn: Chuyên nghiệp, rõ ràng, không quảng cáo lộ liễu, phù hợp ${audienceDescription}
 
 ## ĐIỀU TUYỆT ĐỐI KHÔNG LÀM
 - Không giải thích vì sao viết như vậy
@@ -557,6 +637,7 @@ serve(async (req) => {
     let industry: string | null = formData.industry || null;
     let brandVoice: BrandVoice | undefined;
     let channelOverrides: ChannelOverrides = null;
+    let industryArray: string[] = [];
 
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
@@ -572,6 +653,7 @@ serve(async (req) => {
         // Use industry from template if not provided in form
         if (!industry && template.industry && Array.isArray(template.industry) && template.industry.length > 0) {
           industry = template.industry.join(', ');
+          industryArray = template.industry;
         }
         // Extract Brand Voice
         brandVoice = {
@@ -593,12 +675,17 @@ serve(async (req) => {
       }
     }
 
+    // Detect target audience from database
+    const targetAudience = await detectTargetAudience(industryArray, supabase);
+    console.log("Target audience detected:", targetAudience);
+
     const systemPrompt = getSystemPrompt(
       brandName,
       brandGuideline,
       primaryColor,
       formData.contentGoal,
       formData.channels,
+      targetAudience,
       brandVoice,
       channelOverrides
     );

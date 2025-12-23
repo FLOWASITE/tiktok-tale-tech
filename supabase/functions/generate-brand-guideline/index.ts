@@ -1,61 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// B2B/B2C detection based on industry
-const INDUSTRY_TARGET_MAP: Record<string, 'B2B' | 'B2C' | 'both'> = {
-  // Nhóm Tài chính
-  'Tài chính & Kế toán': 'B2B',
-  'Ngân hàng & Tín dụng': 'both',
-  'Bảo hiểm': 'both',
-  'Crypto & Fintech': 'both',
-  
-  // Nhóm Công nghệ
-  'Công nghệ thông tin': 'B2B',
-  'Viễn thông': 'both',
-  'Game & Giải trí số': 'B2C',
-  'Startup & Khởi nghiệp': 'B2B',
-  
-  // Nhóm Bán hàng
-  'Thương mại điện tử': 'B2C',
-  'Bán lẻ': 'B2C',
-  'Nhập khẩu & Xuất khẩu': 'B2B',
-  
-  // Nhóm Dịch vụ
-  'Y tế & Sức khỏe': 'both',
-  'Giáo dục & Đào tạo': 'both',
-  'Luật & Pháp lý': 'B2B',
-  'Tư vấn & Dịch vụ chuyên nghiệp': 'B2B',
-  'HR & Tuyển dụng': 'B2B',
-  
-  // Nhóm Lifestyle
-  'F&B (Nhà hàng, Quán cà phê)': 'B2C',
-  'Du lịch & Khách sạn': 'B2C',
-  'Thời trang & Làm đẹp': 'B2C',
-  'Mỹ phẩm & Chăm sóc da': 'B2C',
-  'Fitness & Thể thao': 'B2C',
-  'Pet & Thú cưng': 'B2C',
-  
-  // Nhóm Bất động sản & Xây dựng
-  'Bất động sản': 'both',
-  'Xây dựng & Nội thất': 'both',
-  'Nội thất & Trang trí': 'B2C',
-  
-  // Nhóm Sản xuất & Logistics
-  'Sản xuất & Công nghiệp': 'B2B',
-  'Nông nghiệp': 'both',
-  'Logistics & Vận tải': 'B2B',
-  'Automotive': 'both',
-  
-  // Nhóm Khác
-  'Marketing & Truyền thông': 'B2B',
-  'Sự kiện & Hội nghị': 'both',
-  'Dịch vụ gia đình': 'B2C',
-  'Mẹ & Bé': 'B2C',
 };
 
 // Color to tone mapping
@@ -106,15 +55,71 @@ const COLOR_TONE_MAP: Record<string, string> = {
   '#A0522D': 'Tự nhiên, ấm áp, đáng tin cậy',
 };
 
-function detectTargetAudience(industries: string[]): 'B2B' | 'B2C' | 'both' {
+interface IndustryTargetData {
+  code: string;
+  target_audience: 'B2B' | 'B2C' | 'both';
+  translations: { name: string; language_code: string }[];
+}
+
+// Fetch industry target mapping from database
+async function fetchIndustryTargetMap(supabase: any): Promise<Map<string, 'B2B' | 'B2C' | 'both'>> {
+  const targetMap = new Map<string, 'B2B' | 'B2C' | 'both'>();
+  
+  try {
+    // Fetch all industry templates with their translations
+    const { data: templates, error } = await supabase
+      .from('industry_templates')
+      .select(`
+        code,
+        target_audience,
+        industry_template_translations(name, language_code)
+      `)
+      .eq('is_active', true);
+    
+    if (error) {
+      console.error('Error fetching industry templates:', error);
+      return targetMap;
+    }
+    
+    if (templates) {
+      for (const template of templates) {
+        const target = template.target_audience as 'B2B' | 'B2C' | 'both';
+        
+        // Map by code
+        targetMap.set(template.code, target);
+        
+        // Map by translated names
+        const translations = template.industry_template_translations as { name: string; language_code: string }[] | null;
+        if (translations) {
+          for (const trans of translations) {
+            targetMap.set(trans.name, target);
+          }
+        }
+      }
+    }
+    
+    console.log(`Loaded ${targetMap.size} industry target mappings from database`);
+  } catch (err) {
+    console.error('Failed to fetch industry target map:', err);
+  }
+  
+  return targetMap;
+}
+
+async function detectTargetAudience(
+  industries: string[],
+  supabase: any
+): Promise<'B2B' | 'B2C' | 'both'> {
   if (!industries || industries.length === 0) return 'B2B';
+  
+  const industryTargetMap = await fetchIndustryTargetMap(supabase);
   
   let b2bCount = 0;
   let b2cCount = 0;
   let bothCount = 0;
   
   for (const industry of industries) {
-    const target = INDUSTRY_TARGET_MAP[industry];
+    const target = industryTargetMap.get(industry);
     if (target === 'B2B') b2bCount++;
     else if (target === 'B2C') b2cCount++;
     else if (target === 'both') bothCount++;
@@ -168,6 +173,11 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { 
       brand_name,
       industry,
@@ -189,8 +199,8 @@ serve(async (req) => {
       );
     }
 
-    // Detect target audience from industry
-    const targetAudience = detectTargetAudience(industry || []);
+    // Detect target audience from industry (now from database)
+    const targetAudience = await detectTargetAudience(industry || [], supabase);
     
     // Get color tone suggestion
     const colorToneSuggestion = getColorToneSuggestion(primary_color || '');
