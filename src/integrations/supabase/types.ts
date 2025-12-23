@@ -181,6 +181,13 @@ export type Database = {
             foreignKeyName: "brand_templates_industry_template_id_fkey"
             columns: ["industry_template_id"]
             isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_templates_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
             referencedRelation: "industry_templates"
             referencedColumns: ["id"]
           },
@@ -261,6 +268,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "carousels_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "carousels_industry_template_id_fkey"
             columns: ["industry_template_id"]
@@ -655,6 +669,13 @@ export type Database = {
             foreignKeyName: "industry_memory_versions_industry_template_id_fkey"
             columns: ["industry_template_id"]
             isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_memory_versions_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
             referencedRelation: "industry_templates"
             referencedColumns: ["id"]
           },
@@ -702,6 +723,13 @@ export type Database = {
             foreignKeyName: "industry_template_translations_industry_template_id_fkey"
             columns: ["industry_template_id"]
             isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_template_translations_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
             referencedRelation: "industry_templates"
             referencedColumns: ["id"]
           },
@@ -721,7 +749,10 @@ export type Database = {
           forbidden_terms: string[] | null
           id: string
           is_active: boolean
+          published_at: string | null
+          published_by: string | null
           sort_order: number
+          status: Database["public"]["Enums"]["industry_pack_status"]
           target_audience: string
           updated_at: string
           updated_by: string | null
@@ -740,7 +771,10 @@ export type Database = {
           forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean
+          published_at?: string | null
+          published_by?: string | null
           sort_order?: number
+          status?: Database["public"]["Enums"]["industry_pack_status"]
           target_audience?: string
           updated_at?: string
           updated_by?: string | null
@@ -759,7 +793,10 @@ export type Database = {
           forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean
+          published_at?: string | null
+          published_by?: string | null
           sort_order?: number
+          status?: Database["public"]["Enums"]["industry_pack_status"]
           target_audience?: string
           updated_at?: string
           updated_by?: string | null
@@ -779,6 +816,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "countries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_templates_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["country_id"]
           },
         ]
       }
@@ -1156,6 +1200,13 @@ export type Database = {
             foreignKeyName: "scripts_industry_template_id_fkey"
             columns: ["industry_template_id"]
             isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scripts_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
             referencedRelation: "industry_templates"
             referencedColumns: ["id"]
           },
@@ -1266,7 +1317,35 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      industry_memory_packs: {
+        Row: {
+          category_code: string | null
+          category_color: string | null
+          category_icon: string | null
+          category_name: string | null
+          claim_restrictions_count: number | null
+          code: string | null
+          compliance_rules_count: number | null
+          country_code: string | null
+          country_id: string | null
+          country_name: string | null
+          created_at: string | null
+          flag_emoji: string | null
+          forbidden_terms_count: number | null
+          id: string | null
+          is_active: boolean | null
+          name: string | null
+          published_at: string | null
+          published_by: string | null
+          short_name: string | null
+          status: Database["public"]["Enums"]["industry_pack_status"] | null
+          target_audience: string | null
+          updated_at: string | null
+          version: string | null
+          version_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_use_feature: {
@@ -1316,6 +1395,7 @@ export type Database = {
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok"
+      industry_pack_status: "draft" | "stable" | "deprecated"
       org_role: "owner" | "admin" | "member" | "viewer"
       plan_type: "free" | "starter" | "pro" | "enterprise"
       subscription_status:
@@ -1460,6 +1540,7 @@ export const Constants = {
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
       carousel_platform: ["facebook", "tiktok"],
+      industry_pack_status: ["draft", "stable", "deprecated"],
       org_role: ["owner", "admin", "member", "viewer"],
       plan_type: ["free", "starter", "pro", "enterprise"],
       subscription_status: [
