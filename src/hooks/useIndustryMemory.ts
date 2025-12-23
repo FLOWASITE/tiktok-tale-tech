@@ -77,6 +77,7 @@ export function useIndustryMemory() {
           id,
           code,
           version,
+          status,
           target_audience,
           brand_voice,
           channel_settings,
@@ -91,11 +92,17 @@ export function useIndustryMemory() {
           )
         `)
         .eq('id', industryTemplateId)
+        .eq('status', 'stable')
         .eq('industry_template_translations.language_code', languageCode)
         .single();
 
       if (error || !data) {
-        console.error('Failed to fetch Industry Memory:', error);
+        // Log warning if pack exists but not stable
+        if (error?.code === 'PGRST116') {
+          console.warn(`Industry Memory ${industryTemplateId} not found or not stable - skipping rules`);
+        } else {
+          console.error('Failed to fetch Industry Memory:', error);
+        }
         return null;
       }
 
