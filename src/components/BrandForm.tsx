@@ -8,7 +8,7 @@ import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepVisual } from '@/components/BrandFormStepVisual';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
-import { BrandVoiceSamplePreview } from '@/components/BrandVoiceSamplePreview';
+import { SamplePreviewFullscreenSheet } from '@/components/SamplePreviewFullscreenSheet';
 import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
@@ -335,7 +335,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 complianceRules={complianceRules}
                 onComplianceRulesChange={setComplianceRules}
               />
-              <BrandVoiceSamplePreview
+              <SamplePreviewFullscreenSheet
                 brandName={brandName}
                 positioning={brandPositioning}
                 toneOfVoice={toneOfVoice}
@@ -346,6 +346,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 forbiddenWords={forbiddenWords}
                 savedSampleTexts={sampleTexts}
                 onSampleTextsChange={setSampleTexts}
+                logoUrl={logoPreview || template?.logo_url}
+                primaryColor={primaryColor}
               />
             </div>
           )}
