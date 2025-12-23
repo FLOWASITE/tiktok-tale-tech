@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
+import { Card } from '@/components/ui/card';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { BrandVoicePreview } from '@/components/BrandVoicePreview';
@@ -15,10 +16,12 @@ import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { BrandTemplateSelector, LegacyIndustryTemplate } from '@/components/BrandTemplateSelector';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
-import { IndustryRulesIndicator } from '@/components/IndustryRulesIndicator';
+import { IndustryPackSummary } from '@/components/IndustryPackSummary';
+import { IndustryLockedBadge } from '@/components/IndustryLockedBadge';
+import { UnlinkIndustryDialog } from '@/components/UnlinkIndustryDialog';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
-import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check, User, Building2, ChevronLeft, ChevronRight, Wand2, Sparkles, Loader2 } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check, User, Building2, ChevronLeft, ChevronRight, Wand2, Sparkles, Loader2, ShieldCheck, Lock, AlertTriangle, Eye, RefreshCw, Unlink, Target } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -32,6 +35,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -121,6 +125,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [guidelineExampleBad, setGuidelineExampleBad] = useState('');
   const [guidelineKeyPrinciples, setGuidelineKeyPrinciples] = useState<string[]>([]);
   const [isGeneratingGuideline, setIsGeneratingGuideline] = useState(false);
+
+  // Industry Memory UI state
+  const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
+  const [showIndustryDetails, setShowIndustryDetails] = useState(false);
 
   useEffect(() => {
     if (template) {
@@ -315,8 +323,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     toast.success('Đã liên kết Industry Memory và áp dụng cài đặt ngành!');
   };
 
-  // Handler to clear Industry Memory link
+  // Handler to clear Industry Memory link with confirmation
   const handleClearIndustryLink = () => {
+    setShowUnlinkDialog(true);
+  };
+
+  const confirmUnlinkIndustry = () => {
     setIndustryTemplateId(null);
     toast.info('Đã bỏ liên kết Industry Memory');
   };
@@ -519,140 +531,141 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   if (showQuickStart && !template) {
     return (
       <div className="space-y-6">
-        {/* AI Quick Start */}
-        <div className="p-4 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10">
+        {/* Legal Statement */}
+        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <p className="text-sm text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+            <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              <span className="font-medium">Industry Memory</span> là bộ quy tắc bắt buộc nhằm đảm bảo tuân thủ ngành & quốc gia. 
+              Một số quy tắc không thể thay đổi.
+            </span>
+          </p>
+        </div>
+
+        {/* Option 1: Industry Memory (Recommended) */}
+        <Card className="p-4 border-2 border-emerald-500/30 bg-emerald-500/5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="p-2 rounded-full bg-emerald-500/10">
+              <Target className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-emerald-700 dark:text-emerald-300">
+                  Bắt đầu với Industry Memory
+                </h3>
+                <IndustryLockedBadge variant="protected" showLabel={false} />
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium">
+                  Recommended
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Chọn ngành để áp dụng bộ quy tắc tuân thủ sẵn có
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* What you get */}
+            <div className="p-3 rounded-lg bg-background/50 border">
+              <p className="text-xs font-medium text-muted-foreground mb-2">⚡ Pack đã chọn sẽ tự động:</p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-destructive" />
+                  <span>Áp dụng từ cấm ngành <span className="text-destructive font-medium">(LOCKED)</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Áp dụng compliance rules <span className="text-emerald-600 dark:text-emerald-400 font-medium">(LOCKED)</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <span>Thiết lập Brand Voice nền <span className="text-muted-foreground">(có thể tinh chỉnh trong giới hạn cho phép)</span></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Industry Selector */}
+            <BrandTemplateSelector
+              onSelect={handleIndustryTemplateSelect}
+              selectedIndustry={industries[0]}
+            />
+          </div>
+        </Card>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">Hoặc</span>
+          </div>
+        </div>
+
+        {/* Option 2: AI Quick Start */}
+        <Card className="p-4">
           <div className="flex items-start gap-3 mb-4">
             <div className="p-2 rounded-full bg-primary/10">
               <Wand2 className="w-5 h-5 text-primary" />
             </div>
-            <div>
-              <h3 className="font-medium">Bắt đầu nhanh với AI</h3>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-medium">AI Quick Start</h3>
+                <IndustryLockedBadge variant="warning" showLabel={false} />
+              </div>
               <p className="text-sm text-muted-foreground">
-                Mô tả sản phẩm/dịch vụ và AI sẽ gợi ý Tên thương hiệu + Brand Voice phù hợp
+                Mô tả sản phẩm/dịch vụ → AI tự gợi ý brand voice
               </p>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="quick-desc">Mô tả sản phẩm/dịch vụ *</Label>
-              <Textarea
-                id="quick-desc"
-                value={aiDescription}
-                onChange={(e) => setAiDescription(e.target.value)}
-                placeholder="VD: Dịch vụ kế toán trọn gói cho doanh nghiệp nhỏ và vừa, chuyên về hỗ trợ thuế và tư vấn tài chính..."
-                rows={3}
-                className="resize-none"
-                disabled={isGeneratingAI}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Ngành nghề (tùy chọn)</Label>
-              {industries.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {industries.map((item) => (
-                    <span
-                      key={item}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-primary/10 text-primary border border-primary/20"
-                    >
-                      {item}
-                      <button
-                        type="button"
-                        onClick={() => removeIndustry(item)}
-                        className="hover:text-destructive"
-                        disabled={isGeneratingAI}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    className={cn(
-                      'w-full justify-between font-normal',
-                      industries.length === 0 && 'text-muted-foreground'
-                    )}
-                    disabled={isGeneratingAI}
-                  >
-                    {industries.length === 0 
-                      ? 'Chọn ngành để AI đề xuất chính xác hơn...' 
-                      : `${industries.length} ngành đã chọn`}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0 z-50 bg-popover" align="start">
-                  <Command>
-                    <CommandInput 
-                      placeholder="Tìm hoặc nhập ngành..." 
-                      value={searchValue}
-                      onValueChange={setSearchValue}
-                    />
-                    <CommandList>
-                      {searchValue.trim() && !SUGGESTED_INDUSTRIES.some(i => 
-                        i.toLowerCase() === searchValue.trim().toLowerCase()
-                      ) && (
-                        <CommandItem
-                          onSelect={addCustomIndustry}
-                          className="text-primary"
-                        >
-                          <Check className="mr-2 h-4 w-4 opacity-0" />
-                          Thêm "{searchValue.trim()}"
-                        </CommandItem>
-                      )}
-                      <CommandGroup heading="Gợi ý">
-                        {SUGGESTED_INDUSTRIES.filter(item => 
-                          item.toLowerCase().includes(searchValue.toLowerCase())
-                        ).map((item) => (
-                          <CommandItem
-                            key={item}
-                            value={item}
-                            onSelect={() => toggleIndustry(item)}
-                          >
-                            <Check
-                              className={cn(
-                                'mr-2 h-4 w-4',
-                                industries.includes(item) ? 'opacity-100' : 'opacity-0'
-                              )}
-                            />
-                            {item}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <p className="text-xs text-muted-foreground">
-                AI sẽ tự phát hiện ngành nếu bạn không chọn
-              </p>
-            </div>
-
-            <Button
-              onClick={handleAIQuickStart}
-              disabled={isGeneratingAI || !aiDescription.trim()}
-              className="w-full gap-2"
-            >
-              {isGeneratingAI ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  AI đang phân tích và gợi ý...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Tạo Brand Voice với AI
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="outline" className="w-full gap-2">
+                <Sparkles className="w-4 h-4" />
+                Bắt đầu với AI
+                <span className="text-xs text-amber-600 dark:text-amber-400">(không có Industry Protection)</span>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4 space-y-3">
+              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Brand sẽ không được bảo vệ bởi Industry Rules
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quick-desc">Mô tả sản phẩm/dịch vụ *</Label>
+                <Textarea
+                  id="quick-desc"
+                  value={aiDescription}
+                  onChange={(e) => setAiDescription(e.target.value)}
+                  placeholder="VD: Dịch vụ kế toán trọn gói cho doanh nghiệp nhỏ và vừa..."
+                  rows={3}
+                  className="resize-none"
+                  disabled={isGeneratingAI}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={handleAIQuickStart}
+                disabled={isGeneratingAI || !aiDescription.trim()}
+                className="w-full gap-2"
+              >
+                {isGeneratingAI ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    AI đang phân tích...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Tạo Brand Voice với AI
+                  </>
+                )}
+              </Button>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
@@ -663,31 +676,35 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           </div>
         </div>
 
-        {/* Industry Templates */}
-        <BrandTemplateSelector
-          onSelect={handleIndustryTemplateSelect}
-          selectedIndustry={industries[0]}
-        />
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
+        {/* Option 3: Manual */}
+        <Card className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-full bg-muted">
+              <User className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-medium">Tạo thủ công</h3>
+                <IndustryLockedBadge variant="warning" showLabel={false} />
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Nhập tất cả thông tin từ đầu
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowQuickStart(false);
+                  setCurrentStep(1);
+                }}
+                className="gap-2"
+              >
+                Bắt đầu từ đầu
+                <span className="text-xs text-amber-600 dark:text-amber-400">(không có Industry Protection)</span>
+              </Button>
+            </div>
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Hoặc</span>
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          onClick={() => {
-            setShowQuickStart(false);
-            setCurrentStep(1);
-          }}
-          className="w-full"
-        >
-          Tạo từ đầu
-        </Button>
+        </Card>
       </div>
     );
   }
@@ -1030,43 +1047,187 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             </div>
           </div>
 
-          {/* Industry Memory Link Section */}
-          <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Industry Memory (Tùy chọn)</Label>
-              {industryTemplateId && (
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={handleClearIndustryLink}
-                  className="h-7 text-xs text-muted-foreground hover:text-destructive"
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  Bỏ liên kết
-                </Button>
+          {/* Industry Memory Link Section - LOCKED */}
+          {industryTemplateId ? (
+            <div className="space-y-3 p-4 rounded-lg border-2 border-emerald-500/30 bg-emerald-500/5">
+              {/* Header with Legal Statement */}
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  INDUSTRY MEMORY (LOCKED)
+                </span>
+                <IndustryLockedBadge variant="protected" showLabel={false} />
+              </div>
+              
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Industry Memory là bộ quy tắc bắt buộc nhằm đảm bảo tuân thủ ngành & quốc gia. Một số quy tắc không thể thay đổi.
+              </p>
+
+              {/* Pack Info Card */}
+              {isLoadingIndustryMemory ? (
+                <div className="p-3 rounded-lg bg-background border animate-pulse">
+                  <div className="h-4 w-32 bg-muted rounded mb-2" />
+                  <div className="h-3 w-48 bg-muted rounded" />
+                </div>
+              ) : linkedIndustryMemory ? (
+                <div className="p-3 rounded-lg bg-background border space-y-3">
+                  {/* Pack Summary */}
+                  <IndustryPackSummary
+                    name={linkedIndustryMemory.name}
+                    version={linkedIndustryMemory.version}
+                    countryName="Việt Nam"
+                    flagEmoji="🇻🇳"
+                    forbiddenTermsCount={linkedIndustryMemory.forbidden_terms?.length || 0}
+                    complianceRulesCount={linkedIndustryMemory.compliance_rules?.length || 0}
+                    claimRestrictionsCount={linkedIndustryMemory.claim_restrictions?.length || 0}
+                    status="stable"
+                  />
+
+                  {/* Expandable Details */}
+                  <Collapsible open={showIndustryDetails} onOpenChange={setShowIndustryDetails}>
+                    <CollapsibleTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="w-full justify-between h-8 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <Eye className="h-3.5 w-3.5" />
+                          {showIndustryDetails ? 'Ẩn chi tiết' : 'Xem chi tiết rules'}
+                        </span>
+                        <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", showIndustryDetails && "rotate-90")} />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2 space-y-3">
+                      {/* Forbidden Terms */}
+                      {linkedIndustryMemory.forbidden_terms?.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium text-destructive flex items-center gap-1">
+                            <Lock className="h-3 w-3" />
+                            Từ cấm ngành ({linkedIndustryMemory.forbidden_terms.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {linkedIndustryMemory.forbidden_terms.slice(0, 7).map((term, idx) => (
+                              <span key={idx} className="text-xs px-1.5 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20">
+                                {term}
+                              </span>
+                            ))}
+                            {linkedIndustryMemory.forbidden_terms.length > 7 && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                …và {linkedIndustryMemory.forbidden_terms.length - 7} từ khác
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Compliance Rules */}
+                      {linkedIndustryMemory.compliance_rules?.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <ShieldCheck className="h-3 w-3" />
+                            Compliance rules ({linkedIndustryMemory.compliance_rules.length})
+                          </p>
+                          <ul className="text-xs text-muted-foreground space-y-0.5 pl-4 list-disc">
+                            {linkedIndustryMemory.compliance_rules.slice(0, 3).map((rule, idx) => (
+                              <li key={idx}>{rule}</li>
+                            ))}
+                            {linkedIndustryMemory.compliance_rules.length > 3 && (
+                              <li className="text-muted-foreground/70">…và {linkedIndustryMemory.compliance_rules.length - 3} quy tắc khác</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Claim Restrictions */}
+                      {linkedIndustryMemory.claim_restrictions?.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Claim restrictions ({linkedIndustryMemory.claim_restrictions.length})
+                          </p>
+                          <ul className="text-xs text-muted-foreground space-y-0.5 pl-4 list-disc">
+                            {linkedIndustryMemory.claim_restrictions.slice(0, 2).map((claim, idx) => (
+                              <li key={idx}>{claim}</li>
+                            ))}
+                            {linkedIndustryMemory.claim_restrictions.length > 2 && (
+                              <li className="text-muted-foreground/70">…và {linkedIndustryMemory.claim_restrictions.length - 2} hạn chế khác</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        setIndustryTemplateId(null);
+                        // Show selector to change
+                      }}
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Đổi Pack
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                      onClick={handleClearIndustryLink}
+                    >
+                      <Unlink className="h-3 w-3" />
+                      Bỏ liên kết
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-background border text-sm text-muted-foreground">
+                  Đang tải thông tin Industry Memory...
+                </div>
               )}
             </div>
-            
-            <p className="text-xs text-muted-foreground">
-              Liên kết với Industry Memory Pack để áp dụng quy tắc tuân thủ ngành (compliance rules, từ cấm, v.v.)
-            </p>
-
-            {/* Show current linked pack or selector */}
-            {industryTemplateId ? (
-              <IndustryRulesIndicator 
-                industryMemory={linkedIndustryMemory || null} 
-                isLoading={isLoadingIndustryMemory}
-              />
-            ) : (
-              <div className="pt-2">
-                <BrandTemplateSelector
-                  onSelect={handleIndustryTemplateSelect}
-                  selectedIndustry={industries[0]}
-                />
+          ) : (
+            /* No Industry Pack Linked - Warning State */
+            <div className="space-y-3 p-4 rounded-lg border-2 border-amber-500/30 bg-amber-500/5">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                  NO INDUSTRY PROTECTION
+                </span>
+                <IndustryLockedBadge variant="warning" showLabel={false} />
               </div>
-            )}
-          </div>
+              
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Brand này không được liên kết với Industry Memory. Nội dung tạo ra có thể không tuân thủ quy định ngành.
+              </p>
+
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" className="gap-2">
+                    <ShieldCheck className="h-4 w-4" />
+                    + Liên kết Industry Memory
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <BrandTemplateSelector
+                    onSelect={handleIndustryTemplateSelect}
+                    selectedIndustry={industries[0]}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
+
+          {/* Unlink Industry Dialog */}
+          <UnlinkIndustryDialog
+            open={showUnlinkDialog}
+            onOpenChange={setShowUnlinkDialog}
+            onConfirm={confirmUnlinkIndustry}
+            industryMemory={linkedIndustryMemory || null}
+          />
         </div>
       )}
 
