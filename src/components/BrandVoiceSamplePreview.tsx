@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Eye, 
   Sparkles, 
@@ -16,9 +17,12 @@ import {
   Linkedin,
   Instagram,
   Mail,
-  MessageCircle
+  MessageCircle,
+  Wand2,
+  Loader2
 } from 'lucide-react';
-import { generateSampleText, generateAllChannelSamples, ChannelType } from '@/utils/generateSampleText';
+import { generateAllChannelSamples, ChannelType } from '@/utils/generateSampleText';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface BrandVoiceSamplePreviewProps {
@@ -78,9 +82,12 @@ export function BrandVoiceSamplePreview({
   const [showComparison, setShowComparison] = useState(false);
   const [copiedChannel, setCopiedChannel] = useState<ChannelType | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isAIGenerating, setIsAIGenerating] = useState(false);
+  const [aiSamples, setAiSamples] = useState<Record<string, string> | null>(null);
+  const [useAI, setUseAI] = useState(false);
 
-  // Generate all channel samples
-  const samples = useMemo(() => {
+  // Generate template-based samples
+  const templateSamples = useMemo(() => {
     return generateAllChannelSamples({
       brandName,
       positioning,
@@ -90,6 +97,56 @@ export function BrandVoiceSamplePreview({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandName, positioning, toneOfVoice, formalityLevel, allowEmoji, refreshKey]);
+
+  // Use AI samples if available, otherwise use template
+  const samples = useMemo(() => {
+    if (useAI && aiSamples) {
+      return { ...templateSamples, ...aiSamples };
+    }
+    return templateSamples;
+  }, [useAI, aiSamples, templateSamples]);
+
+  const handleAIGenerate = async () => {
+    if (!brandName.trim()) {
+      toast.error('Vui lòng nhập tên thương hiệu trước');
+      return;
+    }
+
+    setIsAIGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sample-text', {
+        body: {
+          brandName,
+          positioning,
+          toneOfVoice,
+          formalityLevel,
+          allowEmoji,
+          preferredWords,
+          forbiddenWords,
+          channels: VISIBLE_CHANNELS,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.samples) {
+        setAiSamples(data.samples);
+        setUseAI(true);
+        toast.success('Đã tạo nội dung mẫu bằng AI!');
+      }
+    } catch (err: any) {
+      console.error('AI generation error:', err);
+      if (err?.message?.includes('429') || err?.message?.includes('Rate limit')) {
+        toast.error('Đã vượt giới hạn. Vui lòng thử lại sau.');
+      } else if (err?.message?.includes('402')) {
+        toast.error('Hết credits AI. Vui lòng nạp thêm.');
+      } else {
+        toast.error('Không thể tạo nội dung AI. Vui lòng thử lại.');
+      }
+    } finally {
+      setIsAIGenerating(false);
+    }
+  };
 
   const handleCopy = async (channel: ChannelType) => {
     try {
@@ -103,8 +160,21 @@ export function BrandVoiceSamplePreview({
   };
 
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
-    toast.success('Đã tạo lại sample text!');
+    if (useAI) {
+      handleAIGenerate();
+    } else {
+      setRefreshKey(prev => prev + 1);
+      toast.success('Đã tạo lại sample text!');
+    }
+  };
+
+  const handleSwitchMode = () => {
+    if (!useAI) {
+      handleAIGenerate();
+    } else {
+      setUseAI(false);
+      toast.info('Đã chuyển về chế độ template');
+    }
   };
 
   const hasTone = toneOfVoice.length > 0;
@@ -117,12 +187,39 @@ export function BrandVoiceSamplePreview({
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Eye className="w-4 h-4 text-primary" />
               Xem trước nội dung mẫu
-              <Badge variant="secondary" className="text-xs">
-                <Sparkles className="w-3 h-3 mr-1" />
-                Multi-Channel
-              </Badge>
+              {useAI ? (
+                <Badge className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                  <Wand2 className="w-3 h-3 mr-1" />
+                  AI Generated
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-xs">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Template
+                </Badge>
+              )}
             </CardTitle>
             <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant={useAI ? "default" : "outline"}
+                size="sm"
+                onClick={handleSwitchMode}
+                disabled={isAIGenerating}
+                className="h-7 text-xs gap-1"
+              >
+                {isAIGenerating ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Đang tạo...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-3.5 h-3.5" />
+                    {useAI ? 'Template' : 'AI Generate'}
+                  </>
+                )}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -138,9 +235,10 @@ export function BrandVoiceSamplePreview({
                 variant="ghost"
                 size="sm"
                 onClick={handleRefresh}
+                disabled={isAIGenerating}
                 className="h-7 text-xs gap-1"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
+                <RefreshCw className={`w-3.5 h-3.5 ${isAIGenerating ? 'animate-spin' : ''}`} />
                 Tạo lại
               </Button>
             </div>
@@ -165,14 +263,24 @@ export function BrandVoiceSamplePreview({
             {VISIBLE_CHANNELS.map((channel) => (
               <TabsContent key={channel} value={channel} className="mt-3">
                 <div className="relative">
-                  <div className="bg-background rounded-lg p-4 text-sm border min-h-[120px] whitespace-pre-wrap">
-                    {samples[channel]}
-                  </div>
+                  {isAIGenerating ? (
+                    <div className="bg-background rounded-lg p-4 border min-h-[120px] space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-2/3" />
+                    </div>
+                  ) : (
+                    <div className="bg-background rounded-lg p-4 text-sm border min-h-[120px] whitespace-pre-wrap">
+                      {samples[channel]}
+                    </div>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCopy(channel)}
+                    disabled={isAIGenerating}
                     className="absolute bottom-2 right-2 h-7 text-xs gap-1"
                   >
                     {copiedChannel === channel ? (
@@ -258,6 +366,12 @@ export function BrandVoiceSamplePreview({
             <DialogTitle className="flex items-center gap-2">
               <Columns className="w-5 h-5" />
               So sánh nội dung mẫu giữa các kênh
+              {useAI && (
+                <Badge className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                  <Wand2 className="w-3 h-3 mr-1" />
+                  AI Generated
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="h-[60vh]">
