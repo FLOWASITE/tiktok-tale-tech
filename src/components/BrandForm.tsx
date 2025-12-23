@@ -13,7 +13,7 @@ import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { BrandVoicePreview } from '@/components/BrandVoicePreview';
 import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
-import { BrandTemplateSelector, INDUSTRY_TEMPLATES } from '@/components/BrandTemplateSelector';
+import { BrandTemplateSelector, LegacyIndustryTemplate } from '@/components/BrandTemplateSelector';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check, User, Building2, ChevronLeft, ChevronRight, Wand2, Sparkles, Loader2 } from 'lucide-react';
@@ -289,7 +289,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     }
   };
 
-  const handleIndustryTemplateSelect = (templateData: typeof INDUSTRY_TEMPLATES[string] & { industry: string }) => {
+  const handleIndustryTemplateSelect = (templateData: LegacyIndustryTemplate & { industry: string }) => {
     setIndustries([templateData.industry]);
     setBrandPositioning(templateData.brand_positioning);
     setToneOfVoice(templateData.tone_of_voice);
