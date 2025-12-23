@@ -3,7 +3,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, Plus, ChevronDown, Mic2, Languages, Settings2 } from 'lucide-react';
+import { X, Plus, ChevronDown, Mic2, Settings2, Info, Smile } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -16,7 +16,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { useState } from 'react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 // Brand Voice Constants
@@ -27,23 +33,42 @@ export const BRAND_POSITIONING_OPTIONS = [
   { value: 'consultant', label: 'Tư vấn' },
 ];
 
+// Tone options with suggestEmoji property
 export const TONE_OF_VOICE_OPTIONS = [
-  { value: 'expert', label: 'Chuyên gia' },
-  { value: 'calm', label: 'Điềm tĩnh' },
-  { value: 'confident', label: 'Tự tin' },
-  { value: 'friendly', label: 'Thân thiện' },
-  { value: 'analytical', label: 'Phân tích' },
-  { value: 'serious', label: 'Nghiêm túc' },
-  { value: 'inspirational', label: 'Truyền cảm hứng' },
+  { value: 'expert', label: 'Chuyên gia', suggestEmoji: false },
+  { value: 'calm', label: 'Điềm tĩnh', suggestEmoji: false },
+  { value: 'confident', label: 'Tự tin', suggestEmoji: false },
+  { value: 'friendly', label: 'Thân thiện', suggestEmoji: true },
+  { value: 'analytical', label: 'Phân tích', suggestEmoji: false },
+  { value: 'serious', label: 'Nghiêm túc', suggestEmoji: false },
+  { value: 'inspirational', label: 'Truyền cảm hứng', suggestEmoji: true },
 ];
 
+// Formality with language style hints
 export const FORMALITY_LEVEL_OPTIONS = [
-  { value: 'very_formal', label: 'Rất trang trọng' },
-  { value: 'professional', label: 'Chuyên nghiệp' },
-  { value: 'neutral', label: 'Trung lập' },
-  { value: 'casual', label: 'Gần gũi' },
+  { 
+    value: 'very_formal', 
+    label: 'Rất trang trọng',
+    hint: 'Ngắn gọn, súc tích • Không từ lóng • Câu cấu trúc chặt chẽ'
+  },
+  { 
+    value: 'professional', 
+    label: 'Chuyên nghiệp',
+    hint: 'Rõ ràng, trực tiếp • Có cấu trúc • Không khoa trương'
+  },
+  { 
+    value: 'neutral', 
+    label: 'Trung lập',
+    hint: 'Cân bằng giữa trang trọng và gần gũi • Linh hoạt theo ngữ cảnh'
+  },
+  { 
+    value: 'casual', 
+    label: 'Gần gũi',
+    hint: 'Thoải mái, tự nhiên • Cho phép từ ngữ đời thường • Có thể dùng emoji'
+  },
 ];
 
+// Keep for backward compatibility but no longer shown as separate UI
 export const LANGUAGE_STYLE_OPTIONS = [
   { value: 'clear_direct', label: 'Rõ ràng, trực tiếp' },
   { value: 'structured', label: 'Có cấu trúc' },
@@ -156,6 +181,20 @@ export function BrandVoiceSection({
     onChange(newValue);
   };
 
+  // Check if any selected tone suggests emoji
+  const shouldSuggestEmoji = useMemo(() => {
+    return toneOfVoice.some(tone => {
+      const option = TONE_OF_VOICE_OPTIONS.find(o => o.value === tone);
+      return option?.suggestEmoji === true;
+    });
+  }, [toneOfVoice]);
+
+  // Get current formality hint
+  const currentFormalityHint = useMemo(() => {
+    const option = FORMALITY_LEVEL_OPTIONS.find(o => o.value === formalityLevel);
+    return option?.hint || null;
+  }, [formalityLevel]);
+
   const toggleTone = (tone: string) => {
     const newValue = toneOfVoice.includes(tone)
       ? toneOfVoice.filter(t => t !== tone)
@@ -165,15 +204,18 @@ export function BrandVoiceSection({
     
     if (newValue !== toneOfVoice) {
       handleChange('tone_of_voice', toneOfVoice, newValue, onToneOfVoiceChange);
+      
+      // Auto-suggest emoji based on tone
+      const willSuggestEmoji = newValue.some(t => {
+        const opt = TONE_OF_VOICE_OPTIONS.find(o => o.value === t);
+        return opt?.suggestEmoji === true;
+      });
+      
+      // Auto-enable emoji if tone suggests it and currently disabled
+      if (willSuggestEmoji && !allowEmoji) {
+        handleChange('allow_emoji', false, true, onAllowEmojiChange);
+      }
     }
-  };
-
-  const toggleLanguageStyle = (style: string) => {
-    const newValue = languageStyle.includes(style)
-      ? languageStyle.filter(s => s !== style)
-      : [...languageStyle, style];
-    
-    handleChange('language_style', languageStyle, newValue, onLanguageStyleChange);
   };
 
   const handleAddWord = (
@@ -209,23 +251,16 @@ export function BrandVoiceSection({
     }
   };
 
-  // Count filled items for badges
-  const toneCount = toneOfVoice.length;
-  const languageCount = languageStyle.length + preferredWords.length + forbiddenWords.length;
-  const extrasCount = (allowEmoji ? 1 : 0) + complianceRules.length;
+  // Count for advanced section badge
+  const advancedCount = preferredWords.length + forbiddenWords.length + complianceRules.length;
 
   return (
     <div className="space-y-3">
-      {/* Section 1: Tone & Style */}
+      {/* Section 1: Phong cách giao tiếp (Main - always open) */}
       <VoiceSection 
         icon={Mic2} 
-        title="Tone & Style" 
+        title="Phong cách giao tiếp" 
         defaultOpen={true}
-        badge={toneCount > 0 && (
-          <Badge variant="secondary" className="text-[10px] h-5">
-            {toneCount} đã chọn
-          </Badge>
-        )}
       >
         {/* Brand Positioning */}
         <div className="space-y-2">
@@ -244,28 +279,23 @@ export function BrandVoiceSection({
           </Select>
         </div>
 
-        {/* Formality Level */}
+        {/* Tone of Voice - Multi-select (max 3) with emoji hint */}
         <div className="space-y-2">
-          <Label className="text-sm">Mức trang trọng</Label>
-          <Select value={formalityLevel} onValueChange={(v) => handleChange('formality_level', formalityLevel, v, onFormalityLevelChange)}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Chọn mức độ..." />
-            </SelectTrigger>
-            <SelectContent>
-              {FORMALITY_LEVEL_OPTIONS.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Tone of Voice - Multi-select (max 3) */}
-        <div className="space-y-2">
-          <Label className="text-sm">
-            Tone of Voice <span className="text-xs text-muted-foreground">(chọn 1-3)</span>
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">
+              Tone of Voice <span className="text-xs text-muted-foreground">(chọn 1-3)</span>
+            </Label>
+            {/* Emoji suggestion badge */}
+            {shouldSuggestEmoji && (
+              <Badge 
+                variant="secondary" 
+                className="text-[10px] h-5 gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+              >
+                <Smile className="w-3 h-3" />
+                Gợi ý dùng emoji
+              </Badge>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {TONE_OF_VOICE_OPTIONS.map(opt => {
               const isSelected = toneOfVoice.includes(opt.value);
@@ -286,49 +316,86 @@ export function BrandVoiceSection({
                   <Badge
                     variant={isSelected ? 'default' : 'outline'}
                     className={cn(
-                      "cursor-pointer transition-all text-xs",
-                      isSelected ? '' : isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/10'
+                      "cursor-pointer transition-all text-xs gap-1",
+                      isSelected ? '' : isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/10',
+                      isSelected && opt.suggestEmoji && 'pr-1.5'
                     )}
                   >
                     {opt.label}
+                    {isSelected && opt.suggestEmoji && (
+                      <Smile className="w-3 h-3 opacity-70" />
+                    )}
                   </Badge>
                 </button>
               );
             })}
           </div>
         </div>
+
+        {/* Formality Level with tooltip hint */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label className="text-sm">Mức trang trọng</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Info className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[250px]">
+                  <p className="text-xs">Mức trang trọng ảnh hưởng đến phong cách viết, từ ngữ sử dụng và cấu trúc câu.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <Select value={formalityLevel} onValueChange={(v) => handleChange('formality_level', formalityLevel, v, onFormalityLevelChange)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Chọn mức độ..." />
+            </SelectTrigger>
+            <SelectContent>
+              {FORMALITY_LEVEL_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  <div className="flex flex-col">
+                    <span>{opt.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Show hint below select when formality is selected */}
+          {currentFormalityHint && (
+            <p className="text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-md">
+              💡 {currentFormalityHint}
+            </p>
+          )}
+        </div>
+
+        {/* Emoji toggle - simplified, only shown as override option */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg border bg-background/50">
+          <div className="flex items-center gap-2">
+            <Smile className="w-4 h-4 text-muted-foreground" />
+            <Label htmlFor="allowEmoji" className="text-sm cursor-pointer">Cho phép emoji</Label>
+          </div>
+          <Checkbox
+            id="allowEmoji"
+            checked={allowEmoji}
+            onCheckedChange={(checked) => handleChange('allow_emoji', allowEmoji, checked === true, onAllowEmojiChange)}
+          />
+        </div>
       </VoiceSection>
 
-      {/* Section 2: Language Rules */}
+      {/* Section 2: Tuỳ chỉnh nâng cao (Collapsed by default) */}
       <VoiceSection 
-        icon={Languages} 
-        title="Quy tắc ngôn ngữ" 
-        defaultOpen={languageCount > 0}
-        badge={languageCount > 0 && (
+        icon={Settings2} 
+        title="Tuỳ chỉnh nâng cao" 
+        defaultOpen={advancedCount > 0}
+        badge={advancedCount > 0 && (
           <Badge variant="secondary" className="text-[10px] h-5">
-            {languageCount} mục
+            {advancedCount} mục
           </Badge>
         )}
       >
-        {/* Language Style - Multi-select */}
-        <div className="space-y-2">
-          <Label className="text-sm">Phong cách viết</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {LANGUAGE_STYLE_OPTIONS.map(opt => (
-              <div key={opt.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`lang-${opt.value}`}
-                  checked={languageStyle.includes(opt.value)}
-                  onCheckedChange={() => toggleLanguageStyle(opt.value)}
-                />
-                <Label htmlFor={`lang-${opt.value}`} className="text-xs cursor-pointer">
-                  {opt.label}
-                </Label>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Preferred Words */}
         <div className="space-y-2">
           <Label className="text-sm text-emerald-600 dark:text-emerald-400">✓ Từ NÊN dùng</Label>
@@ -402,31 +469,6 @@ export function BrandVoiceSection({
               <Plus className="w-3.5 h-3.5" />
             </Button>
           </div>
-        </div>
-      </VoiceSection>
-
-      {/* Section 3: Extras */}
-      <VoiceSection 
-        icon={Settings2} 
-        title="Tuỳ chọn khác" 
-        defaultOpen={extrasCount > 0}
-        badge={extrasCount > 0 && (
-          <Badge variant="secondary" className="text-[10px] h-5">
-            {extrasCount} mục
-          </Badge>
-        )}
-      >
-        {/* Allow Emoji */}
-        <div className="flex items-center justify-between p-3 rounded-lg border bg-background">
-          <div>
-            <Label className="text-sm cursor-pointer">Cho phép dùng emoji</Label>
-            <p className="text-xs text-muted-foreground mt-0.5">Sử dụng emoji trong nội dung</p>
-          </div>
-          <Checkbox
-            id="allowEmoji"
-            checked={allowEmoji}
-            onCheckedChange={(checked) => handleChange('allow_emoji', allowEmoji, checked === true, onAllowEmojiChange)}
-          />
         </div>
 
         {/* Compliance Rules */}
