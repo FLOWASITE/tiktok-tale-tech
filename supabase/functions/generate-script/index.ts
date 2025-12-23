@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -448,53 +449,102 @@ serve(async (req) => {
 
     const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Hãy tạo kịch bản video TikTok về chủ đề: "${topic}"` },
-        ],
-      }),
-    });
+    // Define AI generation function
+    const generateAIContent = async (): Promise<string> => {
+      console.log("Calling Lovable AI for script (no cache hit)...");
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Hãy tạo kịch bản video TikTok về chủ đề: "${topic}"` },
+          ],
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("AI Gateway error:", response.status, errorText);
 
-      if (response.status === 429) {
+        if (response.status === 429) {
+          throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
+        }
+        if (response.status === 402) {
+          throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
+        }
+
+        throw new Error("Không thể tạo kịch bản. Vui lòng thử lại.");
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+
+      if (!content) {
+        console.error("No content in AI response:", data);
+        throw new Error("AI không trả về nội dung");
+      }
+
+      return content;
+    };
+
+    // Use cache wrapper
+    const functionName = 'generate-script';
+    const scope = CACHE_SCOPE[functionName] || 'org';
+    const ttlDays = CACHE_TTL[functionName] || 7;
+
+    // Build cache input
+    const cacheInput = {
+      topic,
+      duration,
+      video_type,
+      character_type,
+      brandVoice: brandVoice ? {
+        positioning: brandVoice.brand_positioning,
+        tone: brandVoice.tone_of_voice,
+        formality: brandVoice.formality_level,
+      } : null,
+    };
+
+    let content: string;
+    let fromCache = false;
+
+    try {
+      const cacheResult = await withCache({
+        functionName,
+        scope,
+        organizationId: requestOrgId || undefined,
+        brandTemplateId,
+        input: cacheInput,
+        versions: {
+          industryMemory: industryMemory?.version,
+          brandVoice: brandVoice?.formality_level || undefined,
+        },
+        ttlDays,
+        generateFn: generateAIContent,
+      });
+
+      content = cacheResult.data;
+      fromCache = cacheResult.fromCache;
+      console.log(`Script generation: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}`);
+    } catch (err: any) {
+      if (err.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." }),
+          JSON.stringify({ error: err.message }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (err.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Cần nạp thêm credits để tiếp tục sử dụng." }),
+          JSON.stringify({ error: err.message }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      return new Response(
-        JSON.stringify({ error: "Không thể tạo kịch bản. Vui lòng thử lại." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      console.error("No content in AI response:", data);
-      return new Response(
-        JSON.stringify({ error: "AI không trả về nội dung" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      throw err;
     }
 
     console.log("Script generated successfully, saving to database...");
@@ -570,9 +620,9 @@ serve(async (req) => {
       );
     }
 
-    console.log("Script saved with ID:", savedScript.id);
+    console.log("Script saved with ID:", savedScript.id, "fromCache:", fromCache);
 
-    return new Response(JSON.stringify(savedScript), {
+    return new Response(JSON.stringify({ ...savedScript, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
