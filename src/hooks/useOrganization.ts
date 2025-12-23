@@ -23,41 +23,22 @@ export function useOrganization() {
 
     try {
       setUpdating(true);
-      
-      // Create slug from name
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const uniqueSlug = `${slug}-${Date.now()}`;
 
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name,
-          slug: uniqueSlug,
-          owner_id: user.id,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('create-organization', {
+        body: { name },
+      });
 
-      if (orgError) throw orgError;
+      if (error) throw error;
 
-      // Add user as owner
-      const { error: memberError } = await supabase
-        .from('organization_members')
-        .insert({
-          organization_id: org.id,
-          user_id: user.id,
-          role: 'owner',
-          joined_at: new Date().toISOString(),
-        });
-
-      if (memberError) throw memberError;
+      const org = data?.organization as Organization | undefined;
+      if (!org) throw new Error('Không nhận được dữ liệu tổ chức');
 
       await refreshOrganizations();
       toast.success('Tạo tổ chức thành công!');
       return org;
     } catch (error: any) {
       console.error('Error creating organization:', error);
-      toast.error('Lỗi khi tạo tổ chức: ' + error.message);
+      toast.error('Lỗi khi tạo tổ chức: ' + (error?.message ?? 'Unknown error'));
       return null;
     } finally {
       setUpdating(false);
