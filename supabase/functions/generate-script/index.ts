@@ -108,9 +108,13 @@ async function fetchIndustryMemory(
       .select(`
         id,
         code,
+        version,
         target_audience,
         brand_voice,
         channel_settings,
+        compliance_rules,
+        claim_restrictions,
+        forbidden_terms,
         industry_template_translations!inner (
           name,
           preferred_words,
