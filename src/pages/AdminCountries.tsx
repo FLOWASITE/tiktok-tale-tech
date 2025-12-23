@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { useAdmin } from "@/hooks/useAdmin";
-import { Navigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,7 +52,6 @@ interface Country {
 }
 
 export default function AdminCountries() {
-  const { isAdmin, isCheckingAdmin } = useAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCountry, setEditingCountry] = useState<Country | null>(null);
@@ -85,22 +82,6 @@ export default function AdminCountries() {
       return data as Country[];
     },
   });
-
-  // Loading state
-  if (isCheckingAdmin) {
-    return (
-      <div className="container py-8 space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  // Access control
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
 
   // Filter countries
   const filteredCountries = countries.filter((country) => {

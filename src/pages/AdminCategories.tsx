@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { useAdmin } from "@/hooks/useAdmin";
-import { Navigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -112,7 +110,6 @@ const defaultColors = [
 ];
 
 export default function AdminCategories() {
-  const { isAdmin, isCheckingAdmin } = useAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [inlineEditId, setInlineEditId] = useState<string | null>(null);
@@ -160,22 +157,6 @@ export default function AdminCategories() {
       });
     },
   });
-
-  // Loading state
-  if (isCheckingAdmin) {
-    return (
-      <div className="container py-8 space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  // Access control
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
 
   // Filter categories
   const filteredCategories = categoriesData.filter((category) => {

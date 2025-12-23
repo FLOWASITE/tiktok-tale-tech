@@ -1,8 +1,6 @@
 import { useState, useMemo } from "react";
-import { useAdmin } from "@/hooks/useAdmin";
 import { useIndustryTemplates, useIndustryTemplatesAdmin } from "@/hooks/useIndustryTemplates";
 import { IndustryAdvancedFilters, defaultFilters, type IndustryFilters } from "@/components/admin/IndustryAdvancedFilters";
-import { Navigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,7 +70,6 @@ const categoryIcons: Record<string, React.ReactNode> = {
 };
 
 export default function AdminIndustries() {
-  const { isAdmin, isCheckingAdmin } = useAdmin();
   const [selectedCountry, setSelectedCountry] = useState("VN");
   const [filters, setFilters] = useState<IndustryFilters>(defaultFilters);
   const [editingTemplate, setEditingTemplate] = useState<IndustryTemplate | null>(null);
@@ -94,22 +91,6 @@ export default function AdminIndustries() {
     countryCode: selectedCountry,
     languageCode: "vi",
   });
-
-  // Loading state
-  if (isCheckingAdmin) {
-    return (
-      <div className="container py-8 space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  // Access control
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
 
   // Filter and sort templates with useMemo for performance
   const filteredTemplates = useMemo(() => {
