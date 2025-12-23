@@ -22,6 +22,7 @@ import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminIndustries from "./pages/AdminIndustries";
+import AdminIndustryVersions from "./pages/AdminIndustryVersions";
 import AdminCountries from "./pages/AdminCountries";
 import AdminCategories from "./pages/AdminCategories";
 import OrganizationSettings from "./pages/OrganizationSettings";
@@ -192,6 +193,18 @@ const App = () => (
                     <AdminProtectedRoute>
                       <AppLayout>
                         <AdminCategories />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/versions"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminIndustryVersions />
                       </AppLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
