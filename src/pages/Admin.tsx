@@ -33,11 +33,14 @@ import {
   UserCheck,
   Calendar,
   ShieldAlert,
+  Database,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import CacheAnalytics from "@/components/admin/CacheAnalytics";
 
 export default function Admin() {
+  const [activeTab, setActiveTab] = useState("users");
   const {
     users,
     stats,
@@ -98,7 +101,19 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="cache" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            AI Cache
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-6 mt-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -339,6 +354,12 @@ export default function Admin() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="cache" className="mt-6">
+          <CacheAnalytics />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
