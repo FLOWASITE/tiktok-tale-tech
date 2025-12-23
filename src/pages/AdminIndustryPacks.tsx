@@ -330,7 +330,7 @@ function StatsCards({ stats }: { stats: { total: number; draft: number; stable: 
 }
 
 export default function AdminIndustryPacks() {
-  // All useState hooks first
+  // State hooks
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
