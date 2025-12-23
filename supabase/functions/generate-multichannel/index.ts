@@ -407,8 +407,17 @@ function mergeChannelSettings(channel: string, overrides: ChannelOverrides): Cha
   };
 }
 
-// Fetch industry target mapping from database
+// Cache for industry target mapping (per-request caching)
+let cachedIndustryTargetMap: Map<string, 'B2B' | 'B2C' | 'both'> | null = null;
+
+// Fetch industry target mapping from database with caching
 async function fetchIndustryTargetMap(supabase: any): Promise<Map<string, 'B2B' | 'B2C' | 'both'>> {
+  // Return cached map if available
+  if (cachedIndustryTargetMap) {
+    console.log(`Using cached industry target map (${cachedIndustryTargetMap.size} entries)`);
+    return cachedIndustryTargetMap;
+  }
+
   const targetMap = new Map<string, 'B2B' | 'B2C' | 'both'>();
   
   try {
@@ -445,11 +454,19 @@ async function fetchIndustryTargetMap(supabase: any): Promise<Map<string, 'B2B' 
     }
     
     console.log(`Loaded ${targetMap.size} industry target mappings from database`);
+    
+    // Cache the result
+    cachedIndustryTargetMap = targetMap;
   } catch (err) {
     console.error('Failed to fetch industry target map:', err);
   }
   
   return targetMap;
+}
+
+// Clear cache (call at start of each request)
+function clearIndustryTargetCache() {
+  cachedIndustryTargetMap = null;
 }
 
 // Detect target audience from industry names using database mapping
