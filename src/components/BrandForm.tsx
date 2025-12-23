@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,15 +7,19 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepVisual } from '@/components/BrandFormStepVisual';
-import { BrandVoiceSection } from '@/components/BrandVoiceSection';
+import { BrandVoiceSection, BrandVoiceChangeEvent } from '@/components/BrandVoiceSection';
 import { SamplePreviewFullscreenSheet } from '@/components/SamplePreviewFullscreenSheet';
 import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
+import { BrandVoiceDiffPanel } from '@/components/BrandVoiceDiffPanel';
+import { useBrandVoiceSnapshot, BrandVoiceAttribute } from '@/hooks/useBrandVoiceSnapshot';
 import { IndustryTemplate } from '@/hooks/useIndustryTemplates';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
+import { generateAllChannelSamples } from '@/utils/generateSampleText';
 import { ChevronLeft, ChevronRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
 
@@ -63,6 +67,18 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [guidelineExampleBad, setGuidelineExampleBad] = useState('');
   const [guidelineKeyPrinciples, setGuidelineKeyPrinciples] = useState<string[]>([]);
   const [showPreview, setShowPreview] = useState(true);
+  const [isRegeneratingSamples, setIsRegeneratingSamples] = useState(false);
+
+  // Snapshot hook for tracking Brand Voice changes
+  const {
+    pendingSnapshot,
+    hasPendingChange,
+    takeSnapshot,
+    updatePendingWithNewSamples,
+    confirmChange,
+    discardChange,
+    formatValue,
+  } = useBrandVoiceSnapshot();
 
   useEffect(() => {
     if (template) {
@@ -149,6 +165,142 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     setCurrentStep(1);
     toast.success('Đã liên kết Industry Memory!');
   };
+
+  // Handle Brand Voice change with snapshot
+  const handleBrandVoiceChange = useCallback(async (event: BrandVoiceChangeEvent) => {
+    // Get current samples for before state
+    const currentSamples = sampleTexts || generateAllChannelSamples({
+      brandName,
+      positioning: brandPositioning,
+      toneOfVoice,
+      formalityLevel,
+      allowEmoji,
+    });
+
+    // Take snapshot of current state
+    takeSnapshot(
+      event.attribute,
+      event.previousValue,
+      event.newValue,
+      currentSamples
+    );
+
+    // Get updated voice values for regeneration
+    const getUpdatedValue = <T,>(attr: BrandVoiceAttribute, current: T): T => {
+      if (event.attribute === attr) return event.newValue as T;
+      return current;
+    };
+
+    // Regenerate samples with new values
+    setIsRegeneratingSamples(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sample-text', {
+        body: {
+          brandName,
+          positioning: getUpdatedValue('brand_positioning', brandPositioning),
+          toneOfVoice: getUpdatedValue('tone_of_voice', toneOfVoice),
+          formalityLevel: getUpdatedValue('formality_level', formalityLevel),
+          allowEmoji: getUpdatedValue('allow_emoji', allowEmoji),
+          preferredWords: getUpdatedValue('preferred_words', preferredWords),
+          forbiddenWords: getUpdatedValue('forbidden_words', forbiddenWords),
+          channels: ['facebook', 'linkedin', 'instagram', 'tiktok', 'email'],
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.samples) {
+        const normalizedSamples: Record<string, string> = {};
+        for (const [key, value] of Object.entries(data.samples)) {
+          if (typeof value === 'string') {
+            normalizedSamples[key] = value;
+          } else if (value && typeof value === 'object') {
+            const obj = value as Record<string, unknown>;
+            if ('subject' in obj && 'body' in obj) {
+              normalizedSamples[key] = `📧 Subject: ${obj.subject}\n\n${obj.body}`;
+            } else {
+              normalizedSamples[key] = JSON.stringify(value, null, 2);
+            }
+          } else {
+            normalizedSamples[key] = String(value || '');
+          }
+        }
+        updatePendingWithNewSamples(normalizedSamples);
+      }
+    } catch (err) {
+      console.error('Failed to regenerate samples:', err);
+      // Use template samples as fallback
+      const templateSamples = generateAllChannelSamples({
+        brandName,
+        positioning: getUpdatedValue('brand_positioning', brandPositioning),
+        toneOfVoice: getUpdatedValue('tone_of_voice', toneOfVoice),
+        formalityLevel: getUpdatedValue('formality_level', formalityLevel),
+        allowEmoji: getUpdatedValue('allow_emoji', allowEmoji),
+      });
+      updatePendingWithNewSamples(templateSamples);
+    } finally {
+      setIsRegeneratingSamples(false);
+    }
+  }, [
+    brandName,
+    brandPositioning,
+    toneOfVoice,
+    formalityLevel,
+    allowEmoji,
+    preferredWords,
+    forbiddenWords,
+    sampleTexts,
+    takeSnapshot,
+    updatePendingWithNewSamples,
+  ]);
+
+  // Handle confirm change
+  const handleConfirmChange = useCallback(() => {
+    if (pendingSnapshot?.newSamples) {
+      setSampleTexts(pendingSnapshot.newSamples);
+    }
+    confirmChange();
+    toast.success('Đã lưu thay đổi!');
+  }, [pendingSnapshot, confirmChange]);
+
+  // Handle discard change (undo)
+  const handleDiscardChange = useCallback(() => {
+    const snapshot = discardChange();
+    if (snapshot) {
+      // Revert the attribute value
+      switch (snapshot.changedAttribute) {
+        case 'brand_positioning':
+          setBrandPositioning(snapshot.previousValue as string);
+          break;
+        case 'tone_of_voice':
+          setToneOfVoice(snapshot.previousValue as string[]);
+          break;
+        case 'formality_level':
+          setFormalityLevel(snapshot.previousValue as string);
+          break;
+        case 'language_style':
+          setLanguageStyle(snapshot.previousValue as string[]);
+          break;
+        case 'allow_emoji':
+          setAllowEmoji(snapshot.previousValue as boolean);
+          break;
+        case 'preferred_words':
+          setPreferredWords(snapshot.previousValue as string[]);
+          break;
+        case 'forbidden_words':
+          setForbiddenWords(snapshot.previousValue as string[]);
+          break;
+        case 'compliance_rules':
+          setComplianceRules(snapshot.previousValue as string[]);
+          break;
+      }
+      // Revert samples
+      if (snapshot.previousSamples) {
+        setSampleTexts(snapshot.previousSamples);
+      }
+      toast.info('Đã hoàn tác thay đổi');
+    }
+  }, [discardChange]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,7 +486,20 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 onAllowEmojiChange={setAllowEmoji}
                 complianceRules={complianceRules}
                 onComplianceRulesChange={setComplianceRules}
+                onBeforeChange={handleBrandVoiceChange}
               />
+              
+              {/* Diff Panel for comparing changes */}
+              {hasPendingChange && (
+                <BrandVoiceDiffPanel
+                  snapshot={pendingSnapshot}
+                  isGenerating={isRegeneratingSamples}
+                  onConfirm={handleConfirmChange}
+                  onDiscard={handleDiscardChange}
+                  formatValue={formatValue}
+                />
+              )}
+              
               <SamplePreviewFullscreenSheet
                 brandName={brandName}
                 positioning={brandPositioning}

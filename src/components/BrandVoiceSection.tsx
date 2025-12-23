@@ -51,6 +51,14 @@ export const LANGUAGE_STYLE_OPTIONS = [
   { value: 'no_over_emotion', label: 'Không cảm tính quá mức' },
 ];
 
+import { BrandVoiceAttribute } from '@/hooks/useBrandVoiceSnapshot';
+
+export interface BrandVoiceChangeEvent {
+  attribute: BrandVoiceAttribute;
+  previousValue: unknown;
+  newValue: unknown;
+}
+
 interface BrandVoiceSectionProps {
   brandPositioning: string;
   onBrandPositioningChange: (value: string) => void;
@@ -68,6 +76,7 @@ interface BrandVoiceSectionProps {
   onAllowEmojiChange: (value: boolean) => void;
   complianceRules: string[];
   onComplianceRulesChange: (value: string[]) => void;
+  onBeforeChange?: (event: BrandVoiceChangeEvent) => void;
 }
 
 // Section wrapper component
@@ -130,21 +139,41 @@ export function BrandVoiceSection({
   onAllowEmojiChange,
   complianceRules,
   onComplianceRulesChange,
+  onBeforeChange,
 }: BrandVoiceSectionProps) {
+  // Wrapper to notify before change
+  const handleChange = <T,>(
+    attribute: BrandVoiceAttribute,
+    previousValue: T,
+    newValue: T,
+    onChange: (value: T) => void
+  ) => {
+    onBeforeChange?.({
+      attribute,
+      previousValue,
+      newValue,
+    });
+    onChange(newValue);
+  };
+
   const toggleTone = (tone: string) => {
-    if (toneOfVoice.includes(tone)) {
-      onToneOfVoiceChange(toneOfVoice.filter(t => t !== tone));
-    } else if (toneOfVoice.length < 3) {
-      onToneOfVoiceChange([...toneOfVoice, tone]);
+    const newValue = toneOfVoice.includes(tone)
+      ? toneOfVoice.filter(t => t !== tone)
+      : toneOfVoice.length < 3 
+        ? [...toneOfVoice, tone]
+        : toneOfVoice;
+    
+    if (newValue !== toneOfVoice) {
+      handleChange('tone_of_voice', toneOfVoice, newValue, onToneOfVoiceChange);
     }
   };
 
   const toggleLanguageStyle = (style: string) => {
-    if (languageStyle.includes(style)) {
-      onLanguageStyleChange(languageStyle.filter(s => s !== style));
-    } else {
-      onLanguageStyleChange([...languageStyle, style]);
-    }
+    const newValue = languageStyle.includes(style)
+      ? languageStyle.filter(s => s !== style)
+      : [...languageStyle, style];
+    
+    handleChange('language_style', languageStyle, newValue, onLanguageStyleChange);
   };
 
   const handleAddWord = (
@@ -201,7 +230,7 @@ export function BrandVoiceSection({
         {/* Brand Positioning */}
         <div className="space-y-2">
           <Label className="text-sm">Định vị thương hiệu</Label>
-          <Select value={brandPositioning} onValueChange={onBrandPositioningChange}>
+          <Select value={brandPositioning} onValueChange={(v) => handleChange('brand_positioning', brandPositioning, v, onBrandPositioningChange)}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Chọn định vị..." />
             </SelectTrigger>
@@ -218,7 +247,7 @@ export function BrandVoiceSection({
         {/* Formality Level */}
         <div className="space-y-2">
           <Label className="text-sm">Mức trang trọng</Label>
-          <Select value={formalityLevel} onValueChange={onFormalityLevelChange}>
+          <Select value={formalityLevel} onValueChange={(v) => handleChange('formality_level', formalityLevel, v, onFormalityLevelChange)}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Chọn mức độ..." />
             </SelectTrigger>
@@ -396,7 +425,7 @@ export function BrandVoiceSection({
           <Checkbox
             id="allowEmoji"
             checked={allowEmoji}
-            onCheckedChange={(checked) => onAllowEmojiChange(checked === true)}
+            onCheckedChange={(checked) => handleChange('allow_emoji', allowEmoji, checked === true, onAllowEmojiChange)}
           />
         </div>
 
