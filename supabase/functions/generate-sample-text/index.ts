@@ -46,12 +46,21 @@ const TONE_DESCRIPTIONS: Record<string, string> = {
 };
 
 serve(async (req) => {
+  console.log("generate-sample-text: Request received");
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const body: RequestBody = await req.json();
+    console.log("generate-sample-text: Request body:", JSON.stringify({
+      brandName: body.brandName,
+      channels: body.channels,
+      toneOfVoice: body.toneOfVoice,
+      formalityLevel: body.formalityLevel,
+    }));
+    
     const { 
       brandName, 
       positioning, 

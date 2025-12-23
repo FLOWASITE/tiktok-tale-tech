@@ -26,6 +26,7 @@ import { ChannelType } from '@/utils/generateSampleText';
 interface BrandVoiceDiffPanelProps {
   snapshot: VoiceSnapshot | null;
   isGenerating?: boolean;
+  error?: string | null;
   onConfirm: () => void;
   onDiscard: () => void;
   formatValue: (value: unknown) => string;
@@ -135,6 +136,7 @@ function DiffText({ diff, variant }: { diff: DiffWord[]; variant: 'before' | 'af
 export function BrandVoiceDiffPanel({
   snapshot,
   isGenerating = false,
+  error = null,
   onConfirm,
   onDiscard,
   formatValue,
@@ -235,6 +237,14 @@ export function BrandVoiceDiffPanel({
 
       {isExpanded && (
         <CardContent className="pt-2 space-y-4">
+          {/* Error message */}
+          {error && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive flex items-center gap-2">
+              <span className="text-lg">⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+          
           {/* Attribute change summary */}
           <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-sm flex-wrap">
             <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">
