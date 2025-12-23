@@ -20,7 +20,8 @@ import {
   Check,
   Star,
   Smile,
-  Ban
+  Ban,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -114,7 +115,7 @@ export function VariantComparisonTable({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh]">
+      <DialogContent className="max-w-5xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             📊 So sánh Brand Voice Variants
@@ -356,6 +357,45 @@ export function VariantComparisonTable({
                           ))}
                           {(!variant.language_style || variant.language_style.length === 0) && diff.removed.length === 0 && (
                             <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* Sample Text Comparison */}
+                <tr className="bg-muted/30">
+                  <td className="py-4 px-4 font-medium align-top">
+                    <div className="flex items-center gap-2 text-foreground">
+                      <FileText className="w-4 h-4" />
+                      Sample Text
+                    </div>
+                  </td>
+                  <td className="py-4 px-4 align-top">
+                    <div className="bg-background rounded-md border p-3 text-xs whitespace-pre-line max-w-[250px] max-h-[150px] overflow-y-auto">
+                      {controlVariant.sample_text || (
+                        <span className="italic text-muted-foreground">Chưa có sample text</span>
+                      )}
+                    </div>
+                  </td>
+                  {otherVariants.map(variant => {
+                    const isDiff = (variant.sample_text || '') !== (controlVariant.sample_text || '');
+                    
+                    return (
+                      <td key={variant.id} className="py-4 px-4 align-top">
+                        <div className={cn(
+                          "bg-background rounded-md border p-3 text-xs whitespace-pre-line max-w-[250px] max-h-[150px] overflow-y-auto",
+                          isDiff && "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20"
+                        )}>
+                          {isDiff && (
+                            <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 mb-2 text-[10px] font-medium">
+                              <ArrowLeftRight className="w-3 h-3" />
+                              Khác biệt
+                            </div>
+                          )}
+                          {variant.sample_text || (
+                            <span className="italic text-muted-foreground">Chưa có sample text</span>
                           )}
                         </div>
                       </td>

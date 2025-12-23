@@ -8,13 +8,16 @@ import {
   LANGUAGE_STYLE_OPTIONS 
 } from '@/components/BrandVoiceSection';
 import { VariantComparisonTable } from '@/components/VariantComparisonTable';
+import { generateSampleText } from '@/utils/generateSampleText';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -54,9 +57,14 @@ import {
   GitCompare,
   ArrowLeftRight,
   HelpCircle,
-  Lightbulb
+  Lightbulb,
+  FileText,
+  ChevronDown,
+  Copy,
+  Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface BrandVoiceVariantManagerProps {
   brandTemplate: BrandTemplate;
@@ -122,9 +130,20 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
     formality_level: '',
     language_style: [] as string[],
     allow_emoji: true,
+    sample_text: '',
   });
+  
+  const [sampleTextOpen, setSampleTextOpen] = useState<string | null>(null);
 
   const resetForm = () => {
+    const defaultSampleText = generateSampleText({
+      brandName: brandTemplate.brand_name,
+      positioning: brandTemplate.brand_positioning || undefined,
+      toneOfVoice: brandTemplate.tone_of_voice,
+      formalityLevel: brandTemplate.formality_level,
+      allowEmoji: brandTemplate.allow_emoji,
+    });
+    
     setFormData({
       name: '',
       brand_positioning: brandTemplate.brand_positioning || '',
@@ -132,6 +151,7 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
       formality_level: brandTemplate.formality_level || '',
       language_style: brandTemplate.language_style || [],
       allow_emoji: brandTemplate.allow_emoji ?? true,
+      sample_text: defaultSampleText,
     });
     setEditingVariant(null);
   };
@@ -150,6 +170,12 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
       formality_level: variant.formality_level || '',
       language_style: variant.language_style || [],
       allow_emoji: variant.allow_emoji ?? true,
+      sample_text: variant.sample_text || generateSampleText({
+        brandName: brandTemplate.brand_name,
+        toneOfVoice: variant.tone_of_voice,
+        formalityLevel: variant.formality_level,
+        allowEmoji: variant.allow_emoji,
+      }),
     });
     setDialogOpen(true);
   };
@@ -167,6 +193,7 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
           formality_level: formData.formality_level || null,
           language_style: formData.language_style.length > 0 ? formData.language_style : null,
           allow_emoji: formData.allow_emoji,
+          sample_text: formData.sample_text || null,
         });
       } else {
         await createVariant({
@@ -178,6 +205,7 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
           formality_level: formData.formality_level || null,
           language_style: formData.language_style.length > 0 ? formData.language_style : null,
           allow_emoji: formData.allow_emoji,
+          sample_text: formData.sample_text || null,
           preferred_words: brandTemplate.preferred_words || null,
           forbidden_words: brandTemplate.forbidden_words || null,
           user_id: null,
@@ -218,6 +246,23 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
         ? prev.language_style.filter(s => s !== value)
         : [...prev.language_style, value]
     }));
+  };
+
+  const regenerateSampleText = () => {
+    const newSampleText = generateSampleText({
+      brandName: brandTemplate.brand_name,
+      positioning: formData.brand_positioning || undefined,
+      toneOfVoice: formData.tone_of_voice,
+      formalityLevel: formData.formality_level,
+      allowEmoji: formData.allow_emoji,
+    });
+    setFormData(prev => ({ ...prev, sample_text: newSampleText }));
+    toast.success('Đã tạo lại sample text');
+  };
+
+  const copySampleText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Đã copy sample text');
   };
 
   if (loading) {
@@ -420,6 +465,52 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
                       )}
                     </div>
 
+                    {/* Sample Text Preview */}
+                    {(variant.sample_text || controlVariant) && (
+                      <Collapsible 
+                        open={sampleTextOpen === variant.id}
+                        onOpenChange={(open) => setSampleTextOpen(open ? variant.id : null)}
+                        className="mt-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2">
+                              <FileText className="w-3 h-3" />
+                              Sample text
+                              <ChevronDown className={cn(
+                                "w-3 h-3 transition-transform",
+                                sampleTextOpen === variant.id && "rotate-180"
+                              )} />
+                            </Button>
+                          </CollapsibleTrigger>
+                          {variant.sample_text && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                  onClick={() => copySampleText(variant.sample_text!)}
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Copy sample text</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                        <CollapsibleContent className="mt-2">
+                          <div className="bg-background rounded-md border p-3 text-sm whitespace-pre-line text-muted-foreground">
+                            {variant.sample_text || (
+                              <span className="italic text-muted-foreground/60">
+                                Chưa có sample text. Nhấn Edit để thêm.
+                              </span>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+
                     {/* Stats */}
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -509,7 +600,7 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
 
         {/* Create/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingVariant ? 'Chỉnh sửa Variant' : 'Tạo Variant mới'}
@@ -611,6 +702,44 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
                 <Label htmlFor="allow-emoji" className="text-sm">
                   Cho phép sử dụng emoji
                 </Label>
+              </div>
+
+              {/* Sample Text */}
+              <div className="space-y-2 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sample-text" className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Sample Text Preview
+                  </Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        className="h-7 text-xs gap-1.5"
+                        onClick={regenerateSampleText}
+                      >
+                        <Wand2 className="w-3 h-3" />
+                        Tạo lại
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Tạo lại sample text dựa trên cài đặt hiện tại
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Textarea
+                  id="sample-text"
+                  placeholder="Nhập sample text mẫu cho variant này..."
+                  value={formData.sample_text}
+                  onChange={e => setFormData(prev => ({ ...prev, sample_text: e.target.value }))}
+                  rows={5}
+                  className="text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Sample text giúp bạn xem trước và so sánh phong cách nội dung giữa các variant.
+                </p>
               </div>
             </div>
 
