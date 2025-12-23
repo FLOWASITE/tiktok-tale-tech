@@ -14,6 +14,8 @@ interface SlidePanelProps {
   fillContent?: boolean;
   /** When true, content is centered with max-w-4xl */
   centerContent?: boolean;
+  /** When true, panel takes full screen (covers sidebar too) */
+  fullScreen?: boolean;
 }
 
 export function SlidePanel({
@@ -25,6 +27,7 @@ export function SlidePanel({
   className,
   fillContent = false,
   centerContent = false,
+  fullScreen = false,
 }: SlidePanelProps) {
   const [isVisible, setIsVisible] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
@@ -79,8 +82,9 @@ export function SlidePanel({
       {/* Overlay - starts below header, respects sidebar when fillContent */}
       <div
         className={cn(
-          "fixed inset-0 top-0 sm:top-14 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-250",
-          fillContent && "left-0 sm:left-[var(--sidebar-width,16rem)]",
+          "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-250",
+          fullScreen ? "top-0 left-0" : "top-0 sm:top-14",
+          fillContent && !fullScreen && "left-0 sm:left-[var(--sidebar-width,16rem)]",
           isAnimating ? "opacity-100" : "opacity-0"
         )}
         onClick={() => onOpenChange(false)}
@@ -89,11 +93,14 @@ export function SlidePanel({
       {/* Panel - slides in from right, below header */}
       <div
         className={cn(
-          "fixed top-0 sm:top-14 right-0 bottom-0 z-50 bg-background border-l shadow-2xl",
+          "fixed right-0 bottom-0 z-50 bg-background border-l shadow-2xl",
           "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          fillContent 
+          fullScreen 
+            ? "top-0 left-0 w-full" 
+            : "top-0 sm:top-14",
+          fillContent && !fullScreen
             ? "left-0 sm:left-[var(--sidebar-width,16rem)] w-auto" 
-            : "w-full sm:max-w-full md:max-w-2xl lg:max-w-3xl",
+            : !fullScreen && "w-full sm:max-w-full md:max-w-2xl lg:max-w-3xl",
           isAnimating 
             ? "translate-x-0 opacity-100" 
             : "translate-x-full opacity-0",
