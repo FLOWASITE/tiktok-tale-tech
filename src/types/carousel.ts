@@ -28,6 +28,8 @@ export interface Carousel {
   cta_suggestion: string | null;
   status: CarouselStatus;
   user_id: string | null;
+  industry_template_id?: string | null;
+  industry_template_version?: string | null;
   created_at: string;
   updated_at: string;
 }

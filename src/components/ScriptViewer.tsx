@@ -13,6 +13,8 @@ import { PromptCard } from '@/components/PromptCard';
 import { StatusSelector } from '@/components/StatusSelector';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
+import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
+import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 
 interface ScriptViewerProps {
   script: Script | null;
@@ -30,6 +32,9 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([script?.user_id]);
   const creatorProfile = script?.user_id ? profiles[script.user_id] : undefined;
+
+  // Fetch Industry Memory
+  const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(script?.industry_template_id);
 
   useEffect(() => {
     if (script) {
@@ -201,6 +206,13 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
           <span className="mx-1">•</span>
           <span>{new Date(script.created_at).toLocaleDateString('vi-VN')}</span>
         </div>
+
+        {/* Industry Guardrail Badge */}
+        <IndustryGuardrailBadge 
+          industryMemory={industryMemory} 
+          isLoading={isLoadingIndustry}
+          className="mt-2"
+        />
 
         {/* Action buttons */}
         <div className="flex gap-1.5 xs:gap-2 flex-wrap mt-2 xs:mt-0">

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 // Note: Some columns may not be in generated types yet after recent migrations
 
 export interface IndustryMemory {
@@ -186,33 +187,110 @@ export function useIndustryMemory() {
 
   /**
    * Validate Brand against Industry constraints
-   * Returns list of conflicts
+   * Returns list of conflicts with details
    */
   const validateBrandAgainstIndustry = useCallback((
     industryMemory: IndustryMemory,
     brandPreferredWords: string[]
-  ): string[] => {
-    const conflicts: string[] = [];
+  ): { term: string; reason?: string }[] => {
+    const conflicts: { term: string; reason?: string }[] = [];
     
     // Check if brand preferred_words contains industry forbidden_terms
     const forbiddenTerms = industryMemory.forbidden_terms;
     
-    const violatingWords = brandPreferredWords.filter(word => 
-      forbiddenTerms.some(term => 
+    brandPreferredWords.forEach(word => {
+      const matchedTerm = forbiddenTerms.find(term => 
         word.toLowerCase().includes(term.toLowerCase())
-      )
-    );
-    
-    if (violatingWords.length > 0) {
-      conflicts.push(`Từ ưa thích của Brand chứa từ cấm ngành: ${violatingWords.join(', ')}`);
-    }
+      );
+      
+      if (matchedTerm) {
+        conflicts.push({
+          term: word,
+          reason: `Vi phạm từ cấm ngành "${matchedTerm}" theo quy định ${industryMemory.name}`,
+        });
+      }
+    });
     
     return conflicts;
+  }, []);
+
+  /**
+   * Detect Industry violations in generated content
+   * Returns list of violated terms found in content
+   */
+  const detectContentViolations = useCallback((
+    content: string,
+    industryMemory: IndustryMemory
+  ): { term: string; context: string }[] => {
+    const violations: { term: string; context: string }[] = [];
+    
+    industryMemory.forbidden_terms.forEach(term => {
+      const regex = new RegExp(term, 'gi');
+      if (regex.test(content)) {
+        // Extract context (surrounding text)
+        const match = content.match(new RegExp(`.{0,30}${term}.{0,30}`, 'gi'));
+        violations.push({
+          term,
+          context: match?.[0] || term,
+        });
+      }
+    });
+    
+    return violations;
   }, []);
 
   return {
     fetchIndustryMemory,
     mergeWithBrandVoice,
     validateBrandAgainstIndustry,
+    detectContentViolations,
   };
+}
+
+/**
+ * Hook to fetch IndustryMemory for a given brand template ID
+ * Uses React Query for caching
+ */
+export function useIndustryMemoryForBrand(brandTemplateId?: string | null) {
+  const { fetchIndustryMemory } = useIndustryMemory();
+
+  return useQuery({
+    queryKey: ['industryMemory', 'brand', brandTemplateId],
+    queryFn: async () => {
+      if (!brandTemplateId) return null;
+
+      // First, get the industry_template_id from brand_templates
+      const { data: brandData, error: brandError } = await supabase
+        .from('brand_templates')
+        .select('industry_template_id')
+        .eq('id', brandTemplateId)
+        .single();
+
+      if (brandError || !brandData?.industry_template_id) {
+        return null;
+      }
+
+      return fetchIndustryMemory(brandData.industry_template_id);
+    },
+    enabled: !!brandTemplateId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to fetch IndustryMemory directly from industry_template_id
+ * Used by Carousel, Script viewers that store industry_template_id directly
+ */
+export function useIndustryMemoryById(industryTemplateId?: string | null) {
+  const { fetchIndustryMemory } = useIndustryMemory();
+
+  return useQuery({
+    queryKey: ['industryMemory', 'direct', industryTemplateId],
+    queryFn: async () => {
+      if (!industryTemplateId) return null;
+      return fetchIndustryMemory(industryTemplateId);
+    },
+    enabled: !!industryTemplateId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 }
