@@ -102,12 +102,14 @@ export type Database = {
           brand_positioning: string | null
           channel_overrides: Json | null
           compliance_rules: string[] | null
+          country_code: string | null
           created_at: string
           forbidden_words: string[] | null
           formality_level: string | null
           id: string
           include_logo: boolean
           industry: string[] | null
+          industry_template_id: string | null
           is_default: boolean
           language_style: string[] | null
           logo_url: string | null
@@ -126,12 +128,14 @@ export type Database = {
           brand_positioning?: string | null
           channel_overrides?: Json | null
           compliance_rules?: string[] | null
+          country_code?: string | null
           created_at?: string
           forbidden_words?: string[] | null
           formality_level?: string | null
           id?: string
           include_logo?: boolean
           industry?: string[] | null
+          industry_template_id?: string | null
           is_default?: boolean
           language_style?: string[] | null
           logo_url?: string | null
@@ -150,12 +154,14 @@ export type Database = {
           brand_positioning?: string | null
           channel_overrides?: Json | null
           compliance_rules?: string[] | null
+          country_code?: string | null
           created_at?: string
           forbidden_words?: string[] | null
           formality_level?: string | null
           id?: string
           include_logo?: boolean
           industry?: string[] | null
+          industry_template_id?: string | null
           is_default?: boolean
           language_style?: string[] | null
           logo_url?: string | null
@@ -168,6 +174,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "brand_templates_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "brand_templates_organization_id_fkey"
             columns: ["organization_id"]
@@ -470,6 +483,226 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      countries: {
+        Row: {
+          code: string
+          created_at: string
+          default_language: string
+          flag_emoji: string | null
+          id: string
+          is_active: boolean
+          name: string
+          native_name: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          default_language?: string
+          flag_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          native_name?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          default_language?: string
+          flag_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          native_name?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      industry_categories: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          icon_name: string
+          id: string
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          icon_name: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      industry_category_translations: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          language_code: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_category_translations_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "industry_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_template_translations: {
+        Row: {
+          brand_positioning: string | null
+          created_at: string
+          forbidden_words: string[] | null
+          id: string
+          industry_template_id: string
+          language_code: string
+          name: string
+          preferred_words: string[] | null
+          short_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_positioning?: string | null
+          created_at?: string
+          forbidden_words?: string[] | null
+          id?: string
+          industry_template_id: string
+          language_code: string
+          name: string
+          preferred_words?: string[] | null
+          short_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_positioning?: string | null
+          created_at?: string
+          forbidden_words?: string[] | null
+          id?: string
+          industry_template_id?: string
+          language_code?: string
+          name?: string
+          preferred_words?: string[] | null
+          short_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_template_translations_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_templates: {
+        Row: {
+          brand_voice: Json
+          category_id: string | null
+          channel_settings: Json | null
+          code: string
+          country_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          target_audience: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_voice?: Json
+          category_id?: string | null
+          channel_settings?: Json | null
+          code: string
+          country_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          target_audience?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_voice?: Json
+          category_id?: string | null
+          channel_settings?: Json | null
+          code?: string
+          country_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          target_audience?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_templates_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "industry_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_templates_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "countries"
             referencedColumns: ["id"]
           },
         ]
