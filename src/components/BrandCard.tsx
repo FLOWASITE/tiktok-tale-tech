@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
+import { BrandUsageStats } from '@/hooks/useBrandAnalytics';
 import { 
   BRAND_POSITIONING_OPTIONS, 
   TONE_OF_VOICE_OPTIONS, 
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign, FileText, ExternalLink } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,6 +86,7 @@ interface BrandCardProps {
   selectable?: boolean;
   selected?: boolean;
   onSelectChange?: (id: string, checked: boolean) => void;
+  usageStats?: BrandUsageStats | null;
 }
 
 export function BrandCard({ 
@@ -98,6 +100,7 @@ export function BrandCard({
   selectable = false,
   selected = false,
   onSelectChange,
+  usageStats,
 }: BrandCardProps) {
   const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
   
@@ -425,42 +428,16 @@ export function BrandCard({
               </div>
             )}
             
-            {/* Channel Overrides Badge */}
-            {channelOverridesInfo.count > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Badge 
-                    variant="outline" 
-                    className="cursor-pointer text-xs border-primary/50 hover:bg-primary/10 transition-colors"
-                  >
-                    <Settings2 className="w-3 h-3 mr-1" />
-                    {channelOverridesInfo.count} kênh tuỳ chỉnh
-                  </Badge>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-3" align="start">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Channel Settings Override</p>
-                    <p className="text-xs text-muted-foreground">
-                      Các kênh sau có cấu hình riêng thay vì mặc định:
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {channelOverridesInfo.channels.map((channel) => (
-                        <Badge 
-                          key={channel} 
-                          variant="secondary" 
-                          className="text-xs gap-1"
-                        >
-                          {channelIcons[channel]}
-                          {channelLabels[channel]}
-                        </Badge>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground pt-2 border-t border-border/50">
-                      Nhấn "Sửa" để xem chi tiết các tuỳ chỉnh
-                    </p>
-                  </div>
-                </PopoverContent>
-              </Popover>
+            {/* Brand Analytics - Usage Stats */}
+            {usageStats && usageStats.multiChannelCount > 0 && (
+              <Link 
+                to={`/multichannel?brand=${template.id}`}
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors group/link"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>{usageStats.multiChannelCount} nội dung sử dụng</span>
+                <ExternalLink className="w-3 h-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+              </Link>
             )}
 
             <div className="flex items-center gap-2">
