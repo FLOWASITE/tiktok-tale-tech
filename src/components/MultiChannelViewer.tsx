@@ -41,6 +41,8 @@ import { ApprovalHistory } from '@/components/ApprovalHistory';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
 import { AssignedApproverInfo } from '@/components/AssignedApproverInfo';
+import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
+import { useIndustryMemoryForBrand } from '@/hooks/useIndustryMemory';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -305,6 +307,9 @@ export function MultiChannelViewer({
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([content?.user_id]);
   const creatorProfile = content?.user_id ? profiles[content.user_id] : undefined;
+
+  // Fetch Industry Memory for brand template
+  const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryForBrand(content?.brand_template_id);
 
   if (!content) return null;
 
@@ -588,6 +593,12 @@ export function MultiChannelViewer({
                     <span className="mx-1">•</span>
                     <span>{new Date(content.created_at).toLocaleDateString('vi-VN')}</span>
                   </div>
+                  {/* Industry Guardrail Badge */}
+                  <IndustryGuardrailBadge 
+                    industryMemory={industryMemory} 
+                    isLoading={isLoadingIndustry}
+                    className="mt-2"
+                  />
                   {/* Assigned Approver Info */}
                   <div className="hidden xs:block mt-2">
                     <AssignedApproverInfo creatorId={content.user_id} compact />

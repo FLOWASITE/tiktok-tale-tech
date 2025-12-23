@@ -22,6 +22,8 @@ import { StatusSelector, ContentStatus } from '@/components/StatusSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
+import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
+import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
@@ -122,6 +124,9 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([carousel?.user_id]);
   const creatorProfile = carousel?.user_id ? profiles[carousel.user_id] : undefined;
+
+  // Fetch Industry Memory
+  const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
 
   if (!carousel) return null;
 
@@ -261,6 +266,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                 <span className="mx-1">•</span>
                 <span>{new Date(carousel.created_at).toLocaleDateString('vi-VN')}</span>
               </div>
+              {/* Industry Guardrail Badge */}
+              <IndustryGuardrailBadge 
+                industryMemory={industryMemory} 
+                isLoading={isLoadingIndustry}
+                className="mt-2"
+              />
             </div>
             <div className="flex gap-1.5 xs:gap-2 shrink-0">
               <Button
