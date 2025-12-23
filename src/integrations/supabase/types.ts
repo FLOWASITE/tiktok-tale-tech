@@ -55,6 +55,7 @@ export type Database = {
           content_id: string
           created_at: string
           id: string
+          industry_memory_snapshot: Json | null
           notes: string | null
           organization_id: string | null
           performed_by: string
@@ -64,6 +65,7 @@ export type Database = {
           content_id: string
           created_at?: string
           id?: string
+          industry_memory_snapshot?: Json | null
           notes?: string | null
           organization_id?: string | null
           performed_by: string
@@ -73,6 +75,7 @@ export type Database = {
           content_id?: string
           created_at?: string
           id?: string
+          industry_memory_snapshot?: Json | null
           notes?: string | null
           organization_id?: string | null
           performed_by?: string
@@ -606,6 +609,53 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "industry_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_memory_versions: {
+        Row: {
+          brand_voice: Json | null
+          change_notes: string | null
+          changed_by: string | null
+          claim_restrictions: Json | null
+          compliance_rules: Json | null
+          created_at: string | null
+          forbidden_terms: string[] | null
+          id: string
+          industry_template_id: string
+          version: string
+        }
+        Insert: {
+          brand_voice?: Json | null
+          change_notes?: string | null
+          changed_by?: string | null
+          claim_restrictions?: Json | null
+          compliance_rules?: Json | null
+          created_at?: string | null
+          forbidden_terms?: string[] | null
+          id?: string
+          industry_template_id: string
+          version: string
+        }
+        Update: {
+          brand_voice?: Json | null
+          change_notes?: string | null
+          changed_by?: string | null
+          claim_restrictions?: Json | null
+          compliance_rules?: Json | null
+          created_at?: string | null
+          forbidden_terms?: string[] | null
+          id?: string
+          industry_template_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_memory_versions_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
             referencedColumns: ["id"]
           },
         ]

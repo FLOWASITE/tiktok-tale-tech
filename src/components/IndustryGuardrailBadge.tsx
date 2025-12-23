@@ -1,5 +1,6 @@
-import { ShieldCheck, Info, Lock, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Info, Lock, AlertTriangle, AlertCircle, ArrowUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -13,6 +14,12 @@ interface IndustryGuardrailBadgeProps {
   isLoading?: boolean;
   countryName?: string;
   className?: string;
+  /** Content's industry template version for comparison */
+  contentVersion?: string;
+  /** Show upgrade warning if versions differ */
+  showVersionWarning?: boolean;
+  /** Callback when upgrade is requested */
+  onUpgrade?: () => void;
 }
 
 /**
@@ -24,6 +31,9 @@ export function IndustryGuardrailBadge({
   isLoading = false,
   countryName = 'Việt Nam',
   className,
+  contentVersion,
+  showVersionWarning = true,
+  onUpgrade,
 }: IndustryGuardrailBadgeProps) {
   if (isLoading) {
     return (
@@ -42,9 +52,12 @@ export function IndustryGuardrailBadge({
   const forbiddenCount = industryMemory.forbidden_terms?.length || 0;
   const claimCount = industryMemory.claim_restrictions?.length || 0;
 
+  // Check if content version is outdated
+  const isOutdated = contentVersion && contentVersion !== industryMemory.version;
+
   return (
     <TooltipProvider>
-      <div className={`flex items-center gap-2 ${className}`}>
+      <div className={`flex items-center gap-2 flex-wrap ${className}`}>
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 cursor-help">
@@ -54,7 +67,7 @@ export function IndustryGuardrailBadge({
                 variant="secondary" 
                 className="text-[10px] px-1.5 py-0.5 h-auto bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
               >
-                {industryMemory.name} – {countryName} (v{industryMemory.version})
+                {industryMemory.name} – {countryName} (v{contentVersion || industryMemory.version})
               </Badge>
             </div>
           </TooltipTrigger>
@@ -90,6 +103,41 @@ export function IndustryGuardrailBadge({
             </div>
           </TooltipContent>
         </Tooltip>
+
+        {/* Version outdated warning */}
+        {showVersionWarning && isOutdated && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5">
+                <Badge 
+                  variant="outline" 
+                  className="text-[10px] px-1.5 py-0.5 text-amber-600 border-amber-500/30 bg-amber-500/10"
+                >
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  v{industryMemory.version} available
+                </Badge>
+                {onUpgrade && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onUpgrade}
+                    className="h-5 text-[10px] px-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-500/10"
+                  >
+                    <ArrowUp className="w-3 h-3 mr-0.5" />
+                    Upgrade
+                  </Button>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">
+                Phiên bản mới v{industryMemory.version} đã có sẵn. 
+                <br />
+                Edit content để áp dụng quy tắc mới.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </TooltipProvider>
   );

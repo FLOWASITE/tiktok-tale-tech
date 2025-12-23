@@ -1,8 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { Json } from '@/integrations/supabase/types';
 
 export type ApprovalAction = 'submitted' | 'approved' | 'rejected';
+
+export interface IndustryMemorySnapshot {
+  industry_template_id: string;
+  industry_name: string;
+  version: string;
+  compliance_passed: boolean;
+  checklist: {
+    id: string;
+    type: 'compliance' | 'forbidden' | 'claim';
+    text: string;
+    passed: boolean;
+  }[];
+  reviewer_confirmed: boolean;
+  rejected_rules: string[];
+}
 
 export interface ApprovalLog {
   id: string;
@@ -12,10 +28,37 @@ export interface ApprovalLog {
   performed_by: string;
   notes: string | null;
   created_at: string;
+  industry_memory_snapshot: IndustryMemorySnapshot | null;
   performer?: {
     full_name: string | null;
     email: string;
     avatar_url: string | null;
+  };
+}
+
+// Helper to parse industry memory snapshot from JSONB
+function parseIndustrySnapshot(snapshot: Json | null): IndustryMemorySnapshot | null {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return null;
+  
+  const s = snapshot as Record<string, unknown>;
+  if (!s.industry_template_id || !s.industry_name || !s.version) return null;
+  
+  return {
+    industry_template_id: String(s.industry_template_id),
+    industry_name: String(s.industry_name),
+    version: String(s.version),
+    compliance_passed: Boolean(s.compliance_passed),
+    checklist: Array.isArray(s.checklist) ? s.checklist.map(item => {
+      const i = item as Record<string, unknown>;
+      return {
+        id: String(i.id || ''),
+        type: (i.type as 'compliance' | 'forbidden' | 'claim') || 'compliance',
+        text: String(i.text || ''),
+        passed: Boolean(i.passed),
+      };
+    }) : [],
+    reviewer_confirmed: Boolean(s.reviewer_confirmed),
+    rejected_rules: Array.isArray(s.rejected_rules) ? s.rejected_rules.map(String) : [],
   };
 }
 
@@ -66,6 +109,7 @@ export function useApprovalLogs(contentId?: string) {
       const logsWithPerformers: ApprovalLog[] = (data || []).map(log => ({
         ...log,
         action: log.action as ApprovalAction,
+        industry_memory_snapshot: parseIndustrySnapshot(log.industry_memory_snapshot),
         performer: profilesMap[log.performed_by],
       }));
 
@@ -81,7 +125,8 @@ export function useApprovalLogs(contentId?: string) {
     contentId: string,
     action: ApprovalAction,
     performedBy: string,
-    notes?: string
+    notes?: string,
+    industryMemorySnapshot?: IndustryMemorySnapshot
   ): Promise<boolean> => {
     if (!currentOrganization) return false;
 
@@ -94,6 +139,9 @@ export function useApprovalLogs(contentId?: string) {
           action,
           performed_by: performedBy,
           notes: notes || null,
+          industry_memory_snapshot: industryMemorySnapshot 
+            ? (industryMemorySnapshot as unknown as Json) 
+            : null,
         });
 
       if (error) throw error;
