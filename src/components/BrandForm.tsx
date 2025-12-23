@@ -7,16 +7,15 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepVisual } from '@/components/BrandFormStepVisual';
-import { BrandVoiceSection, BrandVoiceChangeEvent } from '@/components/BrandVoiceSection';
-import { SamplePreviewFullscreenSheet } from '@/components/SamplePreviewFullscreenSheet';
+import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
-import { BrandVoiceDiffPanel } from '@/components/BrandVoiceDiffPanel';
-import { useBrandVoiceSnapshot, BrandVoiceAttribute } from '@/hooks/useBrandVoiceSnapshot';
+import { SavedSamplesManager } from '@/components/SavedSamplesManager';
+import { VariantSampleComparison } from '@/components/VariantSampleComparison';
+import { useBrandVoiceVariants, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
 import { IndustryTemplate } from '@/hooks/useIndustryTemplates';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
-import { generateAllChannelSamples } from '@/utils/generateSampleText';
 import { ChevronLeft, ChevronRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,18 +66,18 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [guidelineExampleBad, setGuidelineExampleBad] = useState('');
   const [guidelineKeyPrinciples, setGuidelineKeyPrinciples] = useState<string[]>([]);
   const [showPreview, setShowPreview] = useState(true);
-  const [isRegeneratingSamples, setIsRegeneratingSamples] = useState(false);
+  const [isGeneratingSamples, setIsGeneratingSamples] = useState(false);
+  const [showCompareDialog, setShowCompareDialog] = useState(false);
+  const [compareVariants, setCompareVariants] = useState<any[]>([]);
 
-  // Snapshot hook for tracking Brand Voice changes
+  // Brand voice variants hook (for saved samples)
   const {
-    pendingSnapshot,
-    hasPendingChange,
-    takeSnapshot,
-    updatePendingWithNewSamples,
-    confirmChange,
-    discardChange,
-    formatValue,
-  } = useBrandVoiceSnapshot();
+    variants,
+    loading: variantsLoading,
+    createVariant,
+    deleteVariant,
+    refetch: refetchVariants,
+  } = useBrandVoiceVariants(template?.id);
 
   useEffect(() => {
     if (template) {
@@ -166,62 +165,30 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     toast.success('Đã liên kết Industry Memory!');
   };
 
-  // Handle Brand Voice change with snapshot
-  const handleBrandVoiceChange = useCallback(async (event: BrandVoiceChangeEvent) => {
-    console.log('[BrandForm] handleBrandVoiceChange triggered:', {
-      attribute: event.attribute,
-      previousValue: event.previousValue,
-      newValue: event.newValue,
-    });
+  // Manual sample generation
+  const handleGenerateSample = useCallback(async () => {
+    if (!brandName.trim()) {
+      toast.error('Vui lòng nhập tên thương hiệu trước');
+      return;
+    }
 
-    // Get current samples for before state
-    const currentSamples = sampleTexts || generateAllChannelSamples({
-      brandName,
-      positioning: brandPositioning,
-      toneOfVoice,
-      formalityLevel,
-      allowEmoji,
-    });
-
-    // Take snapshot of current state
-    takeSnapshot(
-      event.attribute,
-      event.previousValue,
-      event.newValue,
-      currentSamples
-    );
-
-    // Get updated voice values for regeneration
-    const getUpdatedValue = <T,>(attr: BrandVoiceAttribute, current: T): T => {
-      if (event.attribute === attr) return event.newValue as T;
-      return current;
-    };
-
-    // Regenerate samples with new values
-    setIsRegeneratingSamples(true);
+    setIsGeneratingSamples(true);
     
     try {
-      console.log('[BrandForm] Calling generate-sample-text edge function...');
-      
       const { data, error } = await supabase.functions.invoke('generate-sample-text', {
         body: {
           brandName,
-          positioning: getUpdatedValue('brand_positioning', brandPositioning),
-          toneOfVoice: getUpdatedValue('tone_of_voice', toneOfVoice),
-          formalityLevel: getUpdatedValue('formality_level', formalityLevel),
-          allowEmoji: getUpdatedValue('allow_emoji', allowEmoji),
-          preferredWords: getUpdatedValue('preferred_words', preferredWords),
-          forbiddenWords: getUpdatedValue('forbidden_words', forbiddenWords),
+          positioning: brandPositioning,
+          toneOfVoice,
+          formalityLevel,
+          allowEmoji,
+          preferredWords,
+          forbiddenWords,
           channels: ['facebook', 'linkedin', 'instagram', 'tiktok', 'email'],
         },
       });
 
-      console.log('[BrandForm] Edge function response:', { data, error });
-
-      if (error) {
-        console.error('[BrandForm] Edge function error:', error);
-        throw new Error(error.message || 'Failed to generate samples');
-      }
+      if (error) throw error;
 
       if (data?.samples) {
         const normalizedSamples: Record<string, string> = {};
@@ -239,88 +206,64 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             normalizedSamples[key] = String(value || '');
           }
         }
-        console.log('[BrandForm] Updating pending snapshot with new samples');
-        updatePendingWithNewSamples(normalizedSamples);
-        toast.success('Đã tạo nội dung mẫu mới!');
-      } else {
-        throw new Error('No samples returned from AI');
+        setSampleTexts(normalizedSamples);
+        toast.success('Đã tạo nội dung mẫu!');
       }
     } catch (err) {
-      console.error('[BrandForm] Failed to regenerate samples:', err);
-      toast.error('Không thể tạo nội dung mẫu từ AI. Đang dùng mẫu cục bộ...');
-      
-      // Use local template samples as fallback
-      const templateSamples = generateAllChannelSamples({
-        brandName,
-        positioning: getUpdatedValue('brand_positioning', brandPositioning),
-        toneOfVoice: getUpdatedValue('tone_of_voice', toneOfVoice),
-        formalityLevel: getUpdatedValue('formality_level', formalityLevel),
-        allowEmoji: getUpdatedValue('allow_emoji', allowEmoji),
-      });
-      updatePendingWithNewSamples(templateSamples);
+      console.error('Failed to generate samples:', err);
+      toast.error('Không thể tạo nội dung mẫu');
     } finally {
-      setIsRegeneratingSamples(false);
+      setIsGeneratingSamples(false);
+    }
+  }, [brandName, brandPositioning, toneOfVoice, formalityLevel, allowEmoji, preferredWords, forbiddenWords]);
+
+  // Save current sample as a variant
+  const handleSaveSample = useCallback(async () => {
+    if (!sampleTexts || !template?.id) {
+      toast.error('Vui lòng tạo mẫu và lưu Brand Template trước');
+      return;
+    }
+
+    const variantName = `Mẫu ${variants.length + 1}`;
+    
+    const result = await createVariant({
+      name: variantName,
+      brand_template_id: template.id,
+      is_control: variants.length === 0, // First one is control
+      brand_positioning: brandPositioning || null,
+      tone_of_voice: toneOfVoice.length > 0 ? toneOfVoice : null,
+      formality_level: formalityLevel || null,
+      language_style: languageStyle.length > 0 ? languageStyle : null,
+      preferred_words: preferredWords.length > 0 ? preferredWords : null,
+      forbidden_words: forbiddenWords.length > 0 ? forbiddenWords : null,
+      allow_emoji: allowEmoji,
+      sample_texts: sampleTexts as ChannelSampleTexts,
+    });
+
+    if (result) {
+      setSampleTexts(null); // Clear current sample after saving
+      refetchVariants();
     }
   }, [
-    brandName,
+    sampleTexts,
+    template?.id,
+    variants.length,
     brandPositioning,
     toneOfVoice,
     formalityLevel,
-    allowEmoji,
+    languageStyle,
     preferredWords,
     forbiddenWords,
-    sampleTexts,
-    takeSnapshot,
-    updatePendingWithNewSamples,
+    allowEmoji,
+    createVariant,
+    refetchVariants,
   ]);
 
-  // Handle confirm change
-  const handleConfirmChange = useCallback(() => {
-    if (pendingSnapshot?.newSamples) {
-      setSampleTexts(pendingSnapshot.newSamples);
-    }
-    confirmChange();
-    toast.success('Đã lưu thay đổi!');
-  }, [pendingSnapshot, confirmChange]);
-
-  // Handle discard change (undo)
-  const handleDiscardChange = useCallback(() => {
-    const snapshot = discardChange();
-    if (snapshot) {
-      // Revert the attribute value
-      switch (snapshot.changedAttribute) {
-        case 'brand_positioning':
-          setBrandPositioning(snapshot.previousValue as string);
-          break;
-        case 'tone_of_voice':
-          setToneOfVoice(snapshot.previousValue as string[]);
-          break;
-        case 'formality_level':
-          setFormalityLevel(snapshot.previousValue as string);
-          break;
-        case 'language_style':
-          setLanguageStyle(snapshot.previousValue as string[]);
-          break;
-        case 'allow_emoji':
-          setAllowEmoji(snapshot.previousValue as boolean);
-          break;
-        case 'preferred_words':
-          setPreferredWords(snapshot.previousValue as string[]);
-          break;
-        case 'forbidden_words':
-          setForbiddenWords(snapshot.previousValue as string[]);
-          break;
-        case 'compliance_rules':
-          setComplianceRules(snapshot.previousValue as string[]);
-          break;
-      }
-      // Revert samples
-      if (snapshot.previousSamples) {
-        setSampleTexts(snapshot.previousSamples);
-      }
-      toast.info('Đã hoàn tác thay đổi');
-    }
-  }, [discardChange]);
+  // Open compare dialog
+  const handleCompareVariants = useCallback((variantsToCompare: any[]) => {
+    setCompareVariants(variantsToCompare);
+    setShowCompareDialog(true);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -506,35 +449,30 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 onAllowEmojiChange={setAllowEmoji}
                 complianceRules={complianceRules}
                 onComplianceRulesChange={setComplianceRules}
-                onBeforeChange={handleBrandVoiceChange}
               />
               
-              {/* Diff Panel for comparing changes */}
-              {hasPendingChange && (
-                <BrandVoiceDiffPanel
-                  snapshot={pendingSnapshot}
-                  isGenerating={isRegeneratingSamples}
-                  onConfirm={handleConfirmChange}
-                  onDiscard={handleDiscardChange}
-                  formatValue={formatValue}
-                />
-              )}
-              
-              <SamplePreviewFullscreenSheet
+              {/* Sample generation and management */}
+              <SavedSamplesManager
+                variants={variants}
                 brandName={brandName}
-                positioning={brandPositioning}
-                toneOfVoice={toneOfVoice}
-                formalityLevel={formalityLevel}
-                languageStyle={languageStyle}
-                allowEmoji={allowEmoji}
-                preferredWords={preferredWords}
-                forbiddenWords={forbiddenWords}
-                savedSampleTexts={sampleTexts}
-                onSampleTextsChange={setSampleTexts}
-                logoUrl={logoPreview || template?.logo_url}
-                primaryColor={primaryColor}
+                currentSampleTexts={sampleTexts}
+                isGenerating={isGeneratingSamples}
+                onGenerateSample={handleGenerateSample}
+                onSaveSample={handleSaveSample}
+                onDeleteVariant={deleteVariant}
+                onCompareVariants={handleCompareVariants}
               />
             </div>
+          )}
+
+          {/* Compare Dialog */}
+          {showCompareDialog && compareVariants.length >= 2 && (
+            <VariantSampleComparison
+              open={showCompareDialog}
+              onOpenChange={setShowCompareDialog}
+              brandName={brandName}
+              variants={compareVariants}
+            />
           )}
 
           {/* Step 4: Channel Settings */}
