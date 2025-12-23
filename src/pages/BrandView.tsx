@@ -298,8 +298,8 @@ export default function BrandView() {
     scope: BrandScope,
     logoFile?: File | null,
     shouldDeleteLogo?: boolean
-  ) => {
-    if (!template) return;
+  ): Promise<BrandTemplate | null> => {
+    if (!template) return null;
     
     setSaving(true);
     try {
@@ -322,7 +322,7 @@ export default function BrandView() {
       // Avoid "phantom saves" when user didn't change anything
       if (!logoFile && !shouldDeleteLogo && !isBrandTemplateChanged(template, templateData)) {
         setEditDialogOpen(false);
-        return;
+        return null;
       }
       
       await updateTemplate(template.id, templateData);
@@ -330,6 +330,7 @@ export default function BrandView() {
       toast.success('Đã cập nhật brand template');
       // Auto refresh data after successful edit
       await refetch();
+      return null; // This is an edit, not a create
     } finally {
       setSaving(false);
     }

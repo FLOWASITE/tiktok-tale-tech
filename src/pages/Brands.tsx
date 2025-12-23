@@ -79,7 +79,7 @@ export default function Brands() {
     scope: BrandScope,
     logoFile?: File | null,
     shouldDeleteLogo?: boolean
-  ) => {
+  ): Promise<BrandTemplate | null> => {
     setSaving(true);
     try {
       let logoUrl = data.logo_url;
@@ -103,14 +103,18 @@ export default function Brands() {
         if (!logoFile && !shouldDeleteLogo && !isBrandTemplateChanged(editingTemplate, templateData)) {
           setDialogOpen(false);
           setEditingTemplate(null);
-          return;
+          return null;
         }
         await updateTemplate(editingTemplate.id, templateData);
+        setDialogOpen(false);
+        setEditingTemplate(null);
+        return null;
       } else {
-        await saveTemplate(templateData, scope);
+        const newTemplate = await saveTemplate(templateData, scope);
+        setDialogOpen(false);
+        setEditingTemplate(null);
+        return newTemplate;
       }
-      setDialogOpen(false);
-      setEditingTemplate(null);
     } finally {
       setSaving(false);
     }
