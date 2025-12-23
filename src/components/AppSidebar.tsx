@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2, User, Globe, Flag, FolderTree, BarChart3 } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2, User, Globe, Flag, FolderTree, BarChart3, GitBranch } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -196,6 +196,18 @@ export function AppSidebar() {
                       >
                         <Layers className="w-4 h-4 flex-shrink-0" />
                         <span className={isCollapsed ? 'sr-only' : ''}>Categories</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Version History">
+                      <NavLink
+                        to="/admin/versions"
+                        className="flex items-center gap-3 text-primary/80 hover:text-primary transition-colors"
+                        activeClassName="bg-primary/10 text-primary font-medium"
+                      >
+                        <GitBranch className="w-4 h-4 flex-shrink-0" />
+                        <span className={isCollapsed ? 'sr-only' : ''}>Version History</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
