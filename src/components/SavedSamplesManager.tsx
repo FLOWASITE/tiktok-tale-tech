@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import {
   Save,
   Loader2,
   Plus,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -42,7 +44,7 @@ interface SavedSamplesManagerProps {
   currentSampleTexts: Record<string, string> | null;
   isGenerating: boolean;
   onGenerateSample: () => void;
-  onSaveSample: () => Promise<void>;
+  onSaveSample: (name: string) => Promise<void>;
   onDeleteVariant: (id: string) => Promise<boolean>;
   onCompareVariants?: (variants: BrandVoiceVariant[]) => void;
 }
@@ -89,12 +91,17 @@ export function SavedSamplesManager({
   const [isSaving, setIsSaving] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
   const [activePreviewChannel, setActivePreviewChannel] = useState<ChannelType>('facebook');
+  const [sampleName, setSampleName] = useState('');
+  const [showNameInput, setShowNameInput] = useState(false);
 
   // Handle save
   const handleSave = async () => {
+    if (!sampleName.trim()) return;
     setIsSaving(true);
     try {
-      await onSaveSample();
+      await onSaveSample(sampleName.trim());
+      setSampleName('');
+      setShowNameInput(false);
     } finally {
       setIsSaving(false);
     }
@@ -215,25 +222,68 @@ export function SavedSamplesManager({
                 )}
               </Button>
               
-              {hasCurrentSample && (
+              {hasCurrentSample && !showNameInput && (
                 <Button
-                  onClick={handleSave}
+                  onClick={() => setShowNameInput(true)}
                   disabled={isSaving || isGenerating}
                   size="sm"
                   className="gap-1.5"
                 >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang lưu...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      Lưu mẫu
-                    </>
-                  )}
+                  <Save className="w-4 h-4" />
+                  Lưu mẫu
                 </Button>
+              )}
+              
+              {hasCurrentSample && showNameInput && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={sampleName}
+                      onChange={(e) => setSampleName(e.target.value)}
+                      placeholder="Nhập tên mẫu..."
+                      className="h-8 w-[160px] text-sm"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && sampleName.trim()) {
+                          handleSave();
+                        } else if (e.key === 'Escape') {
+                          setShowNameInput(false);
+                          setSampleName('');
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Button
+                      onClick={handleSave}
+                      disabled={isSaving || !sampleName.trim()}
+                      size="sm"
+                      className="gap-1.5 flex-1"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Đang lưu...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Lưu
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowNameInput(false);
+                        setSampleName('');
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Hủy
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
