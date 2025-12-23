@@ -172,6 +172,7 @@ const App = () => (
                     </AppLayout>
                   </ProtectedRoute>
                 }
+              />
               <Route
                 path="/organization"
                 element={
