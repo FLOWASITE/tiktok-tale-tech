@@ -70,16 +70,19 @@ export function useIndustryMemory() {
     languageCode: string = 'vi'
   ): Promise<IndustryMemory | null> => {
     try {
-      // Note: version, compliance_rules, claim_restrictions, forbidden_terms 
-      // are new columns that may not be in generated types yet
+      // Fetch from industry_templates with new columns
       const { data, error } = await supabase
         .from('industry_templates')
         .select(`
           id,
           code,
+          version,
           target_audience,
           brand_voice,
           channel_settings,
+          compliance_rules,
+          claim_restrictions,
+          forbidden_terms,
           industry_template_translations!inner (
             name,
             brand_positioning,
@@ -96,35 +99,48 @@ export function useIndustryMemory() {
         return null;
       }
 
-      // Cast to access new columns not in types yet
+      // Cast to access all columns
       const rawData = data as unknown as {
         id: string;
         code: string;
+        version: string;
         target_audience: string;
         brand_voice: IndustryMemory['brand_voice'];
         channel_settings: Record<string, unknown>;
-        version?: string;
-        compliance_rules?: string[];
-        claim_restrictions?: string[];
+        compliance_rules: Array<{ rule: string; severity: string }> | null;
+        claim_restrictions: Array<{ claim: string; alternative: string }> | null;
+        forbidden_terms: string[] | null;
         industry_template_translations: Array<{
           name: string;
           brand_positioning: string | null;
           preferred_words: string[];
           forbidden_words: string[];
-          forbidden_terms?: string[];
         }>;
       };
 
       const translation = rawData.industry_template_translations?.[0];
+      
+      // Parse compliance_rules from JSONB - can be string[] or object[]
+      const complianceRules: string[] = Array.isArray(rawData.compliance_rules) 
+        ? rawData.compliance_rules.map((r: unknown) => typeof r === 'string' ? r : (r as { rule: string }).rule)
+        : [];
+      
+      // Parse claim_restrictions from JSONB - can be string[] or object[]
+      const claimRestrictions: string[] = Array.isArray(rawData.claim_restrictions)
+        ? rawData.claim_restrictions.map((c: unknown) => typeof c === 'string' ? c : (c as { claim: string }).claim)
+        : [];
+      
+      // forbidden_terms now comes from industry_templates directly
+      const forbiddenTerms: string[] = rawData.forbidden_terms || [];
 
       return {
         id: rawData.id,
         code: rawData.code,
         version: rawData.version || '1.0',
         target_audience: rawData.target_audience as 'B2B' | 'B2C' | 'both',
-        compliance_rules: rawData.compliance_rules || [],
-        claim_restrictions: rawData.claim_restrictions || [],
-        forbidden_terms: translation?.forbidden_terms || [],
+        compliance_rules: complianceRules,
+        claim_restrictions: claimRestrictions,
+        forbidden_terms: forbiddenTerms,
         brand_voice: rawData.brand_voice || {},
         channel_settings: rawData.channel_settings || {},
         name: translation?.name || rawData.code,

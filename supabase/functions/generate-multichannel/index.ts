@@ -103,9 +103,13 @@ async function fetchIndustryMemory(
       .select(`
         id,
         code,
+        version,
         target_audience,
         brand_voice,
         channel_settings,
+        compliance_rules,
+        claim_restrictions,
+        forbidden_terms,
         industry_template_translations!inner (
           name,
           preferred_words,
@@ -1030,7 +1034,7 @@ Nội dung sẵn sàng đăng ngay.`;
       }
     }
 
-    // Save to database
+    // Save to database with Industry Memory version tracking
     const { data: content, error: dbError } = await supabase
       .from("multi_channel_contents")
       .insert({
@@ -1046,6 +1050,8 @@ Nội dung sẵn sàng đăng ngay.`;
         brand_guideline: brandGuideline,
         primary_color: primaryColor,
         status: initialStatus,
+        // Track Industry Memory version for audit trail
+        industry_template_version: industryMemory?.version || null,
         website_content: generatedData.website_content || null,
         facebook_content: generatedData.facebook_content || null,
         instagram_content: generatedData.instagram_content || null,
@@ -1059,6 +1065,10 @@ Nội dung sẵn sàng đăng ngay.`;
       })
       .select()
       .single();
+    
+    if (industryMemory) {
+      console.log("Content saved with Industry Memory version:", industryMemory.version);
+    }
 
     if (dbError) {
       console.error("Database error:", dbError);

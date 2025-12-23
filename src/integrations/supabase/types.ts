@@ -712,46 +712,58 @@ export type Database = {
           brand_voice: Json
           category_id: string | null
           channel_settings: Json | null
+          claim_restrictions: Json | null
           code: string
+          compliance_rules: Json | null
           country_id: string
           created_at: string
           created_by: string | null
+          forbidden_terms: string[] | null
           id: string
           is_active: boolean
           sort_order: number
           target_audience: string
           updated_at: string
           updated_by: string | null
+          version: string | null
         }
         Insert: {
           brand_voice?: Json
           category_id?: string | null
           channel_settings?: Json | null
+          claim_restrictions?: Json | null
           code: string
+          compliance_rules?: Json | null
           country_id: string
           created_at?: string
           created_by?: string | null
+          forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean
           sort_order?: number
           target_audience?: string
           updated_at?: string
           updated_by?: string | null
+          version?: string | null
         }
         Update: {
           brand_voice?: Json
           category_id?: string | null
           channel_settings?: Json | null
+          claim_restrictions?: Json | null
           code?: string
+          compliance_rules?: Json | null
           country_id?: string
           created_at?: string
           created_by?: string | null
+          forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean
           sort_order?: number
           target_audience?: string
           updated_at?: string
           updated_by?: string | null
+          version?: string | null
         }
         Relationships: [
           {
@@ -1286,6 +1298,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_industry_version: {
+        Args: { current_version: string }
+        Returns: string
       }
       is_org_admin: {
         Args: { _org_id: string; _user_id: string }
