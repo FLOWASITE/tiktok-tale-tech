@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { IndustryMemoryPack, IndustryPackStatus, PackStats } from '@/types/industryMemoryPack';
 import { useToast } from '@/hooks/use-toast';
+import type { Json } from '@/integrations/supabase/types';
 
 /**
  * Hook để quản lý Industry Memory Packs
@@ -274,6 +275,85 @@ export function useIndustryMemoryPacks(options?: {
     },
   });
 
+  // Update pack details mutation
+  const updatePackMutation = useMutation({
+    mutationFn: async ({
+      packId,
+      data,
+      translations,
+    }: {
+      packId: string;
+      data?: {
+        code?: string;
+        category_id?: string | null;
+        target_audience?: string;
+        brand_voice?: Json;
+        channel_settings?: Json;
+        compliance_rules?: Json;
+        claim_restrictions?: Json;
+        forbidden_terms?: string[];
+      };
+      translations?: {
+        languageCode: string;
+        name?: string;
+        shortName?: string;
+        brandPositioning?: string;
+        preferredWords?: string[];
+        forbiddenWords?: string[];
+      }[];
+    }) => {
+      // Update main template if data provided
+      if (data && Object.keys(data).length > 0) {
+        const { error: updateError } = await supabase
+          .from('industry_templates')
+          .update(data)
+          .eq('id', packId);
+
+        if (updateError) throw updateError;
+      }
+
+      // Update translations if provided
+      if (translations && translations.length > 0) {
+        for (const t of translations) {
+          const updateData: Record<string, unknown> = {};
+          if (t.name !== undefined) updateData.name = t.name;
+          if (t.shortName !== undefined) updateData.short_name = t.shortName;
+          if (t.brandPositioning !== undefined) updateData.brand_positioning = t.brandPositioning;
+          if (t.preferredWords !== undefined) updateData.preferred_words = t.preferredWords;
+          if (t.forbiddenWords !== undefined) updateData.forbidden_words = t.forbiddenWords;
+
+          const { error: transError } = await supabase
+            .from('industry_template_translations')
+            .update(updateData)
+            .eq('industry_template_id', packId)
+            .eq('language_code', t.languageCode);
+
+          if (transError) throw transError;
+        }
+      }
+
+      return { packId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['industry-memory-packs'] });
+      queryClient.invalidateQueries({ queryKey: ['industry-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['industry-pack-details'] });
+
+      toast({
+        title: 'Cập nhật thành công',
+        description: 'Industry Memory Pack đã được cập nhật',
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating pack:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể cập nhật pack',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Convenience methods for status transitions
   const publishPack = (packId: string) => 
     updateStatusMutation.mutate({ packId, newStatus: 'stable' });
@@ -324,6 +404,9 @@ export function useIndustryMemoryPacks(options?: {
     // Create mutation
     createPack: createPackMutation.mutateAsync,
     isCreating: createPackMutation.isPending,
+    // Update mutation
+    updatePack: updatePackMutation.mutateAsync,
+    isUpdatingPack: updatePackMutation.isPending,
   };
 }
 
