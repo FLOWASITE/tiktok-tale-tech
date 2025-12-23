@@ -196,7 +196,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   return (
     <TooltipProvider>
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
       <button type="submit" disabled hidden aria-hidden="true" />
 
       <BrandFormStepper
@@ -206,9 +206,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         validationErrors={errors.brandName ? { 1: true } : {}}
       />
 
-      <div className="flex items-center gap-3 px-1">
-        <Progress value={completionPercentage} className="h-2 flex-1" />
-        <span className="text-xs text-muted-foreground font-medium w-12 text-right">{completionPercentage}%</span>
+      <div className="flex items-center gap-2 sm:gap-3 px-1">
+        <Progress value={completionPercentage} className="h-1.5 sm:h-2 flex-1" />
+        <span className="text-[10px] sm:text-xs text-muted-foreground font-medium w-10 sm:w-12 text-right">{completionPercentage}%</span>
         <Button
           type="button"
           variant="ghost"
@@ -221,7 +221,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </Button>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         {/* Main form content */}
         <div className={showPreview ? 'flex-1 min-w-0' : 'w-full'}>
           {/* Step 1: Identity */}
@@ -388,16 +388,16 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         )}
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between pt-4 border-t">
+      {/* Navigation - Fixed on mobile */}
+      <div className="flex items-center justify-between pt-3 sm:pt-4 border-t sticky bottom-0 bg-background pb-safe">
         <div>
           {currentStep > 1 ? (
-            <Button type="button" variant="ghost" onClick={handleBack} className="gap-1">
+            <Button type="button" variant="ghost" onClick={handleBack} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-2 sm:px-4">
               <ChevronLeft className="w-4 h-4" />
-              Quay lại
+              <span className="hidden sm:inline">Quay lại</span>
             </Button>
           ) : (
-            <Button type="button" variant="ghost" onClick={onCancel}>
+            <Button type="button" variant="ghost" onClick={onCancel} className="text-sm sm:text-base h-9 sm:h-10 px-2 sm:px-4">
               Hủy
             </Button>
           )}
@@ -405,12 +405,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
         <div className="flex gap-2">
           {currentStep < 4 ? (
-            <Button type="button" onClick={handleNext} className="gap-1">
+            <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />
             </Button>
           ) : (
-            <Button type="submit" disabled={isLoading} className="gap-2">
+            <Button type="submit" disabled={isLoading} className="gap-2 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               {template ? 'Cập nhật' : 'Tạo Brand'}
             </Button>

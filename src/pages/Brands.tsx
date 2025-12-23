@@ -270,19 +270,19 @@ export default function Brands() {
   const orgCount = templates.filter(t => !!t.organization_id).length;
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-4 sm:py-6 px-4 sm:px-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Palette className="w-6 h-6 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Palette className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
             Quản lý Brand
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
             Quản lý thương hiệu và phong cách nội dung
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="file"
             accept=".json"
@@ -290,79 +290,81 @@ export default function Brands() {
             className="hidden"
             id="import-input"
           />
-          <Button variant="outline" size="sm" onClick={() => document.getElementById('import-input')?.click()}>
-            <Upload className="w-4 h-4 mr-2" />
-            Import
+          <Button variant="outline" size="sm" onClick={() => document.getElementById('import-input')?.click()} className="h-8 sm:h-9 text-xs sm:text-sm">
+            <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+            <span className="hidden sm:inline">Import</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={templates.length === 0}>
-            <Download className="w-4 h-4 mr-2" />
-            Export
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={templates.length === 0} className="h-8 sm:h-9 text-xs sm:text-sm">
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
-          <Button onClick={handleCreate}>
-            <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={handleCreate} size="sm" className="h-8 sm:h-9 text-xs sm:text-sm ml-auto">
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
             Tạo mới
           </Button>
         </div>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4">
-          <p className="text-2xl font-bold text-primary">{templates.length}</p>
-          <p className="text-xs text-muted-foreground">Tổng brands</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <Card className="p-3 sm:p-4">
+          <p className="text-lg sm:text-2xl font-bold text-primary">{templates.length}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground">Tổng brands</p>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-muted-foreground" />
-            <p className="text-2xl font-bold">{personalCount}</p>
+        <Card className="p-3 sm:p-4">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
+            <p className="text-lg sm:text-2xl font-bold">{personalCount}</p>
           </div>
-          <p className="text-xs text-muted-foreground">Cá nhân</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground">Cá nhân</p>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-muted-foreground" />
-            <p className="text-2xl font-bold">{orgCount}</p>
+        <Card className="p-3 sm:p-4">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
+            <p className="text-lg sm:text-2xl font-bold">{orgCount}</p>
           </div>
-          <p className="text-xs text-muted-foreground">Tổ chức</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground">Tổ chức</p>
         </Card>
       </div>
 
       {/* Tabs for scope filtering */}
       <Tabs value={filterScope} onValueChange={(v) => setFilterScope(v as FilterScope)}>
-        <TabsList>
-          <TabsTrigger value="all" className="gap-1.5">
-            Tất cả
-            <span className="text-xs text-muted-foreground">({templates.length})</span>
+        <TabsList className="w-full sm:w-auto overflow-x-auto">
+          <TabsTrigger value="all" className="gap-1 text-xs sm:text-sm flex-1 sm:flex-none">
+            <span className="hidden sm:inline">Tất cả</span>
+            <span className="sm:hidden">All</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground">({templates.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="personal" className="gap-1.5">
-            <User className="w-3.5 h-3.5" />
-            Cá nhân
-            <span className="text-xs text-muted-foreground">({personalCount})</span>
+          <TabsTrigger value="personal" className="gap-1 text-xs sm:text-sm flex-1 sm:flex-none">
+            <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden sm:inline">Cá nhân</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground">({personalCount})</span>
           </TabsTrigger>
           {currentOrganization && (
-            <TabsTrigger value="organization" className="gap-1.5">
-              <Building2 className="w-3.5 h-3.5" />
-              {currentOrganization.name}
-              <span className="text-xs text-muted-foreground">({orgCount})</span>
+            <TabsTrigger value="organization" className="gap-1 text-xs sm:text-sm flex-1 sm:flex-none">
+              <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline">{currentOrganization.name}</span>
+              <span className="sm:hidden">Org</span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground">({orgCount})</span>
             </TabsTrigger>
           )}
         </TabsList>
       </Tabs>
 
       {/* Search & Filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col gap-2 sm:gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Tìm kiếm theo tên..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9 sm:h-10 text-sm"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[130px] sm:w-[160px] h-8 sm:h-10 text-xs sm:text-sm shrink-0">
               <SelectValue placeholder="Sắp xếp theo" />
             </SelectTrigger>
             <SelectContent>
@@ -378,27 +380,28 @@ export default function Brands() {
             size="icon"
             onClick={toggleSelectionMode}
             disabled={filteredTemplates.length === 0}
+            className="h-8 w-8 sm:h-10 sm:w-10 shrink-0"
           >
-            <CheckSquare className="w-4 h-4" />
+            <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
           
           {/* View mode toggle */}
-          <div className="flex border rounded-md">
+          <div className="flex border rounded-md shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className={cn('rounded-r-none', viewMode === 'grid' && 'bg-muted')}
+              className={cn('rounded-r-none h-8 w-8 sm:h-10 sm:w-10', viewMode === 'grid' && 'bg-muted')}
               onClick={() => setViewMode('grid')}
             >
-              <LayoutGrid className="w-4 h-4" />
+              <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className={cn('rounded-l-none', viewMode === 'list' && 'bg-muted')}
+              className={cn('rounded-l-none h-8 w-8 sm:h-10 sm:w-10', viewMode === 'list' && 'bg-muted')}
               onClick={() => setViewMode('list')}
             >
-              <List className="w-4 h-4" />
+              <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
           </div>
         </div>
