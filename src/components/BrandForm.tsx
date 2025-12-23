@@ -10,6 +10,7 @@ import { BrandFormStepVisual } from '@/components/BrandFormStepVisual';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
+import { QuickSampleGenerator } from '@/components/QuickSampleGenerator';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
 import { SavedSamplesManager } from '@/components/SavedSamplesManager';
 import { VariantSampleComparison } from '@/components/VariantSampleComparison';
@@ -552,6 +553,21 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 onChange={setChannelOverrides}
                 defaultExpanded={true}
                 showWrapper={true}
+              />
+              
+              {/* Quick Sample Generator with Rules */}
+              <QuickSampleGenerator
+                brandName={brandName}
+                brandPositioning={brandPositioning}
+                toneOfVoice={toneOfVoice}
+                formalityLevel={formalityLevel}
+                allowEmoji={allowEmoji}
+                preferredWords={preferredWords}
+                forbiddenWords={forbiddenWords}
+                channelOverrides={channelOverrides}
+                onSampleGenerated={(samples) => {
+                  setSampleTexts(samples);
+                }}
               />
             </div>
           )}
