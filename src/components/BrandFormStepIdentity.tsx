@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { User, Building2, Search, ShieldCheck, X, ChevronDown, Users, HelpCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { User, Building2, Search, ShieldCheck, X, ChevronDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import {
@@ -14,12 +15,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 // Industry icons mapping
 import { 
@@ -180,88 +175,72 @@ export function BrandFormStepIdentity({
         )}
       </div>
 
-      {/* Inline Scope Selection */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-sm text-muted-foreground">Phạm vi:</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[250px]">
-                <p className="text-xs">Quyết định ai có thể xem và sử dụng Brand này</p>
-              </TooltipContent>
-            </Tooltip>
+      {/* Scope Selection with Checkboxes */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Phạm vi sử dụng</Label>
+        <div className="space-y-3 p-3 rounded-lg bg-muted/30 border">
+          {/* Personal Checkbox */}
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="scope-personal"
+              checked={scope === 'personal' || scope === 'both'}
+              onCheckedChange={(checked) => {
+                if (isEditing) return;
+                const isOrgChecked = scope === 'organization' || scope === 'both';
+                if (checked && isOrgChecked) setScope('both');
+                else if (checked) setScope('personal');
+                else if (isOrgChecked) setScope('organization');
+                else setScope('personal'); // Default if unchecking both
+              }}
+              disabled={isEditing}
+            />
+            <div className="grid gap-0.5">
+              <label
+                htmlFor="scope-personal"
+                className="flex items-center gap-2 text-sm font-medium cursor-pointer"
+              >
+                <User className="w-4 h-4 text-muted-foreground" />
+                Cá nhân
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Chỉ bạn có thể xem và sử dụng Brand này
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant={scope === 'personal' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setScope('personal')}
-                  disabled={isEditing}
-                  className="h-8 gap-1.5"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  Cá nhân
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[220px]">
-                <p className="text-xs font-medium mb-1">Phạm vi cá nhân</p>
-                <p className="text-xs text-muted-foreground">Chỉ bạn có thể xem và sử dụng Brand này. Phù hợp cho dự án cá nhân.</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            {currentOrganization && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={scope === 'organization' ? 'secondary' : 'ghost'}
-                      size="sm"
-                      onClick={() => setScope('organization')}
-                      disabled={isEditing}
-                      className="h-8 gap-1.5"
-                    >
-                      <Building2 className="w-3.5 h-3.5" />
-                      {currentOrganization.name}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[220px]">
-                    <p className="text-xs font-medium mb-1">Phạm vi tổ chức</p>
-                    <p className="text-xs text-muted-foreground">Tất cả thành viên trong "{currentOrganization.name}" đều có thể xem và sử dụng.</p>
-                  </TooltipContent>
-                </Tooltip>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={scope === 'both' ? 'secondary' : 'ghost'}
-                      size="sm"
-                      onClick={() => setScope('both')}
-                      disabled={isEditing}
-                      className="h-8 gap-1.5"
-                    >
-                      <Users className="w-3.5 h-3.5" />
-                      Cả hai
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[220px]">
-                    <p className="text-xs font-medium mb-1">Phạm vi cả hai</p>
-                    <p className="text-xs text-muted-foreground">Bạn VÀ tất cả thành viên tổ chức đều có thể xem và sử dụng. Hiển thị ở cả 2 danh sách.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </>
-            )}
-          </div>
+          {/* Organization Checkbox */}
+          {currentOrganization && (
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="scope-organization"
+                checked={scope === 'organization' || scope === 'both'}
+                onCheckedChange={(checked) => {
+                  if (isEditing) return;
+                  const isPersonalChecked = scope === 'personal' || scope === 'both';
+                  if (checked && isPersonalChecked) setScope('both');
+                  else if (checked) setScope('organization');
+                  else if (isPersonalChecked) setScope('personal');
+                  else setScope('personal'); // Default if unchecking both
+                }}
+                disabled={isEditing}
+              />
+              <div className="grid gap-0.5">
+                <label
+                  htmlFor="scope-organization"
+                  className="flex items-center gap-2 text-sm font-medium cursor-pointer"
+                >
+                  <Building2 className="w-4 h-4 text-muted-foreground" />
+                  {currentOrganization.name}
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Tất cả thành viên trong tổ chức đều có thể xem và sử dụng
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground flex items-center gap-1">
-          💡 Hover vào các lựa chọn để xem giải thích chi tiết
+        <p className="text-xs text-muted-foreground">
+          💡 Có thể chọn một hoặc cả hai phạm vi
         </p>
       </div>
 
