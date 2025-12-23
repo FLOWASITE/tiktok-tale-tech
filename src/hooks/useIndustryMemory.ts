@@ -86,40 +86,52 @@ export function useIndustryMemory() {
     languageCode: string = 'vi'
   ): Promise<IndustryMemory | null> => {
     try {
-      // Fetch from industry_templates with new columns including metadata, argument_patterns, system_rules
-      const { data, error } = await supabase
-        .from('industry_templates')
-        .select(`
-          id,
-          code,
-          version,
-          status,
-          target_audience,
-          brand_voice,
-          channel_settings,
-          compliance_rules,
-          claim_restrictions,
-          forbidden_terms,
-          metadata,
-          argument_patterns,
-          system_rules,
-          industry_template_translations!inner (
-            name,
-            brand_positioning,
-            preferred_words,
-            forbidden_words
-          )
-        `)
-        .eq('id', industryTemplateId)
-        .eq('status', 'stable')
-        .eq('industry_template_translations.language_code', languageCode)
-        .single();
+      // Helper to fetch with a specific language
+      const fetchWithLanguage = async (lang: string) => {
+        return await supabase
+          .from('industry_templates')
+          .select(`
+            id,
+            code,
+            version,
+            status,
+            target_audience,
+            brand_voice,
+            channel_settings,
+            compliance_rules,
+            claim_restrictions,
+            forbidden_terms,
+            metadata,
+            argument_patterns,
+            system_rules,
+            industry_template_translations!inner (
+              name,
+              brand_positioning,
+              preferred_words,
+              forbidden_words
+            )
+          `)
+          .eq('id', industryTemplateId)
+          .eq('status', 'stable')
+          .eq('industry_template_translations.language_code', lang)
+          .maybeSingle();
+      };
+
+      // Try with requested language first
+      let { data, error } = await fetchWithLanguage(languageCode);
+
+      // Fallback to 'en' if not found and requested language wasn't 'en'
+      if (!data && languageCode !== 'en') {
+        console.log(`Industry Memory: No ${languageCode} translation found for ${industryTemplateId}, trying 'en' fallback`);
+        const fallbackResult = await fetchWithLanguage('en');
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
 
       if (error || !data) {
-        // Log warning if pack exists but not stable
-        if (error?.code === 'PGRST116') {
+        if (error?.code === 'PGRST116' || !data) {
           console.warn(`Industry Memory ${industryTemplateId} not found or not stable - skipping rules`);
-        } else {
+        } else if (error) {
           console.error('Failed to fetch Industry Memory:', error);
         }
         return null;
