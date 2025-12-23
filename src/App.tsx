@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
@@ -25,6 +26,7 @@ import AdminCountries from "./pages/AdminCountries";
 import AdminCategories from "./pages/AdminCategories";
 import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
+import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -134,13 +136,16 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              {/* Admin routes - protected by AdminProtectedRoute */}
               <Route
                 path="/admin"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <Admin />
-                    </AppLayout>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <Admin />
+                      </AppLayout>
+                    </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
               />
@@ -148,9 +153,11 @@ const App = () => (
                 path="/admin/dashboard"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <AdminDashboard />
-                    </AppLayout>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminDashboard />
+                      </AppLayout>
+                    </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
               />
@@ -158,9 +165,11 @@ const App = () => (
                 path="/admin/industries"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <AdminIndustries />
-                    </AppLayout>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminIndustries />
+                      </AppLayout>
+                    </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
               />
@@ -168,9 +177,11 @@ const App = () => (
                 path="/admin/countries"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <AdminCountries />
-                    </AppLayout>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminCountries />
+                      </AppLayout>
+                    </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
               />
@@ -178,12 +189,17 @@ const App = () => (
                 path="/admin/categories"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <AdminCategories />
-                    </AppLayout>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminCategories />
+                      </AppLayout>
+                    </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Access denied page */}
+              <Route path="/access-denied" element={<AccessDenied />} />
               <Route
                 path="/organization"
                 element={
