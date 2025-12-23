@@ -23,6 +23,7 @@ import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminIndustries from "./pages/AdminIndustries";
 import AdminIndustryVersions from "./pages/AdminIndustryVersions";
+import AdminIndustryPacks from "./pages/AdminIndustryPacks";
 import AdminCountries from "./pages/AdminCountries";
 import AdminCategories from "./pages/AdminCategories";
 import OrganizationSettings from "./pages/OrganizationSettings";
@@ -193,6 +194,18 @@ const App = () => (
                     <AdminProtectedRoute>
                       <AppLayout>
                         <AdminCategories />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/packs"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminIndustryPacks />
                       </AppLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
