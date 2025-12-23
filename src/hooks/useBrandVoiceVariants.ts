@@ -95,13 +95,22 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
     fetchVariants();
   }, [fetchVariants]);
 
-  const createVariant = async (data: Partial<BrandVoiceVariantInput> & { name: string; sample_texts?: ChannelSampleTexts | null }): Promise<BrandVoiceVariant | null> => {
-    if (!user || !brandTemplateId) return null;
+  const createVariant = async (
+    data: Partial<BrandVoiceVariantInput> & {
+      name: string;
+      brand_template_id?: string;
+      sample_texts?: ChannelSampleTexts | null;
+    }
+  ): Promise<BrandVoiceVariant | null> => {
+    if (!user) return null;
+
+    const targetBrandTemplateId = data.brand_template_id ?? brandTemplateId;
+    if (!targetBrandTemplateId) return null;
 
     try {
       const insertData = {
         name: data.name,
-        brand_template_id: brandTemplateId,
+        brand_template_id: targetBrandTemplateId,
         is_control: data.is_control ?? false,
         brand_positioning: data.brand_positioning ?? null,
         tone_of_voice: data.tone_of_voice ?? null,
@@ -124,7 +133,12 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
       if (error) throw error;
 
       const mappedVariant = mapRowToVariant(newVariant as Record<string, unknown>);
-      setVariants(prev => [...prev, mappedVariant]);
+
+      // Only push into local state when we are on the same brand_template_id this hook is bound to
+      if (brandTemplateId && targetBrandTemplateId === brandTemplateId) {
+        setVariants(prev => [...prev, mappedVariant]);
+      }
+
       toast.success('Đã lưu mẫu mới');
       return mappedVariant;
     } catch (error) {
@@ -220,7 +234,10 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
     forbidden_words?: string[] | null;
     allow_emoji?: boolean | null;
   }): Promise<BrandVoiceVariant | null> => {
-    if (!user || !brandTemplateId) return null;
+    if (!user) return null;
+
+    const targetBrandTemplateId = brandTemplateId;
+    if (!targetBrandTemplateId) return null;
 
     // Check if control already exists
     if (variants.some(v => v.is_control)) {
@@ -229,7 +246,7 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
     }
 
     return createVariant({
-      brand_template_id: brandTemplateId,
+      brand_template_id: targetBrandTemplateId,
       name: 'Control (Gốc)',
       is_control: true,
       brand_positioning: brandTemplate.brand_positioning || null,

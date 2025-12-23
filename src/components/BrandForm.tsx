@@ -338,8 +338,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         const sample = pendingSamples[i];
         try {
           await createVariant({
-            name: sample.name,
             brand_template_id: newTemplateId,
+            name: sample.name,
             is_control: i === 0, // First sample becomes control
             brand_positioning: sample.brand_positioning,
             tone_of_voice: sample.tone_of_voice,
@@ -354,7 +354,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           console.error(`Failed to save pending sample "${sample.name}":`, error);
         }
       }
-      
+
       toast.success(`Đã lưu ${pendingSamples.length} mẫu nội dung!`);
       setPendingSamples([]);
     }
