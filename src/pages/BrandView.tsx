@@ -9,6 +9,7 @@ import {
   LANGUAGE_STYLE_OPTIONS 
 } from '@/components/BrandVoiceSection';
 import { BrandForm } from '@/components/BrandForm';
+import { BrandVoiceVariantManager } from '@/components/BrandVoiceVariantManager';
 import { ChannelOverride } from '@/components/ChannelSettingsEditor';
 import { DEFAULT_CHANNEL_SETTINGS } from '@/types/channelSettings';
 import { Button } from '@/components/ui/button';
@@ -650,6 +651,11 @@ export default function BrandView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* A/B Testing Variants - spans full width */}
+        <div className="md:col-span-2">
+          <BrandVoiceVariantManager brandTemplate={template} />
+        </div>
       </div>
 
       {/* Brand Guideline */}
