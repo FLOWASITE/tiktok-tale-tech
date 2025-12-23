@@ -482,7 +482,8 @@ export default function Brands() {
         description={editingTemplate 
           ? 'Cập nhật thông tin thương hiệu của bạn' 
           : 'Điền thông tin để tạo brand mới cho nội dung'}
-        className="md:max-w-xl lg:max-w-2xl"
+        fullScreen={!editingTemplate}
+        className={editingTemplate ? "md:max-w-xl lg:max-w-2xl" : undefined}
       >
         <BrandForm
           template={editingTemplate}
