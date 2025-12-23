@@ -21,6 +21,8 @@ export interface BrandTemplate {
   // Ownership
   user_id: string | null;
   organization_id: string | null;
+  // Industry Memory Link
+  industry_template_id: string | null;
   // Brand Voice Profile
   brand_positioning: string | null;
   tone_of_voice: string[] | null;
