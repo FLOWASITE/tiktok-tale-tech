@@ -314,8 +314,11 @@ export function BrandVoiceSection({
                 <button
                   key={opt.value}
                   type="button"
-                  onPointerDown={(e) => {
-                    // Some parent layers can swallow click; pointerDown is more reliable
+                  onMouseDown={(e) => {
+                    // Prevent parent layers (dialogs/collapsibles) from hijacking focus/click
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     if (isDisabled) return;
