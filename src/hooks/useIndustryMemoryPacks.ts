@@ -191,6 +191,89 @@ export function useIndustryMemoryPacks(options?: {
     },
   });
 
+  // Create new pack mutation
+  const createPackMutation = useMutation({
+    mutationFn: async ({
+      code,
+      countryId,
+      categoryId,
+      targetAudience,
+      translations,
+    }: {
+      code: string;
+      countryId: string;
+      categoryId?: string;
+      targetAudience: string;
+      translations: {
+        languageCode: string;
+        name: string;
+        shortName?: string;
+        brandPositioning?: string;
+      }[];
+    }) => {
+      // Insert the industry template
+      const { data: template, error: templateError } = await supabase
+        .from('industry_templates')
+        .insert({
+          code,
+          country_id: countryId,
+          category_id: categoryId || null,
+          target_audience: targetAudience,
+          status: 'draft',
+          brand_voice: {},
+          compliance_rules: [],
+          claim_restrictions: [],
+          forbidden_terms: [],
+          system_rules: [],
+          argument_patterns: {},
+          metadata: {},
+          channel_settings: {},
+        })
+        .select('id')
+        .single();
+
+      if (templateError) throw templateError;
+
+      // Insert translations
+      if (translations.length > 0) {
+        const translationsData = translations.map((t) => ({
+          industry_template_id: template.id,
+          language_code: t.languageCode,
+          name: t.name,
+          short_name: t.shortName || null,
+          brand_positioning: t.brandPositioning || null,
+          preferred_words: [],
+          forbidden_words: [],
+        }));
+
+        const { error: translationError } = await supabase
+          .from('industry_template_translations')
+          .insert(translationsData);
+
+        if (translationError) throw translationError;
+      }
+
+      return template;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['industry-memory-packs'] });
+      queryClient.invalidateQueries({ queryKey: ['industry-templates'] });
+
+      toast({
+        title: 'Tạo thành công',
+        description: 'Industry Memory Pack mới đã được tạo',
+      });
+    },
+    onError: (error) => {
+      console.error('Error creating pack:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tạo pack mới',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Convenience methods for status transitions
   const publishPack = (packId: string) => 
     updateStatusMutation.mutate({ packId, newStatus: 'stable' });
@@ -238,6 +321,9 @@ export function useIndustryMemoryPacks(options?: {
     // Rules mutations
     updateRules: updateRulesMutation.mutateAsync,
     isUpdatingRules: updateRulesMutation.isPending,
+    // Create mutation
+    createPack: createPackMutation.mutateAsync,
+    isCreating: createPackMutation.isPending,
   };
 }
 

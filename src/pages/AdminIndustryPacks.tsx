@@ -15,13 +15,14 @@ import {
   Ban,
   ListChecks,
   History,
-  Settings2,
   Zap,
+  Plus,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Select, 
   SelectContent, 
@@ -39,6 +40,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -335,9 +344,18 @@ export default function AdminIndustryPacks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [editingPackId, setEditingPackId] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  
+  // Create form state
+  const [newPackCode, setNewPackCode] = useState('');
+  const [newPackCountryId, setNewPackCountryId] = useState('');
+  const [newPackCategoryId, setNewPackCategoryId] = useState('');
+  const [newPackTargetAudience, setNewPackTargetAudience] = useState('B2B');
+  const [newPackNameVi, setNewPackNameVi] = useState('');
+  const [newPackNameEn, setNewPackNameEn] = useState('');
 
   // All data fetching hooks
-  const { countries, isLoadingCountries } = useIndustryTemplates();
+  const { countries, categories, isLoadingCountries } = useIndustryTemplates();
   const { 
     packs, 
     stats, 
@@ -349,11 +367,46 @@ export default function AdminIndustryPacks() {
     isUpdating,
     updateRules,
     isUpdatingRules,
+    createPack,
+    isCreating,
   } = useIndustryMemoryPacks({ onlyActive: false });
   const { data: packDetails, isLoading: isLoadingDetails } = useIndustryPackDetails(editingPackId);
 
   // Derived state (not hooks)
   const editingPack = packs.find(p => p.id === editingPackId);
+
+  // Reset create form
+  const resetCreateForm = () => {
+    setNewPackCode('');
+    setNewPackCountryId('');
+    setNewPackCategoryId('');
+    setNewPackTargetAudience('B2B');
+    setNewPackNameVi('');
+    setNewPackNameEn('');
+  };
+
+  // Handle create pack
+  const handleCreatePack = async () => {
+    if (!newPackCode || !newPackCountryId || !newPackNameVi) return;
+
+    const translations = [
+      { languageCode: 'vi', name: newPackNameVi },
+    ];
+    if (newPackNameEn) {
+      translations.push({ languageCode: 'en', name: newPackNameEn });
+    }
+
+    await createPack({
+      code: newPackCode,
+      countryId: newPackCountryId,
+      categoryId: newPackCategoryId || undefined,
+      targetAudience: newPackTargetAudience,
+      translations,
+    });
+
+    setShowCreateDialog(false);
+    resetCreateForm();
+  };
 
   // Filter packs
   const filteredPacks = packs.filter(pack => {
@@ -395,10 +448,16 @@ export default function AdminIndustryPacks() {
             Quản lý lifecycle của Industry Memory (Country + Industry)
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Pack
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -572,6 +631,126 @@ export default function AdminIndustryPacks() {
           isSaving={isUpdatingRules}
         />
       )}
+
+      {/* Create Pack Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Tạo Industry Memory Pack mới
+            </DialogTitle>
+            <DialogDescription>
+              Tạo pack mới với thông tin cơ bản. Bạn có thể chỉnh sửa chi tiết sau.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Country */}
+            <div className="space-y-2">
+              <Label htmlFor="country">Quốc gia *</Label>
+              <Select value={newPackCountryId} onValueChange={setNewPackCountryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn quốc gia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((country) => (
+                    <SelectItem key={country.id} value={country.id}>
+                      <span className="flex items-center gap-2">
+                        <span>{country.flag_emoji}</span>
+                        <span>{country.name}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label htmlFor="category">Danh mục ngành</Label>
+              <Select value={newPackCategoryId} onValueChange={setNewPackCategoryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn danh mục (tùy chọn)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Code */}
+            <div className="space-y-2">
+              <Label htmlFor="code">Code *</Label>
+              <Input
+                id="code"
+                placeholder="vd: finance_vn, healthcare_sg..."
+                value={newPackCode}
+                onChange={(e) => setNewPackCode(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Mã định danh duy nhất, dùng snake_case
+              </p>
+            </div>
+
+            {/* Target Audience */}
+            <div className="space-y-2">
+              <Label>Đối tượng mục tiêu</Label>
+              <Select value={newPackTargetAudience} onValueChange={setNewPackTargetAudience}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="B2B">B2B - Doanh nghiệp</SelectItem>
+                  <SelectItem value="B2C">B2C - Người tiêu dùng</SelectItem>
+                  <SelectItem value="B2B2C">B2B2C - Cả hai</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Name Vietnamese */}
+            <div className="space-y-2">
+              <Label htmlFor="nameVi">Tên tiếng Việt *</Label>
+              <Input
+                id="nameVi"
+                placeholder="vd: Tài chính - Ngân hàng"
+                value={newPackNameVi}
+                onChange={(e) => setNewPackNameVi(e.target.value)}
+              />
+            </div>
+
+            {/* Name English */}
+            <div className="space-y-2">
+              <Label htmlFor="nameEn">Tên tiếng Anh</Label>
+              <Input
+                id="nameEn"
+                placeholder="vd: Finance & Banking"
+                value={newPackNameEn}
+                onChange={(e) => setNewPackNameEn(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowCreateDialog(false);
+              resetCreateForm();
+            }}>
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleCreatePack}
+              disabled={!newPackCode || !newPackCountryId || !newPackNameVi || isCreating}
+            >
+              {isCreating ? 'Đang tạo...' : 'Tạo Pack'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
