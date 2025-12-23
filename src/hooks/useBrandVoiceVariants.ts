@@ -16,6 +16,7 @@ export interface BrandVoiceVariant {
   preferred_words: string[] | null;
   forbidden_words: string[] | null;
   allow_emoji: boolean;
+  sample_text: string | null;
   content_count: number;
   created_at: string;
   updated_at: string;
