@@ -649,8 +649,48 @@ export default function BrandView() {
                 </Badge>
               )}
             </div>
-          </CardContent>
+        </CardContent>
         </Card>
+
+        {/* Sample Texts Preview - spans full width */}
+        {template.sample_texts && Object.keys(template.sample_texts).length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-primary" />
+                Sample Texts
+                <Badge variant="secondary" className="text-xs ml-2">
+                  {Object.keys(template.sample_texts).length} kênh
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Ví dụ nội dung đã được tạo dựa trên Brand Voice profile.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {Object.entries(template.sample_texts as Record<string, string>).map(([channel, content]) => (
+                  <div 
+                    key={channel}
+                    className="p-3 rounded-lg border border-border/50 bg-muted/20 space-y-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary">
+                        {channelIcons[channel as Channel] || <Globe className="w-4 h-4" />}
+                      </span>
+                      <span className="font-medium text-sm">
+                        {channelLabels[channel as Channel] || channel}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                      {content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* A/B Testing Variants - spans full width */}
         <div className="md:col-span-2">
