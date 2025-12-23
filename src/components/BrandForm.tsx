@@ -217,17 +217,29 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     }
   }, [brandName, brandPositioning, toneOfVoice, formalityLevel, allowEmoji, preferredWords, forbiddenWords]);
 
+  // Track pending samples to save after brand template is created
+  const [pendingSamples, setPendingSamples] = useState<Array<{
+    name: string;
+    sample_texts: Record<string, string>;
+    brand_positioning: string | null;
+    tone_of_voice: string[] | null;
+    formality_level: string | null;
+    language_style: string[] | null;
+    preferred_words: string[] | null;
+    forbidden_words: string[] | null;
+    allow_emoji: boolean;
+  }>>([]);
+
   // Save current sample as a variant
   const handleSaveSample = useCallback(async (customName: string) => {
-    if (!sampleTexts || !template?.id) {
-      toast.error('Vui lòng tạo mẫu và lưu Brand Template trước');
+    if (!sampleTexts) {
+      toast.error('Vui lòng tạo mẫu trước');
       return;
     }
-    
-    const result = await createVariant({
+
+    const sampleData = {
       name: customName,
-      brand_template_id: template.id,
-      is_control: variants.length === 0, // First one is control
+      sample_texts: sampleTexts,
       brand_positioning: brandPositioning || null,
       tone_of_voice: toneOfVoice.length > 0 ? toneOfVoice : null,
       formality_level: formalityLevel || null,
@@ -235,12 +247,33 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       preferred_words: preferredWords.length > 0 ? preferredWords : null,
       forbidden_words: forbiddenWords.length > 0 ? forbiddenWords : null,
       allow_emoji: allowEmoji,
-      sample_texts: sampleTexts as ChannelSampleTexts,
-    });
+    };
 
-    if (result) {
-      setSampleTexts(null); // Clear current sample after saving
-      refetchVariants();
+    // If template already exists, save to database immediately
+    if (template?.id) {
+      const result = await createVariant({
+        name: customName,
+        brand_template_id: template.id,
+        is_control: variants.length === 0,
+        brand_positioning: sampleData.brand_positioning,
+        tone_of_voice: sampleData.tone_of_voice,
+        formality_level: sampleData.formality_level,
+        language_style: sampleData.language_style,
+        preferred_words: sampleData.preferred_words,
+        forbidden_words: sampleData.forbidden_words,
+        allow_emoji: sampleData.allow_emoji,
+        sample_texts: sampleTexts as ChannelSampleTexts,
+      });
+
+      if (result) {
+        setSampleTexts(null);
+        refetchVariants();
+      }
+    } else {
+      // Template not saved yet, store in pending list
+      setPendingSamples(prev => [...prev, sampleData]);
+      setSampleTexts(null);
+      toast.success(`Đã lưu tạm "${customName}". Mẫu sẽ được lưu khi bạn hoàn tất tạo Brand Template.`);
     }
   }, [
     sampleTexts,
@@ -452,12 +485,17 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               {/* Sample generation and management */}
               <SavedSamplesManager
                 variants={variants}
+                pendingSamples={pendingSamples}
                 brandName={brandName}
                 currentSampleTexts={sampleTexts}
                 isGenerating={isGeneratingSamples}
+                isNewBrand={!template?.id}
                 onGenerateSample={handleGenerateSample}
                 onSaveSample={handleSaveSample}
                 onDeleteVariant={deleteVariant}
+                onDeletePendingSample={(index) => {
+                  setPendingSamples(prev => prev.filter((_, i) => i !== index));
+                }}
                 onCompareVariants={handleCompareVariants}
               />
             </div>
