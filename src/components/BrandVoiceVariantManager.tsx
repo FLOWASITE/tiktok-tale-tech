@@ -7,6 +7,7 @@ import {
   FORMALITY_LEVEL_OPTIONS,
   LANGUAGE_STYLE_OPTIONS 
 } from '@/components/BrandVoiceSection';
+import { VariantComparisonTable } from '@/components/VariantComparisonTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   Plus, 
   FlaskConical, 
@@ -43,8 +49,11 @@ import {
   CheckCircle2,
   BarChart3,
   Smile,
-  Ban
+  Ban,
+  GitCompare,
+  ArrowLeftRight
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface BrandVoiceVariantManagerProps {
   brandTemplate: BrandTemplate;
@@ -63,8 +72,44 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
   } = useBrandVoiceVariants(brandTemplate.id);
   
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState<BrandVoiceVariant | null>(null);
   const [saving, setSaving] = useState(false);
+  
+  // Get control variant for comparison
+  const controlVariant = variants.find(v => v.is_control) || null;
+  
+  // Helper to check if a variant attribute differs from control
+  const isDifferent = (variant: BrandVoiceVariant, attr: keyof BrandVoiceVariant) => {
+    if (!controlVariant || variant.is_control) return false;
+    
+    const controlVal = controlVariant[attr];
+    const variantVal = variant[attr];
+    
+    if (Array.isArray(controlVal) && Array.isArray(variantVal)) {
+      const controlSet = new Set(controlVal as string[]);
+      const variantSet = new Set(variantVal as string[]);
+      if (controlSet.size !== variantSet.size) return true;
+      for (const v of variantSet) {
+        if (!controlSet.has(v)) return true;
+      }
+      return false;
+    }
+    
+    return controlVal !== variantVal;
+  };
+  
+  // Count differences from control
+  const countDifferences = (variant: BrandVoiceVariant) => {
+    if (!controlVariant || variant.is_control) return 0;
+    let count = 0;
+    if (isDifferent(variant, 'brand_positioning')) count++;
+    if (isDifferent(variant, 'formality_level')) count++;
+    if (isDifferent(variant, 'allow_emoji')) count++;
+    if (isDifferent(variant, 'tone_of_voice')) count++;
+    if (isDifferent(variant, 'language_style')) count++;
+    return count;
+  };
   
   // Form state
   const [formData, setFormData] = useState({
@@ -185,15 +230,30 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <FlaskConical className="w-4 h-4 text-primary" />
-          A/B Testing Variants
-          {variants.length > 0 && (
-            <Badge variant="secondary" className="ml-2">
-              {variants.length} variant{variants.length > 1 ? 's' : ''}
-            </Badge>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FlaskConical className="w-4 h-4 text-primary" />
+            A/B Testing Variants
+            {variants.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {variants.length} variant{variants.length > 1 ? 's' : ''}
+              </Badge>
+            )}
+          </CardTitle>
+          
+          {/* Compare button - show when 2+ variants exist */}
+          {variants.length >= 2 && controlVariant && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setComparisonOpen(true)}
+              className="gap-2"
+            >
+              <GitCompare className="w-4 h-4" />
+              So sánh Variants
+            </Button>
           )}
-        </CardTitle>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Empty state - no control yet */}
@@ -234,31 +294,87 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
                           Control
                         </Badge>
                       )}
+                      {!variant.is_control && countDifferences(variant) > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="gap-1 shrink-0 text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                              <ArrowLeftRight className="w-3 h-3" />
+                              {countDifferences(variant)} khác biệt
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>So với Control variant</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                     
-                    {/* Voice attributes */}
+                    {/* Voice attributes with diff highlighting */}
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {variant.brand_positioning && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs",
+                            isDifferent(variant, 'brand_positioning') && "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-300"
+                          )}
+                        >
+                          {isDifferent(variant, 'brand_positioning') && <ArrowLeftRight className="w-2.5 h-2.5 mr-1" />}
                           {BRAND_POSITIONING_OPTIONS.find(o => o.value === variant.brand_positioning)?.label || variant.brand_positioning}
                         </Badge>
                       )}
                       {variant.formality_level && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs",
+                            isDifferent(variant, 'formality_level') && "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-300"
+                          )}
+                        >
+                          {isDifferent(variant, 'formality_level') && <ArrowLeftRight className="w-2.5 h-2.5 mr-1" />}
                           {FORMALITY_LEVEL_OPTIONS.find(o => o.value === variant.formality_level)?.label || variant.formality_level}
                         </Badge>
                       )}
-                      {variant.tone_of_voice?.map(tone => (
-                        <Badge key={tone} variant="secondary" className="text-xs">
-                          {TONE_OF_VOICE_OPTIONS.find(o => o.value === tone)?.label || tone}
-                        </Badge>
-                      ))}
+                      {variant.tone_of_voice?.map(tone => {
+                        const isNewTone = !variant.is_control && controlVariant && !(controlVariant.tone_of_voice || []).includes(tone);
+                        return (
+                          <Badge 
+                            key={tone} 
+                            variant="secondary" 
+                            className={cn(
+                              "text-xs",
+                              isNewTone && "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300"
+                            )}
+                          >
+                            {isNewTone && <Plus className="w-2.5 h-2.5 mr-1" />}
+                            {TONE_OF_VOICE_OPTIONS.find(o => o.value === tone)?.label || tone}
+                          </Badge>
+                        );
+                      })}
                       {variant.allow_emoji ? (
-                        <Badge variant="outline" className="text-xs gap-1 text-green-600 border-green-300">
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs gap-1",
+                            isDifferent(variant, 'allow_emoji') 
+                              ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-300" 
+                              : "text-green-600 border-green-300"
+                          )}
+                        >
+                          {isDifferent(variant, 'allow_emoji') && <ArrowLeftRight className="w-2.5 h-2.5" />}
                           <Smile className="w-3 h-3" />
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-xs gap-1 text-destructive border-destructive/30">
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs gap-1",
+                            isDifferent(variant, 'allow_emoji')
+                              ? "bg-destructive/20 text-destructive border-destructive/30"
+                              : "text-destructive border-destructive/30"
+                          )}
+                        >
+                          {isDifferent(variant, 'allow_emoji') && <ArrowLeftRight className="w-2.5 h-2.5" />}
                           <Ban className="w-3 h-3" />
                         </Badge>
                       )}
@@ -452,6 +568,14 @@ export function BrandVoiceVariantManager({ brandTemplate }: BrandVoiceVariantMan
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Comparison Table Dialog */}
+        <VariantComparisonTable
+          open={comparisonOpen}
+          onOpenChange={setComparisonOpen}
+          controlVariant={controlVariant}
+          variants={variants}
+        />
       </CardContent>
     </Card>
   );
