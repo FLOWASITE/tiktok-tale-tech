@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useIndustryTemplates, useIndustryTemplatesAdmin } from "@/hooks/useIndustryTemplates";
+import { IndustryAdvancedFilters, defaultFilters, type IndustryFilters } from "@/components/admin/IndustryAdvancedFilters";
 import { Navigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,8 +74,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 export default function AdminIndustries() {
   const { isAdmin, isCheckingAdmin } = useAdmin();
   const [selectedCountry, setSelectedCountry] = useState("VN");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [filters, setFilters] = useState<IndustryFilters>(defaultFilters);
   const [editingTemplate, setEditingTemplate] = useState<IndustryTemplate | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [inlineEditId, setInlineEditId] = useState<string | null>(null);
@@ -111,23 +111,77 @@ export default function AdminIndustries() {
     return <Navigate to="/" replace />;
   }
 
-  // Filter templates
-  const filteredTemplates = templates.filter((template) => {
-    const matchesSearch =
-      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (template.brand_positioning?.toLowerCase() || "").includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || template.category_code === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  // Filter and sort templates with useMemo for performance
+  const filteredTemplates = useMemo(() => {
+    let result = templates.filter((template) => {
+      // Search filter
+      const matchesSearch =
+        filters.searchQuery === "" ||
+        template.name.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+        template.code.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+        (template.brand_positioning?.toLowerCase() || "").includes(filters.searchQuery.toLowerCase());
+      
+      // Category filter
+      const matchesCategory = 
+        filters.categoryFilter === "all" || template.category_code === filters.categoryFilter;
+      
+      // Target audience filter
+      const matchesTarget = 
+        filters.targetAudienceFilter === "all" || template.target_audience === filters.targetAudienceFilter;
+      
+      // Status filter
+      const matchesStatus = 
+        filters.statusFilter === "all" || 
+        (filters.statusFilter === "active" && template.is_active) ||
+        (filters.statusFilter === "inactive" && !template.is_active);
+      
+      // Emoji filter
+      const matchesEmoji = 
+        filters.hasEmojiFilter === "all" ||
+        (filters.hasEmojiFilter === "yes" && template.brand_voice.allow_emoji) ||
+        (filters.hasEmojiFilter === "no" && !template.brand_voice.allow_emoji);
+      
+      return matchesSearch && matchesCategory && matchesTarget && matchesStatus && matchesEmoji;
+    });
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      let comparison = 0;
+      switch (filters.sortBy) {
+        case "name":
+          comparison = a.name.localeCompare(b.name, "vi");
+          break;
+        case "code":
+          comparison = a.code.localeCompare(b.code);
+          break;
+        case "category":
+          comparison = (a.category_code || "").localeCompare(b.category_code || "");
+          break;
+        case "target":
+          comparison = a.target_audience.localeCompare(b.target_audience);
+          break;
+        case "sort_order":
+          // sort_order not available in current type, fallback to name
+          comparison = a.name.localeCompare(b.name, "vi");
+          break;
+        default:
+          comparison = 0;
+      }
+      return filters.sortOrder === "asc" ? comparison : -comparison;
+    });
+
+    return result;
+  }, [templates, filters]);
 
   // Group by category
-  const groupedTemplates = filteredTemplates.reduce((acc, template) => {
-    const catCode = template.category_code || "other";
-    if (!acc[catCode]) acc[catCode] = [];
-    acc[catCode].push(template);
-    return acc;
-  }, {} as Record<string, IndustryTemplate[]>);
+  const groupedTemplates = useMemo(() => {
+    return filteredTemplates.reduce((acc, template) => {
+      const catCode = template.category_code || "other";
+      if (!acc[catCode]) acc[catCode] = [];
+      acc[catCode].push(template);
+      return acc;
+    }, {} as Record<string, IndustryTemplate[]>);
+  }, [filteredTemplates]);
 
   const handleInlineEdit = (template: IndustryTemplate) => {
     setInlineEditId(template.id);
@@ -268,51 +322,29 @@ export default function AdminIndustries() {
         </Card>
       </div>
 
+      {/* Advanced Filters */}
+      <IndustryAdvancedFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        categories={categories}
+        totalCount={templates.length}
+        filteredCount={filteredTemplates.length}
+      />
+
       {/* Country Tabs */}
       <Tabs value={selectedCountry} onValueChange={setSelectedCountry}>
-        <div className="flex items-center justify-between">
-          <TabsList>
-            {isLoadingCountries ? (
-              <Skeleton className="h-10 w-32" />
-            ) : (
-              countries.map((country) => (
-                <TabsTrigger key={country.code} value={country.code} className="gap-2">
-                  <span>{country.flag_emoji}</span>
-                  <span>{country.code}</span>
-                </TabsTrigger>
-              ))
-            )}
-          </TabsList>
-
-          {/* Filters */}
-          <div className="flex items-center gap-3">
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Tìm kiếm ngành..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.code} value={cat.code}>
-                    <div className="flex items-center gap-2">
-                      {categoryIcons[cat.code]}
-                      {cat.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <TabsList>
+          {isLoadingCountries ? (
+            <Skeleton className="h-10 w-32" />
+          ) : (
+            countries.map((country) => (
+              <TabsTrigger key={country.code} value={country.code} className="gap-2">
+                <span>{country.flag_emoji}</span>
+                <span>{country.code}</span>
+              </TabsTrigger>
+            ))
+          )}
+        </TabsList>
 
         {/* Content for each country */}
         {countries.map((country) => (
