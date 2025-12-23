@@ -137,6 +137,50 @@ export function BrandVoiceSamplePreview({
   const [aiSamples, setAiSamples] = useState<Record<string, string> | null>(savedSampleTexts || null);
   const [useAI, setUseAI] = useState(!!savedSampleTexts);
   const carouselRef = useRef<HTMLDivElement>(null);
+  
+  // Swipe gesture state
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+
+  // Minimum swipe distance threshold (in px)
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart) return;
+    const currentTouch = e.targetTouches[0].clientX;
+    setTouchEnd(currentTouch);
+    // Calculate offset for visual feedback (clamped)
+    const diff = currentTouch - touchStart;
+    setSwipeOffset(Math.max(-100, Math.min(100, diff * 0.3)));
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    setSwipeOffset(0);
+    
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      navigateCarousel('next');
+    } else if (isRightSwipe) {
+      navigateCarousel('prev');
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
 
   const activeChannel = VISIBLE_CHANNELS[activeIndex];
 
@@ -359,12 +403,24 @@ export function BrandVoiceSamplePreview({
                 <ChevronRight className="w-4 h-4" />
               </Button>
 
-              {/* Mockup frame */}
+              {/* Mockup frame with swipe support */}
               <div 
                 ref={carouselRef}
-                className="flex justify-center px-8 transition-all duration-500"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="flex justify-center px-8 touch-pan-y select-none"
+                style={{
+                  transform: isSwiping ? `translateX(${swipeOffset}px)` : 'translateX(0)',
+                  transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+                }}
               >
-                <div className="w-full max-w-md transform transition-all duration-500 hover:scale-[1.02]">
+                <div 
+                  className={cn(
+                    "w-full max-w-md transform transition-all duration-500",
+                    !isSwiping && "hover:scale-[1.02]"
+                  )}
+                >
                   <ChannelMockupFrame
                     channel={activeChannel}
                     content={samples[activeChannel]}
