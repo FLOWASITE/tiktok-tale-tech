@@ -79,8 +79,8 @@ export function SlidePanel({
       {/* Overlay - starts below header, respects sidebar when fillContent */}
       <div
         className={cn(
-          "fixed inset-0 top-14 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-250",
-          fillContent && "left-[var(--sidebar-width,16rem)] md:left-[var(--sidebar-width,16rem)]",
+          "fixed inset-0 top-0 sm:top-14 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-250",
+          fillContent && "left-0 sm:left-[var(--sidebar-width,16rem)]",
           isAnimating ? "opacity-100" : "opacity-0"
         )}
         onClick={() => onOpenChange(false)}
@@ -89,10 +89,10 @@ export function SlidePanel({
       {/* Panel - slides in from right, below header */}
       <div
         className={cn(
-          "fixed top-14 right-0 bottom-0 z-50 bg-background border-l shadow-2xl",
+          "fixed top-0 sm:top-14 right-0 bottom-0 z-50 bg-background border-l shadow-2xl",
           "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
           fillContent 
-            ? "left-[var(--sidebar-width,16rem)] w-auto" 
+            ? "left-0 sm:left-[var(--sidebar-width,16rem)] w-auto" 
             : "w-full sm:max-w-full md:max-w-2xl lg:max-w-3xl",
           isAnimating 
             ? "translate-x-0 opacity-100" 
@@ -101,21 +101,21 @@ export function SlidePanel({
         )}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
             <div 
               className={cn(
-                "flex-1 transition-all duration-300 delay-100",
+                "flex-1 min-w-0 transition-all duration-300 delay-100",
                 isAnimating 
                   ? "translate-y-0 opacity-100" 
                   : "translate-y-2 opacity-0"
               )}
             >
-              <h2 className="text-lg font-semibold flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 truncate">
                 {title}
               </h2>
               {description && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2">
                   {description}
                 </p>
               )}
@@ -125,13 +125,13 @@ export function SlidePanel({
               size="icon"
               onClick={() => onOpenChange(false)}
               className={cn(
-                "h-9 w-9 shrink-0 transition-all duration-200 hover:rotate-90",
+                "h-8 w-8 sm:h-9 sm:w-9 shrink-0 transition-all duration-200 hover:rotate-90",
                 isAnimating 
                   ? "scale-100 opacity-100" 
                   : "scale-75 opacity-0"
               )}
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
         </div>
@@ -139,7 +139,7 @@ export function SlidePanel({
         {/* Content */}
         <div 
           className={cn(
-            "overflow-y-auto h-[calc(100%-73px)] p-6 transition-all duration-300 delay-150",
+            "overflow-y-auto h-[calc(100%-73px)] p-4 sm:p-6 transition-all duration-300 delay-150",
             centerContent && "flex justify-center",
             isAnimating 
               ? "translate-y-0 opacity-100" 
