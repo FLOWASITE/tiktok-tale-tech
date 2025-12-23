@@ -38,14 +38,29 @@ import { vi } from 'date-fns/locale';
 import { ChannelMockupFrame } from './preview/ChannelMockupFrame';
 import { ChannelType } from '@/utils/generateSampleText';
 
+interface PendingSample {
+  name: string;
+  sample_texts: Record<string, string>;
+  brand_positioning: string | null;
+  tone_of_voice: string[] | null;
+  formality_level: string | null;
+  language_style: string[] | null;
+  preferred_words: string[] | null;
+  forbidden_words: string[] | null;
+  allow_emoji: boolean;
+}
+
 interface SavedSamplesManagerProps {
   variants: BrandVoiceVariant[];
+  pendingSamples?: PendingSample[];
   brandName: string;
   currentSampleTexts: Record<string, string> | null;
   isGenerating: boolean;
+  isNewBrand?: boolean;
   onGenerateSample: () => void;
   onSaveSample: (name: string) => Promise<void>;
   onDeleteVariant: (id: string) => Promise<boolean>;
+  onDeletePendingSample?: (index: number) => void;
   onCompareVariants?: (variants: BrandVoiceVariant[]) => void;
 }
 
@@ -78,12 +93,15 @@ function formatFormality(level: string | null): string {
 
 export function SavedSamplesManager({
   variants,
+  pendingSamples = [],
   brandName,
   currentSampleTexts,
   isGenerating,
+  isNewBrand = false,
   onGenerateSample,
   onSaveSample,
   onDeleteVariant,
+  onDeletePendingSample,
   onCompareVariants,
 }: SavedSamplesManagerProps) {
   const [previewVariant, setPreviewVariant] = useState<BrandVoiceVariant | null>(null);
@@ -148,8 +166,13 @@ export function SavedSamplesManager({
           <Sparkles className="w-5 h-5 text-primary" />
           <h3 className="font-semibold">Nội dung mẫu</h3>
           <Badge variant="secondary" className="text-xs">
-            {variants.length} mẫu đã lưu
+            {variants.length + pendingSamples.length} mẫu
           </Badge>
+          {pendingSamples.length > 0 && (
+            <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
+              {pendingSamples.length} chờ lưu
+            </Badge>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -290,6 +313,55 @@ export function SavedSamplesManager({
         </CardContent>
       </Card>
 
+      {/* Pending samples (for new brand templates) */}
+      {pendingSamples.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-600">
+            <Clock className="w-4 h-4" />
+            Mẫu chờ lưu (sẽ lưu khi tạo Brand Template)
+          </div>
+          <div className="space-y-2">
+            {pendingSamples.map((sample, index) => (
+              <Card 
+                key={`pending-${index}`} 
+                className="border-amber-300/50 bg-amber-50/30 dark:bg-amber-950/20"
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-sm truncate">{sample.name}</span>
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
+                          Chờ lưu
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <span>Tone: {formatToneOfVoice(sample.tone_of_voice)}</span>
+                        <span>Phong cách: {formatFormality(sample.formality_level)}</span>
+                      </div>
+                    </div>
+                    
+                    {onDeletePendingSample && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => onDeletePendingSample(index)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Saved samples list */}
       {variants.length > 0 && (
         <div className="space-y-3">
@@ -360,7 +432,7 @@ export function SavedSamplesManager({
       )}
 
       {/* Empty state */}
-      {variants.length === 0 && !hasCurrentSample && (
+      {variants.length === 0 && pendingSamples.length === 0 && !hasCurrentSample && (
         <div className="text-center py-8 text-muted-foreground">
           <Sparkles className="w-10 h-10 mx-auto mb-3 opacity-50" />
           <p className="text-sm">Chưa có mẫu nào được lưu</p>
