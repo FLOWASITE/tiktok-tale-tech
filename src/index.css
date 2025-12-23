@@ -461,6 +461,21 @@ All colors MUST be HSL.
     animation: shimmer 1.5s linear infinite;
   }
 
+  /* TikTok slow spin animation */
+  .animate-spin-slow {
+    animation: spin 3s linear infinite;
+  }
+
+  /* TikTok marquee text animation */
+  .animate-marquee {
+    animation: marquee 8s linear infinite;
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+  }
+
   /* Content transition */
   .content-transition {
     @apply transition-all duration-300 ease-out;
