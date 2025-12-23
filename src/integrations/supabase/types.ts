@@ -200,6 +200,78 @@ export type Database = {
           },
         ]
       }
+      brand_voice_variants: {
+        Row: {
+          allow_emoji: boolean | null
+          brand_positioning: string | null
+          brand_template_id: string
+          content_count: number | null
+          created_at: string | null
+          forbidden_words: string[] | null
+          formality_level: string | null
+          id: string
+          is_control: boolean | null
+          language_style: string[] | null
+          name: string
+          organization_id: string | null
+          preferred_words: string[] | null
+          tone_of_voice: string[] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          allow_emoji?: boolean | null
+          brand_positioning?: string | null
+          brand_template_id: string
+          content_count?: number | null
+          created_at?: string | null
+          forbidden_words?: string[] | null
+          formality_level?: string | null
+          id?: string
+          is_control?: boolean | null
+          language_style?: string[] | null
+          name: string
+          organization_id?: string | null
+          preferred_words?: string[] | null
+          tone_of_voice?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          allow_emoji?: boolean | null
+          brand_positioning?: string | null
+          brand_template_id?: string
+          content_count?: number | null
+          created_at?: string | null
+          forbidden_words?: string[] | null
+          formality_level?: string | null
+          id?: string
+          is_control?: boolean | null
+          language_style?: string[] | null
+          name?: string
+          organization_id?: string | null
+          preferred_words?: string[] | null
+          tone_of_voice?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_voice_variants_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_voice_variants_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carousels: {
         Row: {
           ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]
@@ -840,6 +912,7 @@ export type Database = {
           brand_guideline: string | null
           brand_name: string
           brand_template_id: string | null
+          brand_voice_variant_id: string | null
           channel_images: Json | null
           channel_statuses: Json | null
           content_calendar_color: string | null
@@ -876,6 +949,7 @@ export type Database = {
           brand_guideline?: string | null
           brand_name: string
           brand_template_id?: string | null
+          brand_voice_variant_id?: string | null
           channel_images?: Json | null
           channel_statuses?: Json | null
           content_calendar_color?: string | null
@@ -912,6 +986,7 @@ export type Database = {
           brand_guideline?: string | null
           brand_name?: string
           brand_template_id?: string | null
+          brand_voice_variant_id?: string | null
           channel_images?: Json | null
           channel_statuses?: Json | null
           content_calendar_color?: string | null
@@ -950,6 +1025,13 @@ export type Database = {
             columns: ["brand_template_id"]
             isOneToOne: false
             referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multi_channel_contents_brand_voice_variant_id_fkey"
+            columns: ["brand_voice_variant_id"]
+            isOneToOne: false
+            referencedRelation: "brand_voice_variants"
             referencedColumns: ["id"]
           },
           {
