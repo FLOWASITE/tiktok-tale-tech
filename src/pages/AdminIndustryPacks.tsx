@@ -14,7 +14,9 @@ import {
   Shield,
   Ban,
   ListChecks,
-  History
+  History,
+  Settings2,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +43,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIndustryMemoryPacks } from '@/hooks/useIndustryMemoryPacks';
 import { useIndustryTemplates } from '@/hooks/useIndustryTemplates';
+import { useIndustryPackDetails } from '@/hooks/useIndustryPackDetails';
 import { IndustryMemoryPack, IndustryPackStatus } from '@/types/industryMemoryPack';
+import { IndustryPackRulesEditor } from '@/components/admin/IndustryPackRulesEditor';
 
 const statusConfig: Record<IndustryPackStatus, {
   label: string;
@@ -74,12 +78,14 @@ function PackCard({
   onPublish, 
   onDeprecate, 
   onReactivate,
+  onEditRules,
   isUpdating,
 }: { 
   pack: IndustryMemoryPack;
   onPublish: () => void;
   onDeprecate: () => void;
   onReactivate: () => void;
+  onEditRules: () => void;
   isUpdating: boolean;
 }) {
   const [confirmAction, setConfirmAction] = useState<'publish' | 'deprecate' | 'reactivate' | null>(null);
@@ -170,6 +176,22 @@ function PackCard({
 
           {/* Actions */}
           <div className="flex gap-2 pt-2 border-t border-border/50">
+            {/* Edit Rules Button - always visible */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-8"
+                  onClick={onEditRules}
+                  disabled={isUpdating}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Quản lý System Rules & Argument Patterns</TooltipContent>
+            </Tooltip>
+
             {pack.status === 'draft' && (
               <Button 
                 size="sm" 
@@ -321,7 +343,14 @@ export default function AdminIndustryPacks() {
     deprecatePack, 
     reactivatePack,
     isUpdating,
+    updateRules,
+    isUpdatingRules,
   } = useIndustryMemoryPacks({ onlyActive: false });
+
+  // Editor state
+  const [editingPackId, setEditingPackId] = useState<string | null>(null);
+  const editingPack = packs.find(p => p.id === editingPackId);
+  const { data: packDetails, isLoading: isLoadingDetails } = useIndustryPackDetails(editingPackId);
 
   // Filter packs
   const filteredPacks = packs.filter(pack => {
@@ -455,6 +484,7 @@ export default function AdminIndustryPacks() {
                     onPublish={() => publishPack(pack.id)}
                     onDeprecate={() => deprecatePack(pack.id)}
                     onReactivate={() => reactivatePack(pack.id)}
+                    onEditRules={() => setEditingPackId(pack.id)}
                     isUpdating={isUpdating}
                   />
                 ))}
@@ -462,6 +492,28 @@ export default function AdminIndustryPacks() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Rules Editor Dialog */}
+      {editingPackId && packDetails && (
+        <IndustryPackRulesEditor
+          open={!!editingPackId}
+          onOpenChange={(open) => !open && setEditingPackId(null)}
+          packId={editingPackId}
+          packName={editingPack?.name || editingPack?.code || 'Pack'}
+          initialData={{
+            system_rules: packDetails.system_rules,
+            argument_patterns: packDetails.argument_patterns,
+            metadata: packDetails.metadata,
+          }}
+          onSave={async (data) => {
+            await updateRules({
+              packId: editingPackId,
+              data,
+            });
+          }}
+          isSaving={isUpdatingRules}
+        />
       )}
     </div>
   );

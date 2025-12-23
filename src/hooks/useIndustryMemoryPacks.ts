@@ -144,6 +144,53 @@ export function useIndustryMemoryPacks(options?: {
     },
   });
 
+  // Update pack rules (system_rules, argument_patterns, metadata)
+  const updateRulesMutation = useMutation({
+    mutationFn: async ({
+      packId,
+      data,
+    }: {
+      packId: string;
+      data: {
+        system_rules?: string[];
+        argument_patterns?: {
+          valid_patterns: string[];
+          forbidden_patterns: string[];
+        };
+        metadata?: {
+          applies_to: string[];
+          legal_basis: string[];
+        };
+      };
+    }) => {
+      const { error } = await supabase
+        .from('industry_templates')
+        .update(data)
+        .eq('id', packId);
+
+      if (error) throw error;
+      return { packId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['industry-memory-packs'] });
+      queryClient.invalidateQueries({ queryKey: ['industry-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['industryMemory'] });
+
+      toast({
+        title: 'Cập nhật thành công',
+        description: 'Đã lưu System Rules và Argument Patterns',
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating pack rules:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể cập nhật rules',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Convenience methods for status transitions
   const publishPack = (packId: string) => 
     updateStatusMutation.mutate({ packId, newStatus: 'stable' });
@@ -188,6 +235,9 @@ export function useIndustryMemoryPacks(options?: {
     deprecatePack,
     reactivatePack,
     isUpdating: updateStatusMutation.isPending,
+    // Rules mutations
+    updateRules: updateRulesMutation.mutateAsync,
+    isUpdatingRules: updateRulesMutation.isPending,
   };
 }
 
