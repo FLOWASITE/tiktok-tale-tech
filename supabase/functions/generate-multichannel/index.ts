@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1025,52 +1026,107 @@ Nội dung sẵn sàng đăng ngay.`;
       },
     ];
 
-    console.log("Calling Lovable AI...");
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools,
-        tool_choice: { type: "function", function: { name: "generate_multichannel_content" } },
-      }),
-    });
+    // Define the AI generation function
+    const generateAIContent = async () => {
+      console.log("Calling Lovable AI (no cache hit)...");
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools,
+          tool_choice: { type: "function", function: { name: "generate_multichannel_content" } },
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI API error:", response.status, errorText);
-      
-      if (response.status === 429) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("AI API error:", response.status, errorText);
+        
+        if (response.status === 429) {
+          throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
+        }
+        if (response.status === 402) {
+          throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
+        }
+        throw new Error(`AI API error: ${response.status}`);
+      }
+
+      const aiResponse = await response.json();
+      console.log("AI response received");
+
+      const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall || toolCall.function.name !== "generate_multichannel_content") {
+        throw new Error("Invalid AI response format");
+      }
+
+      return JSON.parse(toolCall.function.arguments);
+    };
+
+    // Use cache wrapper for AI content generation
+    const functionName = 'generate-multichannel';
+    const scope = CACHE_SCOPE[functionName] || 'org';
+    const ttlDays = CACHE_TTL[functionName] || 7;
+
+    // Build cache input (only content-affecting fields)
+    const cacheInput = {
+      topic: formData.topic,
+      industry,
+      contentGoal: formData.contentGoal,
+      channels: formData.channels,
+      brandName,
+      brandVoice: brandVoice ? {
+        positioning: brandVoice.brand_positioning,
+        tone: brandVoice.tone_of_voice,
+        formality: brandVoice.formality_level,
+      } : null,
+    };
+
+    let generatedData: any;
+    let fromCache = false;
+
+    try {
+      const cacheResult = await withCache({
+        functionName,
+        scope,
+        organizationId: organizationId || undefined,
+        brandTemplateId: formData.brandTemplateId,
+        input: cacheInput,
+        versions: {
+          industryMemory: industryMemory?.version,
+          brandVoice: brandVoice?.formality_level || undefined,
+        },
+        ttlDays,
+        generateFn: generateAIContent,
+      });
+
+      generatedData = cacheResult.data;
+      fromCache = cacheResult.fromCache;
+      console.log(`Content generation: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}`);
+    } catch (err: any) {
+      // Handle rate limit / credit errors specially
+      if (err.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." }),
+          JSON.stringify({ error: err.message }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (err.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Cần nạp thêm credits để tiếp tục sử dụng." }),
+          JSON.stringify({ error: err.message }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`AI API error: ${response.status}`);
+      throw err;
     }
 
-    const aiResponse = await response.json();
-    console.log("AI response received");
-
-    const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function.name !== "generate_multichannel_content") {
-      throw new Error("Invalid AI response format");
-    }
-
-    const generatedData = JSON.parse(toolCall.function.arguments);
     console.log("Generated content:", generatedData.title);
 
     // Check organization's approval settings
@@ -1132,9 +1188,9 @@ Nội dung sẵn sàng đăng ngay.`;
       throw new Error("Failed to save content");
     }
 
-    console.log("Content saved with ID:", content.id);
+    console.log("Content saved with ID:", content.id, "fromCache:", fromCache);
 
-    return new Response(JSON.stringify(content), {
+    return new Response(JSON.stringify({ ...content, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
