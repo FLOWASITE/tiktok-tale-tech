@@ -36,7 +36,7 @@ export interface BrandTemplate {
   channel_overrides: ChannelOverrides | null;
 }
 
-export type BrandScope = 'personal' | 'organization';
+export type BrandScope = 'personal' | 'organization' | 'both';
 
 const BUCKET_NAME = 'brand-logos';
 
@@ -94,8 +94,8 @@ export function useBrandTemplates() {
     try {
       const insertData = {
         ...template,
-        user_id: scope === 'personal' ? user.id : null,
-        organization_id: scope === 'organization' && currentOrganization ? currentOrganization.id : null,
+        user_id: scope === 'personal' || scope === 'both' ? user.id : null,
+        organization_id: (scope === 'organization' || scope === 'both') && currentOrganization ? currentOrganization.id : null,
       };
 
       const { data, error } = await supabase

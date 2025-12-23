@@ -10,6 +10,7 @@ import {
   Sparkles,
   Globe,
   User,
+  Users,
   Image as ImageIcon,
   CheckCircle2,
   Circle
@@ -114,7 +115,12 @@ export function BrandFormMiniPreview({
           </h4>
           <div className="flex items-center gap-2 mt-1">
             <Badge variant="outline" className="text-xs gap-1 py-0">
-              {scope === 'organization' ? (
+              {scope === 'both' ? (
+                <>
+                  <Users className="w-3 h-3" />
+                  Cả hai
+                </>
+              ) : scope === 'organization' ? (
                 <>
                   <Building2 className="w-3 h-3" />
                   Tổ chức
