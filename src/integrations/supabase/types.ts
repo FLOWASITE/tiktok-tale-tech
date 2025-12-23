@@ -201,6 +201,8 @@ export type Database = {
           generated_images: Json | null
           id: string
           include_logo: boolean
+          industry_template_id: string | null
+          industry_template_version: string | null
           organization_id: string | null
           platform: Database["public"]["Enums"]["carousel_platform"]
           slide_count: number
@@ -221,6 +223,8 @@ export type Database = {
           generated_images?: Json | null
           id?: string
           include_logo?: boolean
+          industry_template_id?: string | null
+          industry_template_version?: string | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           slide_count?: number
@@ -241,6 +245,8 @@ export type Database = {
           generated_images?: Json | null
           id?: string
           include_logo?: boolean
+          industry_template_id?: string | null
+          industry_template_version?: string | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           slide_count?: number
@@ -252,6 +258,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "carousels_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "carousels_organization_id_fkey"
             columns: ["organization_id"]
@@ -723,6 +736,7 @@ export type Database = {
           google_maps_content: string | null
           id: string
           industry: string | null
+          industry_template_version: string | null
           instagram_content: string | null
           linkedin_content: string | null
           organization_id: string | null
@@ -758,6 +772,7 @@ export type Database = {
           google_maps_content?: string | null
           id?: string
           industry?: string | null
+          industry_template_version?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
           organization_id?: string | null
@@ -793,6 +808,7 @@ export type Database = {
           google_maps_content?: string | null
           id?: string
           industry?: string | null
+          industry_template_version?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
           organization_id?: string | null
@@ -1031,6 +1047,8 @@ export type Database = {
           created_at: string
           duration: number
           id: string
+          industry_template_id: string | null
+          industry_template_version: string | null
           organization_id: string | null
           status: string | null
           title: string
@@ -1045,6 +1063,8 @@ export type Database = {
           created_at?: string
           duration?: number
           id?: string
+          industry_template_id?: string | null
+          industry_template_version?: string | null
           organization_id?: string | null
           status?: string | null
           title: string
@@ -1059,6 +1079,8 @@ export type Database = {
           created_at?: string
           duration?: number
           id?: string
+          industry_template_id?: string | null
+          industry_template_version?: string | null
           organization_id?: string | null
           status?: string | null
           title?: string
@@ -1068,6 +1090,13 @@ export type Database = {
           video_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scripts_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scripts_organization_id_fkey"
             columns: ["organization_id"]
