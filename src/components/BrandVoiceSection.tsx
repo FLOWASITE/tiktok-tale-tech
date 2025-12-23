@@ -44,26 +44,26 @@ export const TONE_OF_VOICE_OPTIONS = [
   { value: 'inspirational', label: 'Truyền cảm hứng', suggestEmoji: true },
 ];
 
-// Formality with language style hints
+// Formality with language style hints - values match database/legacy system
 export const FORMALITY_LEVEL_OPTIONS = [
   { 
-    value: 'very_formal', 
-    label: 'Rất trang trọng',
+    value: 'formal', 
+    label: 'Trang trọng',
     hint: 'Ngắn gọn, súc tích • Không từ lóng • Câu cấu trúc chặt chẽ'
   },
   { 
-    value: 'professional', 
-    label: 'Chuyên nghiệp',
+    value: 'semi_formal', 
+    label: 'Bán trang trọng',
     hint: 'Rõ ràng, trực tiếp • Có cấu trúc • Không khoa trương'
-  },
-  { 
-    value: 'neutral', 
-    label: 'Trung lập',
-    hint: 'Cân bằng giữa trang trọng và gần gũi • Linh hoạt theo ngữ cảnh'
   },
   { 
     value: 'casual', 
     label: 'Gần gũi',
+    hint: 'Cân bằng giữa trang trọng và thân thiện • Linh hoạt theo ngữ cảnh'
+  },
+  { 
+    value: 'friendly', 
+    label: 'Thân thiện',
     hint: 'Thoải mái, tự nhiên • Cho phép từ ngữ đời thường • Có thể dùng emoji'
   },
 ];
@@ -353,12 +353,10 @@ export function BrandVoiceSection({
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Chọn mức độ..." />
             </SelectTrigger>
-            <SelectContent className="z-[200] bg-popover">
+            <SelectContent className="z-[9999] bg-popover">
               {FORMALITY_LEVEL_OPTIONS.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  <div className="flex flex-col">
-                    <span>{opt.label}</span>
-                  </div>
+                <SelectItem key={opt.value} value={opt.value} textValue={opt.label}>
+                  {opt.label}
                 </SelectItem>
               ))}
             </SelectContent>
