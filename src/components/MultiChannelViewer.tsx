@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useDraft } from '@/hooks/useDraft';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
+import { useContentValidation, ValidationResult } from '@/hooks/useContentValidation';
 import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
 import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
@@ -42,6 +43,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
 import { AssignedApproverInfo } from '@/components/AssignedApproverInfo';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
+import { ContentValidationDialog } from '@/components/ContentValidationDialog';
 import { useIndustryMemoryForBrand } from '@/hooks/useIndustryMemory';
 
 interface MultiChannelViewerProps {
@@ -233,6 +235,15 @@ export function MultiChannelViewer({
   const [editTitle, setEditTitle] = useState('');
   const [editTopic, setEditTopic] = useState('');
   const [isSavingHeader, setIsSavingHeader] = useState(false);
+
+  // Content validation state
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [pendingSaveChannel, setPendingSaveChannel] = useState<Channel | null>(null);
+  const [pendingSaveContent, setPendingSaveContent] = useState<string>('');
+
+  // Content validation hook
+  const { validateContent, hasIndustryRules } = useContentValidation(content?.brand_template_id);
 
   // Undo/Redo hook for edit content
   const {
@@ -428,6 +439,27 @@ export function MultiChannelViewer({
     
     const contentToSave = previewContent || editContent;
     
+    // Validate content if industry rules exist
+    if (hasIndustryRules) {
+      const result = validateContent(contentToSave, channel);
+      
+      if (result.hasErrors || result.hasWarnings) {
+        // Show validation dialog
+        setValidationResult(result);
+        setPendingSaveChannel(channel);
+        setPendingSaveContent(contentToSave);
+        setShowValidationDialog(true);
+        return;
+      }
+    }
+    
+    // No validation issues or no industry rules - save directly
+    await executeSave(channel, contentToSave);
+  };
+
+  const executeSave = async (channel: Channel, contentToSave: string) => {
+    if (!onUpdateContent) return;
+    
     setIsSaving(true);
     try {
       const updated = await onUpdateContent(content.id, channel, contentToSave);
@@ -441,6 +473,23 @@ export function MultiChannelViewer({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleValidationConfirm = async () => {
+    setShowValidationDialog(false);
+    if (pendingSaveChannel && pendingSaveContent) {
+      await executeSave(pendingSaveChannel, pendingSaveContent);
+    }
+    setPendingSaveChannel(null);
+    setPendingSaveContent('');
+    setValidationResult(null);
+  };
+
+  const handleValidationCancel = () => {
+    setShowValidationDialog(false);
+    setPendingSaveChannel(null);
+    setPendingSaveContent('');
+    setValidationResult(null);
   };
 
   const handleAIEdit = async (channel: Channel, instruction: string) => {
@@ -1216,6 +1265,17 @@ export function MultiChannelViewer({
         selectedChannels={content.selected_channels}
         preselectedChannel={assignmentChannel}
       />
+
+      {/* Content Validation Dialog */}
+      {validationResult && (
+        <ContentValidationDialog
+          open={showValidationDialog}
+          onOpenChange={setShowValidationDialog}
+          validationResult={validationResult}
+          onConfirm={handleValidationConfirm}
+          onCancel={handleValidationCancel}
+        />
+      )}
     </Dialog>
   );
 }
