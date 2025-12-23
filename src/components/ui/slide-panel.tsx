@@ -12,6 +12,8 @@ interface SlidePanelProps {
   className?: string;
   /** When true, panel fills the content area (sidebar remains visible) */
   fillContent?: boolean;
+  /** When true, content is centered with max-w-4xl */
+  centerContent?: boolean;
 }
 
 export function SlidePanel({
@@ -22,6 +24,7 @@ export function SlidePanel({
   children,
   className,
   fillContent = false,
+  centerContent = false,
 }: SlidePanelProps) {
   const [isVisible, setIsVisible] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
@@ -137,12 +140,15 @@ export function SlidePanel({
         <div 
           className={cn(
             "overflow-y-auto h-[calc(100%-73px)] p-6 transition-all duration-300 delay-150",
+            centerContent && "flex justify-center",
             isAnimating 
               ? "translate-y-0 opacity-100" 
               : "translate-y-4 opacity-0"
           )}
         >
-          {children}
+          <div className={cn("w-full", centerContent && "max-w-4xl")}>
+            {children}
+          </div>
         </div>
       </div>
     </>
