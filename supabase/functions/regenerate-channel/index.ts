@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -534,56 +535,109 @@ Nội dung sẵn sàng đăng ngay.`;
       },
     ];
 
-    console.log("Calling Lovable AI for regeneration...");
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools,
-        tool_choice: { type: "function", function: { name: "generate_channel_content" } },
-      }),
-    });
+    // Define AI generation function
+    const generateAIContent = async (): Promise<string> => {
+      console.log("Calling Lovable AI for regeneration (no cache hit)...");
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools,
+          tool_choice: { type: "function", function: { name: "generate_channel_content" } },
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI API error:", response.status, errorText);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("AI API error:", response.status, errorText);
+        
+        if (response.status === 429) {
+          throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
+        }
+        if (response.status === 402) {
+          throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
+        }
+        throw new Error(`AI API error: ${response.status}`);
+      }
+
+      const aiResponse = await response.json();
+      console.log("AI response received for regeneration");
+
+      const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall || toolCall.function.name !== "generate_channel_content") {
+        throw new Error("Invalid AI response format");
+      }
+
+      const generatedData = JSON.parse(toolCall.function.arguments);
+      const newContent = generatedData.content;
       
-      if (response.status === 429) {
+      if (!newContent) {
+        throw new Error("AI không trả về nội dung");
+      }
+
+      return newContent;
+    };
+
+    // Use cache wrapper (short TTL for regeneration - 1 day)
+    const functionName = 'regenerate-channel';
+    const scope = CACHE_SCOPE[functionName] || 'org';
+    const ttlDays = CACHE_TTL[functionName] || 1;
+
+    // Build cache input
+    const cacheInput = {
+      contentId,
+      channel,
+      topic: content.topic,
+      industry: content.industry,
+      brandVoice: brandVoice ? {
+        positioning: brandVoice.brand_positioning,
+        tone: brandVoice.tone_of_voice,
+        formality: brandVoice.formality_level,
+      } : null,
+    };
+
+    let newContent: string;
+    let fromCache = false;
+
+    try {
+      const cacheResult = await withCache({
+        functionName,
+        scope,
+        organizationId: content.organization_id || undefined,
+        brandTemplateId: content.brand_template_id || undefined,
+        input: cacheInput,
+        versions: {
+          brandVoice: brandVoice?.formality_level || undefined,
+        },
+        ttlDays,
+        generateFn: generateAIContent,
+      });
+
+      newContent = cacheResult.data;
+      fromCache = cacheResult.fromCache;
+      console.log(`Regeneration: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}`);
+    } catch (err: any) {
+      if (err.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." }),
+          JSON.stringify({ error: err.message }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (err.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Cần nạp thêm credits để tiếp tục sử dụng." }),
+          JSON.stringify({ error: err.message }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`AI API error: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    console.log("AI response received for regeneration");
-
-    const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function.name !== "generate_channel_content") {
-      throw new Error("Invalid AI response format");
-    }
-
-    const generatedData = JSON.parse(toolCall.function.arguments);
-    const newContent = generatedData.content;
-    
-    if (!newContent) {
-      throw new Error("AI không trả về nội dung");
+      throw err;
     }
 
     console.log("New content generated, updating database...");
@@ -602,9 +656,9 @@ Nội dung sẵn sàng đăng ngay.`;
       throw new Error("Không thể cập nhật nội dung");
     }
 
-    console.log(`Successfully regenerated ${channel} for content ${contentId}`);
+    console.log(`Successfully regenerated ${channel} for content ${contentId}, fromCache:`, fromCache);
 
-    return new Response(JSON.stringify(updatedContent), {
+    return new Response(JSON.stringify({ ...updatedContent, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
