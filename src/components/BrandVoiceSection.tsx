@@ -22,7 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useState, useMemo, type Dispatch, type SetStateAction } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 // Brand Voice Constants
@@ -88,7 +88,7 @@ interface BrandVoiceSectionProps {
   brandPositioning: string;
   onBrandPositioningChange: (value: string) => void;
   toneOfVoice: string[];
-  onToneOfVoiceChange: Dispatch<SetStateAction<string[]>>;
+  onToneOfVoiceChange: (value: string[]) => void;
   formalityLevel: string;
   onFormalityLevelChange: (value: string) => void;
   languageStyle: string[];
@@ -195,36 +195,40 @@ export function BrandVoiceSection({
     return option?.hint || null;
   }, [formalityLevel]);
 
+  // Keep a ref of latest tones to avoid side effects inside React state updaters (StrictMode can invoke them twice)
+  const toneRef = useRef<string[]>(toneOfVoice);
+  useEffect(() => {
+    toneRef.current = toneOfVoice;
+  }, [toneOfVoice]);
+
   const toggleTone = (tone: string) => {
-    onToneOfVoiceChange((prev) => {
-      const prevArr = Array.isArray(prev) ? prev : [];
+    const prevArr = Array.isArray(toneRef.current) ? toneRef.current : [];
 
-      const next = prevArr.includes(tone)
-        ? prevArr.filter((t) => t !== tone)
-        : prevArr.length < 3
-          ? [...prevArr, tone]
-          : prevArr;
+    const next = prevArr.includes(tone)
+      ? prevArr.filter((t) => t !== tone)
+      : prevArr.length < 3
+        ? [...prevArr, tone]
+        : prevArr;
 
-      if (next === prevArr) return prevArr;
+    if (next === prevArr) return;
 
-      onBeforeChange?.({
-        attribute: 'tone_of_voice',
-        previousValue: prevArr,
-        newValue: next,
-      });
-
-      // Auto-enable emoji if any selected tone suggests it and currently disabled
-      const willSuggestEmoji = next.some((t) => {
-        const opt = TONE_OF_VOICE_OPTIONS.find((o) => o.value === t);
-        return opt?.suggestEmoji === true;
-      });
-
-      if (willSuggestEmoji && !allowEmoji) {
-        handleChange('allow_emoji', false, true, onAllowEmojiChange);
-      }
-
-      return next;
+    onBeforeChange?.({
+      attribute: 'tone_of_voice',
+      previousValue: prevArr,
+      newValue: next,
     });
+
+    // Auto-enable emoji if any selected tone suggests it and currently disabled
+    const willSuggestEmoji = next.some((t) => {
+      const opt = TONE_OF_VOICE_OPTIONS.find((o) => o.value === t);
+      return opt?.suggestEmoji === true;
+    });
+
+    if (willSuggestEmoji && !allowEmoji) {
+      handleChange('allow_emoji', false, true, onAllowEmojiChange);
+    }
+
+    onToneOfVoiceChange(next);
   };
 
   const handleAddWord = (
