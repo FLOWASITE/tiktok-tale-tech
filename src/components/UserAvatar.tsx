@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useOrganization } from '@/hooks/useOrganization';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -42,6 +43,7 @@ export function UserAvatar() {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const { organizations, currentOrganization, currentRole, switchOrganization } = useOrganizationContext();
+  const { createOrganization } = useOrganization();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -112,53 +114,23 @@ export function UserAvatar() {
       toast.error('Vui lòng nhập tên tổ chức');
       return;
     }
-    
+
     setCreatingOrg(true);
     try {
-      // Import dynamically to avoid circular dependency
-      const { supabase } = await import('@/integrations/supabase/client');
-      
-      const slug = newOrgName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36);
-
-      // Create organization
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: newOrgName.trim(),
-          slug,
-          owner_id: user!.id,
-        })
-        .select()
-        .single();
-
-      if (orgError) throw orgError;
-
-      // Add owner as member
-      const { error: memberError } = await supabase
-        .from('organization_members')
-        .insert({
-          organization_id: org.id,
-          user_id: user!.id,
-          role: 'owner',
-          joined_at: new Date().toISOString(),
-        });
-
-      if (memberError) throw memberError;
+      const org = await createOrganization(newOrgName.trim());
+      if (!org) return;
 
       toast.success('Đã tạo tổ chức mới');
       setNewOrgName('');
       setCreateOrgDialogOpen(false);
-      
+
       // Switch to the new org
       switchOrganization(org.id);
-      
+
       // Navigate to organization settings
       navigate('/organization');
     } catch (error: any) {
-      toast.error('Lỗi tạo tổ chức: ' + error.message);
+      toast.error('Lỗi tạo tổ chức: ' + (error?.message ?? 'Unknown error'));
     } finally {
       setCreatingOrg(false);
     }
