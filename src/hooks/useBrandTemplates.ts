@@ -34,6 +34,8 @@ export interface BrandTemplate {
   compliance_rules: string[] | null;
   // Channel Settings Overrides
   channel_overrides: ChannelOverrides | null;
+  // Sample texts for channels
+  sample_texts: Record<string, string> | null;
 }
 
 export type BrandScope = 'personal' | 'organization' | 'both';

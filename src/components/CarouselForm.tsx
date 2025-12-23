@@ -123,6 +123,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       allow_emoji: true,
       compliance_rules: null,
       channel_overrides: null,
+      sample_texts: null,
     });
 
     if (result) {

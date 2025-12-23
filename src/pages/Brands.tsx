@@ -162,6 +162,7 @@ export default function Brands() {
             allow_emoji: template.allow_emoji ?? true,
             compliance_rules: template.compliance_rules ?? null,
             channel_overrides: template.channel_overrides ?? null,
+            sample_texts: template.sample_texts ?? null,
           }, 'personal');
           successCount++;
         }

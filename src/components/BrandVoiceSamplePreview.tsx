@@ -34,6 +34,8 @@ interface BrandVoiceSamplePreviewProps {
   allowEmoji?: boolean;
   preferredWords?: string[];
   forbiddenWords?: string[];
+  savedSampleTexts?: Record<string, string> | null;
+  onSampleTextsChange?: (samples: Record<string, string>) => void;
 }
 
 const CHANNEL_INFO: Record<ChannelType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -77,14 +79,16 @@ export function BrandVoiceSamplePreview({
   allowEmoji = true,
   preferredWords = [],
   forbiddenWords = [],
+  savedSampleTexts,
+  onSampleTextsChange,
 }: BrandVoiceSamplePreviewProps) {
   const [activeChannel, setActiveChannel] = useState<ChannelType>('facebook');
   const [showComparison, setShowComparison] = useState(false);
   const [copiedChannel, setCopiedChannel] = useState<ChannelType | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAIGenerating, setIsAIGenerating] = useState(false);
-  const [aiSamples, setAiSamples] = useState<Record<string, string> | null>(null);
-  const [useAI, setUseAI] = useState(false);
+  const [aiSamples, setAiSamples] = useState<Record<string, string> | null>(savedSampleTexts || null);
+  const [useAI, setUseAI] = useState(!!savedSampleTexts);
 
   // Generate template-based samples
   const templateSamples = useMemo(() => {
@@ -151,8 +155,14 @@ export function BrandVoiceSamplePreview({
       if (error) throw error;
 
       if (data?.samples) {
-        setAiSamples(data.samples);
+        // Normalize the AI samples
+        const normalizedSamples: Record<string, string> = {};
+        for (const [key, value] of Object.entries(data.samples)) {
+          normalizedSamples[key] = normalizeSample(value);
+        }
+        setAiSamples(normalizedSamples);
         setUseAI(true);
+        onSampleTextsChange?.(normalizedSamples);
         toast.success('Đã tạo nội dung mẫu bằng AI!');
       }
     } catch (err: any) {
