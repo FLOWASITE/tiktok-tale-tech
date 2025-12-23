@@ -105,6 +105,8 @@ export function SavedSamplesManager({
   onCompareVariants,
 }: SavedSamplesManagerProps) {
   const [previewVariant, setPreviewVariant] = useState<BrandVoiceVariant | null>(null);
+  const [previewPendingSample, setPreviewPendingSample] = useState<PendingSample | null>(null);
+  const [previewCurrentSample, setPreviewCurrentSample] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
@@ -157,6 +159,17 @@ export function SavedSamplesManager({
   };
 
   const hasCurrentSample = currentSampleTexts && Object.keys(currentSampleTexts).length > 0;
+
+  // Get preview sample for pending/current samples
+  const getSampleContent = (sampleTexts: Record<string, string>, channel: ChannelType): string => {
+    const sample = sampleTexts[channel];
+    if (typeof sample === 'string') return sample;
+    if (sample && typeof sample === 'object' && 'subject' in sample && 'body' in sample) {
+      const s = sample as { subject: string; body: string };
+      return `📧 Subject: ${s.subject}\n\n${s.body}`;
+    }
+    return '';
+  };
 
   return (
     <div className="space-y-4">
@@ -246,15 +259,27 @@ export function SavedSamplesManager({
               </Button>
               
               {hasCurrentSample && !showNameInput && (
-                <Button
-                  onClick={() => setShowNameInput(true)}
-                  disabled={isSaving || isGenerating}
-                  size="sm"
-                  className="gap-1.5"
-                >
-                  <Save className="w-4 h-4" />
-                  Lưu mẫu
-                </Button>
+                <>
+                  <Button
+                    onClick={() => setPreviewCurrentSample(true)}
+                    disabled={isGenerating}
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Xem mẫu
+                  </Button>
+                  <Button
+                    onClick={() => setShowNameInput(true)}
+                    disabled={isSaving || isGenerating}
+                    size="sm"
+                    className="gap-1.5"
+                  >
+                    <Save className="w-4 h-4" />
+                    Lưu mẫu
+                  </Button>
+                </>
               )}
               
               {hasCurrentSample && showNameInput && (
@@ -342,8 +367,16 @@ export function SavedSamplesManager({
                       </div>
                     </div>
                     
-                    {onDeletePendingSample && (
-                      <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setPreviewPendingSample(sample)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      {onDeletePendingSample && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -352,8 +385,8 @@ export function SavedSamplesManager({
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -499,6 +532,112 @@ export function SavedSamplesManager({
                       {format(new Date(previewVariant.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Pending Sample Dialog */}
+      <Dialog open={!!previewPendingSample} onOpenChange={(open) => !open && setPreviewPendingSample(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              {previewPendingSample?.name}
+              <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
+                Chờ lưu
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {previewPendingSample && (
+            <div className="p-6">
+              {/* Channel tabs */}
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                {VISIBLE_CHANNELS.map(channel => (
+                  <Button
+                    key={channel}
+                    variant={activePreviewChannel === channel ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setActivePreviewChannel(channel)}
+                    className="shrink-0"
+                  >
+                    {CHANNEL_LABELS[channel]}
+                  </Button>
+                ))}
+              </div>
+              
+              {/* Mockup preview */}
+              <div className="flex justify-center">
+                <div className="w-full max-w-md">
+                  <ChannelMockupFrame
+                    channel={activePreviewChannel}
+                    content={getSampleContent(previewPendingSample.sample_texts, activePreviewChannel)}
+                    brandName={brandName}
+                  />
+                </div>
+              </div>
+              
+              {/* Voice settings summary */}
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Tone of Voice</div>
+                    <div className="font-medium">{formatToneOfVoice(previewPendingSample.tone_of_voice)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Phong cách</div>
+                    <div className="font-medium">{formatFormality(previewPendingSample.formality_level)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Emoji</div>
+                    <div className="font-medium">{previewPendingSample.allow_emoji ? 'Có' : 'Không'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Current Sample Dialog */}
+      <Dialog open={previewCurrentSample} onOpenChange={setPreviewCurrentSample}>
+        <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              Mẫu hiện tại
+              <Badge variant="secondary" className="text-xs">Chưa lưu</Badge>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {currentSampleTexts && (
+            <div className="p-6">
+              {/* Channel tabs */}
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                {VISIBLE_CHANNELS.map(channel => (
+                  <Button
+                    key={channel}
+                    variant={activePreviewChannel === channel ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setActivePreviewChannel(channel)}
+                    className="shrink-0"
+                  >
+                    {CHANNEL_LABELS[channel]}
+                  </Button>
+                ))}
+              </div>
+              
+              {/* Mockup preview */}
+              <div className="flex justify-center">
+                <div className="w-full max-w-md">
+                  <ChannelMockupFrame
+                    channel={activePreviewChannel}
+                    content={getSampleContent(currentSampleTexts, activePreviewChannel)}
+                    brandName={brandName}
+                  />
                 </div>
               </div>
             </div>
