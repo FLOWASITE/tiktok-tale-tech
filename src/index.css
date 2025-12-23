@@ -476,6 +476,35 @@ All colors MUST be HSL.
     100% { transform: translateX(-100%); }
   }
 
+  /* Bounce once animation for like button */
+  .animate-bounce-once {
+    animation: bounce-once 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes bounce-once {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.3); }
+    50% { transform: scale(0.9); }
+    70% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  /* Ping once animation for Instagram heart */
+  .animate-ping-once {
+    animation: ping-once 0.8s cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  @keyframes ping-once {
+    0% { transform: scale(0.5); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  /* Bounce subtle for TikTok music icon */
+  .animate-bounce-subtle {
+    animation: bounce-subtle 1s ease-in-out infinite;
+  }
+
   /* Content transition */
   .content-transition {
     @apply transition-all duration-300 ease-out;
