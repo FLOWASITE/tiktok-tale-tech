@@ -15,6 +15,8 @@ import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { BrandTemplateSelector, LegacyIndustryTemplate } from '@/components/BrandTemplateSelector';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
+import { IndustryRulesIndicator } from '@/components/IndustryRulesIndicator';
+import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { Upload, X, Image as ImageIcon, ChevronsUpDown, Check, User, Building2, ChevronLeft, ChevronRight, Wand2, Sparkles, Loader2 } from 'lucide-react';
 import {
@@ -104,6 +106,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   // Channel Settings Overrides
   const [channelOverrides, setChannelOverrides] = useState<ChannelOverrides>({});
 
+  // Industry Memory Pack Link
+  const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null);
+
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -139,6 +144,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setAllowEmoji(template.allow_emoji ?? true);
       setComplianceRules(template.compliance_rules || []);
       setChannelOverrides(template.channel_overrides || {});
+      setIndustryTemplateId(template.industry_template_id || null);
       setShowQuickStart(false);
       setCurrentStep(1);
     } else {
@@ -162,8 +168,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setAllowEmoji(true);
       setComplianceRules([]);
       setChannelOverrides({});
+      setIndustryTemplateId(null);
     }
   }, [template]);
+
+  // Fetch Industry Memory for linked pack (for indicator)
+  const { data: linkedIndustryMemory, isLoading: isLoadingIndustryMemory } = useIndustryMemoryById(industryTemplateId);
 
   // Calculate form completion percentage
   const completionPercentage = useMemo(() => {
@@ -290,6 +300,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   };
 
   const handleIndustryTemplateSelect = (templateData: LegacyIndustryTemplate & { industry: string }) => {
+    // Save the FK to link Brand with Industry Memory Pack
+    setIndustryTemplateId(templateData.id);
     setIndustries([templateData.industry]);
     setBrandPositioning(templateData.brand_positioning);
     setToneOfVoice(templateData.tone_of_voice);
@@ -300,7 +312,13 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     setForbiddenWords(templateData.forbidden_words);
     setShowQuickStart(false);
     setCurrentStep(1);
-    toast.success('Đã áp dụng cài đặt ngành!');
+    toast.success('Đã liên kết Industry Memory và áp dụng cài đặt ngành!');
+  };
+
+  // Handler to clear Industry Memory link
+  const handleClearIndustryLink = () => {
+    setIndustryTemplateId(null);
+    toast.info('Đã bỏ liên kết Industry Memory');
   };
 
   const handleAIQuickStart = async () => {
@@ -480,6 +498,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         is_default: isDefault,
         primary_color: primaryColor,
         logo_url: deleteLogo ? null : template?.logo_url || null,
+        industry_template_id: industryTemplateId,
         brand_positioning: brandPositioning || null,
         tone_of_voice: toneOfVoice.length > 0 ? toneOfVoice : null,
         formality_level: formalityLevel || null,
@@ -1009,6 +1028,44 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Industry Memory Link Section */}
+          <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Industry Memory (Tùy chọn)</Label>
+              {industryTemplateId && (
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleClearIndustryLink}
+                  className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  Bỏ liên kết
+                </Button>
+              )}
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Liên kết với Industry Memory Pack để áp dụng quy tắc tuân thủ ngành (compliance rules, từ cấm, v.v.)
+            </p>
+
+            {/* Show current linked pack or selector */}
+            {industryTemplateId ? (
+              <IndustryRulesIndicator 
+                industryMemory={linkedIndustryMemory || null} 
+                isLoading={isLoadingIndustryMemory}
+              />
+            ) : (
+              <div className="pt-2">
+                <BrandTemplateSelector
+                  onSelect={handleIndustryTemplateSelect}
+                  selectedIndustry={industries[0]}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -112,6 +112,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       is_default: false,
       logo_url: null,
       primary_color: '#000000',
+      industry_template_id: null,
       // Brand Voice defaults
       brand_positioning: null,
       tone_of_voice: null,

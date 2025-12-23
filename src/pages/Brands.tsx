@@ -147,6 +147,7 @@ export default function Brands() {
             is_default: false,
             logo_url: null,
             primary_color: template.primary_color ?? '#000000',
+            industry_template_id: template.industry_template_id ?? null,
             brand_positioning: template.brand_positioning ?? null,
             tone_of_voice: template.tone_of_voice ?? null,
             formality_level: template.formality_level ?? null,

@@ -79,6 +79,7 @@ const INDUSTRY_ICONS: Record<string, React.ReactNode> = {
 
 // Legacy interface for backward compatibility
 export interface LegacyIndustryTemplate {
+  id: string; // Industry Memory Pack ID
   name: string;
   icon: React.ReactNode;
   brand_positioning: string;
@@ -96,6 +97,7 @@ export const INDUSTRY_TEMPLATES: Record<string, LegacyIndustryTemplate> = {};
 // Helper to convert DB template to legacy format
 function toLegacyTemplate(template: IndustryTemplate): LegacyIndustryTemplate & { industry: string } {
   return {
+    id: template.id, // Include ID for linking
     industry: template.name, // Use full name as industry key for backward compatibility
     name: template.short_name || template.name,
     icon: INDUSTRY_ICONS[template.code] || <Briefcase className="w-5 h-5" />,
