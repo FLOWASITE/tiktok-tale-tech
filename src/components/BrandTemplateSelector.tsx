@@ -2,10 +2,15 @@ import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, X, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  HoverCard, 
+  HoverCardContent, 
+  HoverCardTrigger 
+} from '@/components/ui/hover-card';
+import { Search, X, AlertCircle, Lock, ShieldCheck, AlertTriangle, Users, Building2, CheckCircle2 } from 'lucide-react';
 import { 
   Briefcase, 
-  Building2, 
   Coffee, 
   Code, 
   GraduationCap, 
@@ -21,7 +26,6 @@ import {
   Leaf,
   Truck,
   Shield,
-  Users,
   Landmark,
   Smartphone,
   Gamepad2,
@@ -39,6 +43,7 @@ import {
   Car
 } from 'lucide-react';
 import { useIndustryTemplates, IndustryTemplate } from '@/hooks/useIndustryTemplates';
+import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 
 // Icon mapping by industry code
 const INDUSTRY_ICONS: Record<string, React.ReactNode> = {
@@ -115,6 +120,154 @@ interface BrandTemplateSelectorProps {
   onSelect: (template: LegacyIndustryTemplate & { industry: string }) => void;
   selectedIndustry?: string;
   countryCode?: string;
+}
+
+// Separate component for hover preview to handle data fetching
+function IndustryPackHoverPreview({ 
+  templateId, 
+  templateName,
+  onSelect 
+}: { 
+  templateId: string; 
+  templateName: string;
+  onSelect: () => void;
+}) {
+  const { data: industryMemory, isLoading } = useIndustryMemoryById(templateId);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3 p-1">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-48" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+
+  if (!industryMemory) {
+    return (
+      <div className="text-sm text-muted-foreground p-1">
+        <p className="font-medium">{templateName}</p>
+        <p className="text-xs mt-1">Đang tải thông tin...</p>
+      </div>
+    );
+  }
+
+  const forbiddenTerms = industryMemory.forbidden_terms || [];
+  const complianceRules = industryMemory.compliance_rules || [];
+  const claimRestrictions = industryMemory.claim_restrictions || [];
+  const brandVoice = industryMemory.brand_voice || {};
+  const MAX_VISIBLE_TERMS = 5;
+
+  const targetAudienceLabel = {
+    'B2B': 'Doanh nghiệp (B2B)',
+    'B2C': 'Người tiêu dùng (B2C)',
+    'both': 'Cả B2B & B2C',
+  }[industryMemory.target_audience] || industryMemory.target_audience;
+
+  return (
+    <div className="space-y-3 max-w-xs">
+      {/* Header */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm">{industryMemory.name}</span>
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+            🇻🇳 Việt Nam
+          </Badge>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-mono">
+            v{industryMemory.version}
+          </Badge>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            Stable
+          </Badge>
+        </div>
+      </div>
+
+      {/* Target Audience */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {industryMemory.target_audience === 'B2B' ? (
+          <Building2 className="h-3 w-3" />
+        ) : (
+          <Users className="h-3 w-3" />
+        )}
+        <span>{targetAudienceLabel}</span>
+      </div>
+
+      {/* Forbidden Terms */}
+      {forbiddenTerms.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Lock className="h-3 w-3 text-destructive" />
+            <span className="text-[10px] font-medium text-destructive uppercase">
+              Từ cấm ngành (LOCKED)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {forbiddenTerms.slice(0, MAX_VISIBLE_TERMS).map((term, idx) => (
+              <Badge 
+                key={idx} 
+                variant="outline" 
+                className="text-[10px] px-1 py-0 h-4 bg-destructive/5 border-destructive/30 text-destructive"
+              >
+                {term}
+              </Badge>
+            ))}
+            {forbiddenTerms.length > MAX_VISIBLE_TERMS && (
+              <Badge 
+                variant="outline" 
+                className="text-[10px] px-1 py-0 h-4 bg-muted"
+              >
+                +{forbiddenTerms.length - MAX_VISIBLE_TERMS}
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Rules Count Summary */}
+      <div className="flex items-center gap-2 text-[10px]">
+        {complianceRules.length > 0 && (
+          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="h-3 w-3" />
+            {complianceRules.length} compliance
+          </span>
+        )}
+        {claimRestrictions.length > 0 && (
+          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-3 w-3" />
+            {claimRestrictions.length} restrictions
+          </span>
+        )}
+      </div>
+
+      {/* Brand Voice */}
+      {(brandVoice.tone_of_voice?.length || brandVoice.formality_level) && (
+        <div className="space-y-1">
+          <span className="text-[10px] text-muted-foreground">Brand Voice gợi ý:</span>
+          <div className="flex flex-wrap gap-1">
+            {brandVoice.tone_of_voice?.slice(0, 3).map((tone, idx) => (
+              <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                {tone}
+              </Badge>
+            ))}
+            {brandVoice.formality_level && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                {brandVoice.formality_level}
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Click hint */}
+      <p className="text-[10px] text-muted-foreground italic pt-1 border-t">
+        Click để chọn pack này
+      </p>
+    </div>
+  );
 }
 
 export function BrandTemplateSelector({ 
@@ -235,22 +388,37 @@ export function BrandTemplateSelector({
             const icon = INDUSTRY_ICONS[template.code] || <Briefcase className="w-5 h-5" />;
             
             return (
-              <Card
-                key={template.id}
-                className={`p-3 cursor-pointer transition-all hover:border-primary/50 hover:shadow-sm ${
-                  isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''
-                }`}
-                onClick={() => handleSelect(template)}
-              >
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <div className={`p-2 rounded-full ${isSelected ? 'bg-primary/10 text-primary' : 'bg-muted'}`}>
-                    {icon}
-                  </div>
-                  <span className="text-xs font-medium line-clamp-2">
-                    {template.short_name || template.name}
-                  </span>
-                </div>
-              </Card>
+              <HoverCard key={template.id} openDelay={300} closeDelay={100}>
+                <HoverCardTrigger asChild>
+                  <Card
+                    className={`p-3 cursor-pointer transition-all hover:border-primary/50 hover:shadow-sm ${
+                      isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''
+                    }`}
+                    onClick={() => handleSelect(template)}
+                  >
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <div className={`p-2 rounded-full ${isSelected ? 'bg-primary/10 text-primary' : 'bg-muted'}`}>
+                        {icon}
+                      </div>
+                      <span className="text-xs font-medium line-clamp-2">
+                        {template.short_name || template.name}
+                      </span>
+                    </div>
+                  </Card>
+                </HoverCardTrigger>
+                <HoverCardContent 
+                  side="right" 
+                  align="start" 
+                  className="w-80 p-3"
+                  sideOffset={8}
+                >
+                  <IndustryPackHoverPreview 
+                    templateId={template.id}
+                    templateName={template.name}
+                    onSelect={() => handleSelect(template)}
+                  />
+                </HoverCardContent>
+              </HoverCard>
             );
           })
         ) : (
