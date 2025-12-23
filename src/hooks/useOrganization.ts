@@ -23,6 +23,7 @@ export function useOrganization() {
 
     try {
       setUpdating(true);
+      console.debug('[createOrganization] invoking backend function create-organization');
 
       const { data, error } = await supabase.functions.invoke('create-organization', {
         body: { name },
