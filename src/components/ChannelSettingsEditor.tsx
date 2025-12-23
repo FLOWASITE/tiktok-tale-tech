@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign } from 'lucide-react';
+import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Channel, CHANNELS } from '@/types/multichannel';
 import { DEFAULT_CHANNEL_SETTINGS, ChannelSettings } from '@/types/channelSettings';
+import { cn } from '@/lib/utils';
 
 // Partial settings that can be overridden per channel
 export type ChannelOverride = Partial<Pick<ChannelSettings, 
@@ -56,6 +57,9 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   threads: <AtSign className="w-4 h-4" />,
 };
 
+// Popular channels to show first
+const POPULAR_CHANNELS: Channel[] = ['facebook', 'instagram', 'linkedin', 'website', 'tiktok'];
+
 const ctaPolicyOptions = [
   { value: 'required', label: 'Bắt buộc' },
   { value: 'soft', label: 'Mềm (không bán)' },
@@ -70,16 +74,46 @@ const linkPositionOptions = [
   { value: 'none', label: 'Không link' },
 ];
 
+// Presets
+const CHANNEL_PRESETS = {
+  standard: {
+    label: 'Chuẩn',
+    description: 'Cài đặt mặc định cho tất cả kênh',
+    overrides: {} as ChannelOverrides,
+  },
+  social: {
+    label: 'Social-focused',
+    description: 'Tối ưu cho mạng xã hội: emoji nhiều, hashtag phù hợp',
+    overrides: {
+      facebook: { emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5 },
+      instagram: { emoji_allowed: true, emoji_limit: 8, hashtag_limit: 20 },
+      tiktok: { emoji_allowed: true, emoji_limit: 6, hashtag_limit: 10 },
+      twitter: { emoji_allowed: true, emoji_limit: 3, hashtag_limit: 3 },
+    } as ChannelOverrides,
+  },
+  professional: {
+    label: 'Professional',
+    description: 'Ít emoji, CTA rõ ràng, phù hợp B2B',
+    overrides: {
+      linkedin: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
+      email: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
+      website: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
+    } as ChannelOverrides,
+  },
+};
+
 function ChannelSettingRow({ 
   channel, 
   override, 
   onUpdate,
-  onReset 
+  onReset,
+  compact = false,
 }: { 
   channel: Channel; 
   override: ChannelOverride | undefined;
   onUpdate: (update: ChannelOverride) => void;
   onReset: () => void;
+  compact?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
@@ -101,45 +135,45 @@ function ChannelSettingRow({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex w-full items-center justify-between p-3 rounded-lg border border-border/50 hover:border-border cursor-pointer transition-colors"
+          className={cn(
+            "flex w-full items-center justify-between rounded-lg border transition-colors",
+            compact ? "p-2.5" : "p-3",
+            hasOverrides ? "border-primary/30 bg-primary/5" : "border-border/50 hover:border-border"
+          )}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <span className="text-muted-foreground">{channelIcons[channel]}</span>
-            <span className="font-medium text-sm">{channelInfo?.label || channel}</span>
+            <span className={cn("font-medium", compact ? "text-xs" : "text-sm")}>
+              {channelInfo?.label || channel}
+            </span>
             {hasOverrides && (
-              <Badge variant="secondary" className="text-xs">
-                Đã tùy chỉnh
+              <Badge variant="secondary" className="text-[10px] h-4">
+                Tuỳ chỉnh
               </Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
               {currentMinLength}-{currentMaxLength} {defaults.length_unit === 'chars' ? 'ký tự' : 'chữ'}
             </span>
-            {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </div>
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="p-4 border border-t-0 border-border/50 rounded-b-lg space-y-4 bg-muted/20">
+        <div className="p-3 border border-t-0 border-border/50 rounded-b-lg space-y-3 bg-muted/20">
           {/* Length Settings */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
               <Label className="text-xs flex items-center gap-1">
-                Độ dài tối thiểu
+                Min
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center"
-                        aria-label="Xem giá trị mặc định"
-                      >
-                        <Info className="w-3 h-3 text-muted-foreground" />
-                      </button>
+                      <Info className="w-3 h-3 text-muted-foreground" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Mặc định: {defaults.min_length ?? 0} {defaults.length_unit === 'chars' ? 'ký tự' : 'chữ'}</p>
+                      <p>Mặc định: {defaults.min_length ?? 0}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -152,22 +186,16 @@ function ChannelSettingRow({
                 className="h-8"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label className="text-xs flex items-center gap-1">
-                Độ dài tối đa
+                Max
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center"
-                        aria-label="Xem giá trị mặc định"
-                      >
-                        <Info className="w-3 h-3 text-muted-foreground" />
-                      </button>
+                      <Info className="w-3 h-3 text-muted-foreground" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Mặc định: {defaults.max_length} {defaults.length_unit === 'chars' ? 'ký tự' : 'chữ'}</p>
+                      <p>Mặc định: {defaults.max_length}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -183,26 +211,26 @@ function ChannelSettingRow({
           </div>
 
           {/* Hook & CTA */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Hook bắt buộc</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Hook</Label>
               <div className="flex items-center gap-2 h-8">
                 <Switch
                   checked={currentHookRequired}
                   onCheckedChange={(checked) => onUpdate({ hook_required: checked })}
                 />
                 <span className="text-xs text-muted-foreground">
-                  {currentHookRequired ? 'Có' : 'Không'}
+                  {currentHookRequired ? 'Bắt buộc' : 'Không'}
                 </span>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">CTA Policy</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">CTA</Label>
               <Select
                 value={currentCtaPolicy}
                 onValueChange={(value) => onUpdate({ cta_policy: value as ChannelSettings['cta_policy'] })}
               >
-                <SelectTrigger className="h-8">
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -216,14 +244,15 @@ function ChannelSettingRow({
             </div>
           </div>
 
-          {/* Emoji & Hashtag */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+          {/* Emoji & Hashtag & Link */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
               <Label className="text-xs">Emoji</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <Switch
                   checked={currentEmojiAllowed}
                   onCheckedChange={(checked) => onUpdate({ emoji_allowed: checked, emoji_limit: checked ? (override?.emoji_limit ?? defaults.emoji_limit ?? 3) : 0 })}
+                  className="scale-90"
                 />
                 {currentEmojiAllowed && (
                   <Input
@@ -232,14 +261,13 @@ function ChannelSettingRow({
                     max={10}
                     value={currentEmojiLimit}
                     onChange={(e) => onUpdate({ emoji_limit: parseInt(e.target.value) || 0 })}
-                    className="h-8 w-16"
-                    placeholder="Max"
+                    className="h-7 w-12 text-xs"
                   />
                 )}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Hashtag (số lượng)</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Hashtag</Label>
               <Input
                 type="number"
                 min={0}
@@ -249,26 +277,24 @@ function ChannelSettingRow({
                 className="h-8"
               />
             </div>
-          </div>
-
-          {/* Link Position */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Link Policy</Label>
-            <Select
-              value={currentLinkPosition}
-              onValueChange={(value) => onUpdate({ link_position: value as ChannelSettings['link_position'] })}
-            >
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {linkPositionOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <Label className="text-xs">Link</Label>
+              <Select
+                value={currentLinkPosition}
+                onValueChange={(value) => onUpdate({ link_position: value as ChannelSettings['link_position'] })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {linkPositionOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Reset Button */}
@@ -278,10 +304,10 @@ function ChannelSettingRow({
               variant="ghost"
               size="sm"
               onClick={onReset}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="text-xs text-muted-foreground hover:text-foreground h-7"
             >
               <RotateCcw className="w-3 h-3 mr-1" />
-              Đặt lại mặc định
+              Reset
             </Button>
           )}
         </div>
@@ -292,6 +318,7 @@ function ChannelSettingRow({
 
 export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false, showWrapper = true }: ChannelSettingsEditorProps) {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
+  const [showAllChannels, setShowAllChannels] = useState(false);
   
   const hasAnyOverrides = Object.keys(value).some(
     (ch) => value[ch as Channel] && Object.keys(value[ch as Channel]!).length > 0
@@ -350,7 +377,11 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
     onChange({});
   };
 
-  // Render channel list directly without collapsible wrapper
+  const handleApplyPreset = (presetKey: keyof typeof CHANNEL_PRESETS) => {
+    const preset = CHANNEL_PRESETS[presetKey];
+    onChange(preset.overrides);
+  };
+
   if (!CHANNELS || CHANNELS.length === 0) {
     return (
       <div className="p-4 rounded-lg border border-border/50 bg-muted/20">
@@ -359,23 +390,100 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
     );
   }
 
-  const channelList = (
-    <div className="space-y-2">
-      {CHANNELS.map((ch) => (
-        <ChannelSettingRow
-          key={ch.value}
-          channel={ch.value}
-          override={value[ch.value]}
-          onUpdate={(update) => handleUpdateChannel(ch.value, update)}
-          onReset={() => handleResetChannel(ch.value)}
-        />
-      ))}
+  // Split channels
+  const popularChannelsList = CHANNELS.filter(ch => POPULAR_CHANNELS.includes(ch.value));
+  const otherChannelsList = CHANNELS.filter(ch => !POPULAR_CHANNELS.includes(ch.value));
+  const displayedChannels = showAllChannels ? CHANNELS : popularChannelsList;
+
+  const channelContent = (
+    <div className="space-y-4">
+      {/* Presets */}
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(CHANNEL_PRESETS).map(([key, preset]) => (
+          <TooltipProvider key={key}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApplyPreset(key as keyof typeof CHANNEL_PRESETS)}
+                  className="h-7 text-xs gap-1.5"
+                >
+                  <Zap className="w-3 h-3" />
+                  {preset.label}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{preset.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+        {hasAnyOverrides && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleResetAll}
+            className="h-7 text-xs text-muted-foreground"
+          >
+            <RotateCcw className="w-3 h-3 mr-1" />
+            Reset tất cả
+          </Button>
+        )}
+      </div>
+
+      {/* Channel List */}
+      <div className="space-y-2">
+        {!showAllChannels && (
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Kênh phổ biến
+          </p>
+        )}
+        {displayedChannels.map((ch) => (
+          <ChannelSettingRow
+            key={ch.value}
+            channel={ch.value}
+            override={value[ch.value]}
+            onUpdate={(update) => handleUpdateChannel(ch.value, update)}
+            onReset={() => handleResetChannel(ch.value)}
+            compact
+          />
+        ))}
+      </div>
+
+      {/* Show More Button */}
+      {!showAllChannels && otherChannelsList.length > 0 && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowAllChannels(true)}
+          className="w-full text-xs text-muted-foreground"
+        >
+          Hiển thị thêm {otherChannelsList.length} kênh khác
+          <ChevronDown className="w-3.5 h-3.5 ml-1" />
+        </Button>
+      )}
+
+      {showAllChannels && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowAllChannels(false)}
+          className="w-full text-xs text-muted-foreground"
+        >
+          Thu gọn
+          <ChevronUp className="w-3.5 h-3.5 ml-1" />
+        </Button>
+      )}
     </div>
   );
 
-  // When showWrapper is false, just render the channel list
   if (!showWrapper) {
-    return channelList;
+    return channelContent;
   }
 
   return (
@@ -386,7 +494,7 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
           className="flex w-full items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors rounded-lg"
         >
           <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-sm">Cài đặt kênh nâng cao</h3>
+            <h3 className="font-semibold text-sm">Cài đặt kênh</h3>
             {hasAnyOverrides && (
               <Badge variant="secondary" className="text-xs">
                 Đã tùy chỉnh
@@ -394,7 +502,7 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground hidden sm:inline">
               Tuỳ chỉnh rules cho từng kênh
             </span>
             {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -402,25 +510,8 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="p-4 pt-0 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Override cài đặt mặc định của từng kênh cho Brand này. Những setting không thay đổi sẽ dùng giá trị mặc định.
-          </p>
-          
-          {hasAnyOverrides && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleResetAll}
-              className="text-xs"
-            >
-              <RotateCcw className="w-3 h-3 mr-1" />
-              Đặt lại tất cả
-            </Button>
-          )}
-
-          {channelList}
+        <div className="p-4 pt-0">
+          {channelContent}
         </div>
       </CollapsibleContent>
     </Collapsible>
