@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle, AlertTriangle, Send, Loader2 } from 'lucide-react';
 import { MultiChannelContent, CONTENT_STATUSES } from '@/types/multichannel';
+import { IndustryComplianceChecklist, ComplianceResult } from '@/components/IndustryComplianceChecklist';
+import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
+import { IndustryMemorySnapshot } from '@/hooks/useApprovalLogs';
 
 type ApprovalAction = 'approve' | 'reject' | 'submit';
 
@@ -21,7 +24,12 @@ interface ApprovalDialogProps {
   onOpenChange: (open: boolean) => void;
   content: MultiChannelContent | null;
   action: ApprovalAction;
-  onConfirm: (contentId: string, action: ApprovalAction, reason?: string) => Promise<void>;
+  onConfirm: (
+    contentId: string, 
+    action: ApprovalAction, 
+    reason?: string,
+    industryMemorySnapshot?: IndustryMemorySnapshot
+  ) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -36,6 +44,7 @@ const ACTION_CONFIG = {
     requireReason: false,
     reasonLabel: 'Ghi chú cho người duyệt (tùy chọn)',
     reasonPlaceholder: 'Thêm ghi chú cho người duyệt...',
+    showComplianceChecklist: false,
   },
   approve: {
     title: 'Phê duyệt nội dung',
@@ -47,6 +56,7 @@ const ACTION_CONFIG = {
     requireReason: false,
     reasonLabel: 'Ghi chú phê duyệt (tùy chọn)',
     reasonPlaceholder: 'Thêm ghi chú phê duyệt...',
+    showComplianceChecklist: true,
   },
   reject: {
     title: 'Từ chối nội dung',
@@ -58,8 +68,29 @@ const ACTION_CONFIG = {
     requireReason: true,
     reasonLabel: 'Lý do từ chối *',
     reasonPlaceholder: 'Vui lòng nhập lý do từ chối để người tạo nội dung có thể chỉnh sửa...',
+    showComplianceChecklist: true,
   },
 };
+
+// Helper to get content text for compliance checking
+function getContentText(content: MultiChannelContent): string {
+  const texts = [
+    content.facebook_content,
+    content.instagram_content,
+    content.tiktok_content,
+    content.linkedin_content,
+    content.twitter_content,
+    content.threads_content,
+    content.youtube_content,
+    content.telegram_content,
+    content.zalo_oa_content,
+    content.email_content,
+    content.website_content,
+    content.google_maps_content,
+  ].filter(Boolean);
+  
+  return texts.join('\n');
+}
 
 export function ApprovalDialog({
   open,
@@ -71,21 +102,56 @@ export function ApprovalDialog({
 }: ApprovalDialogProps) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
+
+  // Fetch industry memory if content has brand_template_id
+  const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(
+    content?.brand_template_id || undefined
+  );
 
   const config = ACTION_CONFIG[action];
   const Icon = config.icon;
   const statusConfig = CONTENT_STATUSES.find(s => s.value === content?.status);
+
+  // Reset compliance result when dialog opens/closes or content changes
+  useEffect(() => {
+    setComplianceResult(null);
+  }, [open, content?.id]);
+
+  const handleComplianceChange = (result: ComplianceResult) => {
+    setComplianceResult(result);
+  };
 
   const handleConfirm = async () => {
     if (config.requireReason && !reason.trim()) {
       setError('Vui lòng nhập lý do từ chối');
       return;
     }
+
+    // For approve action with industry memory, check compliance
+    if (action === 'approve' && industryMemory && complianceResult) {
+      if (!complianceResult.reviewer_confirmed) {
+        setError('Vui lòng xác nhận tuân thủ Industry Rules trước khi phê duyệt');
+        return;
+      }
+    }
     
     if (content) {
-      await onConfirm(content.id, action, reason.trim() || undefined);
+      // Build industry memory snapshot for logging
+      const snapshot: IndustryMemorySnapshot | undefined = complianceResult ? {
+        industry_template_id: complianceResult.industry_template_id,
+        industry_name: complianceResult.industry_name,
+        version: complianceResult.version,
+        compliance_passed: complianceResult.compliance_passed,
+        checklist: complianceResult.checklist,
+        reviewer_confirmed: complianceResult.reviewer_confirmed,
+        rejected_rules: complianceResult.rejected_rules,
+      } : undefined;
+
+      await onConfirm(content.id, action, reason.trim() || undefined, snapshot);
       setReason('');
       setError('');
+      setComplianceResult(null);
       onOpenChange(false);
     }
   };
@@ -94,15 +160,21 @@ export function ApprovalDialog({
     if (!open) {
       setReason('');
       setError('');
+      setComplianceResult(null);
     }
     onOpenChange(open);
   };
 
   if (!content) return null;
 
+  const contentText = getContentText(content);
+  const showChecklist = config.showComplianceChecklist && industryMemory;
+  const canApprove = action !== 'approve' || !industryMemory || 
+    (complianceResult?.compliance_passed && complianceResult?.reviewer_confirmed);
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -149,6 +221,26 @@ export function ApprovalDialog({
           </div>
         </div>
 
+        {/* Industry Compliance Checklist */}
+        {showChecklist && !isLoadingIndustry && (
+          <IndustryComplianceChecklist
+            industryMemory={industryMemory}
+            contentText={contentText}
+            onComplianceChange={handleComplianceChange}
+            isReviewMode={action === 'approve'}
+          />
+        )}
+
+        {/* Loading state for industry memory */}
+        {config.showComplianceChecklist && isLoadingIndustry && (
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">
+              Đang tải Industry Memory...
+            </span>
+          </div>
+        )}
+
         {/* Reason Input */}
         <div className="space-y-2">
           <Label htmlFor="reason" className="text-sm">
@@ -182,7 +274,7 @@ export function ApprovalDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isLoading}
+            disabled={isLoading || (action === 'approve' && industryMemory && !canApprove)}
             className={config.buttonClass}
           >
             {isLoading ? (

@@ -1,10 +1,26 @@
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Send, ThumbsUp, ThumbsDown, Clock, User, MessageSquare, History } from 'lucide-react';
+import { 
+  Send, 
+  ThumbsUp, 
+  ThumbsDown, 
+  Clock, 
+  MessageSquare, 
+  History,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle
+} from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
 import { useApprovalLogs, ApprovalLog, ApprovalAction } from '@/hooks/useApprovalLogs';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +59,77 @@ const ACTION_CONFIG: Record<ApprovalAction, {
     borderColor: 'border-orange-200 dark:border-orange-800',
   },
 };
+
+function IndustryComplianceBadge({ snapshot }: { snapshot: ApprovalLog['industry_memory_snapshot'] }) {
+  if (!snapshot) return null;
+
+  const passedCount = snapshot.checklist.filter(i => i.passed).length;
+  const totalCount = snapshot.checklist.length;
+  const allPassed = snapshot.compliance_passed;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn(
+            'flex items-center gap-1.5 mt-2 p-1.5 rounded text-xs',
+            allPassed 
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+          )}>
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span className="font-medium">{snapshot.industry_name}</span>
+            <Badge 
+              variant="outline" 
+              className={cn(
+                'text-[10px] px-1 py-0',
+                allPassed ? 'border-emerald-500/30' : 'border-amber-500/30'
+              )}
+            >
+              v{snapshot.version}
+            </Badge>
+            <span className="text-[10px] ml-auto">
+              {allPassed ? (
+                <span className="flex items-center gap-0.5">
+                  <CheckCircle2 className="w-3 h-3" />
+                  {passedCount}/{totalCount} passed
+                </span>
+              ) : (
+                <span className="flex items-center gap-0.5">
+                  <XCircle className="w-3 h-3" />
+                  {totalCount - passedCount} failed
+                </span>
+              )}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <div className="text-xs space-y-1">
+            <p className="font-medium">Industry Compliance Review</p>
+            <p className="text-muted-foreground">
+              {snapshot.reviewer_confirmed 
+                ? '✓ Reviewer đã xác nhận tuân thủ' 
+                : '○ Chưa xác nhận tuân thủ'}
+            </p>
+            {snapshot.rejected_rules.length > 0 && (
+              <div className="pt-1">
+                <p className="text-destructive font-medium">Quy tắc bị từ chối:</p>
+                <ul className="list-disc list-inside text-muted-foreground">
+                  {snapshot.rejected_rules.slice(0, 3).map((rule, i) => (
+                    <li key={i} className="truncate">{rule}</li>
+                  ))}
+                  {snapshot.rejected_rules.length > 3 && (
+                    <li>+{snapshot.rejected_rules.length - 3} quy tắc khác</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 function ApprovalLogItem({ log }: { log: ApprovalLog }) {
   const config = ACTION_CONFIG[log.action];
@@ -87,6 +174,9 @@ function ApprovalLogItem({ log }: { log: ApprovalLog }) {
             <p className="break-words">{log.notes}</p>
           </div>
         )}
+
+        {/* Industry Compliance Badge */}
+        <IndustryComplianceBadge snapshot={log.industry_memory_snapshot} />
 
         <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
           <Clock className="w-3 h-3" />
