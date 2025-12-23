@@ -76,14 +76,6 @@ export const LANGUAGE_STYLE_OPTIONS = [
   { value: 'no_over_emotion', label: 'Không cảm tính quá mức' },
 ];
 
-import { BrandVoiceAttribute } from '@/hooks/useBrandVoiceSnapshot';
-
-export interface BrandVoiceChangeEvent {
-  attribute: BrandVoiceAttribute;
-  previousValue: unknown;
-  newValue: unknown;
-}
-
 interface BrandVoiceSectionProps {
   brandPositioning: string;
   onBrandPositioningChange: (value: string) => void;
@@ -101,7 +93,6 @@ interface BrandVoiceSectionProps {
   onAllowEmojiChange: (value: boolean) => void;
   complianceRules: string[];
   onComplianceRulesChange: (value: string[]) => void;
-  onBeforeChange?: (event: BrandVoiceChangeEvent) => void;
 }
 
 // Section wrapper component
@@ -164,23 +155,7 @@ export function BrandVoiceSection({
   onAllowEmojiChange,
   complianceRules,
   onComplianceRulesChange,
-  onBeforeChange,
 }: BrandVoiceSectionProps) {
-  // Wrapper to notify before change
-  const handleChange = <T,>(
-    attribute: BrandVoiceAttribute,
-    previousValue: T,
-    newValue: T,
-    onChange: (value: T) => void
-  ) => {
-    onBeforeChange?.({
-      attribute,
-      previousValue,
-      newValue,
-    });
-    onChange(newValue);
-  };
-
   // Check if any selected tone suggests emoji
   const shouldSuggestEmoji = useMemo(() => {
     return toneOfVoice.some(tone => {
@@ -212,12 +187,6 @@ export function BrandVoiceSection({
 
     if (next === prevArr) return;
 
-    onBeforeChange?.({
-      attribute: 'tone_of_voice',
-      previousValue: prevArr,
-      newValue: next,
-    });
-
     // Auto-enable emoji if any selected tone suggests it and currently disabled
     const willSuggestEmoji = next.some((t) => {
       const opt = TONE_OF_VOICE_OPTIONS.find((o) => o.value === t);
@@ -225,7 +194,7 @@ export function BrandVoiceSection({
     });
 
     if (willSuggestEmoji && !allowEmoji) {
-      handleChange('allow_emoji', false, true, onAllowEmojiChange);
+      onAllowEmojiChange(true);
     }
 
     onToneOfVoiceChange(next);
@@ -278,7 +247,7 @@ export function BrandVoiceSection({
         {/* Brand Positioning */}
         <div className="space-y-2">
           <Label className="text-sm">Định vị thương hiệu</Label>
-          <Select value={brandPositioning} onValueChange={(v) => handleChange('brand_positioning', brandPositioning, v, onBrandPositioningChange)}>
+          <Select value={brandPositioning} onValueChange={onBrandPositioningChange}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Chọn định vị..." />
             </SelectTrigger>
@@ -376,7 +345,7 @@ export function BrandVoiceSection({
               </Tooltip>
             </TooltipProvider>
           </div>
-          <Select value={formalityLevel} onValueChange={(v) => handleChange('formality_level', formalityLevel, v, onFormalityLevelChange)}>
+          <Select value={formalityLevel} onValueChange={onFormalityLevelChange}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Chọn mức độ..." />
             </SelectTrigger>
@@ -405,7 +374,7 @@ export function BrandVoiceSection({
           <Checkbox
             id="allowEmoji"
             checked={allowEmoji}
-            onCheckedChange={(checked) => handleChange('allow_emoji', allowEmoji, checked === true, onAllowEmojiChange)}
+            onCheckedChange={(checked) => onAllowEmojiChange(checked === true)}
           />
         </div>
       </VoiceSection>

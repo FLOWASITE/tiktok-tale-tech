@@ -95,7 +95,7 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
     fetchVariants();
   }, [fetchVariants]);
 
-  const createVariant = async (data: Partial<BrandVoiceVariantInput> & { name: string }): Promise<BrandVoiceVariant | null> => {
+  const createVariant = async (data: Partial<BrandVoiceVariantInput> & { name: string; sample_texts?: ChannelSampleTexts | null }): Promise<BrandVoiceVariant | null> => {
     if (!user || !brandTemplateId) return null;
 
     try {
@@ -110,6 +110,7 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
         preferred_words: data.preferred_words ?? null,
         forbidden_words: data.forbidden_words ?? null,
         allow_emoji: data.allow_emoji ?? true,
+        sample_texts: data.sample_texts ?? null,
         user_id: currentOrganization ? null : user.id,
         organization_id: currentOrganization?.id || null,
       };
@@ -124,11 +125,11 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
 
       const mappedVariant = mapRowToVariant(newVariant as Record<string, unknown>);
       setVariants(prev => [...prev, mappedVariant]);
-      toast.success('Đã tạo variant mới');
+      toast.success('Đã lưu mẫu mới');
       return mappedVariant;
     } catch (error) {
       console.error('Error creating variant:', error);
-      toast.error('Không thể tạo variant');
+      toast.error('Không thể lưu mẫu');
       return null;
     }
   };
