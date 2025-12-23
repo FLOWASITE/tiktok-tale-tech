@@ -125,20 +125,20 @@ const Dashboard = () => {
     <div className="relative">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-secondary/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="container py-8 relative space-y-8">
+      <div className="px-3 xs:px-4 sm:container py-4 sm:py-6 lg:py-8 relative space-y-4 sm:space-y-6 lg:space-y-8">
         {/* Header */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl gradient-primary">
-              <Zap className="w-5 h-5 text-primary-foreground" />
+        <div className="flex flex-col gap-1 sm:gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl gradient-primary">
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Tổng quan về nội dung của bạn
               </p>
             </div>
@@ -148,19 +148,19 @@ const Dashboard = () => {
         {/* Stats */}
         <DashboardStats stats={stats} loading={loading} />
 
-        {/* Main Content - 3 columns layout */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        {/* Main Content - Responsive columns layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
           {/* Column 1: Quick Actions & Tips */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-5 lg:space-y-6">
             <Card className="gradient-card border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Sparkles className="w-5 h-5 text-primary" />
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   Bắt đầu nhanh
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-3">
+              <CardContent className="pt-0">
+                <div className="grid gap-2 sm:gap-3">
                   {quickActions.map((action, index) => {
                     const Icon = action.icon;
                     return (
@@ -171,19 +171,19 @@ const Dashboard = () => {
                         style={{ animationDelay: `${index * 100}ms` }}
                       >
                         <Card className="gradient-card border-border/50 card-animated group">
-                          <CardContent className="p-3 flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${action.gradient} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform`}>
-                              <Icon className="w-5 h-5 text-white" />
+                          <CardContent className="p-2.5 sm:p-3 flex items-center gap-2 sm:gap-3">
+                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br ${action.gradient} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform`}>
+                              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">
+                              <p className="font-medium text-xs sm:text-sm text-foreground group-hover:text-primary transition-colors">
                                 {action.title}
                               </p>
-                              <p className="text-xs text-muted-foreground truncate">
+                              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                                 {action.description}
                               </p>
                             </div>
-                            <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                            <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                           </CardContent>
                         </Card>
                       </Link>
@@ -197,19 +197,19 @@ const Dashboard = () => {
             <Card className="gradient-card border-border/50 overflow-hidden">
               <div className="relative">
                 <div className="absolute inset-0 gradient-primary opacity-10" />
-                <CardContent className="p-5 relative">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2.5 rounded-lg bg-background/80 backdrop-blur">
-                      <Sparkles className="w-5 h-5 text-primary" />
+                <CardContent className="p-3 sm:p-4 lg:p-5 relative">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="p-2 sm:p-2.5 rounded-lg bg-background/80 backdrop-blur flex-shrink-0">
+                      <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1 text-sm">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-foreground mb-1 text-xs sm:text-sm">
                         Mẹo sử dụng hiệu quả
                       </h3>
-                      <p className="text-xs text-muted-foreground mb-3">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mb-2 sm:mb-3">
                         Tạo Brand Template với đầy đủ Brand Voice để AI tạo nội dung nhất quán hơn.
                       </p>
-                      <Button variant="secondary" size="sm" asChild>
+                      <Button variant="secondary" size="sm" asChild className="h-7 sm:h-8 text-xs">
                         <Link to="/brands">
                           Quản lý Brand
                           <ArrowRight className="w-3 h-3 ml-1" />
@@ -221,19 +221,25 @@ const Dashboard = () => {
               </div>
             </Card>
 
-            {/* Recent Activity */}
-            <RecentActivity activities={recentActivities} loading={loading} />
+            {/* Recent Activity - Hide on mobile, show on lg */}
+            <div className="hidden lg:block">
+              <RecentActivity activities={recentActivities} loading={loading} />
+            </div>
           </div>
 
           {/* Column 2: My Assignments & Today Schedules */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-5 lg:space-y-6">
             <MyAssignments />
             <TodaySchedules />
           </div>
 
           {/* Column 3: Pending Reviews (Admin only) */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-5 lg:space-y-6 md:col-span-2 lg:col-span-1">
             <PendingReviews />
+            {/* Recent Activity - Show on mobile/tablet, hide on lg */}
+            <div className="lg:hidden">
+              <RecentActivity activities={recentActivities} loading={loading} />
+            </div>
           </div>
         </div>
       </div>
