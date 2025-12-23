@@ -21,6 +21,7 @@ import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import AdminIndustries from "./pages/AdminIndustries";
 import AdminCountries from "./pages/AdminCountries";
+import AdminCategories from "./pages/AdminCategories";
 import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
 import NotFound from "./pages/NotFound";
@@ -162,6 +163,15 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/categories"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AdminCategories />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
               <Route
                 path="/organization"
                 element={
