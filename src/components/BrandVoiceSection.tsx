@@ -22,8 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useState, useMemo } from 'react';
-import { toast } from 'sonner';
+import { useState, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { cn } from '@/lib/utils';
 
 // Brand Voice Constants
@@ -89,7 +88,7 @@ interface BrandVoiceSectionProps {
   brandPositioning: string;
   onBrandPositioningChange: (value: string) => void;
   toneOfVoice: string[];
-  onToneOfVoiceChange: (value: string[]) => void;
+  onToneOfVoiceChange: Dispatch<SetStateAction<string[]>>;
   formalityLevel: string;
   onFormalityLevelChange: (value: string) => void;
   languageStyle: string[];
@@ -197,29 +196,35 @@ export function BrandVoiceSection({
   }, [formalityLevel]);
 
   const toggleTone = (tone: string) => {
-    const newValue = toneOfVoice.includes(tone)
-      ? toneOfVoice.filter(t => t !== tone)
-      : toneOfVoice.length < 3 
-        ? [...toneOfVoice, tone]
-        : toneOfVoice;
+    onToneOfVoiceChange((prev) => {
+      const prevArr = Array.isArray(prev) ? prev : [];
 
-    if (newValue !== toneOfVoice) {
-      handleChange('tone_of_voice', toneOfVoice, newValue, onToneOfVoiceChange);
+      const next = prevArr.includes(tone)
+        ? prevArr.filter((t) => t !== tone)
+        : prevArr.length < 3
+          ? [...prevArr, tone]
+          : prevArr;
 
-      // Debug toast (temporary) to confirm click is registered
-      toast.message('Đã chọn Tone of Voice');
+      if (next === prevArr) return prevArr;
 
-      // Auto-suggest emoji based on tone
-      const willSuggestEmoji = newValue.some(t => {
-        const opt = TONE_OF_VOICE_OPTIONS.find(o => o.value === t);
+      onBeforeChange?.({
+        attribute: 'tone_of_voice',
+        previousValue: prevArr,
+        newValue: next,
+      });
+
+      // Auto-enable emoji if any selected tone suggests it and currently disabled
+      const willSuggestEmoji = next.some((t) => {
+        const opt = TONE_OF_VOICE_OPTIONS.find((o) => o.value === t);
         return opt?.suggestEmoji === true;
       });
 
-      // Auto-enable emoji if tone suggests it and currently disabled
       if (willSuggestEmoji && !allowEmoji) {
         handleChange('allow_emoji', false, true, onAllowEmojiChange);
       }
-    }
+
+      return next;
+    });
   };
 
   const handleAddWord = (
