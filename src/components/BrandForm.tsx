@@ -24,7 +24,7 @@ type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'u
 
 interface BrandFormProps {
   template?: BrandTemplate | null;
-  onSubmit: (data: BrandFormData, scope: BrandScope, logoFile?: File | null, deleteLogo?: boolean) => void;
+  onSubmit: (data: BrandFormData, scope: BrandScope, logoFile?: File | null, deleteLogo?: boolean) => Promise<BrandTemplate | null | void> | void;
   onCancel: () => void;
   isLoading?: boolean;
   quickStartMode?: boolean;
@@ -296,7 +296,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     setShowCompareDialog(true);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (currentStep !== 4) return;
     if (!validateStep(1)) {
@@ -304,7 +304,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       return;
     }
 
-    onSubmit({
+    const formData = {
       name: name.trim(),
       brand_name: brandName.trim(),
       industry: industries.length > 0 ? industries : null,
@@ -324,7 +324,40 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       compliance_rules: complianceRules.length > 0 ? complianceRules : null,
       channel_overrides: Object.keys(channelOverrides).length > 0 ? channelOverrides : null,
       sample_texts: sampleTexts,
-    }, scope, logoFile, deleteLogo);
+    };
+
+    // Call onSubmit and get the result (for new templates)
+    const result = await onSubmit(formData, scope, logoFile, deleteLogo);
+    
+    // If this is a new template and we have pending samples, save them
+    if (!template && result && typeof result === 'object' && 'id' in result && pendingSamples.length > 0) {
+      const newTemplateId = result.id;
+      
+      // Save all pending samples to the database
+      for (let i = 0; i < pendingSamples.length; i++) {
+        const sample = pendingSamples[i];
+        try {
+          await createVariant({
+            name: sample.name,
+            brand_template_id: newTemplateId,
+            is_control: i === 0, // First sample becomes control
+            brand_positioning: sample.brand_positioning,
+            tone_of_voice: sample.tone_of_voice,
+            formality_level: sample.formality_level,
+            language_style: sample.language_style,
+            preferred_words: sample.preferred_words,
+            forbidden_words: sample.forbidden_words,
+            allow_emoji: sample.allow_emoji,
+            sample_texts: sample.sample_texts as ChannelSampleTexts,
+          });
+        } catch (error) {
+          console.error(`Failed to save pending sample "${sample.name}":`, error);
+        }
+      }
+      
+      toast.success(`Đã lưu ${pendingSamples.length} mẫu nội dung!`);
+      setPendingSamples([]);
+    }
   };
 
   // Quick Start Screen

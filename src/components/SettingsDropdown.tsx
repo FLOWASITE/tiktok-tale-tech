@@ -183,7 +183,7 @@ function BrandManagementDialogInner({ open, onOpenChange }: { open: boolean; onO
     scope: BrandScope,
     logoFile?: File | null,
     shouldDeleteLogo?: boolean
-  ) => {
+  ): Promise<BrandTemplate | null> => {
     setSaving(true);
     try {
       let logoUrl = data.logo_url;
@@ -206,14 +206,18 @@ function BrandManagementDialogInner({ open, onOpenChange }: { open: boolean; onO
         if (!logoFile && !shouldDeleteLogo && !isBrandTemplateChanged(editingTemplate, templateData)) {
           setShowForm(false);
           setEditingTemplate(null);
-          return;
+          return null;
         }
         await updateTemplate(editingTemplate.id, templateData);
+        setShowForm(false);
+        setEditingTemplate(null);
+        return null;
       } else {
-        await saveTemplate(templateData, scope);
+        const newTemplate = await saveTemplate(templateData, scope);
+        setShowForm(false);
+        setEditingTemplate(null);
+        return newTemplate;
       }
-      setShowForm(false);
-      setEditingTemplate(null);
     } finally {
       setSaving(false);
     }
