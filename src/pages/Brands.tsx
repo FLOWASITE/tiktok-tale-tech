@@ -489,8 +489,7 @@ export default function Brands() {
             {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
           </>
         }
-        fillContent={!editingTemplate}
-        centerContent={!editingTemplate}
+        fullScreen={!editingTemplate}
         description={editingTemplate
           ? 'Cập nhật thông tin thương hiệu của bạn' 
           : 'Điền thông tin để tạo brand mới cho nội dung'}
