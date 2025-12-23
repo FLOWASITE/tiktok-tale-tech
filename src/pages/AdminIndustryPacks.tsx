@@ -39,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIndustryMemoryPacks } from '@/hooks/useIndustryMemoryPacks';
@@ -332,11 +333,11 @@ export default function AdminIndustryPacks() {
   // All useState hooks first
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [countryFilter, setCountryFilter] = useState<string>('all');
+  const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [editingPackId, setEditingPackId] = useState<string | null>(null);
 
   // All data fetching hooks
-  const { countries } = useIndustryTemplates();
+  const { countries, isLoadingCountries } = useIndustryTemplates();
   const { 
     packs, 
     stats, 
@@ -361,24 +362,25 @@ export default function AdminIndustryPacks() {
       pack.code.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || pack.status === statusFilter;
-    const matchesCountry = countryFilter === 'all' || pack.countryCode === countryFilter;
+    const matchesCountry = selectedCountry === 'all' || pack.countryCode === selectedCountry;
     
     return matchesSearch && matchesStatus && matchesCountry;
   });
 
-  // Group by country
-  const groupedByCountry = filteredPacks.reduce((acc, pack) => {
-    const key = pack.countryCode;
+  // Group packs by category within selected country
+  const groupedByCategory = filteredPacks.reduce((acc, pack) => {
+    const key = pack.categoryCode || 'other';
     if (!acc[key]) {
       acc[key] = {
-        countryName: pack.countryName,
-        flagEmoji: pack.flagEmoji,
+        categoryName: pack.categoryName || 'Other',
+        categoryIcon: pack.categoryIcon,
+        categoryColor: pack.categoryColor,
         packs: [],
       };
     }
     acc[key].packs.push(pack);
     return acc;
-  }, {} as Record<string, { countryName: string; flagEmoji: string | null; packs: IndustryMemoryPack[] }>);
+  }, {} as Record<string, { categoryName: string; categoryIcon: string | null; categoryColor: string | null; packs: IndustryMemoryPack[] }>);
 
   return (
     <div className="space-y-6">
@@ -428,73 +430,126 @@ export default function AdminIndustryPacks() {
                 <SelectItem value="deprecated">Deprecated</SelectItem>
               </SelectContent>
             </Select>
-            
-            <Select value={countryFilter} onValueChange={setCountryFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Globe className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Country" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả quốc gia</SelectItem>
-                {countries.map((country) => (
-                  <SelectItem key={country.code} value={country.code}>
-                    {country.flag_emoji} {country.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Packs Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2 mt-1" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-20 w-full" />
+      {/* Country Tabs */}
+      <Tabs value={selectedCountry} onValueChange={setSelectedCountry}>
+        <TabsList className="flex-wrap h-auto gap-1 p-1">
+          {isLoadingCountries ? (
+            <Skeleton className="h-10 w-32" />
+          ) : (
+            <>
+              <TabsTrigger value="all" className="gap-2">
+                <Globe className="h-4 w-4" />
+                <span>All</span>
+              </TabsTrigger>
+              {countries.map((country) => (
+                <TabsTrigger key={country.code} value={country.code} className="gap-2">
+                  <span>{country.flag_emoji}</span>
+                  <span>{country.code}</span>
+                </TabsTrigger>
+              ))}
+            </>
+          )}
+        </TabsList>
+
+        {/* Packs Grid */}
+        <TabsContent value={selectedCountry} className="mt-6">
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2 mt-1" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-20 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredPacks.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <p className="text-lg font-medium">Không tìm thấy pack nào</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedCountry === 'all' 
+                    ? 'Chưa có Industry Memory Pack nào được tạo' 
+                    : `Chưa có pack nào cho ${countries.find(c => c.code === selectedCountry)?.name || selectedCountry}`}
+                </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      ) : filteredPacks.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">Không tìm thấy pack nào</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-8">
-          {Object.entries(groupedByCountry).map(([countryCode, { countryName, flagEmoji, packs: countryPacks }]) => (
-            <div key={countryCode}>
-              <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                <span className="text-xl">{flagEmoji}</span>
-                {countryName}
-                <Badge variant="secondary" className="ml-2">{countryPacks.length} packs</Badge>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {countryPacks.map((pack) => (
-                  <PackCard
-                    key={pack.id}
-                    pack={pack}
-                    onPublish={() => publishPack(pack.id)}
-                    onDeprecate={() => deprecatePack(pack.id)}
-                    onReactivate={() => reactivatePack(pack.id)}
-                    onEditRules={() => setEditingPackId(pack.id)}
-                    isUpdating={isUpdating}
-                  />
-                ))}
-              </div>
+          ) : selectedCountry === 'all' ? (
+            // Group by country when showing all
+            <div className="space-y-8">
+              {Object.entries(
+                filteredPacks.reduce((acc, pack) => {
+                  const key = pack.countryCode;
+                  if (!acc[key]) {
+                    acc[key] = {
+                      countryName: pack.countryName,
+                      flagEmoji: pack.flagEmoji,
+                      packs: [],
+                    };
+                  }
+                  acc[key].packs.push(pack);
+                  return acc;
+                }, {} as Record<string, { countryName: string; flagEmoji: string | null; packs: IndustryMemoryPack[] }>)
+              ).map(([countryCode, { countryName, flagEmoji, packs: countryPacks }]) => (
+                <div key={countryCode}>
+                  <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                    <span className="text-xl">{flagEmoji}</span>
+                    {countryName}
+                    <Badge variant="secondary" className="ml-2">{countryPacks.length} packs</Badge>
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {countryPacks.map((pack) => (
+                      <PackCard
+                        key={pack.id}
+                        pack={pack}
+                        onPublish={() => publishPack(pack.id)}
+                        onDeprecate={() => deprecatePack(pack.id)}
+                        onReactivate={() => reactivatePack(pack.id)}
+                        onEditRules={() => setEditingPackId(pack.id)}
+                        isUpdating={isUpdating}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            // Group by category when showing a specific country
+            <div className="space-y-8">
+              {Object.entries(groupedByCategory).map(([categoryCode, { categoryName, packs: categoryPacks }]) => (
+                <div key={categoryCode}>
+                  <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                    {categoryName}
+                    <Badge variant="secondary" className="ml-2">{categoryPacks.length} packs</Badge>
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {categoryPacks.map((pack) => (
+                      <PackCard
+                        key={pack.id}
+                        pack={pack}
+                        onPublish={() => publishPack(pack.id)}
+                        onDeprecate={() => deprecatePack(pack.id)}
+                        onReactivate={() => reactivatePack(pack.id)}
+                        onEditRules={() => setEditingPackId(pack.id)}
+                        isUpdating={isUpdating}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Rules Editor Dialog */}
       {editingPackId && packDetails && (
