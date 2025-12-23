@@ -353,7 +353,7 @@ export function BrandVoiceSection({
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Chọn mức độ..." />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[200] bg-popover">
               {FORMALITY_LEVEL_OPTIONS.map(opt => (
                 <SelectItem key={opt.value} value={opt.value}>
                   <div className="flex flex-col">
