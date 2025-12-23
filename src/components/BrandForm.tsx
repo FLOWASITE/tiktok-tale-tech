@@ -168,6 +168,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   // Handle Brand Voice change with snapshot
   const handleBrandVoiceChange = useCallback(async (event: BrandVoiceChangeEvent) => {
+    console.log('[BrandForm] handleBrandVoiceChange triggered:', {
+      attribute: event.attribute,
+      previousValue: event.previousValue,
+      newValue: event.newValue,
+    });
+
     // Get current samples for before state
     const currentSamples = sampleTexts || generateAllChannelSamples({
       brandName,
@@ -193,7 +199,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
     // Regenerate samples with new values
     setIsRegeneratingSamples(true);
+    
     try {
+      console.log('[BrandForm] Calling generate-sample-text edge function...');
+      
       const { data, error } = await supabase.functions.invoke('generate-sample-text', {
         body: {
           brandName,
@@ -207,7 +216,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         },
       });
 
-      if (error) throw error;
+      console.log('[BrandForm] Edge function response:', { data, error });
+
+      if (error) {
+        console.error('[BrandForm] Edge function error:', error);
+        throw new Error(error.message || 'Failed to generate samples');
+      }
 
       if (data?.samples) {
         const normalizedSamples: Record<string, string> = {};
@@ -225,11 +239,17 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             normalizedSamples[key] = String(value || '');
           }
         }
+        console.log('[BrandForm] Updating pending snapshot with new samples');
         updatePendingWithNewSamples(normalizedSamples);
+        toast.success('Đã tạo nội dung mẫu mới!');
+      } else {
+        throw new Error('No samples returned from AI');
       }
     } catch (err) {
-      console.error('Failed to regenerate samples:', err);
-      // Use template samples as fallback
+      console.error('[BrandForm] Failed to regenerate samples:', err);
+      toast.error('Không thể tạo nội dung mẫu từ AI. Đang dùng mẫu cục bộ...');
+      
+      // Use local template samples as fallback
       const templateSamples = generateAllChannelSamples({
         brandName,
         positioning: getUpdatedValue('brand_positioning', brandPositioning),
