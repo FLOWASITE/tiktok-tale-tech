@@ -23,6 +23,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 // Brand Voice Constants
@@ -201,16 +202,19 @@ export function BrandVoiceSection({
       : toneOfVoice.length < 3 
         ? [...toneOfVoice, tone]
         : toneOfVoice;
-    
+
     if (newValue !== toneOfVoice) {
       handleChange('tone_of_voice', toneOfVoice, newValue, onToneOfVoiceChange);
-      
+
+      // Debug toast (temporary) to confirm click is registered
+      toast.message('Đã chọn Tone of Voice');
+
       // Auto-suggest emoji based on tone
       const willSuggestEmoji = newValue.some(t => {
         const opt = TONE_OF_VOICE_OPTIONS.find(o => o.value === t);
         return opt?.suggestEmoji === true;
       });
-      
+
       // Auto-enable emoji if tone suggests it and currently disabled
       if (willSuggestEmoji && !allowEmoji) {
         handleChange('allow_emoji', false, true, onAllowEmojiChange);
@@ -305,7 +309,10 @@ export function BrandVoiceSection({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => {
+                  onPointerDown={(e) => {
+                    // Some parent layers can swallow click; pointerDown is more reliable
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (isDisabled) return;
                     toggleTone(opt.value);
                   }}
@@ -313,7 +320,7 @@ export function BrandVoiceSection({
                   aria-pressed={isSelected}
                   className={cn(
                     badgeVariants({ variant: isSelected ? 'default' : 'outline' }),
-                    'text-xs gap-1 transition-all',
+                    'text-xs gap-1 transition-all cursor-pointer select-none',
                     isSelected ? '' : isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/10',
                     isSelected && opt.suggestEmoji && 'pr-1.5'
                   )}
