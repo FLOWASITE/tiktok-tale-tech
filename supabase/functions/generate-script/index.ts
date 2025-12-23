@@ -109,6 +109,7 @@ async function fetchIndustryMemory(
         id,
         code,
         version,
+        status,
         target_audience,
         brand_voice,
         channel_settings,
@@ -122,11 +123,12 @@ async function fetchIndustryMemory(
         )
       `)
       .eq('id', industryTemplateId)
+      .eq('status', 'stable')
       .eq('industry_template_translations.language_code', languageCode)
       .single();
 
     if (error || !data) {
-      console.error('Failed to fetch Industry Memory:', error);
+      console.warn(`Industry Memory ${industryTemplateId} not found or not stable - skipping rules`);
       return null;
     }
 

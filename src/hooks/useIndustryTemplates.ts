@@ -139,6 +139,7 @@ export function useIndustryTemplates(options: UseIndustryTemplatesOptions = {}) 
           brand_voice,
           channel_settings,
           is_active,
+          status,
           countries!inner (
             code
           ),
@@ -155,6 +156,7 @@ export function useIndustryTemplates(options: UseIndustryTemplatesOptions = {}) 
         `)
         .eq('country_id', country.id)
         .eq('is_active', true)
+        .eq('status', 'stable')
         .eq('industry_template_translations.language_code', languageCode)
         .order('sort_order');
 
