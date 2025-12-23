@@ -286,7 +286,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 if (result.example_bad) setGuidelineExampleBad(result.example_bad);
                 if (result.key_principles) setGuidelineKeyPrinciples(result.key_principles);
               }}
-              onSuggestionsGenerated={(suggestions) => {
+              onApply={(suggestions) => {
                 if (suggestions.brand_positioning) setBrandPositioning(suggestions.brand_positioning);
                 if (suggestions.tone_of_voice) setToneOfVoice(suggestions.tone_of_voice);
                 if (suggestions.formality_level) setFormalityLevel(suggestions.formality_level);
@@ -299,24 +299,25 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           </div>
           <BrandVoiceSection
             brandPositioning={brandPositioning}
-            setBrandPositioning={setBrandPositioning}
+            onBrandPositioningChange={setBrandPositioning}
             toneOfVoice={toneOfVoice}
-            setToneOfVoice={setToneOfVoice}
+            onToneOfVoiceChange={setToneOfVoice}
             formalityLevel={formalityLevel}
-            setFormalityLevel={setFormalityLevel}
+            onFormalityLevelChange={setFormalityLevel}
             languageStyle={languageStyle}
-            setLanguageStyle={setLanguageStyle}
+            onLanguageStyleChange={setLanguageStyle}
             preferredWords={preferredWords}
-            setPreferredWords={setPreferredWords}
+            onPreferredWordsChange={setPreferredWords}
             forbiddenWords={forbiddenWords}
-            setForbiddenWords={setForbiddenWords}
+            onForbiddenWordsChange={setForbiddenWords}
             allowEmoji={allowEmoji}
-            setAllowEmoji={setAllowEmoji}
+            onAllowEmojiChange={setAllowEmoji}
             complianceRules={complianceRules}
-            setComplianceRules={setComplianceRules}
+            onComplianceRulesChange={setComplianceRules}
           />
           <BrandVoicePreview
-            brandPositioning={brandPositioning}
+            brandName={brandName}
+            positioning={brandPositioning}
             toneOfVoice={toneOfVoice}
             formalityLevel={formalityLevel}
             languageStyle={languageStyle}
@@ -331,14 +332,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           <ChannelSettingsEditor
             value={channelOverrides}
             onChange={setChannelOverrides}
-            brandName={brandName}
-            brandGuideline={brandGuideline}
-            toneOfVoice={toneOfVoice}
-            formalityLevel={formalityLevel}
-            languageStyle={languageStyle}
-            preferredWords={preferredWords}
-            forbiddenWords={forbiddenWords}
-            allowEmoji={allowEmoji}
+            defaultExpanded={true}
+            showWrapper={true}
           />
         </div>
       )}
