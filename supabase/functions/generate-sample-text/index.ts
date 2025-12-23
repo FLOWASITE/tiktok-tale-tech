@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -249,6 +250,14 @@ interface RequestBody {
   forbiddenWords?: string[];
   channels: string[];
   channelOverrides?: ChannelOverrides;
+  organizationId?: string;
+  brandTemplateId?: string;
+  brandVoiceVersion?: string;
+}
+
+interface SampleTextResponse {
+  samples: Record<string, string>;
+  rulesUsed: Record<string, ChannelSettings>;
 }
 
 const FORMALITY_DESCRIPTIONS: Record<string, string> = {
@@ -271,52 +280,42 @@ const TONE_DESCRIPTIONS: Record<string, string> = {
   conversational: "conversational like chatting",
 };
 
-serve(async (req) => {
-  console.log("generate-sample-text: Request received");
-  
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+/**
+ * Generate sample text from AI
+ */
+async function generateFromAI(params: {
+  brandName: string;
+  positioning?: string;
+  toneOfVoice: string[];
+  formalityLevel: string;
+  allowEmoji: boolean;
+  preferredWords: string[];
+  forbiddenWords: string[];
+  channels: string[];
+  channelOverrides?: ChannelOverrides;
+}): Promise<SampleTextResponse> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    throw new Error("LOVABLE_API_KEY is not configured");
   }
 
-  try {
-    const body: RequestBody = await req.json();
-    console.log("generate-sample-text: Request body:", JSON.stringify({
-      brandName: body.brandName,
-      channels: body.channels,
-      toneOfVoice: body.toneOfVoice,
-      formalityLevel: body.formalityLevel,
-      hasChannelOverrides: !!body.channelOverrides,
-    }));
-    
-    const { 
-      brandName, 
-      positioning, 
-      toneOfVoice = [], 
-      formalityLevel = "semi_formal",
-      allowEmoji = true,
-      preferredWords = [],
-      forbiddenWords = [],
-      channels,
-      channelOverrides,
-    } = body;
+  const { 
+    brandName, 
+    positioning, 
+    toneOfVoice, 
+    formalityLevel,
+    allowEmoji,
+    preferredWords,
+    forbiddenWords,
+    channels,
+    channelOverrides,
+  } = params;
 
-    if (!brandName || !channels || channels.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "brandName and channels are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    // Build the brand voice description
-    const toneDesc = toneOfVoice.map(t => TONE_DESCRIPTIONS[t] || t).join(", ");
-    const formalityDesc = FORMALITY_DESCRIPTIONS[formalityLevel] || formalityLevel;
-    
-    const brandContext = `
+  // Build the brand voice description
+  const toneDesc = toneOfVoice.map(t => TONE_DESCRIPTIONS[t] || t).join(", ");
+  const formalityDesc = FORMALITY_DESCRIPTIONS[formalityLevel] || formalityLevel;
+  
+  const brandContext = `
 Brand Name: ${brandName}
 ${positioning ? `Brand Positioning: ${positioning}` : ""}
 Tone of Voice: ${toneDesc || "neutral"}
@@ -326,22 +325,22 @@ ${preferredWords.length > 0 ? `Preferred words to use: ${preferredWords.join(", 
 ${forbiddenWords.length > 0 ? `Forbidden words (NEVER use these): ${forbiddenWords.join(", ")}` : ""}
 `.trim();
 
-    // Build detailed channel rules using merged settings
-    const channelRulesPrompts: string[] = [];
-    for (const channel of channels) {
-      const mergedSettings = getMergedSettings(channel as Channel, channelOverrides);
-      const rulesPrompt = buildChannelRulesPrompt(channel as Channel, mergedSettings, allowEmoji);
-      channelRulesPrompts.push(rulesPrompt);
-    }
+  // Build detailed channel rules using merged settings
+  const channelRulesPrompts: string[] = [];
+  for (const channel of channels) {
+    const mergedSettings = getMergedSettings(channel as Channel, channelOverrides);
+    const rulesPrompt = buildChannelRulesPrompt(channel as Channel, mergedSettings, allowEmoji);
+    channelRulesPrompts.push(rulesPrompt);
+  }
 
-    const systemPrompt = `You are a professional content writer for the brand "${brandName}". 
+  const systemPrompt = `You are a professional content writer for the brand "${brandName}". 
 Write in Vietnamese language.
 Follow the brand voice guidelines AND channel-specific rules STRICTLY.
 Generate authentic, engaging content that reflects the brand personality.
 IMPORTANT: Each channel has specific rules for length, emoji, hashtag, CTA, etc. You MUST follow them exactly.
 DO NOT include any meta-commentary or explanations - just the content itself.`;
 
-    const userPrompt = `Based on this brand profile:
+  const userPrompt = `Based on this brand profile:
 ${brandContext}
 
 Generate sample content for each channel, following these SPECIFIC RULES for each:
@@ -359,70 +358,158 @@ Return a JSON object with channel names as keys and the generated content as val
 Example format: {"facebook": "content here...", "linkedin": "content here..."}
 Only return the JSON, no other text.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("AI gateway error:", response.status, errorText);
+    
+    if (response.status === 429) {
+      throw new Error("Rate limit exceeded. Please try again later.");
+    }
+    if (response.status === 402) {
+      throw new Error("AI credits exhausted. Please add credits.");
+    }
+    
+    throw new Error(`AI gateway error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error("No content returned from AI");
+  }
+
+  // Parse the JSON response
+  let samples: Record<string, string>;
+  try {
+    const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    samples = JSON.parse(cleanContent);
+  } catch (parseError) {
+    console.error("Failed to parse AI response:", content);
+    samples = {};
+    for (const channel of channels) {
+      samples[channel] = content;
+    }
+  }
+
+  // Build rules used for compliance checking
+  const rulesUsed: Record<string, ChannelSettings> = {};
+  for (const channel of channels) {
+    rulesUsed[channel] = getMergedSettings(channel as Channel, channelOverrides);
+  }
+
+  return { samples, rulesUsed };
+}
+
+serve(async (req) => {
+  console.log("generate-sample-text: Request received");
+  
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const body: RequestBody = await req.json();
+    console.log("generate-sample-text: Request body:", JSON.stringify({
+      brandName: body.brandName,
+      channels: body.channels,
+      toneOfVoice: body.toneOfVoice,
+      formalityLevel: body.formalityLevel,
+      hasChannelOverrides: !!body.channelOverrides,
+      organizationId: body.organizationId,
+      brandTemplateId: body.brandTemplateId,
+    }));
+    
+    const { 
+      brandName, 
+      positioning, 
+      toneOfVoice = [], 
+      formalityLevel = "semi_formal",
+      allowEmoji = true,
+      preferredWords = [],
+      forbiddenWords = [],
+      channels,
+      channelOverrides,
+      organizationId,
+      brandTemplateId,
+      brandVoiceVersion,
+    } = body;
+
+    if (!brandName || !channels || channels.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "brandName and channels are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Use withCache wrapper
+    const functionName = 'generate-sample-text';
+    const scope = CACHE_SCOPE[functionName] || 'org';
+    const ttlDays = CACHE_TTL[functionName] || 30;
+
+    // Build cache input (only cacheable fields)
+    const cacheInput = {
+      brandName,
+      positioning,
+      toneOfVoice,
+      formalityLevel,
+      allowEmoji,
+      preferredWords,
+      forbiddenWords,
+      channels,
+      channelOverrides,
+    };
+
+    const result = await withCache<SampleTextResponse>({
+      functionName,
+      scope,
+      organizationId,
+      brandTemplateId,
+      input: cacheInput,
+      versions: {
+        brandVoice: brandVoiceVersion,
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.7,
-      }),
+      ttlDays,
+      generateFn: async () => {
+        console.log("generate-sample-text: Cache MISS - calling AI");
+        return generateFromAI({
+          brandName,
+          positioning,
+          toneOfVoice,
+          formalityLevel,
+          allowEmoji,
+          preferredWords,
+          forbiddenWords,
+          channels,
+          channelOverrides,
+        });
+      },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No content returned from AI");
-    }
-
-    // Parse the JSON response
-    let samples: Record<string, string>;
-    try {
-      const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      samples = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
-      samples = {};
-      for (const channel of channels) {
-        samples[channel] = content;
-      }
-    }
-
-    // Return samples with the rules used for compliance checking
-    const rulesUsed: Record<string, ChannelSettings> = {};
-    for (const channel of channels) {
-      rulesUsed[channel] = getMergedSettings(channel as Channel, channelOverrides);
-    }
+    console.log(`generate-sample-text: Response ${result.fromCache ? 'from CACHE' : 'from AI'}`);
 
     return new Response(
-      JSON.stringify({ samples, rulesUsed }),
+      JSON.stringify({ 
+        samples: result.data.samples, 
+        rulesUsed: result.data.rulesUsed,
+        fromCache: result.fromCache,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
