@@ -356,7 +356,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
         {/* Mini Preview Panel */}
         {showPreview && (
-          <div className="hidden lg:block w-80 shrink-0">
+          <div className="hidden lg:block w-96 shrink-0">
             <BrandFormMiniPreview
               brandName={brandName}
               scope={scope}
