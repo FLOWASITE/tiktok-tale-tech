@@ -329,10 +329,13 @@ function StatsCards({ stats }: { stats: { total: number; draft: number; stable: 
 }
 
 export default function AdminIndustryPacks() {
+  // All useState hooks first
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
+  const [editingPackId, setEditingPackId] = useState<string | null>(null);
 
+  // All data fetching hooks
   const { countries } = useIndustryTemplates();
   const { 
     packs, 
@@ -346,11 +349,10 @@ export default function AdminIndustryPacks() {
     updateRules,
     isUpdatingRules,
   } = useIndustryMemoryPacks({ onlyActive: false });
-
-  // Editor state
-  const [editingPackId, setEditingPackId] = useState<string | null>(null);
-  const editingPack = packs.find(p => p.id === editingPackId);
   const { data: packDetails, isLoading: isLoadingDetails } = useIndustryPackDetails(editingPackId);
+
+  // Derived state (not hooks)
+  const editingPack = packs.find(p => p.id === editingPackId);
 
   // Filter packs
   const filteredPacks = packs.filter(pack => {
