@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -13,10 +13,19 @@ import {
   FileText,
   Smile,
   AlertTriangle,
-  Info
+  Info,
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { Channel } from '@/types/multichannel';
+import { useIndustryMemory, IndustryMemory } from '@/hooks/useIndustryMemory';
 
 interface BrandAppliedInfoProps {
   template: BrandTemplate;
@@ -25,6 +34,23 @@ interface BrandAppliedInfoProps {
 }
 
 export function BrandAppliedInfo({ template, selectedChannels = [], industry }: BrandAppliedInfoProps) {
+  const { fetchIndustryMemory } = useIndustryMemory();
+  const [industryMemory, setIndustryMemory] = useState<IndustryMemory | null>(null);
+  const [loadingMemory, setLoadingMemory] = useState(false);
+
+  // Fetch Industry Memory when template has industry_template_id
+  useEffect(() => {
+    const templateWithIndustry = template as BrandTemplate & { industry_template_id?: string };
+    if (templateWithIndustry.industry_template_id) {
+      setLoadingMemory(true);
+      fetchIndustryMemory(templateWithIndustry.industry_template_id)
+        .then(setIndustryMemory)
+        .finally(() => setLoadingMemory(false));
+    } else {
+      setIndustryMemory(null);
+    }
+  }, [(template as BrandTemplate & { industry_template_id?: string }).industry_template_id]);
+
   const formalityLabels: Record<string, string> = {
     formal: 'Trang trọng',
     casual: 'Thân thiện',
@@ -47,6 +73,10 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
     }
     if (!template.brand_positioning) {
       issues.push('Chưa có Brand Positioning');
+    }
+    const templateWithIndustry = template as BrandTemplate & { industry_template_id?: string };
+    if (!templateWithIndustry.industry_template_id) {
+      issues.push('Chưa liên kết Industry Memory');
     }
     return issues;
   }, [template]);
@@ -100,10 +130,80 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
 
         <Separator className="bg-border/50" />
 
+        {/* Industry Memory Section - LOCKED */}
+        {industryMemory && (
+          <TooltipProvider>
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="font-medium text-xs text-blue-700 dark:text-blue-300">
+                  Industry Memory: {industryMemory.name}
+                </span>
+                <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600">
+                  v{industryMemory.version}
+                </Badge>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-blue-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <div className="space-y-1 text-xs">
+                      <p className="font-medium">🔒 Luật ngành (khóa cứng)</p>
+                      <p className="text-muted-foreground">
+                        Target: {industryMemory.target_audience}
+                      </p>
+                      {industryMemory.compliance_rules.length > 0 && (
+                        <p>✅ {industryMemory.compliance_rules.length} quy tắc tuân thủ</p>
+                      )}
+                      {industryMemory.forbidden_terms.length > 0 && (
+                        <p className="text-destructive">⛔ {industryMemory.forbidden_terms.length} từ cấm ngành</p>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              
+              {/* Locked Compliance Rules */}
+              {industryMemory.compliance_rules.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {industryMemory.compliance_rules.slice(0, 2).map((rule, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                      <Lock className="h-3 w-3 shrink-0" />
+                      <span className="line-clamp-1">{rule}</span>
+                    </div>
+                  ))}
+                  {industryMemory.compliance_rules.length > 2 && (
+                    <p className="text-[10px] text-blue-500 pl-4">
+                      +{industryMemory.compliance_rules.length - 2} quy tắc khác
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {/* Forbidden Terms */}
+              {industryMemory.forbidden_terms.length > 0 && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive">
+                  <Ban className="h-3 w-3 shrink-0" />
+                  <span>
+                    {industryMemory.forbidden_terms.slice(0, 3).join(', ')}
+                    {industryMemory.forbidden_terms.length > 3 && ` +${industryMemory.forbidden_terms.length - 3}`}
+                  </span>
+                </div>
+              )}
+            </div>
+          </TooltipProvider>
+        )}
+
+        {loadingMemory && (
+          <div className="p-2 bg-muted/30 rounded-lg animate-pulse">
+            <div className="h-4 w-32 bg-muted rounded" />
+          </div>
+        )}
+
         {/* Info Grid */}
         <div className="grid gap-3">
           {/* Industry */}
-          {effectiveIndustry && (
+          {effectiveIndustry && !industryMemory && (
             <div className="flex items-start gap-2">
               <Building2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
               <div>
