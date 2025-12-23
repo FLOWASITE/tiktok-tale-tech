@@ -4,6 +4,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 
+export interface ChannelSampleTexts {
+  facebook?: string;
+  linkedin?: string;
+  instagram?: string;
+  tiktok?: string;
+  twitter?: string;
+  email?: { subject: string; body: string } | string;
+  website?: string;
+  [key: string]: string | { subject: string; body: string } | undefined;
+}
+
 export interface BrandVoiceVariant {
   id: string;
   brand_template_id: string;
@@ -17,6 +28,7 @@ export interface BrandVoiceVariant {
   forbidden_words: string[] | null;
   allow_emoji: boolean;
   sample_text: string | null;
+  sample_texts: ChannelSampleTexts | null;
   content_count: number;
   created_at: string;
   updated_at: string;
@@ -25,6 +37,27 @@ export interface BrandVoiceVariant {
 }
 
 export type BrandVoiceVariantInput = Omit<BrandVoiceVariant, 'id' | 'created_at' | 'updated_at' | 'content_count'>;
+
+// Helper to parse sample_texts from DB (handles both JSON object and string)
+function parseSampleTexts(data: unknown): ChannelSampleTexts | null {
+  if (!data) return null;
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+  return data as ChannelSampleTexts;
+}
+
+// Helper to map DB row to typed BrandVoiceVariant
+function mapRowToVariant(row: Record<string, unknown>): BrandVoiceVariant {
+  return {
+    ...row,
+    sample_texts: parseSampleTexts(row.sample_texts),
+  } as BrandVoiceVariant;
+}
 
 export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
   const { user } = useAuth();
@@ -49,7 +82,7 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setVariants(data || []);
+      setVariants((data || []).map(row => mapRowToVariant(row as Record<string, unknown>)));
     } catch (error) {
       console.error('Error fetching brand voice variants:', error);
       toast.error('Không thể tải danh sách variants');
@@ -89,9 +122,10 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
 
       if (error) throw error;
 
-      setVariants(prev => [...prev, newVariant]);
+      const mappedVariant = mapRowToVariant(newVariant as Record<string, unknown>);
+      setVariants(prev => [...prev, mappedVariant]);
       toast.success('Đã tạo variant mới');
-      return newVariant;
+      return mappedVariant;
     } catch (error) {
       console.error('Error creating variant:', error);
       toast.error('Không thể tạo variant');
@@ -110,9 +144,10 @@ export function useBrandVoiceVariants(brandTemplateId: string | undefined) {
 
       if (error) throw error;
 
-      setVariants(prev => prev.map(v => v.id === variantId ? updated : v));
+      const mappedVariant = mapRowToVariant(updated as Record<string, unknown>);
+      setVariants(prev => prev.map(v => v.id === variantId ? mappedVariant : v));
       toast.success('Đã cập nhật variant');
-      return updated;
+      return mappedVariant;
     } catch (error) {
       console.error('Error updating variant:', error);
       toast.error('Không thể cập nhật variant');
