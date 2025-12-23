@@ -55,6 +55,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [complianceRules, setComplianceRules] = useState<string[]>([]);
   const [channelOverrides, setChannelOverrides] = useState<ChannelOverrides>({});
   const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null);
+  const [sampleTexts, setSampleTexts] = useState<Record<string, string> | null>(null);
   
   // Validation & AI
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -84,6 +85,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setComplianceRules(template.compliance_rules || []);
       setChannelOverrides(template.channel_overrides || {});
       setIndustryTemplateId(template.industry_template_id || null);
+      setSampleTexts(template.sample_texts || null);
       setShowQuickStart(false);
       setCurrentStep(1);
     } else {
@@ -175,6 +177,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       allow_emoji: allowEmoji,
       compliance_rules: complianceRules.length > 0 ? complianceRules : null,
       channel_overrides: Object.keys(channelOverrides).length > 0 ? channelOverrides : null,
+      sample_texts: sampleTexts,
     }, scope, logoFile, deleteLogo);
   };
 
@@ -341,6 +344,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 allowEmoji={allowEmoji}
                 preferredWords={preferredWords}
                 forbiddenWords={forbiddenWords}
+                savedSampleTexts={sampleTexts}
+                onSampleTextsChange={setSampleTexts}
               />
             </div>
           )}
