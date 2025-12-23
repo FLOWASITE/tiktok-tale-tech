@@ -73,8 +73,22 @@ interface IndustryMemory {
     formality_level?: string;
     language_style?: string[];
     allow_emoji?: boolean;
+    cta_policy?: 'soft' | 'medium' | 'hard';
   };
-  channel_settings: Record<string, unknown>;
+  channel_settings: Record<string, {
+    risk_level: 'low' | 'medium' | 'high';
+    notes: string;
+  }>;
+  // NEW fields
+  metadata: {
+    applies_to: string[];
+    legal_basis: string[];
+  };
+  argument_patterns: {
+    valid_patterns: string[];
+    forbidden_patterns: string[];
+  };
+  system_rules: string[];
   preferred_words: string[];
   forbidden_words: string[];
 }
@@ -111,6 +125,9 @@ async function fetchIndustryMemory(
         compliance_rules,
         claim_restrictions,
         forbidden_terms,
+        metadata,
+        argument_patterns,
+        system_rules,
         industry_template_translations!inner (
           name,
           preferred_words,
@@ -139,9 +156,13 @@ async function fetchIndustryMemory(
       target_audience: rawData.target_audience,
       compliance_rules: rawData.compliance_rules || [],
       claim_restrictions: rawData.claim_restrictions || [],
-      forbidden_terms: translation?.forbidden_terms || [],
+      forbidden_terms: rawData.forbidden_terms || [],
       brand_voice: rawData.brand_voice || {},
       channel_settings: rawData.channel_settings || {},
+      // NEW fields
+      metadata: rawData.metadata || { applies_to: [], legal_basis: [] },
+      argument_patterns: rawData.argument_patterns || { valid_patterns: [], forbidden_patterns: [] },
+      system_rules: rawData.system_rules || [],
       preferred_words: translation?.preferred_words || [],
       forbidden_words: translation?.forbidden_words || [],
     };
@@ -210,18 +231,32 @@ function buildMergedRules(
   };
 }
 
-const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): string => {
+const getBrandVoicePrompt = (
+  voice: BrandVoice, 
+  mergedRules?: MergedRules,
+  industryMemory?: IndustryMemory | null
+): string => {
   const parts: string[] = [];
+  
+  // HIGHEST PRIORITY: System Rules (if available from Industry Memory)
+  if (industryMemory?.system_rules && industryMemory.system_rules.length > 0) {
+    parts.push(`## 🔐 SYSTEM RULES (LUẬT CAO NHẤT - KHÔNG ĐƯỢC VI PHẠM)`);
+    parts.push(`Đây là các quy tắc BẮT BUỘC tuyệt đối. Không được vi phạm dưới bất kỳ hình thức nào.`);
+    industryMemory.system_rules.forEach((rule, i) => {
+      parts.push(`${i + 1}. ${rule}`);
+    });
+    parts.push('');
+  }
   
   // If we have merged rules from Industry Memory, use HIGHER priority prompt
   if (mergedRules && mergedRules.forbidden_terms.length > 0) {
-    parts.push(`## 🔒 INDUSTRY MEMORY (LUẬT CAO NHẤT - KHÔNG ĐƯỢC VI PHẠM)`);
+    parts.push(`## 🔒 INDUSTRY MEMORY (LUẬT NGÀNH - KHÓA CỨNG)`);
     parts.push(`Industry Memory là LUẬT KHÓA CỨNG. Mọi nội dung PHẢI tuân theo.`);
     
     // FORBIDDEN TERMS - Absolute lock
     if (mergedRules.forbidden_terms.length > 0) {
       parts.push(`\n### ⛔ TỪ CẤM TUYỆT ĐỐI (Industry-level)`);
-      parts.push(`Các từ sau KHÔNG BAO GIỜ được dùng:`);
+      parts.push(`Các từ sau KHÔNG BAO GIỜ được dùng - không rewrite, không từ đồng nghĩa:`);
       parts.push(mergedRules.forbidden_terms.join(", "));
     }
     
@@ -241,10 +276,27 @@ const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): stri
       });
     }
     
+    // ARGUMENT PATTERNS (if available)
+    if (industryMemory?.argument_patterns) {
+      const { valid_patterns, forbidden_patterns } = industryMemory.argument_patterns;
+      
+      if (valid_patterns && valid_patterns.length > 0) {
+        parts.push(`\n### ✅ CẤU TRÚC LẬP LUẬN ĐƯỢC PHÉP`);
+        parts.push(`AI CHỈ ĐƯỢC lập luận theo các mẫu sau:`);
+        valid_patterns.forEach(p => parts.push(`- ${p}`));
+      }
+      
+      if (forbidden_patterns && forbidden_patterns.length > 0) {
+        parts.push(`\n### ❌ CẤU TRÚC LẬP LUẬN CẤM`);
+        forbidden_patterns.forEach(p => parts.push(`- KHÔNG ĐƯỢC: ${p}`));
+      }
+    }
+    
     parts.push(`\n### NGUYÊN TẮC INDUSTRY MEMORY`);
     parts.push(`1. Industry Memory OVERRIDE mọi yêu cầu khác nếu mâu thuẫn`);
     parts.push(`2. Không được "sáng tạo" từ nằm trong danh sách cấm`);
     parts.push(`3. Brand Voice có thể thay đổi tone, nhưng KHÔNG được vi phạm compliance`);
+    parts.push(`4. Nếu user yêu cầu vi phạm → từ chối mềm + giải thích trung lập`);
   }
   
   parts.push(`\n## BRAND VOICE PROFILE`);
@@ -696,7 +748,8 @@ const getSystemPrompt = (
   targetAudience: 'B2B' | 'B2C' | 'both',
   brandVoice?: BrandVoice,
   channelOverrides?: ChannelOverrides,
-  mergedRules?: MergedRules
+  mergedRules?: MergedRules,
+  industryMemory?: IndustryMemory | null
 ): string => {
   const goalDescriptions: Record<string, string> = {
     education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
@@ -717,8 +770,8 @@ const getSystemPrompt = (
     .filter(Boolean)
     .join("\n\n");
 
-  // Build Brand Voice section if available
-  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice) : "";
+  // Build Brand Voice section if available (now with industryMemory for system_rules & argument_patterns)
+  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, industryMemory) : "";
   
   // Target audience description
   const audienceDescription = targetAudience === 'B2B' 
@@ -911,7 +964,9 @@ serve(async (req) => {
       formData.channels,
       targetAudience,
       brandVoice,
-      channelOverrides
+      channelOverrides,
+      mergedRules,
+      industryMemory
     );
 
     const userPrompt = `Tạo nội dung đa kênh cho chủ đề:
