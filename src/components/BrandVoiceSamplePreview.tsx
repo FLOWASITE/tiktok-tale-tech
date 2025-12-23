@@ -98,12 +98,33 @@ export function BrandVoiceSamplePreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandName, positioning, toneOfVoice, formalityLevel, allowEmoji, refreshKey]);
 
+  // Helper to normalize sample content (AI might return objects for email)
+  const normalizeSample = (sample: unknown): string => {
+    if (typeof sample === 'string') return sample;
+    if (sample && typeof sample === 'object') {
+      // Handle email object format {subject, body}
+      const obj = sample as Record<string, unknown>;
+      if ('subject' in obj && 'body' in obj) {
+        return `📧 Subject: ${obj.subject}\n\n${obj.body}`;
+      }
+      // Try to stringify other objects
+      return JSON.stringify(sample, null, 2);
+    }
+    return String(sample || '');
+  };
+
   // Use AI samples if available, otherwise use template
   const samples = useMemo(() => {
-    if (useAI && aiSamples) {
-      return { ...templateSamples, ...aiSamples };
+    const baseSamples = useAI && aiSamples 
+      ? { ...templateSamples, ...aiSamples }
+      : templateSamples;
+    
+    // Normalize all samples to ensure they're strings
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(baseSamples)) {
+      normalized[key] = normalizeSample(value);
     }
-    return templateSamples;
+    return normalized;
   }, [useAI, aiSamples, templateSamples]);
 
   const handleAIGenerate = async () => {
