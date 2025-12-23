@@ -17,6 +17,7 @@ import {
   History,
   Zap,
   Plus,
+  Pencil,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +90,7 @@ function PackCard({
   onDeprecate, 
   onReactivate,
   onEditRules,
+  onEdit,
   isUpdating,
 }: { 
   pack: IndustryMemoryPack;
@@ -96,6 +98,7 @@ function PackCard({
   onDeprecate: () => void;
   onReactivate: () => void;
   onEditRules: () => void;
+  onEdit: () => void;
   isUpdating: boolean;
 }) {
   const [confirmAction, setConfirmAction] = useState<'publish' | 'deprecate' | 'reactivate' | null>(null);
@@ -186,7 +189,23 @@ function PackCard({
 
           {/* Actions */}
           <div className="flex gap-2 pt-2 border-t border-border/50">
-            {/* Edit Rules Button - always visible */}
+            {/* Edit Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-8"
+                  onClick={onEdit}
+                  disabled={isUpdating}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Chỉnh sửa thông tin Pack</TooltipContent>
+            </Tooltip>
+
+            {/* Edit Rules Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -345,6 +364,7 @@ export default function AdminIndustryPacks() {
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [editingPackId, setEditingPackId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editPackId, setEditPackId] = useState<string | null>(null);
   
   // Create form state
   const [newPackCode, setNewPackCode] = useState('');
@@ -353,6 +373,12 @@ export default function AdminIndustryPacks() {
   const [newPackTargetAudience, setNewPackTargetAudience] = useState('B2B');
   const [newPackNameVi, setNewPackNameVi] = useState('');
   const [newPackNameEn, setNewPackNameEn] = useState('');
+
+  // Edit form state
+  const [editPackTargetAudience, setEditPackTargetAudience] = useState('B2B');
+  const [editPackCategoryId, setEditPackCategoryId] = useState('');
+  const [editPackNameVi, setEditPackNameVi] = useState('');
+  const [editPackNameEn, setEditPackNameEn] = useState('');
 
   // All data fetching hooks
   const { countries, categories, isLoadingCountries } = useIndustryTemplates();
@@ -369,11 +395,15 @@ export default function AdminIndustryPacks() {
     isUpdatingRules,
     createPack,
     isCreating,
+    updatePack,
+    isUpdatingPack,
   } = useIndustryMemoryPacks({ onlyActive: false });
   const { data: packDetails, isLoading: isLoadingDetails } = useIndustryPackDetails(editingPackId);
+  const { data: editPackDetails } = useIndustryPackDetails(editPackId);
 
   // Derived state (not hooks)
   const editingPack = packs.find(p => p.id === editingPackId);
+  const packToEdit = packs.find(p => p.id === editPackId);
 
   // Reset create form
   const resetCreateForm = () => {
@@ -408,6 +438,38 @@ export default function AdminIndustryPacks() {
     resetCreateForm();
   };
 
+  // Handle open edit dialog
+  const handleOpenEditDialog = (packId: string) => {
+    const pack = packs.find(p => p.id === packId);
+    if (pack) {
+      setEditPackId(packId);
+      setEditPackTargetAudience(pack.targetAudience || 'B2B');
+      setEditPackCategoryId(pack.categoryCode || '');
+      setEditPackNameVi(pack.name || '');
+      setEditPackNameEn('');
+    }
+  };
+
+  // Handle update pack
+  const handleUpdatePack = async () => {
+    if (!editPackId || !editPackNameVi) return;
+
+    const categoryObj = categories.find(c => c.code === editPackCategoryId);
+
+    await updatePack({
+      packId: editPackId,
+      data: {
+        target_audience: editPackTargetAudience,
+        category_id: categoryObj?.id || null,
+      },
+      translations: [
+        { languageCode: 'vi', name: editPackNameVi },
+        ...(editPackNameEn ? [{ languageCode: 'en', name: editPackNameEn }] : []),
+      ],
+    });
+
+    setEditPackId(null);
+  };
   // Filter packs
   const filteredPacks = packs.filter(pack => {
     const matchesSearch = !searchQuery || 
@@ -574,6 +636,7 @@ export default function AdminIndustryPacks() {
                         onDeprecate={() => deprecatePack(pack.id)}
                         onReactivate={() => reactivatePack(pack.id)}
                         onEditRules={() => setEditingPackId(pack.id)}
+                        onEdit={() => handleOpenEditDialog(pack.id)}
                         isUpdating={isUpdating}
                       />
                     ))}
@@ -599,6 +662,7 @@ export default function AdminIndustryPacks() {
                         onDeprecate={() => deprecatePack(pack.id)}
                         onReactivate={() => reactivatePack(pack.id)}
                         onEditRules={() => setEditingPackId(pack.id)}
+                        onEdit={() => handleOpenEditDialog(pack.id)}
                         isUpdating={isUpdating}
                       />
                     ))}
@@ -747,6 +811,87 @@ export default function AdminIndustryPacks() {
               disabled={!newPackCode || !newPackCountryId || !newPackNameVi || isCreating}
             >
               {isCreating ? 'Đang tạo...' : 'Tạo Pack'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Pack Dialog */}
+      <Dialog open={!!editPackId} onOpenChange={(open) => !open && setEditPackId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              Chỉnh sửa Pack: {packToEdit?.name || packToEdit?.code}
+            </DialogTitle>
+            <DialogDescription>
+              Cập nhật thông tin của Industry Memory Pack
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Category */}
+            <div className="space-y-2">
+              <Label>Danh mục ngành</Label>
+              <Select value={editPackCategoryId} onValueChange={setEditPackCategoryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn danh mục" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.code}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Target Audience */}
+            <div className="space-y-2">
+              <Label>Đối tượng mục tiêu</Label>
+              <Select value={editPackTargetAudience} onValueChange={setEditPackTargetAudience}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="B2B">B2B - Doanh nghiệp</SelectItem>
+                  <SelectItem value="B2C">B2C - Người tiêu dùng</SelectItem>
+                  <SelectItem value="B2B2C">B2B2C - Cả hai</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Name Vietnamese */}
+            <div className="space-y-2">
+              <Label>Tên tiếng Việt *</Label>
+              <Input
+                placeholder="vd: Tài chính - Ngân hàng"
+                value={editPackNameVi}
+                onChange={(e) => setEditPackNameVi(e.target.value)}
+              />
+            </div>
+
+            {/* Name English */}
+            <div className="space-y-2">
+              <Label>Tên tiếng Anh</Label>
+              <Input
+                placeholder="vd: Finance & Banking"
+                value={editPackNameEn}
+                onChange={(e) => setEditPackNameEn(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPackId(null)}>
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleUpdatePack}
+              disabled={!editPackNameVi || isUpdatingPack}
+            >
+              {isUpdatingPack ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
           </DialogFooter>
         </DialogContent>
