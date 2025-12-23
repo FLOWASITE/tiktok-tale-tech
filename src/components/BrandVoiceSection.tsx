@@ -1,6 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge, badgeVariants } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { X, Plus, ChevronDown, Mic2, Settings2, Info, Smile } from 'lucide-react';
@@ -309,39 +309,51 @@ export function BrandVoiceSection({
               </Badge>
             )}
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {TONE_OF_VOICE_OPTIONS.map((opt) => {
               const isSelected = toneOfVoice.includes(opt.value);
               const isDisabled = !isSelected && toneOfVoice.length >= 3;
+              const checkboxId = `tone-${opt.value}`;
 
               return (
-                <button
+                <label
                   key={opt.value}
-                  type="button"
-                  onMouseDown={(e) => {
-                    // Prevent parent layers (dialogs/collapsibles) from hijacking focus/click
-                    e.stopPropagation();
-                  }}
+                  htmlFor={checkboxId}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                    "bg-background/50",
+                    isSelected && "border-primary/40 bg-primary/5",
+                    isDisabled && "opacity-50 cursor-not-allowed"
+                  )}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     if (isDisabled) return;
                     toggleTone(opt.value);
                   }}
-                  disabled={isDisabled}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    badgeVariants({ variant: isSelected ? 'default' : 'outline' }),
-                    'text-xs gap-1 transition-all cursor-pointer select-none',
-                    isSelected ? '' : isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/10',
-                    isSelected && opt.suggestEmoji && 'pr-1.5'
-                  )}
                 >
-                  {opt.label}
-                  {isSelected && opt.suggestEmoji && (
-                    <Smile className="w-3 h-3 opacity-70" />
-                  )}
-                </button>
+                  <Checkbox
+                    id={checkboxId}
+                    checked={isSelected}
+                    disabled={isDisabled}
+                    onCheckedChange={(checked) => {
+                      // Keep it deterministic: checked=true -> ensure selected; false -> ensure removed
+                      if (isDisabled) return;
+                      const wantSelected = checked === true;
+                      if (wantSelected && !isSelected) toggleTone(opt.value);
+                      if (!wantSelected && isSelected) toggleTone(opt.value);
+                    }}
+                  />
+                  <span className="flex items-center gap-1.5">
+                    <span>{opt.label}</span>
+                    {opt.suggestEmoji && (
+                      <span className={cn("text-xs", isSelected ? "text-primary" : "text-muted-foreground")}>
+                        <Smile className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                  </span>
+                </label>
               );
             })}
           </div>
