@@ -56,7 +56,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import type { IndustryTemplate, IndustryCategory } from "@/hooks/useIndustryTemplates";
+import type { IndustryTemplate, IndustryCategory, Country } from "@/hooks/useIndustryTemplates";
 
 // Icon mapping for categories
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -534,6 +534,19 @@ export default function AdminIndustries() {
           }
         }}
       />
+
+      {/* Create Dialog */}
+      <IndustryTemplateCreateDialog
+        isOpen={isCreateDialogOpen}
+        countries={countries}
+        categories={categories}
+        selectedCountry={selectedCountry}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onCreated={() => {
+          setIsCreateDialogOpen(false);
+          queryClient.invalidateQueries({ queryKey: ["industry_templates"] });
+        }}
+      />
     </div>
   );
 }
@@ -754,6 +767,422 @@ function IndustryTemplateEditDialog({
           </Button>
           <Button onClick={handleSubmit} disabled={isSaving}>
             {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Create Dialog Component
+interface IndustryTemplateCreateDialogProps {
+  isOpen: boolean;
+  countries: Country[];
+  categories: IndustryCategory[];
+  selectedCountry: string;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function IndustryTemplateCreateDialog({
+  isOpen,
+  countries,
+  categories,
+  selectedCountry,
+  onClose,
+  onCreated,
+}: IndustryTemplateCreateDialogProps) {
+  const { createTemplate } = useIndustryTemplatesAdmin();
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    code: "",
+    country_code: selectedCountry,
+    category_code: "",
+    name: "",
+    short_name: "",
+    brand_positioning: "",
+    target_audience: "B2B" as "B2B" | "B2C" | "both",
+    formality_level: "formal",
+    tone_of_voice: ["professional"] as string[],
+    language_style: ["clear"] as string[],
+    allow_emoji: false,
+    preferred_words: "",
+    forbidden_words: "",
+  });
+
+  // Reset form when dialog opens
+  const resetForm = () => {
+    setFormData({
+      code: "",
+      country_code: selectedCountry,
+      category_code: "",
+      name: "",
+      short_name: "",
+      brand_positioning: "",
+      target_audience: "B2B",
+      formality_level: "formal",
+      tone_of_voice: ["professional"],
+      language_style: ["clear"],
+      allow_emoji: false,
+      preferred_words: "",
+      forbidden_words: "",
+    });
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.code.trim() || !formData.name.trim()) {
+      toast.error("Vui lòng nhập Code và Tên ngành");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await createTemplate(
+        formData.country_code,
+        formData.category_code || null,
+        {
+          code: formData.code.trim().toLowerCase().replace(/\s+/g, "_"),
+          target_audience: formData.target_audience,
+          brand_voice: {
+            tone_of_voice: formData.tone_of_voice,
+            formality_level: formData.formality_level,
+            language_style: formData.language_style,
+            allow_emoji: formData.allow_emoji,
+          },
+        },
+        [
+          {
+            language_code: "vi",
+            name: formData.name.trim(),
+            short_name: formData.short_name.trim() || undefined,
+            brand_positioning: formData.brand_positioning.trim() || undefined,
+            preferred_words: formData.preferred_words
+              .split(",")
+              .map((w) => w.trim())
+              .filter(Boolean),
+            forbidden_words: formData.forbidden_words
+              .split(",")
+              .map((w) => w.trim())
+              .filter(Boolean),
+          },
+        ]
+      );
+      toast.success("Đã tạo template mới");
+      resetForm();
+      onCreated();
+    } catch (error) {
+      console.error(error);
+      toast.error("Lỗi khi tạo template");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toneOptions = [
+    "professional",
+    "friendly",
+    "authoritative",
+    "empathetic",
+    "innovative",
+    "traditional",
+  ];
+
+  const styleOptions = [
+    "clear",
+    "concise",
+    "detailed",
+    "technical",
+    "storytelling",
+    "persuasive",
+  ];
+
+  return (
+    <Dialog open={isOpen} onOpenChange={() => handleClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5" />
+            Tạo Industry Template mới
+          </DialogTitle>
+          <DialogDescription>
+            Thêm template ngành mới vào hệ thống
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          {/* Basic Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>
+                Code <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={formData.code}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, code: e.target.value }))
+                }
+                placeholder="tax_accounting"
+              />
+              <p className="text-xs text-muted-foreground">
+                Mã định danh duy nhất (snake_case)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Quốc gia</Label>
+              <Select
+                value={formData.country_code}
+                onValueChange={(v) =>
+                  setFormData((prev) => ({ ...prev, country_code: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      <div className="flex items-center gap-2">
+                        <span>{country.flag_emoji}</span>
+                        <span>{country.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>
+                Tên ngành <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="Kế toán - Thuế"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tên ngắn</Label>
+              <Input
+                value={formData.short_name}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, short_name: e.target.value }))
+                }
+                placeholder="Kế toán"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.category_code}
+                onValueChange={(v) =>
+                  setFormData((prev) => ({ ...prev, category_code: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.code} value={cat.code}>
+                      <div className="flex items-center gap-2">
+                        {categoryIcons[cat.code]}
+                        {cat.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Target Audience</Label>
+              <Select
+                value={formData.target_audience}
+                onValueChange={(v) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    target_audience: v as typeof prev.target_audience,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="B2B">B2B</SelectItem>
+                  <SelectItem value="B2C">B2C</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Brand Positioning</Label>
+            <Textarea
+              value={formData.brand_positioning}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  brand_positioning: e.target.value,
+                }))
+              }
+              rows={2}
+              placeholder="Mô tả định vị thương hiệu cho ngành này..."
+            />
+          </div>
+
+          {/* Brand Voice Section */}
+          <div className="space-y-3 pt-2 border-t">
+            <h4 className="font-medium text-sm">Brand Voice</h4>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Formality Level</Label>
+                <Select
+                  value={formData.formality_level}
+                  onValueChange={(v) =>
+                    setFormData((prev) => ({ ...prev, formality_level: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="formal">Formal</SelectItem>
+                    <SelectItem value="semi_formal">Semi-Formal</SelectItem>
+                    <SelectItem value="casual">Casual</SelectItem>
+                    <SelectItem value="friendly">Friendly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Cho phép Emoji</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Emoji trong content
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.allow_emoji}
+                  onCheckedChange={(v) =>
+                    setFormData((prev) => ({ ...prev, allow_emoji: v }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tone of Voice</Label>
+              <div className="flex flex-wrap gap-2">
+                {toneOptions.map((tone) => (
+                  <Badge
+                    key={tone}
+                    variant={formData.tone_of_voice.includes(tone) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        tone_of_voice: prev.tone_of_voice.includes(tone)
+                          ? prev.tone_of_voice.filter((t) => t !== tone)
+                          : [...prev.tone_of_voice, tone],
+                      }))
+                    }
+                  >
+                    {tone}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Language Style</Label>
+              <div className="flex flex-wrap gap-2">
+                {styleOptions.map((style) => (
+                  <Badge
+                    key={style}
+                    variant={formData.language_style.includes(style) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        language_style: prev.language_style.includes(style)
+                          ? prev.language_style.filter((s) => s !== style)
+                          : [...prev.language_style, style],
+                      }))
+                    }
+                  >
+                    {style}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Words Section */}
+          <div className="space-y-3 pt-2 border-t">
+            <h4 className="font-medium text-sm">Từ khóa</h4>
+
+            <div className="space-y-2">
+              <Label>Preferred Words (cách nhau bởi dấu phẩy)</Label>
+              <Textarea
+                value={formData.preferred_words}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    preferred_words: e.target.value,
+                  }))
+                }
+                rows={2}
+                placeholder="uy tín, chuyên nghiệp, tin cậy..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Forbidden Words (cách nhau bởi dấu phẩy)</Label>
+              <Textarea
+                value={formData.forbidden_words}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    forbidden_words: e.target.value,
+                  }))
+                }
+                rows={2}
+                placeholder="siêu, khủng, hot..."
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>
+            Hủy
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Đang tạo...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Tạo template
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
