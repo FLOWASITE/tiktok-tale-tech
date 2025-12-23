@@ -218,16 +218,14 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   }, [brandName, brandPositioning, toneOfVoice, formalityLevel, allowEmoji, preferredWords, forbiddenWords]);
 
   // Save current sample as a variant
-  const handleSaveSample = useCallback(async () => {
+  const handleSaveSample = useCallback(async (customName: string) => {
     if (!sampleTexts || !template?.id) {
       toast.error('Vui lòng tạo mẫu và lưu Brand Template trước');
       return;
     }
-
-    const variantName = `Mẫu ${variants.length + 1}`;
     
     const result = await createVariant({
-      name: variantName,
+      name: customName,
       brand_template_id: template.id,
       is_control: variants.length === 0, // First one is control
       brand_positioning: brandPositioning || null,
