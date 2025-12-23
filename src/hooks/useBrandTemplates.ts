@@ -92,10 +92,26 @@ export function useBrandTemplates() {
     }
 
     try {
+      const normalizedScope: BrandScope =
+        (scope === 'organization' || scope === 'both') && !currentOrganization
+          ? 'personal'
+          : scope;
+
+      // Debug for persistent RLS issues
+      console.debug('[useBrandTemplates.saveTemplate]', {
+        requestedScope: scope,
+        normalizedScope,
+        currentOrganizationId: currentOrganization?.id ?? null,
+        userId: user.id,
+      });
+
       const insertData = {
         ...template,
-        user_id: scope === 'personal' || scope === 'both' ? user.id : null,
-        organization_id: (scope === 'organization' || scope === 'both') && currentOrganization ? currentOrganization.id : null,
+        user_id: normalizedScope === 'personal' || normalizedScope === 'both' ? user.id : null,
+        organization_id:
+          (normalizedScope === 'organization' || normalizedScope === 'both') && currentOrganization
+            ? currentOrganization.id
+            : null,
       };
 
       const { data, error } = await supabase
