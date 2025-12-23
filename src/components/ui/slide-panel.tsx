@@ -10,8 +10,8 @@ interface SlidePanelProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
-  /** When true, panel takes full width on desktop */
-  fullScreen?: boolean;
+  /** When true, panel fills the content area (sidebar remains visible) */
+  fillContent?: boolean;
 }
 
 export function SlidePanel({
@@ -21,7 +21,7 @@ export function SlidePanel({
   description,
   children,
   className,
-  fullScreen = false,
+  fillContent = false,
 }: SlidePanelProps) {
   const [isVisible, setIsVisible] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
@@ -73,10 +73,11 @@ export function SlidePanel({
 
   return (
     <>
-      {/* Overlay - starts below header */}
+      {/* Overlay - starts below header, respects sidebar when fillContent */}
       <div
         className={cn(
           "fixed inset-0 top-14 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-250",
+          fillContent && "left-[var(--sidebar-width,16rem)] md:left-[var(--sidebar-width,16rem)]",
           isAnimating ? "opacity-100" : "opacity-0"
         )}
         onClick={() => onOpenChange(false)}
@@ -85,11 +86,11 @@ export function SlidePanel({
       {/* Panel - slides in from right, below header */}
       <div
         className={cn(
-          "fixed top-14 right-0 bottom-0 z-50 w-full bg-background border-l shadow-2xl",
+          "fixed top-14 right-0 bottom-0 z-50 bg-background border-l shadow-2xl",
           "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          fullScreen 
-            ? "sm:max-w-full" 
-            : "sm:max-w-full md:max-w-2xl lg:max-w-3xl",
+          fillContent 
+            ? "left-[var(--sidebar-width,16rem)] w-auto" 
+            : "w-full sm:max-w-full md:max-w-2xl lg:max-w-3xl",
           isAnimating 
             ? "translate-x-0 opacity-100" 
             : "translate-x-full opacity-0",
