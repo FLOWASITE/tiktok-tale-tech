@@ -691,6 +691,66 @@ export type Database = {
         }
         Relationships: []
       }
+      hook_templates: {
+        Row: {
+          compatible_formality: string[] | null
+          compatible_tones: string[] | null
+          created_at: string | null
+          duration_fit: string[] | null
+          engagement_level: string | null
+          framework: string
+          id: string
+          industries: string[] | null
+          is_active: boolean | null
+          name: string
+          opening_line: string
+          platforms: string[] | null
+          psychology_reason: string | null
+          sort_order: number | null
+          text_overlay: string | null
+          updated_at: string | null
+          visual_direction: string | null
+        }
+        Insert: {
+          compatible_formality?: string[] | null
+          compatible_tones?: string[] | null
+          created_at?: string | null
+          duration_fit?: string[] | null
+          engagement_level?: string | null
+          framework: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          name: string
+          opening_line: string
+          platforms?: string[] | null
+          psychology_reason?: string | null
+          sort_order?: number | null
+          text_overlay?: string | null
+          updated_at?: string | null
+          visual_direction?: string | null
+        }
+        Update: {
+          compatible_formality?: string[] | null
+          compatible_tones?: string[] | null
+          created_at?: string | null
+          duration_fit?: string[] | null
+          engagement_level?: string | null
+          framework?: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          name?: string
+          opening_line?: string
+          platforms?: string[] | null
+          psychology_reason?: string | null
+          sort_order?: number | null
+          text_overlay?: string | null
+          updated_at?: string | null
+          visual_direction?: string | null
+        }
+        Relationships: []
+      }
       industry_categories: {
         Row: {
           code: string
@@ -1468,6 +1528,78 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_saved_hooks: {
+        Row: {
+          brand_template_id: string | null
+          collection_name: string | null
+          created_at: string | null
+          customized_opening_line: string | null
+          framework: string
+          hook_template_id: string | null
+          id: string
+          is_favorite: boolean | null
+          notes: string | null
+          organization_id: string | null
+          original_opening_line: string
+          text_overlay: string | null
+          updated_at: string | null
+          usage_count: number | null
+          user_id: string
+          visual_direction: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          collection_name?: string | null
+          created_at?: string | null
+          customized_opening_line?: string | null
+          framework: string
+          hook_template_id?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          notes?: string | null
+          organization_id?: string | null
+          original_opening_line: string
+          text_overlay?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id: string
+          visual_direction?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          collection_name?: string | null
+          created_at?: string | null
+          customized_opening_line?: string | null
+          framework?: string
+          hook_template_id?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          notes?: string | null
+          organization_id?: string | null
+          original_opening_line?: string
+          text_overlay?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id?: string
+          visual_direction?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_saved_hooks_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_saved_hooks_hook_template_id_fkey"
+            columns: ["hook_template_id"]
+            isOneToOne: false
+            referencedRelation: "hook_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
