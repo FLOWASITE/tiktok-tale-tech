@@ -8,6 +8,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface EditedPreview {
+  original: string;
+  edited: string;
+}
+
 interface FormData {
   topic: string;
   industry?: string;
@@ -15,6 +20,7 @@ interface FormData {
   channels: string[];
   brandTemplateId?: string;
   organization_id?: string;
+  editedPreviews?: Record<string, EditedPreview>;
 }
 
 // Brand Voice label mappings
@@ -970,7 +976,8 @@ serve(async (req) => {
       industryMemory
     );
 
-    const userPrompt = `Tạo nội dung đa kênh cho chủ đề:
+    // Build user prompt with optional edited previews as examples
+    let userPrompt = `Tạo nội dung đa kênh cho chủ đề:
 "${formData.topic}"
 
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
@@ -980,6 +987,36 @@ Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
 Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy ước đã cho.
 Đảm bảo thông điệp lõi nhất quán nhưng format và tone khác nhau theo từng nền tảng.
 Nội dung sẵn sàng đăng ngay.`;
+
+    // If user has edited any previews, use them as examples for the AI to learn from
+    if (formData.editedPreviews && Object.keys(formData.editedPreviews).length > 0) {
+      const editedChannels = Object.entries(formData.editedPreviews)
+        .filter(([_, preview]) => preview.original !== preview.edited)
+        .map(([channel, preview]) => ({ channel, ...preview }));
+
+      if (editedChannels.length > 0) {
+        userPrompt += `\n\n## VÍ DỤ ĐƯỢC NGƯỜI DÙNG CHỈNH SỬA (HỌC THEO PHONG CÁCH NÀY)
+Người dùng đã chỉnh sửa một số preview. Hãy HỌC THEO phong cách, cách diễn đạt, và tone của nội dung đã chỉnh sửa.
+Áp dụng học hỏi này cho TẤT CẢ các kênh, không chỉ những kênh được chỉnh sửa.
+
+`;
+        editedChannels.forEach(({ channel, original, edited }) => {
+          userPrompt += `### Kênh ${channel.toUpperCase()}:
+**Nội dung gốc từ AI:**
+${original.substring(0, 500)}${original.length > 500 ? '...' : ''}
+
+**Nội dung sau khi người dùng chỉnh sửa (HỌC THEO):**
+${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
+
+`;
+        });
+
+        userPrompt += `**QUAN TRỌNG**: Phân tích sự khác biệt và áp dụng phong cách chỉnh sửa của người dùng cho tất cả các kênh.
+Ưu tiên: cách dùng từ, độ dài câu, tone of voice, và cách trình bày mà người dùng thích hơn.`;
+        
+        console.log(`User provided ${editedChannels.length} edited preview(s) as examples`);
+      }
+    }
 
     // Build tool parameters based on selected channels
     const channelProperties: Record<string, object> = {};
@@ -1076,6 +1113,10 @@ Nội dung sẵn sàng đăng ngay.`;
     const ttlDays = CACHE_TTL[functionName] || 7;
 
     // Build cache input (only content-affecting fields)
+    // If user has edited previews, include them in cache key to bypass old cache
+    const hasEditedPreviews = formData.editedPreviews && 
+      Object.values(formData.editedPreviews).some(p => p.original !== p.edited);
+    
     const cacheInput = {
       topic: formData.topic,
       industry,
@@ -1087,6 +1128,8 @@ Nội dung sẵn sàng đăng ngay.`;
         tone: brandVoice.tone_of_voice,
         formality: brandVoice.formality_level,
       } : null,
+      // Add edited previews hash to bypass cache when user provides examples
+      hasEditedPreviews: hasEditedPreviews || false,
     };
 
     let generatedData: any;
