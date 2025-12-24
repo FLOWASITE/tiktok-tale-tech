@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Sparkles, TrendingUp, Leaf, Columns, History, RefreshCw,
-  Filter, Search, ChevronDown, Lightbulb, X
+  Filter, Search, ChevronDown, Lightbulb, X, ArrowUpDown, Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
@@ -22,14 +23,22 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ContentGoal } from '@/types/multichannel';
 import {
   EnhancedTopicSuggestion,
   TopicFormat,
   TopicCategory,
   EngagementLevel,
+  SortOption,
   TOPIC_CATEGORIES,
   ENGAGEMENT_LEVELS,
+  SORT_OPTIONS,
 } from '@/types/topicDiscovery';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { TopicIdeaCard } from './TopicIdeaCard';
@@ -72,7 +81,18 @@ export function TopicDiscoveryPanel({
   const [selectedEngagement, setSelectedEngagement] = useState<EngagementLevel | 'all'>('all');
   const [selectedCategory, setSelectedCategory] = useState<TopicCategory | 'all'>('all');
 
-  const { suggestions, source, isLoading, error, refresh } = useEnhancedTopicSuggestions({
+  const { 
+    suggestions, 
+    source, 
+    isLoading, 
+    error, 
+    refresh,
+    sortBy,
+    setSortBy,
+    minScore,
+    setMinScore,
+    stats,
+  } = useEnhancedTopicSuggestions({
     brandTemplateId,
     contentGoal,
     format,
@@ -86,7 +106,7 @@ export function TopicDiscoveryPanel({
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesTopic = topic.topic.toLowerCase().includes(query);
-        const matchesKeywords = topic.relatedKeywords.some((k) =>
+        const matchesKeywords = topic.relatedKeywords?.some((k) =>
           k.toLowerCase().includes(query)
         );
         if (!matchesTopic && !matchesKeywords) return false;
@@ -111,23 +131,14 @@ export function TopicDiscoveryPanel({
     });
   }, [suggestions, searchQuery, selectedPillar, selectedEngagement, selectedCategory]);
 
-  // Group by category for tabs
-  const groupedByCategory = useMemo(() => {
-    return {
-      trending: suggestions.filter((t) => t.category === 'trending'),
-      evergreen: suggestions.filter((t) => t.category === 'evergreen'),
-      seasonal: suggestions.filter((t) => t.category === 'seasonal'),
-      reactive: suggestions.filter((t) => t.category === 'reactive'),
-    };
-  }, [suggestions]);
-
-  const hasActiveFilters = searchQuery || selectedPillar !== 'all' || selectedEngagement !== 'all';
+  const hasActiveFilters = searchQuery || selectedPillar !== 'all' || selectedEngagement !== 'all' || minScore > 0;
 
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedPillar('all');
     setSelectedEngagement('all');
     setSelectedCategory('all');
+    setMinScore(0);
   };
 
   const renderTopicGrid = (topics: EnhancedTopicSuggestion[]) => {
@@ -135,7 +146,7 @@ export function TopicDiscoveryPanel({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-[180px] rounded-lg" />
+            <Skeleton key={i} className="h-[220px] rounded-lg" />
           ))}
         </div>
       );
@@ -196,12 +207,32 @@ export function TopicDiscoveryPanel({
               )}
             </div>
           </div>
-          <ChevronDown
-            className={cn(
-              'w-4 h-4 text-muted-foreground transition-transform',
-              isOpen && 'rotate-180'
+          <div className="flex items-center gap-2">
+            {stats && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <Trophy className="w-3 h-3" />
+                      {stats.averageScore}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Điểm trung bình: {stats.averageScore}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stats.topPerformersCount}/{stats.totalCount} topics xuất sắc
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
-          />
+            <ChevronDown
+              className={cn(
+                'w-4 h-4 text-muted-foreground transition-transform',
+                isOpen && 'rotate-180'
+              )}
+            />
+          </div>
         </Button>
       </CollapsibleTrigger>
 
@@ -256,45 +287,82 @@ export function TopicDiscoveryPanel({
 
           {/* Expanded Filters */}
           {showFilters && (
-            <div className="flex gap-2 animate-fade-in">
-              <Select value={selectedPillar} onValueChange={setSelectedPillar}>
-                <SelectTrigger className="h-8 text-xs flex-1">
-                  <SelectValue placeholder="Pillar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONTENT_PILLARS.map((pillar) => (
-                    <SelectItem key={pillar.value} value={pillar.value} className="text-xs">
-                      {pillar.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-3 p-3 rounded-lg bg-muted/30 animate-fade-in">
+              {/* Sort and Score Filter Row */}
+              <div className="flex gap-2 items-center">
+                <div className="flex items-center gap-2 flex-1">
+                  <ArrowUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Sắp xếp" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SORT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value} className="text-xs">
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <Select
-                value={selectedEngagement}
-                onValueChange={(v) => setSelectedEngagement(v as EngagementLevel | 'all')}
-              >
-                <SelectTrigger className="h-8 text-xs flex-1">
-                  <SelectValue placeholder="Tương tác" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">
-                    Tất cả
-                  </SelectItem>
-                  {ENGAGEMENT_LEVELS.map((level) => (
-                    <SelectItem key={level.value} value={level.value} className="text-xs">
-                      {level.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <div className="flex items-center gap-2 flex-1">
+                  <Trophy className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
+                    <Slider
+                      value={[minScore]}
+                      onValueChange={([v]) => setMinScore(v)}
+                      min={0}
+                      max={100}
+                      step={10}
+                      className="w-full"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-8">{minScore}+</span>
+                </div>
+              </div>
 
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" className="h-8 px-2" onClick={clearFilters}>
-                  <X className="w-3 h-3 mr-1" />
-                  Xóa
-                </Button>
-              )}
+              {/* Other Filters Row */}
+              <div className="flex gap-2">
+                <Select value={selectedPillar} onValueChange={setSelectedPillar}>
+                  <SelectTrigger className="h-8 text-xs flex-1">
+                    <SelectValue placeholder="Pillar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONTENT_PILLARS.map((pillar) => (
+                      <SelectItem key={pillar.value} value={pillar.value} className="text-xs">
+                        {pillar.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={selectedEngagement}
+                  onValueChange={(v) => setSelectedEngagement(v as EngagementLevel | 'all')}
+                >
+                  <SelectTrigger className="h-8 text-xs flex-1">
+                    <SelectValue placeholder="Tương tác" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">
+                      Tất cả
+                    </SelectItem>
+                    {ENGAGEMENT_LEVELS.map((level) => (
+                      <SelectItem key={level.value} value={level.value} className="text-xs">
+                        {level.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={clearFilters}>
+                    <X className="w-3 h-3 mr-1" />
+                    Xóa
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -324,7 +392,7 @@ export function TopicDiscoveryPanel({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="h-[400px] mt-3">
+          <ScrollArea className="h-[450px] mt-3">
             <TabsContent value="ai" className="m-0">
               {renderTopicGrid(filteredSuggestions)}
             </TabsContent>

@@ -1,7 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ContentGoal } from '@/types/multichannel';
-import { EnhancedTopicSuggestion, TopicFormat, TopicCategory, EngagementLevel } from '@/types/topicDiscovery';
+import { 
+  EnhancedTopicSuggestion, 
+  TopicFormat, 
+  TopicCategory, 
+  EngagementLevel, 
+  SortOption,
+  TopicScores,
+  calculateOverallScore 
+} from '@/types/topicDiscovery';
 
 interface UseEnhancedTopicSuggestionsOptions {
   brandTemplateId?: string;
@@ -16,7 +24,7 @@ interface TopicSuggestionsResult {
   error?: string;
 }
 
-// Default suggestions with enhanced structure
+// Default suggestions with enhanced structure and scores
 const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
   education: [
     {
@@ -27,6 +35,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Nội dung hướng dẫn luôn có giá trị lâu dài và được tìm kiếm nhiều',
       relatedKeywords: ['hướng dẫn', 'bắt đầu', 'cơ bản', 'tutorial'],
       bestTimeToPost: '9:00 - 11:00',
+      scores: { brandFit: 80, trend: 65, competition: 75, engagement: 80 },
     },
     {
       topic: '5 sai lầm phổ biến và cách tránh',
@@ -35,6 +44,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'high',
       reasoning: 'Người dùng luôn muốn tránh sai lầm, dễ gây tương tác và chia sẻ',
       relatedKeywords: ['sai lầm', 'tránh', 'kinh nghiệm', 'bài học'],
+      scores: { brandFit: 75, trend: 70, competition: 65, engagement: 85 },
     },
     {
       topic: 'Checklist hoàn chỉnh cho năm 2025',
@@ -43,6 +53,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'medium',
       reasoning: 'Checklist dễ lưu và chia sẻ, phù hợp đầu năm mới',
       relatedKeywords: ['checklist', '2025', 'kế hoạch', 'mục tiêu'],
+      scores: { brandFit: 70, trend: 80, competition: 60, engagement: 70 },
     },
   ],
   awareness: [
@@ -53,6 +64,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'high',
       reasoning: 'Storytelling tạo kết nối cảm xúc mạnh với khách hàng',
       relatedKeywords: ['câu chuyện', 'brand story', 'khởi nghiệp', 'hành trình'],
+      scores: { brandFit: 95, trend: 60, competition: 80, engagement: 85 },
     },
     {
       topic: 'Giá trị cốt lõi mà chúng tôi theo đuổi',
@@ -61,6 +73,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'medium',
       reasoning: 'Giúp khách hàng hiểu và tin tưởng thương hiệu hơn',
       relatedKeywords: ['giá trị', 'core values', 'sứ mệnh', 'tầm nhìn'],
+      scores: { brandFit: 90, trend: 55, competition: 70, engagement: 70 },
     },
   ],
   engagement: [
@@ -71,6 +84,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'high',
       reasoning: 'Câu hỏi mở khuyến khích bình luận và thảo luận',
       relatedKeywords: ['xu hướng', 'ý kiến', 'bình luận', 'thảo luận'],
+      scores: { brandFit: 70, trend: 85, competition: 50, engagement: 95 },
     },
     {
       topic: 'Thử thách 7 ngày: Bạn có dám thử?',
@@ -79,6 +93,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'high',
       reasoning: 'Challenges luôn viral và tạo FOMO',
       relatedKeywords: ['challenge', 'thử thách', '7 ngày', 'viral'],
+      scores: { brandFit: 65, trend: 90, competition: 55, engagement: 90 },
     },
   ],
   expertise: [
@@ -89,6 +104,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'high',
       reasoning: 'Nội dung chuyên sâu xây dựng uy tín và được share nhiều',
       relatedKeywords: ['phân tích', 'xu hướng', 'thị trường', 'dự báo'],
+      scores: { brandFit: 85, trend: 80, competition: 70, engagement: 80 },
     },
     {
       topic: 'Case study thành công từ thực tế',
@@ -97,6 +113,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'high',
       reasoning: 'Case study là proof of concept tốt nhất',
       relatedKeywords: ['case study', 'thành công', 'khách hàng', 'kết quả'],
+      scores: { brandFit: 80, trend: 65, competition: 75, engagement: 75 },
     },
   ],
   conversion: [
@@ -107,6 +124,7 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'high',
       reasoning: 'FOMO và urgency thúc đẩy hành động nhanh',
       relatedKeywords: ['ưu đãi', 'giảm giá', 'flash sale', 'khuyến mãi'],
+      scores: { brandFit: 75, trend: 70, competition: 60, engagement: 85 },
     },
     {
       topic: 'Vì sao khách hàng chọn chúng tôi',
@@ -115,9 +133,25 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       estimatedEngagement: 'medium',
       reasoning: 'Social proof tăng niềm tin và conversion',
       relatedKeywords: ['testimonial', 'review', 'khách hàng', 'lý do'],
+      scores: { brandFit: 85, trend: 60, competition: 65, engagement: 70 },
     },
   ],
 };
+
+// Sorting functions
+function sortByOverall(a: EnhancedTopicSuggestion, b: EnhancedTopicSuggestion): number {
+  const scoreA = a.scores ? calculateOverallScore(a.scores) : 0;
+  const scoreB = b.scores ? calculateOverallScore(b.scores) : 0;
+  return scoreB - scoreA;
+}
+
+function sortByField(field: keyof TopicScores) {
+  return (a: EnhancedTopicSuggestion, b: EnhancedTopicSuggestion): number => {
+    const scoreA = a.scores?.[field] || 0;
+    const scoreB = b.scores?.[field] || 0;
+    return scoreB - scoreA;
+  };
+}
 
 export function useEnhancedTopicSuggestions({
   brandTemplateId,
@@ -131,6 +165,8 @@ export function useEnhancedTopicSuggestions({
   const [source, setSource] = useState<'ai' | 'cache' | 'fallback'>('fallback');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('overall');
+  const [minScore, setMinScore] = useState<number>(0);
   
   const prevParamsRef = useRef<string>('');
 
@@ -148,7 +184,7 @@ export function useEnhancedTopicSuggestions({
             contentGoal,
             brandTemplateId,
             format,
-            enhanced: true, // Request enhanced format
+            enhanced: true,
           },
         }
       );
@@ -158,10 +194,9 @@ export function useEnhancedTopicSuggestions({
       }
 
       if (data?.suggestions && data.suggestions.length > 0) {
-        // Transform simple suggestions to enhanced format if needed
+        // Transform suggestions to ensure all have scores
         const enhancedSuggestions: EnhancedTopicSuggestion[] = data.suggestions.map((s: any) => {
           if (typeof s === 'string') {
-            // Simple string format - convert to enhanced
             return {
               topic: s,
               category: 'evergreen' as TopicCategory,
@@ -169,9 +204,14 @@ export function useEnhancedTopicSuggestions({
               estimatedEngagement: 'medium' as EngagementLevel,
               reasoning: 'Gợi ý từ AI dựa trên brand context',
               relatedKeywords: [],
+              scores: { brandFit: 70, trend: 60, competition: 65, engagement: 70 },
             };
           }
-          return s as EnhancedTopicSuggestion;
+          // Ensure scores exist
+          return {
+            ...s,
+            scores: s.scores || { brandFit: 70, trend: 60, competition: 65, engagement: 70 },
+          } as EnhancedTopicSuggestion;
         });
 
         setSuggestions(enhancedSuggestions);
@@ -218,17 +258,75 @@ export function useEnhancedTopicSuggestions({
     fetchSuggestions();
   }, [fetchSuggestions]);
 
+  // Sort and filter suggestions
+  const sortedSuggestions = useMemo(() => {
+    let result = [...suggestions];
+
+    // Filter by minimum score
+    if (minScore > 0) {
+      result = result.filter((s) => {
+        if (!s.scores) return false;
+        return calculateOverallScore(s.scores) >= minScore;
+      });
+    }
+
+    // Sort by selected option
+    switch (sortBy) {
+      case 'brandFit':
+        result.sort(sortByField('brandFit'));
+        break;
+      case 'trend':
+        result.sort(sortByField('trend'));
+        break;
+      case 'engagement':
+        result.sort(sortByField('engagement'));
+        break;
+      case 'competition':
+        result.sort(sortByField('competition'));
+        break;
+      case 'overall':
+      default:
+        result.sort(sortByOverall);
+        break;
+    }
+
+    return result;
+  }, [suggestions, sortBy, minScore]);
+
   // Filter by format if specified
   const filteredSuggestions = format
-    ? suggestions.filter((s) => s.formats.includes(format))
-    : suggestions;
+    ? sortedSuggestions.filter((s) => s.formats.includes(format))
+    : sortedSuggestions;
+
+  // Computed stats
+  const stats = useMemo(() => {
+    const withScores = suggestions.filter((s) => s.scores);
+    if (withScores.length === 0) return null;
+
+    const overallScores = withScores.map((s) => calculateOverallScore(s.scores!));
+    const averageScore = Math.round(overallScores.reduce((a, b) => a + b, 0) / overallScores.length);
+    const topPerformers = withScores.filter((s) => calculateOverallScore(s.scores!) >= 75);
+
+    return {
+      averageScore,
+      topPerformersCount: topPerformers.length,
+      totalCount: suggestions.length,
+    };
+  }, [suggestions]);
 
   return {
     suggestions: filteredSuggestions,
-    allSuggestions: suggestions,
+    allSuggestions: sortedSuggestions,
     source,
     isLoading,
     error,
     refresh,
+    // Sorting controls
+    sortBy,
+    setSortBy,
+    minScore,
+    setMinScore,
+    // Stats
+    stats,
   };
 }

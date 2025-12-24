@@ -1,7 +1,8 @@
 import React from 'react';
 import { 
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
-  BookmarkPlus, Play, CalendarPlus, Info, Image, Video, Layers
+  BookmarkPlus, Play, CalendarPlus, Info, Image, Video, Layers,
+  Target, BarChart3, Users, Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { EnhancedTopicSuggestion, TopicCategory, TopicFormat } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 
 interface TopicIdeaCardProps {
   topic: EnhancedTopicSuggestion;
@@ -57,11 +58,12 @@ const formatIcons: Record<TopicFormat, typeof Image> = {
   multichannel: Layers,
 };
 
-const engagementColors = {
-  high: 'bg-emerald-500',
-  medium: 'bg-amber-500',
-  low: 'bg-slate-400',
-};
+const scoreConfig = [
+  { key: 'brandFit' as const, label: 'Brand', icon: Target, description: 'Phù hợp với brand positioning' },
+  { key: 'trend' as const, label: 'Trend', icon: TrendingUp, description: 'Mức độ trending hiện tại' },
+  { key: 'competition' as const, label: 'Cạnh tranh', icon: BarChart3, description: 'Ít cạnh tranh = điểm cao' },
+  { key: 'engagement' as const, label: 'Tương tác', icon: Users, description: 'Tiềm năng engagement' },
+];
 
 export function TopicIdeaCard({
   topic,
@@ -74,16 +76,27 @@ export function TopicIdeaCard({
   const config = categoryConfig[topic.category];
   const CategoryIcon = config.icon;
 
-  const overallScore = topic.scores
-    ? Math.round(
-        (topic.scores.brandFit + topic.scores.trend + topic.scores.competition + topic.scores.engagement) / 4
-      )
-    : null;
+  const overallScore = topic.scores ? calculateOverallScore(topic.scores) : null;
+  const scoreColorClass = overallScore !== null ? getScoreColor(overallScore) : 'slate';
+
+  const getScoreBarColor = (value: number) => {
+    if (value >= SCORE_THRESHOLDS.excellent) return 'bg-emerald-500';
+    if (value >= SCORE_THRESHOLDS.good) return 'bg-amber-500';
+    if (value >= SCORE_THRESHOLDS.fair) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
+  const getScoreGradient = (value: number) => {
+    if (value >= SCORE_THRESHOLDS.excellent) return 'from-emerald-500 to-teal-400';
+    if (value >= SCORE_THRESHOLDS.good) return 'from-amber-500 to-yellow-400';
+    if (value >= SCORE_THRESHOLDS.fair) return 'from-orange-500 to-amber-400';
+    return 'from-red-500 to-rose-400';
+  };
 
   return (
     <Card
       className={cn(
-        'group relative p-4 transition-all duration-300 cursor-pointer',
+        'group relative p-4 transition-all duration-300 cursor-pointer overflow-hidden',
         'hover:shadow-lg hover:-translate-y-0.5',
         'border-border/50 hover:border-primary/30',
         isSelected && 'ring-2 ring-primary border-primary',
@@ -101,7 +114,7 @@ export function TopicIdeaCard({
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className={cn('p-2 rounded-lg', config.bgClass)}>
+        <div className={cn('p-2 rounded-lg shrink-0', config.bgClass)}>
           <CategoryIcon className={cn('w-4 h-4', config.textClass)} />
         </div>
 
@@ -123,49 +136,49 @@ export function TopicIdeaCard({
             )}
           </div>
         </div>
-
-        {/* Engagement indicator */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex flex-col items-center gap-1">
-                <div className={cn('w-3 h-3 rounded-full', engagementColors[topic.estimatedEngagement])} />
-                <span className="text-[10px] text-muted-foreground">
-                  {topic.estimatedEngagement === 'high' && 'Cao'}
-                  {topic.estimatedEngagement === 'medium' && 'TB'}
-                  {topic.estimatedEngagement === 'low' && 'Thấp'}
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p className="text-xs">Dự đoán tương tác: {topic.estimatedEngagement}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
 
-      {/* Scores (if available) */}
+      {/* Enhanced Scores with animation */}
       {topic.scores && (
-        <div className="grid grid-cols-4 gap-1 mb-3">
-          {[
-            { label: 'Brand', value: topic.scores.brandFit },
-            { label: 'Trend', value: topic.scores.trend },
-            { label: 'Cạnh tranh', value: topic.scores.competition },
-            { label: 'Tương tác', value: topic.scores.engagement },
-          ].map((score) => (
-            <div key={score.label} className="text-center">
-              <div className="text-[10px] text-muted-foreground mb-0.5">{score.label}</div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all',
-                    score.value >= 70 ? 'bg-emerald-500' : score.value >= 40 ? 'bg-amber-500' : 'bg-red-500'
-                  )}
-                  style={{ width: `${score.value}%` }}
-                />
-              </div>
-            </div>
-          ))}
+        <div className="space-y-1.5 mb-3">
+          {scoreConfig.map(({ key, label, icon: Icon, description }) => {
+            const value = topic.scores![key];
+            return (
+              <TooltipProvider key={key}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            'h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r',
+                            getScoreGradient(value)
+                          )}
+                          style={{ 
+                            width: `${value}%`,
+                            animationDelay: `${scoreConfig.findIndex(s => s.key === key) * 100}ms`
+                          }}
+                        />
+                      </div>
+                      <span className={cn(
+                        'text-[10px] font-medium w-6 text-right',
+                        value >= SCORE_THRESHOLDS.excellent ? 'text-emerald-600 dark:text-emerald-400' :
+                        value >= SCORE_THRESHOLDS.good ? 'text-amber-600 dark:text-amber-400' :
+                        'text-red-600 dark:text-red-400'
+                      )}>
+                        {value}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-[200px]">
+                    <p className="text-xs font-medium">{label}: {value}/100</p>
+                    <p className="text-xs text-muted-foreground">{description}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })}
         </div>
       )}
 
@@ -205,7 +218,7 @@ export function TopicIdeaCard({
       </div>
 
       {/* Keywords */}
-      {topic.relatedKeywords.length > 0 && (
+      {topic.relatedKeywords && topic.relatedKeywords.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
           {topic.relatedKeywords.slice(0, 4).map((keyword) => (
             <Badge key={keyword} variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/30">
@@ -300,23 +313,47 @@ export function TopicIdeaCard({
         </div>
       </div>
 
-      {/* Overall score badge */}
+      {/* Overall score badge - enhanced */}
       {overallScore !== null && (
         <div className="absolute -top-2 -right-2">
-          <div
-            className={cn(
-              'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg',
-              overallScore >= 70 ? 'bg-emerald-500' : overallScore >= 40 ? 'bg-amber-500' : 'bg-red-500'
-            )}
-          >
-            {overallScore}
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn(
+                    'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg ring-2 ring-background',
+                    'bg-gradient-to-br',
+                    overallScore >= SCORE_THRESHOLDS.excellent ? 'from-emerald-500 to-teal-600' :
+                    overallScore >= SCORE_THRESHOLDS.good ? 'from-amber-500 to-yellow-600' :
+                    overallScore >= SCORE_THRESHOLDS.fair ? 'from-orange-500 to-amber-600' :
+                    'from-red-500 to-rose-600'
+                  )}
+                >
+                  {overallScore}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium flex items-center gap-1">
+                    <Trophy className="w-3 h-3" />
+                    Điểm tổng hợp: {overallScore}/100
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {overallScore >= SCORE_THRESHOLDS.excellent && 'Xuất sắc - Nên triển khai ngay'}
+                    {overallScore >= SCORE_THRESHOLDS.good && overallScore < SCORE_THRESHOLDS.excellent && 'Tốt - Đáng để thử'}
+                    {overallScore >= SCORE_THRESHOLDS.fair && overallScore < SCORE_THRESHOLDS.good && 'Khá - Cần cân nhắc'}
+                    {overallScore < SCORE_THRESHOLDS.fair && 'Thấp - Không ưu tiên'}
+                  </p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       )}
 
       {/* Selected indicator */}
       {isSelected && (
-        <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-12">
           <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
             <Sparkles className="w-3 h-3 text-primary-foreground" />
           </div>

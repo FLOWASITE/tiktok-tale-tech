@@ -3,6 +3,14 @@ import { ContentGoal } from './multichannel';
 export type TopicCategory = 'evergreen' | 'trending' | 'seasonal' | 'reactive';
 export type TopicFormat = 'carousel' | 'script' | 'multichannel';
 export type EngagementLevel = 'high' | 'medium' | 'low';
+export type SortOption = 'overall' | 'brandFit' | 'trend' | 'engagement' | 'competition';
+
+export interface TopicScores {
+  brandFit: number;      // 0-100: Phù hợp với brand positioning
+  trend: number;         // 0-100: Mức độ trending hiện tại
+  competition: number;   // 0-100: Độ cạnh tranh (cao = ít cạnh tranh = tốt)
+  engagement: number;    // 0-100: Tiềm năng tương tác
+}
 
 export interface EnhancedTopicSuggestion {
   topic: string;
@@ -13,12 +21,7 @@ export interface EnhancedTopicSuggestion {
   reasoning: string;
   relatedKeywords: string[];
   bestTimeToPost?: string;
-  scores?: {
-    brandFit: number;
-    trend: number;
-    competition: number;
-    engagement: number;
-  };
+  scores?: TopicScores;
 }
 
 export interface TopicHistoryItem {
@@ -46,6 +49,39 @@ export interface SeasonalEvent {
   type: 'holiday' | 'event' | 'campaign';
   suggestedTopics: string[];
 }
+
+// Score thresholds
+export const SCORE_THRESHOLDS = {
+  excellent: 80,
+  good: 60,
+  fair: 40,
+} as const;
+
+// Calculate weighted overall score
+export function calculateOverallScore(scores: TopicScores): number {
+  return Math.round(
+    scores.brandFit * 0.30 +
+    scores.trend * 0.20 +
+    scores.competition * 0.20 +
+    scores.engagement * 0.30
+  );
+}
+
+// Get score color based on value
+export function getScoreColor(score: number): string {
+  if (score >= SCORE_THRESHOLDS.excellent) return 'emerald';
+  if (score >= SCORE_THRESHOLDS.good) return 'amber';
+  return 'red';
+}
+
+// Sort options
+export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'overall', label: 'Điểm tổng hợp' },
+  { value: 'brandFit', label: 'Brand Fit' },
+  { value: 'trend', label: 'Trending' },
+  { value: 'engagement', label: 'Tương tác' },
+  { value: 'competition', label: 'Ít cạnh tranh' },
+];
 
 export const TOPIC_CATEGORIES: { value: TopicCategory; label: string; color: string; icon: string }[] = [
   { value: 'evergreen', label: 'Evergreen', color: 'emerald', icon: 'Leaf' },
