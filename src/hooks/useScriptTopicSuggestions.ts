@@ -1,21 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoType } from '@/types/script';
-
-interface EnhancedTopicSuggestion {
-  topic: string;
-  category?: string;
-  pillar?: string;
-  reasoning?: string;
-  formats?: string[];
-  relatedKeywords?: string[];
-  bestTimeToPost?: string;
-  scores?: Record<string, number>;
-  estimatedEngagement?: string;
-}
+import { 
+  EnhancedTopicSuggestion, 
+  TopicScores, 
+  SortOption,
+  calculateOverallScore 
+} from '@/types/topicDiscovery';
 
 interface ScriptTopicSuggestionsResult {
-  suggestions: EnhancedTopicSuggestion[] | string[];
+  suggestions: EnhancedTopicSuggestion[];
   source: 'ai' | 'cache' | 'fallback';
   error?: string;
 }
@@ -35,38 +29,139 @@ const VIDEO_TYPE_TO_GOAL: Record<VideoType, string> = {
   quick_qa: 'engagement',
 };
 
-const DEFAULT_SUGGESTIONS: Record<VideoType, string[]> = {
+// Default scores for fallback suggestions
+const DEFAULT_SCORES: TopicScores = {
+  brandFit: 60,
+  trend: 50,
+  competition: 55,
+  engagement: 65,
+};
+
+const DEFAULT_SUGGESTIONS: Record<VideoType, EnhancedTopicSuggestion[]> = {
   expert_share: [
-    '5 bí quyết thành công mà chuyên gia không tiết lộ',
-    'Xu hướng mới nhất trong ngành năm 2024',
-    'Case study: Từ thất bại đến thành công',
-    'Kinh nghiệm 10 năm gói gọn trong 60 giây',
-    'Góc nhìn chuyên gia về vấn đề đang hot',
-    'Những điều tôi ước mình biết sớm hơn',
+    {
+      topic: '5 bí quyết thành công mà chuyên gia không tiết lộ',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Nội dung "insider secrets" luôn thu hút sự tò mò của người xem',
+      relatedKeywords: ['bí quyết', 'thành công', 'chuyên gia'],
+      scores: { brandFit: 70, trend: 55, competition: 60, engagement: 80 },
+    },
+    {
+      topic: 'Xu hướng mới nhất trong ngành năm 2024',
+      category: 'trending',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Nội dung cập nhật xu hướng luôn được quan tâm đầu năm',
+      relatedKeywords: ['xu hướng', '2024', 'mới nhất'],
+      scores: { brandFit: 65, trend: 85, competition: 40, engagement: 75 },
+    },
+    {
+      topic: 'Case study: Từ thất bại đến thành công',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Câu chuyện thực tế tạo sự đồng cảm và tin tưởng',
+      relatedKeywords: ['case study', 'thất bại', 'thành công'],
+      scores: { brandFit: 75, trend: 50, competition: 65, engagement: 85 },
+    },
+    {
+      topic: 'Kinh nghiệm 10 năm gói gọn trong 60 giây',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'medium',
+      reasoning: 'Format ngắn gọn, dễ tiếp thu, phù hợp video ngắn',
+      relatedKeywords: ['kinh nghiệm', 'tips', 'nhanh'],
+      scores: { brandFit: 60, trend: 60, competition: 55, engagement: 70 },
+    },
   ],
   analyze_explain: [
-    'Giải thích đơn giản: Cách hoạt động của...',
-    'Phân tích chi tiết: Ưu và nhược điểm',
-    'So sánh A vs B: Đâu là lựa chọn tốt hơn?',
-    'Bóc tách từng bước quy trình thực hiện',
-    'Tại sao điều này lại quan trọng?',
-    'Breakdown: Chiến lược đằng sau thành công',
+    {
+      topic: 'Giải thích đơn giản: Cách hoạt động của...',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'medium',
+      reasoning: 'Nội dung giáo dục dễ hiểu luôn có giá trị lâu dài',
+      relatedKeywords: ['giải thích', 'hướng dẫn', 'cách'],
+      scores: { brandFit: 70, trend: 45, competition: 70, engagement: 65 },
+    },
+    {
+      topic: 'So sánh A vs B: Đâu là lựa chọn tốt hơn?',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'So sánh giúp người xem quyết định, tạo tranh luận trong comments',
+      relatedKeywords: ['so sánh', 'review', 'nên chọn'],
+      scores: { brandFit: 65, trend: 60, competition: 50, engagement: 80 },
+    },
+    {
+      topic: 'Phân tích chi tiết: Ưu và nhược điểm',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'medium',
+      reasoning: 'Phân tích khách quan tạo uy tín cho người xem',
+      relatedKeywords: ['phân tích', 'ưu nhược', 'đánh giá'],
+      scores: { brandFit: 70, trend: 50, competition: 60, engagement: 70 },
+    },
   ],
   warning_mistake: [
-    '5 sai lầm phổ biến người mới thường mắc phải',
-    'Đừng làm điều này nếu bạn muốn thành công',
-    'Cảnh báo: Những dấu hiệu bạn đang làm sai',
-    'Tôi đã mất tiền triệu vì sai lầm này',
-    'Stop! Kiểm tra lại ngay điều này',
-    'Bẫy nguy hiểm mà 90% người không biết',
+    {
+      topic: '5 sai lầm phổ biến người mới thường mắc phải',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Nội dung cảnh báo tạo FOMO, người xem muốn tránh sai lầm',
+      relatedKeywords: ['sai lầm', 'tránh', 'người mới'],
+      scores: { brandFit: 75, trend: 55, competition: 45, engagement: 90 },
+    },
+    {
+      topic: 'Đừng làm điều này nếu bạn muốn thành công',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Tiêu đề negative tạo sự tò mò, CTR cao',
+      relatedKeywords: ['đừng', 'cảnh báo', 'sai lầm'],
+      scores: { brandFit: 70, trend: 50, competition: 50, engagement: 85 },
+    },
+    {
+      topic: 'Tôi đã mất tiền triệu vì sai lầm này',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Câu chuyện cá nhân + số tiền cụ thể tạo impact mạnh',
+      relatedKeywords: ['mất tiền', 'sai lầm', 'bài học'],
+      scores: { brandFit: 65, trend: 60, competition: 55, engagement: 88 },
+    },
   ],
   quick_qa: [
-    'Trả lời câu hỏi hay nhất của followers',
-    'FAQ: Những thắc mắc phổ biến nhất',
-    'Đúng hay sai? Giải đáp hiểu lầm phổ biến',
-    'Hỏi nhanh đáp gọn: Tips thực tế',
-    '60 giây giải quyết vấn đề của bạn',
-    'Bạn hỏi - Chuyên gia trả lời',
+    {
+      topic: 'Trả lời câu hỏi hay nhất của followers',
+      category: 'reactive',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Tương tác trực tiếp với khán giả tạo gắn kết cộng đồng',
+      relatedKeywords: ['Q&A', 'hỏi đáp', 'followers'],
+      scores: { brandFit: 80, trend: 65, competition: 70, engagement: 85 },
+    },
+    {
+      topic: 'FAQ: Những thắc mắc phổ biến nhất',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'medium',
+      reasoning: 'Giải đáp thắc mắc giúp tiết kiệm thời gian support',
+      relatedKeywords: ['FAQ', 'câu hỏi', 'thắc mắc'],
+      scores: { brandFit: 75, trend: 45, competition: 65, engagement: 70 },
+    },
+    {
+      topic: 'Đúng hay sai? Giải đáp hiểu lầm phổ biến',
+      category: 'evergreen',
+      formats: ['script'],
+      estimatedEngagement: 'high',
+      reasoning: 'Format quiz tạo tương tác, người xem muốn kiểm tra hiểu biết',
+      relatedKeywords: ['đúng sai', 'hiểu lầm', 'myth'],
+      scores: { brandFit: 70, trend: 55, competition: 60, engagement: 80 },
+    },
   ],
 };
 
@@ -76,10 +171,12 @@ export function useScriptTopicSuggestions({
   industry,
   enabled = true,
 }: UseScriptTopicSuggestionsOptions) {
-  const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS[videoType]);
+  const [suggestions, setSuggestions] = useState<EnhancedTopicSuggestion[]>(DEFAULT_SUGGESTIONS[videoType]);
   const [source, setSource] = useState<'ai' | 'cache' | 'fallback'>('fallback');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('overall');
+  const [minScore, setMinScore] = useState(0);
   
   const prevParamsRef = useRef<string>('');
   
@@ -99,7 +196,8 @@ export function useScriptTopicSuggestions({
             industry,
             contentGoal,
             brandTemplateId,
-            context: 'script', // Additional context for better suggestions
+            format: 'script',
+            context: 'script',
           },
         }
       );
@@ -109,11 +207,20 @@ export function useScriptTopicSuggestions({
       }
 
       if (data?.suggestions && data.suggestions.length > 0) {
-        // Handle both string[] and EnhancedTopicSuggestion[] responses
-        const extractedTopics = data.suggestions.map((s: string | EnhancedTopicSuggestion) => 
-          typeof s === 'string' ? s : s.topic
-        );
-        setSuggestions(extractedTopics);
+        // Ensure all suggestions have proper structure
+        const normalizedSuggestions: EnhancedTopicSuggestion[] = data.suggestions.map(s => ({
+          topic: s.topic,
+          category: s.category || 'evergreen',
+          pillar: s.pillar,
+          formats: s.formats || ['script'],
+          estimatedEngagement: s.estimatedEngagement || 'medium',
+          reasoning: s.reasoning || 'AI đề xuất dựa trên brand và ngành của bạn',
+          relatedKeywords: s.relatedKeywords || [],
+          bestTimeToPost: s.bestTimeToPost,
+          scores: s.scores || DEFAULT_SCORES,
+        }));
+        
+        setSuggestions(normalizedSuggestions);
         setSource(data.source);
       } else {
         setSuggestions(DEFAULT_SUGGESTIONS[videoType]);
@@ -158,11 +265,41 @@ export function useScriptTopicSuggestions({
     fetchSuggestions();
   }, [fetchSuggestions]);
 
+  // Sorted suggestions
+  const sortedSuggestions = useMemo(() => {
+    let result = [...suggestions];
+    
+    // Filter by min score
+    if (minScore > 0) {
+      result = result.filter(s => {
+        if (!s.scores) return true;
+        return calculateOverallScore(s.scores) >= minScore;
+      });
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      if (!a.scores || !b.scores) return 0;
+      
+      if (sortBy === 'overall') {
+        return calculateOverallScore(b.scores) - calculateOverallScore(a.scores);
+      }
+      return (b.scores[sortBy] || 0) - (a.scores[sortBy] || 0);
+    });
+    
+    return result;
+  }, [suggestions, sortBy, minScore]);
+
   return {
-    suggestions,
+    suggestions: sortedSuggestions,
+    allSuggestions: suggestions,
     source,
     isLoading,
     error,
     refresh,
+    sortBy,
+    setSortBy,
+    minScore,
+    setMinScore,
   };
 }

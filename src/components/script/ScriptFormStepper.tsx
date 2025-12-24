@@ -24,7 +24,8 @@ import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useScriptTopicSuggestions } from '@/hooks/useScriptTopicSuggestions';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
-import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { ScriptTopicDiscoveryPanel } from '@/components/script/ScriptTopicDiscoveryPanel';
+import { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
 import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector';
@@ -104,6 +105,10 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     source: suggestionsSource,
     isLoading: suggestionsLoading,
     refresh: refreshSuggestions,
+    sortBy,
+    setSortBy,
+    minScore,
+    setMinScore,
   } = useScriptTopicSuggestions({
     videoType: formData.video_type,
     brandTemplateId: formData.brandTemplateId,
@@ -333,16 +338,20 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
               </div>
 
               {/* AI Topic Suggestions */}
-              <TopicSuggestionPanel
+              <ScriptTopicDiscoveryPanel
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
                 isLoading={suggestionsLoading}
-                onSelect={(suggestion) => {
-                  setFormData((prev) => ({ ...prev, topic: suggestion }));
+                onSelect={(topic: EnhancedTopicSuggestion) => {
+                  setFormData((prev) => ({ ...prev, topic: topic.topic }));
                   toast.success('Đã chọn chủ đề gợi ý');
                 }}
                 onRefresh={refreshSuggestions}
                 disabled={isLoading}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                minScore={minScore}
+                onMinScoreChange={setMinScore}
               />
             </div>
           </div>
