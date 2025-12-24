@@ -562,149 +562,120 @@ export function MultiChannelViewer({
 
   const firstChannel = content.selected_channels[0];
 
+  // State for selected channel in new layout
+  const [selectedChannel, setSelectedChannel] = useState<Channel>(content.selected_channels[0]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] xs:w-full max-h-[95vh] xs:max-h-[90vh] p-0 overflow-hidden">
-        <DialogHeader className="p-3 xs:p-6 pb-0">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
+      <DialogContent className="max-w-6xl w-[98vw] h-[95vh] max-h-[95vh] p-0 overflow-hidden flex flex-col">
+        {/* Compact Header */}
+        <DialogHeader className="px-4 py-3 border-b border-border/50 bg-card/50 backdrop-blur-sm shrink-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
               {isEditingHeader ? (
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium">Tiêu đề</label>
-                    <Input
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="Nhập tiêu đề..."
-                      className="text-lg font-semibold"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium">Chủ đề</label>
-                    <Textarea
-                      value={editTopic}
-                      onChange={(e) => setEditTopic(e.target.value)}
-                      placeholder="Nhập chủ đề..."
-                      className="min-h-[60px] resize-none text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleSaveHeader}
-                      disabled={isSavingHeader || !editTitle.trim()}
-                    >
-                      {isSavingHeader ? (
-                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4 mr-1.5" />
-                      )}
-                      Lưu
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleCancelEditHeader}
-                      disabled={isSavingHeader}
-                    >
-                      <X className="w-4 h-4 mr-1.5" />
-                      Hủy
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-3 flex-1">
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Tiêu đề..."
+                    className="max-w-xs h-8 text-sm font-semibold"
+                    autoFocus
+                  />
+                  <Input
+                    value={editTopic}
+                    onChange={(e) => setEditTopic(e.target.value)}
+                    placeholder="Chủ đề..."
+                    className="max-w-md h-8 text-sm"
+                  />
+                  <Button size="sm" onClick={handleSaveHeader} disabled={isSavingHeader || !editTitle.trim()} className="h-8">
+                    {isSavingHeader ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleCancelEditHeader} disabled={isSavingHeader} className="h-8">
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 group">
-                    <DialogTitle className="text-base xs:text-xl font-bold line-clamp-2">
+                  <div className="flex items-center gap-2 group min-w-0">
+                    <DialogTitle className="text-base font-bold truncate max-w-[300px]">
                       {content.title}
                     </DialogTitle>
                     {onUpdateTitleTopic && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 xs:h-7 xs:w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                         onClick={handleStartEditHeader}
                       >
-                        <Pencil className="w-3 h-3 xs:w-3.5 xs:h-3.5" />
+                        <Pencil className="w-3 h-3" />
                       </Button>
                     )}
                   </div>
-                  <p className="text-xs xs:text-sm text-muted-foreground mb-2 xs:mb-3 mt-1 xs:mt-2 line-clamp-2">
-                    {content.topic}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1.5 xs:gap-2">
-                    <Badge variant="outline" className="text-[10px] xs:text-xs">{goalLabel}</Badge>
-                    {content.industry && (
-                      <Badge variant="outline" className="bg-muted/50 text-[10px] xs:text-xs hidden xs:inline-flex">
-                        {content.industry}
-                      </Badge>
-                    )}
-                    <Badge variant="outline" className="bg-muted/50 text-[10px] xs:text-xs hidden xs:inline-flex">
-                      {content.brand_name}
-                    </Badge>
-                  </div>
-                  {/* Creator & Time - Hidden on very small screens */}
-                  <div className="hidden xs:flex flex-wrap items-center gap-1.5 mt-2 text-xs text-muted-foreground">
-                    <span>Tạo bởi:</span>
-                    <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                    <span className="mx-1">•</span>
-                    <span>{new Date(content.created_at).toLocaleDateString('vi-VN')}</span>
-                  </div>
-                  {/* Industry Guardrail Badge */}
+                  <Badge variant="outline" className="text-xs shrink-0">{goalLabel}</Badge>
+                  <Badge variant="outline" className="bg-muted/50 text-xs shrink-0 hidden sm:inline-flex">
+                    {content.brand_name}
+                  </Badge>
+                  {/* Industry Guardrail Badge - compact */}
                   <IndustryGuardrailBadge 
                     industryMemory={industryMemory} 
                     isLoading={isLoadingIndustry}
-                    className="mt-2"
+                    className="hidden md:flex"
                   />
-                  {/* Assigned Approver Info */}
-                  <div className="hidden xs:block mt-2">
-                    <AssignedApproverInfo creatorId={content.user_id} compact />
-                  </div>
                 </>
               )}
             </div>
+            
             {!isEditingHeader && (
-              <div className="flex items-center gap-1 xs:gap-2 flex-wrap xs:flex-nowrap">
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Quick Channel Nav */}
+                <QuickChannelNav
+                  channels={content.selected_channels}
+                  activeChannel={selectedChannel}
+                  onChannelChange={setSelectedChannel}
+                  className="hidden lg:flex"
+                />
+                
                 {/* Channel Comparison */}
                 <ChannelComparison content={content} channelConfig={channelConfig} />
-                {/* Team Panel Toggle Button */}
+                
+                {/* Team Panel Toggle */}
                 <Button 
                   variant={showTeamPanel ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); }}
-                  className="gap-1 xs:gap-1.5 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
+                  className="h-8 gap-1.5"
                 >
-                  <Users className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
-                  <span className="hidden xs:inline">Team</span>
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">Team</span>
                 </Button>
-                {/* Gallery Toggle Button */}
+                
+                {/* Gallery Toggle */}
                 <Button 
                   variant={showGallery ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); }}
-                  className="gap-1 xs:gap-1.5 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
+                  className="h-8 gap-1.5"
                 >
-                  <Images className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
-                  <span className="hidden xs:inline">Ảnh</span>
+                  <Images className="w-4 h-4" />
                   {Object.keys(content.channel_images || {}).length > 0 && (
-                    <Badge variant="secondary" className="ml-0.5 xs:ml-1 h-4 xs:h-5 px-1 xs:px-1.5 text-[10px] xs:text-xs">
+                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
                       {Object.keys(content.channel_images || {}).length}
                     </Badge>
                   )}
                 </Button>
+                
                 {/* Schedule Button */}
                 <Button 
                   variant={showSchedule ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); }}
-                  className="gap-1 xs:gap-1.5 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
+                  className="h-8 gap-1.5"
                 >
                   <CalendarClock className="w-4 h-4" />
-                  Lên lịch
                 </Button>
-                {/* Enhanced Export Menu */}
-                <EnhancedExportMenu content={content} channelConfig={channelConfig} />
+                
+                {/* Export Menu */}
+                <EnhancedExportMenu content={content} channelConfig={channelConfig} currentChannel={selectedChannel} />
               </div>
             )}
           </div>
@@ -744,537 +715,396 @@ export function MultiChannelViewer({
             />
           </div>
         ) : (
-          <Tabs defaultValue={firstChannel} className="flex-1 flex flex-col">
-            <div className="px-6 pt-4">
-              <TabsList className="w-full justify-start gap-1 h-auto flex-wrap bg-transparent p-0">
-                {content.selected_channels.map((channel) => {
-                  const config = channelConfig[channel];
-                  const isRegenerating = regeneratingChannel === channel;
-                  const hasImage = !!(content.channel_images?.[channel]?.url);
-                  return (
-                    <TabsTrigger
-                      key={channel}
-                      value={channel}
-                      disabled={isRegenerating}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg data-[state=active]:${config.bgColor} data-[state=active]:${config.color}`}
-                    >
-                      {isRegenerating ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <span className={config.color}>{config.icon}</span>
-                      )}
-                      <span>{config.label}</span>
-                      {hasImage && (
-                        <span className="w-2 h-2 rounded-full bg-green-500" title="Có ảnh" />
-                      )}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
+          <div className="flex-1 flex overflow-hidden">
+            {/* Channel Sidebar */}
+            <div className="w-52 border-r border-border/50 bg-muted/20 flex flex-col shrink-0">
+              <ScrollArea className="flex-1">
+                <div className="p-2 space-y-1">
+                  {content.selected_channels.map((channel) => {
+                    const config = channelConfig[channel];
+                    const isRegenerating = regeneratingChannel === channel;
+                    const hasImage = !!(content.channel_images?.[channel]?.url);
+                    const channelText = getContentForChannel(content, channel);
+                    const wordCount = channelText ? countWords(channelText) : 0;
+                    const isActive = selectedChannel === channel;
+                    const status = content.channel_statuses?.[channel] || 'draft';
+                    
+                    return (
+                      <button
+                        key={channel}
+                        onClick={() => setSelectedChannel(channel)}
+                        disabled={isRegenerating}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-accent/50 ${
+                          isActive 
+                            ? 'bg-primary/10 text-primary border border-primary/20' 
+                            : 'text-foreground/80'
+                        }`}
+                      >
+                        <div 
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${config.bgColor}`}
+                        >
+                          {isRegenerating ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <span className={config.color}>{config.icon}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-sm font-medium truncate ${isActive ? 'text-primary' : ''}`}>
+                              {config.shortLabel}
+                            </span>
+                            {hasImage && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Có ảnh" />
+                            )}
+                            <span 
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                status === 'published' ? 'bg-green-400' :
+                                status === 'approved' ? 'bg-blue-400' :
+                                status === 'review' ? 'bg-yellow-400' :
+                                'bg-muted-foreground/50'
+                              }`}
+                              title={CONTENT_STATUSES.find(s => s.value === status)?.label}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {wordCount} từ
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+              
+              {/* Sidebar Footer - Creator Info */}
+              <div className="p-3 border-t border-border/30 bg-background/50">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                </div>
+                <div className="mt-1.5">
+                  <AssignedApproverInfo creatorId={content.user_id} compact />
+                </div>
+              </div>
             </div>
 
-          {content.selected_channels.map((channel) => {
-            const channelContent = getContentForChannel(content, channel);
-            const config = channelConfig[channel];
-            const isEditing = editingChannel === channel;
-            const isAIEditing = aiEditingChannel === channel;
-            const displayContent = previewContent || (isEditing ? editContent : (channelContent || ''));
-            const wordCount = countWords(displayContent);
-            const charCount = countCharacters(displayContent);
-            const isRegenerating = regeneratingChannel === channel;
-            
-            // Content analysis for smart quick actions
-            const contentAnalysis = analyzeContent(displayContent, channel);
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {(() => {
+                const channel = selectedChannel;
+                const channelContent = getContentForChannel(content, channel);
+                const config = channelConfig[channel];
+                const isEditing = editingChannel === channel;
+                const isAIEditing = aiEditingChannel === channel;
+                const displayContent = previewContent || (isEditing ? editContent : (channelContent || ''));
+                const wordCount = countWords(displayContent);
+                const charCount = countCharacters(displayContent);
+                const isRegenerating = regeneratingChannel === channel;
+                const contentAnalysis = analyzeContent(displayContent, channel);
 
-            return (
-              <TabsContent
-                key={channel}
-                value={channel}
-                className="flex-1 mt-0 p-6 pt-4"
-              >
-                <div className="space-y-3 mb-3">
-                  {/* Content Length Indicator */}
-                  <ContentLengthIndicator 
-                    content={displayContent} 
-                    settings={DEFAULT_CHANNEL_SETTINGS[channel]} 
-                  />
-                  
-                  {/* Channel Rules Panel */}
-                  <ChannelRulesPanel channel={channel} />
-                </div>
-
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {/* Channel Status Dropdown */}
-                    {onUpdateChannelStatus && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-6 px-2 text-xs gap-1"
-                          >
-                            <span 
-                              className={`w-2 h-2 rounded-full ${
-                                (content.channel_statuses?.[channel] || 'draft') === 'published' ? 'bg-green-400' :
-                                (content.channel_statuses?.[channel] || 'draft') === 'approved' ? 'bg-blue-400' :
-                                (content.channel_statuses?.[channel] || 'draft') === 'review' ? 'bg-yellow-400' :
-                                'bg-muted-foreground'
-                              }`}
-                            />
-                            {CONTENT_STATUSES.find(s => s.value === (content.channel_statuses?.[channel] || 'draft'))?.label || 'Bản nháp'}
-                            <ChevronDown className="w-3 h-3 opacity-50" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-36">
-                          {CONTENT_STATUSES.map((status) => (
-                            <DropdownMenuItem
-                              key={status.value}
-                              onClick={() => onUpdateChannelStatus(content.id, channel, status.value)}
-                              className={content.channel_statuses?.[channel] === status.value ? 'bg-muted' : ''}
-                            >
-                              <span 
-                                className={`w-2 h-2 rounded-full mr-2 ${
-                                  status.value === 'published' ? 'bg-green-400' :
-                                  status.value === 'approved' ? 'bg-blue-400' :
-                                  status.value === 'review' ? 'bg-yellow-400' :
-                                  'bg-muted-foreground'
-                                }`}
-                              />
-                              {status.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {config.maxLength}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      •
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {wordCount} chữ / {charCount} ký tự
-                    </span>
-                    {isEditing && (
-                      <>
-                        <Badge variant="secondary" className="text-xs">
-                          {previewContent ? 'Đang xem trước AI' : 'Đang chỉnh sửa'}
-                        </Badge>
-                        {isDraftSaving && (
-                          <span className="text-xs text-muted-foreground animate-pulse">
-                            Đang lưu...
-                          </span>
-                        )}
-                        {!isDraftSaving && draftLastSaved && (
-                          <span className="text-xs text-muted-foreground">
-                            Đã lưu tự động
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isEditing ? (
-                      <>
-                        {/* Undo/Redo buttons */}
-                        <TooltipProvider>
-                          <div className="flex items-center gap-1 mr-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={undo}
-                                  disabled={!canUndo || isSaving || isAIEditing}
-                                  className="h-8 w-8"
-                                >
-                                  <Undo2 className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Hoàn tác (Ctrl+Z)</p>
-                                {historyCount > 0 && <p className="text-xs text-muted-foreground">{historyCount} bước</p>}
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={redo}
-                                  disabled={!canRedo || isSaving || isAIEditing}
-                                  className="h-8 w-8"
-                                >
-                                  <Redo2 className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Làm lại (Ctrl+Shift+Z)</p>
-                              </TooltipContent>
-                            </Tooltip>
+                return (
+                  <>
+                    {/* Channel Header Bar */}
+                    <div className="px-4 py-3 border-b border-border/30 bg-background/50 flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${config.bgColor}`}>
+                          <span className={config.color}>{config.icon}</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-sm">{config.label}</h3>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{config.maxLength}</span>
+                            <span>•</span>
+                            <span>{wordCount} từ / {charCount} ký tự</span>
                           </div>
-                        </TooltipProvider>
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleCancelEdit}
-                          disabled={isSaving || isAIEditing}
-                          className="gap-1.5"
-                        >
-                          <X className="w-4 h-4" />
-                          {previewContent ? 'Quay lại' : 'Hủy'}
-                        </Button>
-                        {previewContent && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleApplyPreview}
-                            disabled={isSaving || isAIEditing}
-                            className="gap-1.5"
-                          >
-                            <Check className="w-4 h-4" />
-                            Chấp nhận
-                          </Button>
-                        )}
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleSaveEdit(channel)}
-                          disabled={isSaving || isAIEditing}
-                          className="gap-1.5"
-                        >
-                          {isSaving ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Đang lưu...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-4 h-4" />
-                              Lưu
-                            </>
-                          )}
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        {onUpdateContent && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleStartEdit(channel)}
-                            disabled={isRegenerating || !!regeneratingChannel}
-                            className="gap-1.5"
-                          >
-                            <Pencil className="w-4 h-4" />
-                            Sửa
-                          </Button>
-                        )}
-                        {onRegenerate && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRegenerate(channel)}
-                            disabled={isRegenerating || !!regeneratingChannel}
-                            className="gap-1.5"
-                          >
-                            {isRegenerating ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Đang tạo lại...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="w-4 h-4" />
-                                Tạo lại
-                              </>
-                            )}
-                          </Button>
-                        )}
-                        {/* Image Generation Button */}
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setImageEditorChannel(channel);
-                                  setImageEditorOpen(true);
-                                }}
-                                disabled={isRegenerating || !!regeneratingChannel}
-                                className="gap-1.5"
-                              >
-                                <ImagePlus className="w-4 h-4" />
-                                <span className="hidden sm:inline">Tạo ảnh</span>
+                        </div>
+                        
+                        {/* Channel Status Dropdown */}
+                        {onUpdateChannelStatus && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1 ml-2">
+                                <span 
+                                  className={`w-2 h-2 rounded-full ${
+                                    (content.channel_statuses?.[channel] || 'draft') === 'published' ? 'bg-green-400' :
+                                    (content.channel_statuses?.[channel] || 'draft') === 'approved' ? 'bg-blue-400' :
+                                    (content.channel_statuses?.[channel] || 'draft') === 'review' ? 'bg-yellow-400' :
+                                    'bg-muted-foreground'
+                                  }`}
+                                />
+                                {CONTENT_STATUSES.find(s => s.value === (content.channel_statuses?.[channel] || 'draft'))?.label || 'Bản nháp'}
+                                <ChevronDown className="w-3 h-3 opacity-50" />
                               </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Tạo ảnh AI cho {channelConfig[channel].label}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        {/* Assignment Button - Only show for draft/review status, not for approved/published */}
-                        {!['approved', 'published'].includes(content.channel_statuses?.[channel] || 'draft') && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setAssignmentChannel(channel);
-                                    setAssignmentDialogOpen(true);
-                                  }}
-                                  disabled={isRegenerating || !!regeneratingChannel}
-                                  className="gap-1.5"
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-36">
+                              {CONTENT_STATUSES.map((status) => (
+                                <DropdownMenuItem
+                                  key={status.value}
+                                  onClick={() => onUpdateChannelStatus(content.id, channel, status.value)}
+                                  className={content.channel_statuses?.[channel] === status.value ? 'bg-muted' : ''}
                                 >
-                                  <Users className="w-4 h-4" />
-                                  <span className="hidden sm:inline">Phân công</span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Phân công nhiệm vụ cho {channelConfig[channel].label}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                                  <span 
+                                    className={`w-2 h-2 rounded-full mr-2 ${
+                                      status.value === 'published' ? 'bg-green-400' :
+                                      status.value === 'approved' ? 'bg-blue-400' :
+                                      status.value === 'review' ? 'bg-yellow-400' :
+                                      'bg-muted-foreground'
+                                    }`}
+                                  />
+                                  {status.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopy(channel)}
-                          disabled={isRegenerating}
-                          className="gap-1.5"
-                        >
-                          {copiedChannel === channel ? (
-                            <>
-                              <Check className="w-4 h-4 text-green-500" />
-                              Đã copy
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-4 h-4" />
-                              Copy
-                            </>
-                          )}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
+                        
+                        {isEditing && (
+                          <Badge variant="secondary" className="text-xs ml-2">
+                            {previewContent ? 'Xem trước AI' : 'Đang sửa'}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2">
+                        {isEditing ? (
+                          <>
+                            {/* Undo/Redo */}
+                            <TooltipProvider>
+                              <div className="flex items-center gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={undo} disabled={!canUndo || isSaving || isAIEditing} className="h-8 w-8">
+                                      <Undo2 className="w-4 h-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Hoàn tác (Ctrl+Z)</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={redo} disabled={!canRedo || isSaving || isAIEditing} className="h-8 w-8">
+                                      <Redo2 className="w-4 h-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Làm lại (Ctrl+Shift+Z)</TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TooltipProvider>
 
-                {isEditing ? (
-                  <div className="space-y-3">
-                    {/* AI Edit Panel */}
-                    {onAIEdit && (
-                      <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-medium">Chỉnh sửa với AI</span>
-                        </div>
-                        
-                        {/* Smart Quick Actions with Apply Brand Voice */}
-                        <SmartQuickActions
-                          analysis={contentAnalysis}
-                          onAction={(instruction) => handleAIEdit(channel, instruction)}
-                          onApplyBrandVoice={() => handleAIEdit(channel, APPLY_BRAND_VOICE_INSTRUCTION)}
-                          isLoading={isAIEditing}
-                          hasBrandVoice={!!content.brand_template_id}
-                        />
-                        
-                        {/* Custom Prompt */}
-                        <div className="flex gap-2 pt-2 border-t border-border/50">
-                          <Input
-                            placeholder="Hoặc nhập yêu cầu chỉnh sửa (VD: thêm số liệu thống kê, đổi tone hài hước...)"
-                            value={aiPrompt}
-                            onChange={(e) => setAiPrompt(e.target.value)}
-                            disabled={isAIEditing}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && aiPrompt.trim()) {
-                                handleAIEdit(channel, aiPrompt);
-                              }
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => handleAIEdit(channel, aiPrompt)}
-                            disabled={isAIEditing || !aiPrompt.trim()}
-                            className="gap-1.5 shrink-0"
-                          >
-                            {isAIEditing ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Đang xử lý...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" onClick={handleCancelEdit} disabled={isSaving || isAIEditing} className="h-8">
+                              <X className="w-4 h-4 mr-1" />
+                              {previewContent ? 'Quay lại' : 'Hủy'}
+                            </Button>
+                            
+                            {previewContent && (
+                              <Button variant="outline" size="sm" onClick={handleApplyPreview} disabled={isSaving} className="h-8">
+                                <Check className="w-4 h-4 mr-1" />
                                 Áp dụng
-                              </>
+                              </Button>
                             )}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Draft restore prompt */}
-                    {showDraftRestorePrompt && (
-                      <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">Bạn có bản nháp chưa lưu. Khôi phục?</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleDiscardDraft}
-                          >
-                            Bỏ qua
-                          </Button>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={handleRestoreDraft}
-                          >
-                            Khôi phục
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Editor with Markdown Preview for Website */}
-                    {channel === 'website' ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-end">
-                          <ToggleGroup 
-                            type="single" 
-                            value={showMarkdownPreview ? 'preview' : 'edit'}
-                            onValueChange={(value) => setShowMarkdownPreview(value === 'preview')}
-                            className="bg-muted/50 p-1 rounded-lg"
-                          >
-                            <ToggleGroupItem value="edit" className="gap-1.5 text-xs px-3">
-                              <Code className="w-3.5 h-3.5" />
-                              Chỉnh sửa
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="preview" className="gap-1.5 text-xs px-3">
-                              <Eye className="w-3.5 h-3.5" />
-                              Xem trước
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        </div>
-                        
-                        {showMarkdownPreview ? (
-                          <ScrollArea className="h-[280px] rounded-lg border border-border/50 bg-background">
-                            <div className="p-4 prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:leading-relaxed prose-ul:list-disc prose-ol:list-decimal prose-li:my-1 prose-strong:font-semibold prose-a:text-primary prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic">
-                              <ReactMarkdown>
-                                {previewContent || editContent || 'Nhập nội dung để xem trước...'}
-                              </ReactMarkdown>
-                            </div>
-                          </ScrollArea>
+                            
+                            <Button size="sm" onClick={() => handleSaveEdit(channel)} disabled={isSaving || isAIEditing} className="h-8">
+                              {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                              Lưu
+                            </Button>
+                          </>
                         ) : (
-                          <div className="space-y-2">
-                            <MarkdownToolbar
-                              textareaRef={textareaRef}
-                              value={previewContent || editContent}
-                              onChange={(val) => {
-                                if (previewContent) {
-                                  setPreviewContent(val);
-                                } else {
-                                  setEditContent(val);
-                                }
-                              }}
-                              disabled={isSaving || !!aiEditingChannel}
-                            />
-                            <Textarea
-                              ref={textareaRef}
-                              value={previewContent || editContent}
-                              onChange={(e) => {
-                                if (previewContent) {
-                                  setPreviewContent(e.target.value);
-                                } else {
-                                  setEditContent(e.target.value);
-                                }
-                              }}
-                              className="h-[260px] resize-none font-mono text-sm"
-                              placeholder="Nhập nội dung Markdown..."
-                            />
-                          </div>
+                          <>
+                            {/* View Mode Toggle */}
+                            <ToggleGroup 
+                              type="single" 
+                              value={showMockupView ? 'mockup' : 'text'}
+                              onValueChange={(value) => value && setShowMockupView(value === 'mockup')}
+                              className="bg-muted/50 p-0.5 rounded-md h-8"
+                            >
+                              <ToggleGroupItem value="text" className="h-7 px-2.5 text-xs data-[state=on]:bg-background">
+                                <Code className="w-3.5 h-3.5 mr-1" />
+                                Text
+                              </ToggleGroupItem>
+                              <ToggleGroupItem value="mockup" className="h-7 px-2.5 text-xs data-[state=on]:bg-background">
+                                <Eye className="w-3.5 h-3.5 mr-1" />
+                                Mockup
+                              </ToggleGroupItem>
+                            </ToggleGroup>
+                            
+                            {onRegenerate && (
+                              <Button variant="outline" size="sm" onClick={() => handleRegenerate(channel)} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
+                                <RefreshCw className={`w-4 h-4 mr-1 ${isRegenerating ? 'animate-spin' : ''}`} />
+                                Tạo lại
+                              </Button>
+                            )}
+                            
+                            {onUpdateContent && (
+                              <Button variant="outline" size="sm" onClick={() => handleStartEdit(channel)} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
+                                <Pencil className="w-4 h-4 mr-1" />
+                                Sửa
+                              </Button>
+                            )}
+                            
+                            <Button variant="outline" size="sm" onClick={() => { setImageEditorChannel(channel); setImageEditorOpen(true); }} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
+                              <ImagePlus className="w-4 h-4 mr-1" />
+                              Ảnh
+                            </Button>
+                            
+                            <Button variant="outline" size="sm" onClick={() => handleCopy(channel)} disabled={isRegenerating} className="h-8">
+                              {copiedChannel === channel ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </Button>
+                          </>
                         )}
                       </div>
-                    ) : (
-                      <Textarea
-                        value={previewContent || editContent}
-                        onChange={(e) => {
-                          if (previewContent) {
-                            setPreviewContent(e.target.value);
-                          } else {
-                            setEditContent(e.target.value);
-                          }
-                        }}
-                        className="h-[320px] resize-none font-mono text-sm"
-                        placeholder="Nhập nội dung..."
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Mockup/Text Toggle */}
-                    <div className="flex justify-end">
-                      <ToggleGroup 
-                        type="single" 
-                        value={showMockupView ? 'mockup' : 'text'}
-                        onValueChange={(value) => value && setShowMockupView(value === 'mockup')}
-                        className="bg-muted/50 p-1 rounded-lg"
-                      >
-                        <ToggleGroupItem value="text" className="gap-1.5 text-xs px-3">
-                          <Code className="w-3.5 h-3.5" />
-                          Text
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="mockup" className="gap-1.5 text-xs px-3">
-                          <Eye className="w-3.5 h-3.5" />
-                          Mockup
-                        </ToggleGroupItem>
-                      </ToggleGroup>
                     </div>
 
-                    {/* Content Display */}
-                    {showMockupView ? (
-                      <ContentMockupToggle
-                        channel={channel}
-                        content={channelContent || ''}
-                        brandName={content.brand_name}
-                        logoUrl={undefined}
-                        primaryColor={content.primary_color || undefined}
-                        isLoading={isRegenerating}
-                      />
-                    ) : (
-                      <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
-                        <div className="p-4">
-                          {isRegenerating ? (
-                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                              <Loader2 className="w-8 h-8 animate-spin mb-3" />
-                              <p>Đang tạo lại nội dung...</p>
-                            </div>
-                          ) : channelContent ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                              {channelContent}
-                            </div>
-                          ) : (
-                            <p className="text-muted-foreground text-center py-8">
-                              Không có nội dung cho kênh này
-                            </p>
-                          )}
+                    {/* Content Area */}
+                    <ScrollArea className="flex-1">
+                      <div className="p-4">
+                        {/* Length Indicator & Rules */}
+                        <div className="space-y-2 mb-4">
+                          <ContentLengthIndicator content={displayContent} settings={DEFAULT_CHANNEL_SETTINGS[channel]} />
+                          <ChannelRulesPanel channel={channel} />
                         </div>
-                      </ScrollArea>
-                    )}
-                  </div>
-                )}
-              </TabsContent>
-            );
-          })}
-          </Tabs>
+
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            {/* AI Edit Panel */}
+                            {onAIEdit && (
+                              <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-primary" />
+                                  <span className="text-sm font-medium">Chỉnh sửa với AI</span>
+                                </div>
+                                
+                                <SmartQuickActions
+                                  analysis={contentAnalysis}
+                                  onAction={(instruction) => handleAIEdit(channel, instruction)}
+                                  onApplyBrandVoice={() => handleAIEdit(channel, APPLY_BRAND_VOICE_INSTRUCTION)}
+                                  isLoading={isAIEditing}
+                                  hasBrandVoice={!!content.brand_template_id}
+                                />
+                                
+                                <div className="flex gap-2 pt-2 border-t border-border/50">
+                                  <Input
+                                    placeholder="Nhập yêu cầu chỉnh sửa..."
+                                    value={aiPrompt}
+                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                    disabled={isAIEditing}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && aiPrompt.trim()) {
+                                        handleAIEdit(channel, aiPrompt);
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAIEdit(channel, aiPrompt)}
+                                    disabled={isAIEditing || !aiPrompt.trim()}
+                                    className="shrink-0"
+                                  >
+                                    {isAIEditing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Draft restore prompt */}
+                            {showDraftRestorePrompt && (
+                              <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 flex items-center justify-between">
+                                <span className="text-sm">Bạn có bản nháp chưa lưu. Khôi phục?</span>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="ghost" size="sm" onClick={handleDiscardDraft}>Bỏ qua</Button>
+                                  <Button variant="default" size="sm" onClick={handleRestoreDraft}>Khôi phục</Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Editor */}
+                            {channel === 'website' ? (
+                              <div className="space-y-2">
+                                <div className="flex justify-end">
+                                  <ToggleGroup 
+                                    type="single" 
+                                    value={showMarkdownPreview ? 'preview' : 'edit'}
+                                    onValueChange={(value) => setShowMarkdownPreview(value === 'preview')}
+                                    className="bg-muted/50 p-0.5 rounded-md"
+                                  >
+                                    <ToggleGroupItem value="edit" className="h-7 px-2.5 text-xs">
+                                      <Code className="w-3.5 h-3.5 mr-1" />
+                                      Sửa
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem value="preview" className="h-7 px-2.5 text-xs">
+                                      <Eye className="w-3.5 h-3.5 mr-1" />
+                                      Xem
+                                    </ToggleGroupItem>
+                                  </ToggleGroup>
+                                </div>
+                                
+                                {showMarkdownPreview ? (
+                                  <div className="rounded-lg border border-border/50 bg-background p-4 min-h-[300px] prose prose-sm dark:prose-invert max-w-none">
+                                    <ReactMarkdown>{previewContent || editContent || 'Nhập nội dung...'}</ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <MarkdownToolbar
+                                      textareaRef={textareaRef}
+                                      value={previewContent || editContent}
+                                      onChange={(val) => previewContent ? setPreviewContent(val) : setEditContent(val)}
+                                      disabled={isSaving || !!aiEditingChannel}
+                                    />
+                                    <Textarea
+                                      ref={textareaRef}
+                                      value={previewContent || editContent}
+                                      onChange={(e) => previewContent ? setPreviewContent(e.target.value) : setEditContent(e.target.value)}
+                                      className="min-h-[300px] resize-none font-mono text-sm"
+                                      placeholder="Nhập nội dung Markdown..."
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Textarea
+                                value={previewContent || editContent}
+                                onChange={(e) => previewContent ? setPreviewContent(e.target.value) : setEditContent(e.target.value)}
+                                className="min-h-[350px] resize-none text-sm"
+                                placeholder="Nhập nội dung..."
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          /* View Mode */
+                          showMockupView ? (
+                            <ContentMockupToggle
+                              channel={channel}
+                              content={channelContent || ''}
+                              brandName={content.brand_name}
+                              logoUrl={undefined}
+                              primaryColor={content.primary_color || undefined}
+                              isLoading={isRegenerating}
+                            />
+                          ) : (
+                            <div className="rounded-xl border border-border/50 bg-muted/20 p-5 min-h-[350px]">
+                              {isRegenerating ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                                  <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                                  <p>Đang tạo lại nội dung...</p>
+                                </div>
+                              ) : channelContent ? (
+                                <pre className="whitespace-pre-wrap font-sans text-foreground leading-relaxed text-[15px]">
+                                  {channelContent}
+                                </pre>
+                              ) : (
+                                <p className="text-muted-foreground text-center py-8">
+                                  Không có nội dung cho kênh này
+                                </p>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         )}
       </DialogContent>
       
