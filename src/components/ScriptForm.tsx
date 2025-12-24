@@ -71,34 +71,40 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
         <Label htmlFor="brandTemplate" className="text-foreground font-medium text-xs xs:text-sm">
           Brand Template <span className="text-[10px] xs:text-xs text-muted-foreground">(Brand Voice)</span>
         </Label>
-        <Select
-          value={formData.brandTemplateId || 'none'}
-          onValueChange={(value) => setFormData({ ...formData, brandTemplateId: value === 'none' ? undefined : value })}
-          disabled={isLoading || templatesLoading}
-        >
-          <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
-            <SelectValue placeholder="Chọn Brand Template..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none" className="text-xs xs:text-sm">Không sử dụng</SelectItem>
-            {templates.map((template) => (
-              <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
-                <span className="flex items-center gap-1.5 xs:gap-2">
-                  {template.primary_color && (
-                    <span
-                      className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full inline-block"
-                      style={{ backgroundColor: template.primary_color }}
-                    />
-                  )}
-                  <span className="truncate max-w-[100px] xs:max-w-none">{template.name}</span>
-                  {template.is_default && (
-                    <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">(Mặc định)</span>
-                  )}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {templatesLoading ? (
+          <div className="h-9 xs:h-10 bg-muted/50 border border-border rounded-md flex items-center px-3">
+            <span className="text-xs xs:text-sm text-muted-foreground">Đang tải templates...</span>
+          </div>
+        ) : (
+          <Select
+            value={formData.brandTemplateId ?? 'none'}
+            onValueChange={(value) => setFormData({ ...formData, brandTemplateId: value === 'none' ? undefined : value })}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
+              <SelectValue placeholder="Chọn Brand Template..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none" className="text-xs xs:text-sm">Không sử dụng</SelectItem>
+              {templates.map((template) => (
+                <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
+                  <span className="flex items-center gap-1.5 xs:gap-2">
+                    {template.primary_color && (
+                      <span
+                        className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full inline-block"
+                        style={{ backgroundColor: template.primary_color }}
+                      />
+                    )}
+                    <span className="truncate max-w-[100px] xs:max-w-none">{template.name}</span>
+                    {template.is_default && (
+                      <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">(Mặc định)</span>
+                    )}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {selectedTemplate && (
           <BrandPreviewCard template={selectedTemplate} defaultOpen={true} />
         )}
