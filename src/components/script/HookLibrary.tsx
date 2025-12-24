@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -130,10 +131,10 @@ export function HookLibrary({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl p-0">
-        <SheetHeader className="px-6 py-4 border-b">
-          <SheetTitle className="flex items-center gap-2">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0">
+        <DialogHeader className="px-6 py-4 border-b bg-background/95 backdrop-blur shrink-0">
+          <DialogTitle className="flex items-center gap-2">
             <Library className="h-5 w-5 text-primary" />
             Hook Library
             {brandVoice?.brand_name && (
@@ -141,11 +142,14 @@ export function HookLibrary({
                 {brandVoice.brand_name}
               </Badge>
             )}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription>
+            Chọn hook từ thư viện hoặc tạo hook mới với AI
+          </DialogDescription>
+        </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-[calc(100vh-80px)]">
-          <div className="px-6 pt-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
+          <div className="px-6 pt-4 shrink-0">
             <TabsList className="w-full grid grid-cols-4">
               <TabsTrigger value="templates" className="text-xs sm:text-sm">
                 <BookOpen className="h-3.5 w-3.5 mr-1.5 hidden sm:inline" />
@@ -166,8 +170,8 @@ export function HookLibrary({
           </div>
 
           {/* Templates Tab */}
-          <TabsContent value="templates" className="flex-1 mt-0 overflow-hidden">
-            <div className="px-6 py-4">
+          <TabsContent value="templates" className="flex-1 mt-0 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 shrink-0">
               <HookFilters
                 search={search}
                 onSearchChange={setSearch}
@@ -179,7 +183,7 @@ export function HookLibrary({
               />
             </div>
             
-            <ScrollArea className="flex-1 px-6 pb-6" style={{ height: 'calc(100vh - 280px)' }}>
+            <ScrollArea className="flex-1 px-6 pb-6">
               {loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map(i => (
@@ -209,8 +213,8 @@ export function HookLibrary({
           </TabsContent>
 
           {/* Generator Tab */}
-          <TabsContent value="generator" className="flex-1 mt-0 overflow-hidden">
-            <ScrollArea className="px-6 py-4" style={{ height: 'calc(100vh - 220px)' }}>
+          <TabsContent value="generator" className="flex-1 mt-0 overflow-hidden flex flex-col">
+            <ScrollArea className="flex-1 px-6 py-4">
               <HookGenerator
                 brandVoice={brandVoice}
                 onSaveHook={(hook) => handleSaveHook(hook)}
@@ -220,8 +224,8 @@ export function HookLibrary({
           </TabsContent>
 
           {/* Saved Hooks Tab */}
-          <TabsContent value="saved" className="flex-1 mt-0 overflow-hidden">
-            <div className="px-6 py-4">
+          <TabsContent value="saved" className="flex-1 mt-0 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 shrink-0">
               <HookFilters
                 search={search}
                 onSearchChange={setSearch}
@@ -233,7 +237,7 @@ export function HookLibrary({
               />
             </div>
             
-            <ScrollArea className="flex-1 px-6 pb-6" style={{ height: 'calc(100vh - 280px)' }}>
+            <ScrollArea className="flex-1 px-6 pb-6">
               {filteredSavedHooks.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -257,8 +261,8 @@ export function HookLibrary({
           </TabsContent>
 
           {/* Favorites Tab */}
-          <TabsContent value="favorites" className="flex-1 mt-0 overflow-hidden">
-            <ScrollArea className="px-6 py-4" style={{ height: 'calc(100vh - 220px)' }}>
+          <TabsContent value="favorites" className="flex-1 mt-0 overflow-hidden flex flex-col">
+            <ScrollArea className="flex-1 px-6 py-4">
               {favoriteHooks.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Star className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -281,7 +285,7 @@ export function HookLibrary({
             </ScrollArea>
           </TabsContent>
         </Tabs>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
