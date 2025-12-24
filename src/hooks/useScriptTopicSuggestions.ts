@@ -2,8 +2,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoType } from '@/types/script';
 
+interface EnhancedTopicSuggestion {
+  topic: string;
+  category?: string;
+  pillar?: string;
+  reasoning?: string;
+  formats?: string[];
+  relatedKeywords?: string[];
+  bestTimeToPost?: string;
+  scores?: Record<string, number>;
+  estimatedEngagement?: string;
+}
+
 interface ScriptTopicSuggestionsResult {
-  suggestions: string[];
+  suggestions: EnhancedTopicSuggestion[] | string[];
   source: 'ai' | 'cache' | 'fallback';
   error?: string;
 }
@@ -97,7 +109,11 @@ export function useScriptTopicSuggestions({
       }
 
       if (data?.suggestions && data.suggestions.length > 0) {
-        setSuggestions(data.suggestions);
+        // Handle both string[] and EnhancedTopicSuggestion[] responses
+        const extractedTopics = data.suggestions.map((s: string | EnhancedTopicSuggestion) => 
+          typeof s === 'string' ? s : s.topic
+        );
+        setSuggestions(extractedTopics);
         setSource(data.source);
       } else {
         setSuggestions(DEFAULT_SUGGESTIONS[videoType]);
