@@ -777,7 +777,7 @@ export function MultiChannelViewer({
                 </div>
               </ScrollArea>
               
-              {/* Sidebar Footer - Creator Info & Activity */}
+              {/* Sidebar Footer - Creator Info, Analytics & Activity */}
               <div className="border-t border-border/30 bg-background/50">
                 <div className="p-3 space-y-2">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -787,6 +787,13 @@ export function MultiChannelViewer({
                     <AssignedApproverInfo creatorId={content.user_id} compact />
                   </div>
                 </div>
+                
+                {/* Content Analytics */}
+                <ContentAnalyticsPanel
+                  content={getContentForChannel(content, selectedChannel) || ''}
+                  channel={selectedChannel}
+                  className="border-t border-border/30"
+                />
                 
                 {/* Activity Timeline */}
                 <ActivityTimeline
