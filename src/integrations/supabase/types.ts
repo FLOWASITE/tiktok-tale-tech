@@ -159,6 +159,7 @@ export type Database = {
           brand_positioning: string | null
           channel_overrides: Json | null
           compliance_rules: string[] | null
+          content_pillars: Json | null
           country_code: string | null
           created_at: string
           forbidden_words: string[] | null
@@ -186,6 +187,7 @@ export type Database = {
           brand_positioning?: string | null
           channel_overrides?: Json | null
           compliance_rules?: string[] | null
+          content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
           forbidden_words?: string[] | null
@@ -213,6 +215,7 @@ export type Database = {
           brand_positioning?: string | null
           channel_overrides?: Json | null
           compliance_rules?: string[] | null
+          content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
           forbidden_words?: string[] | null

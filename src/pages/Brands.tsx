@@ -167,6 +167,7 @@ export default function Brands() {
             compliance_rules: template.compliance_rules ?? null,
             channel_overrides: template.channel_overrides ?? null,
             sample_texts: template.sample_texts ?? null,
+            content_pillars: template.content_pillars ?? [],
           }, 'personal');
           successCount++;
         }

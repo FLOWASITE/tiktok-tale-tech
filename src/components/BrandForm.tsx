@@ -14,8 +14,10 @@ import { QuickSampleGenerator } from '@/components/QuickSampleGenerator';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
 import { SavedSamplesManager } from '@/components/SavedSamplesManager';
 import { VariantSampleComparison } from '@/components/VariantSampleComparison';
+import { ContentPillarsEditor } from '@/components/brand/ContentPillarsEditor';
 import { useBrandVoiceVariants, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
 import { IndustryTemplate } from '@/hooks/useIndustryTemplates';
+import { ContentPillar } from '@/types/topicDiscovery';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { ChevronLeft, ChevronRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -58,6 +60,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [allowEmoji, setAllowEmoji] = useState(true);
   const [complianceRules, setComplianceRules] = useState<string[]>([]);
   const [channelOverrides, setChannelOverrides] = useState<ChannelOverrides>({});
+  const [contentPillars, setContentPillars] = useState<ContentPillar[]>([]);
   const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null);
   const [sampleTexts, setSampleTexts] = useState<Record<string, string> | null>(null);
   
@@ -100,6 +103,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setAllowEmoji(template.allow_emoji ?? true);
       setComplianceRules(template.compliance_rules || []);
       setChannelOverrides(template.channel_overrides || {});
+      setContentPillars((template as any).content_pillars || []);
       setIndustryTemplateId(template.industry_template_id || null);
       setSampleTexts(template.sample_texts || null);
       setShowQuickStart(false);
@@ -324,6 +328,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       allow_emoji: allowEmoji,
       compliance_rules: complianceRules.length > 0 ? complianceRules : null,
       channel_overrides: Object.keys(channelOverrides).length > 0 ? channelOverrides : null,
+      content_pillars: contentPillars.length > 0 ? contentPillars : [],
       sample_texts: sampleTexts,
     };
 
@@ -515,7 +520,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 complianceRules={complianceRules}
                 onComplianceRulesChange={setComplianceRules}
               />
-              
+
+              {/* Content Pillars Editor */}
+              <ContentPillarsEditor
+                pillars={contentPillars}
+                onChange={setContentPillars}
+              />
               {/* Sample generation and management */}
               <SavedSamplesManager
                 variants={variants}
