@@ -41,7 +41,9 @@ import {
   SORT_OPTIONS,
 } from '@/types/topicDiscovery';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { TopicIdeaCard } from './TopicIdeaCard';
+import { TopicHistoryTab } from './TopicHistoryTab';
 
 interface TopicDiscoveryPanelProps {
   brandTemplateId?: string;
@@ -98,6 +100,20 @@ export function TopicDiscoveryPanel({
     format,
     enabled: isOpen && !disabled,
   });
+
+  const { saveTopic } = useTopicHistory({
+    brandTemplateId,
+    contentGoal,
+    enabled: isOpen && !disabled,
+  });
+
+  // Handle topic selection with history tracking
+  const handleSelectTopic = async (topic: EnhancedTopicSuggestion) => {
+    // Save to history
+    await saveTopic(topic, 'selected');
+    // Call parent handler
+    onSelectTopic(topic);
+  };
 
   // Filter suggestions based on current filters
   const filteredSuggestions = useMemo(() => {
@@ -176,7 +192,7 @@ export function TopicDiscoveryPanel({
           >
             <TopicIdeaCard
               topic={topic}
-              onSelect={onSelectTopic}
+              onSelect={handleSelectTopic}
               onSave={onSaveTopic}
               onSchedule={onScheduleTopic}
               disabled={disabled}
@@ -429,7 +445,7 @@ export function TopicDiscoveryPanel({
                           <TopicIdeaCard
                             key={`${topic.topic}-${index}`}
                             topic={topic}
-                            onSelect={onSelectTopic}
+                            onSelect={handleSelectTopic}
                             onSave={onSaveTopic}
                             onSchedule={onScheduleTopic}
                             disabled={disabled}
@@ -452,13 +468,21 @@ export function TopicDiscoveryPanel({
             </TabsContent>
 
             <TabsContent value="history" className="m-0">
-              <div className="text-center py-8 text-muted-foreground">
-                <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Lịch sử chủ đề đã sử dụng</p>
-                <p className="text-xs mt-1">
-                  Tính năng đang được phát triển
-                </p>
-              </div>
+              <TopicHistoryTab
+                brandTemplateId={brandTemplateId}
+                contentGoal={contentGoal}
+                onSelectTopic={(topic) => {
+                  // When reusing from history, just set the topic text
+                  onSelectTopic({
+                    topic,
+                    category: 'evergreen',
+                    formats: ['multichannel'],
+                    estimatedEngagement: 'medium',
+                    reasoning: 'Sử dụng lại từ lịch sử',
+                    relatedKeywords: [],
+                  });
+                }}
+              />
             </TabsContent>
           </ScrollArea>
         </Tabs>

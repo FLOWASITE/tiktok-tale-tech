@@ -1538,6 +1538,102 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_history: {
+        Row: {
+          actual_engagement: Json | null
+          brand_template_id: string | null
+          category: string
+          content_goal: string
+          content_id: string | null
+          content_type: string | null
+          created_at: string | null
+          feedback: string | null
+          feedback_note: string | null
+          format: string
+          id: string
+          is_favorite: boolean | null
+          organization_id: string | null
+          performance_score: number | null
+          pillar: string | null
+          published_at: string | null
+          reasoning: string | null
+          related_keywords: string[] | null
+          scores: Json | null
+          topic: string
+          usage_status: string | null
+          used_at: string | null
+          user_id: string | null
+          was_used: boolean | null
+        }
+        Insert: {
+          actual_engagement?: Json | null
+          brand_template_id?: string | null
+          category: string
+          content_goal: string
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          feedback?: string | null
+          feedback_note?: string | null
+          format: string
+          id?: string
+          is_favorite?: boolean | null
+          organization_id?: string | null
+          performance_score?: number | null
+          pillar?: string | null
+          published_at?: string | null
+          reasoning?: string | null
+          related_keywords?: string[] | null
+          scores?: Json | null
+          topic: string
+          usage_status?: string | null
+          used_at?: string | null
+          user_id?: string | null
+          was_used?: boolean | null
+        }
+        Update: {
+          actual_engagement?: Json | null
+          brand_template_id?: string | null
+          category?: string
+          content_goal?: string
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          feedback?: string | null
+          feedback_note?: string | null
+          format?: string
+          id?: string
+          is_favorite?: boolean | null
+          organization_id?: string | null
+          performance_score?: number | null
+          pillar?: string | null
+          published_at?: string | null
+          reasoning?: string | null
+          related_keywords?: string[] | null
+          scores?: Json | null
+          topic?: string
+          usage_status?: string | null
+          used_at?: string | null
+          user_id?: string | null
+          was_used?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_history_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_logs: {
         Row: {
           created_at: string
