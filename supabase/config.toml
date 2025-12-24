@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.create-org-member]
 verify_jwt = false
+
+[functions.preview-multichannel]
+verify_jwt = false
+
+[functions.generate-topic-suggestions]
+verify_jwt = false

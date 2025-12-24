@@ -12,13 +12,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Lightbulb, Music2, AtSign, Eye } from 'lucide-react';
-import { MultiChannelFormData, ContentGoal, Channel, CHANNELS, TOPIC_SUGGESTIONS } from '@/types/multichannel';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye } from 'lucide-react';
+import { MultiChannelFormData, ContentGoal, Channel, CHANNELS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useTopicSuggestions } from '@/hooks/useTopicSuggestions';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
 import { ContentPreviewDialog } from '@/components/ContentPreviewDialog';
+import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -68,6 +70,19 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
   const [showPreview, setShowPreview] = useState(false);
   const topicRef = useRef<HTMLTextAreaElement>(null);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
+
+  // Topic suggestions hook
+  const { 
+    suggestions: topicSuggestions, 
+    source: suggestionsSource, 
+    isLoading: suggestionsLoading, 
+    refresh: refreshSuggestions 
+  } = useTopicSuggestions({
+    industry,
+    contentGoal,
+    brandTemplateId,
+    enabled: hasLoadedDraft, // Only fetch after draft loaded
+  });
 
   // Load draft from localStorage
   useEffect(() => {
@@ -267,24 +282,14 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               )}
               
               {/* Topic Suggestions */}
-              <div className="space-y-1 xs:space-y-1.5">
-                <p className="text-[10px] xs:text-xs text-muted-foreground flex items-center gap-1">
-                  <Lightbulb className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-                  Gợi ý chủ đề:
-                </p>
-                <div className="flex flex-wrap gap-1 xs:gap-1.5">
-                  {TOPIC_SUGGESTIONS.slice(0, 3).map((suggestion, idx) => (
-                    <Badge
-                      key={idx}
-                      variant="outline"
-                      className="cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-colors text-[10px] xs:text-xs px-1.5 xs:px-2 py-0.5"
-                      onClick={() => handleTopicSuggestion(suggestion)}
-                    >
-                      {suggestion.length > 25 ? suggestion.slice(0, 25) + '...' : suggestion}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+              <TopicSuggestionPanel
+                suggestions={topicSuggestions}
+                source={suggestionsSource}
+                isLoading={suggestionsLoading}
+                onSelect={handleTopicSuggestion}
+                onRefresh={refreshSuggestions}
+                disabled={isLoading}
+              />
             </div>
 
             {/* Industry (Optional) */}
