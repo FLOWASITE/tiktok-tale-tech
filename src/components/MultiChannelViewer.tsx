@@ -777,14 +777,24 @@ export function MultiChannelViewer({
                 </div>
               </ScrollArea>
               
-              {/* Sidebar Footer - Creator Info */}
-              <div className="p-3 border-t border-border/30 bg-background/50">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+              {/* Sidebar Footer - Creator Info & Activity */}
+              <div className="border-t border-border/30 bg-background/50">
+                <div className="p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                  </div>
+                  <div>
+                    <AssignedApproverInfo creatorId={content.user_id} compact />
+                  </div>
                 </div>
-                <div className="mt-1.5">
-                  <AssignedApproverInfo creatorId={content.user_id} compact />
-                </div>
+                
+                {/* Activity Timeline */}
+                <ActivityTimeline
+                  contentId={content.id}
+                  createdAt={content.created_at}
+                  updatedAt={content.updated_at}
+                  className="border-t border-border/30"
+                />
               </div>
             </div>
 
