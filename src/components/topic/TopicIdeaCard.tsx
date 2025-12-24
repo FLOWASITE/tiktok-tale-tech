@@ -1,8 +1,8 @@
 import React from 'react';
 import { 
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
-  BookmarkPlus, Play, CalendarPlus, Info, Image, Video, Layers,
-  Target, BarChart3, Users, Trophy
+  BookmarkPlus, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
+  Target, BarChart3, Users, Trophy, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -52,8 +52,8 @@ const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; gradient: strin
   },
 };
 
-const formatIcons: Record<TopicFormat, typeof Image> = {
-  carousel: Image,
+const formatIcons: Record<TopicFormat, LucideIcon> = {
+  carousel: ImageIcon,
   script: Video,
   multichannel: Layers,
 };
