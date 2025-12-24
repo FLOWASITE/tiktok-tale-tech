@@ -4,13 +4,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,10 +13,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Lightbulb, Music2, AtSign } from 'lucide-react';
-import { MultiChannelFormData, ContentGoal, Channel, CONTENT_GOALS, CHANNELS, TOPIC_SUGGESTIONS } from '@/types/multichannel';
+import { MultiChannelFormData, ContentGoal, Channel, CHANNELS, TOPIC_SUGGESTIONS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
+import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -315,29 +309,11 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             {/* Content Goal */}
             <div className="space-y-1.5 xs:space-y-2">
               <Label className="text-xs xs:text-sm">Mục tiêu nội dung</Label>
-              <Select
+              <ContentGoalCombobox
                 value={contentGoal}
-                onValueChange={(value) => setContentGoal(value as ContentGoal)}
+                onValueChange={setContentGoal}
                 disabled={isLoading}
-              >
-                <SelectTrigger className="text-xs xs:text-sm h-9 xs:h-10">
-                  <SelectValue placeholder="Chọn mục tiêu..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONTENT_GOALS.map((goal) => {
-                    const Icon = goal.icon;
-                    return (
-                      <SelectItem key={goal.value} value={goal.value} className="text-xs xs:text-sm">
-                        <span className="flex items-center gap-1.5 xs:gap-2">
-                          <Icon className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-primary" />
-                          <span>{goal.label}</span>
-                          <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">- {goal.description}</span>
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              />
             </div>
 
             {/* Channels by Category */}
