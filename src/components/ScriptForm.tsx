@@ -3,10 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, Library } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
+import { HookLibrary } from '@/components/script/HookLibrary';
 import { 
   ScriptFormData, 
   VideoType, 
@@ -28,6 +29,7 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
   // Keep Select strictly controlled with a string value to avoid Radix Select state mismatches
   const [brandValue, setBrandValue] = useState<string>('none');
   const [brandTouched, setBrandTouched] = useState(false);
+  const [hookLibraryOpen, setHookLibraryOpen] = useState(false);
 
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: '',
@@ -63,9 +65,21 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4 xs:space-y-6">
       {/* Topic Input */}
       <div className="space-y-1.5 xs:space-y-2">
-        <Label htmlFor="topic" className="text-foreground font-medium text-xs xs:text-sm">
-          Chủ đề video <span className="text-primary">*</span>
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="topic" className="text-foreground font-medium text-xs xs:text-sm">
+            Chủ đề video <span className="text-primary">*</span>
+          </Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setHookLibraryOpen(true)}
+            className="h-7 text-xs gap-1.5"
+          >
+            <Library className="h-3.5 w-3.5" />
+            Hook Library
+          </Button>
+        </div>
         <Textarea
           id="topic"
           placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm khi đầu tư chứng khoán..."
@@ -75,6 +89,25 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           disabled={isLoading}
         />
       </div>
+
+      {/* Hook Library Sheet */}
+      <HookLibrary
+        open={hookLibraryOpen}
+        onOpenChange={setHookLibraryOpen}
+        brandTemplateId={formData.brandTemplateId}
+        brandVoice={selectedTemplate ? {
+          brand_name: selectedTemplate.brand_name,
+          tone_of_voice: selectedTemplate.tone_of_voice || undefined,
+          formality_level: selectedTemplate.formality_level || undefined,
+          preferred_words: selectedTemplate.preferred_words || undefined,
+          forbidden_words: selectedTemplate.forbidden_words || undefined,
+          brand_positioning: selectedTemplate.brand_positioning || undefined,
+        } : undefined}
+        onSelectHook={(hook) => {
+          setFormData(prev => ({ ...prev, topic: hook }));
+          toast.success('Đã thêm hook vào chủ đề');
+        }}
+      />
 
       {/* Brand Template Select */}
       <div className="space-y-1.5 xs:space-y-2">
