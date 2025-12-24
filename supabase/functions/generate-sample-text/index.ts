@@ -458,9 +458,9 @@ serve(async (req) => {
       );
     }
 
-    // Use withCache wrapper
+    // Use withCache wrapper - use 'global' scope if no organizationId
     const functionName = 'generate-sample-text';
-    const scope = CACHE_SCOPE[functionName] || 'org';
+    const scope = organizationId ? (CACHE_SCOPE[functionName] || 'org') : 'global';
     const ttlDays = CACHE_TTL[functionName] || 30;
 
     // Build cache input (only cacheable fields)
