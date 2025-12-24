@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Sparkles, Loader2, Library, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useScriptTopicSuggestions } from '@/hooks/useScriptTopicSuggestions';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { HookLibrary } from '@/components/script/HookLibrary';
+import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
 import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector';
@@ -51,6 +53,21 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
     brandTemplateId: undefined,
   });
 
+  const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
+
+  // AI Topic Suggestions
+  const {
+    suggestions: topicSuggestions,
+    source: suggestionsSource,
+    isLoading: suggestionsLoading,
+    refresh: refreshSuggestions,
+  } = useScriptTopicSuggestions({
+    videoType: formData.video_type,
+    brandTemplateId: formData.brandTemplateId,
+    industry: selectedTemplate?.industry?.[0],
+    enabled: true,
+  });
+
   // Cycle through loading phases
   useEffect(() => {
     if (!isLoading) {
@@ -79,7 +96,7 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
     setFormData((prev) => ({ ...prev, brandTemplateId: defaultTemplate.id }));
   }, [templatesLoading, templates, brandTouched, brandValue]);
 
-  const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
+  // selectedTemplate already declared above
 
   // Character count color
   const topicLength = formData.topic.length;
@@ -159,6 +176,19 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
             {topicLength}/{MAX_TOPIC_LENGTH}
           </div>
         </div>
+
+        {/* AI Topic Suggestions */}
+        <TopicSuggestionPanel
+          suggestions={topicSuggestions}
+          source={suggestionsSource}
+          isLoading={suggestionsLoading}
+          onSelect={(suggestion) => {
+            setFormData((prev) => ({ ...prev, topic: suggestion }));
+            toast.success('Đã chọn chủ đề gợi ý');
+          }}
+          onRefresh={refreshSuggestions}
+          disabled={isLoading}
+        />
       </div>
 
       {/* Hook Library Sheet */}
