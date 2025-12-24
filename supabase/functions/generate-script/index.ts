@@ -22,6 +22,62 @@ const CHARACTER_TYPE_LABELS: Record<string, string> = {
   ai_presenter: "Nhân vật trung tính (AI presenter)",
 };
 
+// Topic Angle labels and instructions
+const TOPIC_ANGLE_LABELS: Record<string, string> = {
+  beginner: "Beginner - Giải thích từ cơ bản",
+  expert: "Expert - Deep dive nâng cao",
+  quick_tips: "Quick Tips - Dễ áp dụng ngay",
+  myth_busting: "Myth-bust - Bóc sai lầm phổ biến",
+  data_driven: "Data-driven - Có số liệu minh chứng",
+};
+
+const TOPIC_ANGLE_INSTRUCTIONS: Record<string, string> = {
+  beginner: `
+## GÓC TIẾP CẬN: BEGINNER (Dành cho người mới)
+- Giải thích MỌI khái niệm từ cơ bản nhất
+- Tránh thuật ngữ chuyên môn, nếu dùng thì PHẢI giải thích ngay
+- Dùng ví dụ đời thường, so sánh dễ hiểu
+- Nhịp chậm, rõ ràng, từng bước một
+- Tóm tắt lại ý chính cuối mỗi phần
+- Câu hỏi gợi mở kiểu "Bạn đã từng gặp trường hợp này chưa?"`,
+  
+  expert: `
+## GÓC TIẾP CẬN: EXPERT (Chuyên sâu nâng cao)
+- Đi thẳng vào vấn đề, không giải thích cơ bản
+- Sử dụng thuật ngữ chuyên ngành một cách tự nhiên
+- Phân tích sâu, đề cập đến edge cases và nuances
+- Đưa ra insights và observations từ kinh nghiệm
+- Thách thức các quan điểm phổ biến
+- Nhắm đến người đã có nền tảng kiến thức`,
+  
+  quick_tips: `
+## GÓC TIẾP CẬN: QUICK TIPS (Mẹo nhanh, áp dụng ngay)
+- Mỗi tip PHẢI áp dụng được NGAY LẬP TỨC
+- Không giải thích dài dòng "tại sao" - tập trung vào "làm như thế nào"
+- Cấu trúc: Vấn đề → Giải pháp → Kết quả mong đợi
+- Sử dụng bullet points ngầm trong lời nói
+- Năng lượng nhanh, rõ ràng, không lan man
+- Kết thúc mỗi tip bằng một hành động cụ thể`,
+  
+  myth_busting: `
+## GÓC TIẾP CẬN: MYTH-BUSTING (Bóc sai lầm phổ biến)
+- Bắt đầu bằng việc NÊU RÕ quan niệm sai phổ biến
+- Giải thích TẠI SAO mọi người tin vào điều đó
+- Đưa ra bằng chứng/lý lẽ phản bác
+- Nêu SỰ THẬT đúng đắn thay thế
+- Tone: Tự tin nhưng không chê bai người tin quan niệm sai
+- Kết thúc bằng "Đừng mắc sai lầm này"`,
+  
+  data_driven: `
+## GÓC TIẾP CẬN: DATA-DRIVEN (Có số liệu minh chứng)
+- MỖI luận điểm PHẢI có số liệu/thống kê kèm theo
+- Trích dẫn nguồn (có thể gợi ý: "theo nghiên cứu...", "số liệu cho thấy...")
+- So sánh các con số để tạo impact (trước/sau, có/không có)
+- Sử dụng phần trăm, số tuyệt đối, và so sánh
+- Tone: Khách quan, dựa trên bằng chứng
+- Kết luận dựa trên dữ liệu, không phải cảm tính`,
+};
+
 // Brand Voice label mappings
 const brandPositioningLabels: Record<string, string> = {
   business: "Doanh nghiệp",
@@ -315,7 +371,8 @@ function buildSystemPrompt(
   characterType: string,
   brandVoice?: BrandVoice,
   mergedRules?: MergedRules,
-  hook?: HookDetails
+  hook?: HookDetails,
+  angle?: string
 ): string {
   const promptCount = getPromptCount(duration);
   const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ kiến thức";
@@ -323,6 +380,20 @@ function buildSystemPrompt(
 
   // Build Brand Voice section if available
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : "";
+
+  // Build Angle section if provided
+  let angleSection = "";
+  if (angle && TOPIC_ANGLE_INSTRUCTIONS[angle]) {
+    const angleLabel = TOPIC_ANGLE_LABELS[angle] || angle;
+    angleSection = `
+${TOPIC_ANGLE_INSTRUCTIONS[angle]}
+
+### NGUYÊN TẮC GÓC TIẾP CẬN
+- Góc tiếp cận "${angleLabel}" PHẢI được áp dụng XUYÊN SUỐT kịch bản
+- Mọi lời thoại, cách giải thích, ví dụ PHẢI phù hợp với góc này
+- KHÔNG thay đổi góc tiếp cận giữa các prompt
+`;
+  }
 
   // Build Hook section if available
   let hookSection = "";
@@ -350,6 +421,8 @@ NGUYÊN TẮC:
 
 ${brandVoiceSection}
 
+${angleSection}
+
 ${hookSection}
 
 THÔNG TIN ĐẦU VÀO:
@@ -358,6 +431,7 @@ THÔNG TIN ĐẦU VÀO:
 - Thể loại: ${videoTypeName}
 - Nhân vật: ${characterTypeName}
 - Số lượng prompt cần tạo: ${promptCount} prompt
+${angle ? `- Góc tiếp cận: ${TOPIC_ANGLE_LABELS[angle] || angle}` : ''}
 ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng cho PROMPT 1)' : '- Hook: AI tự tạo'}
 
 NGUYÊN TẮC VAI TRÒ NHÂN VẬT:
@@ -420,7 +494,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, duration, video_type, character_type, brandTemplateId, hook, organization_id: requestOrgId } = await req.json();
+    const { topic, duration, video_type, character_type, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -445,6 +519,7 @@ serve(async (req) => {
     console.log("Generating script for topic:", topic);
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
     console.log("Hook provided:", hook ? "Yes" : "No", hook?.framework || "");
+    console.log("Angle:", angle || "None");
     // Load Brand Voice and Industry Memory from template if provided
     let brandVoice: BrandVoice | undefined;
     let industryMemory: IndustryMemory | null = null;
@@ -481,7 +556,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook);
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle);
 
     // Define AI generation function
     const generateAIContent = async (): Promise<string> => {
@@ -537,6 +612,7 @@ serve(async (req) => {
       duration,
       video_type,
       character_type,
+      angle: angle || null,
       brandVoice: brandVoice ? {
         positioning: brandVoice.brand_positioning,
         tone: brandVoice.tone_of_voice,
