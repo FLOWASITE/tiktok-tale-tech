@@ -5,6 +5,7 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 
 import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
+import { ContentPillar } from '@/types/topicDiscovery';
 
 export interface BrandTemplate {
   id: string;
@@ -36,6 +37,18 @@ export interface BrandTemplate {
   channel_overrides: ChannelOverrides | null;
   // Sample texts for channels
   sample_texts: Record<string, string> | null;
+  // Content Pillars for topic strategy
+  content_pillars?: ContentPillar[];
+}
+
+// Helper to transform DB response to BrandTemplate
+function transformDbResponse(data: any): BrandTemplate {
+  return {
+    ...data,
+    content_pillars: Array.isArray(data.content_pillars) ? data.content_pillars : [],
+    channel_overrides: data.channel_overrides || null,
+    sample_texts: data.sample_texts || null,
+  };
 }
 
 export type BrandScope = 'personal' | 'organization' | 'both';
@@ -72,7 +85,7 @@ export function useBrandTemplates() {
       const { data, error } = await query;
 
       if (error) throw error;
-      setTemplates(data as BrandTemplate[]);
+      setTemplates((data || []).map(transformDbResponse));
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast.error('Không thể tải danh sách template', {
@@ -107,7 +120,7 @@ export function useBrandTemplates() {
         userId: user.id,
       });
 
-      const insertData = {
+      const insertData: any = {
         ...template,
         user_id: normalizedScope === 'personal' || normalizedScope === 'both' ? user.id : null,
         organization_id:
@@ -118,13 +131,13 @@ export function useBrandTemplates() {
 
       const { data, error } = await supabase
         .from('brand_templates')
-        .insert(insertData)
+        .insert(insertData as any)
         .select()
         .single();
 
       if (error) throw error;
       
-      const newTemplate = data as BrandTemplate;
+      const newTemplate = transformDbResponse(data);
       setTemplates((prev) => [...prev, newTemplate]);
       toast.success('✨ Đã lưu template!', {
         description: `Template "${newTemplate.name}" đã được tạo`,
@@ -142,16 +155,22 @@ export function useBrandTemplates() {
 
   const updateTemplate = async (id: string, updates: Partial<Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at'>>): Promise<BrandTemplate | null> => {
     try {
+      // Transform content_pillars to JSON for Supabase
+      const dbUpdates: any = { ...updates };
+      if (updates.content_pillars !== undefined) {
+        dbUpdates.content_pillars = updates.content_pillars;
+      }
+      
       const { data, error } = await supabase
         .from('brand_templates')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
       
-      const updatedTemplate = data as BrandTemplate;
+      const updatedTemplate = transformDbResponse(data);
       setTemplates((prev) => prev.map((t) => t.id === id ? updatedTemplate : t));
       toast.success('💾 Đã cập nhật template!', {
         description: 'Thay đổi đã được lưu',
@@ -243,13 +262,13 @@ export function useBrandTemplates() {
       
       const { data, error } = await supabase
         .from('brand_templates')
-        .insert(duplicatedData)
+        .insert(duplicatedData as any)
         .select()
         .single();
 
       if (error) throw error;
       
-      const newTemplate = data as BrandTemplate;
+      const newTemplate = transformDbResponse(data);
       setTemplates((prev) => [...prev, newTemplate]);
       toast.success('📋 Đã tạo bản sao!', {
         description: `Template "${newTemplate.name}" đã được tạo`,

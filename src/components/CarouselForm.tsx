@@ -163,6 +163,7 @@ export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
       compliance_rules: null,
       channel_overrides: null,
       sample_texts: null,
+      content_pillars: [],
     });
 
     if (result) {
