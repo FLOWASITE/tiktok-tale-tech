@@ -8,11 +8,17 @@ const corsHeaders = {
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
+interface ContentPillar {
+  name: string;
+  weight: number;
+  keywords: string[];
+  color?: string;
+}
+
 interface TopicGenerationInput {
   industry?: string;
   contentGoal?: string;
   brandTemplateId?: string;
-  // Extended brand context
   format?: 'carousel' | 'script' | 'multichannel' | 'all';
   recentTopics?: string[];
   seasonality?: 'holiday' | 'event' | 'normal';
@@ -28,6 +34,7 @@ interface BrandContext {
   formality?: string;
   languageStyle?: string[];
   allowEmoji?: boolean;
+  contentPillars?: ContentPillar[];
 }
 
 interface IndustryContext {
@@ -41,12 +48,23 @@ interface IndustryContext {
   };
 }
 
+interface TopicScores {
+  brandFit: number;
+  trend: number;
+  competition: number;
+  engagement: number;
+}
+
 interface EnhancedTopicSuggestion {
   topic: string;
   category: 'evergreen' | 'trending' | 'seasonal' | 'reactive';
+  pillar?: string;
   reasoning: string;
   formats: string[];
-  engagementPotential: 'high' | 'medium' | 'low';
+  relatedKeywords: string[];
+  bestTimeToPost?: string;
+  scores: TopicScores;
+  estimatedEngagement: 'high' | 'medium' | 'low';
 }
 
 serve(async (req) => {
@@ -67,7 +85,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Build cache key with extended parameters
-    const cacheKey = `topic-suggestions-v2:${industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}`;
+    const cacheKey = `topic-suggestions-v3:${industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}`;
     
     // Check cache first
     const { data: cached } = await supabase
@@ -77,7 +95,7 @@ serve(async (req) => {
       .single();
 
     if (cached && new Date(cached.expires_at) > new Date()) {
-      console.log('Cache hit for topic suggestions v2');
+      console.log('Cache hit for topic suggestions v3');
       await supabase.rpc('increment_cache_hit', { p_cache_key: cacheKey });
       
       return new Response(JSON.stringify({
@@ -107,6 +125,7 @@ serve(async (req) => {
           formality_level,
           language_style,
           allow_emoji,
+          content_pillars,
           industry_template_id
         `)
         .eq('id', brandTemplateId)
@@ -123,9 +142,10 @@ serve(async (req) => {
           formality: brandTemplate.formality_level,
           languageStyle: brandTemplate.language_style,
           allowEmoji: brandTemplate.allow_emoji,
+          contentPillars: brandTemplate.content_pillars as ContentPillar[] || [],
         };
 
-        console.log('Brand context loaded:', brandContext.brandName);
+        console.log('Brand context loaded:', brandContext.brandName, 'Pillars:', brandContext.contentPillars?.length || 0);
 
         // Fetch industry memory if linked
         if (brandTemplate.industry_template_id) {
@@ -166,7 +186,7 @@ serve(async (req) => {
       seasonality,
     });
 
-    console.log('Generating enhanced topic suggestions...');
+    console.log('Generating enhanced topic suggestions with scores...');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -180,7 +200,6 @@ serve(async (req) => {
           { role: 'system', content: prompt.system },
           { role: 'user', content: prompt.user }
         ],
-        temperature: 0.8,
       }),
     });
 
@@ -208,25 +227,32 @@ serve(async (req) => {
     const content = data.choices?.[0]?.message?.content || '';
     
     // Parse enhanced JSON response
-    let suggestions: EnhancedTopicSuggestion[] | string[] = [];
+    let suggestions: EnhancedTopicSuggestion[] = [];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        // Check if it's enhanced format or simple strings
-        if (parsed[0] && typeof parsed[0] === 'object' && parsed[0].topic) {
-          suggestions = parsed as EnhancedTopicSuggestion[];
-        } else {
-          suggestions = parsed as string[];
-        }
+        // Validate and ensure all fields exist
+        suggestions = parsed.map((item: any) => ({
+          topic: item.topic || '',
+          category: item.category || 'evergreen',
+          pillar: item.pillar || undefined,
+          reasoning: item.reasoning || '',
+          formats: item.formats || ['multichannel'],
+          relatedKeywords: item.relatedKeywords || [],
+          bestTimeToPost: item.bestTimeToPost || undefined,
+          scores: {
+            brandFit: Math.min(100, Math.max(0, item.scores?.brandFit || 50)),
+            trend: Math.min(100, Math.max(0, item.scores?.trend || 50)),
+            competition: Math.min(100, Math.max(0, item.scores?.competition || 50)),
+            engagement: Math.min(100, Math.max(0, item.scores?.engagement || 50)),
+          },
+          estimatedEngagement: item.estimatedEngagement || 'medium',
+        }));
       }
     } catch (parseError) {
       console.error('Failed to parse suggestions:', parseError);
-      suggestions = content
-        .split('\n')
-        .filter((line: string) => line.trim().length > 10)
-        .map((line: string) => line.replace(/^[\d\.\-\*\s]+/, '').trim())
-        .slice(0, 8);
+      suggestions = getDefaultSuggestions(contentGoal);
     }
 
     if (suggestions.length === 0) {
@@ -249,7 +275,7 @@ serve(async (req) => {
       onConflict: 'cache_key'
     });
 
-    console.log('Generated and cached', suggestions.length, 'enhanced suggestions');
+    console.log('Generated and cached', suggestions.length, 'enhanced suggestions with scores');
 
     return new Response(JSON.stringify({
       suggestions,
@@ -321,6 +347,16 @@ ${brandContext.forbiddenWords?.length ? `- Từ KHÔNG được sử dụng: ${b
 ${brandContext.allowEmoji !== undefined ? `- Cho phép emoji: ${brandContext.allowEmoji ? 'Có' : 'Không'}` : ''}`;
   }
 
+  // Build content pillars section
+  let pillarsSection = '';
+  if (brandContext?.contentPillars?.length) {
+    pillarsSection = `
+## CONTENT PILLARS (phân bổ nội dung theo %):
+${brandContext.contentPillars.map(p => `- ${p.name}: ${p.weight}% - Keywords: ${p.keywords.join(', ')}`).join('\n')}
+
+Quan trọng: Mỗi chủ đề PHẢI được gán vào 1 content pillar phù hợp nhất trong "pillar" field.`;
+  }
+
   // Build industry section
   let industrySection = '';
   if (industryContext) {
@@ -353,81 +389,184 @@ ${industryContext.brandVoice?.tone?.length ? `- Industry tone baseline: ${indust
 
 Nhiệm vụ: Gợi ý các chủ đề content có chiến lược, phù hợp với brand và mục tiêu kinh doanh.
 ${brandSection}
+${pillarsSection}
 ${industrySection}
 ${constraintsSection}
 ${seasonalityHint}
 
 ## OUTPUT FORMAT:
-Trả về JSON array với mỗi item có cấu trúc:
-{
-  "topic": "Tiêu đề chủ đề chi tiết (15-50 từ)",
-  "category": "evergreen" | "trending" | "seasonal" | "reactive",
-  "reasoning": "Lý do ngắn gọn tại sao chủ đề này phù hợp với brand (1-2 câu)",
-  "formats": ["carousel", "script", "multichannel"],
-  "engagementPotential": "high" | "medium" | "low"
-}
+Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
+[
+  {
+    "topic": "Tiêu đề chủ đề chi tiết (15-50 từ)",
+    "category": "evergreen" | "trending" | "seasonal" | "reactive",
+    "pillar": "Tên content pillar phù hợp nhất (nếu có pillars được định nghĩa)",
+    "reasoning": "Lý do ngắn gọn tại sao chủ đề này phù hợp với brand (1-2 câu)",
+    "formats": ["carousel", "script", "multichannel"],
+    "relatedKeywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+    "bestTimeToPost": "HH:MM - HH:MM",
+    "scores": {
+      "brandFit": 0-100,
+      "trend": 0-100,
+      "competition": 0-100,
+      "engagement": 0-100
+    },
+    "estimatedEngagement": "high" | "medium" | "low"
+  }
+]
+
+## SCORING GUIDELINES:
+- **brandFit (0-100)**: Mức độ phù hợp với brand positioning, tone of voice, và ngành nghề. 90+ = hoàn toàn phù hợp, 70-89 = khá phù hợp, <70 = cần điều chỉnh.
+- **trend (0-100)**: Mức độ trending hiện tại. 90+ = đang hot, 70-89 = có tiềm năng, 50-69 = ổn định, <50 = không trending.
+- **competition (0-100)**: Đánh giá độ cạnh tranh (điểm CAO = ÍT cạnh tranh = TỐT). 90+ = góc nhìn độc đáo, 70-89 = khác biệt, <70 = nhiều đối thủ.
+- **engagement (0-100)**: Tiềm năng tương tác dựa trên hook, format, sharability. 90+ = viral potential, 70-89 = tương tác cao, <70 = trung bình.
 
 ## GUIDELINES:
 - Mỗi chủ đề phải CỤ THỂ và ACTIONABLE, không chung chung
 - Đảm bảo phù hợp với tone of voice và positioning của brand
 - Cân bằng: 40% evergreen, 30% trending, 20% seasonal, 10% reactive
 - Mỗi chủ đề phải có góc nhìn độc đáo, không generic
-- Ưu tiên chủ đề có potential viral hoặc shareable cao`;
+- Ưu tiên chủ đề có potential viral hoặc shareable cao
+- Gán pillar CHÍNH XÁC theo keywords của từng pillar`;
 
-  const userPrompt = `Hãy gợi ý 8-10 chủ đề content cho:
+  const userPrompt = `Hãy gợi ý 8-10 chủ đề content với ĐIỂM SỐ CHI TIẾT cho:
 
 - Ngành: ${brandContext?.industry?.[0] || industry || 'kinh doanh nói chung'}
 - Mục tiêu content: ${goalLabels[contentGoal || 'education'] || goalLabels.education}
 - Format ưu tiên: ${formatLabels[format || 'all'] || formatLabels.all}
 ${brandContext ? `- Brand: ${brandContext.brandName}` : ''}
 ${industryContext?.targetAudience ? `- Target: ${industryContext.targetAudience}` : ''}
+${brandContext?.contentPillars?.length ? `- Content Pillars: ${brandContext.contentPillars.map(p => p.name).join(', ')}` : ''}
 
-Trả về JSON array theo format đã định nghĩa.`;
+Trả về JSON array theo format đã định nghĩa. ĐẢM BẢO mỗi topic có đầy đủ scores object.`;
 
   return { system: systemPrompt, user: userPrompt };
 }
 
-function getDefaultSuggestions(contentGoal?: string): string[] {
-  const defaultsByGoal: Record<string, string[]> = {
+function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] {
+  const defaultScores: TopicScores = {
+    brandFit: 75,
+    trend: 60,
+    competition: 70,
+    engagement: 75,
+  };
+
+  const defaultsByGoal: Record<string, EnhancedTopicSuggestion[]> = {
     education: [
-      'Hướng dẫn từng bước cho người mới bắt đầu',
-      '5 sai lầm phổ biến và cách tránh',
-      'Kiến thức cơ bản cần nắm vững',
-      'Checklist hoàn chỉnh cho năm 2024',
-      'So sánh các phương pháp phổ biến',
-      'Giải đáp thắc mắc thường gặp',
+      {
+        topic: 'Hướng dẫn từng bước cho người mới bắt đầu',
+        category: 'evergreen',
+        reasoning: 'Nội dung hướng dẫn luôn có giá trị lâu dài và được tìm kiếm nhiều',
+        formats: ['carousel', 'script', 'multichannel'],
+        relatedKeywords: ['hướng dẫn', 'bắt đầu', 'cơ bản', 'tutorial'],
+        bestTimeToPost: '9:00 - 11:00',
+        scores: { brandFit: 80, trend: 65, competition: 75, engagement: 80 },
+        estimatedEngagement: 'high',
+      },
+      {
+        topic: '5 sai lầm phổ biến và cách tránh',
+        category: 'evergreen',
+        reasoning: 'Người dùng luôn muốn tránh sai lầm, dễ gây tương tác và chia sẻ',
+        formats: ['carousel', 'multichannel'],
+        relatedKeywords: ['sai lầm', 'tránh', 'kinh nghiệm', 'bài học'],
+        bestTimeToPost: '12:00 - 14:00',
+        scores: { brandFit: 75, trend: 70, competition: 65, engagement: 85 },
+        estimatedEngagement: 'high',
+      },
+      {
+        topic: 'Checklist hoàn chỉnh cho năm 2025',
+        category: 'seasonal',
+        reasoning: 'Checklist dễ lưu và chia sẻ, phù hợp đầu năm mới',
+        formats: ['carousel', 'multichannel'],
+        relatedKeywords: ['checklist', '2025', 'kế hoạch', 'mục tiêu'],
+        bestTimeToPost: '8:00 - 10:00',
+        scores: { brandFit: 70, trend: 80, competition: 60, engagement: 70 },
+        estimatedEngagement: 'medium',
+      },
     ],
     awareness: [
-      'Câu chuyện đằng sau thương hiệu',
-      'Giá trị cốt lõi mà chúng tôi theo đuổi',
-      'Điều gì làm nên sự khác biệt',
-      'Hành trình phát triển của chúng tôi',
-      'Sứ mệnh và tầm nhìn doanh nghiệp',
-      'Văn hóa công ty độc đáo',
+      {
+        topic: 'Câu chuyện đằng sau thương hiệu',
+        category: 'evergreen',
+        reasoning: 'Storytelling tạo kết nối cảm xúc mạnh với khách hàng',
+        formats: ['script', 'multichannel'],
+        relatedKeywords: ['câu chuyện', 'brand story', 'khởi nghiệp', 'hành trình'],
+        bestTimeToPost: '19:00 - 21:00',
+        scores: { brandFit: 95, trend: 60, competition: 80, engagement: 85 },
+        estimatedEngagement: 'high',
+      },
+      {
+        topic: 'Giá trị cốt lõi mà chúng tôi theo đuổi',
+        category: 'evergreen',
+        reasoning: 'Giúp khách hàng hiểu và tin tưởng thương hiệu hơn',
+        formats: ['carousel', 'multichannel'],
+        relatedKeywords: ['giá trị', 'core values', 'sứ mệnh', 'tầm nhìn'],
+        scores: { brandFit: 90, trend: 55, competition: 70, engagement: 70 },
+        estimatedEngagement: 'medium',
+      },
     ],
     engagement: [
-      'Bạn nghĩ gì về xu hướng này?',
-      'Chia sẻ trải nghiệm của bạn với chúng tôi',
-      'Thử thách 7 ngày: Bạn có dám thử?',
-      'Vote cho lựa chọn yêu thích của bạn',
-      'Caption hay nhất nhận quà hot',
-      'Kể tên 3 điều bạn muốn thay đổi',
+      {
+        topic: 'Bạn nghĩ gì về xu hướng này?',
+        category: 'reactive',
+        reasoning: 'Câu hỏi mở khuyến khích bình luận và thảo luận',
+        formats: ['multichannel'],
+        relatedKeywords: ['xu hướng', 'ý kiến', 'bình luận', 'thảo luận'],
+        bestTimeToPost: '12:00 - 14:00',
+        scores: { brandFit: 70, trend: 85, competition: 50, engagement: 95 },
+        estimatedEngagement: 'high',
+      },
+      {
+        topic: 'Thử thách 7 ngày: Bạn có dám thử?',
+        category: 'trending',
+        reasoning: 'Challenges luôn viral và tạo FOMO',
+        formats: ['script', 'multichannel'],
+        relatedKeywords: ['challenge', 'thử thách', '7 ngày', 'viral'],
+        scores: { brandFit: 65, trend: 90, competition: 55, engagement: 90 },
+        estimatedEngagement: 'high',
+      },
     ],
     expertise: [
-      'Phân tích chuyên sâu: Xu hướng thị trường 2024',
-      'Case study thành công từ thực tế',
-      'Bí quyết chỉ chuyên gia mới biết',
-      'Dự báo: Điều gì sẽ thay đổi trong năm tới',
-      'Góc nhìn chuyên gia về vấn đề nóng',
-      'Nghiên cứu mới nhất trong ngành',
+      {
+        topic: 'Phân tích chuyên sâu: Xu hướng thị trường 2025',
+        category: 'seasonal',
+        reasoning: 'Nội dung chuyên sâu xây dựng uy tín và được share nhiều',
+        formats: ['carousel', 'script', 'multichannel'],
+        relatedKeywords: ['phân tích', 'xu hướng', 'thị trường', 'dự báo'],
+        bestTimeToPost: '9:00 - 11:00',
+        scores: { brandFit: 85, trend: 80, competition: 70, engagement: 80 },
+        estimatedEngagement: 'high',
+      },
+      {
+        topic: 'Case study thành công từ thực tế',
+        category: 'evergreen',
+        reasoning: 'Case study là proof of concept tốt nhất',
+        formats: ['carousel', 'multichannel'],
+        relatedKeywords: ['case study', 'thành công', 'khách hàng', 'kết quả'],
+        scores: { brandFit: 80, trend: 65, competition: 75, engagement: 75 },
+        estimatedEngagement: 'high',
+      },
     ],
     conversion: [
-      'Ưu đãi độc quyền: Chỉ còn 24 giờ',
-      'Vì sao khách hàng chọn chúng tôi',
-      'So sánh: Tại sao giải pháp này tốt hơn',
-      'Khách hàng nói gì sau khi sử dụng',
-      'Miễn phí trải nghiệm: Bắt đầu ngay',
-      'Kết quả thực tế sau 30 ngày sử dụng',
+      {
+        topic: 'Ưu đãi độc quyền: Chỉ còn 24 giờ',
+        category: 'reactive',
+        reasoning: 'FOMO và urgency thúc đẩy hành động nhanh',
+        formats: ['multichannel'],
+        relatedKeywords: ['ưu đãi', 'giảm giá', 'flash sale', 'khuyến mãi'],
+        bestTimeToPost: '10:00 - 12:00',
+        scores: { brandFit: 75, trend: 70, competition: 60, engagement: 85 },
+        estimatedEngagement: 'high',
+      },
+      {
+        topic: 'Vì sao khách hàng chọn chúng tôi',
+        category: 'evergreen',
+        reasoning: 'Social proof tăng niềm tin và conversion',
+        formats: ['carousel', 'script', 'multichannel'],
+        relatedKeywords: ['testimonial', 'review', 'khách hàng', 'lý do'],
+        scores: { brandFit: 85, trend: 60, competition: 65, engagement: 70 },
+        estimatedEngagement: 'medium',
+      },
     ],
   };
 
