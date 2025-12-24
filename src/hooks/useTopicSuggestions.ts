@@ -2,8 +2,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ContentGoal } from '@/types/multichannel';
 
+interface EnhancedTopicSuggestion {
+  topic: string;
+  category?: string;
+  pillar?: string;
+  reasoning?: string;
+  formats?: string[];
+  relatedKeywords?: string[];
+  bestTimeToPost?: string;
+  scores?: Record<string, number>;
+  estimatedEngagement?: string;
+}
+
 interface TopicSuggestionsResult {
-  suggestions: string[];
+  suggestions: EnhancedTopicSuggestion[] | string[];
   source: 'ai' | 'cache' | 'fallback';
   error?: string;
 }
@@ -95,7 +107,11 @@ export function useTopicSuggestions({
       }
 
       if (data?.suggestions && data.suggestions.length > 0) {
-        setSuggestions(data.suggestions);
+        // Handle both string[] and EnhancedTopicSuggestion[] responses
+        const extractedTopics = data.suggestions.map((s: string | EnhancedTopicSuggestion) => 
+          typeof s === 'string' ? s : s.topic
+        );
+        setSuggestions(extractedTopics);
         setSource(data.source);
       } else {
         // Fallback to defaults
