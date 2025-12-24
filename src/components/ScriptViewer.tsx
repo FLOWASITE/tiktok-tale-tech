@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Download, FileText, Clock, User, Film, Check, Edit2, Save, X, Hash, Monitor, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import { Copy, Download, FileText, Clock, User, Film, Check, Edit2, Save, X, Hash, Monitor, PanelRightOpen, PanelRightClose, Clapperboard } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +17,7 @@ import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { ScriptAnalyzer } from '@/components/script/ScriptAnalyzer';
 import { TeleprompterMode } from '@/components/script/TeleprompterMode';
+import { StoryboardGenerator } from '@/components/script/StoryboardGenerator';
 import { cn } from '@/lib/utils';
 
 interface ScriptViewerProps {
@@ -355,6 +356,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                       <TabsTrigger value="full" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
                         Toàn bộ
                       </TabsTrigger>
+                      <TabsTrigger value="storyboard" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
+                        <Clapperboard className="w-3 h-3 mr-1" />
+                        Storyboard
+                      </TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="prompts" className="flex-1 min-h-0 mt-0">
@@ -385,6 +390,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                           {script.content}
                         </pre>
                       </ScrollArea>
+                    </TabsContent>
+
+                    <TabsContent value="storyboard" className="flex-1 min-h-0 mt-0">
+                      <StoryboardGenerator script={script} />
                     </TabsContent>
                   </Tabs>
                 )}
