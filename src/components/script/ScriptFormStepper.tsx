@@ -17,14 +17,18 @@ import {
   Zap,
   Settings,
   CheckCircle2,
-  X
+  X,
+  Target
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useScriptTopicSuggestions } from '@/hooks/useScriptTopicSuggestions';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
+import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { ScriptTopicDiscoveryPanel } from '@/components/script/ScriptTopicDiscoveryPanel';
+import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
+import { TopicAngleSelector } from '@/components/script/TopicAngleSelector';
 import { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
@@ -35,6 +39,8 @@ import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
   HookDetails,
+  TopicAngle,
+  TOPIC_ANGLE_LABELS,
 } from '@/types/script';
 import { FRAMEWORK_LABELS, FRAMEWORK_ICONS } from '@/types/hook';
 
@@ -76,6 +82,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     character_type: 'male_expert',
     brandTemplateId: undefined,
     hook: undefined,
+    angle: undefined,
   });
 
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
@@ -114,6 +121,18 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     brandTemplateId: formData.brandTemplateId,
     industry: selectedTemplate?.industry?.[0],
     enabled: currentStep === 1,
+  });
+
+  // Topic Refinement
+  const {
+    refinedTopics,
+    isLoading: isLoadingRefinement,
+    refresh: refreshRefinement,
+  } = useTopicRefinement({
+    rawTopic: formData.topic,
+    videoType: formData.video_type,
+    brandTemplateId: formData.brandTemplateId,
+    enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 
   // Loading phases
@@ -337,7 +356,30 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
                 </div>
               </div>
 
-              {/* AI Topic Suggestions */}
+              {/* Topic Refinement Suggestions */}
+              {formData.topic.trim().length >= 10 && (
+                <TopicRefinementSuggestions
+                  refinedTopics={refinedTopics}
+                  isLoading={isLoadingRefinement}
+                  onSelect={(topic) => {
+                    setFormData((prev) => ({ ...prev, topic }));
+                    toast.success('Đã chọn chủ đề cải thiện');
+                  }}
+                  onRefresh={refreshRefinement}
+                  disabled={isLoading}
+                />
+              )}
+
+              {/* Topic Angle Selector */}
+              {formData.topic.trim().length >= 20 && (
+                <TopicAngleSelector
+                  value={formData.angle}
+                  onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
+                  disabled={isLoading}
+                />
+              )}
+
+              {/* AI Topic Discovery Panel */}
               <ScriptTopicDiscoveryPanel
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
@@ -479,6 +521,16 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
                     <div className="flex-1">
                       <p className="text-xs text-muted-foreground">Hook</p>
                       <p className="text-sm">"{formData.hook.opening_line}"</p>
+                    </div>
+                  </div>
+                )}
+
+                {formData.angle && (
+                  <div className="flex items-start gap-3">
+                    <Target className="w-4 h-4 text-primary mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Góc tiếp cận</p>
+                      <p className="text-sm">{TOPIC_ANGLE_LABELS[formData.angle].icon} {TOPIC_ANGLE_LABELS[formData.angle].label}</p>
                     </div>
                   </div>
                 )}
