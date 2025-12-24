@@ -146,7 +146,7 @@ export function SlidePanel({
         {/* Content */}
         <div 
           className={cn(
-            "overflow-y-auto h-[calc(100%-73px)] p-4 sm:p-6 transition-all duration-300 delay-150",
+            "overflow-y-auto h-[calc(100%-73px)] p-4 sm:p-6 transition-all duration-300 delay-150 relative",
             centerContent && "flex justify-center",
             isAnimating 
               ? "translate-y-0 opacity-100" 

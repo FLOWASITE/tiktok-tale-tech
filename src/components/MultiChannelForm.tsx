@@ -227,25 +227,31 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
                 disabled={isLoading || loadingTemplates}
               >
                 <SelectTrigger className="text-xs xs:text-sm h-9 xs:h-10">
-                  <SelectValue placeholder="Chọn template..." />
+                  <SelectValue placeholder={loadingTemplates ? "Đang tải..." : (templates.length === 0 ? "Chưa có template" : "Chọn template...")} />
                 </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
-                      <span className="flex items-center gap-1.5 xs:gap-2">
-                        {template.primary_color && (
-                          <span
-                            className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full inline-block"
-                            style={{ backgroundColor: template.primary_color }}
-                          />
-                        )}
-                        <span className="truncate max-w-[100px] xs:max-w-none">{template.name}</span>
-                        {template.is_default && (
-                          <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">(Mặc định)</span>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
+                <SelectContent position="popper" sideOffset={4}>
+                  {templates.length === 0 ? (
+                    <div className="p-4 text-sm text-muted-foreground text-center">
+                      Chưa có Brand Template nào
+                    </div>
+                  ) : (
+                    templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
+                        <span className="flex items-center gap-1.5 xs:gap-2">
+                          {template.primary_color && (
+                            <span
+                              className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full inline-block"
+                              style={{ backgroundColor: template.primary_color }}
+                            />
+                          )}
+                          <span className="truncate max-w-[100px] xs:max-w-none">{template.name}</span>
+                          {template.is_default && (
+                            <span className="text-[10px] xs:text-xs text-muted-foreground hidden xs:inline">(Mặc định)</span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               {selectedTemplate && (
