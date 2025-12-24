@@ -200,49 +200,31 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
             </div>
           </DialogHeader>
 
-          {/* Central AI Analyzer Button - Prominent Position */}
+          {/* Central AI Analyzer Button */}
           {!showAnalytics && (
-            <div className="hidden sm:flex justify-center my-3">
-              <button
+            <div className="hidden sm:flex justify-center my-2">
+              <Button
+                variant="outline"
                 onClick={() => setShowAnalytics(true)}
-                className="relative group flex items-center gap-3 px-6 py-3 rounded-2xl font-medium text-base transition-all duration-300 border-2 shadow-2xl hover:scale-105 active:scale-95 bg-gradient-to-r from-violet-500/10 via-fuchsia-500/10 to-cyan-500/10 border-fuchsia-500/50 hover:border-fuchsia-400 hover:shadow-fuchsia-500/30"
+                className="gap-2 px-4 py-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-all"
               >
-                {/* Animated background glow */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-300" />
-                
-                {/* Rotating border effect */}
-                <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-60 blur-sm animate-[spin_3s_linear_infinite]" style={{ zIndex: -1 }} />
-                
-                {/* Icon with effects */}
-                <div className="relative z-10 flex items-center justify-center">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full blur-md opacity-50 animate-pulse" />
-                    <Sparkles className="relative w-6 h-6 text-fuchsia-500 group-hover:text-fuchsia-400 transition-colors animate-pulse" />
-                  </div>
-                </div>
-                
-                {/* Label */}
-                <span className="relative z-10 font-bold text-fuchsia-600 group-hover:text-fuchsia-500">
-                  Phân tích AI
-                </span>
-                
-                {/* Pulsing indicators */}
-                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-ping" />
-                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-500 shadow-lg shadow-fuchsia-500/50" />
-              </button>
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span>Phân tích AI</span>
+              </Button>
             </div>
           )}
 
           {/* Close AI button when panel is open */}
           {showAnalytics && (
             <div className="hidden sm:flex justify-center my-2">
-              <button
+              <Button
+                variant="outline"
                 onClick={() => setShowAnalytics(false)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-500 text-white shadow-lg shadow-fuchsia-500/30 hover:shadow-fuchsia-500/50 transition-all hover:scale-105"
+                className="gap-2 px-4 py-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-all"
               >
                 <PanelRightClose className="w-4 h-4" />
                 <span>Đóng phân tích AI</span>
-              </button>
+              </Button>
             </div>
           )}
           
