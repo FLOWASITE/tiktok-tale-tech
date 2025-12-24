@@ -26,8 +26,9 @@ interface BrandVoice {
 
 interface HookGeneratorProps {
   brandVoice?: BrandVoice;
+  initialTopic?: string;
   onSaveHook?: (hook: GeneratedHook) => void;
-  onUseHook?: (openingLine: string) => void;
+  onUseHook?: (hook: GeneratedHook) => void;
 }
 
 const PLATFORMS = [
@@ -44,10 +45,17 @@ const DURATIONS = [
   { value: '90s', label: '90 giây' },
 ];
 
-export function HookGenerator({ brandVoice, onSaveHook, onUseHook }: HookGeneratorProps) {
-  const [topic, setTopic] = useState('');
+export function HookGenerator({ brandVoice, initialTopic, onSaveHook, onUseHook }: HookGeneratorProps) {
+  const [topic, setTopic] = useState(initialTopic || '');
   const [platform, setPlatform] = useState('tiktok');
   const [duration, setDuration] = useState('60s');
+
+  // Sync with initialTopic when it changes
+  React.useEffect(() => {
+    if (initialTopic && initialTopic !== topic) {
+      setTopic(initialTopic);
+    }
+  }, [initialTopic]);
   
   const { hooks, loading, generateHooks, clearHooks } = useHookGenerator();
 
@@ -162,7 +170,7 @@ export function HookGenerator({ brandVoice, onSaveHook, onUseHook }: HookGenerat
                 hook={hook}
                 type="generated"
                 onSave={onSaveHook ? () => onSaveHook(hook) : undefined}
-                onUse={onUseHook}
+                onUse={onUseHook ? () => onUseHook(hook) : undefined}
               />
             ))}
           </div>

@@ -300,13 +300,22 @@ function getPromptCount(duration: number): string {
   }
 }
 
+interface HookDetails {
+  opening_line: string;
+  visual_direction?: string;
+  text_overlay?: string;
+  framework?: string;
+  psychology_reason?: string;
+}
+
 function buildSystemPrompt(
   topic: string,
   duration: number,
   videoType: string,
   characterType: string,
   brandVoice?: BrandVoice,
-  mergedRules?: MergedRules
+  mergedRules?: MergedRules,
+  hook?: HookDetails
 ): string {
   const promptCount = getPromptCount(duration);
   const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ kiến thức";
@@ -315,9 +324,33 @@ function buildSystemPrompt(
   // Build Brand Voice section if available
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : "";
 
+  // Build Hook section if available
+  let hookSection = "";
+  if (hook?.opening_line) {
+    hookSection = `
+## HOOK ĐÃ CHỌN (BẮT BUỘC SỬ DỤNG)
+User đã chọn sẵn hook mở đầu. PHẢI sử dụng CHÍNH XÁC hook này cho PROMPT 1.
+
+### Câu mở đầu (dùng nguyên văn):
+"${hook.opening_line}"
+
+${hook.visual_direction ? `### Hướng dẫn visual: ${hook.visual_direction}` : ''}
+${hook.text_overlay ? `### Text overlay gợi ý: ${hook.text_overlay}` : ''}
+${hook.framework ? `### Framework: ${hook.framework}` : ''}
+${hook.psychology_reason ? `### Lý do tâm lý: ${hook.psychology_reason}` : ''}
+
+NGUYÊN TẮC:
+- PROMPT 1 PHẢI bắt đầu bằng hook này
+- Các prompt sau tiếp nối tự nhiên từ hook
+- Giữ nguyên tone và energy của hook xuyên suốt
+`;
+  }
+
   return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN & PROMPT VIDEO cho video ngắn TikTok (1–3 phút), phục vụ quy trình sản xuất: VEO 3 (HÌNH ẢNH) → Minimax (GIỌNG NÓI) → CapCut (DỰNG).
 
 ${brandVoiceSection}
+
+${hookSection}
 
 THÔNG TIN ĐẦU VÀO:
 - Chủ đề: ${topic}
@@ -325,6 +358,7 @@ THÔNG TIN ĐẦU VÀO:
 - Thể loại: ${videoTypeName}
 - Nhân vật: ${characterTypeName}
 - Số lượng prompt cần tạo: ${promptCount} prompt
+${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng cho PROMPT 1)' : '- Hook: AI tự tạo'}
 
 NGUYÊN TẮC VAI TRÒ NHÂN VẬT:
 - Nhân vật được chọn chỉ ảnh hưởng đến cách xưng hô, cách diễn đạt, sắc thái giọng điệu
@@ -366,7 +400,7 @@ NGUYÊN TẮC NỐI MẠCH:
 - Nghe như: MỘT NGƯỜI ĐANG NÓI LIÊN TỤC
 
 LOGIC KỊCH BẢN:
-1. Hook (1–2 prompt) - Thu hút người xem
+1. Hook (1–2 prompt) - ${hook?.opening_line ? 'SỬ DỤNG HOOK ĐÃ CHO' : 'Thu hút người xem'}
 2. Vấn đề / hiểu lầm - Nêu vấn đề
 3. Phân tích theo vai trò nhân vật - Giải thích chi tiết
 4. Kết luận / lời khuyên - Tổng kết
@@ -386,7 +420,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, duration, video_type, character_type, brandTemplateId, organization_id: requestOrgId } = await req.json();
+    const { topic, duration, video_type, character_type, brandTemplateId, hook, organization_id: requestOrgId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -410,7 +444,7 @@ serve(async (req) => {
 
     console.log("Generating script for topic:", topic);
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
-
+    console.log("Hook provided:", hook ? "Yes" : "No", hook?.framework || "");
     // Load Brand Voice and Industry Memory from template if provided
     let brandVoice: BrandVoice | undefined;
     let industryMemory: IndustryMemory | null = null;
@@ -447,7 +481,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules);
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook);
 
     // Define AI generation function
     const generateAIContent = async (): Promise<string> => {

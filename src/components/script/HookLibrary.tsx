@@ -16,6 +16,7 @@ import { HookCard } from './HookCard';
 import { HookFilters } from './HookFilters';
 import { HookGenerator } from './HookGenerator';
 import { HookTemplate, GeneratedHook, UserSavedHook } from '@/types/hook';
+import { HookDetails } from '@/types/script';
 
 interface BrandVoice {
   brand_name?: string;
@@ -31,7 +32,8 @@ interface HookLibraryProps {
   onOpenChange: (open: boolean) => void;
   brandTemplateId?: string;
   brandVoice?: BrandVoice;
-  onSelectHook?: (openingLine: string) => void;
+  initialTopic?: string;
+  onSelectHook?: (hook: HookDetails) => void;
 }
 
 export function HookLibrary({
@@ -39,6 +41,7 @@ export function HookLibrary({
   onOpenChange,
   brandTemplateId,
   brandVoice,
+  initialTopic,
   onSelectHook,
 }: HookLibraryProps) {
   const [activeTab, setActiveTab] = useState('templates');
@@ -107,8 +110,18 @@ export function HookLibrary({
     });
   };
 
-  const handleUseHook = (openingLine: string) => {
-    onSelectHook?.(openingLine);
+  const handleUseHook = (hook: HookTemplate | GeneratedHook | UserSavedHook) => {
+    const openingLine = 'customized_opening_line' in hook 
+      ? (hook as UserSavedHook).customized_opening_line || (hook as UserSavedHook).original_opening_line
+      : (hook as HookTemplate | GeneratedHook).opening_line;
+    
+    onSelectHook?.({
+      opening_line: openingLine,
+      visual_direction: hook.visual_direction || undefined,
+      text_overlay: hook.text_overlay || undefined,
+      framework: hook.framework,
+      psychology_reason: 'psychology_reason' in hook ? hook.psychology_reason || undefined : undefined,
+    });
     onOpenChange(false);
   };
 
@@ -204,7 +217,7 @@ export function HookLibrary({
                       type="template"
                       brandCompatible={checkBrandCompatibility(template)}
                       onSave={() => handleSaveHook(template)}
-                      onUse={handleUseHook}
+                      onUse={() => handleUseHook(template)}
                     />
                   ))}
                 </div>
@@ -217,8 +230,9 @@ export function HookLibrary({
             <ScrollArea className="flex-1 px-6 py-4">
               <HookGenerator
                 brandVoice={brandVoice}
+                initialTopic={initialTopic}
                 onSaveHook={(hook) => handleSaveHook(hook)}
-                onUseHook={handleUseHook}
+                onUseHook={(hook) => handleUseHook(hook)}
               />
             </ScrollArea>
           </TabsContent>
@@ -250,7 +264,7 @@ export function HookLibrary({
                       key={hook.id}
                       hook={hook}
                       type="saved"
-                      onUse={handleUseHook}
+                      onUse={() => handleUseHook(hook)}
                       onToggleFavorite={() => toggleFavorite(hook.id)}
                       onDelete={() => deleteHook(hook.id)}
                     />
@@ -275,7 +289,7 @@ export function HookLibrary({
                       key={hook.id}
                       hook={hook}
                       type="saved"
-                      onUse={handleUseHook}
+                      onUse={() => handleUseHook(hook)}
                       onToggleFavorite={() => toggleFavorite(hook.id)}
                       onDelete={() => deleteHook(hook.id)}
                     />

@@ -31,7 +31,7 @@ interface HookCardProps {
   type: 'template' | 'saved' | 'generated';
   brandCompatible?: boolean;
   onSave?: () => void;
-  onUse?: (openingLine: string) => void;
+  onUse?: () => void;
   onToggleFavorite?: () => void;
   onDelete?: () => void;
   onPreview?: () => void;
@@ -229,7 +229,7 @@ export function HookCard({
           {onUse && (
             <Button 
               size="sm" 
-              onClick={() => onUse(openingLine)}
+              onClick={onUse}
               className="h-8"
             >
               Sử dụng <ArrowRight className="h-3.5 w-3.5 ml-1" />
