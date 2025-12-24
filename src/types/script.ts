@@ -46,6 +46,21 @@ export interface HookDetails {
   psychology_reason?: string;
 }
 
+export type TopicAngle = 
+  | 'beginner'
+  | 'expert'
+  | 'quick_tips'
+  | 'myth_busting'
+  | 'data_driven';
+
+export const TOPIC_ANGLE_LABELS: Record<TopicAngle, { label: string; description: string; icon: string }> = {
+  beginner: { label: 'Beginner', description: 'Giải thích từ cơ bản', icon: '🎓' },
+  expert: { label: 'Expert', description: 'Deep dive nâng cao', icon: '👔' },
+  quick_tips: { label: 'Quick Tips', description: 'Dễ áp dụng ngay', icon: '⚡' },
+  myth_busting: { label: 'Myth-bust', description: 'Bóc sai lầm phổ biến', icon: '🔥' },
+  data_driven: { label: 'Data-driven', description: 'Có số liệu minh chứng', icon: '📊' },
+};
+
 export interface ScriptFormData {
   topic: string;
   duration: Duration;
@@ -53,6 +68,7 @@ export interface ScriptFormData {
   character_type: CharacterType;
   brandTemplateId?: string;
   hook?: HookDetails;
+  angle?: TopicAngle;
 }
 
 export const VIDEO_TYPE_LABELS: Record<VideoType, string> = {

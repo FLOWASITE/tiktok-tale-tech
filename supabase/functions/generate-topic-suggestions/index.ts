@@ -25,12 +25,21 @@ interface ContentPillar {
 }
 
 interface TopicGenerationInput {
+  mode?: 'suggest' | 'refine';
+  rawTopic?: string;
   industry?: string;
   contentGoal?: string;
   brandTemplateId?: string;
   format?: 'carousel' | 'script' | 'multichannel' | 'all';
   recentTopics?: string[];
   seasonality?: 'holiday' | 'event' | 'normal';
+  videoType?: string;
+}
+
+interface RefinedTopic {
+  topic: string;
+  angle: string;
+  hook: string;
 }
 
 interface BrandContext {
@@ -84,7 +93,7 @@ serve(async (req) => {
   try {
     const startTime = Date.now();
     const input: TopicGenerationInput = await req.json();
-    const { industry, contentGoal, brandTemplateId, format, recentTopics, seasonality } = input;
+    const { mode, rawTopic, industry, contentGoal, brandTemplateId, format, recentTopics, seasonality, videoType } = input;
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -93,6 +102,12 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Handle refine mode
+    if (mode === 'refine' && rawTopic) {
+      console.log('Refine mode: processing raw topic:', rawTopic.substring(0, 50));
+      return await handleRefineMode(rawTopic, videoType, brandTemplateId, supabase);
+    }
 
     // Build cache key with extended parameters
     const cacheKey = `topic-suggestions-v3:${industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}`;
@@ -340,6 +355,123 @@ serve(async (req) => {
     });
   }
 });
+
+// Handle refine mode - generates 3 improved versions of a raw topic
+async function handleRefineMode(
+  rawTopic: string,
+  videoType: string | undefined,
+  brandTemplateId: string | undefined,
+  supabase: any
+): Promise<Response> {
+  try {
+    // Fetch brand context for better refinement
+    let brandContext = '';
+    if (brandTemplateId) {
+      const { data: brandTemplate } = await supabase
+        .from('brand_templates')
+        .select('brand_name, brand_positioning, tone_of_voice, industry')
+        .eq('id', brandTemplateId)
+        .single();
+      
+      if (brandTemplate) {
+        brandContext = `
+Brand: ${brandTemplate.brand_name}
+${brandTemplate.brand_positioning ? `Định vị: ${brandTemplate.brand_positioning}` : ''}
+${brandTemplate.tone_of_voice?.length ? `Tone: ${brandTemplate.tone_of_voice.join(', ')}` : ''}
+${brandTemplate.industry?.length ? `Ngành: ${brandTemplate.industry.join(', ')}` : ''}`;
+      }
+    }
+
+    const videoTypeLabel = videoType === 'expert_share' ? 'chia sẻ chuyên gia' :
+                          videoType === 'analyze_explain' ? 'phân tích giải thích' :
+                          videoType === 'warning_mistake' ? 'cảnh báo sai lầm' :
+                          videoType === 'quick_qa' ? 'hỏi đáp nhanh' : 'video marketing';
+
+    const prompt = `Bạn là Content Strategist chuyên nghiệp. Người dùng đã nhập một ý tưởng chủ đề thô và cần bạn cải thiện thành 3 phiên bản hay hơn, cụ thể hơn, hấp dẫn hơn.
+
+Chủ đề thô: "${rawTopic}"
+Thể loại video: ${videoTypeLabel}
+${brandContext}
+
+Yêu cầu cho mỗi phiên bản cải thiện:
+1. Cụ thể hóa: Thêm số liệu, con số, hoặc phạm vi rõ ràng
+2. Hấp dẫn: Sử dụng pattern như "X điều...", "Bí quyết...", "Tại sao...", "Sai lầm..."
+3. Đa dạng góc tiếp cận: Mỗi phiên bản có góc nhìn khác nhau
+4. Phù hợp với thể loại video và brand (nếu có)
+
+Trả về CHÍNH XÁC JSON array với 3 items:
+[
+  {
+    "topic": "Tiêu đề chủ đề cải thiện (15-50 từ)",
+    "angle": "Góc tiếp cận (ví dụ: practical, controversial, educational, storytelling)",
+    "hook": "1 câu ngắn giải thích tại sao phiên bản này hay hơn bản gốc"
+  }
+]
+
+CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`;
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('AI gateway error in refine mode:', response.status);
+      return new Response(JSON.stringify({ 
+        refinedTopics: [],
+        error: 'AI error'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    
+    let refinedTopics: RefinedTopic[] = [];
+    try {
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        refinedTopics = JSON.parse(jsonMatch[0]).map((item: any) => ({
+          topic: item.topic || '',
+          angle: item.angle || 'general',
+          hook: item.hook || '',
+        }));
+      }
+    } catch (parseError) {
+      console.error('Failed to parse refined topics:', parseError);
+    }
+
+    console.log('Generated', refinedTopics.length, 'refined topics');
+
+    return new Response(JSON.stringify({
+      refinedTopics,
+      source: 'ai',
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in refine mode:', error);
+    return new Response(JSON.stringify({
+      refinedTopics: [],
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
 
 // Helper to calculate context richness score
 function calculateContextRichness(brand: BrandContext | null, industry: IndustryContext | null): number {
