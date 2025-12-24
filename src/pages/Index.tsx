@@ -12,7 +12,7 @@ import { Script } from '@/types/script';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SlidePanel } from '@/components/ui/slide-panel';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { FileVideo, Sparkles, Plus, X, LayoutGrid, List, Trash2 } from 'lucide-react';
 
@@ -222,21 +222,23 @@ const Index = () => {
         )}
       </div>
 
-      {/* Form Panel - Below Header */}
-      <SlidePanel
-        open={formSheetOpen}
-        onOpenChange={setFormSheetOpen}
-        title={
-          <>
-            <Sparkles className="w-5 h-5 text-primary" />
-            Tạo Kịch Bản Video Mới
-          </>
-        }
-        description="Điền thông tin để AI tạo kịch bản video chuyên nghiệp"
-        className="md:max-w-xl lg:max-w-2xl"
-      >
-        <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} />
-      </SlidePanel>
+      {/* Form Dialog - Centered */}
+      <Dialog open={formSheetOpen} onOpenChange={setFormSheetOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+          <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur px-6 py-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Tạo Kịch Bản Video Mới
+            </DialogTitle>
+            <DialogDescription>
+              Điền thông tin để AI tạo kịch bản video chuyên nghiệp
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6">
+            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Script viewer dialog */}
       <ScriptViewer
