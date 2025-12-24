@@ -45,7 +45,27 @@ import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useAdvancedPromptContext } from '@/hooks/useAdvancedPromptContext';
 import { TopicIdeaCard } from './TopicIdeaCard';
 import { TopicHistoryTab } from './TopicHistoryTab';
+import { TopicSystemExplainer } from './TopicSystemExplainer';
 import { PromptQualityIndicator } from '../PromptQualityIndicator';
+
+// Source badge tooltip content
+const SOURCE_TOOLTIPS = {
+  ai: {
+    title: 'Tạo mới bởi AI',
+    description: 'Vừa được AI tạo dựa trên Brand Template, Industry Pack và lịch sử của bạn',
+    color: 'text-primary',
+  },
+  cache: {
+    title: 'Từ bộ nhớ đệm',
+    description: 'Đã được tạo trước đó cho cùng cấu hình, hiển thị ngay để tiết kiệm thời gian',
+    color: 'text-amber-500',
+  },
+  fallback: {
+    title: 'Gợi ý mặc định',
+    description: 'Chưa có đủ context. Thêm Brand Template để nhận gợi ý AI tùy chỉnh',
+    color: 'text-muted-foreground',
+  },
+} as const;
 
 interface TopicDiscoveryPanelProps {
   brandTemplateId?: string;
@@ -224,13 +244,29 @@ export function TopicDiscoveryPanel({
             <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/20 to-violet-500/20">
               <Sparkles className="w-4 h-4 text-primary" />
             </div>
-            <div className="text-left">
+            <div className="text-left flex items-center gap-2">
               <span className="font-medium text-sm">Khám phá chủ đề</span>
-              {source !== 'fallback' && (
-                <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">
-                  {source === 'ai' ? 'AI' : 'Cache'}
-                </Badge>
-              )}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant={source === 'fallback' ? 'outline' : 'secondary'} 
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 cursor-help",
+                        SOURCE_TOOLTIPS[source].color
+                      )}
+                    >
+                      {source === 'ai' ? '✨ AI' : source === 'cache' ? '⚡ Cache' : '📋 Mặc định'}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[200px]">
+                    <p className="font-medium text-xs">{SOURCE_TOOLTIPS[source].title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {SOURCE_TOOLTIPS[source].description}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -267,6 +303,9 @@ export function TopicDiscoveryPanel({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="pt-3">
+        {/* Topic System Explainer */}
+        <TopicSystemExplainer className="mb-3" />
+
         {/* Search and Filter Bar */}
         <div className="space-y-2 mb-4">
           <div className="flex gap-2">
