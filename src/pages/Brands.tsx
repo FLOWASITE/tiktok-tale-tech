@@ -16,13 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List, Wand2, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
@@ -489,30 +483,29 @@ export default function Brands() {
         isDeleting={isDeleting}
       />
 
-      {/* Create/Edit Dialog - Centered */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0">
-          <DialogHeader className="px-6 py-4 border-b bg-background/95 backdrop-blur shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Palette className="w-5 h-5 text-primary" />
-              {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingTemplate
-                ? 'Cập nhật thông tin thương hiệu của bạn' 
-                : 'Điền thông tin để tạo brand mới cho nội dung'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-6">
-            <BrandForm
-              template={editingTemplate}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              isLoading={saving}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Create/Edit Panel - Below Header */}
+      <SlidePanel
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={
+          <>
+            <Palette className="w-5 h-5 text-primary" />
+            {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
+          </>
+        }
+        fullScreen={!editingTemplate}
+        description={editingTemplate
+          ? 'Cập nhật thông tin thương hiệu của bạn' 
+          : 'Điền thông tin để tạo brand mới cho nội dung'}
+        className={editingTemplate ? "md:max-w-xl lg:max-w-2xl" : undefined}
+      >
+        <BrandForm
+          template={editingTemplate}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          isLoading={saving}
+        />
+      </SlidePanel>
     </div>
   );
 }
