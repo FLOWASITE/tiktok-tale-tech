@@ -79,12 +79,20 @@ export interface MultiChannelContent {
   updated_at: string;
 }
 
+export interface EditedPreview {
+  original: string;
+  edited: string;
+}
+
+export type EditedPreviews = Record<string, EditedPreview>;
+
 export interface MultiChannelFormData {
   topic: string;
   industry?: string;
   contentGoal: ContentGoal;
   channels: Channel[];
   brandTemplateId?: string;
+  editedPreviews?: EditedPreviews;
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Eye, 
   RefreshCw, 
@@ -26,13 +26,23 @@ import {
   LayoutGrid,
   Layers,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Pencil,
+  RotateCcw,
+  Wand2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Channel, ContentGoal, CONTENT_GOALS, CHANNELS } from "@/types/multichannel";
 import { ChannelMockupFrame } from "@/components/preview/ChannelMockupFrame";
 import { cn } from "@/lib/utils";
+
+export interface EditedPreviews {
+  [channel: string]: {
+    original: string;
+    edited: string;
+  };
+}
 
 interface MultiChannelPreviewDialogProps {
   open: boolean;
@@ -45,7 +55,7 @@ interface MultiChannelPreviewDialogProps {
     brandTemplateId?: string;
     brandName?: string;
   };
-  onConfirm: () => void;
+  onConfirm: (editedPreviews?: EditedPreviews) => void;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -83,8 +93,10 @@ const channelToMockupType: Record<Channel, ChannelMockupType> = {
 interface ChannelPreview {
   channel: Channel;
   content: string | null;
+  editedContent: string | null;
   isLoading: boolean;
   error: string | null;
+  isEditing: boolean;
 }
 
 type ViewMode = 'grid' | 'single';
@@ -108,8 +120,10 @@ export function MultiChannelPreviewDialog({
         initialPreviews[ch] = {
           channel: ch,
           content: null,
+          editedContent: null,
           isLoading: false,
           error: null,
+          isEditing: false,
         };
       });
       setPreviews(initialPreviews);
@@ -120,7 +134,7 @@ export function MultiChannelPreviewDialog({
   const generatePreview = useCallback(async (channel: Channel) => {
     setPreviews(prev => ({
       ...prev,
-      [channel]: { ...prev[channel], isLoading: true, error: null }
+      [channel]: { ...prev[channel], isLoading: true, error: null, isEditing: false }
     }));
 
     try {
@@ -139,7 +153,12 @@ export function MultiChannelPreviewDialog({
 
       setPreviews(prev => ({
         ...prev,
-        [channel]: { ...prev[channel], content: data.preview, isLoading: false }
+        [channel]: { 
+          ...prev[channel], 
+          content: data.preview, 
+          editedContent: null,
+          isLoading: false 
+        }
       }));
     } catch (err) {
       console.error("Preview error:", err);
@@ -179,12 +198,104 @@ export function MultiChannelPreviewDialog({
     setActiveChannel(formData.channels[newIndex]);
   };
 
+  // Edit functions
+  const startEditing = (channel: Channel) => {
+    const preview = previews[channel];
+    if (!preview?.content) return;
+    
+    setPreviews(prev => ({
+      ...prev,
+      [channel]: { 
+        ...prev[channel], 
+        isEditing: true,
+        editedContent: prev[channel].editedContent ?? prev[channel].content
+      }
+    }));
+  };
+
+  const cancelEditing = (channel: Channel) => {
+    setPreviews(prev => ({
+      ...prev,
+      [channel]: { 
+        ...prev[channel], 
+        isEditing: false 
+      }
+    }));
+  };
+
+  const saveEdit = (channel: Channel) => {
+    setPreviews(prev => ({
+      ...prev,
+      [channel]: { 
+        ...prev[channel], 
+        isEditing: false 
+      }
+    }));
+    toast.success("Đã lưu chỉnh sửa");
+  };
+
+  const resetEdit = (channel: Channel) => {
+    setPreviews(prev => ({
+      ...prev,
+      [channel]: { 
+        ...prev[channel], 
+        editedContent: null,
+        isEditing: false
+      }
+    }));
+    toast.info("Đã khôi phục nội dung gốc");
+  };
+
+  const updateEditedContent = (channel: Channel, content: string) => {
+    setPreviews(prev => ({
+      ...prev,
+      [channel]: { 
+        ...prev[channel], 
+        editedContent: content 
+      }
+    }));
+  };
+
+  // Get display content (edited if available, otherwise original)
+  const getDisplayContent = (channel: Channel): string => {
+    const preview = previews[channel];
+    if (!preview) return '';
+    return preview.editedContent ?? preview.content ?? '';
+  };
+
+  // Check if channel has been edited
+  const isEdited = (channel: Channel): boolean => {
+    const preview = previews[channel];
+    if (!preview) return false;
+    return preview.editedContent !== null && preview.editedContent !== preview.content;
+  };
+
+  // Handle confirm with edited previews
+  const handleConfirm = () => {
+    const editedPreviews: EditedPreviews = {};
+    
+    Object.entries(previews).forEach(([channel, preview]) => {
+      if (preview.content) {
+        editedPreviews[channel] = {
+          original: preview.content,
+          edited: preview.editedContent ?? preview.content
+        };
+      }
+    });
+
+    const hasEdits = Object.values(editedPreviews).some(p => p.original !== p.edited);
+    
+    onConfirm(hasEdits ? editedPreviews : undefined);
+  };
+
   const selectedGoal = CONTENT_GOALS.find((g) => g.value === formData.contentGoal);
   const GoalIcon = selectedGoal?.icon || Sparkles;
 
   const hasAnyPreview = Object.values(previews).some(p => p.content);
   const hasAnyLoading = Object.values(previews).some(p => p.isLoading);
+  const hasAnyEdits = formData.channels.some(ch => isEdited(ch));
   const allGenerated = formData.channels.every(ch => previews[ch]?.content);
+  const editedCount = formData.channels.filter(ch => isEdited(ch)).length;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -195,7 +306,8 @@ export function MultiChannelPreviewDialog({
             So sánh Preview nhiều kênh
           </DialogTitle>
           <DialogDescription>
-            Xem trước và so sánh nội dung AI sẽ tạo cho từng kênh
+            Xem trước, chỉnh sửa và so sánh nội dung AI sẽ tạo cho từng kênh. 
+            <span className="text-primary font-medium"> AI sẽ học theo nội dung bạn đã chỉnh sửa.</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -220,6 +332,12 @@ export function MultiChannelPreviewDialog({
                   {selectedGoal?.label}
                 </Badge>
               </div>
+              {hasAnyEdits && (
+                <Badge variant="default" className="text-xs gap-1 bg-amber-500">
+                  <Pencil className="w-3 h-3" />
+                  {editedCount} chỉnh sửa
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -279,24 +397,50 @@ export function MultiChannelPreviewDialog({
                 {formData.channels.map((ch) => {
                   const preview = previews[ch];
                   const channelInfo = CHANNELS.find((c) => c.value === ch);
+                  const edited = isEdited(ch);
                   
                   return (
                     <div 
                       key={ch} 
-                      className="border rounded-lg overflow-hidden bg-card"
+                      className={cn(
+                        "border rounded-lg overflow-hidden bg-card",
+                        edited && "ring-2 ring-amber-500/50"
+                      )}
                     >
                       {/* Channel Header */}
                       <div className="flex items-center justify-between p-2 bg-muted/50 border-b">
                         <div className="flex items-center gap-2">
                           {channelIcons[ch]}
                           <span className="text-sm font-medium">{channelInfo?.label}</span>
+                          {edited && (
+                            <Badge variant="outline" className="text-xs gap-1 border-amber-500 text-amber-600">
+                              <Pencil className="w-2.5 h-2.5" />
+                              Đã sửa
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
-                          {preview?.content && (
-                            <Badge variant="secondary" className="text-xs">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Đã tạo
-                            </Badge>
+                          {preview?.content && !preview?.isEditing && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => startEditing(ch)}
+                              title="Chỉnh sửa"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {edited && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => resetEdit(ch)}
+                              title="Khôi phục"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </Button>
                           )}
                           <Button
                             variant="ghost"
@@ -335,11 +479,39 @@ export function MultiChannelPreviewDialog({
                             <AlertCircle className="w-6 h-6" />
                             <p className="text-xs text-center">{preview.error}</p>
                           </div>
+                        ) : preview.isEditing ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={preview.editedContent ?? preview.content ?? ''}
+                              onChange={(e) => updateEditedContent(ch, e.target.value)}
+                              className="min-h-[160px] text-sm resize-none"
+                              placeholder="Chỉnh sửa nội dung..."
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => cancelEditing(ch)}
+                              >
+                                Hủy
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => saveEdit(ch)}
+                              >
+                                Lưu
+                              </Button>
+                            </div>
+                          </div>
                         ) : (
-                          <div className="transform scale-[0.85] origin-top-left w-[118%]">
+                          <div 
+                            className="transform scale-[0.85] origin-top-left w-[118%] cursor-pointer"
+                            onClick={() => startEditing(ch)}
+                            title="Nhấn để chỉnh sửa"
+                          >
                             <ChannelMockupFrame
                               channel={channelToMockupType[ch]}
-                              content={preview.content || ''}
+                              content={getDisplayContent(ch)}
                               brandName={formData.brandName || 'Brand'}
                               isGenerating={false}
                             />
@@ -369,6 +541,7 @@ export function MultiChannelPreviewDialog({
                       const channelInfo = CHANNELS.find((c) => c.value === ch);
                       const isActive = activeChannel === ch;
                       const preview = previews[ch];
+                      const edited = isEdited(ch);
                       
                       return (
                         <Button
@@ -376,12 +549,18 @@ export function MultiChannelPreviewDialog({
                           variant={isActive ? "default" : "outline"}
                           size="sm"
                           onClick={() => setActiveChannel(ch)}
-                          className="gap-1.5"
+                          className={cn(
+                            "gap-1.5",
+                            edited && !isActive && "border-amber-500"
+                          )}
                         >
                           {channelIcons[ch]}
                           <span className="hidden sm:inline">{channelInfo?.label}</span>
-                          {preview?.content && (
+                          {preview?.content && !edited && (
                             <CheckCircle className="w-3 h-3 text-green-500" />
+                          )}
+                          {edited && (
+                            <Pencil className="w-3 h-3 text-amber-500" />
                           )}
                         </Button>
                       );
@@ -401,27 +580,60 @@ export function MultiChannelPreviewDialog({
 
                 {/* Single Channel Preview */}
                 {activeChannel && (
-                  <div className="border rounded-lg overflow-hidden">
+                  <div className={cn(
+                    "border rounded-lg overflow-hidden",
+                    isEdited(activeChannel) && "ring-2 ring-amber-500/50"
+                  )}>
                     <div className="flex items-center justify-between p-3 bg-muted/50 border-b">
                       <div className="flex items-center gap-2">
                         {channelIcons[activeChannel]}
                         <span className="font-medium">
                           {CHANNELS.find((c) => c.value === activeChannel)?.label}
                         </span>
+                        {isEdited(activeChannel) && (
+                          <Badge variant="outline" className="text-xs gap-1 border-amber-500 text-amber-600">
+                            <Pencil className="w-2.5 h-2.5" />
+                            Đã chỉnh sửa
+                          </Badge>
+                        )}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => generatePreview(activeChannel)}
-                        disabled={previews[activeChannel]?.isLoading}
-                        className="gap-1.5"
-                      >
-                        <RefreshCw className={cn(
-                          "w-4 h-4",
-                          previews[activeChannel]?.isLoading && "animate-spin"
-                        )} />
-                        {previews[activeChannel]?.content ? 'Tạo lại' : 'Tạo preview'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {previews[activeChannel]?.content && !previews[activeChannel]?.isEditing && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => startEditing(activeChannel)}
+                            className="gap-1.5"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Chỉnh sửa
+                          </Button>
+                        )}
+                        {isEdited(activeChannel) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => resetEdit(activeChannel)}
+                            className="gap-1.5"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Khôi phục
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generatePreview(activeChannel)}
+                          disabled={previews[activeChannel]?.isLoading}
+                          className="gap-1.5"
+                        >
+                          <RefreshCw className={cn(
+                            "w-4 h-4",
+                            previews[activeChannel]?.isLoading && "animate-spin"
+                          )} />
+                          {previews[activeChannel]?.content ? 'Tạo lại' : 'Tạo preview'}
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="p-4">
@@ -458,11 +670,39 @@ export function MultiChannelPreviewDialog({
                           );
                         }
 
+                        if (preview.isEditing) {
+                          return (
+                            <div className="space-y-3">
+                              <Textarea
+                                value={preview.editedContent ?? preview.content ?? ''}
+                                onChange={(e) => updateEditedContent(activeChannel, e.target.value)}
+                                className="min-h-[280px] text-sm resize-none"
+                                placeholder="Chỉnh sửa nội dung..."
+                              />
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => cancelEditing(activeChannel)}
+                                >
+                                  Hủy
+                                </Button>
+                                <Button onClick={() => saveEdit(activeChannel)}>
+                                  Lưu chỉnh sửa
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div className="max-w-md mx-auto">
+                          <div 
+                            className="max-w-md mx-auto cursor-pointer"
+                            onClick={() => startEditing(activeChannel)}
+                            title="Nhấn để chỉnh sửa"
+                          >
                             <ChannelMockupFrame
                               channel={channelToMockupType[activeChannel]}
-                              content={preview.content || ''}
+                              content={getDisplayContent(activeChannel)}
                               brandName={formData.brandName || 'Brand'}
                               isGenerating={false}
                             />
@@ -479,18 +719,24 @@ export function MultiChannelPreviewDialog({
 
         {/* Actions */}
         <div className="flex justify-between gap-2 pt-4 border-t">
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground space-y-1">
             {hasAnyPreview && (
-              <span>
+              <div>
                 Đã tạo {Object.values(previews).filter(p => p.content).length}/{formData.channels.length} preview
-              </span>
+              </div>
+            )}
+            {hasAnyEdits && (
+              <div className="flex items-center gap-1 text-amber-600">
+                <Wand2 className="w-3 h-3" />
+                <span>AI sẽ học theo {editedCount} nội dung đã chỉnh sửa</span>
+              </div>
             )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Đóng
             </Button>
-            <Button onClick={onConfirm} className="gap-1.5">
+            <Button onClick={handleConfirm} className="gap-1.5">
               <CheckCircle className="w-4 h-4" />
               Tạo nội dung đầy đủ
             </Button>

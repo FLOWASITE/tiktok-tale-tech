@@ -19,7 +19,7 @@ import { useTopicSuggestions } from '@/hooks/useTopicSuggestions';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
-import { MultiChannelPreviewDialog } from '@/components/MultiChannelPreviewDialog';
+import { MultiChannelPreviewDialog, EditedPreviews } from '@/components/MultiChannelPreviewDialog';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 
 interface MultiChannelFormProps {
@@ -68,6 +68,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [hasSetDefault, setHasSetDefault] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [pendingEditedPreviews, setPendingEditedPreviews] = useState<EditedPreviews | undefined>(undefined);
   const topicRef = useRef<HTMLTextAreaElement>(null);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
@@ -189,12 +190,15 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
     setTopic(suggestion);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, editedPreviews?: EditedPreviews) => {
     e.preventDefault();
     if (!topic.trim() || selectedChannels.length === 0) return;
 
     // Clear draft on successful submit
     localStorage.removeItem(DRAFT_KEY);
+
+    // Use pending edited previews if available
+    const previews = editedPreviews || pendingEditedPreviews;
 
     await onSubmit({
       topic: topic.trim(),
@@ -202,7 +206,24 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
       contentGoal,
       channels: selectedChannels,
       brandTemplateId: brandTemplateId || undefined,
+      editedPreviews: previews,
     });
+
+    // Clear pending previews after submit
+    setPendingEditedPreviews(undefined);
+  };
+
+  const handlePreviewConfirm = (editedPreviews?: EditedPreviews) => {
+    setShowPreview(false);
+    setPendingEditedPreviews(editedPreviews);
+    
+    // Trigger form submit with edited previews
+    const form = document.querySelector('form');
+    if (form) {
+      // Create a synthetic event and submit
+      const event = new Event('submit', { bubbles: true, cancelable: true });
+      form.dispatchEvent(event);
+    }
   };
 
   // Group channels by category
@@ -477,14 +498,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               brandTemplateId: brandTemplateId || undefined,
               brandName: selectedTemplate?.brand_name,
             }}
-            onConfirm={() => {
-              setShowPreview(false);
-              // Trigger form submit
-              const form = document.querySelector('form');
-              if (form) {
-                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-              }
-            }}
+            onConfirm={handlePreviewConfirm}
           />
         </CardContent>
       </Card>
