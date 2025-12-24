@@ -70,9 +70,9 @@ const Index = () => {
   };
 
   const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
-    setFormSheetOpen(false);
     const newScript = await generateScript(formData);
     if (newScript) {
+      setFormSheetOpen(false);
       setSelectedScript(newScript);
       setViewerOpen(true);
     }
@@ -223,7 +223,7 @@ const Index = () => {
       </div>
 
       {/* Form Dialog - Centered */}
-      <Dialog open={formSheetOpen} onOpenChange={setFormSheetOpen}>
+      <Dialog open={formSheetOpen} onOpenChange={(open) => !generating && setFormSheetOpen(open)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
           <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur px-6 py-4 border-b">
             <DialogTitle className="flex items-center gap-2">
