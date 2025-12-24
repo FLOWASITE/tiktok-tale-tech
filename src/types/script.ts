@@ -38,12 +38,21 @@ export const STATUS_CONFIG: Record<ContentStatus, { label: string; variant: 'def
   published: { label: 'Đã đăng', variant: 'default' },
 };
 
+export interface HookDetails {
+  opening_line: string;
+  visual_direction?: string;
+  text_overlay?: string;
+  framework?: string;
+  psychology_reason?: string;
+}
+
 export interface ScriptFormData {
   topic: string;
   duration: Duration;
   video_type: VideoType;
   character_type: CharacterType;
   brandTemplateId?: string;
+  hook?: HookDetails;
 }
 
 export const VIDEO_TYPE_LABELS: Record<VideoType, string> = {

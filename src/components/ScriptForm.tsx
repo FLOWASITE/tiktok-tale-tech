@@ -4,7 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Loader2, Library, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Sparkles, Loader2, Library, Wand2, ChevronDown, ChevronUp, X, Lightbulb } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useScriptTopicSuggestions } from '@/hooks/useScriptTopicSuggestions';
@@ -20,7 +21,9 @@ import {
   VideoType, 
   CharacterType, 
   Duration,
+  HookDetails,
 } from '@/types/script';
+import { FRAMEWORK_LABELS, FRAMEWORK_ICONS } from '@/types/hook';
 
 interface ScriptFormProps {
   onSubmit: (data: ScriptFormData) => Promise<void>;
@@ -51,9 +54,24 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
     video_type: 'expert_share',
     character_type: 'male_expert',
     brandTemplateId: undefined,
+    hook: undefined,
   });
 
+  // Selected hook for display
+  const selectedHook = formData.hook;
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
+
+  // Handler for hook selection
+  const handleSelectHook = (hook: HookDetails) => {
+    setFormData(prev => ({ ...prev, hook }));
+    toast.success('Đã chọn hook');
+  };
+
+  // Handler for removing hook
+  const handleRemoveHook = () => {
+    setFormData(prev => ({ ...prev, hook: undefined }));
+    toast.success('Đã xóa hook');
+  };
 
   // AI Topic Suggestions
   const {
@@ -191,11 +209,73 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
         />
       </div>
 
+      {/* Selected Hook Display */}
+      {selectedHook && (
+        <Card className="border-primary/30 bg-primary/5 animate-scale-in">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{FRAMEWORK_ICONS[selectedHook.framework || ''] || '🎣'}</span>
+                <span className="font-medium text-sm">
+                  {FRAMEWORK_LABELS[selectedHook.framework || ''] || 'Hook đã chọn'}
+                </span>
+                <Badge variant="secondary" className="text-xs">Đã chọn</Badge>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                onClick={handleRemoveHook}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="bg-background/80 rounded-lg p-3 border border-border/50">
+              <p className="text-sm font-medium text-foreground leading-relaxed">
+                🎬 "{selectedHook.opening_line}"
+              </p>
+            </div>
+            {(selectedHook.visual_direction || selectedHook.text_overlay) && (
+              <div className="space-y-1 text-xs text-muted-foreground">
+                {selectedHook.visual_direction && (
+                  <p>👁️ <span className="text-foreground/80">{selectedHook.visual_direction}</span></p>
+                )}
+                {selectedHook.text_overlay && (
+                  <p>📱 <span className="text-foreground/80">{selectedHook.text_overlay}</span></p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Hook Suggestion when topic is present */}
+      {formData.topic.trim() && !selectedHook && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-dashed border-border animate-fade-in">
+          <Lightbulb className="h-4 w-4 text-amber-500" />
+          <span className="text-sm text-muted-foreground">
+            Thêm Hook để mở đầu ấn tượng hơn?
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setHookLibraryOpen(true)}
+            className="ml-auto h-7 text-xs gap-1.5"
+          >
+            <Library className="h-3.5 w-3.5" />
+            Mở Hook Library
+          </Button>
+        </div>
+      )}
+
       {/* Hook Library Sheet */}
       <HookLibrary
         open={hookLibraryOpen}
         onOpenChange={setHookLibraryOpen}
         brandTemplateId={formData.brandTemplateId}
+        initialTopic={formData.topic}
         brandVoice={selectedTemplate ? {
           brand_name: selectedTemplate.brand_name,
           tone_of_voice: selectedTemplate.tone_of_voice || undefined,
@@ -204,10 +284,7 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           forbidden_words: selectedTemplate.forbidden_words || undefined,
           brand_positioning: selectedTemplate.brand_positioning || undefined,
         } : undefined}
-        onSelectHook={(hook) => {
-          setFormData(prev => ({ ...prev, topic: hook }));
-          toast.success('Đã thêm hook vào chủ đề');
-        }}
+        onSelectHook={handleSelectHook}
       />
 
       {/* Brand Template Section */}
