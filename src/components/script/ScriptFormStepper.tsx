@@ -231,57 +231,12 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
         {/* Step 1: Topic */}
         {currentStep === 1 && (
           <div className="space-y-4 animate-fade-in">
-            <div className="space-y-3">
-              <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-                Chủ đề video
-                <span className="text-primary">*</span>
-              </Label>
-              
-              <div className="relative group">
-                <Textarea
-                  id="topic"
-                  placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm phổ biến khi đầu tư chứng khoán mà người mới thường mắc phải..."
-                  value={formData.topic}
-                  onChange={(e) => setFormData((prev) => ({ 
-                    ...prev, 
-                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                  }))}
-                  className={cn(
-                    "min-h-[120px] bg-muted/30 border-2 resize-none text-sm transition-all duration-300",
-                    "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
-                    "placeholder:text-muted-foreground/60"
-                  )}
-                  disabled={isLoading}
-                />
-                
-                <div className={cn(
-                  "absolute bottom-2 right-3 text-xs font-medium transition-colors",
-                  charCountColor
-                )}>
-                  {topicLength}/{MAX_TOPIC_LENGTH}
-                </div>
-              </div>
-
-              {/* AI Topic Suggestions */}
-              <TopicSuggestionPanel
-                suggestions={topicSuggestions}
-                source={suggestionsSource}
-                isLoading={suggestionsLoading}
-                onSelect={(suggestion) => {
-                  setFormData((prev) => ({ ...prev, topic: suggestion }));
-                  toast.success('Đã chọn chủ đề gợi ý');
-                }}
-                onRefresh={refreshSuggestions}
-                disabled={isLoading}
-              />
-            </div>
-
-            {/* Brand Template Selection */}
+            {/* Brand Template Selection - First */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="brandTemplate" className="text-foreground font-semibold text-sm">
-                  Brand Template
-                  <span className="text-xs text-muted-foreground ml-2">(Brand Voice)</span>
+                  Chọn thương hiệu
+                  <span className="text-xs text-muted-foreground ml-2">(ảnh hưởng đến gợi ý chủ đề)</span>
                 </Label>
                 {selectedTemplate && (
                   <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary">
@@ -343,6 +298,52 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
               {selectedTemplate && (
                 <BrandPreviewCard template={selectedTemplate} defaultOpen={false} />
               )}
+            </div>
+
+            {/* Topic Input - Second */}
+            <div className="space-y-3">
+              <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+                Chủ đề video
+                <span className="text-primary">*</span>
+              </Label>
+              
+              <div className="relative group">
+                <Textarea
+                  id="topic"
+                  placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm phổ biến khi đầu tư chứng khoán mà người mới thường mắc phải..."
+                  value={formData.topic}
+                  onChange={(e) => setFormData((prev) => ({ 
+                    ...prev, 
+                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                  }))}
+                  className={cn(
+                    "min-h-[120px] bg-muted/30 border-2 resize-none text-sm transition-all duration-300",
+                    "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
+                    "placeholder:text-muted-foreground/60"
+                  )}
+                  disabled={isLoading}
+                />
+                
+                <div className={cn(
+                  "absolute bottom-2 right-3 text-xs font-medium transition-colors",
+                  charCountColor
+                )}>
+                  {topicLength}/{MAX_TOPIC_LENGTH}
+                </div>
+              </div>
+
+              {/* AI Topic Suggestions */}
+              <TopicSuggestionPanel
+                suggestions={topicSuggestions}
+                source={suggestionsSource}
+                isLoading={suggestionsLoading}
+                onSelect={(suggestion) => {
+                  setFormData((prev) => ({ ...prev, topic: suggestion }));
+                  toast.success('Đã chọn chủ đề gợi ý');
+                }}
+                onRefresh={refreshSuggestions}
+                disabled={isLoading}
+              />
             </div>
           </div>
         )}
