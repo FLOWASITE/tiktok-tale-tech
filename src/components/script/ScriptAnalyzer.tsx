@@ -141,39 +141,64 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
 
   if (!hasAnalyzed && !analysis) {
     return (
-      <div className={cn("flex flex-col items-center justify-center py-8 gap-4", className)}>
-        {/* Distinctive AI Analyzer Icon */}
-        <div className="relative">
-          {/* Outer glow ring */}
-          <div className="absolute inset-0 w-20 h-20 rounded-full bg-gradient-to-br from-violet-500/30 via-fuchsia-500/20 to-cyan-500/30 blur-md animate-pulse" />
+      <div className={cn("flex flex-col items-center justify-center py-6 gap-5", className)}>
+        {/* IMPRESSIVE AI Analyzer Icon - Large & Eye-catching */}
+        <div className="relative group cursor-pointer" onClick={handleAnalyze}>
+          {/* Outer pulsing rings */}
+          <div className="absolute inset-[-12px] rounded-full bg-gradient-to-r from-violet-500/20 via-fuchsia-500/20 to-cyan-500/20 blur-xl animate-pulse" />
+          <div className="absolute inset-[-6px] rounded-full bg-gradient-to-r from-fuchsia-500/30 via-violet-500/30 to-cyan-500/30 blur-lg animate-pulse" style={{ animationDelay: '0.5s' }} />
           
-          {/* Main icon container */}
-          <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[2px] shadow-lg shadow-fuchsia-500/25">
-            <div className="w-full h-full rounded-2xl bg-background/95 backdrop-blur flex items-center justify-center">
-              {/* Stacked icons for unique look */}
-              <div className="relative">
-                <BarChart3 className="w-7 h-7 text-violet-500 absolute -left-2 -top-1 opacity-60" />
-                <Sparkles className="w-8 h-8 text-fuchsia-500 relative z-10" />
-                <Zap className="w-5 h-5 text-cyan-500 absolute -right-1 -bottom-1" />
+          {/* Rotating gradient border */}
+          <div className="absolute inset-[-3px] rounded-3xl bg-gradient-conic from-violet-600 via-fuchsia-500 via-cyan-400 via-violet-500 to-violet-600 animate-spin" style={{ animationDuration: '4s' }} />
+          
+          {/* Main icon container - LARGER */}
+          <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[3px] shadow-2xl shadow-fuchsia-500/40">
+            <div className="w-full h-full rounded-3xl bg-gradient-to-br from-background via-background/98 to-background/95 backdrop-blur-xl flex items-center justify-center overflow-hidden">
+              {/* Inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 via-transparent to-cyan-500/10" />
+              
+              {/* Central brain-like AI icon composition */}
+              <div className="relative z-10">
+                {/* Main sparkle - center */}
+                <Sparkles className="w-12 h-12 text-fuchsia-500 drop-shadow-[0_0_12px_rgba(217,70,239,0.6)]" />
+                
+                {/* Orbiting elements */}
+                <div className="absolute -top-3 -left-3 animate-bounce" style={{ animationDuration: '2s' }}>
+                  <BarChart3 className="w-6 h-6 text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+                </div>
+                <div className="absolute -bottom-2 -right-3 animate-bounce" style={{ animationDuration: '1.5s', animationDelay: '0.3s' }}>
+                  <Zap className="w-5 h-5 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                </div>
+                <div className="absolute -top-2 -right-4 animate-bounce" style={{ animationDuration: '1.8s', animationDelay: '0.6s' }}>
+                  <Target className="w-4 h-4 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
+                </div>
               </div>
             </div>
           </div>
           
-          {/* Floating particles */}
-          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 animate-bounce" style={{ animationDelay: '0.1s' }} />
-          <div className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 animate-bounce" style={{ animationDelay: '0.3s' }} />
+          {/* Floating orbs */}
+          <div className="absolute -top-3 -right-2 w-4 h-4 rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-bounce" style={{ animationDelay: '0.1s' }} />
+          <div className="absolute -bottom-2 -left-3 w-3 h-3 rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 shadow-lg shadow-cyan-500/50 animate-bounce" style={{ animationDelay: '0.4s' }} />
+          <div className="absolute top-1/2 -right-4 w-2 h-2 rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 shadow-lg animate-bounce" style={{ animationDelay: '0.7s' }} />
+          
+          {/* Hover effect overlay */}
+          <div className="absolute inset-0 rounded-3xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </div>
-        <div className="text-center">
-          <h3 className="font-semibold text-foreground mb-1">AI Script Analyzer</h3>
-          <p className="text-xs text-muted-foreground max-w-[200px]">
-            Phân tích kịch bản với AI để nhận điểm số và gợi ý cải thiện
+        
+        <div className="text-center space-y-2">
+          <h3 className="font-bold text-lg bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent">
+            AI Script Analyzer
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-[220px] leading-relaxed">
+            Phân tích kịch bản với AI để nhận điểm số và gợi ý cải thiện chuyên sâu
           </p>
         </div>
+        
         <Button 
           onClick={handleAnalyze} 
           disabled={isAnalyzing}
-          className="gradient-primary"
-          size="sm"
+          className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-500 hover:from-violet-500 hover:via-fuchsia-400 hover:to-cyan-400 text-white shadow-lg shadow-fuchsia-500/30 hover:shadow-fuchsia-500/50 transition-all duration-300 hover:scale-105"
+          size="default"
         >
           {isAnalyzing ? (
             <>
@@ -193,17 +218,34 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
 
   if (isAnalyzing) {
     return (
-      <div className={cn("flex flex-col items-center justify-center py-8 gap-4", className)}>
-        {/* Analyzing state icon */}
+      <div className={cn("flex flex-col items-center justify-center py-6 gap-5", className)}>
+        {/* Analyzing state - Large impressive icon */}
         <div className="relative">
-          <div className="absolute inset-0 w-20 h-20 rounded-full bg-gradient-to-br from-violet-500/40 via-fuchsia-500/30 to-cyan-500/40 blur-md animate-pulse" />
-          <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[2px] shadow-lg shadow-fuchsia-500/25 animate-pulse">
-            <div className="w-full h-full rounded-2xl bg-background/95 backdrop-blur flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-fuchsia-500 animate-spin" />
+          {/* Pulsing outer rings */}
+          <div className="absolute inset-[-12px] rounded-full bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-cyan-500/30 blur-xl animate-pulse" />
+          <div className="absolute inset-[-6px] rounded-full bg-gradient-to-r from-fuchsia-500/40 via-violet-500/40 to-cyan-500/40 blur-lg animate-pulse" style={{ animationDelay: '0.3s' }} />
+          
+          {/* Rotating border */}
+          <div className="absolute inset-[-3px] rounded-3xl bg-gradient-conic from-violet-600 via-fuchsia-500 via-cyan-400 via-violet-500 to-violet-600 animate-spin" style={{ animationDuration: '2s' }} />
+          
+          {/* Main container */}
+          <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[3px] shadow-2xl shadow-fuchsia-500/50 animate-pulse">
+            <div className="w-full h-full rounded-3xl bg-gradient-to-br from-background via-background/98 to-background/95 backdrop-blur-xl flex items-center justify-center">
+              <RefreshCw className="w-12 h-12 text-fuchsia-500 animate-spin drop-shadow-[0_0_15px_rgba(217,70,239,0.7)]" />
             </div>
           </div>
+          
+          {/* Orbiting particles */}
+          <div className="absolute -top-3 -right-2 w-4 h-4 rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-bounce" />
+          <div className="absolute -bottom-2 -left-3 w-3 h-3 rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 shadow-lg shadow-cyan-500/50 animate-bounce" style={{ animationDelay: '0.2s' }} />
         </div>
-        <p className="text-sm text-muted-foreground">Đang phân tích kịch bản...</p>
+        
+        <div className="text-center space-y-1">
+          <p className="font-semibold bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent animate-pulse">
+            Đang phân tích kịch bản...
+          </p>
+          <p className="text-xs text-muted-foreground">AI đang đánh giá nội dung của bạn</p>
+        </div>
       </div>
     );
   }
