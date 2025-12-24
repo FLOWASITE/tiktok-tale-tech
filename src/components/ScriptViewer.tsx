@@ -192,51 +192,65 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
               <DialogTitle className="text-base xs:text-xl font-bold text-gradient pr-0 xs:pr-8 line-clamp-2">
                 {script.title}
               </DialogTitle>
-              <div className="flex items-center gap-2">
-                <StatusSelector 
-                  status={script.status || 'draft'} 
-                  onStatusChange={handleStatusChange}
-                  disabled={isEditing || isSaving}
-                />
-                {/* AI Analyzer Toggle - Distinctive Icon */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowAnalytics(!showAnalytics)}
-                  className={cn(
-                    "hidden sm:flex relative group overflow-visible",
-                    showAnalytics 
-                      ? "bg-gradient-to-br from-violet-500/20 via-fuchsia-500/15 to-cyan-500/20 text-fuchsia-500" 
-                      : "hover:bg-gradient-to-br hover:from-violet-500/10 hover:via-fuchsia-500/10 hover:to-cyan-500/10"
-                  )}
-                  title={showAnalytics ? "Ẩn phân tích AI" : "Hiện phân tích AI"}
-                >
-                  {/* Glow effect when active */}
-                  {showAnalytics && (
-                    <div className="absolute inset-0 rounded-md bg-gradient-to-br from-violet-500/30 via-fuchsia-500/20 to-cyan-500/30 blur-md animate-pulse" />
-                  )}
-                  
-                  {/* Icon with gradient */}
-                  <div className="relative z-10 flex items-center justify-center">
-                    {showAnalytics ? (
-                      <PanelRightClose className="w-4 h-4 text-fuchsia-500 drop-shadow-[0_0_4px_rgba(217,70,239,0.5)]" />
-                    ) : (
-                      <div className="relative">
-                        <PanelRightOpen className="w-4 h-4 text-muted-foreground group-hover:text-fuchsia-500 transition-colors" />
-                        {/* Sparkle indicator */}
-                        <Sparkles className="absolute -top-1 -right-1 w-2.5 h-2.5 text-fuchsia-400 animate-pulse" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Floating dot indicator when closed */}
-                  {!showAnalytics && (
-                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-pulse" />
-                  )}
-                </Button>
-              </div>
+              <StatusSelector 
+                status={script.status || 'draft'} 
+                onStatusChange={handleStatusChange}
+                disabled={isEditing || isSaving}
+              />
             </div>
           </DialogHeader>
+
+          {/* Floating AI Analyzer Button - Prominent Position */}
+          <div className="hidden sm:block absolute top-4 right-16 z-50">
+            <button
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className={cn(
+                "relative group flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-300",
+                "border-2 shadow-xl hover:scale-105 active:scale-95",
+                showAnalytics 
+                  ? "bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-500 text-white border-transparent shadow-fuchsia-500/40" 
+                  : "bg-gradient-to-r from-violet-500/10 via-fuchsia-500/10 to-cyan-500/10 border-fuchsia-500/50 hover:border-fuchsia-400 hover:shadow-fuchsia-500/30"
+              )}
+            >
+              {/* Animated background glow */}
+              <div className={cn(
+                "absolute inset-0 rounded-xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 blur-lg opacity-0 transition-opacity duration-300",
+                showAnalytics ? "opacity-50" : "group-hover:opacity-30"
+              )} />
+              
+              {/* Rotating border effect when not active */}
+              {!showAnalytics && (
+                <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-75 blur-sm animate-[spin_3s_linear_infinite]" style={{ zIndex: -1 }} />
+              )}
+              
+              {/* Icon */}
+              <div className="relative z-10 flex items-center justify-center">
+                {showAnalytics ? (
+                  <PanelRightClose className="w-5 h-5 drop-shadow-lg" />
+                ) : (
+                  <div className="relative">
+                    <Sparkles className="w-5 h-5 text-fuchsia-500 group-hover:text-fuchsia-400 transition-colors animate-pulse" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Label */}
+              <span className={cn(
+                "relative z-10 font-semibold",
+                showAnalytics ? "text-white" : "text-fuchsia-600 group-hover:text-fuchsia-500"
+              )}>
+                {showAnalytics ? "Đóng AI" : "Phân tích AI"}
+              </span>
+              
+              {/* Pulsing indicator when closed */}
+              {!showAnalytics && (
+                <>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-ping" />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-500 shadow-lg shadow-fuchsia-500/50" />
+                </>
+              )}
+            </button>
+          </div>
           
           <div className={cn(
             "flex gap-4 flex-1 min-h-0",
