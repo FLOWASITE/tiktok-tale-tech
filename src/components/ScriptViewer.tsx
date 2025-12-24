@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Download, FileText, Clock, User, Film, Check, Edit2, Save, X, Hash, Monitor, PanelRightOpen, PanelRightClose, Clapperboard } from 'lucide-react';
+import { Copy, Download, FileText, Clock, User, Film, Check, Edit2, Save, X, Hash, Monitor, PanelRightOpen, PanelRightClose, Clapperboard, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -180,17 +180,41 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                   onStatusChange={handleStatusChange}
                   disabled={isEditing || isSaving}
                 />
+                {/* AI Analyzer Toggle - Distinctive Icon */}
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowAnalytics(!showAnalytics)}
                   className={cn(
-                    "hidden sm:flex",
-                    showAnalytics && "bg-primary/10 text-primary"
+                    "hidden sm:flex relative group overflow-visible",
+                    showAnalytics 
+                      ? "bg-gradient-to-br from-violet-500/20 via-fuchsia-500/15 to-cyan-500/20 text-fuchsia-500" 
+                      : "hover:bg-gradient-to-br hover:from-violet-500/10 hover:via-fuchsia-500/10 hover:to-cyan-500/10"
                   )}
                   title={showAnalytics ? "Ẩn phân tích AI" : "Hiện phân tích AI"}
                 >
-                  {showAnalytics ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+                  {/* Glow effect when active */}
+                  {showAnalytics && (
+                    <div className="absolute inset-0 rounded-md bg-gradient-to-br from-violet-500/30 via-fuchsia-500/20 to-cyan-500/30 blur-md animate-pulse" />
+                  )}
+                  
+                  {/* Icon with gradient */}
+                  <div className="relative z-10 flex items-center justify-center">
+                    {showAnalytics ? (
+                      <PanelRightClose className="w-4 h-4 text-fuchsia-500 drop-shadow-[0_0_4px_rgba(217,70,239,0.5)]" />
+                    ) : (
+                      <div className="relative">
+                        <PanelRightOpen className="w-4 h-4 text-muted-foreground group-hover:text-fuchsia-500 transition-colors" />
+                        {/* Sparkle indicator */}
+                        <Sparkles className="absolute -top-1 -right-1 w-2.5 h-2.5 text-fuchsia-400 animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Floating dot indicator when closed */}
+                  {!showAnalytics && (
+                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-pulse" />
+                  )}
                 </Button>
               </div>
             </div>
