@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { 
@@ -88,12 +89,14 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           <Select
             value={brandValue}
             onValueChange={(value) => {
+              console.log('[ScriptForm] brand changed:', value);
               setBrandTouched(true);
               setBrandValue(value);
               setFormData((prev) => ({
                 ...prev,
                 brandTemplateId: value === 'none' ? undefined : value,
               }));
+              toast.success(value === 'none' ? 'Đã bỏ chọn Brand' : 'Đã chọn Brand');
             }}
             disabled={isLoading}
           >
@@ -101,9 +104,16 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
               <SelectValue placeholder="Chọn Brand Template..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none" className="text-xs xs:text-sm">Không sử dụng</SelectItem>
+              <SelectItem value="none" textValue="Không sử dụng" className="text-xs xs:text-sm">
+                Không sử dụng
+              </SelectItem>
               {templates.map((template) => (
-                <SelectItem key={template.id} value={template.id} className="text-xs xs:text-sm">
+                <SelectItem
+                  key={template.id}
+                  value={template.id}
+                  textValue={template.name}
+                  className="text-xs xs:text-sm"
+                >
                   <span className="flex items-center gap-1.5 xs:gap-2">
                     {template.primary_color && (
                       <span
