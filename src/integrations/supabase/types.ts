@@ -1363,6 +1363,75 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_analytics: {
+        Row: {
+          brand_template_id: string | null
+          content_id: string | null
+          context_richness_score: number | null
+          created_at: string | null
+          edit_percentage: number | null
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          learning_data_score: number | null
+          model_used: string | null
+          organization_id: string | null
+          output_accepted: boolean | null
+          performance_score: number | null
+          token_count: number | null
+          user_edited: boolean | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          content_id?: string | null
+          context_richness_score?: number | null
+          created_at?: string | null
+          edit_percentage?: number | null
+          execution_time_ms?: number | null
+          function_name: string
+          id?: string
+          learning_data_score?: number | null
+          model_used?: string | null
+          organization_id?: string | null
+          output_accepted?: boolean | null
+          performance_score?: number | null
+          token_count?: number | null
+          user_edited?: boolean | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          content_id?: string | null
+          context_richness_score?: number | null
+          created_at?: string | null
+          edit_percentage?: number | null
+          execution_time_ms?: number | null
+          function_name?: string
+          id?: string
+          learning_data_score?: number | null
+          model_used?: string | null
+          organization_id?: string | null
+          output_accepted?: boolean | null
+          performance_score?: number | null
+          token_count?: number | null
+          user_edited?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_analytics_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_analytics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scripts: {
         Row: {
           character_type: string

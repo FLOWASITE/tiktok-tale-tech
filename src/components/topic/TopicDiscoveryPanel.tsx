@@ -42,8 +42,10 @@ import {
 } from '@/types/topicDiscovery';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
+import { useAdvancedPromptContext } from '@/hooks/useAdvancedPromptContext';
 import { TopicIdeaCard } from './TopicIdeaCard';
 import { TopicHistoryTab } from './TopicHistoryTab';
+import { PromptQualityIndicator } from '../PromptQualityIndicator';
 
 interface TopicDiscoveryPanelProps {
   brandTemplateId?: string;
@@ -105,6 +107,14 @@ export function TopicDiscoveryPanel({
     brandTemplateId,
     contentGoal,
     enabled: isOpen && !disabled,
+  });
+
+  // Fetch advanced prompt context for quality indicator
+  const { context: promptContext } = useAdvancedPromptContext({
+    brandTemplateId,
+    contentGoal,
+    format,
+    enabled: isOpen && !disabled && !!brandTemplateId,
   });
 
   // Handle topic selection with history tracking
@@ -224,6 +234,10 @@ export function TopicDiscoveryPanel({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Prompt Quality Indicator */}
+            {promptContext && (
+              <PromptQualityIndicator context={promptContext} variant="compact" />
+            )}
             {stats && (
               <TooltipProvider>
                 <Tooltip>
