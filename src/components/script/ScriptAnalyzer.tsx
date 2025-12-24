@@ -142,8 +142,26 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
   if (!hasAnalyzed && !analysis) {
     return (
       <div className={cn("flex flex-col items-center justify-center py-8 gap-4", className)}>
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-          <Sparkles className="w-8 h-8 text-primary" />
+        {/* Distinctive AI Analyzer Icon */}
+        <div className="relative">
+          {/* Outer glow ring */}
+          <div className="absolute inset-0 w-20 h-20 rounded-full bg-gradient-to-br from-violet-500/30 via-fuchsia-500/20 to-cyan-500/30 blur-md animate-pulse" />
+          
+          {/* Main icon container */}
+          <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[2px] shadow-lg shadow-fuchsia-500/25">
+            <div className="w-full h-full rounded-2xl bg-background/95 backdrop-blur flex items-center justify-center">
+              {/* Stacked icons for unique look */}
+              <div className="relative">
+                <BarChart3 className="w-7 h-7 text-violet-500 absolute -left-2 -top-1 opacity-60" />
+                <Sparkles className="w-8 h-8 text-fuchsia-500 relative z-10" />
+                <Zap className="w-5 h-5 text-cyan-500 absolute -right-1 -bottom-1" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Floating particles */}
+          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 animate-bounce" style={{ animationDelay: '0.1s' }} />
+          <div className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 animate-bounce" style={{ animationDelay: '0.3s' }} />
         </div>
         <div className="text-center">
           <h3 className="font-semibold text-foreground mb-1">AI Script Analyzer</h3>
@@ -176,8 +194,14 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
   if (isAnalyzing) {
     return (
       <div className={cn("flex flex-col items-center justify-center py-8 gap-4", className)}>
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center animate-pulse">
-          <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+        {/* Analyzing state icon */}
+        <div className="relative">
+          <div className="absolute inset-0 w-20 h-20 rounded-full bg-gradient-to-br from-violet-500/40 via-fuchsia-500/30 to-cyan-500/40 blur-md animate-pulse" />
+          <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[2px] shadow-lg shadow-fuchsia-500/25 animate-pulse">
+            <div className="w-full h-full rounded-2xl bg-background/95 backdrop-blur flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 text-fuchsia-500 animate-spin" />
+            </div>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">Đang phân tích kịch bản...</p>
       </div>
