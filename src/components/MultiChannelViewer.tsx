@@ -331,6 +331,9 @@ export function MultiChannelViewer({
   // Fetch Industry Memory for brand template
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryForBrand(content?.brand_template_id);
 
+  // State for selected channel in new layout - must be before early return
+  const [selectedChannel, setSelectedChannel] = useState<Channel>(content?.selected_channels?.[0] || 'facebook');
+
   if (!content) return null;
 
   const goalLabel = CONTENT_GOALS.find(g => g.value === content.content_goal)?.label || content.content_goal;
@@ -559,11 +562,6 @@ export function MultiChannelViewer({
       description: 'File markdown đã được tải xuống',
     });
   };
-
-  const firstChannel = content.selected_channels[0];
-
-  // State for selected channel in new layout
-  const [selectedChannel, setSelectedChannel] = useState<Channel>(content.selected_channels[0]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
