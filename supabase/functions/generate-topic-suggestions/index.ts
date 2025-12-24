@@ -1,5 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  buildCoTSection, 
+  buildFewShotExamples, 
+  buildLearningSection,
+  buildSelfCorrectionRules,
+  type LearningContext,
+  type MergedRules
+} from "../_shared/prompt-utils.ts";
+import { fetchLearningContext, logPromptAnalytics } from "../_shared/learning-context.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,6 +82,7 @@ serve(async (req) => {
   }
 
   try {
+    const startTime = Date.now();
     const input: TopicGenerationInput = await req.json();
     const { industry, contentGoal, brandTemplateId, format, recentTopics, seasonality } = input;
 
@@ -175,15 +185,25 @@ serve(async (req) => {
       }
     }
 
-    // Build the enhanced prompt
+    // Fetch learning context from topic history
+    let learningContext: LearningContext | null = null;
+    if (brandTemplateId) {
+      learningContext = await fetchLearningContext(supabase, brandTemplateId, null);
+      if (learningContext) {
+        console.log('Learning context loaded:', learningContext.totalTopicsUsed, 'topics,', learningContext.topPerformers.length, 'top performers');
+      }
+    }
+
+    // Build the enhanced prompt with advanced techniques
     const prompt = buildEnhancedPrompt({
       industry: brandContext?.industry?.[0] || industry,
       contentGoal,
       brandContext,
       industryContext,
       format,
-      recentTopics,
+      recentTopics: recentTopics || learningContext?.recentTopics || [],
       seasonality,
+      learningContext,
     });
 
     console.log('Generating enhanced topic suggestions with scores...');
@@ -277,6 +297,21 @@ serve(async (req) => {
 
     console.log('Generated and cached', suggestions.length, 'enhanced suggestions with scores');
 
+    // Log prompt analytics
+    const executionTime = Date.now() - startTime;
+    const contextRichnessScore = calculateContextRichness(brandContext, industryContext);
+    const learningDataScore = learningContext ? Math.min(100, learningContext.totalTopicsUsed * 5 + learningContext.topPerformers.length * 10) : 0;
+    
+    await logPromptAnalytics(supabase, {
+      functionName: 'generate-topic-suggestions',
+      brandTemplateId: brandTemplateId || undefined,
+      organizationId: undefined,
+      contextRichnessScore,
+      learningDataScore,
+      executionTimeMs: executionTime,
+      modelUsed: 'google/gemini-2.5-flash',
+    });
+
     return new Response(JSON.stringify({
       suggestions,
       source: 'ai',
@@ -306,6 +341,25 @@ serve(async (req) => {
   }
 });
 
+// Helper to calculate context richness score
+function calculateContextRichness(brand: BrandContext | null, industry: IndustryContext | null): number {
+  let score = 0;
+  if (brand) {
+    score += brand.brandName ? 15 : 0;
+    score += brand.brandPositioning ? 15 : 0;
+    score += (brand.toneOfVoice?.length || 0) > 0 ? 15 : 0;
+    score += (brand.contentPillars?.length || 0) > 0 ? 20 : 0;
+    score += (brand.preferredWords?.length || 0) > 0 ? 5 : 0;
+    score += (brand.forbiddenWords?.length || 0) > 0 ? 5 : 0;
+  }
+  if (industry) {
+    score += industry.targetAudience ? 10 : 0;
+    score += (industry.forbiddenTerms?.length || 0) > 0 ? 10 : 0;
+    score += (industry.complianceRules?.length || 0) > 0 ? 5 : 0;
+  }
+  return Math.min(100, score);
+}
+
 function buildEnhancedPrompt(params: {
   industry?: string;
   contentGoal?: string;
@@ -314,8 +368,9 @@ function buildEnhancedPrompt(params: {
   format?: string;
   recentTopics?: string[];
   seasonality?: string;
+  learningContext?: LearningContext | null;
 }): { system: string; user: string } {
-  const { industry, contentGoal, brandContext, industryContext, format, recentTopics, seasonality } = params;
+  const { industry, contentGoal, brandContext, industryContext, format, recentTopics, seasonality, learningContext } = params;
 
   const goalLabels: Record<string, string> = {
     education: 'giáo dục, chia sẻ kiến thức chuyên môn',
@@ -385,6 +440,18 @@ ${industryContext.brandVoice?.tone?.length ? `- Industry tone baseline: ${indust
     seasonalityHint = '\n- Ưu tiên chủ đề reactive với sự kiện/tin tức nóng trong ngành';
   }
 
+  // Build Chain-of-Thought section
+  const cotSection = buildCoTSection('topic-suggestions');
+
+  // Build Learning section if available
+  const learningSection = learningContext ? buildLearningSection(learningContext) : '';
+
+  // Build Few-Shot examples if available
+  const fewShotSection = learningContext ? buildFewShotExamples(learningContext, 'topic-suggestions', 3) : '';
+
+  // Build Self-Correction rules
+  const selfCorrectionSection = buildSelfCorrectionRules('topic-suggestions');
+
   const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm trong content marketing tại Việt Nam.
 
 Nhiệm vụ: Gợi ý các chủ đề content có chiến lược, phù hợp với brand và mục tiêu kinh doanh.
@@ -393,6 +460,10 @@ ${pillarsSection}
 ${industrySection}
 ${constraintsSection}
 ${seasonalityHint}
+${cotSection}
+${learningSection}
+${fewShotSection}
+${selfCorrectionSection}
 
 ## OUTPUT FORMAT:
 Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
