@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,6 +45,14 @@ import { AssignedApproverInfo } from '@/components/AssignedApproverInfo';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { ContentValidationDialog } from '@/components/ContentValidationDialog';
 import { useIndustryMemoryForBrand } from '@/hooks/useIndustryMemory';
+// New viewer components
+import { ContentMockupToggle } from '@/components/viewer/ContentMockupToggle';
+import { QuickChannelNav } from '@/components/viewer/QuickChannelNav';
+import { EnhancedExportMenu } from '@/components/viewer/EnhancedExportMenu';
+import { ChannelComparison } from '@/components/viewer/ChannelComparison';
+import { ContentAnalyticsPanel } from '@/components/viewer/ContentAnalyticsPanel';
+import { ActivityTimeline } from '@/components/viewer/ActivityTimeline';
+import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -657,6 +665,8 @@ export function MultiChannelViewer({
             </div>
             {!isEditingHeader && (
               <div className="flex items-center gap-1 xs:gap-2 flex-wrap xs:flex-nowrap">
+                {/* Channel Comparison */}
+                <ChannelComparison content={content} channelConfig={channelConfig} />
                 {/* Team Panel Toggle Button */}
                 <Button 
                   variant={showTeamPanel ? "default" : "outline"} 
@@ -692,10 +702,8 @@ export function MultiChannelViewer({
                   <CalendarClock className="w-4 h-4" />
                   Lên lịch
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportAll}>
-                  <Download className="w-4 h-4 mr-1.5" />
-                  Export
-                </Button>
+                {/* Enhanced Export Menu */}
+                <EnhancedExportMenu content={content} channelConfig={channelConfig} />
               </div>
             )}
           </div>
