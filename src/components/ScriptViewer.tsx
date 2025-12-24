@@ -1,10 +1,28 @@
+// ScriptViewer component - displays script details with AI analyzer
 import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, ContentStatus } from '@/types/script';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Download, FileText, Clock, User, Film, Check, Edit2, Save, X, Hash, Monitor, PanelRightOpen, PanelRightClose, Clapperboard, Sparkles } from 'lucide-react';
+import { 
+  Copy, 
+  Download, 
+  FileText, 
+  Clock, 
+  User, 
+  Film, 
+  Check, 
+  Edit2, 
+  Save, 
+  X, 
+  Hash, 
+  Monitor, 
+  PanelRightOpen, 
+  PanelRightClose, 
+  Clapperboard, 
+  Sparkles 
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
