@@ -23,6 +23,7 @@ export function TopicAngleSelector({ value, onChange, disabled = false }: TopicA
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         {ANGLES.map((angle) => {
           const config = TOPIC_ANGLE_LABELS[angle];
+          if (!config) return null;
           const isSelected = value === angle;
           
           return (

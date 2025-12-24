@@ -73,7 +73,7 @@ export function TopicIdeaCard({
   isSelected,
   disabled,
 }: TopicIdeaCardProps) {
-  const config = categoryConfig[topic.category];
+  const config = categoryConfig[topic.category] || categoryConfig.evergreen;
   const CategoryIcon = config.icon;
 
   const overallScore = topic.scores ? calculateOverallScore(topic.scores) : null;
@@ -188,6 +188,7 @@ export function TopicIdeaCard({
         <div className="flex gap-1">
           {topic.formats.map((format) => {
             const FormatIcon = formatIcons[format];
+            if (!FormatIcon) return null;
             return (
               <TooltipProvider key={format}>
                 <Tooltip>
