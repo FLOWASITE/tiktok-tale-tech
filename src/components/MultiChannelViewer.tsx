@@ -236,6 +236,7 @@ export function MultiChannelViewer({
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
+  const [showMockupView, setShowMockupView] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
@@ -1218,24 +1219,57 @@ export function MultiChannelViewer({
                     )}
                   </div>
                 ) : (
-                  <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
-                    <div className="p-4">
-                      {isRegenerating ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                          <Loader2 className="w-8 h-8 animate-spin mb-3" />
-                          <p>Đang tạo lại nội dung...</p>
-                        </div>
-                      ) : channelContent ? (
-                        <div className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap">
-                          {channelContent}
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground text-center py-8">
-                          Không có nội dung cho kênh này
-                        </p>
-                      )}
+                  <div className="space-y-3">
+                    {/* Mockup/Text Toggle */}
+                    <div className="flex justify-end">
+                      <ToggleGroup 
+                        type="single" 
+                        value={showMockupView ? 'mockup' : 'text'}
+                        onValueChange={(value) => value && setShowMockupView(value === 'mockup')}
+                        className="bg-muted/50 p-1 rounded-lg"
+                      >
+                        <ToggleGroupItem value="text" className="gap-1.5 text-xs px-3">
+                          <Code className="w-3.5 h-3.5" />
+                          Text
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="mockup" className="gap-1.5 text-xs px-3">
+                          <Eye className="w-3.5 h-3.5" />
+                          Mockup
+                        </ToggleGroupItem>
+                      </ToggleGroup>
                     </div>
-                  </ScrollArea>
+
+                    {/* Content Display */}
+                    {showMockupView ? (
+                      <ContentMockupToggle
+                        channel={channel}
+                        content={channelContent || ''}
+                        brandName={content.brand_name}
+                        logoUrl={undefined}
+                        primaryColor={content.primary_color || undefined}
+                        isLoading={isRegenerating}
+                      />
+                    ) : (
+                      <ScrollArea className="h-[400px] rounded-lg border border-border/50 bg-muted/30">
+                        <div className="p-4">
+                          {isRegenerating ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                              <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                              <p>Đang tạo lại nội dung...</p>
+                            </div>
+                          ) : channelContent ? (
+                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                              {channelContent}
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground text-center py-8">
+                              Không có nội dung cho kênh này
+                            </p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
                 )}
               </TabsContent>
             );
