@@ -23,6 +23,11 @@ interface ScriptFormProps {
 
 export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
+
+  // Keep Select strictly controlled with a string value to avoid Radix Select state mismatches
+  const [brandValue, setBrandValue] = useState<string>('none');
+  const [brandTouched, setBrandTouched] = useState(false);
+
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: '',
     duration: 60,
@@ -31,17 +36,21 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
     brandTemplateId: undefined,
   });
 
-  // Set default template on load
+  // Set default template once (unless user already interacted)
   useEffect(() => {
-    if (!templatesLoading && templates.length > 0 && !formData.brandTemplateId) {
-      const defaultTemplate = templates.find(t => t.is_default);
-      if (defaultTemplate) {
-        setFormData(prev => ({ ...prev, brandTemplateId: defaultTemplate.id }));
-      }
-    }
-  }, [templates, templatesLoading, formData.brandTemplateId]);
+    if (templatesLoading) return;
+    if (brandTouched) return;
+    if (templates.length === 0) return;
+    if (brandValue !== 'none') return;
 
-  const selectedTemplate = templates.find(t => t.id === formData.brandTemplateId);
+    const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0];
+    if (!defaultTemplate) return;
+
+    setBrandValue(defaultTemplate.id);
+    setFormData((prev) => ({ ...prev, brandTemplateId: defaultTemplate.id }));
+  }, [templatesLoading, templates, brandTouched, brandValue]);
+
+  const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +69,7 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           id="topic"
           placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm khi đầu tư chứng khoán..."
           value={formData.topic}
-          onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+          onChange={(e) => setFormData((prev) => ({ ...prev, topic: e.target.value }))}
           className="min-h-[80px] xs:min-h-[100px] bg-muted/50 border-border focus:border-primary focus:ring-primary/20 resize-none text-sm xs:text-base"
           disabled={isLoading}
         />
@@ -77,8 +86,15 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           </div>
         ) : (
           <Select
-            value={formData.brandTemplateId ?? 'none'}
-            onValueChange={(value) => setFormData({ ...formData, brandTemplateId: value === 'none' ? undefined : value })}
+            value={brandValue}
+            onValueChange={(value) => {
+              setBrandTouched(true);
+              setBrandValue(value);
+              setFormData((prev) => ({
+                ...prev,
+                brandTemplateId: value === 'none' ? undefined : value,
+              }));
+            }}
             disabled={isLoading}
           >
             <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
@@ -119,7 +135,9 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           </Label>
           <Select
             value={formData.duration.toString()}
-            onValueChange={(value) => setFormData({ ...formData, duration: parseInt(value) as Duration })}
+            onValueChange={(value) =>
+              setFormData((prev) => ({ ...prev, duration: parseInt(value) as Duration }))
+            }
             disabled={isLoading}
           >
             <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
@@ -142,7 +160,9 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
           </Label>
           <Select
             value={formData.video_type}
-            onValueChange={(value) => setFormData({ ...formData, video_type: value as VideoType })}
+            onValueChange={(value) =>
+              setFormData((prev) => ({ ...prev, video_type: value as VideoType }))
+            }
             disabled={isLoading}
           >
             <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
@@ -166,7 +186,9 @@ export function ScriptForm({ onSubmit, isLoading }: ScriptFormProps) {
         </Label>
         <Select
           value={formData.character_type}
-          onValueChange={(value) => setFormData({ ...formData, character_type: value as CharacterType })}
+          onValueChange={(value) =>
+            setFormData((prev) => ({ ...prev, character_type: value as CharacterType }))
+          }
           disabled={isLoading}
         >
           <SelectTrigger className="bg-muted/50 border-border focus:border-primary text-xs xs:text-sm h-9 xs:h-10">
