@@ -19,7 +19,7 @@ import { useTopicSuggestions } from '@/hooks/useTopicSuggestions';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
-import { ContentPreviewDialog } from '@/components/ContentPreviewDialog';
+import { MultiChannelPreviewDialog } from '@/components/MultiChannelPreviewDialog';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 
 interface MultiChannelFormProps {
@@ -465,8 +465,8 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
             </div>
           </form>
 
-          {/* Preview Dialog */}
-          <ContentPreviewDialog
+          {/* Multi-Channel Preview Dialog */}
+          <MultiChannelPreviewDialog
             open={showPreview}
             onOpenChange={setShowPreview}
             formData={{
@@ -475,6 +475,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               contentGoal,
               channels: selectedChannels,
               brandTemplateId: brandTemplateId || undefined,
+              brandName: selectedTemplate?.brand_name,
             }}
             onConfirm={() => {
               setShowPreview(false);
