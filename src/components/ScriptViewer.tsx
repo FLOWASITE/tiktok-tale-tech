@@ -2,6 +2,7 @@
 import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, ContentStatus } from '@/types/script';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -203,14 +204,23 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
           {/* Central AI Analyzer Button */}
           {!showAnalytics && (
             <div className="hidden sm:flex justify-center my-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowAnalytics(true)}
-                className="gap-2 px-4 py-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-all"
-              >
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span>Phân tích AI</span>
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAnalytics(true)}
+                      className="gap-2 px-4 py-2 border-primary/30 hover:border-primary hover:bg-primary/10 transition-all"
+                    >
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      <span>Phân tích AI</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p>Phân tích kịch bản bằng AI để đánh giá chất lượng, cấu trúc và đưa ra gợi ý cải thiện</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
 
