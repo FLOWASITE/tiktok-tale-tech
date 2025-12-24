@@ -1433,6 +1433,60 @@ export type Database = {
           },
         ]
       }
+      storyboards: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string | null
+          scenes: Json
+          script_id: string | null
+          style_notes: string | null
+          title: string
+          total_duration: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          scenes?: Json
+          script_id?: string | null
+          style_notes?: string | null
+          title: string
+          total_duration?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          scenes?: Json
+          script_id?: string | null
+          style_notes?: string | null
+          title?: string
+          total_duration?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storyboards_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storyboards_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           cancelled_at: string | null
