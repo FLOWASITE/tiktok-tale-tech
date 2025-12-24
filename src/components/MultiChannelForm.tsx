@@ -12,12 +12,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Lightbulb, Music2, AtSign } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Lightbulb, Music2, AtSign, Eye } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CHANNELS, TOPIC_SUGGESTIONS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
+import { ContentPreviewDialog } from '@/components/ContentPreviewDialog';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -64,6 +65,7 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(['facebook', 'instagram']);
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [hasSetDefault, setHasSetDefault] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const topicRef = useRef<HTMLTextAreaElement>(null);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
@@ -422,26 +424,62 @@ export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps)
               </div>
             )}
 
-            {/* Submit */}
-            <Button
-              type="submit"
-              className="w-full relative overflow-hidden group/btn transition-all duration-300 hover:shadow-lg hover:shadow-primary/25 h-10 xs:h-11 text-sm xs:text-base"
-              disabled={isLoading || !topic.trim() || selectedChannels.length === 0}
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
-              {isLoading ? (
-                <span className="flex items-center animate-pulse">
-                  <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 animate-spin" />
-                  <span className="text-xs xs:text-sm">Đang tạo nội dung...</span>
-                </span>
-              ) : (
-                <span className="flex items-center">
-                  <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 transition-transform duration-300 group-hover/btn:rotate-12" />
-                  <span className="text-xs xs:text-sm">Tạo nội dung ({selectedChannels.length} kênh)</span>
-                </span>
-              )}
-            </Button>
+            {/* Actions */}
+            <div className="flex gap-2">
+              {/* Preview Button */}
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 h-10 xs:h-11 text-sm xs:text-base gap-1.5"
+                disabled={isLoading || !topic.trim() || selectedChannels.length === 0}
+                onClick={() => setShowPreview(true)}
+              >
+                <Eye className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">Preview</span>
+              </Button>
+
+              {/* Submit */}
+              <Button
+                type="submit"
+                className="flex-[2] relative overflow-hidden group/btn transition-all duration-300 hover:shadow-lg hover:shadow-primary/25 h-10 xs:h-11 text-sm xs:text-base"
+                disabled={isLoading || !topic.trim() || selectedChannels.length === 0}
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                {isLoading ? (
+                  <span className="flex items-center animate-pulse">
+                    <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 animate-spin" />
+                    <span className="text-xs xs:text-sm">Đang tạo...</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 transition-transform duration-300 group-hover/btn:rotate-12" />
+                    <span className="text-xs xs:text-sm">Tạo ({selectedChannels.length} kênh)</span>
+                  </span>
+                )}
+              </Button>
+            </div>
           </form>
+
+          {/* Preview Dialog */}
+          <ContentPreviewDialog
+            open={showPreview}
+            onOpenChange={setShowPreview}
+            formData={{
+              topic,
+              industry: industry || selectedTemplate?.industry?.join(', '),
+              contentGoal,
+              channels: selectedChannels,
+              brandTemplateId: brandTemplateId || undefined,
+            }}
+            onConfirm={() => {
+              setShowPreview(false);
+              // Trigger form submit
+              const form = document.querySelector('form');
+              if (form) {
+                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+              }
+            }}
+          />
         </CardContent>
       </Card>
     </TooltipProvider>
