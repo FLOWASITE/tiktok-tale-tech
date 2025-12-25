@@ -8,6 +8,7 @@ import { ScriptStats } from '@/components/ScriptStats';
 import { ScriptListView } from '@/components/ScriptListView';
 import { useScripts } from '@/hooks/useScripts';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { Script } from '@/types/script';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,22 @@ type ViewMode = 'grid' | 'list';
 const Index = () => {
   const navigate = useNavigate();
   const { scripts, loading, generating, generateScript, deleteScript, updateScript } = useScripts();
+  const { templates: brandTemplates } = useBrandTemplates();
+  
+  // Create brand template lookup map
+  const brandTemplateMap = useMemo(() => {
+    const map: Record<string, { id: string; name: string; brand_name: string; primary_color?: string; logo_url?: string }> = {};
+    brandTemplates.forEach(t => {
+      map[t.id] = {
+        id: t.id,
+        name: t.name,
+        brand_name: t.brand_name,
+        primary_color: t.primary_color || undefined,
+        logo_url: t.logo_url || undefined,
+      };
+    });
+    return map;
+  }, [brandTemplates]);
   
   // Fetch creator profiles for all scripts
   const userIds = useMemo(() => scripts.map(s => s.user_id), [scripts]);
@@ -213,6 +230,7 @@ const Index = () => {
                   script={script}
                   onView={handleViewScript}
                   onDelete={deleteScript}
+                  brandTemplate={script.brand_template_id ? brandTemplateMap[script.brand_template_id] : undefined}
                   creatorProfile={script.user_id ? creatorProfiles[script.user_id] : undefined}
                   isLoadingProfile={isLoadingProfiles}
                 />

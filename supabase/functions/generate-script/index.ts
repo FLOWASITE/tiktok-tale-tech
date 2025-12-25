@@ -1596,10 +1596,13 @@ serve(async (req) => {
         video_type,
         character_type,
         script_purpose: script_purpose || 'ai_video_veo3',
+        voice_region: voice_region || 'northern',
+        dialogue_style: dialogue_style || 'monologue',
         content,
         user_id: userId,
         organization_id: organizationId,
         status: initialStatus,
+        brand_template_id: brandTemplateId || null,
         industry_template_id: industryMemory?.id || null,
         industry_template_version: industryMemory?.version || null,
       })

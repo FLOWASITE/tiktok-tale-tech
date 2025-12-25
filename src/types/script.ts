@@ -113,6 +113,7 @@ export interface Script {
   status: ContentStatus;
   voice_region?: VoiceRegion;
   dialogue_style?: DialogueStyle;
+  brand_template_id?: string;
   user_id: string | null;
   organization_id?: string | null;
   industry_template_id?: string | null;

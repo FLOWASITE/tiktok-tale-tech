@@ -1530,6 +1530,7 @@ export type Database = {
       }
       scripts: {
         Row: {
+          brand_template_id: string | null
           character_type: string
           content: string
           created_at: string
@@ -1549,6 +1550,7 @@ export type Database = {
           voice_region: string | null
         }
         Insert: {
+          brand_template_id?: string | null
           character_type?: string
           content: string
           created_at?: string
@@ -1568,6 +1570,7 @@ export type Database = {
           voice_region?: string | null
         }
         Update: {
+          brand_template_id?: string | null
           character_type?: string
           content?: string
           created_at?: string
@@ -1587,6 +1590,13 @@ export type Database = {
           voice_region?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "scripts_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scripts_industry_template_id_fkey"
             columns: ["industry_template_id"]
