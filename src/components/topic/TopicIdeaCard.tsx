@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
   BookmarkPlus, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
-  Target, BarChart3, Users, Trophy, type LucideIcon
+  Target, BarChart3, Users, Trophy, Flame, Gift, Star, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -23,32 +23,37 @@ interface TopicIdeaCardProps {
   onSchedule?: (topic: EnhancedTopicSuggestion) => void;
   isSelected?: boolean;
   disabled?: boolean;
+  compact?: boolean;
 }
 
-const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; gradient: string; bgClass: string; textClass: string }> = {
+const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; gradient: string; bgClass: string; textClass: string; label: string }> = {
   evergreen: {
     icon: Leaf,
     gradient: 'from-emerald-500 to-teal-500',
     bgClass: 'bg-emerald-500/10',
     textClass: 'text-emerald-600 dark:text-emerald-400',
+    label: 'Evergreen',
   },
   trending: {
     icon: TrendingUp,
     gradient: 'from-orange-500 to-amber-500',
     bgClass: 'bg-orange-500/10',
     textClass: 'text-orange-600 dark:text-orange-400',
+    label: 'Trending',
   },
   seasonal: {
     icon: Calendar,
     gradient: 'from-purple-500 to-violet-500',
     bgClass: 'bg-purple-500/10',
     textClass: 'text-purple-600 dark:text-purple-400',
+    label: 'Seasonal',
   },
   reactive: {
     icon: Zap,
     gradient: 'from-red-500 to-rose-500',
     bgClass: 'bg-red-500/10',
     textClass: 'text-red-600 dark:text-red-400',
+    label: 'Reactive',
   },
 };
 
@@ -65,6 +70,17 @@ const scoreConfig = [
   { key: 'engagement' as const, label: 'Tương tác', icon: Users, description: 'Tiềm năng engagement' },
 ];
 
+// Event icon mapping for seasonal/reactive topics
+const getEventIcon = (eventName?: string) => {
+  if (!eventName) return null;
+  const lowerEvent = eventName.toLowerCase();
+  if (lowerEvent.includes('tết') || lowerEvent.includes('new year')) return Gift;
+  if (lowerEvent.includes('valentine')) return Star;
+  if (lowerEvent.includes('black friday') || lowerEvent.includes('sale')) return Flame;
+  if (lowerEvent.includes('deadline') || lowerEvent.includes('quyết toán')) return Clock;
+  return Calendar;
+};
+
 export function TopicIdeaCard({
   topic,
   onSelect,
@@ -72,9 +88,11 @@ export function TopicIdeaCard({
   onSchedule,
   isSelected,
   disabled,
+  compact = false,
 }: TopicIdeaCardProps) {
   const config = categoryConfig[topic.category] || categoryConfig.evergreen;
   const CategoryIcon = config.icon;
+  const EventIcon = getEventIcon(topic.relatedEvent);
 
   const overallScore = topic.scores ? calculateOverallScore(topic.scores) : null;
   const scoreColorClass = overallScore !== null ? getScoreColor(overallScore) : 'slate';
@@ -93,14 +111,26 @@ export function TopicIdeaCard({
     return 'from-red-500 to-rose-400';
   };
 
+  // Format event date for display
+  const formatEventDate = (dateStr?: string) => {
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <Card
       className={cn(
-        'group relative p-4 transition-all duration-300 cursor-pointer overflow-hidden',
+        'group relative transition-all duration-300 cursor-pointer overflow-hidden',
         'hover:shadow-lg hover:-translate-y-0.5',
         'border-border/50 hover:border-primary/30',
         isSelected && 'ring-2 ring-primary border-primary',
-        disabled && 'opacity-50 cursor-not-allowed'
+        disabled && 'opacity-50 cursor-not-allowed',
+        compact ? 'p-3' : 'p-4'
       )}
       onClick={() => !disabled && onSelect(topic)}
     >
@@ -113,22 +143,48 @@ export function TopicIdeaCard({
       />
 
       {/* Header */}
-      <div className="flex items-start gap-3 mb-3">
-        <div className={cn('p-2 rounded-lg shrink-0', config.bgClass)}>
-          <CategoryIcon className={cn('w-4 h-4', config.textClass)} />
+      <div className={cn('flex items-start gap-3', compact ? 'mb-2' : 'mb-3')}>
+        <div className={cn('rounded-lg shrink-0', config.bgClass, compact ? 'p-1.5' : 'p-2')}>
+          <CategoryIcon className={cn(config.textClass, compact ? 'w-3.5 h-3.5' : 'w-4 h-4')} />
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm line-clamp-2 mb-1">{topic.topic}</h4>
+          <h4 className={cn('font-medium line-clamp-2 mb-1', compact ? 'text-xs' : 'text-sm')}>{topic.topic}</h4>
           
-          {/* Category & Pillar badges */}
+          {/* Category, Event & Pillar badges */}
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', config.bgClass, config.textClass)}>
-              {topic.category === 'evergreen' && 'Evergreen'}
-              {topic.category === 'trending' && 'Trending'}
-              {topic.category === 'seasonal' && 'Seasonal'}
-              {topic.category === 'reactive' && 'Reactive'}
+              {config.label}
             </Badge>
+            
+            {/* Seasonal Event Badge */}
+            {topic.relatedEvent && EventIcon && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] px-1.5 py-0 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 gap-0.5 animate-pulse"
+                    >
+                      <EventIcon className="w-2.5 h-2.5" />
+                      {formatEventDate(topic.eventDate)}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs font-medium flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {topic.relatedEvent}
+                    </p>
+                    {topic.eventDate && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Ngày: {topic.eventDate}
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
             {topic.pillar && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 {topic.pillar}
