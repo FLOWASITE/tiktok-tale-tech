@@ -94,14 +94,15 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
 
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
 
-  const brandVoiceForHook = selectedTemplate ? {
-    brand_name: selectedTemplate.brand_name,
-    tone_of_voice: selectedTemplate.tone_of_voice || undefined,
-    formality_level: selectedTemplate.formality_level || undefined,
-    preferred_words: selectedTemplate.preferred_words || undefined,
-    forbidden_words: selectedTemplate.forbidden_words || undefined,
-    brand_positioning: selectedTemplate.brand_positioning || undefined,
-  } : undefined;
+  // Memoize brandVoiceForHook to prevent infinite re-renders
+  const brandVoiceForHook = useMemo(() => {
+    if (!selectedTemplate) return undefined;
+    return {
+      brand_name: selectedTemplate.brand_name,
+      tone_of_voice: selectedTemplate.tone_of_voice || undefined,
+      formality_level: selectedTemplate.formality_level || undefined,
+    };
+  }, [selectedTemplate?.id, selectedTemplate?.brand_name, selectedTemplate?.tone_of_voice, selectedTemplate?.formality_level]);
 
   // Quick hook suggestions - now on step 3
   const {
