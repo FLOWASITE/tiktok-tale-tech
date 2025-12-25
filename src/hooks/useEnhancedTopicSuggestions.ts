@@ -36,6 +36,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       relatedKeywords: ['hướng dẫn', 'bắt đầu', 'cơ bản', 'tutorial'],
       bestTimeToPost: '9:00 - 11:00',
       scores: { brandFit: 80, trend: 65, competition: 75, engagement: 80 },
+      topicType: 'solution',
+      funnelStage: 'tofu',
+      emotionalTone: 'educate',
     },
     {
       topic: '5 sai lầm phổ biến và cách tránh',
@@ -45,6 +48,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Người dùng luôn muốn tránh sai lầm, dễ gây tương tác và chia sẻ',
       relatedKeywords: ['sai lầm', 'tránh', 'kinh nghiệm', 'bài học'],
       scores: { brandFit: 75, trend: 70, competition: 65, engagement: 85 },
+      topicType: 'problem',
+      funnelStage: 'tofu',
+      emotionalTone: 'educate',
     },
     {
       topic: 'Checklist hoàn chỉnh cho năm 2025',
@@ -54,6 +60,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Checklist dễ lưu và chia sẻ, phù hợp đầu năm mới',
       relatedKeywords: ['checklist', '2025', 'kế hoạch', 'mục tiêu'],
       scores: { brandFit: 70, trend: 80, competition: 60, engagement: 70 },
+      topicType: 'solution',
+      funnelStage: 'mofu',
+      emotionalTone: 'educate',
     },
   ],
   awareness: [
@@ -65,6 +74,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Storytelling tạo kết nối cảm xúc mạnh với khách hàng',
       relatedKeywords: ['câu chuyện', 'brand story', 'khởi nghiệp', 'hành trình'],
       scores: { brandFit: 95, trend: 60, competition: 80, engagement: 85 },
+      topicType: 'story',
+      funnelStage: 'tofu',
+      emotionalTone: 'inspire',
     },
     {
       topic: 'Giá trị cốt lõi mà chúng tôi theo đuổi',
@@ -74,6 +86,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Giúp khách hàng hiểu và tin tưởng thương hiệu hơn',
       relatedKeywords: ['giá trị', 'core values', 'sứ mệnh', 'tầm nhìn'],
       scores: { brandFit: 90, trend: 55, competition: 70, engagement: 70 },
+      topicType: 'story',
+      funnelStage: 'mofu',
+      emotionalTone: 'inspire',
     },
   ],
   engagement: [
@@ -85,6 +100,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Câu hỏi mở khuyến khích bình luận và thảo luận',
       relatedKeywords: ['xu hướng', 'ý kiến', 'bình luận', 'thảo luận'],
       scores: { brandFit: 70, trend: 85, competition: 50, engagement: 95 },
+      topicType: 'data',
+      funnelStage: 'tofu',
+      emotionalTone: 'entertain',
     },
     {
       topic: 'Thử thách 7 ngày: Bạn có dám thử?',
@@ -94,6 +112,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Challenges luôn viral và tạo FOMO',
       relatedKeywords: ['challenge', 'thử thách', '7 ngày', 'viral'],
       scores: { brandFit: 65, trend: 90, competition: 55, engagement: 90 },
+      topicType: 'solution',
+      funnelStage: 'mofu',
+      emotionalTone: 'inspire',
     },
   ],
   expertise: [
@@ -105,6 +126,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Nội dung chuyên sâu xây dựng uy tín và được share nhiều',
       relatedKeywords: ['phân tích', 'xu hướng', 'thị trường', 'dự báo'],
       scores: { brandFit: 85, trend: 80, competition: 70, engagement: 80 },
+      topicType: 'data',
+      funnelStage: 'mofu',
+      emotionalTone: 'educate',
     },
     {
       topic: 'Case study thành công từ thực tế',
@@ -114,6 +138,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Case study là proof of concept tốt nhất',
       relatedKeywords: ['case study', 'thành công', 'khách hàng', 'kết quả'],
       scores: { brandFit: 80, trend: 65, competition: 75, engagement: 75 },
+      topicType: 'story',
+      funnelStage: 'bofu',
+      emotionalTone: 'convince',
     },
   ],
   conversion: [
@@ -125,6 +152,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'FOMO và urgency thúc đẩy hành động nhanh',
       relatedKeywords: ['ưu đãi', 'giảm giá', 'flash sale', 'khuyến mãi'],
       scores: { brandFit: 75, trend: 70, competition: 60, engagement: 85 },
+      topicType: 'solution',
+      funnelStage: 'bofu',
+      emotionalTone: 'convince',
     },
     {
       topic: 'Vì sao khách hàng chọn chúng tôi',
@@ -134,6 +164,9 @@ const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
       reasoning: 'Social proof tăng niềm tin và conversion',
       relatedKeywords: ['testimonial', 'review', 'khách hàng', 'lý do'],
       scores: { brandFit: 85, trend: 60, competition: 65, engagement: 70 },
+      topicType: 'story',
+      funnelStage: 'bofu',
+      emotionalTone: 'convince',
     },
   ],
 };
