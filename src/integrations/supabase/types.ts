@@ -1533,6 +1533,7 @@ export type Database = {
           character_type: string
           content: string
           created_at: string
+          dialogue_style: string | null
           duration: number
           id: string
           industry_template_id: string | null
@@ -1545,11 +1546,13 @@ export type Database = {
           updated_at: string
           user_id: string | null
           video_type: string
+          voice_region: string | null
         }
         Insert: {
           character_type?: string
           content: string
           created_at?: string
+          dialogue_style?: string | null
           duration?: number
           id?: string
           industry_template_id?: string | null
@@ -1562,11 +1565,13 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           video_type?: string
+          voice_region?: string | null
         }
         Update: {
           character_type?: string
           content?: string
           created_at?: string
+          dialogue_style?: string | null
           duration?: number
           id?: string
           industry_template_id?: string | null
@@ -1579,6 +1584,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           video_type?: string
+          voice_region?: string | null
         }
         Relationships: [
           {

@@ -39,6 +39,8 @@ import { CharacterTypeRecommendations } from '@/components/script/CharacterTypeR
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { HookStepContent } from '@/components/script/HookStepContent';
 import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector';
+import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
+import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
@@ -46,6 +48,8 @@ import {
   TopicAngle,
   TOPIC_ANGLE_LABELS,
   ScriptPurpose,
+  VoiceRegion,
+  DialogueStyle,
 } from '@/types/script';
 import { FRAMEWORK_LABELS, FRAMEWORK_ICONS } from '@/types/hook';
 
@@ -87,6 +91,8 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     video_type: 'expert_share',
     character_type: 'the_virtuoso',
     script_purpose: 'ai_video_veo3',
+    voice_region: 'northern',
+    dialogue_style: 'monologue',
     brandTemplateId: undefined,
     hook: undefined,
     angle: undefined,
@@ -538,6 +544,20 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
                 disabled={isLoading}
               />
             </div>
+
+            {/* Voice Region */}
+            <VoiceRegionSelector
+              value={formData.voice_region}
+              onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
+              disabled={isLoading}
+            />
+
+            {/* Dialogue Style */}
+            <DialogueStyleSelector
+              value={formData.dialogue_style}
+              onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
+              disabled={isLoading}
+            />
           </div>
         )}
 
@@ -602,6 +622,23 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Cấu hình</p>
                     <p className="text-sm">{formData.duration}s • {formData.video_type}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Settings className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Giọng & Phong cách</p>
+                    <p className="text-sm">
+                      {formData.voice_region === 'northern' && '🏛️ Miền Bắc'}
+                      {formData.voice_region === 'central' && '🏯 Miền Trung'}
+                      {formData.voice_region === 'southern' && '🌴 Miền Nam'}
+                      {' • '}
+                      {formData.dialogue_style === 'monologue' && '🎤 Độc thoại'}
+                      {formData.dialogue_style === 'conversational' && '💬 Trò chuyện'}
+                      {formData.dialogue_style === 'internal' && '🧠 Suy tư'}
+                      {formData.dialogue_style === 'narrative' && '📖 Kể chuyện'}
+                    </p>
                   </div>
                 </div>
 

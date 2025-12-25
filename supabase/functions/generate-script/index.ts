@@ -975,7 +975,7 @@ const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
   production: 'Production Script',
 };
 
-function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string): string {
+function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string, voiceRegionLabel: string): string {
   switch(purpose) {
     case 'ai_video_veo3':
       return `PROMPT X [00:00-00:08]:
@@ -993,7 +993,7 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
 "..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
 
 [TONE & DELIVERY]
-Giọng miền Bắc, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
+${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
 
 [AUDIO NOTES - For VEO 3]
 • Ambience: [âm thanh môi trường phù hợp bối cảnh]
@@ -1069,6 +1069,42 @@ NOTES FOR EDITOR:
   }
 }
 
+// Voice Region Config
+const VOICE_REGION_CONFIG: Record<string, { label: string; dialect_notes: string }> = {
+  northern: {
+    label: 'Giọng miền Bắc',
+    dialect_notes: 'Phân biệt rõ phụ âm đầu (r/d, tr/ch, s/x), dấu thanh chuẩn, ngữ điệu điềm đạm'
+  },
+  central: {
+    label: 'Giọng miền Trung',
+    dialect_notes: 'Ngữ điệu đặc trưng mềm mại, phát âm mềm hơn, dấu sắc và nặng đặc thù'
+  },
+  southern: {
+    label: 'Giọng miền Nam',
+    dialect_notes: 'Không phân biệt r/g, tr/ch, s/x, dấu hỏi/ngã ít phân biệt, ngữ điệu trầm bổng'
+  }
+};
+
+// Dialogue Style Config
+const DIALOGUE_STYLE_CONFIG: Record<string, { label: string; prompt_instruction: string }> = {
+  monologue: {
+    label: 'Độc thoại',
+    prompt_instruction: 'Nói liên tục như đang thuyết trình, không xen kẽ câu hỏi, giữ flow mạch lạc'
+  },
+  conversational: {
+    label: 'Trò chuyện',
+    prompt_instruction: 'Xen kẽ câu hỏi tu từ như "bạn thấy sao?", "đúng không?", "bạn có từng gặp trường hợp này chưa?" để tăng engagement'
+  },
+  internal: {
+    label: 'Suy tư nội tâm',
+    prompt_instruction: 'Giọng điệu như đang tự vấn, suy tư, có pause sâu, câu ngắn, như đang chia sẻ suy nghĩ cá nhân sâu sắc'
+  },
+  narrative: {
+    label: 'Kể chuyện',
+    prompt_instruction: 'Kể chuyện với timeline rõ ràng, có nhân vật, bối cảnh, biến cố, dùng ngôn ngữ vivid và descriptive'
+  }
+};
+
 function buildSystemPrompt(
   topic: string,
   duration: number,
@@ -1078,13 +1114,23 @@ function buildSystemPrompt(
   mergedRules?: MergedRules,
   hook?: HookDetails,
   angle?: string,
-  scriptPurpose?: string
+  scriptPurpose?: string,
+  voiceRegion?: string,
+  dialogueStyle?: string
 ): string {
   const promptCount = getPromptCount(duration);
   const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ";
   const characterTypeName = CHARACTER_TYPE_LABELS[characterType] || "Chuyên gia";
   const purposeName = SCRIPT_PURPOSE_LABELS[scriptPurpose || 'ai_video_veo3'] || "Video AI (VEO 3)";
   const effectivePurpose = scriptPurpose || 'ai_video_veo3';
+  
+  // Voice Region - default to northern if not specified
+  const effectiveVoiceRegion = voiceRegion || 'northern';
+  const voiceRegionInfo = VOICE_REGION_CONFIG[effectiveVoiceRegion] || VOICE_REGION_CONFIG['northern'];
+  
+  // Dialogue Style - default to monologue if not specified
+  const effectiveDialogueStyle = dialogueStyle || 'monologue';
+  const dialogueStyleInfo = DIALOGUE_STYLE_CONFIG[effectiveDialogueStyle] || DIALOGUE_STYLE_CONFIG['monologue'];
 
   // Build Brand Voice section if available
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : "";
@@ -1269,7 +1315,9 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PRO
 - Body language: THEO CHARACTER INSTRUCTIONS - mỗi prompt phải có
 
 ## 3. QUY ƯỚC GIỌNG NÓI
-- Giọng: miền Bắc
+- Giọng: ${voiceRegionInfo.label}
+- Đặc điểm: ${voiceRegionInfo.dialect_notes}
+- Phong cách hội thoại: ${dialogueStyleInfo.label} - ${dialogueStyleInfo.prompt_instruction}
 - Phong cách: Theo nhân vật ${characterTypeName}
 - Ngữ điệu: Nhấn mạnh từ khóa, nhịp nghỉ tự nhiên
 
@@ -1281,7 +1329,7 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PRO
 
 # ĐỊNH DẠNG CHUẨN MỖI PROMPT (${purposeName})
 
-${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount)}
+${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount, voiceRegionInfo.label)}
 
 # NGUYÊN TẮC TIMESTAMP
 - Tính timestamp dựa trên thời lượng ${duration} giây chia đều cho ${promptCount} prompt
@@ -1294,7 +1342,7 @@ ${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount)}
 "..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
 
 [TONE & DELIVERY]
-Giọng miền Bắc, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
+${voiceRegionInfo.label}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
 
 [AUDIO NOTES - For VEO 3]
 • Ambience: [âm thanh môi trường phù hợp bối cảnh]
@@ -1327,7 +1375,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, duration, video_type, character_type, script_purpose, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
+    const { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -1391,7 +1439,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose);
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style);
 
     // Define AI generation function
     const generateAIContent = async (): Promise<string> => {
