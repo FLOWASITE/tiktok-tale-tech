@@ -2,7 +2,7 @@ import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, STAT
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Trash2, Clock, User, Film, Wand2, MonitorPlay, Mic, Clapperboard, MapPin, MessageSquare, Calendar, RefreshCw, Package } from 'lucide-react';
+import { Eye, Trash2, Clock, User, Film, Wand2, MonitorPlay, Mic, Clapperboard, MapPin, MessageSquare, Calendar, RefreshCw, Package, Palette } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -58,16 +58,26 @@ const DIALOGUE_STYLE_SHORT: Record<DialogueStyle, string> = {
   narrative: 'Kể chuyện',
 };
 
+// Brand template type for display
+interface BrandTemplateInfo {
+  id: string;
+  name: string;
+  brand_name: string;
+  primary_color?: string;
+  logo_url?: string;
+}
+
 interface ScriptCardProps {
   script: Script;
   onView: (script: Script) => void;
   onDelete: (id: string) => void;
   onSchedule?: (script: Script) => void;
+  brandTemplate?: BrandTemplateInfo;
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
 }
 
-export function ScriptCard({ script, onView, onDelete, onSchedule, creatorProfile, isLoadingProfile }: ScriptCardProps) {
+export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile }: ScriptCardProps) {
   const purpose = script.script_purpose as ScriptPurpose;
   const PurposeIcon = PURPOSE_ICONS[purpose] || Wand2;
   const purposeConfig = SCRIPT_PURPOSE_CONFIG[purpose];
@@ -133,10 +143,36 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, creatorProfil
             {script.title}
           </h3>
 
-          {/* Topic */}
-          <p className="text-[10px] xs:text-xs text-muted-foreground line-clamp-1">
-            <span className="font-medium">Chủ đề:</span> {script.topic}
-          </p>
+          {/* Topic + Brand */}
+          <div className="flex items-center gap-2 text-[10px] xs:text-xs text-muted-foreground">
+            <span className="line-clamp-1 flex-1">
+              <span className="font-medium">Chủ đề:</span> {script.topic}
+            </span>
+            {brandTemplate && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span 
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium shrink-0"
+                    style={{ 
+                      backgroundColor: brandTemplate.primary_color ? `${brandTemplate.primary_color}20` : 'hsl(var(--muted))',
+                      color: brandTemplate.primary_color || 'hsl(var(--muted-foreground))'
+                    }}
+                  >
+                    {brandTemplate.logo_url ? (
+                      <img src={brandTemplate.logo_url} alt="" className="w-3 h-3 rounded object-cover" />
+                    ) : (
+                      <Palette className="w-2.5 h-2.5" />
+                    )}
+                    <span className="max-w-[60px] truncate">{brandTemplate.brand_name}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-medium">{brandTemplate.brand_name}</p>
+                  <p className="text-xs text-muted-foreground">Brand Template: {brandTemplate.name}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </CardHeader>
 
         <CardContent className="p-3 xs:p-4 pt-0 space-y-3">
