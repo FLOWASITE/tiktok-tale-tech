@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ScriptForm } from '@/components/ScriptForm';
 import { ScriptCard } from '@/components/ScriptCard';
@@ -15,9 +15,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { FileVideo, Sparkles, Plus, X, LayoutGrid, List, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FileVideo, Sparkles, Plus, X, LayoutGrid, List, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type ViewMode = 'grid' | 'list';
+
+const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
 const Index = () => {
   const navigate = useNavigate();
@@ -55,6 +58,10 @@ const Index = () => {
     duration: 'all',
   });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+
   const filteredScripts = useMemo(() => {
     return scripts.filter((script) => {
       if (filters.search) {
@@ -80,6 +87,33 @@ const Index = () => {
       return true;
     });
   }, [scripts, filters]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredScripts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedScripts = filteredScripts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Reset to page 1 if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   const handleViewScript = (script: Script) => {
     setSelectedScript(script);
@@ -212,7 +246,7 @@ const Index = () => {
           </div>
         ) : viewMode === 'list' ? (
           <ScriptListView
-            scripts={filteredScripts}
+            scripts={paginatedScripts}
             onView={handleViewScript}
             onDelete={deleteScript}
             selectedIds={selectedIds}
@@ -220,7 +254,7 @@ const Index = () => {
           />
         ) : (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
-            {filteredScripts.map((script, index) => (
+            {paginatedScripts.map((script, index) => (
               <div
                 key={script.id}
                 className="stagger-item"
@@ -236,6 +270,93 @@ const Index = () => {
                 />
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {!loading && filteredScripts.length > 0 && totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 border-t">
+            {/* Items per page selector */}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Hiển thị</span>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="w-[70px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option.toString()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-muted-foreground">/ trang</span>
+            </div>
+
+            {/* Page navigation */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-8 px-2 sm:px-3"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">Trước</span>
+              </Button>
+
+              {/* Page numbers */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((page) => {
+                    // Show first, last, current, and adjacent pages
+                    if (page === 1 || page === totalPages) return true;
+                    if (Math.abs(page - currentPage) <= 1) return true;
+                    return false;
+                  })
+                  .map((page, index, array) => {
+                    // Add ellipsis
+                    const prevPage = array[index - 1];
+                    const showEllipsis = prevPage && page - prevPage > 1;
+                    
+                    return (
+                      <div key={page} className="flex items-center gap-1">
+                        {showEllipsis && (
+                          <span className="px-1 text-muted-foreground">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(page)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {page}
+                        </Button>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-8 px-2 sm:px-3"
+              >
+                <span className="hidden sm:inline mr-1">Sau</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Page info */}
+            <div className="text-sm text-muted-foreground">
+              <span className="hidden sm:inline">Trang </span>
+              {currentPage}/{totalPages}
+              <span className="hidden sm:inline"> ({filteredScripts.length} kịch bản)</span>
+            </div>
           </div>
         )}
       </div>
