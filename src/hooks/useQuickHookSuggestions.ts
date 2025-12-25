@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface QuickHookSuggestion {
@@ -32,11 +32,29 @@ export function useQuickHookSuggestions({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cacheKey = `${topic}-${brandVoice?.brand_name || 'none'}`;
+  // Serialize brandVoice to stable string for dependency comparison
+  const brandVoiceKey = brandVoice 
+    ? JSON.stringify({
+        brand_name: brandVoice.brand_name || '',
+        tone_of_voice: brandVoice.tone_of_voice || [],
+        formality_level: brandVoice.formality_level || '',
+      })
+    : 'none';
+
+  const cacheKey = `${topic}-${brandVoiceKey}`;
+  
+  // Track pending request to prevent duplicates
+  const pendingRequestRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const generateSuggestions = useCallback(async () => {
     if (!topic.trim() || topic.length < 10) {
       setSuggestions([]);
+      return;
+    }
+
+    // Skip if same request is already pending
+    if (pendingRequestRef.current === cacheKey) {
       return;
     }
 
@@ -46,6 +64,13 @@ export function useQuickHookSuggestions({
       return;
     }
 
+    // Cancel previous request if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    pendingRequestRef.current = cacheKey;
+    abortControllerRef.current = new AbortController();
     setIsLoading(true);
     setError(null);
 
@@ -59,6 +84,11 @@ export function useQuickHookSuggestions({
         },
       });
 
+      // Check if request was aborted or superseded
+      if (pendingRequestRef.current !== cacheKey) {
+        return;
+      }
+
       if (fnError) throw fnError;
 
       const hooks = data?.hooks || [];
@@ -67,11 +97,18 @@ export function useQuickHookSuggestions({
       // Cache the results
       suggestionCache.set(cacheKey, hooks);
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       console.error('Error generating quick hook suggestions:', err);
       setError(err instanceof Error ? err.message : 'Không thể tạo gợi ý hook');
       setSuggestions([]);
     } finally {
-      setIsLoading(false);
+      if (pendingRequestRef.current === cacheKey) {
+        pendingRequestRef.current = null;
+        setIsLoading(false);
+      }
     }
   }, [topic, cacheKey, brandVoice]);
 
@@ -81,17 +118,24 @@ export function useQuickHookSuggestions({
       return;
     }
 
-    // Debounce the API call
+    // Increased debounce to 800ms to reduce API calls
     const timer = setTimeout(() => {
       generateSuggestions();
-    }, 500);
+    }, 800);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Abort pending request on cleanup
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [enabled, topic, generateSuggestions]);
 
   const refresh = useCallback(() => {
     // Clear cache for this key and regenerate
     suggestionCache.delete(cacheKey);
+    pendingRequestRef.current = null;
     generateSuggestions();
   }, [cacheKey, generateSuggestions]);
 
