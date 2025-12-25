@@ -5,6 +5,11 @@ export type TopicFormat = 'carousel' | 'script' | 'multichannel';
 export type EngagementLevel = 'high' | 'medium' | 'low';
 export type SortOption = 'overall' | 'brandFit' | 'trend' | 'engagement' | 'competition';
 
+// Content Matrix types
+export type TopicType = 'problem' | 'solution' | 'story' | 'data';
+export type FunnelStage = 'tofu' | 'mofu' | 'bofu';
+export type EmotionalTone = 'inspire' | 'educate' | 'entertain' | 'convince';
+
 export interface TopicScores {
   brandFit: number;      // 0-100: Phù hợp với brand positioning
   trend: number;         // 0-100: Mức độ trending hiện tại
@@ -22,6 +27,10 @@ export interface EnhancedTopicSuggestion {
   relatedKeywords: string[];
   bestTimeToPost?: string;
   scores?: TopicScores;
+  // Content Matrix fields
+  topicType?: TopicType;
+  funnelStage?: FunnelStage;
+  emotionalTone?: EmotionalTone;
 }
 
 export interface TopicHistoryItem {
@@ -101,6 +110,27 @@ export const FORMAT_LABELS: Record<TopicFormat, string> = {
   script: 'Video Script',
   multichannel: 'Đa kênh',
 };
+
+// Content Matrix labels
+export const TOPIC_TYPE_LABELS: { value: TopicType; label: string; icon: string; color: string }[] = [
+  { value: 'problem', label: 'Vấn đề', icon: 'AlertCircle', color: 'red' },
+  { value: 'solution', label: 'Giải pháp', icon: 'Lightbulb', color: 'emerald' },
+  { value: 'story', label: 'Câu chuyện', icon: 'BookOpen', color: 'purple' },
+  { value: 'data', label: 'Dữ liệu', icon: 'BarChart', color: 'blue' },
+];
+
+export const FUNNEL_STAGE_LABELS: { value: FunnelStage; label: string; description: string; color: string }[] = [
+  { value: 'tofu', label: 'TOFU', description: 'Nhận diện (Top of Funnel)', color: 'sky' },
+  { value: 'mofu', label: 'MOFU', description: 'Cân nhắc (Middle of Funnel)', color: 'amber' },
+  { value: 'bofu', label: 'BOFU', description: 'Quyết định (Bottom of Funnel)', color: 'emerald' },
+];
+
+export const EMOTIONAL_TONE_LABELS: { value: EmotionalTone; label: string; emoji: string; color: string }[] = [
+  { value: 'inspire', label: 'Truyền cảm hứng', emoji: '✨', color: 'purple' },
+  { value: 'educate', label: 'Giáo dục', emoji: '📚', color: 'blue' },
+  { value: 'entertain', label: 'Giải trí', emoji: '🎉', color: 'orange' },
+  { value: 'convince', label: 'Thuyết phục', emoji: '💡', color: 'emerald' },
+];
 
 // Vietnamese seasonal events
 export const SEASONAL_EVENTS: SeasonalEvent[] = [
