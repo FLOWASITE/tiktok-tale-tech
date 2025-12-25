@@ -111,6 +111,8 @@ export interface Script {
   script_purpose: ScriptPurpose;
   content: string;
   status: ContentStatus;
+  voice_region?: VoiceRegion;
+  dialogue_style?: DialogueStyle;
   user_id: string | null;
   organization_id?: string | null;
   industry_template_id?: string | null;
