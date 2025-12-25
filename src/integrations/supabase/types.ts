@@ -1538,6 +1538,7 @@ export type Database = {
           industry_template_id: string | null
           industry_template_version: string | null
           organization_id: string | null
+          script_purpose: string
           status: string | null
           title: string
           topic: string
@@ -1554,6 +1555,7 @@ export type Database = {
           industry_template_id?: string | null
           industry_template_version?: string | null
           organization_id?: string | null
+          script_purpose?: string
           status?: string | null
           title: string
           topic: string
@@ -1570,6 +1572,7 @@ export type Database = {
           industry_template_id?: string | null
           industry_template_version?: string | null
           organization_id?: string | null
+          script_purpose?: string
           status?: string | null
           title?: string
           topic?: string

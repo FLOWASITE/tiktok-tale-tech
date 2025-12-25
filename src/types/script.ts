@@ -1,4 +1,46 @@
 // ============================================
+// SCRIPT PURPOSE - Multi-format output
+// ============================================
+export type ScriptPurpose = 
+  | 'ai_video_veo3'     // Video AI với VEO 3
+  | 'ai_video_minimax'  // Video AI với Minimax/Hailuo
+  | 'teleprompter'      // Quay người thật (Teleprompter)
+  | 'voiceover'         // Voice-Over / TTS
+  | 'production';       // Production Script cho team
+
+export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, { 
+  label: string; 
+  description: string; 
+  outputHint: string;
+}> = {
+  ai_video_veo3: {
+    label: 'Video AI (VEO 3)',
+    description: 'Tạo video bằng VEO 3 - có full visual direction, camera, lighting',
+    outputHint: 'Visual Direction + Character Action + Dialogue + Audio Notes',
+  },
+  ai_video_minimax: {
+    label: 'Video AI (Minimax/Hailuo)',
+    description: 'Tạo video bằng Minimax - format ngắn gọn, camera motion syntax',
+    outputHint: 'Scene description + Camera motion + Voice',
+  },
+  teleprompter: {
+    label: 'Quay người thật (Teleprompter)',
+    description: 'Script cho quay video thật - dialogue + cue cards, không cần visual AI',
+    outputHint: 'Dialogue + Cue cards + Emphasis markers',
+  },
+  voiceover: {
+    label: 'Voice-Over / TTS',
+    description: 'Script thu âm - clean dialogue + hướng dẫn tone',
+    outputHint: 'Clean dialogue + Tone guidance + Pause markers',
+  },
+  production: {
+    label: 'Production Script',
+    description: 'Full script cho team sản xuất - có shot list, storyboard notes',
+    outputHint: 'Camera setup + Lighting + Audio + Dialogue + Editor notes',
+  },
+};
+
+// ============================================
 // VIDEO TYPES - Based on global short-form video best practices
 // ============================================
 export type VideoType = 
@@ -54,9 +96,11 @@ export interface Script {
   duration: Duration;
   video_type: VideoType;
   character_type: CharacterType;
+  script_purpose: ScriptPurpose;
   content: string;
   status: ContentStatus;
   user_id: string | null;
+  organization_id?: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
   created_at: string;
@@ -98,6 +142,7 @@ export interface ScriptFormData {
   duration: Duration;
   video_type: VideoType;
   character_type: CharacterType;
+  script_purpose: ScriptPurpose;
   brandTemplateId?: string;
   hook?: HookDetails;
   angle?: TopicAngle;
