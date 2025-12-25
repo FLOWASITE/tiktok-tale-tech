@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   Sparkles, TrendingUp, Leaf, Columns, History, RefreshCw,
-  Filter, Search, ChevronDown, Lightbulb, X, ArrowUpDown, Trophy
+  Filter, Search, ChevronDown, Lightbulb, X, ArrowUpDown, Trophy,
+  Calendar, Zap, Target, BarChart3, Gift
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/toggle-group';
 import { ContentGoal } from '@/types/multichannel';
 import {
   EnhancedTopicSuggestion,
@@ -86,6 +91,23 @@ const CONTENT_PILLARS = [
   { value: 'behind-scenes', label: 'Hậu trường' },
   { value: 'promotional', label: 'Khuyến mãi' },
 ];
+
+// Category filter chips with icons
+const CATEGORY_FILTERS = [
+  { value: 'all', label: 'Tất cả', icon: Sparkles },
+  { value: 'evergreen', label: 'Evergreen', icon: Leaf },
+  { value: 'trending', label: 'Trending', icon: TrendingUp },
+  { value: 'seasonal', label: 'Seasonal', icon: Calendar },
+  { value: 'reactive', label: 'Reactive', icon: Zap },
+] as const;
+
+// Score dimension quick filters
+const SCORE_DIMENSIONS = [
+  { key: 'overall', label: 'Tổng', icon: Trophy },
+  { key: 'brandFit', label: 'Brand', icon: Target },
+  { key: 'trend', label: 'Trend', icon: TrendingUp },
+  { key: 'competition', label: 'Cạnh tranh', icon: BarChart3 },
+] as const;
 
 export function TopicDiscoveryPanel({
   brandTemplateId,
@@ -354,48 +376,103 @@ export function TopicDiscoveryPanel({
             </Button>
           </div>
 
-          {/* Expanded Filters */}
+          {/* Expanded Filters - Enhanced UI */}
           {showFilters && (
-            <div className="space-y-3 p-3 rounded-lg bg-muted/30 animate-fade-in">
-              {/* Sort and Score Filter Row */}
-              <div className="flex gap-2 items-center">
-                <div className="flex items-center gap-2 flex-1">
-                  <ArrowUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Sắp xếp" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SORT_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value} className="text-xs">
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="space-y-4 p-4 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/50 animate-fade-in">
+              {/* Category Filter Chips */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                  Loại chủ đề
+                </label>
+                <ToggleGroup 
+                  type="single" 
+                  value={selectedCategory} 
+                  onValueChange={(v) => v && setSelectedCategory(v as TopicCategory | 'all')}
+                  className="justify-start flex-wrap gap-1.5"
+                >
+                  {CATEGORY_FILTERS.map(({ value, label, icon: Icon }) => (
+                    <ToggleGroupItem
+                      key={value}
+                      value={value}
+                      size="sm"
+                      className={cn(
+                        'h-7 px-2.5 text-xs gap-1.5 rounded-full border transition-all',
+                        selectedCategory === value 
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm' 
+                          : 'border-border/50 hover:border-primary/50 hover:bg-muted'
+                      )}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
 
-                <div className="flex items-center gap-2 flex-1">
-                  <Trophy className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1">
-                    <Slider
-                      value={[minScore]}
-                      onValueChange={([v]) => setMinScore(v)}
-                      min={0}
-                      max={100}
-                      step={10}
-                      className="w-full"
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground w-8">{minScore}+</span>
+              {/* Score Dimension Quick Sort */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                  Sắp xếp theo điểm
+                </label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {SCORE_DIMENSIONS.map(({ key, label, icon: Icon }) => (
+                    <Button
+                      key={key}
+                      variant={sortBy === key ? 'default' : 'outline'}
+                      size="sm"
+                      className={cn(
+                        'h-7 px-2.5 text-xs gap-1 rounded-full transition-all',
+                        sortBy === key && 'shadow-sm'
+                      )}
+                      onClick={() => setSortBy(key as SortOption)}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {label}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              {/* Other Filters Row */}
-              <div className="flex gap-2">
+              {/* Score Threshold with Visual Indicator */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                    Điểm tối thiểu
+                  </label>
+                  <Badge 
+                    variant={minScore >= 80 ? 'default' : minScore >= 60 ? 'secondary' : 'outline'}
+                    className={cn(
+                      'text-[10px] px-2 font-bold',
+                      minScore >= 80 && 'bg-emerald-500',
+                      minScore >= 60 && minScore < 80 && 'bg-amber-500'
+                    )}
+                  >
+                    {minScore}+
+                  </Badge>
+                </div>
+                <div className="relative pt-1">
+                  <Slider
+                    value={[minScore]}
+                    onValueChange={([v]) => setMinScore(v)}
+                    min={0}
+                    max={100}
+                    step={10}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[9px] text-muted-foreground">0</span>
+                    <span className="text-[9px] text-amber-500">60</span>
+                    <span className="text-[9px] text-emerald-500">80</span>
+                    <span className="text-[9px] text-muted-foreground">100</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Filters Row */}
+              <div className="flex gap-2 pt-2 border-t border-border/30">
                 <Select value={selectedPillar} onValueChange={setSelectedPillar}>
-                  <SelectTrigger className="h-8 text-xs flex-1">
-                    <SelectValue placeholder="Pillar" />
+                  <SelectTrigger className="h-8 text-xs flex-1 rounded-full">
+                    <SelectValue placeholder="Content Pillar" />
                   </SelectTrigger>
                   <SelectContent>
                     {CONTENT_PILLARS.map((pillar) => (
@@ -410,12 +487,12 @@ export function TopicDiscoveryPanel({
                   value={selectedEngagement}
                   onValueChange={(v) => setSelectedEngagement(v as EngagementLevel | 'all')}
                 >
-                  <SelectTrigger className="h-8 text-xs flex-1">
-                    <SelectValue placeholder="Tương tác" />
+                  <SelectTrigger className="h-8 text-xs flex-1 rounded-full">
+                    <SelectValue placeholder="Engagement" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all" className="text-xs">
-                      Tất cả
+                      Tất cả engagement
                     </SelectItem>
                     {ENGAGEMENT_LEVELS.map((level) => (
                       <SelectItem key={level.value} value={level.value} className="text-xs">
@@ -426,26 +503,45 @@ export function TopicDiscoveryPanel({
                 </Select>
 
                 {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={clearFilters}>
-                    <X className="w-3 h-3 mr-1" />
-                    Xóa
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive" 
+                          onClick={clearFilters}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Xóa tất cả bộ lọc</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - Enhanced with seasonal tab */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-5 h-9">
+          <TabsList className="w-full grid grid-cols-6 h-9">
             <TabsTrigger value="ai" className="text-xs gap-1">
               <Sparkles className="w-3 h-3" />
-              <span className="hidden sm:inline">Gợi ý AI</span>
+              <span className="hidden sm:inline">AI</span>
             </TabsTrigger>
             <TabsTrigger value="trending" className="text-xs gap-1">
               <TrendingUp className="w-3 h-3" />
-              <span className="hidden sm:inline">Trending</span>
+              <span className="hidden sm:inline">Trend</span>
+            </TabsTrigger>
+            <TabsTrigger value="seasonal" className="text-xs gap-1 relative">
+              <Gift className="w-3 h-3" />
+              <span className="hidden sm:inline">Sự kiện</span>
+              {/* Pulsing dot for upcoming events */}
+              {suggestions.some(t => t.relatedEvent) && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="evergreen" className="text-xs gap-1">
               <Leaf className="w-3 h-3" />
@@ -470,6 +566,66 @@ export function TopicDiscoveryPanel({
               {renderTopicGrid(
                 filteredSuggestions.filter((t) => t.category === 'trending' || t.category === 'reactive')
               )}
+            </TabsContent>
+
+            {/* Seasonal/Event Topics Tab */}
+            <TabsContent value="seasonal" className="m-0">
+              {(() => {
+                const seasonalTopics = filteredSuggestions.filter(
+                  (t) => t.category === 'seasonal' || t.relatedEvent
+                );
+                
+                if (seasonalTopics.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Gift className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Không có sự kiện nào trong 2 tuần tới</p>
+                      <p className="text-xs mt-1">Các gợi ý theo mùa sẽ xuất hiện khi có sự kiện đặc biệt</p>
+                    </div>
+                  );
+                }
+
+                // Group by event
+                const groupedByEvent = seasonalTopics.reduce((acc, topic) => {
+                  const eventKey = topic.relatedEvent || 'Khác';
+                  if (!acc[eventKey]) acc[eventKey] = [];
+                  acc[eventKey].push(topic);
+                  return acc;
+                }, {} as Record<string, EnhancedTopicSuggestion[]>);
+
+                return (
+                  <div className="space-y-4">
+                    {Object.entries(groupedByEvent).map(([event, topics]) => (
+                      <div key={event}>
+                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-amber-500" />
+                          <span className="text-amber-600 dark:text-amber-400">{event}</span>
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 border-amber-500/30">
+                            {topics.length} gợi ý
+                          </Badge>
+                          {topics[0]?.eventDate && (
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              📅 {topics[0].eventDate}
+                            </span>
+                          )}
+                        </h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {topics.map((topic, index) => (
+                            <TopicIdeaCard
+                              key={`${topic.topic}-${index}`}
+                              topic={topic}
+                              onSelect={handleSelectTopic}
+                              onSave={onSaveTopic}
+                              onSchedule={onScheduleTopic}
+                              disabled={disabled}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="evergreen" className="m-0">
