@@ -3,6 +3,7 @@ export { TopicDiscoveryPanel } from './TopicDiscoveryPanel';
 export { SeasonalTopicsSection } from './SeasonalTopicsSection';
 export { SimilarSuccessTopics } from './SimilarSuccessTopics';
 export { TopicPerformanceUpdater } from './TopicPerformanceUpdater';
+export { TopicCardSkeleton } from './TopicCardSkeleton';
 export { TopicSystemExplainer } from './TopicSystemExplainer';
 export { ContentCalendarTopicView } from './ContentCalendarTopicView';
 export { TopicHistoryTab } from './TopicHistoryTab';

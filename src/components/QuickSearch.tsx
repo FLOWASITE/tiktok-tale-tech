@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, FileText, Image, Palette, LayoutGrid, Calendar } from 'lucide-react';
+import { 
+  Search, FileText, Image, Palette, LayoutGrid, Calendar,
+  Lightbulb, Sparkles, Star, TrendingUp, ArrowRight, Command
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   CommandDialog,
   CommandEmpty,
@@ -9,11 +13,15 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
+  CommandShortcut,
 } from '@/components/ui/command';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
+import { cn } from '@/lib/utils';
 
 export function QuickSearch() {
   const [open, setOpen] = useState(false);
@@ -23,6 +31,7 @@ export function QuickSearch() {
   const { scripts } = useScripts();
   const { carousels } = useCarousels();
   const { templates: brandTemplates } = useBrandTemplates();
+  const { history, favorites, topPerformers, isLoading: topicsLoading } = useTopicHistory({ enabled: open });
 
   // Keyboard shortcut to open search
   useEffect(() => {
@@ -55,19 +64,33 @@ export function QuickSearch() {
       case 'calendar':
         navigate('/calendar');
         break;
+      case 'topics':
+        navigate('/topics');
+        break;
       default:
         break;
     }
+  };
+
+  const handleCreateFromTopic = (topic: string, goal: string = 'engagement') => {
+    setOpen(false);
+    navigate('/multichannel', { 
+      state: { 
+        prefillTopic: topic, 
+        prefillGoal: goal,
+        fromTopics: true 
+      } 
+    });
   };
 
   return (
     <>
       <Button
         variant="outline"
-        className="relative h-9 w-9 md:w-64 md:justify-start md:px-3 md:py-2"
+        className="relative h-9 w-9 md:w-64 md:justify-start md:px-3 md:py-2 group"
         onClick={() => setOpen(true)}
       >
-        <Search className="h-4 w-4 md:mr-2" />
+        <Search className="h-4 w-4 md:mr-2 transition-transform group-hover:scale-110" />
         <span className="hidden md:inline-flex text-muted-foreground">
           Tìm kiếm nhanh...
         </span>
@@ -77,46 +100,115 @@ export function QuickSearch() {
       </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Tìm kiếm nội dung, kịch bản, carousel, thương hiệu..." />
-        <CommandList>
-          <CommandEmpty>Không tìm thấy kết quả.</CommandEmpty>
+        <CommandInput placeholder="Tìm kiếm nội dung, topic, kịch bản..." />
+        <CommandList className="max-h-[60vh]">
+          <CommandEmpty>
+            <div className="py-6 text-center">
+              <Search className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
+              <p className="text-sm text-muted-foreground">Không tìm thấy kết quả</p>
+            </div>
+          </CommandEmpty>
           
           {/* Quick Navigation */}
           <CommandGroup heading="Điều hướng nhanh">
-            <CommandItem onSelect={() => handleSelect('multichannel')}>
-              <LayoutGrid className="mr-2 h-4 w-4" />
+            <CommandItem onSelect={() => handleSelect('topics')} className="gap-2">
+              <div className="p-1.5 rounded-md bg-primary/10">
+                <Lightbulb className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <span className="font-medium">Kho ý tưởng</span>
+              <Badge variant="secondary" className="ml-auto text-[10px]">Mới</Badge>
+            </CommandItem>
+            <CommandItem onSelect={() => handleSelect('multichannel')} className="gap-2">
+              <div className="p-1.5 rounded-md bg-indigo-500/10">
+                <LayoutGrid className="h-3.5 w-3.5 text-indigo-500" />
+              </div>
               <span>Nội dung đa kênh</span>
             </CommandItem>
-            <CommandItem onSelect={() => handleSelect('scripts')}>
-              <FileText className="mr-2 h-4 w-4" />
+            <CommandItem onSelect={() => handleSelect('scripts')} className="gap-2">
+              <div className="p-1.5 rounded-md bg-emerald-500/10">
+                <FileText className="h-3.5 w-3.5 text-emerald-500" />
+              </div>
               <span>Kịch bản Video</span>
             </CommandItem>
-            <CommandItem onSelect={() => handleSelect('carousel')}>
-              <Image className="mr-2 h-4 w-4" />
+            <CommandItem onSelect={() => handleSelect('carousel')} className="gap-2">
+              <div className="p-1.5 rounded-md bg-pink-500/10">
+                <Image className="h-3.5 w-3.5 text-pink-500" />
+              </div>
               <span>Carousel Prompt</span>
             </CommandItem>
-            <CommandItem onSelect={() => handleSelect('brands')}>
-              <Palette className="mr-2 h-4 w-4" />
+            <CommandItem onSelect={() => handleSelect('brands')} className="gap-2">
+              <div className="p-1.5 rounded-md bg-violet-500/10">
+                <Palette className="h-3.5 w-3.5 text-violet-500" />
+              </div>
               <span>Thương hiệu</span>
             </CommandItem>
-            <CommandItem onSelect={() => handleSelect('calendar')}>
-              <Calendar className="mr-2 h-4 w-4" />
+            <CommandItem onSelect={() => handleSelect('calendar')} className="gap-2">
+              <div className="p-1.5 rounded-md bg-amber-500/10">
+                <Calendar className="h-3.5 w-3.5 text-amber-500" />
+              </div>
               <span>Quản lý lịch đăng</span>
             </CommandItem>
           </CommandGroup>
 
+          <CommandSeparator />
+
+          {/* Favorite Topics */}
+          {favorites && favorites.length > 0 && (
+            <CommandGroup heading="Topic yêu thích">
+              {favorites.slice(0, 3).map((topic) => (
+                <CommandItem
+                  key={`fav-${topic.id}`}
+                  onSelect={() => handleCreateFromTopic(topic.topic, topic.contentGoal)}
+                  className="gap-2"
+                >
+                  <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                  <div className="flex-1 min-w-0">
+                    <span className="truncate">{topic.topic}</span>
+                  </div>
+                  <CommandShortcut>
+                    <ArrowRight className="w-3 h-3" />
+                  </CommandShortcut>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          {/* Top Performing Topics */}
+          {topPerformers && topPerformers.length > 0 && (
+            <CommandGroup heading="Topic hiệu suất cao">
+              {topPerformers.slice(0, 3).map((topic) => (
+                <CommandItem
+                  key={`top-${topic.id}`}
+                  onSelect={() => handleCreateFromTopic(topic.topic, topic.contentGoal)}
+                  className="gap-2"
+                >
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  <div className="flex-1 min-w-0">
+                    <span className="truncate">{topic.topic}</span>
+                  </div>
+                  <Badge className="bg-emerald-500 text-white text-[10px]">
+                    {topic.performanceScore}
+                  </Badge>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          <CommandSeparator />
+
           {/* Multi-channel Contents */}
           {contents && contents.length > 0 && (
             <CommandGroup heading="Nội dung đa kênh">
-              {contents.slice(0, 5).map((content) => (
+              {contents.slice(0, 4).map((content) => (
                 <CommandItem
                   key={content.id}
                   onSelect={() => handleSelect('multichannel')}
+                  className="gap-2"
                 >
-                  <LayoutGrid className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span>{content.title}</span>
-                    <span className="text-xs text-muted-foreground">{content.topic}</span>
+                  <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="truncate">{content.title}</span>
+                    <span className="text-xs text-muted-foreground truncate">{content.topic}</span>
                   </div>
                 </CommandItem>
               ))}
@@ -126,15 +218,16 @@ export function QuickSearch() {
           {/* Scripts */}
           {scripts && scripts.length > 0 && (
             <CommandGroup heading="Kịch bản">
-              {scripts.slice(0, 5).map((script) => (
+              {scripts.slice(0, 4).map((script) => (
                 <CommandItem
                   key={script.id}
                   onSelect={() => handleSelect('scripts')}
+                  className="gap-2"
                 >
-                  <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span>{script.title}</span>
-                    <span className="text-xs text-muted-foreground">{script.topic}</span>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="truncate">{script.title}</span>
+                    <span className="text-xs text-muted-foreground truncate">{script.topic}</span>
                   </div>
                 </CommandItem>
               ))}
@@ -144,15 +237,16 @@ export function QuickSearch() {
           {/* Carousels */}
           {carousels && carousels.length > 0 && (
             <CommandGroup heading="Carousel">
-              {carousels.slice(0, 5).map((carousel) => (
+              {carousels.slice(0, 4).map((carousel) => (
                 <CommandItem
                   key={carousel.id}
                   onSelect={() => handleSelect('carousel')}
+                  className="gap-2"
                 >
-                  <Image className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span>{carousel.title}</span>
-                    <span className="text-xs text-muted-foreground">{carousel.topic}</span>
+                  <Image className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="truncate">{carousel.title}</span>
+                    <span className="text-xs text-muted-foreground truncate">{carousel.topic}</span>
                   </div>
                 </CommandItem>
               ))}
@@ -162,21 +256,44 @@ export function QuickSearch() {
           {/* Brands */}
           {brandTemplates && brandTemplates.length > 0 && (
             <CommandGroup heading="Thương hiệu">
-              {brandTemplates.slice(0, 5).map((brand) => (
+              {brandTemplates.slice(0, 4).map((brand) => (
                 <CommandItem
                   key={brand.id}
                   onSelect={() => handleSelect('brands')}
+                  className="gap-2"
                 >
-                  <Palette className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span>{brand.brand_name}</span>
-                    <span className="text-xs text-muted-foreground">{brand.name}</span>
+                  <Palette className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="truncate">{brand.brand_name}</span>
+                    <span className="text-xs text-muted-foreground truncate">{brand.name}</span>
                   </div>
                 </CommandItem>
               ))}
             </CommandGroup>
           )}
         </CommandList>
+
+        {/* Footer */}
+        <div className="border-t border-border px-3 py-2 flex items-center justify-between text-xs text-muted-foreground bg-muted/30">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1">
+              <kbd className="px-1 py-0.5 rounded bg-background border text-[10px]">↵</kbd>
+              chọn
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1 py-0.5 rounded bg-background border text-[10px]">↑↓</kbd>
+              di chuyển
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1 py-0.5 rounded bg-background border text-[10px]">esc</kbd>
+              đóng
+            </span>
+          </div>
+          <div className="flex items-center gap-1 opacity-60">
+            <Command className="w-3 h-3" />
+            <span>K</span>
+          </div>
+        </div>
       </CommandDialog>
     </>
   );
