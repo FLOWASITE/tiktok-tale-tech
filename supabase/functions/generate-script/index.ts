@@ -1023,27 +1023,112 @@ NGUYÊN TẮC:
   // Build Character Type Instructions section
   const characterTypeInstructions = CHARACTER_TYPE_INSTRUCTIONS[characterType] || "";
 
+  // Build Self-Correction Checklist
+  const selfCorrectionChecklist = `
+# ✅ SELF-CORRECTION CHECKLIST (AI PHẢI TỰ KIỂM TRA TRƯỚC KHI XUẤT)
+
+⚠️ TRƯỚC KHI XUẤT KỊCH BẢN, AI PHẢI TỰ KIỂM TRA TẤT CẢ CÁC MỤC SAU:
+
+□ **HOOK ĐÚNG THỂ LOẠI?**
+  - Nếu là "expert_share" → Hook PHẢI có authority claim (kinh nghiệm, năm trong nghề, "tôi đã...")
+  - Nếu là "listicle" → Hook PHẢI có số lượng ("5 điều...", "Top 7...", "3 bí mật...")
+  - Nếu là "warning_mistake" → Hook PHẢI có cảnh báo urgent ("ĐỪNG...", "SAI LẦM...", "DỪNG LẠI...")
+  - Nếu là "tutorial_howto" → Hook PHẢI nêu kết quả sẽ đạt được
+  - Nếu là "myth_busting" → Hook PHẢI nêu myth phổ biến rồi phản bác
+
+□ **CẤU TRÚC ĐÚNG THỂ LOẠI "${videoTypeName}"?**
+  - Số lượng prompt có đúng ${promptCount}?
+  - Mỗi prompt có map với yêu cầu cấu trúc không? (PROMPT 1 = Hook, PROMPT 2-3 = theo cấu trúc thể loại)
+  - Không dùng cấu trúc của thể loại khác?
+
+□ **CÂU NÓI ĐẶC TRƯNG "${characterTypeName}" XUẤT HIỆN ĐỦ?**
+  - Có ít nhất 3-4 câu nói đặc trưng của nhân vật?
+  - Phân bố tự nhiên, không gượng ép?
+  - Xuyên suốt kịch bản, không chỉ ở đầu?
+
+□ **XƯNG HÔ NHẤT QUÁN?**
+  - Kiểm tra xưng hô trong TẤT CẢ các prompt
+  - KHÔNG thay đổi giữa "tôi/mình/bạn" 
+  - Phù hợp với CHARACTER INSTRUCTIONS
+
+□ **BODY LANGUAGE PHÙ HỢP?**
+  - Mỗi prompt có action phù hợp với nhân vật ${characterTypeName}?
+  - Theo đúng BODY LANGUAGE trong CHARACTER INSTRUCTIONS?
+  - Không có chuyển động đột ngột?
+
+□ **BRAND VOICE TUÂN THỦ?**
+  - Không dùng từ cấm?
+  - Tone phù hợp với định vị thương hiệu?
+  - Compliance rules được tuân thủ?
+
+⛔ NẾU BẤT KỲ MỤC NÀO KHÔNG ĐẠT, AI PHẢI SỬA LẠI TRƯỚC KHI XUẤT!
+`;
+
+  // Build Negative Examples
+  const negativeExamples = `
+# ⛔ NEGATIVE EXAMPLES - NHỮNG GÌ AI KHÔNG ĐƯỢC LÀM
+
+## SAI: Mix cấu trúc thể loại
+- ❌ Chọn "expert_share" nhưng dùng hook "5 bí mật..." → Đây là hook của listicle, KHÔNG PHẢI expert_share
+- ❌ Chọn "tutorial_howto" nhưng không có các bước rõ ràng (Bước 1, Bước 2...)
+- ❌ Chọn "myth_busting" nhưng không có phần myth vs reality
+- ❌ Chọn "warning_mistake" nhưng hook không có urgency/cảnh báo
+- ❌ Chọn "listicle" nhưng không đánh số thứ tự các tips
+
+## SAI: Không giữ nhất quán character
+- ❌ PROMPT 1 xưng "tôi", PROMPT 3 xưng "mình" → PHẢI nhất quán
+- ❌ Bắt đầu với giọng tự tin (the_virtuoso) nhưng kết thúc với giọng friendly (the_coach)
+- ❌ Câu nói đặc trưng chỉ xuất hiện ở PROMPT 1 rồi biến mất
+- ❌ Body language không phù hợp với character type
+
+## SAI: Hook không đúng
+- ❌ expert_share nhưng không có authority claim (không mention kinh nghiệm, năm trong nghề)
+- ❌ listicle nhưng hook không có số lượng cụ thể
+- ❌ warning_mistake nhưng hook không tạo urgency
+
+## ĐÚNG: Ví dụ đúng
+- ✅ expert_share: "Với 10 năm kinh nghiệm trong ngành thuế, tôi có thể khẳng định..."
+- ✅ listicle: "5 sai lầm nghiêm trọng nhất về thuế mà 90% hộ kinh doanh mắc phải..."
+- ✅ warning_mistake: "ĐỪNG mắc sai lầm này! Có thể khiến bạn bị phạt hàng chục triệu..."
+`;
+
+  // Build Priority Order section
+  const priorityOrder = `
+# ⚡ THỨ TỰ ƯU TIÊN (KHÔNG ĐƯỢC ĐẢO NGƯỢC)
+
+1. **VIDEO TYPE "${videoTypeName}"** → Quyết định CẤU TRÚC kịch bản - AI KHÔNG được dùng cấu trúc của thể loại khác
+2. **CHARACTER TYPE "${characterTypeName}"** → Quyết định XƯNG HÔ & GIỌNG ĐIỆU - Phải nhất quán 100% xuyên suốt
+3. **Brand Voice** → Điều chỉnh TONE - Không được override Video Type hoặc Character Type
+4. **Topic** → Là NỘI DUNG - Được adapt theo cấu trúc và giọng điệu đã chọn
+
+⚠️ NGUYÊN TẮC: Nếu có mâu thuẫn, ưu tiên theo thứ tự trên. Video Type LUÔN thắng về cấu trúc, Character Type LUÔN thắng về xưng hô.
+`;
+
   return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN & PROMPT VIDEO cho video ngắn TikTok (1–3 phút), phục vụ quy trình sản xuất: VEO 3 (HÌNH ẢNH) → Minimax (GIỌNG NÓI) → CapCut (DỰNG).
+
+${priorityOrder}
 
 # ⚡ QUAN TRỌNG NHẤT: VIDEO TYPE & CHARACTER TYPE
 
 ## 🎬 THỂ LOẠI VIDEO: ${videoTypeName}
 ${videoTypeInstructions}
 
-**⚠️ BẮT BUỘC:**
+**⚠️ BẮT BUỘC CHO THỂ LOẠI NÀY:**
 - Cấu trúc kịch bản PHẢI tuân theo CẤU TRÚC BẮT BUỘC của thể loại "${videoTypeName}" ở trên
-- Hook style PHẢI theo mẫu của thể loại này
+- Hook style PHẢI theo HOOK STYLE MẪU của thể loại này - KHÔNG ĐƯỢC dùng hook style của thể loại khác
 - Tone & Style PHẢI phù hợp với đặc trưng thể loại
-- KHÔNG được dùng cấu trúc của thể loại khác
+- KHÔNG được dùng cấu trúc hoặc hook của thể loại khác
 
 ## 🎭 NHÂN VẬT: ${characterTypeName}
 ${characterTypeInstructions}
 
-**⚠️ BẮT BUỘC:**
+**⚠️ BẮT BUỘC CHO NHÂN VẬT NÀY:**
 - Mọi lời thoại PHẢI dùng xưng hô và ngôn ngữ của nhân vật "${characterTypeName}"
-- Giọng điệu PHẢI nhất quán theo mô tả nhân vật
-- Câu nói đặc trưng PHẢI xuất hiện tự nhiên trong kịch bản
-- Body language trong mỗi prompt PHẢI phù hợp với character type
+- Giọng điệu PHẢI nhất quán theo mô tả nhân vật - KHÔNG thay đổi giữa các prompt
+- Câu nói đặc trưng PHẢI xuất hiện TỰ NHIÊN trong kịch bản (ít nhất 3-4 lần, phân bố đều)
+- Body language trong MỖI prompt PHẢI phù hợp với character type
+
+${negativeExamples}
 
 ${brandVoiceSection}
 
@@ -1058,7 +1143,7 @@ ${hookSection}
 - Nhân vật: ${characterTypeName} ⬅️ XƯNG HÔ VÀ GIỌNG ĐIỆU THEO NHÂN VẬT NÀY
 - Số lượng prompt cần tạo: ${promptCount} prompt
 ${angle ? `- Góc tiếp cận: ${TOPIC_ANGLE_LABELS[angle] || angle}` : ''}
-${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PROMPT 1)' : '- Hook: AI tự tạo THEO HOOK STYLE MẪU của thể loại video'}
+${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PROMPT 1)' : `- Hook: AI tự tạo THEO HOOK STYLE MẪU của thể loại "${videoTypeName}" - KHÔNG ĐƯỢC dùng hook style của thể loại khác`}
 
 # NGUYÊN TẮC TẠO KỊCH BẢN
 
@@ -1070,10 +1155,10 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PRO
 - Mỗi prompt = 1 ý hoàn chỉnh
 
 ## 2. NHÂN VẬT (Theo ${characterTypeName})
-- Xưng hô: THEO CHARACTER INSTRUCTIONS
-- Giọng điệu: THEO CHARACTER INSTRUCTIONS
-- Câu nói đặc trưng: SỬ DỤNG TỰ NHIÊN
-- Body language: THEO CHARACTER INSTRUCTIONS
+- Xưng hô: THEO CHARACTER INSTRUCTIONS - NHẤT QUÁN 100%
+- Giọng điệu: THEO CHARACTER INSTRUCTIONS - KHÔNG thay đổi
+- Câu nói đặc trưng: SỬ DỤNG TỰ NHIÊN - ít nhất 3-4 lần
+- Body language: THEO CHARACTER INSTRUCTIONS - mỗi prompt phải có
 
 ## 3. QUY ƯỚC GIỌNG NÓI
 - Giọng: miền Bắc
@@ -1093,7 +1178,7 @@ PROMPT X:
 (Theo body language của ${characterTypeName}, kế thừa từ prompt trước)
 
 [2] Lời thoại (đọc nguyên văn):
-"…" (Xưng hô và giọng điệu theo ${characterTypeName})
+"…" (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
 
 [3] Giọng điệu:
 Giọng miền Bắc, theo đặc trưng ${characterTypeName}
@@ -1103,11 +1188,13 @@ Giọng miền Bắc, theo đặc trưng ${characterTypeName}
 - Không chào hỏi lại, không reset
 - Nghe như MỘT NGƯỜI NÓI LIÊN TỤC
 
+${selfCorrectionChecklist}
+
 # YÊU CẦU ĐẦU RA
 – Chỉ xuất danh sách PROMPT
 – Đúng định dạng
-– PHẢI theo cấu trúc của thể loại "${videoTypeName}"
-– PHẢI theo xưng hô và giọng điệu của "${characterTypeName}"
+– PHẢI theo cấu trúc của thể loại "${videoTypeName}" (đã kiểm tra qua Self-Correction Checklist)
+– PHẢI theo xưng hô và giọng điệu của "${characterTypeName}" (đã kiểm tra qua Self-Correction Checklist)
 – Không giải thích, không bình luận`;
 }
 
