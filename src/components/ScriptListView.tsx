@@ -63,18 +63,44 @@ type SortField = 'title' | 'created_at' | 'duration' | 'video_type';
 type SortDirection = 'asc' | 'desc';
 
 const videoTypeColors: Record<VideoType, string> = {
+  // Educational
   expert_share: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
-  analyze_explain: 'bg-purple-500/20 text-purple-700 dark:text-purple-400',
-  warning_mistake: 'bg-orange-500/20 text-orange-700 dark:text-orange-400',
+  tutorial_howto: 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-400',
+  analyze_explain: 'bg-violet-500/20 text-violet-700 dark:text-violet-400',
+  listicle: 'bg-teal-500/20 text-teal-700 dark:text-teal-400',
+  // Engagement
+  warning_mistake: 'bg-red-500/20 text-red-700 dark:text-red-400',
   quick_qa: 'bg-green-500/20 text-green-700 dark:text-green-400',
+  myth_busting: 'bg-orange-500/20 text-orange-700 dark:text-orange-400',
+  before_after: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
+  // Entertainment
+  story_pov: 'bg-purple-500/20 text-purple-700 dark:text-purple-400',
+  day_in_life: 'bg-amber-500/20 text-amber-700 dark:text-amber-400',
+  behind_scenes: 'bg-slate-500/20 text-slate-700 dark:text-slate-400',
+  reaction: 'bg-lime-500/20 text-lime-700 dark:text-lime-400',
+  // Commercial
+  product_review: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
+  case_study: 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400',
+  transformation: 'bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-400',
 };
 
 const characterTypeColors: Record<CharacterType, string> = {
-  male_expert: 'bg-sky-500/20 text-sky-700 dark:text-sky-400',
-  female_expert: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
-  consultant: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
-  instructor: 'bg-amber-500/20 text-amber-700 dark:text-amber-400',
-  ai_presenter: 'bg-violet-500/20 text-violet-700 dark:text-violet-400',
+  // Professional
+  the_virtuoso: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
+  the_bellwether: 'bg-purple-500/20 text-purple-700 dark:text-purple-400',
+  the_coach: 'bg-green-500/20 text-green-700 dark:text-green-400',
+  // Creative
+  the_performer: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
+  the_storyteller: 'bg-amber-500/20 text-amber-700 dark:text-amber-400',
+  the_iconoclast: 'bg-red-500/20 text-red-700 dark:text-red-400',
+  // Technical
+  the_technophile: 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-400',
+  the_analyst: 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400',
+  // Passionate
+  the_enthusiast: 'bg-rose-500/20 text-rose-700 dark:text-rose-400',
+  the_maker: 'bg-orange-500/20 text-orange-700 dark:text-orange-400',
+  // Neutral
+  neutral_presenter: 'bg-slate-500/20 text-slate-700 dark:text-slate-400',
 };
 
 interface ScriptListViewProps {

@@ -80,7 +80,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     topic: '',
     duration: 60,
     video_type: 'expert_share',
-    character_type: 'male_expert',
+    character_type: 'the_virtuoso',
     brandTemplateId: undefined,
     hook: undefined,
     angle: undefined,

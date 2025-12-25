@@ -23,10 +23,25 @@ interface UseScriptTopicSuggestionsOptions {
 
 // Map video types to content goals for the AI
 const VIDEO_TYPE_TO_GOAL: Record<VideoType, string> = {
+  // Educational
   expert_share: 'expertise',
+  tutorial_howto: 'education',
   analyze_explain: 'education', 
+  listicle: 'education',
+  // Engagement
   warning_mistake: 'education',
   quick_qa: 'engagement',
+  myth_busting: 'engagement',
+  before_after: 'engagement',
+  // Entertainment
+  story_pov: 'entertainment',
+  day_in_life: 'entertainment',
+  behind_scenes: 'entertainment',
+  reaction: 'entertainment',
+  // Commercial
+  product_review: 'sales',
+  case_study: 'sales',
+  transformation: 'sales',
 };
 
 // Default scores for fallback suggestions
@@ -37,131 +52,77 @@ const DEFAULT_SCORES: TopicScores = {
   engagement: 65,
 };
 
+// Generate default suggestions for each video type
+const createDefaultSuggestion = (topic: string, category: string, reasoning: string, keywords: string[]): EnhancedTopicSuggestion => ({
+  topic,
+  category: category as any,
+  formats: ['script'],
+  estimatedEngagement: 'high' as const,
+  reasoning,
+  relatedKeywords: keywords,
+  scores: DEFAULT_SCORES,
+});
+
 const DEFAULT_SUGGESTIONS: Record<VideoType, EnhancedTopicSuggestion[]> = {
   expert_share: [
-    {
-      topic: '5 bí quyết thành công mà chuyên gia không tiết lộ',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Nội dung "insider secrets" luôn thu hút sự tò mò của người xem',
-      relatedKeywords: ['bí quyết', 'thành công', 'chuyên gia'],
-      scores: { brandFit: 70, trend: 55, competition: 60, engagement: 80 },
-    },
-    {
-      topic: 'Xu hướng mới nhất trong ngành năm 2024',
-      category: 'trending',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Nội dung cập nhật xu hướng luôn được quan tâm đầu năm',
-      relatedKeywords: ['xu hướng', '2024', 'mới nhất'],
-      scores: { brandFit: 65, trend: 85, competition: 40, engagement: 75 },
-    },
-    {
-      topic: 'Case study: Từ thất bại đến thành công',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Câu chuyện thực tế tạo sự đồng cảm và tin tưởng',
-      relatedKeywords: ['case study', 'thất bại', 'thành công'],
-      scores: { brandFit: 75, trend: 50, competition: 65, engagement: 85 },
-    },
-    {
-      topic: 'Kinh nghiệm 10 năm gói gọn trong 60 giây',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'medium',
-      reasoning: 'Format ngắn gọn, dễ tiếp thu, phù hợp video ngắn',
-      relatedKeywords: ['kinh nghiệm', 'tips', 'nhanh'],
-      scores: { brandFit: 60, trend: 60, competition: 55, engagement: 70 },
-    },
+    createDefaultSuggestion('5 bí quyết thành công mà chuyên gia không tiết lộ', 'evergreen', 'Nội dung insider secrets thu hút sự tò mò', ['bí quyết', 'thành công']),
+    createDefaultSuggestion('Kinh nghiệm 10 năm gói gọn trong 60 giây', 'evergreen', 'Format ngắn gọn dễ tiếp thu', ['kinh nghiệm', 'tips']),
+  ],
+  tutorial_howto: [
+    createDefaultSuggestion('Hướng dẫn từ A-Z cho người mới bắt đầu', 'evergreen', 'Tutorial step-by-step dễ follow', ['hướng dẫn', 'tutorial']),
+    createDefaultSuggestion('Cách làm nhanh trong 5 phút', 'evergreen', 'Quick tutorial tiết kiệm thời gian', ['nhanh', 'dễ']),
   ],
   analyze_explain: [
-    {
-      topic: 'Giải thích đơn giản: Cách hoạt động của...',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'medium',
-      reasoning: 'Nội dung giáo dục dễ hiểu luôn có giá trị lâu dài',
-      relatedKeywords: ['giải thích', 'hướng dẫn', 'cách'],
-      scores: { brandFit: 70, trend: 45, competition: 70, engagement: 65 },
-    },
-    {
-      topic: 'So sánh A vs B: Đâu là lựa chọn tốt hơn?',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'So sánh giúp người xem quyết định, tạo tranh luận trong comments',
-      relatedKeywords: ['so sánh', 'review', 'nên chọn'],
-      scores: { brandFit: 65, trend: 60, competition: 50, engagement: 80 },
-    },
-    {
-      topic: 'Phân tích chi tiết: Ưu và nhược điểm',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'medium',
-      reasoning: 'Phân tích khách quan tạo uy tín cho người xem',
-      relatedKeywords: ['phân tích', 'ưu nhược', 'đánh giá'],
-      scores: { brandFit: 70, trend: 50, competition: 60, engagement: 70 },
-    },
+    createDefaultSuggestion('Giải thích đơn giản: Cách hoạt động của...', 'evergreen', 'Nội dung giáo dục dễ hiểu', ['giải thích', 'hướng dẫn']),
+    createDefaultSuggestion('So sánh A vs B: Đâu là lựa chọn tốt hơn?', 'evergreen', 'So sánh giúp người xem quyết định', ['so sánh', 'review']),
+  ],
+  listicle: [
+    createDefaultSuggestion('Top 5 điều bạn cần biết về...', 'evergreen', 'Format listicle dễ tiêu hóa', ['top', 'danh sách']),
+    createDefaultSuggestion('7 tips không ai nói cho bạn', 'evergreen', 'Exclusive tips tạo giá trị', ['tips', 'mẹo']),
   ],
   warning_mistake: [
-    {
-      topic: '5 sai lầm phổ biến người mới thường mắc phải',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Nội dung cảnh báo tạo FOMO, người xem muốn tránh sai lầm',
-      relatedKeywords: ['sai lầm', 'tránh', 'người mới'],
-      scores: { brandFit: 75, trend: 55, competition: 45, engagement: 90 },
-    },
-    {
-      topic: 'Đừng làm điều này nếu bạn muốn thành công',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Tiêu đề negative tạo sự tò mò, CTR cao',
-      relatedKeywords: ['đừng', 'cảnh báo', 'sai lầm'],
-      scores: { brandFit: 70, trend: 50, competition: 50, engagement: 85 },
-    },
-    {
-      topic: 'Tôi đã mất tiền triệu vì sai lầm này',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Câu chuyện cá nhân + số tiền cụ thể tạo impact mạnh',
-      relatedKeywords: ['mất tiền', 'sai lầm', 'bài học'],
-      scores: { brandFit: 65, trend: 60, competition: 55, engagement: 88 },
-    },
+    createDefaultSuggestion('5 sai lầm phổ biến người mới thường mắc phải', 'evergreen', 'Nội dung cảnh báo tạo FOMO', ['sai lầm', 'tránh']),
+    createDefaultSuggestion('Đừng làm điều này nếu bạn muốn thành công', 'evergreen', 'Tiêu đề negative tạo CTR cao', ['đừng', 'cảnh báo']),
   ],
   quick_qa: [
-    {
-      topic: 'Trả lời câu hỏi hay nhất của followers',
-      category: 'reactive',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Tương tác trực tiếp với khán giả tạo gắn kết cộng đồng',
-      relatedKeywords: ['Q&A', 'hỏi đáp', 'followers'],
-      scores: { brandFit: 80, trend: 65, competition: 70, engagement: 85 },
-    },
-    {
-      topic: 'FAQ: Những thắc mắc phổ biến nhất',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'medium',
-      reasoning: 'Giải đáp thắc mắc giúp tiết kiệm thời gian support',
-      relatedKeywords: ['FAQ', 'câu hỏi', 'thắc mắc'],
-      scores: { brandFit: 75, trend: 45, competition: 65, engagement: 70 },
-    },
-    {
-      topic: 'Đúng hay sai? Giải đáp hiểu lầm phổ biến',
-      category: 'evergreen',
-      formats: ['script'],
-      estimatedEngagement: 'high',
-      reasoning: 'Format quiz tạo tương tác, người xem muốn kiểm tra hiểu biết',
-      relatedKeywords: ['đúng sai', 'hiểu lầm', 'myth'],
-      scores: { brandFit: 70, trend: 55, competition: 60, engagement: 80 },
-    },
+    createDefaultSuggestion('Trả lời câu hỏi hay nhất của followers', 'reactive', 'Tương tác trực tiếp với khán giả', ['Q&A', 'hỏi đáp']),
+    createDefaultSuggestion('FAQ: Những thắc mắc phổ biến nhất', 'evergreen', 'Giải đáp thắc mắc phổ biến', ['FAQ', 'câu hỏi']),
+  ],
+  myth_busting: [
+    createDefaultSuggestion('Sự thật đằng sau quan niệm sai lầm...', 'evergreen', 'Debunk myths thu hút tranh luận', ['myth', 'sự thật']),
+    createDefaultSuggestion('Bạn đã bị lừa bởi điều này', 'evergreen', 'Shock value tạo click', ['sai lầm', 'hiểu lầm']),
+  ],
+  before_after: [
+    createDefaultSuggestion('Sự thay đổi sau 30 ngày áp dụng...', 'evergreen', 'Before/after tạo visual impact', ['thay đổi', 'kết quả']),
+    createDefaultSuggestion('Trước và sau khi biết điều này', 'evergreen', 'Transformation story cuốn hút', ['trước', 'sau']),
+  ],
+  story_pov: [
+    createDefaultSuggestion('Câu chuyện của tôi: Từ số 0 đến...', 'evergreen', 'Personal story tạo kết nối', ['câu chuyện', 'hành trình']),
+    createDefaultSuggestion('POV: Bạn là một người mới vào nghề', 'trending', 'POV format đang hot', ['POV', 'góc nhìn']),
+  ],
+  day_in_life: [
+    createDefaultSuggestion('Một ngày làm việc của tôi', 'evergreen', 'Day in life tạo tò mò', ['một ngày', 'routine']),
+    createDefaultSuggestion('Behind the scenes: Ngày thường của...', 'evergreen', 'Authentic content tạo trust', ['hậu trường', 'thực tế']),
+  ],
+  behind_scenes: [
+    createDefaultSuggestion('Hậu trường sản xuất video này', 'evergreen', 'BTS content tạo connection', ['hậu trường', 'making of']),
+    createDefaultSuggestion('Đây là cách chúng tôi làm việc', 'evergreen', 'Process reveal builds trust', ['quy trình', 'cách làm']),
+  ],
+  reaction: [
+    createDefaultSuggestion('Phản ứng của tôi về trend...', 'reactive', 'Reaction content timely', ['phản ứng', 'trend']),
+    createDefaultSuggestion('Ý kiến thật về điều đang viral', 'reactive', 'Hot take tạo engagement', ['ý kiến', 'viral']),
+  ],
+  product_review: [
+    createDefaultSuggestion('Review trung thực: Có nên mua không?', 'evergreen', 'Honest review builds trust', ['review', 'đánh giá']),
+    createDefaultSuggestion('Dùng thử và đánh giá sau 1 tháng', 'evergreen', 'Long-term review có giá trị', ['dùng thử', 'review']),
+  ],
+  case_study: [
+    createDefaultSuggestion('Case study: Từ thất bại đến thành công', 'evergreen', 'Real case tạo uy tín', ['case study', 'thực tế']),
+    createDefaultSuggestion('Phân tích chiến lược thành công của...', 'evergreen', 'Strategy breakdown educational', ['phân tích', 'chiến lược']),
+  ],
+  transformation: [
+    createDefaultSuggestion('Hành trình biến đổi sau 6 tháng', 'evergreen', 'Transformation inspiring', ['biến đổi', 'kết quả']),
+    createDefaultSuggestion('Kết quả thực tế sau khi áp dụng', 'evergreen', 'Results-driven content', ['kết quả', 'thành công']),
   ],
 };
 
