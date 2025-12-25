@@ -274,7 +274,7 @@ const Index = () => {
         )}
 
         {/* Pagination Controls */}
-        {!loading && filteredScripts.length > 0 && totalPages > 1 && (
+        {!loading && filteredScripts.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 border-t">
             {/* Items per page selector */}
             <div className="flex items-center gap-2 text-sm">
