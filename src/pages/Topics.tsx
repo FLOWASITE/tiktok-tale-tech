@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TopicIdeaCard } from '@/components/topic/TopicIdeaCard';
 import { TopicBankGrid } from '@/components/topic/TopicBankGrid';
 import { TopicAnalyticsDashboard } from '@/components/topic/TopicAnalyticsDashboard';
+import { SeasonalTopicsSection } from '@/components/topic/SeasonalTopicsSection';
+import { SimilarSuccessTopics } from '@/components/topic/SimilarSuccessTopics';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -252,74 +254,119 @@ const Topics = () => {
           </TabsList>
 
           {/* Discovery Tab */}
-          <TabsContent value="discovery" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge 
-                  variant={source === 'fallback' ? 'outline' : 'secondary'} 
-                  className={cn(
-                    'text-xs',
-                    source === 'ai' && 'bg-primary/10 text-primary',
-                    source === 'cache' && 'bg-amber-500/10 text-amber-600'
-                  )}
-                >
-                  {source === 'ai' ? '✨ Tạo mới bởi AI' : source === 'cache' ? '⚡ Từ cache' : '📋 Mặc định'}
-                </Badge>
-                {suggestionStats && (
-                  <Badge variant="outline" className="text-xs">
-                    Điểm TB: {suggestionStats.averageScore}
-                  </Badge>
-                )}
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={refresh}
-                disabled={suggestionsLoading}
-              >
-                <RefreshCw className={cn('w-4 h-4 mr-2', suggestionsLoading && 'animate-spin')} />
-                Làm mới
-              </Button>
-            </div>
+          <TabsContent value="discovery" className="space-y-6">
+            {/* Seasonal Topics Section */}
+            <SeasonalTopicsSection
+              onSelectTopic={(topic, goal) => {
+                navigate('/multichannel', { 
+                  state: { 
+                    prefillTopic: topic,
+                    prefillGoal: goal || selectedGoal,
+                    fromTopics: true 
+                  } 
+                });
+              }}
+              onScheduleTopic={(topic, eventDate) => {
+                navigate('/calendar', { 
+                  state: { 
+                    scheduleTopic: topic,
+                    scheduleGoal: selectedGoal,
+                    suggestedDate: eventDate.toISOString(),
+                  } 
+                });
+              }}
+            />
 
-            {suggestionsLoading ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Skeleton key={i} className="h-[280px] rounded-lg" />
-                ))}
-              </div>
-            ) : suggestions.length === 0 ? (
-              <Card className="gradient-card border-border/50">
-                <CardContent className="py-12 text-center">
-                  <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="font-medium mb-2">Chưa có gợi ý</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Chọn Brand Template để nhận gợi ý AI tùy chỉnh
-                  </p>
-                  <Button variant="outline" onClick={() => navigate('/brands')}>
-                    Quản lý Brand
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {suggestions.map((topic, index) => (
-                  <div
-                    key={`${topic.topic}-${index}`}
-                    className="animate-fade-in"
-                    style={{ animationDelay: `${index * 50}ms` }}
+            {/* Similar Success Topics */}
+            <SimilarSuccessTopics
+              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              contentGoal={selectedGoal}
+              onSelectTopic={(topic, goal) => {
+                navigate('/multichannel', { 
+                  state: { 
+                    prefillTopic: topic,
+                    prefillGoal: goal || selectedGoal,
+                    fromTopics: true 
+                  } 
+                });
+              }}
+              limit={5}
+            />
+
+            {/* AI Suggestions */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    Gợi ý AI
+                  </h3>
+                  <Badge 
+                    variant={source === 'fallback' ? 'outline' : 'secondary'} 
+                    className={cn(
+                      'text-xs',
+                      source === 'ai' && 'bg-primary/10 text-primary',
+                      source === 'cache' && 'bg-amber-500/10 text-amber-600'
+                    )}
                   >
-                    <TopicIdeaCard
-                      topic={topic}
-                      onSelect={handleSelectTopic}
-                      onSave={handleSaveTopic}
-                      onSchedule={handleScheduleTopic}
-                    />
-                  </div>
-                ))}
+                    {source === 'ai' ? '✨ Tạo mới' : source === 'cache' ? '⚡ Cache' : '📋 Mặc định'}
+                  </Badge>
+                  {suggestionStats && (
+                    <Badge variant="outline" className="text-xs">
+                      Điểm TB: {suggestionStats.averageScore}
+                    </Badge>
+                  )}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refresh}
+                  disabled={suggestionsLoading}
+                >
+                  <RefreshCw className={cn('w-4 h-4 mr-2', suggestionsLoading && 'animate-spin')} />
+                  Làm mới
+                </Button>
               </div>
-            )}
+
+              {suggestionsLoading ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <Skeleton key={i} className="h-[280px] rounded-lg" />
+                  ))}
+                </div>
+              ) : suggestions.length === 0 ? (
+                <Card className="gradient-card border-border/50">
+                  <CardContent className="py-12 text-center">
+                    <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                    <h3 className="font-medium mb-2">Chưa có gợi ý</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Chọn Brand Template để nhận gợi ý AI tùy chỉnh
+                    </p>
+                    <Button variant="outline" onClick={() => navigate('/brands')}>
+                      Quản lý Brand
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {suggestions.map((topic, index) => (
+                    <div
+                      key={`${topic.topic}-${index}`}
+                      className="animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <TopicIdeaCard
+                        topic={topic}
+                        onSelect={handleSelectTopic}
+                        onSave={handleSaveTopic}
+                        onSchedule={handleScheduleTopic}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Topic Bank Tab */}
