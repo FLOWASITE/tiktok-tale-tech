@@ -38,12 +38,14 @@ import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector
 import { CharacterTypeRecommendations } from '@/components/script/CharacterTypeRecommendations';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { HookStepContent } from '@/components/script/HookStepContent';
+import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
   HookDetails,
   TopicAngle,
   TOPIC_ANGLE_LABELS,
+  ScriptPurpose,
 } from '@/types/script';
 import { FRAMEWORK_LABELS, FRAMEWORK_ICONS } from '@/types/hook';
 
@@ -53,10 +55,11 @@ interface ScriptFormStepperProps {
 }
 
 const STEPS: Step[] = [
-  { id: 1, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
-  { id: 2, title: 'Hook', icon: <Zap className="w-4 h-4" />, optional: true },
-  { id: 3, title: 'Cấu hình', icon: <Settings className="w-4 h-4" /> },
-  { id: 4, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
+  { id: 1, title: 'Mục đích', icon: <Target className="w-4 h-4" /> },
+  { id: 2, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
+  { id: 3, title: 'Hook', icon: <Zap className="w-4 h-4" />, optional: true },
+  { id: 4, title: 'Cấu hình', icon: <Settings className="w-4 h-4" /> },
+  { id: 5, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
 ];
 
 const LOADING_PHASES = [
@@ -83,6 +86,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     duration: 60,
     video_type: 'expert_share',
     character_type: 'the_virtuoso',
+    script_purpose: 'ai_video_veo3',
     brandTemplateId: undefined,
     hook: undefined,
     angle: undefined,
@@ -99,17 +103,17 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     brand_positioning: selectedTemplate.brand_positioning || undefined,
   } : undefined;
 
-  // Quick hook suggestions
+  // Quick hook suggestions - now on step 3
   const {
     suggestions: quickHookSuggestions,
     isLoading: isLoadingHooks,
   } = useQuickHookSuggestions({
     topic: formData.topic,
     brandVoice: brandVoiceForHook,
-    enabled: currentStep === 2 && formData.topic.length >= 10,
+    enabled: currentStep === 3 && formData.topic.length >= 10,
   });
 
-  // AI Topic Suggestions
+  // AI Topic Suggestions - now on step 2
   const {
     suggestions: topicSuggestions,
     source: suggestionsSource,
@@ -123,10 +127,10 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     videoType: formData.video_type,
     brandTemplateId: formData.brandTemplateId,
     industry: selectedTemplate?.industry?.[0],
-    enabled: currentStep === 1,
+    enabled: currentStep === 2,
   });
 
-  // Topic Refinement
+  // Topic Refinement - now on step 2
   const {
     refinedTopics,
     isLoading: isLoadingRefinement,
@@ -135,7 +139,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     rawTopic: formData.topic,
     videoType: formData.video_type,
     brandTemplateId: formData.brandTemplateId,
-    enabled: currentStep === 1 && formData.topic.trim().length >= 10,
+    enabled: currentStep === 2 && formData.topic.trim().length >= 10,
   });
 
   // Loading phases
@@ -175,12 +179,14 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
-        return formData.topic.trim().length >= 10;
+        return true; // Purpose always has default
       case 2:
-        return true; // Hook is optional
+        return formData.topic.trim().length >= 10;
       case 3:
-        return true;
+        return true; // Hook is optional
       case 4:
+        return true;
+      case 5:
         return true;
       default:
         return false;
@@ -188,7 +194,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
   }, [currentStep, formData.topic]);
 
   const handleNext = () => {
-    if (currentStep < 4 && canProceed) {
+    if (currentStep < 5 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
@@ -217,14 +223,14 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
   };
 
   const handleSkipHook = () => {
-    setCompletedSteps(prev => [...prev.filter(s => s !== 2), 2]);
-    setCurrentStep(3);
+    setCompletedSteps(prev => [...prev.filter(s => s !== 3), 3]);
+    setCurrentStep(4);
   };
 
   const handleSubmit = async () => {
     if (!formData.topic.trim()) {
       toast.error('Vui lòng nhập chủ đề video');
-      setCurrentStep(1);
+      setCurrentStep(2);
       return;
     }
     await onSubmit(formData);
@@ -255,8 +261,28 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
 
       {/* Step Content */}
       <div className="min-h-[300px]">
-        {/* Step 1: Topic */}
+        {/* Step 1: Purpose */}
         {currentStep === 1 && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="space-y-3">
+              <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                Mục đích sử dụng kịch bản
+                <span className="text-primary">*</span>
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Chọn mục đích để AI tạo kịch bản với định dạng phù hợp
+              </p>
+              <ScriptPurposeSelector
+                value={formData.script_purpose}
+                onChange={(value) => setFormData((prev) => ({ ...prev, script_purpose: value }))}
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Topic */}
+        {currentStep === 2 && (
           <div className="space-y-4 animate-fade-in">
             {/* Brand Template Selection - First */}
             <div className="space-y-3">
@@ -410,15 +436,15 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
           </div>
         )}
 
-        {/* Step 2: Hook */}
-        {currentStep === 2 && (
+        {/* Step 3: Hook */}
+        {currentStep === 3 && (
           <div className="animate-fade-in">
             <HookStepContent
               topic={formData.topic}
               selectedHook={formData.hook}
               onSelectHook={(hook) => {
                 handleSelectHook(hook);
-                setCompletedSteps(prev => [...prev.filter(s => s !== 2), 2]);
+                setCompletedSteps(prev => [...prev.filter(s => s !== 3), 3]);
               }}
               onSkip={handleSkipHook}
               brandTemplateId={formData.brandTemplateId}
@@ -429,8 +455,8 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
           </div>
         )}
 
-        {/* Step 3: Configuration */}
-        {currentStep === 3 && (
+        {/* Step 4: Configuration */}
+        {currentStep === 4 && (
           <div className="space-y-6 animate-fade-in">
             {/* Selected Hook Display (if any) */}
             {formData.hook && (
@@ -514,8 +540,8 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
           </div>
         )}
 
-        {/* Step 4: Review & Generate */}
-        {currentStep === 4 && (
+        {/* Step 5: Review & Generate */}
+        {currentStep === 5 && (
           <div className="space-y-4 animate-fade-in">
             <div className="text-center py-4">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
@@ -528,6 +554,20 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
             {/* Summary */}
             <Card className="border-border">
               <CardContent className="p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Target className="w-4 h-4 text-primary mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Mục đích</p>
+                    <p className="text-sm font-medium">
+                      {formData.script_purpose === 'ai_video_veo3' && 'Video AI (VEO 3)'}
+                      {formData.script_purpose === 'ai_video_minimax' && 'Video AI (Minimax)'}
+                      {formData.script_purpose === 'teleprompter' && 'Quay người thật'}
+                      {formData.script_purpose === 'voiceover' && 'Voice-Over / TTS'}
+                      {formData.script_purpose === 'production' && 'Production Script'}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex items-start gap-3">
                   <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
@@ -592,7 +632,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
           Quay lại
         </Button>
 
-        {currentStep < 4 ? (
+        {currentStep < 5 ? (
           <Button
             type="button"
             onClick={handleNext}
@@ -628,7 +668,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
       </div>
 
       {/* Estimated time */}
-      {currentStep === 4 && !isLoading && (
+      {currentStep === 5 && !isLoading && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>

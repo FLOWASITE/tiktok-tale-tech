@@ -964,6 +964,111 @@ interface HookDetails {
   psychology_reason?: string;
 }
 
+// ============================================
+// SCRIPT PURPOSE - Multi-format output
+// ============================================
+const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
+  ai_video_veo3: 'Video AI (VEO 3)',
+  ai_video_minimax: 'Video AI (Minimax/Hailuo)',
+  teleprompter: 'Quay người thật (Teleprompter)',
+  voiceover: 'Voice-Over / TTS',
+  production: 'Production Script',
+};
+
+function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string): string {
+  switch(purpose) {
+    case 'ai_video_veo3':
+      return `PROMPT X [00:00-00:08]:
+
+[VISUAL DIRECTION]
+• Shot: Medium shot (35mm)
+• Camera: Static with subtle breathing movement
+• Lighting: Soft natural daylight from window
+• Background: Professional studio background, slightly blurred
+
+[CHARACTER ACTION]
+(Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
+
+[DIALOGUE - Verbatim for Minimax]
+"..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
+
+[TONE & DELIVERY]
+Giọng miền Bắc, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
+
+[AUDIO NOTES - For VEO 3]
+• Ambience: [âm thanh môi trường phù hợp bối cảnh]
+• SFX: None (hoặc hiệu ứng cụ thể nếu cần)
+• Music mood: [subtle/building/emotional tùy theo nội dung]`;
+
+    case 'ai_video_minimax':
+      return `CLIP X:
+
+[SCENE]
+Medium shot, professional studio. Person speaking ${characterTypeName === 'the_virtuoso' ? 'authoritatively' : 'confidently'}. Soft lighting.
+[Camera motion: Pan left/Zoom in slowly/Static - chọn phù hợp]
+
+[VOICE]
+"..." (Lời thoại theo ${characterTypeName})
+
+[DURATION]
+~${Math.round(duration / parseInt(promptCount.split('-')[0]))} giây`;
+
+    case 'teleprompter':
+      return `--- ĐOẠN X ---
+
+[CUE: Mô tả hành động/biểu cảm trước khi nói - theo ${characterTypeName}]
+
+"Lời thoại ở đây..." (Xưng hô theo ${characterTypeName})
+
+[NHẤN MẠNH: từ khóa quan trọng cần nhấn]
+[PAUSE: vị trí nghỉ nếu cần]
+
+---`;
+
+    case 'voiceover':
+      return `ĐOẠN X:
+
+"Lời thoại ở đây..." (Giọng điệu theo ${characterTypeName})
+
+HƯỚNG DẪN GIỌNG:
+- Tone: [Tự tin/Ấm áp/Nghiêm túc - theo ${characterTypeName}]
+- Tempo: [Vừa phải/Nhanh/Chậm]
+- Nhấn mạnh: [từ khóa cần nhấn]
+- Pause: [vị trí nghỉ]
+- Cảm xúc: [Mô tả cảm xúc trong giọng]`;
+
+    case 'production':
+      return `SCENE X / SHOT X [00:00-00:08]:
+
+CAMERA:
+- Shot: Medium (35mm)
+- Movement: Static → Slight push in
+- Framing: Subject center, rule of thirds
+
+LIGHTING:
+- Key: Soft box camera left
+- Fill: Bounce board right
+- Background: Separation light
+
+AUDIO:
+- Boom position: Above, slightly left
+- Ambience: Record 30s room tone
+
+ACTION:
+(Mô tả hành động của ${characterTypeName} - tư thế, chuyển động, biểu cảm)
+
+DIALOGUE:
+"..." (Theo ${characterTypeName})
+
+NOTES FOR EDITOR:
+- Cut point: [vị trí cắt phù hợp]
+- B-roll suggestion: [gợi ý B-roll nếu cần]`;
+
+    default:
+      return ''; // Default VEO 3
+  }
+}
+
 function buildSystemPrompt(
   topic: string,
   duration: number,
@@ -972,11 +1077,14 @@ function buildSystemPrompt(
   brandVoice?: BrandVoice,
   mergedRules?: MergedRules,
   hook?: HookDetails,
-  angle?: string
+  angle?: string,
+  scriptPurpose?: string
 ): string {
   const promptCount = getPromptCount(duration);
   const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ";
   const characterTypeName = CHARACTER_TYPE_LABELS[characterType] || "Chuyên gia";
+  const purposeName = SCRIPT_PURPOSE_LABELS[scriptPurpose || 'ai_video_veo3'] || "Video AI (VEO 3)";
+  const effectivePurpose = scriptPurpose || 'ai_video_veo3';
 
   // Build Brand Voice section if available
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : "";
@@ -1171,15 +1279,13 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PRO
 - Lighting: Soft natural lighting
 - Background: Phù hợp với thể loại ${videoTypeName}
 
-# ĐỊNH DẠNG CHUẨN MỖI PROMPT (VEO 3 OPTIMIZED)
+# ĐỊNH DẠNG CHUẨN MỖI PROMPT (${purposeName})
 
-PROMPT X [00:00-00:08]:
+${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount)}
 
-[VISUAL DIRECTION]
-• Shot: Medium shot (35mm)
-• Camera: Static with subtle breathing movement
-• Lighting: Soft natural daylight from window
-• Background: Professional studio background, slightly blurred
+# NGUYÊN TẮC TIMESTAMP
+- Tính timestamp dựa trên thời lượng ${duration} giây chia đều cho ${promptCount} prompt
+- Mỗi prompt ≈ ${Math.round(duration / (parseInt(promptCount.split('-')[0])) )} giây
 
 [CHARACTER ACTION]
 (Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
@@ -1221,7 +1327,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, duration, video_type, character_type, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
+    const { topic, duration, video_type, character_type, script_purpose, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -1245,6 +1351,7 @@ serve(async (req) => {
 
     console.log("Generating script for topic:", topic);
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
+    console.log("Script purpose:", script_purpose || 'ai_video_veo3');
     console.log("Hook provided:", hook ? "Yes" : "No", hook?.framework || "");
     console.log("Angle:", angle || "None");
     
@@ -1284,7 +1391,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle);
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose);
 
     // Define AI generation function
     const generateAIContent = async (): Promise<string> => {
@@ -1440,6 +1547,7 @@ serve(async (req) => {
         duration,
         video_type,
         character_type,
+        script_purpose: script_purpose || 'ai_video_veo3',
         content,
         user_id: userId,
         organization_id: organizationId,
