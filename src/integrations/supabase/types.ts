@@ -694,6 +694,99 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_personas: {
+        Row: {
+          age_range: string | null
+          avatar_emoji: string | null
+          brand_template_id: string | null
+          buying_triggers: string[] | null
+          created_at: string | null
+          desires: string[] | null
+          gender: string | null
+          id: string
+          income_level: string | null
+          information_sources: string[] | null
+          interests: string[] | null
+          is_primary: boolean | null
+          location: string | null
+          name: string
+          objections: string[] | null
+          occupation: string | null
+          organization_id: string | null
+          pain_points: string[] | null
+          preferred_channels: string[] | null
+          typical_funnel_stage: string | null
+          updated_at: string | null
+          user_id: string | null
+          values: string[] | null
+        }
+        Insert: {
+          age_range?: string | null
+          avatar_emoji?: string | null
+          brand_template_id?: string | null
+          buying_triggers?: string[] | null
+          created_at?: string | null
+          desires?: string[] | null
+          gender?: string | null
+          id?: string
+          income_level?: string | null
+          information_sources?: string[] | null
+          interests?: string[] | null
+          is_primary?: boolean | null
+          location?: string | null
+          name: string
+          objections?: string[] | null
+          occupation?: string | null
+          organization_id?: string | null
+          pain_points?: string[] | null
+          preferred_channels?: string[] | null
+          typical_funnel_stage?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          values?: string[] | null
+        }
+        Update: {
+          age_range?: string | null
+          avatar_emoji?: string | null
+          brand_template_id?: string | null
+          buying_triggers?: string[] | null
+          created_at?: string | null
+          desires?: string[] | null
+          gender?: string | null
+          id?: string
+          income_level?: string | null
+          information_sources?: string[] | null
+          interests?: string[] | null
+          is_primary?: boolean | null
+          location?: string | null
+          name?: string
+          objections?: string[] | null
+          occupation?: string | null
+          organization_id?: string | null
+          pain_points?: string[] | null
+          preferred_channels?: string[] | null
+          typical_funnel_stage?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          values?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_personas_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_personas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hook_templates: {
         Row: {
           compatible_formality: string[] | null

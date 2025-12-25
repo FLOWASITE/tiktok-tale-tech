@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { CustomerPersonaEditor } from '@/components/brand/CustomerPersonaEditor';
+import { CustomerPersona } from '@/types/customerPersona';
 
 // Brand Voice Constants
 export const BRAND_POSITIONING_OPTIONS = [
@@ -93,6 +95,8 @@ interface BrandVoiceSectionProps {
   onAllowEmojiChange: (value: boolean) => void;
   complianceRules: string[];
   onComplianceRulesChange: (value: string[]) => void;
+  customerPersonas?: CustomerPersona[];
+  onCustomerPersonasChange?: (value: CustomerPersona[]) => void;
 }
 
 // Section wrapper component
@@ -155,6 +159,8 @@ export function BrandVoiceSection({
   onAllowEmojiChange,
   complianceRules,
   onComplianceRulesChange,
+  customerPersonas = [],
+  onCustomerPersonasChange,
 }: BrandVoiceSectionProps) {
   // Check if any selected tone suggests emoji
   const shouldSuggestEmoji = useMemo(() => {
@@ -379,8 +385,17 @@ export function BrandVoiceSection({
         </div>
       </VoiceSection>
 
-      {/* Section 2: Tuỳ chỉnh nâng cao (Collapsed by default) */}
-      <VoiceSection 
+      {/* Section 2: Customer Personas */}
+      {onCustomerPersonasChange && (
+        <CustomerPersonaEditor
+          personas={customerPersonas}
+          onPersonasChange={onCustomerPersonasChange}
+          brandPositioning={brandPositioning}
+        />
+      )}
+
+      {/* Section 3: Tuỳ chỉnh nâng cao (Collapsed by default) */}
+      <VoiceSection
         icon={Settings2} 
         title="Tuỳ chỉnh nâng cao" 
         defaultOpen={advancedCount > 0}
