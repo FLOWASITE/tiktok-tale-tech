@@ -8,8 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Copy, 
-  Download, 
-  FileText, 
   Clock, 
   User, 
   Film, 
@@ -37,6 +35,7 @@ import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { ScriptAnalyzer } from '@/components/script/ScriptAnalyzer';
 import { TeleprompterMode } from '@/components/script/TeleprompterMode';
 import { StoryboardGenerator } from '@/components/script/StoryboardGenerator';
+import { ScriptExportMenu } from '@/components/script/ScriptExportMenu';
 import { cn } from '@/lib/utils';
 
 interface ScriptViewerProps {
@@ -137,49 +136,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
     }
   };
 
-  const handleExportTxt = () => {
-    const content = `${script.title}\n${'='.repeat(50)}\n\nChủ đề: ${script.topic}\nThời lượng: ${DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}\nThể loại: ${VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}\nNhân vật: ${CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}\n\n${'='.repeat(50)}\n\n${script.content}`;
-    
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${script.title.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_')}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success('Đã tải file TXT!');
-  };
-
-  const handleExportWord = () => {
-    const htmlContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head><meta charset='utf-8'><title>${script.title}</title></head>
-        <body>
-          <h1>${script.title}</h1>
-          <hr/>
-          <p><strong>Chủ đề:</strong> ${script.topic}</p>
-          <p><strong>Thời lượng:</strong> ${DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}</p>
-          <p><strong>Thể loại:</strong> ${VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}</p>
-          <p><strong>Nhân vật:</strong> ${CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}</p>
-          <hr/>
-          <pre style="font-family: Arial; white-space: pre-wrap;">${script.content}</pre>
-        </body>
-      </html>
-    `;
-    
-    const blob = new Blob([htmlContent], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${script.title.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_')}.doc`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success('Đã tải file Word!');
-  };
+  // Export functions moved to ScriptExportMenu component
 
   return (
     <>
@@ -345,24 +302,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                       {copied ? <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" /> : <Copy className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />}
                       <span className="hidden xs:inline">{copied ? 'Đã copy' : 'Copy'}</span>
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportTxt}
-                      className="border-border hover:border-secondary hover:bg-secondary/10 h-7 xs:h-8 text-xs xs:text-sm"
-                    >
-                      <FileText className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />
-                      <span className="hidden xs:inline">TXT</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportWord}
-                      className="border-border hover:border-secondary hover:bg-secondary/10 h-7 xs:h-8 text-xs xs:text-sm"
-                    >
-                      <Download className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />
-                      <span className="hidden xs:inline">Word</span>
-                    </Button>
+                    <ScriptExportMenu script={script} />
                     {/* Mobile: AI Analyze button */}
                     <Button
                       variant="outline"

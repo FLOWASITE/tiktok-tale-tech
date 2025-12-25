@@ -1165,23 +1165,40 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PRO
 - Phong cách: Theo nhân vật ${characterTypeName}
 - Ngữ điệu: Nhấn mạnh từ khóa, nhịp nghỉ tự nhiên
 
-## 4. QUY ƯỚC CHUYỂN ĐỘNG (VEO 3)
-- Tư thế: Đứng/ngồi ổn định, nhìn camera
-- Chuyển động: Theo BODY LANGUAGE của nhân vật ${characterTypeName}
-- TUYỆT ĐỐI KHÔNG: Quay đầu đột ngột, thay đổi tư thế lớn
+## 4. QUY ƯỚC VISUAL (VEO 3 COMPATIBLE)
+- Shot mặc định: Medium shot (35mm)
+- Camera: Static with subtle breathing movement
+- Lighting: Soft natural lighting
+- Background: Phù hợp với thể loại ${videoTypeName}
 
-# ĐỊNH DẠNG CHUẨN MỖI PROMPT
+# ĐỊNH DẠNG CHUẨN MỖI PROMPT (VEO 3 OPTIMIZED)
 
-PROMPT X:
+PROMPT X [00:00-00:08]:
 
-[1] Chuyển động nhân vật:
-(Theo body language của ${characterTypeName}, kế thừa từ prompt trước)
+[VISUAL DIRECTION]
+• Shot: Medium shot (35mm)
+• Camera: Static with subtle breathing movement
+• Lighting: Soft natural daylight from window
+• Background: Professional studio background, slightly blurred
 
-[2] Lời thoại (đọc nguyên văn):
-"…" (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
+[CHARACTER ACTION]
+(Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
 
-[3] Giọng điệu:
-Giọng miền Bắc, theo đặc trưng ${characterTypeName}
+[DIALOGUE - Verbatim for Minimax]
+"..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
+
+[TONE & DELIVERY]
+Giọng miền Bắc, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
+
+[AUDIO NOTES - For VEO 3]
+• Ambience: [âm thanh môi trường phù hợp bối cảnh]
+• SFX: None (hoặc hiệu ứng cụ thể nếu cần)
+• Music mood: [subtle/building/emotional tùy theo nội dung]
+
+# NGUYÊN TẮC TIMESTAMP
+- Tính timestamp dựa trên thời lượng ${duration} giây chia đều cho ${promptCount} prompt
+- Mỗi prompt ≈ ${Math.round(duration / (parseInt(promptCount.split('-')[0])) )} giây
+- Format: [MM:SS-MM:SS]
 
 # NGUYÊN TẮC NỐI MẠCH
 - Prompt sau kế thừa từ prompt trước
@@ -1191,8 +1208,8 @@ Giọng miền Bắc, theo đặc trưng ${characterTypeName}
 ${selfCorrectionChecklist}
 
 # YÊU CẦU ĐẦU RA
-– Chỉ xuất danh sách PROMPT
-– Đúng định dạng
+– Chỉ xuất danh sách PROMPT theo định dạng VEO 3 ở trên
+– Mỗi PROMPT PHẢI có đầy đủ: timestamp, VISUAL DIRECTION, CHARACTER ACTION, DIALOGUE, TONE & DELIVERY, AUDIO NOTES
 – PHẢI theo cấu trúc của thể loại "${videoTypeName}" (đã kiểm tra qua Self-Correction Checklist)
 – PHẢI theo xưng hô và giọng điệu của "${characterTypeName}" (đã kiểm tra qua Self-Correction Checklist)
 – Không giải thích, không bình luận`;
