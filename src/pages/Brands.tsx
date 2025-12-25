@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useBrandAnalytics } from '@/hooks/useBrandAnalytics';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { SlidePanel } from '@/components/ui/slide-panel';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List, Wand2, CheckSquare } from 'lucide-react';
+import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List, Wand2, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
@@ -26,6 +26,8 @@ import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 type SortOption = 'name' | 'created_at' | 'is_default';
 type FilterScope = 'all' | 'personal' | 'organization';
 type ViewMode = 'grid' | 'list';
+
+const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
 // Type for form data without ownership fields
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
@@ -58,6 +60,10 @@ export default function Brands() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const handleCreate = () => {
     setEditingTemplate(null);
@@ -270,6 +276,33 @@ export default function Brands() {
       });
   }, [templates, searchQuery, filterScope, sortBy]);
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTemplates = filteredTemplates.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterScope, sortBy]);
+
+  // Reset to page 1 if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
+
   // Count templates by scope
   const personalCount = templates.filter(t => !!t.user_id && !t.organization_id).length;
   const orgCount = templates.filter(t => !!t.organization_id).length;
@@ -454,7 +487,7 @@ export default function Brands() {
             ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3' 
             : 'flex flex-col gap-3'
         )}>
-          {filteredTemplates.map((template) => (
+          {paginatedTemplates.map((template) => (
             <BrandCard
               key={template.id}
               template={template}
@@ -470,6 +503,91 @@ export default function Brands() {
               usageStats={getUsageForBrand(template.id)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!loading && filteredTemplates.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 border-t">
+          {/* Items per page selector */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Hiển thị</span>
+            <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+              <SelectTrigger className="w-[70px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option.toString()}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-muted-foreground">/ trang</span>
+          </div>
+
+          {/* Page navigation */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="h-8 px-2 sm:px-3"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">Trước</span>
+            </Button>
+
+            {/* Page numbers */}
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => {
+                  if (page === 1 || page === totalPages) return true;
+                  if (Math.abs(page - currentPage) <= 1) return true;
+                  return false;
+                })
+                .map((page, index, array) => {
+                  const prevPage = array[index - 1];
+                  const showEllipsis = prevPage && page - prevPage > 1;
+                  
+                  return (
+                    <div key={page} className="flex items-center gap-1">
+                      {showEllipsis && (
+                        <span className="px-1 text-muted-foreground">...</span>
+                      )}
+                      <Button
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(page)}
+                        className="h-8 w-8 p-0"
+                      >
+                        {page}
+                      </Button>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="h-8 px-2 sm:px-3"
+            >
+              <span className="hidden sm:inline mr-1">Sau</span>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Page info */}
+          <div className="text-sm text-muted-foreground">
+            <span className="hidden sm:inline">Trang </span>
+            {currentPage}/{totalPages}
+            <span className="hidden sm:inline"> ({filteredTemplates.length} brands)</span>
+          </div>
         </div>
       )}
 
