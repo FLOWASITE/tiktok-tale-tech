@@ -32,7 +32,7 @@ const CONTENT_GOALS: { value: ContentGoal; label: string }[] = [
 const Topics = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('discovery');
-  const [selectedBrandId, setSelectedBrandId] = useState<string>('');
+  const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
   const [selectedGoal, setSelectedGoal] = useState<ContentGoal>('engagement');
 
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
@@ -44,7 +44,7 @@ const Topics = () => {
     refresh,
     stats: suggestionStats
   } = useEnhancedTopicSuggestions({
-    brandTemplateId: selectedBrandId || undefined,
+    brandTemplateId: selectedBrandId === 'all' ? undefined : selectedBrandId,
     contentGoal: selectedGoal,
     enabled: activeTab === 'discovery',
   });
@@ -57,7 +57,7 @@ const Topics = () => {
     isLoading: historyLoading,
     saveTopic,
   } = useTopicHistory({
-    brandTemplateId: selectedBrandId || undefined,
+    brandTemplateId: selectedBrandId === 'all' ? undefined : selectedBrandId,
     contentGoal: selectedGoal,
     enabled: true,
   });
@@ -129,7 +129,7 @@ const Topics = () => {
                 <SelectValue placeholder="Chọn Brand" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tất cả Brand</SelectItem>
+                <SelectItem value="all">Tất cả Brand</SelectItem>
                 {brands.map((brand) => (
                   <SelectItem key={brand.id} value={brand.id}>
                     {brand.brand_name}
@@ -325,7 +325,7 @@ const Topics = () => {
           {/* Topic Bank Tab */}
           <TabsContent value="bank">
             <TopicBankGrid
-              brandTemplateId={selectedBrandId || undefined}
+              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
               contentGoal={selectedGoal}
               onSelectTopic={(topic) => {
                 navigate('/multichannel', { 
@@ -342,7 +342,7 @@ const Topics = () => {
           {/* Performance Tab */}
           <TabsContent value="performance">
             <TopicAnalyticsDashboard
-              brandTemplateId={selectedBrandId || undefined}
+              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
               contentGoal={selectedGoal}
             />
           </TabsContent>
