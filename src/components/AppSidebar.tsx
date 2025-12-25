@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2, User, Globe, Flag, FolderTree, BarChart3, GitBranch, Package } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, CalendarDays, ClipboardList, Building2, User, Globe, Flag, FolderTree, BarChart3, GitBranch, Package, Lightbulb } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -33,6 +33,7 @@ import {
 
 const menuItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Kho Ý Tưởng', url: '/topics', icon: Lightbulb },
   { title: 'Quản lý công việc', url: '/tasks', icon: ClipboardList },
   { title: 'Quản lý lịch đăng', url: '/calendar', icon: CalendarDays },
   { title: 'Nội dung đa kênh', url: '/multichannel', icon: Layers },
