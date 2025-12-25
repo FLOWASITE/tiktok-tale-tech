@@ -9,6 +9,17 @@ import {
   type MergedRules
 } from "../_shared/prompt-utils.ts";
 import { fetchLearningContext, logPromptAnalytics } from "../_shared/learning-context.ts";
+import {
+  buildContentMatrixSection,
+  buildDiversityCheckSection,
+  buildPersonaSection,
+  buildFrameworkSection,
+  buildEnhancedScoringGuidance,
+  type CustomerPersonaContext,
+  type TopicType,
+  type FunnelStage,
+  type EmotionalTone,
+} from "../_shared/marketing-frameworks.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -83,6 +94,23 @@ interface EnhancedTopicSuggestion {
   bestTimeToPost?: string;
   scores: TopicScores;
   estimatedEngagement: 'high' | 'medium' | 'low';
+  // Content Matrix fields
+  topicType: TopicType;
+  funnelStage: FunnelStage;
+  emotionalTone: EmotionalTone;
+}
+
+// Persona context for fetching
+interface PersonaData {
+  name: string;
+  occupation?: string;
+  pain_points?: string[];
+  desires?: string[];
+  objections?: string[];
+  buying_triggers?: string[];
+  preferred_channels?: string[];
+  typical_funnel_stage?: string;
+  is_primary?: boolean;
 }
 
 serve(async (req) => {
@@ -299,6 +327,10 @@ serve(async (req) => {
             engagement: Math.min(100, Math.max(0, item.scores?.engagement || 50)),
           },
           estimatedEngagement: item.estimatedEngagement || 'medium',
+          // Content Matrix fields
+          topicType: item.topicType || 'solution',
+          funnelStage: item.funnelStage || 'tofu',
+          emotionalTone: item.emotionalTone || 'educate',
         }));
       }
     } catch (parseError) {
@@ -601,6 +633,10 @@ ${industryContext.brandVoice?.tone?.length ? `- Industry tone baseline: ${indust
   // Build Self-Correction rules
   const selfCorrectionSection = buildSelfCorrectionRules('topic-suggestions');
 
+  // Build Content Matrix section
+  const contentMatrixSection = buildContentMatrixSection();
+  const diversityCheckSection = buildDiversityCheckSection();
+
   const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm trong content marketing tại Việt Nam.
 
 Nhiệm vụ: Gợi ý các chủ đề content có chiến lược, phù hợp với brand và mục tiêu kinh doanh.
@@ -609,10 +645,12 @@ ${pillarsSection}
 ${industrySection}
 ${constraintsSection}
 ${seasonalityHint}
+${contentMatrixSection}
 ${cotSection}
 ${learningSection}
 ${fewShotSection}
 ${selfCorrectionSection}
+${diversityCheckSection}
 
 ## OUTPUT FORMAT:
 Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
@@ -631,7 +669,10 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
       "competition": 0-100,
       "engagement": 0-100
     },
-    "estimatedEngagement": "high" | "medium" | "low"
+    "estimatedEngagement": "high" | "medium" | "low",
+    "topicType": "problem" | "solution" | "story" | "data",
+    "funnelStage": "tofu" | "mofu" | "bofu",
+    "emotionalTone": "inspire" | "educate" | "entertain" | "convince"
   }
 ]
 
@@ -641,6 +682,11 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
 - **competition (0-100)**: Đánh giá độ cạnh tranh (điểm CAO = ÍT cạnh tranh = TỐT). 90+ = góc nhìn độc đáo, 70-89 = khác biệt, <70 = nhiều đối thủ.
 - **engagement (0-100)**: Tiềm năng tương tác dựa trên hook, format, sharability. 90+ = viral potential, 70-89 = tương tác cao, <70 = trung bình.
 
+## STRATEGIC BALANCE REQUIREMENTS:
+- **Funnel Balance**: ~40% TOFU, ~35% MOFU, ~25% BOFU
+- **Topic Types**: Mix problem/solution/story/data (ít nhất 2 types khác nhau)
+- **Emotional Tones**: Mix educate/inspire/convince/entertain (không quá 50% cùng tone)
+
 ## GUIDELINES:
 - Mỗi chủ đề phải CỤ THỂ và ACTIONABLE, không chung chung
 - Đảm bảo phù hợp với tone of voice và positioning của brand
@@ -649,7 +695,7 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
 - Ưu tiên chủ đề có potential viral hoặc shareable cao
 - Gán pillar CHÍNH XÁC theo keywords của từng pillar`;
 
-  const userPrompt = `Hãy gợi ý 8-10 chủ đề content với ĐIỂM SỐ CHI TIẾT cho:
+  const userPrompt = `Hãy gợi ý 8-10 chủ đề content với ĐIỂM SỐ CHI TIẾT và CONTENT MATRIX cho:
 
 - Ngành: ${brandContext?.industry?.[0] || industry || 'kinh doanh nói chung'}
 - Mục tiêu content: ${goalLabels[contentGoal || 'education'] || goalLabels.education}
@@ -658,19 +704,13 @@ ${brandContext ? `- Brand: ${brandContext.brandName}` : ''}
 ${industryContext?.targetAudience ? `- Target: ${industryContext.targetAudience}` : ''}
 ${brandContext?.contentPillars?.length ? `- Content Pillars: ${brandContext.contentPillars.map(p => p.name).join(', ')}` : ''}
 
-Trả về JSON array theo format đã định nghĩa. ĐẢM BẢO mỗi topic có đầy đủ scores object.`;
+Trả về JSON array theo format đã định nghĩa. ĐẢM BẢO mỗi topic có đầy đủ: scores object, topicType, funnelStage, emotionalTone.
+ĐẢM BẢO diversity: có topics cho cả TOFU/MOFU/BOFU và mix các topic types.`;
 
   return { system: systemPrompt, user: userPrompt };
 }
 
 function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] {
-  const defaultScores: TopicScores = {
-    brandFit: 75,
-    trend: 60,
-    competition: 70,
-    engagement: 75,
-  };
-
   const defaultsByGoal: Record<string, EnhancedTopicSuggestion[]> = {
     education: [
       {
@@ -682,6 +722,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         bestTimeToPost: '9:00 - 11:00',
         scores: { brandFit: 80, trend: 65, competition: 75, engagement: 80 },
         estimatedEngagement: 'high',
+        topicType: 'solution',
+        funnelStage: 'tofu',
+        emotionalTone: 'educate',
       },
       {
         topic: '5 sai lầm phổ biến và cách tránh',
@@ -692,6 +735,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         bestTimeToPost: '12:00 - 14:00',
         scores: { brandFit: 75, trend: 70, competition: 65, engagement: 85 },
         estimatedEngagement: 'high',
+        topicType: 'problem',
+        funnelStage: 'tofu',
+        emotionalTone: 'educate',
       },
       {
         topic: 'Checklist hoàn chỉnh cho năm 2025',
@@ -702,6 +748,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         bestTimeToPost: '8:00 - 10:00',
         scores: { brandFit: 70, trend: 80, competition: 60, engagement: 70 },
         estimatedEngagement: 'medium',
+        topicType: 'solution',
+        funnelStage: 'mofu',
+        emotionalTone: 'educate',
       },
     ],
     awareness: [
@@ -714,6 +763,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         bestTimeToPost: '19:00 - 21:00',
         scores: { brandFit: 95, trend: 60, competition: 80, engagement: 85 },
         estimatedEngagement: 'high',
+        topicType: 'story',
+        funnelStage: 'tofu',
+        emotionalTone: 'inspire',
       },
       {
         topic: 'Giá trị cốt lõi mà chúng tôi theo đuổi',
@@ -723,6 +775,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         relatedKeywords: ['giá trị', 'core values', 'sứ mệnh', 'tầm nhìn'],
         scores: { brandFit: 90, trend: 55, competition: 70, engagement: 70 },
         estimatedEngagement: 'medium',
+        topicType: 'story',
+        funnelStage: 'mofu',
+        emotionalTone: 'inspire',
       },
     ],
     engagement: [
@@ -735,6 +790,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         bestTimeToPost: '12:00 - 14:00',
         scores: { brandFit: 70, trend: 85, competition: 50, engagement: 95 },
         estimatedEngagement: 'high',
+        topicType: 'data',
+        funnelStage: 'tofu',
+        emotionalTone: 'entertain',
       },
       {
         topic: 'Thử thách 7 ngày: Bạn có dám thử?',
@@ -744,6 +802,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         relatedKeywords: ['challenge', 'thử thách', '7 ngày', 'viral'],
         scores: { brandFit: 65, trend: 90, competition: 55, engagement: 90 },
         estimatedEngagement: 'high',
+        topicType: 'solution',
+        funnelStage: 'mofu',
+        emotionalTone: 'inspire',
       },
     ],
     expertise: [
@@ -756,6 +817,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         bestTimeToPost: '9:00 - 11:00',
         scores: { brandFit: 85, trend: 80, competition: 70, engagement: 80 },
         estimatedEngagement: 'high',
+        topicType: 'data',
+        funnelStage: 'mofu',
+        emotionalTone: 'educate',
       },
       {
         topic: 'Case study thành công từ thực tế',
@@ -765,6 +829,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         relatedKeywords: ['case study', 'thành công', 'khách hàng', 'kết quả'],
         scores: { brandFit: 80, trend: 65, competition: 75, engagement: 75 },
         estimatedEngagement: 'high',
+        topicType: 'story',
+        funnelStage: 'bofu',
+        emotionalTone: 'convince',
       },
     ],
     conversion: [
@@ -777,6 +844,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         bestTimeToPost: '10:00 - 12:00',
         scores: { brandFit: 75, trend: 70, competition: 60, engagement: 85 },
         estimatedEngagement: 'high',
+        topicType: 'solution',
+        funnelStage: 'bofu',
+        emotionalTone: 'convince',
       },
       {
         topic: 'Vì sao khách hàng chọn chúng tôi',
@@ -786,6 +856,9 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
         relatedKeywords: ['testimonial', 'review', 'khách hàng', 'lý do'],
         scores: { brandFit: 85, trend: 60, competition: 65, engagement: 70 },
         estimatedEngagement: 'medium',
+        topicType: 'story',
+        funnelStage: 'bofu',
+        emotionalTone: 'convince',
       },
     ],
   };

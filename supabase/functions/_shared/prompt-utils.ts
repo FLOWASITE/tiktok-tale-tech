@@ -333,6 +333,12 @@ Sau khi tạo xong nội dung, BẮT BUỘC kiểm tra:`;
       '[ ] Đã cân bằng categories (40% evergreen, 30% trending, 20% seasonal, 10% reactive)?',
       '[ ] Mỗi topic có pillar assignment nếu có content pillars?',
       '[ ] Không có từ cấm trong bất kỳ topic nào?',
+      // Content Matrix checks
+      '[ ] DIVERSITY: Có ít nhất 2 topics cho mỗi funnel stage (TOFU/MOFU/BOFU)?',
+      '[ ] DIVERSITY: Có mix các topic types (problem/solution/story/data)?',
+      '[ ] DIVERSITY: Có topics address các pain points chính của persona (nếu có)?',
+      '[ ] Mỗi topic có topicType, funnelStage, emotionalTone?',
+      '[ ] Balance: ~40% TOFU, ~35% MOFU, ~25% BOFU?',
     ],
     'script': [
       '[ ] Tất cả lời thoại đúng Tone of Voice đã định nghĩa?',
