@@ -1,4 +1,104 @@
-// Marketing Frameworks for enhanced topic generation
+/**
+ * Content Matrix & Strategic Balance + Marketing Frameworks
+ * 
+ * Topic Types: Problem-focused, Solution-focused, Story-focused, Data-focused
+ * Funnel Balance: 40% TOFU, 35% MOFU, 25% BOFU
+ * Emotional Balance: Inspire, Educate, Entertain, Convince
+ */
+
+// ============================================
+// CONTENT MATRIX TYPES
+// ============================================
+
+export type TopicType = 'problem' | 'solution' | 'story' | 'data';
+export type FunnelStage = 'tofu' | 'mofu' | 'bofu';
+export type EmotionalTone = 'inspire' | 'educate' | 'entertain' | 'convince';
+
+export interface ContentMatrixScores {
+  topicType: TopicType;
+  funnelStage: FunnelStage;
+  emotionalTone: EmotionalTone;
+}
+
+export interface ContentMatrixBalance {
+  topicTypes: Record<TopicType, number>;
+  funnelStages: Record<FunnelStage, number>;
+  emotionalTones: Record<EmotionalTone, number>;
+}
+
+export const IDEAL_FUNNEL_BALANCE: Record<FunnelStage, number> = {
+  tofu: 40, // Top of Funnel - Awareness
+  mofu: 35, // Middle of Funnel - Consideration  
+  bofu: 25, // Bottom of Funnel - Decision
+};
+
+export const TOPIC_TYPE_LABELS: Record<TopicType, { vi: string; en: string; description: string }> = {
+  problem: { 
+    vi: 'Vấn đề', 
+    en: 'Problem-focused',
+    description: 'Topics tập trung vào pain points, sai lầm phổ biến, vấn đề cần giải quyết'
+  },
+  solution: { 
+    vi: 'Giải pháp', 
+    en: 'Solution-focused',
+    description: 'Topics tập trung vào how-to, hướng dẫn, cách giải quyết vấn đề'
+  },
+  story: { 
+    vi: 'Câu chuyện', 
+    en: 'Story-focused',
+    description: 'Topics sử dụng storytelling, case study, behind-the-scenes'
+  },
+  data: { 
+    vi: 'Dữ liệu', 
+    en: 'Data-focused',
+    description: 'Topics dựa trên số liệu, thống kê, xu hướng, phân tích'
+  },
+};
+
+export const FUNNEL_STAGE_LABELS: Record<FunnelStage, { vi: string; en: string; contentGoals: string[] }> = {
+  tofu: {
+    vi: 'Nhận diện (TOFU)',
+    en: 'Top of Funnel',
+    contentGoals: ['awareness', 'education', 'engagement'],
+  },
+  mofu: {
+    vi: 'Cân nhắc (MOFU)',
+    en: 'Middle of Funnel',
+    contentGoals: ['expertise', 'trust-building', 'comparison'],
+  },
+  bofu: {
+    vi: 'Quyết định (BOFU)',
+    en: 'Bottom of Funnel', 
+    contentGoals: ['conversion', 'offer', 'proof'],
+  },
+};
+
+export const EMOTIONAL_TONE_LABELS: Record<EmotionalTone, { vi: string; emoji: string; hooks: string[] }> = {
+  inspire: {
+    vi: 'Truyền cảm hứng',
+    emoji: '✨',
+    hooks: ['Bạn có thể làm được', 'Câu chuyện thành công', 'Đừng bỏ cuộc'],
+  },
+  educate: {
+    vi: 'Giáo dục',
+    emoji: '📚',
+    hooks: ['X điều bạn cần biết', 'Hướng dẫn từ A-Z', 'Giải thích chi tiết'],
+  },
+  entertain: {
+    vi: 'Giải trí',
+    emoji: '🎉',
+    hooks: ['Có thể bạn chưa biết', 'Điều bất ngờ', 'Fun facts'],
+  },
+  convince: {
+    vi: 'Thuyết phục',
+    emoji: '💡',
+    hooks: ['Vì sao bạn nên', 'Bằng chứng cho thấy', 'So sánh thực tế'],
+  },
+};
+
+// ============================================
+// CUSTOMER PERSONA CONTEXT
+// ============================================
 
 export interface CustomerPersonaContext {
   name: string;
@@ -6,8 +106,14 @@ export interface CustomerPersonaContext {
   painPoints: string[];
   desires: string[];
   objections: string[];
+  buyingTriggers?: string[];
+  preferredChannels?: string[];
   funnelStage?: 'tofu' | 'mofu' | 'bofu';
 }
+
+// ============================================
+// MARKETING FRAMEWORKS
+// ============================================
 
 export interface MarketingFramework {
   name: string;
@@ -89,6 +195,75 @@ export const MARKETING_FRAMEWORKS: Record<string, MarketingFramework> = {
     bestFor: ['mofu', 'bofu', 'conversion'],
   },
 };
+
+// ============================================
+// CONTENT MATRIX PROMPT BUILDER
+// ============================================
+
+export function buildContentMatrixSection(): string {
+  return `
+## 📊 CONTENT MATRIX & STRATEGIC BALANCE
+
+Mỗi topic PHẢI được phân loại theo 3 chiều:
+
+### 1. TOPIC TYPE (Loại nội dung):
+- **problem**: Tập trung vào vấn đề, sai lầm, pain points (VD: "5 sai lầm...", "Vấn đề phổ biến...")
+- **solution**: Tập trung vào giải pháp, how-to, hướng dẫn (VD: "Cách khắc phục...", "3 bước để...")
+- **story**: Câu chuyện, case study, behind-the-scenes (VD: "Hành trình của...", "Câu chuyện thật...")
+- **data**: Số liệu, thống kê, xu hướng, phân tích (VD: "Thống kê cho thấy...", "Dữ liệu năm 2025...")
+
+### 2. FUNNEL STAGE (Giai đoạn khách hàng):
+- **tofu** (40%): Top of Funnel - Nhận diện, awareness, thu hút mới
+- **mofu** (35%): Middle of Funnel - Cân nhắc, so sánh, đánh giá
+- **bofu** (25%): Bottom of Funnel - Quyết định, chuyển đổi, mua hàng
+
+### 3. EMOTIONAL TONE (Cảm xúc chủ đạo):
+- **inspire**: Truyền cảm hứng, động lực, khích lệ
+- **educate**: Giáo dục, chia sẻ kiến thức, how-to
+- **entertain**: Giải trí, thú vị, bất ngờ
+- **convince**: Thuyết phục, so sánh, chứng minh`;
+}
+
+export function buildDiversityCheckSection(personaContext?: CustomerPersonaContext | null): string {
+  let personaPainPoints = '';
+  if (personaContext?.painPoints?.length) {
+    personaPainPoints = `
+### Pain Points từ Customer Persona:
+${personaContext.painPoints.slice(0, 5).map(p => `- ${p}`).join('\n')}
+
+→ ĐẢM BẢO có topics address các pain points này!`;
+  }
+
+  return `
+## 🔄 TOPIC DIVERSITY CHECK (BẮT BUỘC)
+
+Trước khi output, KIỂM TRA:
+
+### Funnel Balance:
+[ ] Có ít nhất 2-3 topics cho TOFU (awareness, education)?
+[ ] Có ít nhất 2-3 topics cho MOFU (expertise, trust)?
+[ ] Có ít nhất 1-2 topics cho BOFU (conversion)?
+
+### Topic Type Mix:
+[ ] Có ít nhất 1 topic Problem-focused?
+[ ] Có ít nhất 1 topic Solution-focused?
+[ ] Có ít nhất 1 topic Story hoặc Data-focused?
+
+### Emotional Balance:
+[ ] Không quá 50% topics cùng emotional tone?
+[ ] Có mix giữa educate, inspire, và convince?
+${personaPainPoints}
+
+### Output Requirements:
+[ ] Mỗi topic PHẢI có: topicType, funnelStage, emotionalTone
+[ ] Balance: ~40% TOFU, ~35% MOFU, ~25% BOFU
+
+Nếu FAIL diversity check → THÊM topics để cân bằng trước khi output.`;
+}
+
+// ============================================
+// FRAMEWORK UTILITIES
+// ============================================
 
 // Get recommended frameworks based on funnel stage
 export function getFrameworksForFunnel(funnelStage: string): MarketingFramework[] {
