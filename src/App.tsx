@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
+import Topics from "./pages/Topics";
 import Index from "./pages/Index";
 import Carousel from "./pages/Carousel";
 import Brands from "./pages/Brands";
@@ -54,6 +55,16 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Dashboard />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/topics"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Topics />
                     </AppLayout>
                   </ProtectedRoute>
                 }
