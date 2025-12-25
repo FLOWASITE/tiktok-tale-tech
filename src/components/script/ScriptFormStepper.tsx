@@ -35,6 +35,7 @@ import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
 import { VideoTypeRecommendations } from '@/components/script/VideoTypeRecommendations';
 import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector';
+import { CharacterTypeRecommendations } from '@/components/script/CharacterTypeRecommendations';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { HookStepContent } from '@/components/script/HookStepContent';
 import { cn } from '@/lib/utils';
@@ -503,6 +504,17 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
                 <Label className="text-foreground font-semibold text-sm">
                   Nhân vật
                 </Label>
+                
+                {/* Smart Character Recommendations */}
+                <CharacterTypeRecommendations
+                  topic={formData.topic}
+                  videoType={formData.video_type}
+                  industry={selectedTemplate?.industry?.[0]}
+                  selectedCharacterType={formData.character_type}
+                  onSelect={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
+                  enabled={!isLoading}
+                />
+                
                 <CharacterTypeSelector
                   value={formData.character_type}
                   onChange={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
