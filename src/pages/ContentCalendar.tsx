@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -33,7 +34,8 @@ import { PublishingHistoryTab } from '@/components/PublishingHistoryTab';
 import { CalendarDayView } from '@/components/CalendarDayView';
 import { Calendar } from '@/components/ui/calendar';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
-import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData } from '@/types/multichannel';
+import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData, ContentGoal } from '@/types/multichannel';
+import { ScheduleTopicDialog, ScheduleTopicData } from '@/components/topic/ScheduleTopicDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -218,7 +220,16 @@ function DroppableDayCell({
   );
 }
 
+interface LocationState {
+  scheduleTopic?: string;
+  scheduleGoal?: ContentGoal;
+}
+
 export default function ContentCalendar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const prefillData = location.state as LocationState | null;
+  
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'history' | 'month' | 'week' | 'day' | 'queue'>('history');
   const [schedules, setSchedules] = useState<ScheduleWithContent[]>([]);
@@ -230,6 +241,23 @@ export default function ContentCalendar() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [showMiniCalendar, setShowMiniCalendar] = useState(true);
+  
+  // Schedule Topic Dialog state
+  const [scheduleTopicDialogOpen, setScheduleTopicDialogOpen] = useState(false);
+  const [pendingScheduleTopic, setPendingScheduleTopic] = useState<string>('');
+  const [pendingScheduleGoal, setPendingScheduleGoal] = useState<ContentGoal | undefined>();
+  const [isSchedulingTopic, setIsSchedulingTopic] = useState(false);
+
+  // Handle prefill from Topics Hub
+  useEffect(() => {
+    if (prefillData?.scheduleTopic) {
+      setPendingScheduleTopic(prefillData.scheduleTopic);
+      setPendingScheduleGoal(prefillData.scheduleGoal);
+      setScheduleTopicDialogOpen(true);
+      // Clear location state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [prefillData]);
   
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
@@ -432,6 +460,56 @@ export default function ContentCalendar() {
       setFormOpen(false);
       setSelectedContent(result);
       setViewerOpen(true);
+    }
+  };
+
+  // Handle scheduling a topic from Topics Hub
+  const handleScheduleTopic = async (data: ScheduleTopicData) => {
+    setIsSchedulingTopic(true);
+    try {
+      // Combine date and time
+      const [hours, minutes] = data.scheduledTime.split(':').map(Number);
+      const scheduledAt = new Date(data.scheduledDate);
+      scheduledAt.setHours(hours, minutes, 0, 0);
+
+      // Navigate to the appropriate content creation page based on format
+      const navigationState = {
+        prefillTopic: data.topic,
+        prefillGoal: data.contentGoal,
+        fromTopics: true,
+        scheduledAt: scheduledAt.toISOString(),
+      };
+
+      setScheduleTopicDialogOpen(false);
+      
+      // Navigate based on content format
+      switch (data.contentFormat) {
+        case 'multichannel':
+          navigate('/multichannel', { state: navigationState });
+          break;
+        case 'script':
+          navigate('/', { state: navigationState });
+          break;
+        case 'carousel':
+          navigate('/carousel', { state: navigationState });
+          break;
+        default:
+          navigate('/multichannel', { state: navigationState });
+      }
+
+      toast({
+        title: 'Đã lên lịch',
+        description: `Tiếp tục tạo nội dung cho "${data.topic}"`,
+      });
+    } catch (error) {
+      console.error('Error scheduling topic:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể lên lịch topic',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSchedulingTopic(false);
     }
   };
 
@@ -805,6 +883,16 @@ export default function ContentCalendar() {
         onAIEdit={aiEditChannel}
         onUpdateTitleTopic={updateTitleTopic}
         onUpdateChannelStatus={updateChannelStatus}
+      />
+
+      {/* Schedule Topic Dialog from Topics Hub */}
+      <ScheduleTopicDialog
+        open={scheduleTopicDialogOpen}
+        onOpenChange={setScheduleTopicDialogOpen}
+        topic={pendingScheduleTopic}
+        contentGoal={pendingScheduleGoal}
+        onSchedule={handleScheduleTopic}
+        isLoading={isSchedulingTopic}
       />
     </div>
   );
