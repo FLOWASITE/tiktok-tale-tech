@@ -29,6 +29,7 @@ import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { ScriptTopicDiscoveryPanel } from '@/components/script/ScriptTopicDiscoveryPanel';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { TopicAngleSelector } from '@/components/script/TopicAngleSelector';
+import { TopicAnglePreview } from '@/components/script/TopicAnglePreview';
 import { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
@@ -372,11 +373,19 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
 
               {/* Topic Angle Selector */}
               {formData.topic.trim().length >= 20 && (
-                <TopicAngleSelector
-                  value={formData.angle}
-                  onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
-                  disabled={isLoading}
-                />
+                <div>
+                  <TopicAngleSelector
+                    value={formData.angle}
+                    onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
+                    disabled={isLoading}
+                  />
+                  {formData.angle && (
+                    <TopicAnglePreview 
+                      angle={formData.angle} 
+                      topic={formData.topic}
+                    />
+                  )}
+                </div>
               )}
 
               {/* AI Topic Discovery Panel */}
