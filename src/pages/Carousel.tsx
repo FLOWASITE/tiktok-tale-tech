@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
@@ -28,8 +28,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
+interface LocationState {
+  prefillTopic?: string;
+}
+
 const CarouselPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefillData = location.state as LocationState | null;
   const { carousels, loading, generating, generateCarousel, deleteCarousel, updateCarousel } = useCarousels();
   
   // Fetch creator profiles for all carousels
@@ -39,6 +45,17 @@ const CarouselPage = () => {
   const [selectedCarousel, setSelectedCarousel] = useState<Carousel | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
+  const [initialTopic, setInitialTopic] = useState<string>('');
+
+  // Handle prefill from Topics Hub
+  useEffect(() => {
+    if (prefillData?.prefillTopic) {
+      setInitialTopic(prefillData.prefillTopic);
+      setFormSheetOpen(true);
+      // Clear location state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [prefillData]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<CarouselFiltersState>({
@@ -286,7 +303,7 @@ const CarouselPage = () => {
         description="Điền thông tin để AI tạo prompt carousel cho bạn"
         className="md:max-w-xl lg:max-w-2xl"
       >
-        <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} />
+        <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} initialTopic={initialTopic} />
       </SlidePanel>
 
       {/* Carousel viewer dialog */}

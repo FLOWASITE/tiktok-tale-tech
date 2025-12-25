@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { FileText, Sparkles, X, Plus, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
@@ -26,8 +26,15 @@ import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
+interface LocationState {
+  prefillTopic?: string;
+  prefillGoal?: ContentGoal;
+}
+
 export default function MultiChannel() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefillData = location.state as LocationState | null;
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { 
     contents, 
@@ -57,6 +64,21 @@ export default function MultiChannel() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [generatingChannelCount, setGeneratingChannelCount] = useState(0);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
+  const [initialTopic, setInitialTopic] = useState<string>('');
+  const [initialGoal, setInitialGoal] = useState<ContentGoal | undefined>();
+
+  // Handle prefill from Topics Hub
+  useEffect(() => {
+    if (prefillData?.prefillTopic) {
+      setInitialTopic(prefillData.prefillTopic);
+      if (prefillData.prefillGoal) {
+        setInitialGoal(prefillData.prefillGoal);
+      }
+      setFormSheetOpen(true);
+      // Clear location state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [prefillData]);
   
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -582,6 +604,8 @@ export default function MultiChannel() {
         <MultiChannelForm
           onSubmit={handleGenerateContent}
           isLoading={generating}
+          initialTopic={initialTopic}
+          initialGoal={initialGoal}
         />
       </SlidePanel>
 

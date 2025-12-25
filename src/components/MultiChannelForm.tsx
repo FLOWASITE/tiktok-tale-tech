@@ -25,6 +25,8 @@ import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
   isLoading: boolean;
+  initialTopic?: string;
+  initialGoal?: ContentGoal;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -59,11 +61,24 @@ const channelColors: Record<Channel, string> = {
 
 const DRAFT_KEY = 'multichannel_form_draft';
 
-export function MultiChannelForm({ onSubmit, isLoading }: MultiChannelFormProps) {
+export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoal }: MultiChannelFormProps) {
   const { templates, loading: loadingTemplates } = useBrandTemplates();
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(initialTopic || '');
   const [industry, setIndustry] = useState('');
-  const [contentGoal, setContentGoal] = useState<ContentGoal>('education');
+  const [contentGoal, setContentGoal] = useState<ContentGoal>(initialGoal || 'education');
+
+  // Handle initialTopic/initialGoal prop changes
+  useEffect(() => {
+    if (initialTopic) {
+      setTopic(initialTopic);
+    }
+  }, [initialTopic]);
+
+  useEffect(() => {
+    if (initialGoal) {
+      setContentGoal(initialGoal);
+    }
+  }, [initialGoal]);
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(['facebook', 'instagram']);
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [hasSetDefault, setHasSetDefault] = useState(false);

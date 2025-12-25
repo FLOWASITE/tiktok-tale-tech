@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ScriptForm } from '@/components/ScriptForm';
 import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
@@ -22,8 +22,14 @@ type ViewMode = 'grid' | 'list';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
+interface LocationState {
+  prefillTopic?: string;
+}
+
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefillData = location.state as LocationState | null;
   const { scripts, loading, generating, generateScript, deleteScript, updateScript } = useScripts();
   const { templates: brandTemplates } = useBrandTemplates();
   
@@ -49,6 +55,17 @@ const Index = () => {
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
+  const [initialTopic, setInitialTopic] = useState<string>('');
+
+  // Handle prefill from Topics Hub
+  useEffect(() => {
+    if (prefillData?.prefillTopic) {
+      setInitialTopic(prefillData.prefillTopic);
+      setFormSheetOpen(true);
+      // Clear location state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [prefillData]);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<ScriptFiltersType>({
@@ -374,7 +391,7 @@ const Index = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="p-6">
-            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} />
+            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} initialTopic={initialTopic} />
           </div>
         </DialogContent>
       </Dialog>

@@ -56,6 +56,7 @@ import { FRAMEWORK_LABELS, FRAMEWORK_ICONS } from '@/types/hook';
 interface ScriptFormStepperProps {
   onSubmit: (data: ScriptFormData) => Promise<void>;
   isLoading: boolean;
+  initialTopic?: string;
 }
 
 const STEPS: Step[] = [
@@ -75,7 +76,7 @@ const LOADING_PHASES = [
 
 const MAX_TOPIC_LENGTH = 300;
 
-export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProps) {
+export function ScriptFormStepper({ onSubmit, isLoading, initialTopic }: ScriptFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -86,7 +87,7 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
   const [loadingPhase, setLoadingPhase] = useState(0);
 
   const [formData, setFormData] = useState<ScriptFormData>({
-    topic: '',
+    topic: initialTopic || '',
     duration: 60,
     video_type: 'expert_share',
     character_type: 'the_virtuoso',
@@ -97,6 +98,13 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
     hook: undefined,
     angle: undefined,
   });
+
+  // Handle initialTopic prop changes
+  useEffect(() => {
+    if (initialTopic) {
+      setFormData(prev => ({ ...prev, topic: initialTopic }));
+    }
+  }, [initialTopic]);
 
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
 
