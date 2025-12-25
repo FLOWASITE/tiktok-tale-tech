@@ -33,6 +33,7 @@ import { TopicAnglePreview } from '@/components/script/TopicAnglePreview';
 import { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
+import { VideoTypeRecommendations } from '@/components/script/VideoTypeRecommendations';
 import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { HookStepContent } from '@/components/script/HookStepContent';
@@ -470,6 +471,16 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
               <Label className="text-foreground font-semibold text-sm">
                 Thể loại video
               </Label>
+              
+              {/* Smart Recommendations */}
+              <VideoTypeRecommendations
+                topic={formData.topic}
+                industry={selectedTemplate?.industry?.[0]}
+                currentValue={formData.video_type}
+                onSelect={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
+                disabled={isLoading}
+              />
+              
               <VideoTypeSelector
                 value={formData.video_type}
                 onChange={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
