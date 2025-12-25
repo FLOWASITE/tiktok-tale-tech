@@ -75,6 +75,14 @@ interface IndustryContext {
     formality?: string;
     language_style?: string[];
   };
+  seasonalEvents?: SeasonalEvent[];
+}
+
+// Seasonal event structure for industry-specific calendar
+interface SeasonalEvent {
+  event: string;
+  date: string; // Format: DD/MM
+  suggestedAngles: string[];
 }
 
 interface TopicScores {
@@ -98,6 +106,9 @@ interface EnhancedTopicSuggestion {
   topicType: TopicType;
   funnelStage: FunnelStage;
   emotionalTone: EmotionalTone;
+  // Seasonal fields
+  relatedEvent?: string;
+  eventDate?: string;
 }
 
 // Persona context for fetching
@@ -215,7 +226,8 @@ serve(async (req) => {
                 target_audience,
                 forbidden_terms,
                 compliance_rules,
-                brand_voice
+                brand_voice,
+                seasonal_events
               `)
               .eq('id', brandTemplate.industry_template_id)
               .single();
@@ -237,7 +249,6 @@ serve(async (req) => {
           console.log('No topic history found for learning context');
         }
 
-        // Process industry context if fetched
         if (industryResult) {
           const { data: industryTemplate, error: industryError } = industryResult;
           if (industryTemplate && !industryError) {
@@ -246,8 +257,9 @@ serve(async (req) => {
               forbiddenTerms: industryTemplate.forbidden_terms,
               complianceRules: industryTemplate.compliance_rules as { rule: string; description: string }[],
               brandVoice: industryTemplate.brand_voice as IndustryContext['brandVoice'],
+              seasonalEvents: industryTemplate.seasonal_events as SeasonalEvent[] || [],
             };
-            console.log('Industry context loaded, target audience:', industryContext.targetAudience);
+            console.log('Industry context loaded, target audience:', industryContext.targetAudience, 'seasonal events:', industryContext.seasonalEvents?.length || 0);
           }
         }
       }
@@ -613,12 +625,51 @@ ${industryContext.brandVoice?.tone?.length ? `- Industry tone baseline: ${indust
 - Tránh lặp lại góc nhìn hoặc format đã dùng gần đây`;
   }
 
-  // Seasonality hints
+  // Build Seasonal Calendar section with upcoming events
+  let seasonalCalendarSection = '';
+  const now = new Date();
+  const currentDay = now.getDate();
+  const currentMonth = now.getMonth() + 1; // 1-indexed
+  
+  // General seasonal hints
   let seasonalityHint = '';
   if (seasonality === 'holiday') {
     seasonalityHint = '\n- Ưu tiên chủ đề liên quan đến mùa lễ hội, Tết, khuyến mãi cuối năm';
   } else if (seasonality === 'event') {
     seasonalityHint = '\n- Ưu tiên chủ đề reactive với sự kiện/tin tức nóng trong ngành';
+  }
+  
+  // Industry-specific seasonal events
+  if (industryContext?.seasonalEvents?.length) {
+    const upcomingEvents = getUpcomingEvents(industryContext.seasonalEvents, currentDay, currentMonth, 14);
+    
+    if (upcomingEvents.length > 0) {
+      seasonalCalendarSection = `
+## 📅 SEASONAL CALENDAR AWARENESS:
+Ngày hiện tại: ${String(currentDay).padStart(2, '0')}/${String(currentMonth).padStart(2, '0')}
+
+### Sự kiện sắp diễn ra trong 2 tuần tới:
+${upcomingEvents.map(e => `- **${e.event}** (${e.date}): Suggested angles: ${e.suggestedAngles.slice(0, 3).join(', ')}`).join('\n')}
+
+### YÊU CẦU SEASONAL:
+- Ưu tiên gợi ý 2-3 topics liên quan đến các sự kiện sắp tới
+- Topics seasonal phải có category = "seasonal" hoặc "reactive"
+- Gắn field "relatedEvent" và "eventDate" cho topics liên quan đến sự kiện
+- Sử dụng suggested angles làm inspiration cho góc tiếp cận`;
+    }
+  }
+  
+  // General seasonal events (common for all industries)
+  const generalSeasonalEvents = getGeneralSeasonalEvents(currentDay, currentMonth);
+  if (generalSeasonalEvents.length > 0 && !seasonalCalendarSection) {
+    seasonalCalendarSection = `
+## 📅 SEASONAL AWARENESS:
+Ngày hiện tại: ${String(currentDay).padStart(2, '0')}/${String(currentMonth).padStart(2, '0')}
+
+### Sự kiện chung sắp diễn ra:
+${generalSeasonalEvents.map(e => `- **${e.event}** (${e.date})`).join('\n')}
+
+Ưu tiên 1-2 topics có thể liên quan đến các sự kiện này nếu phù hợp với brand.`;
   }
 
   // Build Chain-of-Thought section
@@ -645,6 +696,7 @@ ${pillarsSection}
 ${industrySection}
 ${constraintsSection}
 ${seasonalityHint}
+${seasonalCalendarSection}
 ${contentMatrixSection}
 ${cotSection}
 ${learningSection}
@@ -672,7 +724,9 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
     "estimatedEngagement": "high" | "medium" | "low",
     "topicType": "problem" | "solution" | "story" | "data",
     "funnelStage": "tofu" | "mofu" | "bofu",
-    "emotionalTone": "inspire" | "educate" | "entertain" | "convince"
+    "emotionalTone": "inspire" | "educate" | "entertain" | "convince",
+    "relatedEvent": "(optional) Tên sự kiện liên quan nếu là seasonal/reactive topic",
+    "eventDate": "(optional) Ngày sự kiện DD/MM"
   }
 ]
 
@@ -880,4 +934,52 @@ function getDefaultSuggestions(contentGoal?: string): EnhancedTopicSuggestion[] 
   };
 
   return defaultsByGoal[contentGoal || 'education'] || defaultsByGoal.education;
+}
+
+// Helper function to get upcoming events within N days
+function getUpcomingEvents(
+  events: SeasonalEvent[],
+  currentDay: number,
+  currentMonth: number,
+  withinDays: number
+): SeasonalEvent[] {
+  const currentDate = new Date(new Date().getFullYear(), currentMonth - 1, currentDay);
+  
+  return events
+    .map(event => {
+      const [eventDay, eventMonth] = event.date.split('/').map(Number);
+      let eventDate = new Date(currentDate.getFullYear(), eventMonth - 1, eventDay);
+      
+      // If event is in the past this year, check next year
+      if (eventDate < currentDate) {
+        eventDate = new Date(currentDate.getFullYear() + 1, eventMonth - 1, eventDay);
+      }
+      
+      const diffDays = Math.ceil((eventDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      return { ...event, daysUntil: diffDays };
+    })
+    .filter(event => event.daysUntil >= 0 && event.daysUntil <= withinDays)
+    .sort((a, b) => a.daysUntil - b.daysUntil)
+    .map(({ daysUntil, ...event }) => event);
+}
+
+// Helper function to get general seasonal events (common holidays/events)
+function getGeneralSeasonalEvents(currentDay: number, currentMonth: number): SeasonalEvent[] {
+  const generalEvents: SeasonalEvent[] = [
+    { event: 'Tết Nguyên Đán', date: '01/01', suggestedAngles: ['Tổng kết năm', 'Kế hoạch năm mới', 'Lời chúc'] },
+    { event: 'Valentine\'s Day', date: '14/02', suggestedAngles: ['Tình yêu', 'Quà tặng', 'Câu chuyện'] },
+    { event: 'Ngày Quốc tế Phụ nữ', date: '08/03', suggestedAngles: ['Tribute', 'Empowerment', 'Stories'] },
+    { event: 'Ngày Giải phóng miền Nam', date: '30/04', suggestedAngles: ['Lịch sử', 'Tri ân', 'Nghỉ lễ'] },
+    { event: 'Ngày Quốc tế Lao động', date: '01/05', suggestedAngles: ['Nghỉ lễ', 'Work-life balance', 'Team appreciation'] },
+    { event: 'Ngày Nhà giáo Việt Nam', date: '20/11', suggestedAngles: ['Tri ân', 'Giáo dục', 'Stories'] },
+    { event: 'Noel', date: '25/12', suggestedAngles: ['Festive', 'Year review', 'Ưu đãi cuối năm'] },
+    { event: 'Tết Dương lịch', date: '01/01', suggestedAngles: ['Goals', 'Trends', 'Fresh start'] },
+    { event: 'Black Friday', date: '29/11', suggestedAngles: ['Sales', 'Deals', 'Shopping guide'] },
+    { event: 'Cyber Monday', date: '02/12', suggestedAngles: ['Online deals', 'Tech', 'Shopping'] },
+    { event: 'Ngày Gia đình Việt Nam', date: '28/06', suggestedAngles: ['Family values', 'Stories', 'Appreciation'] },
+    { event: 'Trung Thu', date: '15/08', suggestedAngles: ['Truyền thống', 'Gia đình', 'Quà tặng'] },
+  ];
+  
+  return getUpcomingEvents(generalEvents, currentDay, currentMonth, 14);
 }

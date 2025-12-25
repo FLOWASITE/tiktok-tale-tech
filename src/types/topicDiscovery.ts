@@ -31,6 +31,9 @@ export interface EnhancedTopicSuggestion {
   topicType?: TopicType;
   funnelStage?: FunnelStage;
   emotionalTone?: EmotionalTone;
+  // Seasonal fields
+  relatedEvent?: string;
+  eventDate?: string;
 }
 
 export interface TopicHistoryItem {

@@ -1044,6 +1044,7 @@ export type Database = {
           metadata: Json | null
           published_at: string | null
           published_by: string | null
+          seasonal_events: Json | null
           sort_order: number
           status: Database["public"]["Enums"]["industry_pack_status"]
           system_rules: Json | null
@@ -1069,6 +1070,7 @@ export type Database = {
           metadata?: Json | null
           published_at?: string | null
           published_by?: string | null
+          seasonal_events?: Json | null
           sort_order?: number
           status?: Database["public"]["Enums"]["industry_pack_status"]
           system_rules?: Json | null
@@ -1094,6 +1096,7 @@ export type Database = {
           metadata?: Json | null
           published_at?: string | null
           published_by?: string | null
+          seasonal_events?: Json | null
           sort_order?: number
           status?: Database["public"]["Enums"]["industry_pack_status"]
           system_rules?: Json | null
