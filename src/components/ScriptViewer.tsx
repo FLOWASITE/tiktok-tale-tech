@@ -26,8 +26,8 @@ import {
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { parseScriptContent, getPromptCount } from '@/utils/parsePrompts';
-import { PromptCard } from '@/components/PromptCard';
+import { parseScriptContent, getPromptCount, getBlockLabel } from '@/utils/parsePrompts';
+import { PurposeAwarePromptCard } from '@/components/script/PurposeAwarePromptCard';
 import { StatusSelector } from '@/components/StatusSelector';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
@@ -70,8 +70,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
 
   if (!script) return null;
 
-  const parsedPrompts = parseScriptContent(script.content);
-  const promptCount = getPromptCount(script.content);
+  const scriptPurpose = script.script_purpose as ScriptPurpose;
+  const parsedPrompts = parseScriptContent(script.content, scriptPurpose);
+  const promptCount = getPromptCount(script.content, scriptPurpose);
+  const blockLabel = getBlockLabel(scriptPurpose);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(script.content);
@@ -346,7 +348,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                   <Tabs defaultValue="prompts" className="w-full h-full flex flex-col">
                     <TabsList className="mb-3 xs:mb-4 h-auto flex-wrap">
                       <TabsTrigger value="prompts" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
-                        Prompt ({parsedPrompts.length})
+                        {blockLabel} ({parsedPrompts.length})
                       </TabsTrigger>
                       <TabsTrigger value="full" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
                         Toàn bộ
@@ -365,12 +367,16 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                         {parsedPrompts.length > 0 ? (
                           <div className="space-y-2 xs:space-y-3 pr-2 xs:pr-4">
                             {parsedPrompts.map((prompt) => (
-                              <PromptCard key={prompt.promptNumber} prompt={prompt} />
+                              <PurposeAwarePromptCard 
+                                key={prompt.promptNumber} 
+                                prompt={prompt} 
+                                purpose={scriptPurpose}
+                              />
                             ))}
                           </div>
                         ) : (
                           <p className="text-muted-foreground text-xs xs:text-sm text-center py-8">
-                            Không tìm thấy định dạng PROMPT
+                            Không tìm thấy định dạng {blockLabel}
                           </p>
                         )}
                       </ScrollArea>

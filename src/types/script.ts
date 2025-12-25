@@ -12,31 +12,43 @@ export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, {
   label: string; 
   description: string; 
   outputHint: string;
+  blockLabel: string;
+  blockLabelVi: string;
 }> = {
   ai_video_veo3: {
     label: 'Video AI (VEO 3)',
     description: 'Tạo video bằng VEO 3 - có full visual direction, camera, lighting',
     outputHint: 'Visual Direction + Character Action + Dialogue + Audio Notes',
+    blockLabel: 'Prompt',
+    blockLabelVi: 'Prompt',
   },
   ai_video_minimax: {
     label: 'Video AI (Minimax/Hailuo)',
     description: 'Tạo video bằng Minimax - format ngắn gọn, camera motion syntax',
     outputHint: 'Scene description + Camera motion + Voice',
+    blockLabel: 'Clip',
+    blockLabelVi: 'Clip',
   },
   teleprompter: {
     label: 'Quay người thật (Teleprompter)',
     description: 'Script cho quay video thật - dialogue + cue cards, không cần visual AI',
     outputHint: 'Dialogue + Cue cards + Emphasis markers',
+    blockLabel: 'Đoạn',
+    blockLabelVi: 'Đoạn',
   },
   voiceover: {
     label: 'Voice-Over / TTS',
     description: 'Script thu âm - clean dialogue + hướng dẫn tone',
     outputHint: 'Clean dialogue + Tone guidance + Pause markers',
+    blockLabel: 'Đoạn',
+    blockLabelVi: 'Đoạn',
   },
   production: {
     label: 'Production Script',
     description: 'Full script cho team sản xuất - có shot list, storyboard notes',
     outputHint: 'Camera setup + Lighting + Audio + Dialogue + Editor notes',
+    blockLabel: 'Scene',
+    blockLabelVi: 'Cảnh',
   },
 };
 
