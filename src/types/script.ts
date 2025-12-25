@@ -1,15 +1,47 @@
+// ============================================
+// VIDEO TYPES - Based on global short-form video best practices
+// ============================================
 export type VideoType = 
-  | 'expert_share'
-  | 'analyze_explain'
-  | 'warning_mistake'
-  | 'quick_qa';
+  // Educational
+  | 'expert_share'       // Chuyên gia chia sẻ
+  | 'tutorial_howto'     // Hướng dẫn step-by-step
+  | 'analyze_explain'    // Phân tích giải thích
+  | 'listicle'           // Danh sách tips/tricks
+  // Engagement
+  | 'warning_mistake'    // Cảnh báo sai lầm
+  | 'quick_qa'           // Hỏi đáp nhanh
+  | 'myth_busting'       // Bóc phốt quan niệm sai
+  | 'before_after'       // So sánh trước/sau
+  // Entertainment
+  | 'story_pov'          // Kể chuyện góc nhìn
+  | 'day_in_life'        // Một ngày của...
+  | 'behind_scenes'      // Hậu trường
+  | 'reaction'           // Reaction/Commentary
+  // Commercial
+  | 'product_review'     // Review sản phẩm
+  | 'case_study'         // Case study thực tế
+  | 'transformation';    // Biến đổi/Kết quả
 
+// ============================================
+// CHARACTER TYPES - Based on 7 Creator Archetypes
+// ============================================
 export type CharacterType = 
-  | 'male_expert'
-  | 'female_expert'
-  | 'consultant'
-  | 'instructor'
-  | 'ai_presenter';
+  // Professional Experts
+  | 'the_virtuoso'       // Chuyên gia kỹ thuật
+  | 'the_bellwether'     // Người dẫn dắt xu hướng
+  | 'the_coach'          // Người hướng dẫn
+  // Creative & Entertaining
+  | 'the_performer'      // Người trình diễn
+  | 'the_storyteller'    // Người kể chuyện
+  | 'the_iconoclast'     // Người phá vỡ khuôn mẫu
+  // Technical & Analytical
+  | 'the_technophile'    // Chuyên gia công nghệ
+  | 'the_analyst'        // Người phân tích
+  // Passionate & Relatable
+  | 'the_enthusiast'     // Người đam mê
+  | 'the_maker'          // Nhà sáng tạo
+  // Neutral
+  | 'neutral_presenter'; // Người dẫn trung tính
 
 export type Duration = 60 | 90 | 120 | 180;
 
@@ -71,19 +103,85 @@ export interface ScriptFormData {
   angle?: TopicAngle;
 }
 
+// ============================================
+// VIDEO TYPE LABELS & CATEGORIES
+// ============================================
+export type VideoTypeCategory = 'educational' | 'engagement' | 'entertainment' | 'commercial';
+
+export const VIDEO_TYPE_CATEGORIES: Record<VideoTypeCategory, { label: string; icon: string }> = {
+  educational: { label: 'Giáo dục', icon: '📚' },
+  engagement: { label: 'Tương tác', icon: '🎯' },
+  entertainment: { label: 'Giải trí', icon: '🎬' },
+  commercial: { label: 'Thương mại', icon: '💼' },
+};
+
 export const VIDEO_TYPE_LABELS: Record<VideoType, string> = {
-  expert_share: 'Chuyên gia chia sẻ kiến thức',
-  analyze_explain: 'Phân tích – giải thích',
-  warning_mistake: 'Cảnh báo – bóc tách sai lầm',
-  quick_qa: 'Hỏi – đáp nhanh',
+  // Educational
+  expert_share: 'Chuyên gia chia sẻ',
+  tutorial_howto: 'Hướng dẫn How-to',
+  analyze_explain: 'Phân tích giải thích',
+  listicle: 'Danh sách Tips',
+  // Engagement
+  warning_mistake: 'Cảnh báo sai lầm',
+  quick_qa: 'Hỏi đáp nhanh',
+  myth_busting: 'Bóc phốt quan niệm',
+  before_after: 'So sánh Trước/Sau',
+  // Entertainment
+  story_pov: 'Kể chuyện POV',
+  day_in_life: 'Một ngày của...',
+  behind_scenes: 'Hậu trường BTS',
+  reaction: 'Reaction/Commentary',
+  // Commercial
+  product_review: 'Review sản phẩm',
+  case_study: 'Case Study',
+  transformation: 'Biến đổi/Kết quả',
+};
+
+export const VIDEO_TYPE_BY_CATEGORY: Record<VideoTypeCategory, VideoType[]> = {
+  educational: ['expert_share', 'tutorial_howto', 'analyze_explain', 'listicle'],
+  engagement: ['warning_mistake', 'quick_qa', 'myth_busting', 'before_after'],
+  entertainment: ['story_pov', 'day_in_life', 'behind_scenes', 'reaction'],
+  commercial: ['product_review', 'case_study', 'transformation'],
+};
+
+// ============================================
+// CHARACTER TYPE LABELS & CATEGORIES
+// ============================================
+export type CharacterCategory = 'professional' | 'creative' | 'technical' | 'passionate' | 'neutral';
+
+export const CHARACTER_CATEGORIES: Record<CharacterCategory, { label: string; icon: string }> = {
+  professional: { label: 'Chuyên nghiệp', icon: '👔' },
+  creative: { label: 'Sáng tạo', icon: '🎨' },
+  technical: { label: 'Kỹ thuật', icon: '⚙️' },
+  passionate: { label: 'Đam mê', icon: '❤️' },
+  neutral: { label: 'Trung tính', icon: '🎭' },
 };
 
 export const CHARACTER_TYPE_LABELS: Record<CharacterType, string> = {
-  male_expert: 'Chuyên gia nam',
-  female_expert: 'Chuyên gia nữ',
-  consultant: 'Nhân vật tư vấn',
-  instructor: 'Nhân vật hướng dẫn',
-  ai_presenter: 'Nhân vật trung tính (AI presenter)',
+  // Professional
+  the_virtuoso: 'Chuyên gia kỹ thuật',
+  the_bellwether: 'Người dẫn xu hướng',
+  the_coach: 'Người hướng dẫn',
+  // Creative
+  the_performer: 'Người trình diễn',
+  the_storyteller: 'Người kể chuyện',
+  the_iconoclast: 'Người phá khuôn',
+  // Technical
+  the_technophile: 'Tech Expert',
+  the_analyst: 'Người phân tích',
+  // Passionate
+  the_enthusiast: 'Người đam mê',
+  the_maker: 'Nhà sáng tạo',
+  // Neutral
+  neutral_presenter: 'Người dẫn trung tính',
+};
+
+export const CHARACTER_BY_CATEGORY: Record<CharacterCategory, CharacterType[]> = {
+  professional: ['the_virtuoso', 'the_bellwether', 'the_coach'],
+  creative: ['the_performer', 'the_storyteller', 'the_iconoclast'],
+  technical: ['the_technophile', 'the_analyst'],
+  passionate: ['the_enthusiast', 'the_maker'],
+  neutral: ['neutral_presenter'],
 };
 
 export const DURATION_LABELS: Record<Duration, string> = {

@@ -7,19 +7,285 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============================================
+// VIDEO TYPES - Labels and Instructions
+// ============================================
 const VIDEO_TYPE_LABELS: Record<string, string> = {
-  expert_share: "Chuyên gia chia sẻ kiến thức",
-  analyze_explain: "Phân tích – giải thích",
-  warning_mistake: "Cảnh báo – bóc tách sai lầm",
-  quick_qa: "Hỏi – đáp nhanh",
+  // Educational
+  expert_share: "Chuyên gia chia sẻ",
+  tutorial_howto: "Hướng dẫn How-to",
+  analyze_explain: "Phân tích giải thích",
+  listicle: "Danh sách Tips",
+  // Engagement
+  warning_mistake: "Cảnh báo sai lầm",
+  quick_qa: "Hỏi đáp nhanh",
+  myth_busting: "Bóc phốt quan niệm",
+  before_after: "So sánh Trước/Sau",
+  // Entertainment
+  story_pov: "Kể chuyện POV",
+  day_in_life: "Một ngày của...",
+  behind_scenes: "Hậu trường BTS",
+  reaction: "Reaction/Commentary",
+  // Commercial
+  product_review: "Review sản phẩm",
+  case_study: "Case Study",
+  transformation: "Biến đổi/Kết quả",
 };
 
+const VIDEO_TYPE_INSTRUCTIONS: Record<string, string> = {
+  // Educational
+  expert_share: `
+## THỂ LOẠI: CHUYÊN GIA CHIA SẺ (Expert Share)
+- Cấu trúc: Hook authority → Chia sẻ 2-3 insights độc quyền → Tổng kết giá trị
+- Tone: Tự tin, có authority, truyền tải giá trị
+- Hook style: "Điều này ít ai biết...", "Sau 10 năm trong nghề, tôi nhận ra..."
+- Mục tiêu: Người xem cảm thấy học được điều mới từ chuyên gia
+- Đặc trưng: Đưa ra quan điểm rõ ràng, có ví dụ thực tế
+`,
+  tutorial_howto: `
+## THỂ LOẠI: HƯỚNG DẪN HOW-TO (Tutorial)
+- Cấu trúc: Hook vấn đề → Các bước rõ ràng (Step 1, 2, 3...) → Demo/kết quả
+- Tone: Kiên nhẫn, rõ ràng, từng bước một
+- Hook style: "Cách để...", "Làm thế nào để...", "Hướng dẫn đơn giản..."
+- Mục tiêu: Người xem có thể làm theo ngay sau khi xem
+- Đặc trưng: Numbered steps, repeat key points, check-in "Bạn làm được chưa?"
+`,
+  analyze_explain: `
+## THỂ LOẠI: PHÂN TÍCH - GIẢI THÍCH (Deep Dive)
+- Cấu trúc: Hook câu hỏi → Breakdown từng phần → Kết nối các ý → Tổng kết
+- Tone: Logic, có hệ thống, deep dive
+- Hook style: "Tại sao...?", "Điều gì đằng sau...?", "Hãy cùng phân tích..."
+- Mục tiêu: Người xem hiểu SÂU một vấn đề, không chỉ bề mặt
+- Đặc trưng: Dùng so sánh, metaphor để giải thích, có data nếu có
+`,
+  listicle: `
+## THỂ LOẠI: DANH SÁCH TIPS (Listicle)
+- Cấu trúc: Hook số lượng → List từng tip với number → Bonus tip/CTA
+- Tone: Nhanh, năng lượng, dễ tiêu hóa
+- Hook style: "5 điều bạn cần biết...", "Top 7...", "3 mẹo nhanh..."
+- Mục tiêu: Mỗi tip là một giá trị độc lập, dễ nhớ
+- Đặc trưng: Transition rõ ràng giữa các tips, có thể save để xem lại
+`,
+  // Engagement
+  warning_mistake: `
+## THỂ LOẠI: CẢNH BÁO - SAI LẦM (Warning)
+- Cấu trúc: Hook shock → Nêu sai lầm cụ thể → Hậu quả → Cách tránh/khắc phục
+- Tone: Cảnh báo nhưng không doạ dẫm, có giải pháp
+- Hook style: "Đừng mắc sai lầm này!", "90% người làm sai...", "Sai lầm này có thể..."
+- Mục tiêu: Người xem nhận ra và tránh được sai lầm
+- Đặc trưng: Tạo FOMO, dùng số liệu về tỉ lệ mắc sai lầm
+`,
+  quick_qa: `
+## THỂ LOẠI: HỎI - ĐÁP NHANH (Q&A)
+- Cấu trúc: (Câu hỏi → Trả lời ngắn gọn) × nhiều lần
+- Tone: Nhanh, năng lượng, không dài dòng
+- Hook style: "Câu hỏi thường gặp nhất:", "Bạn hỏi, tôi trả lời..."
+- Mục tiêu: Trả lời nhiều câu hỏi phổ biến trong thời gian ngắn
+- Đặc trưng: Format "Q: ... A: ...", transition nhanh giữa các câu
+`,
+  myth_busting: `
+## THỂ LOẠI: BÓC PHỐT QUAN NIỆM (Myth Busting)
+- Cấu trúc: Hook myth → Nêu quan niệm sai → Bằng chứng phản bác → Sự thật
+- Tone: Tự tin, có data, không chê bai người tin myth
+- Hook style: "Bạn nghĩ điều này đúng? Sai rồi!", "Ai bảo bạn điều này?"
+- Mục tiêu: Người xem thay đổi quan niệm sai thành đúng
+- Đặc trưng: So sánh myth vs reality, dùng evidence
+`,
+  before_after: `
+## THỂ LOẠI: TRƯỚC/SAU (Before & After)
+- Cấu trúc: Hook kết quả → Show "trước" → Quá trình → Show "sau" → Takeaway
+- Tone: Chân thực, inspiring, có proof
+- Hook style: "Nhìn sự khác biệt này...", "Đây là sự thay đổi sau..."
+- Mục tiêu: Người xem thấy transformation rõ ràng
+- Đặc trưng: Visual contrast, timeline cụ thể, honest about effort
+`,
+  // Entertainment
+  story_pov: `
+## THỂ LOẠI: KỂ CHUYỆN POV (Storytelling)
+- Cấu trúc: Hook tension → Build up → Climax → Resolution → Lesson
+- Tone: Cảm xúc, kịch tính vừa đủ, authentic
+- Hook style: "POV: Bạn là...", "Câu chuyện này đã thay đổi tôi..."
+- Mục tiêu: Người xem cảm thấy kết nối, entertained, và học được gì đó
+- Đặc trưng: First person narrative, emotional arc, relatable details
+`,
+  day_in_life: `
+## THỂ LOẠI: MỘT NGÀY CỦA... (Day in Life)
+- Cấu trúc: Morning hook → Timeline trong ngày → Key moments → Wrap up
+- Tone: Casual, authentic, behind-the-scenes feel
+- Hook style: "Một ngày làm việc của tôi", "Theo tôi qua một ngày..."
+- Mục tiêu: Người xem thấy được real life, tạo connection
+- Đặc trưng: Time stamps, mundane + interesting moments, personality shine
+`,
+  behind_scenes: `
+## THỂ LOẠI: HẬU TRƯỜNG BTS (Behind the Scenes)
+- Cấu trúc: Tease kết quả → Process reveal → Challenges → Final result
+- Tone: Raw, honest, process-focused
+- Hook style: "Đây là cách chúng tôi làm...", "Hậu trường của..."
+- Mục tiêu: Người xem thấy effort và process, builds trust
+- Đặc trưng: Show mistakes, real reactions, the "ugly" middle
+`,
+  reaction: `
+## THỂ LOẠI: REACTION/COMMENTARY
+- Cấu trúc: Intro context → Real-time reaction → Analysis → Opinion
+- Tone: Genuine, opinionated, entertaining
+- Hook style: "Phản ứng của tôi về...", "Ý kiến thật về trend này..."
+- Mục tiêu: Entertainment + perspective mới về topic
+- Đặc trưng: Authentic reactions, hot takes, personality-driven
+`,
+  // Commercial
+  product_review: `
+## THỂ LOẠI: REVIEW SẢN PHẨM
+- Cấu trúc: Intro + expectations → Testing → Pros → Cons → Verdict
+- Tone: Khách quan, honest, helpful
+- Hook style: "Có nên mua không?", "Review trung thực...", "Sau X ngày dùng thử..."
+- Mục tiêu: Người xem quyết định được có nên mua/dùng không
+- Đặc trưng: So sánh với alternatives, specific use cases, price consideration
+`,
+  case_study: `
+## THỂ LOẠI: CASE STUDY
+- Cấu trúc: Hook kết quả → Context/Background → Strategy → Execution → Results → Takeaways
+- Tone: Analytical, data-driven, educational
+- Hook style: "Làm thế nào X đạt được Y...", "Phân tích chiến lược..."
+- Mục tiêu: Người xem học được framework/strategy có thể apply
+- Đặc trưng: Numbers, before/after, replicable insights
+`,
+  transformation: `
+## THỂ LOẠI: BIẾN ĐỔI/KẾT QUẢ (Transformation)
+- Cấu trúc: Hook end result → Starting point → Journey → Milestones → Final state
+- Tone: Inspiring, motivating, honest about struggle
+- Hook style: "Từ X đến Y trong Z thời gian", "Hành trình biến đổi của tôi..."
+- Mục tiêu: Người xem inspired và believe transformation possible
+- Đặc trưng: Timeline, specific metrics, emotional moments, lessons learned
+`,
+};
+
+// ============================================
+// CHARACTER TYPES - Labels and Instructions
+// ============================================
 const CHARACTER_TYPE_LABELS: Record<string, string> = {
-  male_expert: "Chuyên gia nam",
-  female_expert: "Chuyên gia nữ",
-  consultant: "Nhân vật tư vấn",
-  instructor: "Nhân vật hướng dẫn",
-  ai_presenter: "Nhân vật trung tính (AI presenter)",
+  // Professional
+  the_virtuoso: "Chuyên gia kỹ thuật",
+  the_bellwether: "Người dẫn xu hướng",
+  the_coach: "Người hướng dẫn",
+  // Creative
+  the_performer: "Người trình diễn",
+  the_storyteller: "Người kể chuyện",
+  the_iconoclast: "Người phá khuôn",
+  // Technical
+  the_technophile: "Tech Expert",
+  the_analyst: "Người phân tích",
+  // Passionate
+  the_enthusiast: "Người đam mê",
+  the_maker: "Nhà sáng tạo",
+  // Neutral
+  neutral_presenter: "Người dẫn trung tính",
+};
+
+const CHARACTER_TYPE_INSTRUCTIONS: Record<string, string> = {
+  // Professional
+  the_virtuoso: `
+## VAI TRÒ: THE VIRTUOSO (Chuyên gia kỹ thuật)
+- Xưng hô: "Tôi" với authority
+- Personality: Master in field, technical depth, respected authority
+- Giọng điệu: Tự tin tuyệt đối, chính xác, chi tiết kỹ thuật
+- Cách nói: "Dựa trên kinh nghiệm...", "Về mặt kỹ thuật...", "Điều quan trọng nhất là..."
+- Đặc trưng: Deep expertise, precise terminology, backed by experience
+- Body language: Calm, steady, authoritative gestures when emphasizing
+`,
+  the_bellwether: `
+## VAI TRÒ: THE BELLWETHER (Người dẫn xu hướng)
+- Xưng hô: "Tôi" hoặc tên riêng
+- Personality: Trend-setter, early adopter, industry insider
+- Giọng điệu: Tiên phong, có tầm nhìn, ahead of the curve
+- Cách nói: "Xu hướng mới nhất...", "Tôi đã thấy điều này coming...", "Trong 6 tháng tới..."
+- Đặc trưng: Predictive insights, first-mover knowledge, exclusive info
+- Body language: Confident, slightly forward-leaning, engaging eye contact
+`,
+  the_coach: `
+## VAI TRÒ: THE COACH (Người hướng dẫn)
+- Xưng hô: "Tôi" hoặc "mình" gần gũi
+- Personality: Supportive mentor, patient teacher, encouraging
+- Giọng điệu: Kiên nhẫn, động viên, step-by-step
+- Cách nói: "Bạn có thể làm được...", "Hãy bắt đầu từ...", "Đừng lo, ai cũng từng như vậy..."
+- Đặc trưng: Empathy, clear instructions, celebrates small wins
+- Body language: Open, nodding, encouraging hand gestures
+`,
+  // Creative
+  the_performer: `
+## VAI TRÒ: THE PERFORMER (Người trình diễn)
+- Xưng hô: "Tôi" với energy
+- Personality: Entertaining, charismatic, high energy
+- Giọng điệu: Năng lượng cao, cuốn hút, theatrical
+- Cách nói: Expressive, varied pace, dramatic pauses
+- Đặc trưng: Entertainment value, memorable delivery, personality-forward
+- Body language: Animated, expressive face, big gestures
+`,
+  the_storyteller: `
+## VAI TRÒ: THE STORYTELLER (Người kể chuyện)
+- Xưng hô: "Tôi" narrative voice
+- Personality: Captivating narrator, emotional connector
+- Giọng điệu: Cảm xúc, kịch tính vừa đủ, narrative flow
+- Cách nói: "Chuyện là thế này...", "Và rồi điều không ngờ xảy ra...", "Bạn biết không..."
+- Đặc trưng: Story arc, emotional hooks, vivid details
+- Body language: Intimate, drawing audience in, theatrical pauses
+`,
+  the_iconoclast: `
+## VAI TRÒ: THE ICONOCLAST (Người phá khuôn)
+- Xưng hô: "Tôi" với conviction
+- Personality: Disruptor, challenger, unique perspective
+- Giọng điệu: Thách thức, táo bạo, độc đáo
+- Cách nói: "Mọi người đều sai khi...", "Tôi không đồng ý với...", "Hãy nghĩ khác đi..."
+- Đặc trưng: Contrarian views, fresh perspectives, challenges status quo
+- Body language: Assertive, direct eye contact, punctuating gestures
+`,
+  // Technical
+  the_technophile: `
+## VAI TRÒ: THE TECHNOPHILE (Tech Expert)
+- Xưng hô: "Tôi" với technical authority
+- Personality: Tech-savvy, data-driven, cutting-edge
+- Giọng điệu: Chính xác, có data, cập nhật công nghệ
+- Cách nói: "Công nghệ mới nhất...", "Data cho thấy...", "Về mặt kỹ thuật..."
+- Đặc trưng: Tech terminology, specifications, comparisons
+- Body language: Precise, methodical, demonstrative
+`,
+  the_analyst: `
+## VAI TRÒ: THE ANALYST (Người phân tích)
+- Xưng hô: "Chúng ta" hoặc passive voice
+- Personality: Data-driven, objective, methodical
+- Giọng điệu: Khách quan, có logic, evidence-based
+- Cách nói: "Số liệu cho thấy...", "Phân tích này chỉ ra...", "Dựa trên data..."
+- Đặc trưng: Charts mindset, percentages, comparisons
+- Body language: Measured, pointing to imaginary data, steady
+`,
+  // Passionate
+  the_enthusiast: `
+## VAI TRÒ: THE ENTHUSIAST (Người đam mê)
+- Xưng hô: "Tôi" với passion
+- Personality: Passionate, genuine, infectious enthusiasm
+- Giọng điệu: Nhiệt huyết, chân thành, lan tỏa
+- Cách nói: "Tôi thực sự yêu...", "Điều tuyệt vời nhất là...", "Bạn PHẢI thử..."
+- Đặc trưng: Genuine excitement, personal experience, contagious energy
+- Body language: Animated, smiling, forward-leaning with excitement
+`,
+  the_maker: `
+## VAI TRÒ: THE MAKER (Nhà sáng tạo)
+- Xưng hô: "Tôi" hands-on
+- Personality: Creator, DIY expert, practical
+- Giọng điệu: Thực hành, hands-on, problem-solving
+- Cách nói: "Tôi đã tự làm...", "Cách tôi build...", "Thử nghiệm cho thấy..."
+- Đặc trưng: Process focus, show don't tell, practical tips
+- Body language: Demonstrative, working with hands, showing process
+`,
+  // Neutral
+  neutral_presenter: `
+## VAI TRÒ: NEUTRAL PRESENTER (Người dẫn trung tính)
+- Xưng hô: Không xưng hô cụ thể, dùng câu bị động hoặc "chúng ta"
+- Personality: Objective, balanced, professional
+- Giọng điệu: Khách quan, thông tin, không cảm xúc cá nhân
+- Cách nói: "Điều này có nghĩa...", "Dữ liệu cho thấy...", "Có thể thấy rằng..."
+- Đặc trưng: Facts-first, balanced perspectives, no personal opinion
+- Body language: Neutral, steady, professional distance
+`,
 };
 
 // Topic Angle labels and instructions
@@ -375,7 +641,7 @@ function buildSystemPrompt(
   angle?: string
 ): string {
   const promptCount = getPromptCount(duration);
-  const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ kiến thức";
+  const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ";
   const characterTypeName = CHARACTER_TYPE_LABELS[characterType] || "Chuyên gia";
 
   // Build Brand Voice section if available
@@ -417,6 +683,12 @@ NGUYÊN TẮC:
 `;
   }
 
+  // Build Video Type Instructions section
+  const videoTypeInstructions = VIDEO_TYPE_INSTRUCTIONS[videoType] || "";
+  
+  // Build Character Type Instructions section
+  const characterTypeInstructions = CHARACTER_TYPE_INSTRUCTIONS[characterType] || "";
+
   return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN & PROMPT VIDEO cho video ngắn TikTok (1–3 phút), phục vụ quy trình sản xuất: VEO 3 (HÌNH ẢNH) → Minimax (GIỌNG NÓI) → CapCut (DỰNG).
 
 ${brandVoiceSection}
@@ -425,6 +697,10 @@ ${angleSection}
 
 ${hookSection}
 
+${videoTypeInstructions}
+
+${characterTypeInstructions}
+
 THÔNG TIN ĐẦU VÀO:
 - Chủ đề: ${topic}
 - Thời lượng: ${duration} giây
@@ -432,17 +708,19 @@ THÔNG TIN ĐẦU VÀO:
 - Nhân vật: ${characterTypeName}
 - Số lượng prompt cần tạo: ${promptCount} prompt
 ${angle ? `- Góc tiếp cận: ${TOPIC_ANGLE_LABELS[angle] || angle}` : ''}
-${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng cho PROMPT 1)' : '- Hook: AI tự tạo'}
+${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng cho PROMPT 1)' : '- Hook: AI tự tạo theo thể loại video'}
 
 NGUYÊN TẮC VAI TRÒ NHÂN VẬT:
-- Nhân vật được chọn chỉ ảnh hưởng đến cách xưng hô, cách diễn đạt, sắc thái giọng điệu
+- Nhân vật được chọn ảnh hưởng đến: cách xưng hô, giọng điệu, phong cách diễn đạt, personality
+- PHẢI tuân theo CHARACTER INSTRUCTIONS ở trên
 - TUYỆT ĐỐI KHÔNG mô tả ngoại hình, trang phục, bối cảnh
 - TUYỆT ĐỐI KHÔNG thay đổi tư thế lớn giữa các prompt
 
-CẤU TRÚC VIDEO:
+CẤU TRÚC VIDEO (theo thể loại ${videoTypeName}):
 - Tổng thời lượng: ${duration} giây
 - Mỗi PROMPT ≈ 8 giây
 - Mỗi prompt chỉ chứa 01 ý hoàn chỉnh
+- Cấu trúc PHẢI tuân theo VIDEO TYPE INSTRUCTIONS ở trên
 - Tất cả prompt khi ghép lại phải tạo thành MỘT NHÂN VẬT NÓI LIÊN TỤC – KHÔNG RỜI RẠC
 
 QUY ƯỚC GIỌNG NÓI (CỐ ĐỊNH):
@@ -453,6 +731,7 @@ QUY ƯỚC GIỌNG NÓI (CỐ ĐỊNH):
 QUY ƯỚC CHUYỂN ĐỘNG NHÂN VẬT (VEO 3):
 - Tư thế: Đứng hoặc ngồi ổn định, nhìn thẳng camera
 - Chuyển động: Nhẹ, chậm, có kiểm soát, gật đầu nhẹ khi nhấn ý, đưa tay nhấn từ khóa
+- Body language PHẢI phù hợp với CHARACTER TYPE đã chọn
 - TUYỆT ĐỐI KHÔNG: Quay đầu đột ngột, thay đổi tư thế lớn, cử chỉ mạnh hoặc liên tục
 
 ĐỊNH DẠNG CHUẨN CỦA MỖI PROMPT:
@@ -460,25 +739,18 @@ QUY ƯỚC CHUYỂN ĐỘNG NHÂN VẬT (VEO 3):
 PROMPT X:
 
 [1] Chuyển động nhân vật:
-(Mô tả ngắn, liên tục, kế thừa chuyển động prompt trước)
+(Mô tả ngắn, liên tục, kế thừa chuyển động prompt trước, phù hợp với character type)
 
 [2] Lời thoại (đọc nguyên văn):
 "…"
 
 [3] Giọng điệu:
-Giọng miền Bắc, phù hợp với vai trò nhân vật đã chọn, điềm tĩnh, rõ ràng, nhấn mạnh từ khóa chính
+Giọng miền Bắc, phù hợp với vai trò nhân vật đã chọn (${characterTypeName}), điềm tĩnh, rõ ràng, nhấn mạnh từ khóa chính
 
 NGUYÊN TẮC NỐI MẠCH:
 - Prompt sau kế thừa tư thế, trạng thái, nhịp nói của prompt trước
 - Lời thoại: Không chào hỏi lại, không reset nội dung, không gộp nhiều ý
 - Nghe như: MỘT NGƯỜI ĐANG NÓI LIÊN TỤC
-
-LOGIC KỊCH BẢN:
-1. Hook (1–2 prompt) - ${hook?.opening_line ? 'SỬ DỤNG HOOK ĐÃ CHO' : 'Thu hút người xem'}
-2. Vấn đề / hiểu lầm - Nêu vấn đề
-3. Phân tích theo vai trò nhân vật - Giải thích chi tiết
-4. Kết luận / lời khuyên - Tổng kết
-5. CTA nhẹ (nếu có, không bán hàng)
 
 YÊU CẦU ĐẦU RA:
 – Chỉ xuất danh sách PROMPT
@@ -520,6 +792,7 @@ serve(async (req) => {
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
     console.log("Hook provided:", hook ? "Yes" : "No", hook?.framework || "");
     console.log("Angle:", angle || "None");
+    
     // Load Brand Voice and Industry Memory from template if provided
     let brandVoice: BrandVoice | undefined;
     let industryMemory: IndustryMemory | null = null;
