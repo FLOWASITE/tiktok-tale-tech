@@ -489,39 +489,28 @@ export function ScriptFormStepper({ onSubmit, isLoading }: ScriptFormStepperProp
               />
             </div>
 
-            {/* Advanced Settings Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showAdvanced ? 'Ẩn cài đặt nâng cao' : 'Hiện cài đặt nâng cao'}
-            </button>
-
-            {showAdvanced && (
-              <div className="space-y-3 animate-fade-in">
-                <Label className="text-foreground font-semibold text-sm">
-                  Nhân vật
-                </Label>
-                
-                {/* Smart Character Recommendations */}
-                <CharacterTypeRecommendations
-                  topic={formData.topic}
-                  videoType={formData.video_type}
-                  industry={selectedTemplate?.industry?.[0]}
-                  selectedCharacterType={formData.character_type}
-                  onSelect={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
-                  enabled={!isLoading}
-                />
-                
-                <CharacterTypeSelector
-                  value={formData.character_type}
-                  onChange={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
-                  disabled={isLoading}
-                />
-              </div>
-            )}
+            {/* Character Type - Now visible by default */}
+            <div className="space-y-3">
+              <Label className="text-foreground font-semibold text-sm">
+                Nhân vật
+              </Label>
+              
+              {/* Smart Character Recommendations */}
+              <CharacterTypeRecommendations
+                topic={formData.topic}
+                videoType={formData.video_type}
+                industry={selectedTemplate?.industry?.[0]}
+                selectedCharacterType={formData.character_type}
+                onSelect={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
+                enabled={!isLoading}
+              />
+              
+              <CharacterTypeSelector
+                value={formData.character_type}
+                onChange={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
+                disabled={isLoading}
+              />
+            </div>
           </div>
         )}
 
