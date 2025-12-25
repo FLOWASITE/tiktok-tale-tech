@@ -17,6 +17,7 @@ interface UseTopicRefinementOptions {
 interface UseTopicRefinementResult {
   refinedTopics: RefinedTopic[];
   isLoading: boolean;
+  isTyping: boolean;
   error: string | null;
   refresh: () => void;
 }
@@ -29,6 +30,7 @@ export function useTopicRefinement({
 }: UseTopicRefinementOptions): UseTopicRefinementResult {
   const [refinedTopics, setRefinedTopics] = useState<RefinedTopic[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastTopicRef = useRef<string>('');
@@ -90,17 +92,22 @@ export function useTopicRefinement({
     if (!enabled || rawTopic.trim().length < 10) {
       setRefinedTopics([]);
       setIsLoading(false);
+      setIsTyping(false);
       return;
     }
 
-    // Debounce 800ms
+    // Show typing indicator immediately
+    setIsTyping(true);
+
+    // Debounce reduced to 400ms for faster response
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
     debounceRef.current = setTimeout(() => {
+      setIsTyping(false);
       fetchRefinements();
-    }, 800);
+    }, 400);
 
     return () => {
       if (debounceRef.current) {
@@ -112,6 +119,7 @@ export function useTopicRefinement({
   return {
     refinedTopics,
     isLoading,
+    isTyping,
     error,
     refresh,
   };

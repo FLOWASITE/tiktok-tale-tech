@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Loader2, RefreshCw, ChevronRight } from 'lucide-react';
+import { Sparkles, Loader2, RefreshCw, ChevronRight, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { RefinedTopic } from '@/hooks/useTopicRefinement';
 interface TopicRefinementSuggestionsProps {
   refinedTopics: RefinedTopic[];
   isLoading: boolean;
+  isTyping?: boolean; // New: shows user is still typing
   onSelect: (topic: string) => void;
   onRefresh: () => void;
   disabled?: boolean;
@@ -16,11 +17,13 @@ interface TopicRefinementSuggestionsProps {
 export function TopicRefinementSuggestions({
   refinedTopics,
   isLoading,
+  isTyping = false,
   onSelect,
   onRefresh,
   disabled = false,
 }: TopicRefinementSuggestionsProps) {
-  if (!isLoading && refinedTopics.length === 0) {
+  // Show typing indicator even before loading starts
+  if (!isLoading && !isTyping && refinedTopics.length === 0) {
     return null;
   }
 
@@ -28,8 +31,14 @@ export function TopicRefinementSuggestions({
     <div className="space-y-2 animate-fade-in">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span>Gợi ý cải thiện chủ đề</span>
+          {isTyping ? (
+            <PenLine className="w-4 h-4 text-muted-foreground animate-pulse" />
+          ) : (
+            <Sparkles className="w-4 h-4 text-primary" />
+          )}
+          <span>
+            {isTyping ? 'Đang chờ bạn nhập xong...' : 'Gợi ý cải thiện chủ đề'}
+          </span>
         </div>
         {refinedTopics.length > 0 && (
           <Button
@@ -47,7 +56,13 @@ export function TopicRefinementSuggestions({
       </div>
 
       <div className="space-y-2">
-        {isLoading ? (
+        {isTyping ? (
+          <div className="p-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 text-center">
+            <p className="text-xs text-muted-foreground">
+              Tiếp tục nhập để AI gợi ý cải thiện...
+            </p>
+          </div>
+        ) : isLoading ? (
           <>
             <RefinementSkeleton />
             <RefinementSkeleton />

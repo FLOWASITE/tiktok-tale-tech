@@ -171,9 +171,11 @@ export function useScriptTopicSuggestions({
   industry,
   enabled = true,
 }: UseScriptTopicSuggestionsOptions) {
+  // Show defaults immediately for instant perceived loading
   const [suggestions, setSuggestions] = useState<EnhancedTopicSuggestion[]>(DEFAULT_SUGGESTIONS[videoType]);
   const [source, setSource] = useState<'ai' | 'cache' | 'fallback'>('fallback');
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false); // Separate state for background AI
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('overall');
   const [minScore, setMinScore] = useState(0);
@@ -183,7 +185,8 @@ export function useScriptTopicSuggestions({
   const fetchSuggestions = useCallback(async () => {
     if (!enabled) return;
     
-    setIsLoading(true);
+    // Don't show main loading - we have defaults showing
+    setIsEnhancing(true);
     setError(null);
     
     try {
@@ -236,15 +239,17 @@ export function useScriptTopicSuggestions({
       setSuggestions(DEFAULT_SUGGESTIONS[videoType]);
       setSource('fallback');
     } finally {
-      setIsLoading(false);
+      setIsEnhancing(false);
     }
   }, [industry, videoType, brandTemplateId, enabled]);
 
-  // Debounced effect to fetch suggestions when params change
+  // Show defaults immediately, then fetch AI suggestions in background
   useEffect(() => {
+    // Always show defaults immediately when videoType changes
+    setSuggestions(DEFAULT_SUGGESTIONS[videoType]);
+    setSource('fallback');
+
     if (!enabled) {
-      setSuggestions(DEFAULT_SUGGESTIONS[videoType]);
-      setSource('fallback');
       return;
     }
 
@@ -253,9 +258,10 @@ export function useScriptTopicSuggestions({
     if (paramsKey === prevParamsRef.current) return;
     prevParamsRef.current = paramsKey;
     
+    // Reduced debounce from 500ms to 300ms
     const timer = setTimeout(() => {
       fetchSuggestions();
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [industry, videoType, brandTemplateId, enabled, fetchSuggestions]);
@@ -295,6 +301,7 @@ export function useScriptTopicSuggestions({
     allSuggestions: suggestions,
     source,
     isLoading,
+    isEnhancing, // New: shows AI is working in background
     error,
     refresh,
     sortBy,

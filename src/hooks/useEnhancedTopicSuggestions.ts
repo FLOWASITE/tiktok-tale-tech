@@ -159,11 +159,13 @@ export function useEnhancedTopicSuggestions({
   format,
   enabled = true,
 }: UseEnhancedTopicSuggestionsOptions) {
+  // Show default suggestions immediately for instant perceived loading
   const [suggestions, setSuggestions] = useState<EnhancedTopicSuggestion[]>(
     DEFAULT_SUGGESTIONS[contentGoal] || []
   );
   const [source, setSource] = useState<'ai' | 'cache' | 'fallback'>('fallback');
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false); // Separate state for background AI loading
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('overall');
   const [minScore, setMinScore] = useState<number>(0);
@@ -173,7 +175,8 @@ export function useEnhancedTopicSuggestions({
   const fetchSuggestions = useCallback(async () => {
     if (!enabled) return;
 
-    setIsLoading(true);
+    // Don't show main loading state - we already have defaults
+    setIsEnhancing(true);
     setError(null);
 
     try {
@@ -230,14 +233,16 @@ export function useEnhancedTopicSuggestions({
       setSuggestions(DEFAULT_SUGGESTIONS[contentGoal] || []);
       setSource('fallback');
     } finally {
-      setIsLoading(false);
+      setIsEnhancing(false);
     }
   }, [brandTemplateId, contentGoal, format, enabled]);
 
   useEffect(() => {
+    // Always show defaults immediately when contentGoal changes
+    setSuggestions(DEFAULT_SUGGESTIONS[contentGoal] || []);
+    setSource('fallback');
+    
     if (!enabled) {
-      setSuggestions(DEFAULT_SUGGESTIONS[contentGoal] || []);
-      setSource('fallback');
       return;
     }
 
@@ -246,9 +251,10 @@ export function useEnhancedTopicSuggestions({
     if (paramsKey === prevParamsRef.current) return;
     prevParamsRef.current = paramsKey;
 
+    // Reduced debounce from 500ms to 300ms
     const timer = setTimeout(() => {
       fetchSuggestions();
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [contentGoal, brandTemplateId, format, enabled, fetchSuggestions]);
@@ -319,6 +325,7 @@ export function useEnhancedTopicSuggestions({
     allSuggestions: sortedSuggestions,
     source,
     isLoading,
+    isEnhancing, // New: shows AI is working in background
     error,
     refresh,
     // Sorting controls

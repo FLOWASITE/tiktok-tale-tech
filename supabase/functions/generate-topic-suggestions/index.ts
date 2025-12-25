@@ -131,13 +131,15 @@ serve(async (req) => {
       });
     }
 
-    // Fetch brand context if brandTemplateId provided
+    // Fetch brand context, industry context, and learning context IN PARALLEL
     let brandContext: BrandContext | null = null;
     let industryContext: IndustryContext | null = null;
+    let learningContext: LearningContext | null = null;
 
     if (brandTemplateId) {
       console.log('Fetching brand template:', brandTemplateId);
       
+      // First fetch brand template to get industry_template_id
       const { data: brandTemplate, error: brandError } = await supabase
         .from('brand_templates')
         .select(`
@@ -172,21 +174,44 @@ serve(async (req) => {
 
         console.log('Brand context loaded:', brandContext.brandName, 'Pillars:', brandContext.contentPillars?.length || 0);
 
-        // Fetch industry memory if linked
+        // PARALLEL: Fetch industry context and learning context simultaneously
+        const learningPromise = fetchLearningContext(supabase, brandTemplateId, null);
+        
+        let industryPromise: Promise<any> | null = null;
         if (brandTemplate.industry_template_id) {
           console.log('Fetching industry memory:', brandTemplate.industry_template_id);
-          
-          const { data: industryTemplate, error: industryError } = await supabase
-            .from('industry_templates')
-            .select(`
-              target_audience,
-              forbidden_terms,
-              compliance_rules,
-              brand_voice
-            `)
-            .eq('id', brandTemplate.industry_template_id)
-            .single();
+          industryPromise = (async () => {
+            return await supabase
+              .from('industry_templates')
+              .select(`
+                target_audience,
+                forbidden_terms,
+                compliance_rules,
+                brand_voice
+              `)
+              .eq('id', brandTemplate.industry_template_id)
+              .single();
+          })();
+        }
 
+        // Execute in parallel - saves ~200-300ms
+        const [learningResult, industryResult] = await Promise.all([
+          learningPromise,
+          industryPromise
+        ]);
+
+        
+        // Process learning context
+        learningContext = learningResult;
+        if (learningContext) {
+          console.log('Learning context loaded:', learningContext.totalTopicsUsed, 'topics,', learningContext.topPerformers.length, 'top performers');
+        } else {
+          console.log('No topic history found for learning context');
+        }
+
+        // Process industry context if fetched
+        if (industryResult) {
+          const { data: industryTemplate, error: industryError } = industryResult;
           if (industryTemplate && !industryError) {
             industryContext = {
               targetAudience: industryTemplate.target_audience,
@@ -197,15 +222,6 @@ serve(async (req) => {
             console.log('Industry context loaded, target audience:', industryContext.targetAudience);
           }
         }
-      }
-    }
-
-    // Fetch learning context from topic history
-    let learningContext: LearningContext | null = null;
-    if (brandTemplateId) {
-      learningContext = await fetchLearningContext(supabase, brandTemplateId, null);
-      if (learningContext) {
-        console.log('Learning context loaded:', learningContext.totalTopicsUsed, 'topics,', learningContext.topPerformers.length, 'top performers');
       }
     }
 
@@ -410,6 +426,7 @@ Trả về CHÍNH XÁC JSON array với 3 items:
 
 CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`;
 
+    // Use lighter model for refine mode - faster response
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -417,7 +434,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-flash-lite', // Lighter model for simple refinement task
         messages: [
           { role: 'user', content: prompt }
         ],
