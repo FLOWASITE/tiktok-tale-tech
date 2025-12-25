@@ -1,5 +1,5 @@
 // ScriptViewer component - displays script details with AI analyzer
-import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, ContentStatus } from '@/types/script';
+import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, ContentStatus, SCRIPT_PURPOSE_CONFIG, ScriptPurpose } from '@/types/script';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -20,7 +20,8 @@ import {
   PanelRightOpen, 
   PanelRightClose, 
   Clapperboard, 
-  Sparkles 
+  Sparkles,
+  Target
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -206,6 +207,18 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
             )}>
               {/* Metadata badges */}
               <div className="flex flex-wrap items-center gap-1.5 xs:gap-2 text-xs xs:text-sm">
+                {/* Script Purpose Badge */}
+                {script.script_purpose && SCRIPT_PURPOSE_CONFIG[script.script_purpose as ScriptPurpose] && (
+                  <span className="inline-flex items-center gap-0.5 xs:gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-secondary/20 text-primary border border-primary/30">
+                    <Target className="w-3 h-3 xs:w-4 xs:h-4" />
+                    <span className="hidden xs:inline">
+                      {SCRIPT_PURPOSE_CONFIG[script.script_purpose as ScriptPurpose].label}
+                    </span>
+                    <span className="xs:hidden">
+                      {SCRIPT_PURPOSE_CONFIG[script.script_purpose as ScriptPurpose].label.split(' ')[0]}
+                    </span>
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-0.5 xs:gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full bg-primary/10 text-primary">
                   <Clock className="w-3 h-3 xs:w-4 xs:h-4" />
                   <span className="hidden xs:inline">{DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}</span>
