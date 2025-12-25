@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { FileText, Sparkles, X, Plus, LayoutGrid, List } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { FileText, Sparkles, X, Plus, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -16,12 +16,15 @@ import { PostCreationPrompt } from '@/components/PostCreationPrompt';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SlidePanel } from '@/components/ui/slide-panel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
+
+const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
 export default function MultiChannel() {
   const navigate = useNavigate();
@@ -75,6 +78,10 @@ export default function MultiChannel() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   // Get all unique tags from contents
   const availableTags = useMemo(() => {
@@ -165,6 +172,33 @@ export default function MultiChannel() {
       return true;
     });
   }, [contents, searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredContents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedContents = filteredContents.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
+
+  // Reset to page 1 if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   const handleView = (content: MultiChannelContent) => {
     setSelectedContent(content);
@@ -407,7 +441,7 @@ export default function MultiChannel() {
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
-            {filteredContents.map((content, index) => (
+            {paginatedContents.map((content, index) => (
               <div
                 key={content.id}
                 className="stagger-item relative"
@@ -436,7 +470,7 @@ export default function MultiChannel() {
           </div>
         ) : (
           <MultiChannelListView
-            contents={filteredContents}
+            contents={paginatedContents}
             selectedIds={selectedIds}
             onToggleSelection={toggleSelection}
             onView={handleView}
@@ -445,6 +479,91 @@ export default function MultiChannel() {
             priorityFilter={priorityFilter}
             onPriorityFilterChange={setPriorityFilter}
           />
+        )}
+
+        {/* Pagination Controls */}
+        {!loading && filteredContents.length > 0 && totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 border-t">
+            {/* Items per page selector */}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Hiển thị</span>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="w-[70px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option.toString()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-muted-foreground">/ trang</span>
+            </div>
+
+            {/* Page navigation */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-8 px-2 sm:px-3"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">Trước</span>
+              </Button>
+
+              {/* Page numbers */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((page) => {
+                    if (page === 1 || page === totalPages) return true;
+                    if (Math.abs(page - currentPage) <= 1) return true;
+                    return false;
+                  })
+                  .map((page, index, array) => {
+                    const prevPage = array[index - 1];
+                    const showEllipsis = prevPage && page - prevPage > 1;
+                    
+                    return (
+                      <div key={page} className="flex items-center gap-1">
+                        {showEllipsis && (
+                          <span className="px-1 text-muted-foreground">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(page)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {page}
+                        </Button>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-8 px-2 sm:px-3"
+              >
+                <span className="hidden sm:inline mr-1">Sau</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Page info */}
+            <div className="text-sm text-muted-foreground">
+              <span className="hidden sm:inline">Trang </span>
+              {currentPage}/{totalPages}
+              <span className="hidden sm:inline"> ({filteredContents.length} nội dung)</span>
+            </div>
+          </div>
         )}
       </div>
 
