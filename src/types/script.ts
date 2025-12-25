@@ -155,6 +155,8 @@ export interface ScriptFormData {
   video_type: VideoType;
   character_type: CharacterType;
   script_purpose: ScriptPurpose;
+  voice_region: VoiceRegion;
+  dialogue_style: DialogueStyle;
   brandTemplateId?: string;
   hook?: HookDetails;
   angle?: TopicAngle;
@@ -246,4 +248,144 @@ export const DURATION_LABELS: Record<Duration, string> = {
   90: '1.5 phút (90 giây)',
   120: '2 phút (120 giây)',
   180: '3 phút (180 giây)',
+};
+
+// ============================================
+// VOICE REGION - Giọng vùng miền
+// ============================================
+export type VoiceRegion = 'northern' | 'central' | 'southern';
+
+export const VOICE_REGION_CONFIG: Record<VoiceRegion, {
+  label: string;
+  description: string;
+  dialect_notes: string;
+  example_phrases: string[];
+}> = {
+  northern: {
+    label: 'Giọng miền Bắc',
+    description: 'Giọng Hà Nội chuẩn, phát âm rõ ràng',
+    dialect_notes: 'Phân biệt rõ phụ âm đầu (r/d, tr/ch, s/x), dấu thanh chuẩn, ngữ điệu điềm đạm',
+    example_phrases: ['Tôi nghĩ rằng...', 'Điều này thực sự quan trọng...', 'Các bạn thân mến...']
+  },
+  central: {
+    label: 'Giọng miền Trung',
+    description: 'Giọng Huế/Đà Nẵng, đậm đà bản sắc',
+    dialect_notes: 'Ngữ điệu đặc trưng mềm mại, phát âm mềm hơn, dấu sắc và nặng đặc thù',
+    example_phrases: ['Tui thấy rằng...', 'Bởi rứa mà...', 'Chi rứa bây...']
+  },
+  southern: {
+    label: 'Giọng miền Nam',
+    description: 'Giọng Sài Gòn tự nhiên, thân thiện',
+    dialect_notes: 'Không phân biệt r/g, tr/ch, s/x, dấu hỏi/ngã ít phân biệt, ngữ điệu trầm bổng',
+    example_phrases: ['Mình thấy là...', 'Cái này hay lắm nha...', 'Đúng hông các bạn...']
+  }
+};
+
+// ============================================
+// DIALOGUE STYLE - Phong cách hội thoại
+// ============================================
+export type DialogueStyle = 'monologue' | 'conversational' | 'internal' | 'narrative';
+
+export const DIALOGUE_STYLE_CONFIG: Record<DialogueStyle, {
+  label: string;
+  description: string;
+  prompt_instruction: string;
+}> = {
+  monologue: {
+    label: 'Độc thoại',
+    description: 'Nói liên tục như presentation',
+    prompt_instruction: 'Nói liên tục như đang thuyết trình, không xen kẽ câu hỏi, giữ flow mạch lạc'
+  },
+  conversational: {
+    label: 'Trò chuyện',
+    description: 'Như đang nói chuyện với người xem',
+    prompt_instruction: 'Xen kẽ câu hỏi tu từ như "bạn thấy sao?", "đúng không?", "bạn có từng gặp trường hợp này chưa?" để tăng engagement'
+  },
+  internal: {
+    label: 'Suy tư nội tâm',
+    description: 'Suy nghĩ bên trong, chiêm nghiệm',
+    prompt_instruction: 'Giọng điệu như đang tự vấn, suy tư, có pause sâu, câu ngắn, như đang chia sẻ suy nghĩ cá nhân sâu sắc'
+  },
+  narrative: {
+    label: 'Kể chuyện',
+    description: 'Kể lại câu chuyện, sự kiện',
+    prompt_instruction: 'Kể chuyện với timeline rõ ràng, có nhân vật, bối cảnh, biến cố, dùng ngôn ngữ vivid và descriptive'
+  }
+};
+
+// ============================================
+// EXTENDED TONE OPTIONS
+// ============================================
+export const EXTENDED_TONE_OPTIONS: Record<string, {
+  label: string;
+  description: string;
+  style_hints: string[];
+}> = {
+  // Existing core tones
+  expert: { 
+    label: 'Chuyên gia', 
+    description: 'Uy tín, am hiểu sâu',
+    style_hints: ['Dùng thuật ngữ chuyên môn', 'Đưa ví dụ thực tế', 'Không nói "có lẽ"']
+  },
+  calm: { 
+    label: 'Điềm tĩnh', 
+    description: 'Bình thản, không vội vàng',
+    style_hints: ['Nhịp chậm', 'Pause có chủ đích', 'Giọng đều']
+  },
+  confident: { 
+    label: 'Tự tin', 
+    description: 'Chắc chắn, quyết đoán',
+    style_hints: ['Câu khẳng định', 'Không lưỡng lự', 'Dùng "chắc chắn", "tuyệt đối"']
+  },
+  friendly: { 
+    label: 'Thân thiện', 
+    description: 'Gần gũi, dễ tiếp cận',
+    style_hints: ['Dùng "bạn ơi", "nha"', 'Emoji trong text overlay', 'Giọng ấm']
+  },
+  professional: { 
+    label: 'Chuyên nghiệp', 
+    description: 'Lịch sự, formal',
+    style_hints: ['Xưng "tôi"', 'Câu hoàn chỉnh', 'Không slang']
+  },
+  inspiring: { 
+    label: 'Truyền cảm hứng', 
+    description: 'Động viên, khích lệ',
+    style_hints: ['Dùng "bạn có thể"', 'Nhấn mạnh tiềm năng', 'Kết thúc tích cực']
+  },
+  educational: { 
+    label: 'Giáo dục', 
+    description: 'Giảng dạy, giải thích',
+    style_hints: ['Step-by-step', 'Ví dụ minh họa', 'Checkpoint hỏi lại']
+  },
+  // New extended tones
+  authoritative: { 
+    label: 'Uy quyền', 
+    description: 'Giọng lãnh đạo, quyết đoán',
+    style_hints: ['Không nói "có lẽ"', 'Dùng câu khẳng định', 'Tone commanding']
+  },
+  warm: {
+    label: 'Ấm áp',
+    description: 'Thân thiện, quan tâm',
+    style_hints: ['Dùng "bạn ơi"', 'Câu hỏi quan tâm', 'Empathy']
+  },
+  energetic: {
+    label: 'Năng động',
+    description: 'Nhanh, sôi nổi, truyền cảm hứng',
+    style_hints: ['Câu ngắn', 'Nhiều động từ mạnh', 'Nhịp nhanh']
+  },
+  contemplative: {
+    label: 'Suy tư',
+    description: 'Chậm rãi, sâu lắng',
+    style_hints: ['Pause dài', 'Câu hỏi tu từ', 'Reflection']
+  },
+  urgent: {
+    label: 'Cấp bách',
+    description: 'Nhấn mạnh tính quan trọng',
+    style_hints: ['Dùng "ngay", "bây giờ"', 'Cảnh báo hậu quả', 'FOMO']
+  },
+  playful: {
+    label: 'Vui nhộn',
+    description: 'Hài hước nhẹ nhàng',
+    style_hints: ['Ví dụ hài', 'Wordplay', 'Tone light-hearted']
+  }
 };
