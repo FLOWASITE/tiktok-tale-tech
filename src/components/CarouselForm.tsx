@@ -52,6 +52,7 @@ import {
 interface CarouselFormProps {
   onSubmit: (data: CarouselFormData) => void;
   isLoading: boolean;
+  initialTopic?: string;
 }
 
 const LOADING_PHASES = [
@@ -63,10 +64,17 @@ const LOADING_PHASES = [
 
 const MAX_TOPIC_LENGTH = 300;
 
-export function CarouselForm({ onSubmit, isLoading }: CarouselFormProps) {
+export function CarouselForm({ onSubmit, isLoading, initialTopic }: CarouselFormProps) {
   const { templates, loading: templatesLoading, saveTemplate, deleteTemplate } = useBrandTemplates();
   
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(initialTopic || '');
+
+  // Handle initialTopic prop changes
+  useEffect(() => {
+    if (initialTopic) {
+      setTopic(initialTopic);
+    }
+  }, [initialTopic]);
   const [platform, setPlatform] = useState<Platform>('facebook');
   const [slideCount, setSlideCount] = useState(6);
   const [aiTool, setAiTool] = useState<AITool>('ideogram');
