@@ -679,8 +679,24 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
 ## SCORING GUIDELINES:
 - **brandFit (0-100)**: Mức độ phù hợp với brand positioning, tone of voice, và ngành nghề. 90+ = hoàn toàn phù hợp, 70-89 = khá phù hợp, <70 = cần điều chỉnh.
 - **trend (0-100)**: Mức độ trending hiện tại. 90+ = đang hot, 70-89 = có tiềm năng, 50-69 = ổn định, <50 = không trending.
-- **competition (0-100)**: Đánh giá độ cạnh tranh (điểm CAO = ÍT cạnh tranh = TỐT). 90+ = góc nhìn độc đáo, 70-89 = khác biệt, <70 = nhiều đối thủ.
+- **competition (0-100)**: Đánh giá độ cạnh tranh (điểm CAO = ÍT cạnh tranh = TỐT). Áp dụng Competition Score Heuristics:
+  - Base score: 60 (trung bình)
+  - Topic có số liệu/data cụ thể → +10 điểm
+  - Topic có góc nhìn contrarian/ngược dòng → +15 điểm
+  - Topic mention persona-specific pain point → +10 điểm
+  - Ví dụ: Topic "Tại sao 73% startup thất bại vì XYZ (và cách tránh)" = 60 + 10 (data) + 15 (contrarian) = 85
 - **engagement (0-100)**: Tiềm năng tương tác dựa trên hook, format, sharability. 90+ = viral potential, 70-89 = tương tác cao, <70 = trung bình.
+
+## UNIQUE ANGLE REQUIREMENTS:
+- Mỗi topic PHẢI có góc nhìn độc đáo, không generic
+- Tránh các angles phổ biến như "X điều bạn cần biết" nếu không có twist độc đáo
+- Ưu tiên các unique angle types:
+  1. **Contrarian takes**: Đi ngược quan điểm phổ biến, challenge status quo (VD: "Tại sao ABC thực ra KHÔNG hiệu quả")
+  2. **Insider knowledge**: Thông tin chỉ người trong ngành mới biết, behind-the-scenes (VD: "Những gì agency không nói với bạn về...")
+  3. **Data-backed**: Dựa trên số liệu, nghiên cứu cụ thể (VD: "Phân tích 500 case: Công thức tăng ROI 40%")
+  4. **Personal story**: Kinh nghiệm thực tế, bài học từ thất bại/thành công (VD: "Tôi đã mất 200 triệu để học được...")
+  5. **Curated synthesis**: Tổng hợp từ nhiều nguồn thành insight mới (VD: "3 patterns từ 10 brands thành công nhất 2024")
+- KHÔNG chấp nhận: Tiêu đề generic như "Cách làm X hiệu quả", "X bước để thành công" mà không có góc nhìn độc đáo
 
 ## STRATEGIC BALANCE REQUIREMENTS:
 - **Funnel Balance**: ~40% TOFU, ~35% MOFU, ~25% BOFU
