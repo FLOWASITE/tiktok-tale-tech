@@ -33,6 +33,7 @@ export { TopicBulkActions } from './TopicBulkActions';
 export { TopicExplanationDialog } from './TopicExplanationDialog';
 export { TopicPersonalizationIndicator } from './TopicPersonalizationIndicator';
 export { TopicMobileCard } from './TopicMobileCard';
+export { TopicQuickPreview } from './TopicQuickPreview';
 
 // Phase 4: Brand-Centric Discovery
 export { BrandSpotlightHeader } from './BrandSpotlightHeader';
