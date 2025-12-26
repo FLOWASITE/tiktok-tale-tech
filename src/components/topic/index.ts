@@ -38,6 +38,8 @@ export { TopicQuickPreview } from './TopicQuickPreview';
 // Phase 4: Brand-Centric Discovery
 export { BrandSpotlightHeader } from './BrandSpotlightHeader';
 export { BrandSwitcherDialog } from './BrandSwitcherDialog';
+export { BrandSelectorDropdown } from './BrandSelectorDropdown';
+export { BrandInfoCard } from './BrandInfoCard';
 export { TopicsByPillarView } from './TopicsByPillarView';
 
 // Phase 5: AI-First Hero
