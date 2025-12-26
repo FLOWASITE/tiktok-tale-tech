@@ -35,6 +35,10 @@ import { TopicAIHeroSection } from '@/components/topic/TopicAIHeroSection';
 import { UpcomingEventsCard } from '@/components/topic/UpcomingEventsCard';
 import { QuickAccessBank } from '@/components/topic/QuickAccessBank';
 import { AILearningStatus } from '@/components/topic/AILearningStatus';
+import { TopicComparisonMode } from '@/components/topic/TopicComparisonMode';
+import { TopicComparisonBar } from '@/components/topic/TopicComparisonBar';
+import { ContentPipelineView } from '@/components/topic/ContentPipelineView';
+import { AILearningDashboard } from '@/components/topic/AILearningDashboard';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -76,6 +80,8 @@ const Topics = () => {
   const [selectedTopics, setSelectedTopics] = useState<EnhancedTopicSuggestion[]>([]);
   const [brandDialogOpen, setBrandDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'pillar'>('grid');
+  const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [aiDashboardOpen, setAiDashboardOpen] = useState(false);
 
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
 
@@ -489,6 +495,10 @@ const Topics = () => {
                     {combinedStats.totalTopics}
                   </Badge>
                 </TabsTrigger>
+                <TabsTrigger value="pipeline" className="gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Pipeline
+                </TabsTrigger>
                 <TabsTrigger value="performance" className="gap-2">
                   <BarChart3 className="w-4 h-4" />
                   Hiệu suất
@@ -809,6 +819,14 @@ const Topics = () => {
             />
           </TabsContent>
 
+          {/* Pipeline Tab */}
+          <TabsContent value="pipeline">
+            <ContentPipelineView
+              brandTemplateId={selectedBrandId || undefined}
+              contentGoal={selectedGoal}
+            />
+          </TabsContent>
+
           {/* Performance Tab */}
           <TabsContent value="performance">
             <TopicAnalyticsDashboard
@@ -858,6 +876,64 @@ const Topics = () => {
 
               {/* AI Learning Status */}
               <AILearningStatus
+                totalFeedback={aiLearningStats.totalFeedback}
+                positiveFeedback={aiLearningStats.positiveFeedback}
+                negativeFeedback={aiLearningStats.negativeFeedback}
+                topPatterns={aiLearningStats.topPatterns}
+                personalizationLevel={aiLearningStats.personalizationLevel}
+                isLearning={isEnhancing}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Onboarding for first-time users */}
+      <TopicDiscoveryOnboarding />
+
+      {/* Bulk actions bar */}
+      <TopicBulkActions
+        selectedTopics={selectedTopics}
+        onSaveAll={handleSaveAllTopics}
+        onScheduleAll={handleScheduleAllTopics}
+        onClearSelection={handleClearSelection}
+        onSelectAll={handleSelectAllTopics}
+        totalCount={suggestions.length}
+      />
+
+      {/* Topic Comparison Mode */}
+      <TopicComparisonMode
+        open={comparisonOpen}
+        onOpenChange={setComparisonOpen}
+        topics={selectedTopics}
+        onSelectBest={(topic) => {
+          handleSelectTopic(topic);
+          setComparisonOpen(false);
+          handleClearSelection();
+        }}
+        onClearSelection={handleClearSelection}
+      />
+
+      {/* Topic Comparison Bar */}
+      <TopicComparisonBar
+        selectedTopics={selectedTopics}
+        onRemoveTopic={(topic) => handleToggleTopicSelection(topic, false)}
+        onCompare={() => setComparisonOpen(true)}
+        onClearAll={handleClearSelection}
+      />
+
+      {/* AI Learning Dashboard */}
+      <AILearningDashboard
+        open={aiDashboardOpen}
+        onOpenChange={setAiDashboardOpen}
+        brandTemplateId={selectedBrandId || undefined}
+        contentGoal={selectedGoal}
+      />
+    </div>
+  );
+};
+
+export default Topics;
                 totalFeedback={aiLearningStats.totalFeedback}
                 positiveFeedback={aiLearningStats.positiveFeedback}
                 negativeFeedback={aiLearningStats.negativeFeedback}
