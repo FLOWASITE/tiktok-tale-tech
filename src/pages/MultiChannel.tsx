@@ -22,6 +22,7 @@ import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
+import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
@@ -29,6 +30,7 @@ const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 interface LocationState {
   prefillTopic?: string;
   prefillGoal?: ContentGoal;
+  topicHistoryId?: string;
 }
 
 export default function MultiChannel() {
@@ -66,6 +68,10 @@ export default function MultiChannel() {
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [initialTopic, setInitialTopic] = useState<string>('');
   const [initialGoal, setInitialGoal] = useState<ContentGoal | undefined>();
+  const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
+
+  // Topic Content Links hook
+  const { createLink } = useTopicContentLinks({ enabled: false });
 
   // Handle prefill from Topics Hub
   useEffect(() => {
@@ -73,6 +79,9 @@ export default function MultiChannel() {
       setInitialTopic(prefillData.prefillTopic);
       if (prefillData.prefillGoal) {
         setInitialGoal(prefillData.prefillGoal);
+      }
+      if (prefillData.topicHistoryId) {
+        setTopicHistoryId(prefillData.topicHistoryId);
       }
       setFormSheetOpen(true);
       // Clear location state to prevent re-triggering
@@ -234,8 +243,26 @@ export default function MultiChannel() {
     
     // Show post-creation prompt if content was created successfully
     if (result) {
+      // Create topic-to-content link if came from Topics Hub
+      if (data.topicHistoryId) {
+        try {
+          await createLink(
+            data.topicHistoryId,
+            result.id,
+            'multichannel',
+            result.title,
+            result.status
+          );
+        } catch (error) {
+          console.error('Failed to create topic-content link:', error);
+        }
+      }
+      
       setNewlyCreatedContent(result);
       setShowPostCreationPrompt(true);
+      
+      // Clear topicHistoryId after use
+      setTopicHistoryId(undefined);
     }
   };
 
@@ -606,6 +633,7 @@ export default function MultiChannel() {
           isLoading={generating}
           initialTopic={initialTopic}
           initialGoal={initialGoal}
+          topicHistoryId={topicHistoryId}
         />
       </SlidePanel>
 

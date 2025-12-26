@@ -725,11 +725,12 @@ const Topics = () => {
             <TopicBankGrid
               brandTemplateId={selectedBrandId || undefined}
               contentGoal={selectedGoal}
-              onSelectTopic={(topic) => {
+              onSelectTopic={(topic, topicHistoryId) => {
                 navigate('/multichannel', { 
                   state: { 
                     prefillTopic: topic,
                     prefillGoal: selectedGoal,
+                    topicHistoryId,
                     fromTopics: true 
                   } 
                 });

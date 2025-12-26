@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileVideo, Sparkles, Plus, X, LayoutGrid, List, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 
 type ViewMode = 'grid' | 'list';
 
@@ -24,6 +25,7 @@ const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
 interface LocationState {
   prefillTopic?: string;
+  topicHistoryId?: string;
 }
 
 const Index = () => {
@@ -56,11 +58,18 @@ const Index = () => {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [initialTopic, setInitialTopic] = useState<string>('');
+  const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
+
+  // Topic Content Links hook
+  const { createLink } = useTopicContentLinks({ enabled: false });
 
   // Handle prefill from Topics Hub
   useEffect(() => {
     if (prefillData?.prefillTopic) {
       setInitialTopic(prefillData.prefillTopic);
+      if (prefillData.topicHistoryId) {
+        setTopicHistoryId(prefillData.topicHistoryId);
+      }
       setFormSheetOpen(true);
       // Clear location state to prevent re-triggering
       window.history.replaceState({}, document.title);
@@ -140,6 +149,22 @@ const Index = () => {
   const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
     const newScript = await generateScript(formData);
     if (newScript) {
+      // Create topic-to-content link if came from Topics Hub
+      if (formData.topicHistoryId) {
+        try {
+          await createLink(
+            formData.topicHistoryId,
+            newScript.id,
+            'script',
+            newScript.title,
+            newScript.status || 'draft'
+          );
+        } catch (error) {
+          console.error('Failed to create topic-content link:', error);
+        }
+        setTopicHistoryId(undefined);
+      }
+      
       setFormSheetOpen(false);
       setSelectedScript(newScript);
       setViewerOpen(true);
@@ -391,7 +416,7 @@ const Index = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="p-6">
-            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} initialTopic={initialTopic} />
+            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} initialTopic={initialTopic} topicHistoryId={topicHistoryId} />
           </div>
         </DialogContent>
       </Dialog>

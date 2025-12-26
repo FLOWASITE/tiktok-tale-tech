@@ -56,6 +56,7 @@ interface ScriptFormStepperProps {
   onSubmit: (data: ScriptFormData) => Promise<void>;
   isLoading: boolean;
   initialTopic?: string;
+  topicHistoryId?: string;
 }
 
 const STEPS: Step[] = [
@@ -75,7 +76,7 @@ const LOADING_PHASES = [
 
 const MAX_TOPIC_LENGTH = 300;
 
-export function ScriptFormStepper({ onSubmit, isLoading, initialTopic }: ScriptFormStepperProps) {
+export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId }: ScriptFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -230,7 +231,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic }: ScriptF
       setCurrentStep(2);
       return;
     }
-    await onSubmit(formData);
+    await onSubmit({ ...formData, topicHistoryId });
   };
 
   return (
