@@ -24,6 +24,8 @@ import { TopicRefiner } from '@/components/topic/TopicRefiner';
 import { NextBestTopicCard } from '@/components/topic/NextBestTopicCard';
 import { WeeklySuggestionsPanel } from '@/components/topic/WeeklySuggestionsPanel';
 import { TopicConflictChecker } from '@/components/topic/TopicConflictChecker';
+import { TopicAILearningBadge } from '@/components/topic/TopicAILearningBadge';
+import { TopicEmptyState } from '@/components/topic/TopicEmptyState';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -50,7 +52,8 @@ const Topics = () => {
   const { 
     suggestions, 
     source, 
-    isLoading: suggestionsLoading, 
+    isLoading: suggestionsLoading,
+    isEnhancing,
     refresh,
     stats: suggestionStats
   } = useEnhancedTopicSuggestions({
@@ -311,23 +314,21 @@ const Topics = () => {
 
             {/* AI Suggestions */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-medium text-sm flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-primary" />
                     Gợi ý AI
                   </h3>
-                  <Badge 
-                    variant={source === 'fallback' ? 'outline' : 'secondary'} 
-                    className={cn(
-                      'text-xs',
-                      source === 'ai' && 'bg-primary/10 text-primary',
-                      source === 'cache' && 'bg-amber-500/10 text-amber-600'
-                    )}
-                  >
-                    {source === 'ai' ? '✨ Tạo mới' : source === 'cache' ? '⚡ Cache' : '📋 Mặc định'}
-                  </Badge>
-                  {suggestionStats && (
+                  <TopicAILearningBadge
+                    isPersonalized={selectedBrandId !== 'all'}
+                    isEnhancing={isEnhancing}
+                    source={source}
+                    usedCount={combinedStats.usedTopics}
+                    favoritesCount={combinedStats.favorites}
+                    learningCount={topPerformers.length}
+                  />
+                  {suggestionStats && !isEnhancing && (
                     <Badge variant="outline" className="text-xs">
                       Điểm TB: {suggestionStats.averageScore}
                     </Badge>
@@ -337,9 +338,9 @@ const Topics = () => {
                   variant="outline" 
                   size="sm" 
                   onClick={refresh}
-                  disabled={suggestionsLoading}
+                  disabled={suggestionsLoading || isEnhancing}
                 >
-                  <RefreshCw className={cn('w-4 h-4 mr-2', suggestionsLoading && 'animate-spin')} />
+                  <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
                   Làm mới
                 </Button>
               </div>
@@ -347,23 +348,35 @@ const Topics = () => {
               {suggestionsLoading ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <Skeleton key={i} className="h-[280px] rounded-lg" />
+                    <Card key={i} className="p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <div className="flex gap-1.5">
+                            <Skeleton className="h-4 w-16 rounded-full" />
+                            <Skeleton className="h-4 w-12 rounded-full" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        {[1, 2, 3, 4].map((j) => (
+                          <div key={j} className="flex items-center gap-2">
+                            <Skeleton className="w-3 h-3 rounded" />
+                            <Skeleton className="h-2 flex-1 rounded-full" />
+                            <Skeleton className="w-6 h-3" />
+                          </div>
+                        ))}
+                      </div>
+                      <Skeleton className="h-6 w-full" />
+                    </Card>
                   ))}
                 </div>
               ) : suggestions.length === 0 ? (
-                <Card className="gradient-card border-border/50">
-                  <CardContent className="py-12 text-center">
-                    <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                    <h3 className="font-medium mb-2">Chưa có gợi ý</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Chọn Brand Template để nhận gợi ý AI tùy chỉnh
-                    </p>
-                    <Button variant="outline" onClick={() => navigate('/brands')}>
-                      Quản lý Brand
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </CardContent>
-                </Card>
+                <TopicEmptyState 
+                  type="ai-suggestions" 
+                  onAction={() => navigate('/brands')} 
+                />
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {suggestions.map((topic, index) => (

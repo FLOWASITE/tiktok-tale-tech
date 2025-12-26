@@ -21,3 +21,8 @@ export { TopicRefiner } from './TopicRefiner';
 export { NextBestTopicCard } from './NextBestTopicCard';
 export { WeeklySuggestionsPanel } from './WeeklySuggestionsPanel';
 export { TopicConflictChecker } from './TopicConflictChecker';
+
+// Phase 3: UX Improvements
+export { TopicEmptyState } from './TopicEmptyState';
+export { TopicAILearningBadge } from './TopicAILearningBadge';
+export { TopicCreditsAlert } from './TopicCreditsAlert';

@@ -109,7 +109,22 @@ export function SeasonalTopicsSection({
   };
 
   if (upcomingEvents.length === 0) {
-    return null;
+    return (
+      <Card className="gradient-card border-border/50 border-dashed">
+        <CardContent className="py-6 text-center">
+          <div className="text-4xl mb-3 opacity-80">📅</div>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-red-500 to-pink-500">
+              <Calendar className="w-4 h-4 text-white" />
+            </div>
+            <h4 className="font-medium text-sm">Không có sự kiện sắp tới</h4>
+          </div>
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+            Các gợi ý theo mùa sẽ xuất hiện khi có sự kiện đặc biệt trong 60 ngày tới.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

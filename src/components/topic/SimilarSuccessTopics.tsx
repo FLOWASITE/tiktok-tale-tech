@@ -77,8 +77,55 @@ export function SimilarSuccessTopics({
     );
   };
 
-  if (isLoading || successfulTopics.length === 0) {
-    return null;
+  if (isLoading) {
+    return (
+      <Card className="gradient-card border-border/50">
+        <CardContent className="py-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
+              <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
+              <div className="h-3 bg-muted rounded animate-pulse w-1/3" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (successfulTopics.length === 0) {
+    return (
+      <Card className="gradient-card border-border/50 border-dashed">
+        <CardContent className="py-6 text-center">
+          <div className="text-4xl mb-3 opacity-80">📊</div>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500">
+              <TrendingUp className="w-4 h-4 text-white" />
+            </div>
+            <h4 className="font-medium text-sm">Chưa có dữ liệu hiệu suất</h4>
+          </div>
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto mb-3">
+            Tạo và theo dõi content để xem những topics thành công nhất!
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs"
+            onClick={() => navigate('/multichannel')}
+          >
+            Tạo nội dung đầu tiên
+            <ArrowRight className="w-3 h-3 ml-1" />
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
