@@ -345,9 +345,20 @@ export function useEnhancedTopicSuggestions({
     return result;
   }, [suggestions, sortBy, minScore]);
 
-  // Filter by format if specified
+  // Filter by format if specified - use partial match for flexible format matching
+  // e.g., "video script" should match "script", "carousel post" should match "carousel"
   const filteredSuggestions = format
-    ? sortedSuggestions.filter((s) => s.formats.includes(format))
+    ? sortedSuggestions.filter((s) =>
+        s.formats.some((f) => {
+          const normalizedF = f.toLowerCase();
+          const normalizedFormat = format.toLowerCase();
+          return (
+            normalizedF.includes(normalizedFormat) ||
+            normalizedFormat.includes(normalizedF) ||
+            normalizedF === normalizedFormat
+          );
+        })
+      )
     : sortedSuggestions;
 
   // Computed stats
