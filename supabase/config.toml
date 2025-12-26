@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.recommend-topics]
 verify_jwt = false
+
+[functions.learn-from-feedback]
+verify_jwt = false
