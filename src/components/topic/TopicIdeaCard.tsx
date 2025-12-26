@@ -8,12 +8,18 @@ import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 
 interface TopicIdeaCardProps {
@@ -24,6 +30,9 @@ interface TopicIdeaCardProps {
   isSelected?: boolean;
   disabled?: boolean;
   compact?: boolean;
+  selectable?: boolean;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
 }
 
 const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; gradient: string; bgClass: string; textClass: string; label: string }> = {
@@ -89,6 +98,9 @@ export function TopicIdeaCard({
   isSelected,
   disabled,
   compact = false,
+  selectable = false,
+  checked = false,
+  onCheckedChange,
 }: TopicIdeaCardProps) {
   const config = categoryConfig[topic.category] || categoryConfig.evergreen;
   const CategoryIcon = config.icon;
@@ -122,17 +134,25 @@ export function TopicIdeaCard({
     }
   };
 
-  return (
+  const cardContent = (
     <Card
       className={cn(
         'group relative transition-all duration-300 cursor-pointer overflow-hidden',
         'hover:shadow-lg hover:-translate-y-0.5',
         'border-border/50 hover:border-primary/30',
         isSelected && 'ring-2 ring-primary border-primary',
+        checked && 'ring-2 ring-primary/50 bg-primary/5',
         disabled && 'opacity-50 cursor-not-allowed',
         compact ? 'p-3' : 'p-4'
       )}
-      onClick={() => !disabled && onSelect(topic)}
+      onClick={(e) => {
+        if (selectable && onCheckedChange) {
+          e.stopPropagation();
+          onCheckedChange(!checked);
+        } else if (!disabled) {
+          onSelect(topic);
+        }
+      }}
     >
       {/* Category gradient accent */}
       <div
@@ -142,8 +162,22 @@ export function TopicIdeaCard({
         )}
       />
 
+      {/* Checkbox for selection mode */}
+      {selectable && (
+        <div 
+          className="absolute top-3 left-3 z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={checked}
+            onCheckedChange={(val) => onCheckedChange?.(!!val)}
+            className="bg-background"
+          />
+        </div>
+      )}
+
       {/* Header */}
-      <div className={cn('flex items-start gap-3', compact ? 'mb-2' : 'mb-3')}>
+      <div className={cn('flex items-start gap-3', compact ? 'mb-2' : 'mb-3', selectable && 'pl-6')}>
         <div className={cn('rounded-lg shrink-0', config.bgClass, compact ? 'p-1.5' : 'p-2')}>
           <CategoryIcon className={cn(config.textClass, compact ? 'w-3.5 h-3.5' : 'w-4 h-4')} />
         </div>
@@ -417,5 +451,113 @@ export function TopicIdeaCard({
         </div>
       )}
     </Card>
+  );
+
+  // Wrap with HoverCard for detailed preview
+  return (
+    <HoverCard openDelay={400} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        {cardContent}
+      </HoverCardTrigger>
+      <HoverCardContent 
+        side="right" 
+        align="start" 
+        className="w-80 p-4"
+        sideOffset={8}
+      >
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="flex items-start gap-2">
+            <div className={cn('p-1.5 rounded-lg shrink-0', config.bgClass)}>
+              <CategoryIcon className={cn('w-4 h-4', config.textClass)} />
+            </div>
+            <div>
+              <h4 className="font-medium text-sm leading-tight">{topic.topic}</h4>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className={cn('text-[10px]', config.bgClass, config.textClass)}>
+                  {config.label}
+                </Badge>
+                {topic.pillar && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {topic.pillar}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Reasoning - Full */}
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase">Lý do gợi ý</p>
+            <p className="text-xs leading-relaxed text-foreground">
+              {topic.reasoning}
+            </p>
+          </div>
+
+          {/* Scores summary */}
+          {topic.scores && (
+            <div className="grid grid-cols-2 gap-2">
+              {scoreConfig.map(({ key, label, icon: ScoreIcon }) => {
+                const value = topic.scores![key];
+                return (
+                  <div key={key} className="flex items-center gap-1.5 text-xs">
+                    <ScoreIcon className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">{label}:</span>
+                    <span className={cn(
+                      'font-medium',
+                      value >= 75 ? 'text-emerald-600' : value >= 60 ? 'text-amber-600' : 'text-red-600'
+                    )}>
+                      {value}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Keywords */}
+          {topic.relatedKeywords && topic.relatedKeywords.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase">Từ khóa liên quan</p>
+              <div className="flex flex-wrap gap-1">
+                {topic.relatedKeywords.slice(0, 6).map((kw) => (
+                  <Badge key={kw} variant="outline" className="text-[10px] px-1.5">
+                    {kw}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="flex gap-2 pt-2 border-t border-border/50">
+            <Button 
+              size="sm" 
+              className="flex-1 h-7 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(topic);
+              }}
+            >
+              <Play className="w-3 h-3 mr-1" />
+              Sử dụng ngay
+            </Button>
+            {onSave && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSave(topic);
+                }}
+              >
+                <BookmarkPlus className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
