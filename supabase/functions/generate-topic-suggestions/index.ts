@@ -184,6 +184,21 @@ interface TopicScores {
   engagement: number;
 }
 
+interface TopicDataSource {
+  hasRealData: boolean;
+  perplexity: boolean;
+  statistics: string[];
+  citations: string[];
+  dataType?: 'insight' | 'statistic' | 'case_study';
+}
+
+interface ScoreBreakdown {
+  brandFitReason?: string;
+  trendReason?: string;
+  competitionReason?: string;
+  engagementReason?: string;
+}
+
 interface EnhancedTopicSuggestion {
   topic: string;
   category: 'evergreen' | 'trending' | 'seasonal' | 'reactive';
@@ -201,6 +216,10 @@ interface EnhancedTopicSuggestion {
   // Seasonal fields
   relatedEvent?: string;
   eventDate?: string;
+  // Data source transparency
+  dataSources?: TopicDataSource;
+  // Enhanced reasoning
+  scoreBreakdown?: ScoreBreakdown;
 }
 
 // Persona context for fetching
@@ -435,26 +454,65 @@ serve(async (req) => {
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         // Validate and ensure all fields exist
-        suggestions = parsed.map((item: any) => ({
-          topic: item.topic || '',
-          category: item.category || 'evergreen',
-          pillar: item.pillar || undefined,
-          reasoning: item.reasoning || '',
-          formats: item.formats || ['multichannel'],
-          relatedKeywords: item.relatedKeywords || [],
-          bestTimeToPost: item.bestTimeToPost || undefined,
-          scores: {
-            brandFit: Math.min(100, Math.max(0, item.scores?.brandFit || 50)),
-            trend: Math.min(100, Math.max(0, item.scores?.trend || 50)),
-            competition: Math.min(100, Math.max(0, item.scores?.competition || 50)),
-            engagement: Math.min(100, Math.max(0, item.scores?.engagement || 50)),
-          },
-          estimatedEngagement: item.estimatedEngagement || 'medium',
-          // Content Matrix fields
-          topicType: item.topicType || 'solution',
-          funnelStage: item.funnelStage || 'tofu',
-          emotionalTone: item.emotionalTone || 'educate',
-        }));
+        suggestions = parsed.map((item: any) => {
+          // Determine data source info based on topic content and context
+          const hasDataPattern = /\d+%|\d+\s*(triệu|tỷ|nghìn|K|M)|tăng\s*\d+|giảm\s*\d+/i.test(item.topic);
+          const usedPerplexity = !!(industryInsight && industryInsight.insights.length > 0);
+          
+          // Find matching statistics if topic contains numbers
+          const matchedStats: string[] = [];
+          if (usedPerplexity && hasDataPattern && industryInsight?.statistics) {
+            for (const stat of industryInsight.statistics) {
+              // Check if any number from stat appears in topic
+              const numbers = stat.match(/\d+/g) || [];
+              for (const num of numbers) {
+                if (item.topic.includes(num)) {
+                  matchedStats.push(stat);
+                  break;
+                }
+              }
+            }
+          }
+
+          return {
+            topic: item.topic || '',
+            category: item.category || 'evergreen',
+            pillar: item.pillar || undefined,
+            reasoning: item.reasoning || '',
+            formats: item.formats || ['multichannel'],
+            relatedKeywords: item.relatedKeywords || [],
+            bestTimeToPost: item.bestTimeToPost || undefined,
+            scores: {
+              brandFit: Math.min(100, Math.max(0, item.scores?.brandFit || 50)),
+              trend: Math.min(100, Math.max(0, item.scores?.trend || 50)),
+              competition: Math.min(100, Math.max(0, item.scores?.competition || 50)),
+              engagement: Math.min(100, Math.max(0, item.scores?.engagement || 50)),
+            },
+            estimatedEngagement: item.estimatedEngagement || 'medium',
+            // Content Matrix fields
+            topicType: item.topicType || 'solution',
+            funnelStage: item.funnelStage || 'tofu',
+            emotionalTone: item.emotionalTone || 'educate',
+            // Seasonal fields
+            relatedEvent: item.relatedEvent,
+            eventDate: item.eventDate,
+            // Data source transparency
+            dataSources: {
+              hasRealData: usedPerplexity && hasDataPattern,
+              perplexity: usedPerplexity,
+              statistics: matchedStats.slice(0, 2),
+              citations: usedPerplexity ? (industryInsight?.citations?.slice(0, 3) || []) : [],
+              dataType: matchedStats.length > 0 ? 'statistic' : (usedPerplexity ? 'insight' : undefined),
+            },
+            // Enhanced reasoning with score breakdown
+            scoreBreakdown: item.scoreBreakdown || {
+              brandFitReason: item.scores?.brandFit >= 80 ? 'Phù hợp cao với brand positioning' : item.scores?.brandFit >= 60 ? 'Khá phù hợp với brand' : 'Cần điều chỉnh cho phù hợp',
+              trendReason: hasDataPattern ? 'Dựa trên dữ liệu thực tế từ web search' : (item.scores?.trend >= 70 ? 'Có tiềm năng trending' : 'Evergreen content'),
+              competitionReason: item.scores?.competition >= 80 ? 'Góc tiếp cận độc đáo, ít cạnh tranh' : 'Cần góc nhìn khác biệt',
+              engagementReason: item.scores?.engagement >= 80 ? 'Hook mạnh, có potential viral' : 'Tiềm năng tương tác trung bình',
+            },
+          };
+        });
       }
     } catch (parseError) {
       console.error('Failed to parse suggestions:', parseError);
@@ -504,6 +562,8 @@ serve(async (req) => {
       source: 'ai',
       brandContextUsed: !!brandContext,
       industryContextUsed: !!industryContext,
+      perplexityUsed: !!industryInsight,
+      citationsCount: industryInsight?.citations?.length || 0,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

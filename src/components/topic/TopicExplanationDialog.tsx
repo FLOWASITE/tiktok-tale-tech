@@ -14,6 +14,7 @@ import {
   Lightbulb, Target, TrendingUp, Users, BarChart3,
   BookmarkPlus, Play, CalendarPlus, Sparkles, Brain,
   MessageSquare, Hash, Flame, ChevronRight, Heart,
+  Globe, Database, Link2, FileText,
   type LucideIcon
 } from 'lucide-react';
 import { EnhancedTopicSuggestion, calculateOverallScore, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
@@ -92,29 +93,32 @@ export function TopicExplanationDialog({
   // Generate explanation factors based on topic data
   const factors: ExplanationFactorProps[] = [];
 
-  // Brand Fit Explanation
+  // Brand Fit Explanation (with enhanced reasoning)
   if (topic.scores?.brandFit) {
     factors.push({
       icon: Target,
       title: 'Phù hợp với Brand',
-      description: brandContext?.brandName 
+      description: topic.scoreBreakdown?.brandFitReason || (brandContext?.brandName 
         ? `Chủ đề này phù hợp với định vị của ${brandContext.brandName}${brandContext.toneOfVoice?.length ? `. Tone ${brandContext.toneOfVoice.slice(0, 2).join(', ')} được phản ánh rõ ràng.` : '.'}`
-        : 'Chủ đề phù hợp với các tiêu chí brand positioning của bạn.',
+        : 'Chủ đề phù hợp với các tiêu chí brand positioning của bạn.'),
       score: topic.scores.brandFit,
       color: 'bg-primary/10 text-primary',
     });
   }
 
-  // Trend Explanation
+  // Trend Explanation (with data source info)
   if (topic.scores?.trend) {
+    const hasRealData = topic.dataSources?.hasRealData;
     factors.push({
       icon: Flame,
       title: 'Xu hướng hiện tại',
-      description: topic.scores.trend >= 80 
-        ? 'Chủ đề đang hot trên các nền tảng. Thời điểm tốt để tạo content về topic này.'
-        : topic.scores.trend >= 60
-        ? 'Có sự quan tâm ổn định từ audience. Không phải peak nhưng vẫn relevant.'
-        : 'Không phải trending topic, nhưng có thể là nội dung evergreen tốt.',
+      description: topic.scoreBreakdown?.trendReason || (hasRealData 
+        ? 'Dựa trên dữ liệu thực tế từ web search - điểm đánh giá cao hơn do có số liệu cụ thể.'
+        : topic.scores.trend >= 80 
+          ? 'Chủ đề đang hot trên các nền tảng. Thời điểm tốt để tạo content về topic này.'
+          : topic.scores.trend >= 60
+            ? 'Có sự quan tâm ổn định từ audience. Không phải peak nhưng vẫn relevant.'
+            : 'Không phải trending topic, nhưng có thể là nội dung evergreen tốt.'),
       score: topic.scores.trend,
       color: 'bg-orange-500/10 text-orange-500',
     });
@@ -125,11 +129,11 @@ export function TopicExplanationDialog({
     factors.push({
       icon: BarChart3,
       title: 'Mức độ cạnh tranh',
-      description: topic.scores.competition >= 80
+      description: topic.scoreBreakdown?.competitionReason || (topic.scores.competition >= 80
         ? 'Ít cạnh tranh trong lĩnh vực này. Cơ hội tốt để xây dựng authority.'
         : topic.scores.competition >= 60
-        ? 'Cạnh tranh vừa phải. Cần góc nhìn độc đáo để nổi bật.'
-        : 'Cạnh tranh cao. Nên có USP rõ ràng hoặc chọn góc niche hơn.',
+          ? 'Cạnh tranh vừa phải. Cần góc nhìn độc đáo để nổi bật.'
+          : 'Cạnh tranh cao. Nên có USP rõ ràng hoặc chọn góc niche hơn.'),
       score: topic.scores.competition,
       color: 'bg-violet-500/10 text-violet-500',
     });
@@ -140,13 +144,23 @@ export function TopicExplanationDialog({
     factors.push({
       icon: Users,
       title: 'Tiềm năng tương tác',
-      description: topic.scores.engagement >= 80
+      description: topic.scoreBreakdown?.engagementReason || (topic.scores.engagement >= 80
         ? 'Dự đoán mức engagement cao dựa trên pattern từ content tương tự.'
         : topic.scores.engagement >= 60
-        ? 'Mức tương tác trung bình khá. Có thể tối ưu với hook tốt.'
-        : 'Cần creative approach để tăng engagement. Xem xét format phù hợp.',
+          ? 'Mức tương tác trung bình khá. Có thể tối ưu với hook tốt.'
+          : 'Cần creative approach để tăng engagement. Xem xét format phù hợp.'),
       score: topic.scores.engagement,
       color: 'bg-emerald-500/10 text-emerald-500',
+    });
+  }
+
+  // Data Source factor (Phase 1)
+  if (topic.dataSources?.hasRealData) {
+    factors.push({
+      icon: Globe,
+      title: 'Nguồn dữ liệu thực',
+      description: `Topic sử dụng dữ liệu từ Perplexity web search.${topic.dataSources.statistics?.length ? ` Bao gồm ${topic.dataSources.statistics.length} số liệu thực tế.` : ''}${topic.dataSources.citations?.length ? ` Có ${topic.dataSources.citations.length} nguồn tham khảo.` : ''}`,
+      color: 'bg-blue-500/10 text-blue-500',
     });
   }
 
@@ -234,6 +248,65 @@ export function TopicExplanationDialog({
                 {topic.reasoning || 'Chủ đề này được gợi ý dựa trên phân tích brand, xu hướng thị trường và mục tiêu content của bạn.'}
               </p>
             </div>
+
+            {/* Data Source Info - Phase 1 */}
+            {topic.dataSources?.hasRealData && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" />
+                  Nguồn dữ liệu
+                </h4>
+                <Card className="border-blue-500/30 bg-blue-500/5">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {topic.dataSources.perplexity && (
+                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/30 gap-1">
+                          <Globe className="w-3 h-3" />
+                          Perplexity Web Search
+                        </Badge>
+                      )}
+                      {topic.dataSources.dataType === 'statistic' && (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1">
+                          <Database className="w-3 h-3" />
+                          Số liệu thực
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {topic.dataSources.statistics && topic.dataSources.statistics.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-medium text-muted-foreground">Số liệu sử dụng:</p>
+                        {topic.dataSources.statistics.map((stat, i) => (
+                          <p key={i} className="text-xs text-foreground/80 pl-2 border-l-2 border-blue-500/30">
+                            {stat}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {topic.dataSources.citations && topic.dataSources.citations.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                          <Link2 className="w-3 h-3" />
+                          Nguồn tham khảo:
+                        </p>
+                        {topic.dataSources.citations.slice(0, 3).map((cite, i) => (
+                          <a 
+                            key={i} 
+                            href={cite} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-blue-500 hover:underline block truncate"
+                          >
+                            {cite}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Factor Cards */}
             <div className="space-y-2">

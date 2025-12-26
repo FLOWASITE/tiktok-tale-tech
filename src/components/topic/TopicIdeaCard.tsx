@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
-  Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, type LucideIcon
+  Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, 
+  Globe, Database, FileText, Link2, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -21,7 +22,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
-import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 import { TopicQuickPreview } from './TopicQuickPreview';
 
 interface TopicIdeaCardProps {
@@ -287,6 +288,71 @@ export function TopicIdeaCard({
               </Badge>
             )}
           </div>
+
+          {/* Data Source Badges - Phase 1 */}
+          {topic.dataSources?.hasRealData && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {topic.dataSources.perplexity && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="text-[9px] px-1.5 py-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400 gap-0.5"
+                      >
+                        <Globe className="w-2.5 h-2.5" />
+                        Web Data
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[250px]">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        <Globe className="w-3 h-3" />
+                        Dữ liệu từ Perplexity Web Search
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Topic này sử dụng dữ liệu thực tế từ internet
+                      </p>
+                      {topic.dataSources.citations && topic.dataSources.citations.length > 0 && (
+                        <div className="mt-1.5 pt-1.5 border-t border-border/50">
+                          <p className="text-[10px] text-muted-foreground">Nguồn:</p>
+                          {topic.dataSources.citations.slice(0, 2).map((cite, i) => (
+                            <p key={i} className="text-[9px] text-blue-500 truncate">{cite}</p>
+                          ))}
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
+              {topic.dataSources.statistics && topic.dataSources.statistics.length > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="text-[9px] px-1.5 py-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 gap-0.5"
+                      >
+                        <Database className="w-2.5 h-2.5" />
+                        Stats
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[280px]">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        <Database className="w-3 h-3" />
+                        Số liệu thực tế
+                      </p>
+                      <div className="mt-1 space-y-0.5">
+                        {topic.dataSources.statistics.slice(0, 2).map((stat, i) => (
+                          <p key={i} className="text-[10px] text-muted-foreground">• {stat}</p>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
