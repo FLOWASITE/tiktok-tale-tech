@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { 
   CalendarDays, RefreshCw, Sparkles, ArrowRight,
-  Target, FileText, Star, ChevronDown, ChevronUp
+  Target, FileText, Star, ChevronDown, ChevronUp, Flame
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Collapsible,
   CollapsibleContent,
@@ -135,6 +136,16 @@ export function WeeklySuggestionsPanel({
           </div>
         ) : (
           <>
+            {/* Trending Topics Used Indicator */}
+            {weeklyPlan.trendingTopicsUsed && weeklyPlan.trendingTopicsUsed > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20">
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-medium text-orange-600 dark:text-orange-400">{weeklyPlan.trendingTopicsUsed}</span> topics dựa trên xu hướng thực tế
+                </span>
+              </div>
+            )}
+
             {/* Week Theme */}
             {weeklyPlan.weekTheme && (
               <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
@@ -169,13 +180,18 @@ export function WeeklySuggestionsPanel({
                   return (
                     <div
                       key={index}
-                      className="p-3 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
+                      className={cn(
+                        "p-3 rounded-lg border hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group",
+                        item.isTrendingBased 
+                          ? "border-orange-500/30 bg-orange-500/5" 
+                          : "border-border/50"
+                      )}
                       onClick={() => onSelectTopic(item.topic)}
                     >
                       <div className="flex items-start gap-3">
                         {/* Day indicator */}
                         <div className={cn(
-                          'w-12 h-12 rounded-lg flex flex-col items-center justify-center shrink-0',
+                          'w-12 h-12 rounded-lg flex flex-col items-center justify-center shrink-0 relative',
                           dayColor
                         )}>
                           <span className="text-[10px] text-white/80 font-medium">
@@ -184,14 +200,37 @@ export function WeeklySuggestionsPanel({
                           <span className="text-lg font-bold text-white">
                             {index + 1}
                           </span>
+                          {/* Trending indicator on day badge */}
+                          {item.isTrendingBased && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center">
+                              <Flame className="w-2.5 h-2.5 text-white" />
+                            </div>
+                          )}
                         </div>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="font-medium text-sm group-hover:text-primary transition-colors">
-                              {item.topic}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm group-hover:text-primary transition-colors">
+                                {item.topic}
+                              </p>
+                              {item.isTrendingBased && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge className="text-[10px] h-4 px-1.5 bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 gap-0.5">
+                                        <Flame className="w-2.5 h-2.5" />
+                                        Trending
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                      <p className="text-xs">Dựa trên: {item.trendingSource || 'Xu hướng thực tế'}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
                             <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                           </div>
 
