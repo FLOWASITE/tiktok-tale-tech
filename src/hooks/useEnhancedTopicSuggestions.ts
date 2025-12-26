@@ -270,23 +270,36 @@ export function useEnhancedTopicSuggestions({
     }
   }, [brandTemplateId, contentGoal, format, enabled]);
 
+  // Track if we've loaded AI suggestions at least once for current params
+  const hasLoadedRef = useRef(false);
+  
   useEffect(() => {
-    // Always show defaults immediately when contentGoal changes
-    setSuggestions(DEFAULT_SUGGESTIONS[contentGoal] || []);
-    setSource('fallback');
+    const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}`;
     
+    // If params changed, reset loaded flag and show defaults
+    if (paramsKey !== prevParamsRef.current) {
+      hasLoadedRef.current = false;
+      setSuggestions(DEFAULT_SUGGESTIONS[contentGoal] || []);
+      setSource('fallback');
+    }
+    
+    // If not enabled, keep existing suggestions (don't reset to defaults)
     if (!enabled) {
       return;
     }
 
-    const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}`;
-
-    if (paramsKey === prevParamsRef.current) return;
+    // If already loaded for these params, don't fetch again
+    if (paramsKey === prevParamsRef.current && hasLoadedRef.current) {
+      return;
+    }
+    
     prevParamsRef.current = paramsKey;
 
     // Reduced debounce from 500ms to 300ms
     const timer = setTimeout(() => {
-      fetchSuggestions();
+      fetchSuggestions().then(() => {
+        hasLoadedRef.current = true;
+      });
     }, 300);
 
     return () => clearTimeout(timer);

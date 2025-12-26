@@ -100,6 +100,10 @@ const Topics = () => {
     return selectedBrand.content_pillars as ContentPillar[];
   }, [selectedBrand]);
   
+  // Keep suggestions in memory across tabs - only fetch when on discovery tab
+  // but preserve data when switching to other tabs
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  
   const { 
     suggestions, 
     source, 
@@ -110,8 +114,17 @@ const Topics = () => {
   } = useEnhancedTopicSuggestions({
     brandTemplateId: selectedBrandId || undefined,
     contentGoal: selectedGoal,
-    enabled: activeTab === 'discovery' && !!selectedBrandId,
+    // Only enable fetching when on discovery tab AND has brand selected
+    // But the hook internally preserves suggestions when disabled
+    enabled: !!selectedBrandId && (activeTab === 'discovery' || !hasLoadedOnce),
   });
+
+  // Track if we've loaded suggestions at least once
+  useEffect(() => {
+    if (suggestions.length > 0 && source !== 'fallback') {
+      setHasLoadedOnce(true);
+    }
+  }, [suggestions, source]);
 
   const { 
     history, 
