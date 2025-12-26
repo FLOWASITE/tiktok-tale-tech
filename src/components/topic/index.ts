@@ -46,3 +46,9 @@ export { TopicFormatSelector } from './TopicFormatSelector';
 export { UpcomingEventsCard } from './UpcomingEventsCard';
 export { QuickAccessBank } from './QuickAccessBank';
 export { AILearningStatus } from './AILearningStatus';
+
+// Phase 5: New Features
+export { TopicComparisonMode } from './TopicComparisonMode';
+export { TopicComparisonBar } from './TopicComparisonBar';
+export { ContentPipelineView } from './ContentPipelineView';
+export { AILearningDashboard } from './AILearningDashboard';
