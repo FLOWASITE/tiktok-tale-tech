@@ -16,6 +16,30 @@ interface TrendingTopic {
   engagement_potential: number;
   competition_level: 'low' | 'medium' | 'high';
   suggested_angles: string[];
+  source?: 'curated_event' | 'curated_news' | 'web_search' | 'ai';
+  source_id?: string;
+  source_url?: string;
+}
+
+interface CuratedEvent {
+  id: string;
+  name: string;
+  description: string | null;
+  event_date: string;
+  event_type: string;
+  suggested_topics: string[];
+  suggested_angles: string[];
+  priority: number;
+}
+
+interface CuratedNews {
+  id: string;
+  title: string;
+  summary: string | null;
+  source_url: string | null;
+  news_date: string;
+  relevance_score: number;
+  suggested_angles: string[];
 }
 
 serve(async (req) => {
@@ -26,7 +50,7 @@ serve(async (req) => {
   try {
     const { brandTemplateId, organizationId, industry, forceRefresh } = await req.json();
 
-    console.log('Discovering trending topics for:', { brandTemplateId, organizationId, industry });
+    console.log('Discovering trending topics (Hybrid mode) for:', { brandTemplateId, organizationId, industry });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -42,7 +66,7 @@ serve(async (req) => {
         .eq('organization_id', organizationId)
         .gt('expires_at', new Date().toISOString())
         .order('velocity_score', { ascending: false })
-        .limit(10);
+        .limit(15);
 
       if (cached && cached.length > 0) {
         console.log('Returning cached trending topics:', cached.length);
@@ -56,7 +80,35 @@ serve(async (req) => {
       }
     }
 
-    // Fetch brand context if available
+    // ========== PHASE 1: Fetch Curated Data ==========
+    const now = new Date();
+    const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    // Fetch upcoming curated events (next 30 days)
+    const { data: curatedEvents } = await supabase
+      .from('curated_events')
+      .select('id, name, description, event_date, event_type, suggested_topics, suggested_angles, priority')
+      .eq('is_active', true)
+      .gte('event_date', now.toISOString().split('T')[0])
+      .lte('event_date', thirtyDaysLater.toISOString().split('T')[0])
+      .order('event_date', { ascending: true })
+      .limit(10);
+
+    // Fetch active curated news (not expired)
+    const { data: curatedNews } = await supabase
+      .from('curated_news')
+      .select('id, title, summary, source_url, news_date, relevance_score, suggested_angles')
+      .eq('is_active', true)
+      .gt('expires_at', now.toISOString())
+      .order('relevance_score', { ascending: false })
+      .limit(10);
+
+    console.log('Curated data fetched:', {
+      events: curatedEvents?.length || 0,
+      news: curatedNews?.length || 0
+    });
+
+    // ========== PHASE 2: Build Context for AI ==========
     let brandContext = '';
     if (brandTemplateId) {
       const { data: brand } = await supabase
@@ -73,6 +125,30 @@ Positioning: ${brand.brand_positioning || 'N/A'}
 Content Pillars: ${JSON.stringify(brand.content_pillars || [])}
 `;
       }
+    }
+
+    // Build curated context
+    let curatedContext = '';
+    
+    if (curatedEvents && curatedEvents.length > 0) {
+      curatedContext += `\n## SỰ KIỆN SẮP TỚI (VERIFIED - Đã xác minh):\n`;
+      curatedEvents.forEach((event: CuratedEvent) => {
+        const daysUntil = Math.ceil((new Date(event.event_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        curatedContext += `- ${event.name} (${event.event_date}, còn ${daysUntil} ngày): ${event.description || ''}\n`;
+        if (event.suggested_topics?.length) {
+          curatedContext += `  Gợi ý: ${event.suggested_topics.join(', ')}\n`;
+        }
+      });
+    }
+
+    if (curatedNews && curatedNews.length > 0) {
+      curatedContext += `\n## TIN TỨC NGÀNH GẦN ĐÂY (VERIFIED - Đã xác minh):\n`;
+      curatedNews.forEach((news: CuratedNews) => {
+        curatedContext += `- ${news.title}: ${news.summary || 'N/A'}\n`;
+        if (news.source_url) {
+          curatedContext += `  Nguồn: ${news.source_url}\n`;
+        }
+      });
     }
 
     if (!lovableApiKey) {
@@ -93,45 +169,32 @@ Content Pillars: ${JSON.stringify(brand.content_pillars || [])}
       day: 'numeric'
     });
 
-    const systemPrompt = `Bạn là chuyên gia phân tích xu hướng nội dung social media tại Việt Nam năm 2024-2025.
-Nhiệm vụ: Phân tích và gợi ý 6-8 chủ đề đang TRENDING phù hợp với thương hiệu.
+    // ========== PHASE 3: AI Analysis with Hybrid Context ==========
+    const systemPrompt = `Bạn là chuyên gia phân tích xu hướng nội dung social media tại Việt Nam.
+Nhiệm vụ: Phân tích dữ liệu đã được cung cấp VÀ bổ sung thêm xu hướng để tạo danh sách 8-10 trending topics.
 
 Ngày hiện tại: ${currentDate}
 
-TIÊU CHÍ ĐÁNH GIÁ TRENDING:
-1. Velocity Score (0-100): Tốc độ tăng trưởng của topic
-   - 80-100: Viral, đang bùng nổ
-   - 60-79: Trending mạnh
-   - 40-59: Đang lên
-   - 20-39: Ổn định
-   - 0-19: Đang giảm
+NGUYÊN TẮC QUAN TRỌNG:
+1. ƯU TIÊN CAO cho dữ liệu CURATED (sự kiện + tin tức đã xác minh)
+2. Đối với sự kiện sắp tới: Đánh giá velocity cao nếu còn < 14 ngày
+3. Đối với tin tức ngành: Tạo góc tiếp cận phù hợp với brand
+4. BỔ SUNG thêm 2-3 xu hướng AI tự phát hiện (TikTok trends, hashtags, evergreen topics)
 
-2. Peak Status:
-   - "rising": Đang tăng, chưa đạt đỉnh
-   - "peaking": Đang ở đỉnh, nên làm ngay
-   - "declining": Đã qua đỉnh, cẩn thận
+TIÊU CHÍ ĐÁNH GIÁ:
+- velocity_score (0-100): Sự kiện còn <7 ngày = 90+, <14 ngày = 70-89, <30 ngày = 50-69
+- peak_status: "peaking" nếu sự kiện trong tuần này, "rising" nếu sắp tới, "declining" nếu đã qua
+- competition_level: Đánh giá dựa trên mức độ phổ biến của topic
 
-3. Peak Prediction: Dự đoán khi nào đạt đỉnh
-   - "now": Đang đỉnh
-   - "1-2 ngày", "tuần này", "2 tuần tới"
-
-4. Competition Level:
-   - "low": Ít đối thủ làm
-   - "medium": Có một số đối thủ
-   - "high": Nhiều đối thủ đã làm
-
-5. Engagement Potential (0-100): Tiềm năng tương tác
-
-NGUỒN XU HƯỚNG CẦN XEM XÉT:
-- Tin tức thời sự Việt Nam
-- Sự kiện mùa vụ, lễ hội
-- Trend TikTok/Reels Việt Nam
-- Hashtag trending
-- Chủ đề evergreen có góc nhìn mới`;
+SOURCE FIELD - RẤT QUAN TRỌNG:
+- "curated_event": Nếu topic dựa trên sự kiện đã cung cấp
+- "curated_news": Nếu topic dựa trên tin tức đã cung cấp  
+- "ai": Nếu là xu hướng AI tự phát hiện/bổ sung`;
 
     const userPrompt = `${brandContext}
+${curatedContext}
 
-Hãy phân tích và trả về 6-8 trending topics dạng JSON array.
+Hãy phân tích và trả về 8-10 trending topics dạng JSON array.
 Mỗi topic cần có:
 - topic: Chủ đề ngắn gọn (tối đa 10 từ)
 - category: "tin_tuc" | "mua_vu" | "tiktok_trend" | "evergreen" | "nganh_chuyen"
@@ -142,8 +205,9 @@ Mỗi topic cần có:
 - engagement_potential: số từ 0-100
 - competition_level: "low" | "medium" | "high"
 - suggested_angles: array 2-3 góc tiếp cận gợi ý
+- source: "curated_event" | "curated_news" | "ai" (BẮT BUỘC - để phân biệt nguồn)
 
-Ưu tiên topics có velocity_score cao và competition_level thấp.
+ƯU TIÊN: Topics từ curated data có velocity cao hơn.
 Trả về JSON array thuần túy, không markdown.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -199,7 +263,6 @@ Trả về JSON array thuần túy, không markdown.`;
     // Parse JSON from response
     let trendingTopics: TrendingTopic[] = [];
     try {
-      // Clean the response - remove markdown code blocks if present
       let cleanContent = content.trim();
       if (cleanContent.startsWith('```')) {
         cleanContent = cleanContent.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
@@ -207,7 +270,6 @@ Trả về JSON array thuần túy, không markdown.`;
       trendingTopics = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      // Try to extract JSON from the content
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         trendingTopics = JSON.parse(jsonMatch[0]);
@@ -215,6 +277,12 @@ Trả về JSON array thuần túy, không markdown.`;
         throw new Error('Could not parse trending topics from AI response');
       }
     }
+
+    // Ensure source field exists
+    trendingTopics = trendingTopics.map(topic => ({
+      ...topic,
+      source: topic.source || 'ai'
+    }));
 
     // Clear old cache for this org
     await supabase
@@ -235,8 +303,8 @@ Trả về JSON array thuần túy, không markdown.`;
       engagement_potential: topic.engagement_potential,
       competition_level: topic.competition_level,
       suggested_angles: topic.suggested_angles,
-      source: 'ai',
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+      source: topic.source || 'ai',
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     }));
 
     const { data: inserted, error: insertError } = await supabase
@@ -248,12 +316,16 @@ Trả về JSON array thuần túy, không markdown.`;
       console.error('Failed to cache trending topics:', insertError);
     }
 
-    console.log('Generated and cached', trendingTopics.length, 'trending topics');
+    console.log('Generated and cached', trendingTopics.length, 'trending topics (hybrid mode)');
 
     return new Response(JSON.stringify({ 
       success: true, 
       data: inserted || topicsToInsert,
-      source: 'ai'
+      source: 'hybrid',
+      curatedDataUsed: {
+        events: curatedEvents?.length || 0,
+        news: curatedNews?.length || 0
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

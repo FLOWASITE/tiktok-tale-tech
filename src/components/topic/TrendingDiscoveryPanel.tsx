@@ -20,6 +20,7 @@ import {
 import { useTrendingTopics, TrendingTopic } from '@/hooks/useTrendingTopics';
 import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { cn } from '@/lib/utils';
+import { SOURCE_CONFIG, TrendingSource } from '@/types/curatedData';
 
 interface TrendingDiscoveryPanelProps {
   brandTemplateId?: string;
@@ -87,11 +88,18 @@ function TrendingTopicCard({
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", category.color)}>
               {category.icon}
               <span className="ml-1">{category.label}</span>
             </Badge>
+            {/* Source badge */}
+            {topic.source && SOURCE_CONFIG[topic.source as TrendingSource] && (
+              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", SOURCE_CONFIG[topic.source as TrendingSource].color)}>
+                {SOURCE_CONFIG[topic.source as TrendingSource].icon}
+                <span className="ml-1">{SOURCE_CONFIG[topic.source as TrendingSource].label}</span>
+              </Badge>
+            )}
             <span className={cn("text-xs font-medium", peakStatus.color, peakStatus.pulse && "animate-pulse")}>
               {peakStatus.label}
             </span>

@@ -694,6 +694,127 @@ export type Database = {
         }
         Relationships: []
       }
+      curated_events: {
+        Row: {
+          country_code: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          event_date: string
+          event_type: string
+          id: string
+          industries: string[] | null
+          is_active: boolean | null
+          name: string
+          organization_id: string | null
+          priority: number | null
+          suggested_angles: string[] | null
+          suggested_topics: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          event_date: string
+          event_type?: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          name: string
+          organization_id?: string | null
+          priority?: number | null
+          suggested_angles?: string[] | null
+          suggested_topics?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string | null
+          priority?: number | null
+          suggested_angles?: string[] | null
+          suggested_topics?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curated_news: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          industries: string[] | null
+          is_active: boolean | null
+          news_date: string | null
+          organization_id: string | null
+          relevance_score: number | null
+          source_url: string | null
+          suggested_angles: string[] | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          news_date?: string | null
+          organization_id?: string | null
+          relevance_score?: number | null
+          source_url?: string | null
+          suggested_angles?: string[] | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          news_date?: string | null
+          organization_id?: string | null
+          relevance_score?: number | null
+          source_url?: string | null
+          suggested_angles?: string[] | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_news_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_personas: {
         Row: {
           age_range: string | null
