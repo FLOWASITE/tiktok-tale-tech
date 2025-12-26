@@ -356,26 +356,11 @@ const Topics = () => {
             </div>
           </div>
 
-          {/* Right: Brand + Goal Selectors */}
-          <div className="flex items-center gap-3">
-            <BrandSelectorDropdown
-              brand={selectedBrand}
-              onOpen={() => setBrandDialogOpen(true)}
-            />
-            <div className="h-6 w-px bg-border hidden sm:block" />
-            <Select value={selectedGoal} onValueChange={(v) => setSelectedGoal(v as ContentGoal)}>
-              <SelectTrigger className="w-40 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CONTENT_GOALS.map((goal) => (
-                  <SelectItem key={goal.value} value={goal.value}>
-                    {goal.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Right: Brand Selector */}
+          <BrandSelectorDropdown
+            brand={selectedBrand}
+            onOpen={() => setBrandDialogOpen(true)}
+          />
         </div>
 
         {/* Brand Switcher Dialog */}
