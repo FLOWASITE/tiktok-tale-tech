@@ -93,16 +93,15 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
     suggestions: enhancedSuggestions, 
     source: suggestionsSource, 
     isEnhancing: suggestionsLoading, 
-    refresh: refreshSuggestions 
+    refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
   } = useEnhancedTopicSuggestions({
     contentGoal,
     brandTemplateId,
     format: 'multichannel',
     enabled: hasLoadedDraft, // Only fetch after draft loaded
   });
-
-  // Extract topic strings for TopicSuggestionPanel
-  const topicSuggestions = enhancedSuggestions.map(s => s.topic);
 
   // Load draft from localStorage
   useEffect(() => {
@@ -324,12 +323,15 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
               
               {/* Topic Suggestions */}
               <TopicSuggestionPanel
-                suggestions={topicSuggestions}
+                suggestions={enhancedSuggestions}
                 source={suggestionsSource}
                 isLoading={suggestionsLoading}
                 onSelect={handleTopicSuggestion}
                 onRefresh={refreshSuggestions}
+                onSave={saveSuggestion}
+                onFeedback={submitFeedback}
                 disabled={isLoading}
+                showEnhancedInfo={true}
               />
             </div>
 

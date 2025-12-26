@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { ContentGoal } from '@/types/multichannel';
 import { 
   EnhancedTopicSuggestion, 
@@ -10,6 +12,7 @@ import {
   TopicScores,
   calculateOverallScore 
 } from '@/types/topicDiscovery';
+import { toast } from 'sonner';
 
 interface UseEnhancedTopicSuggestionsOptions {
   brandTemplateId?: string;
@@ -192,6 +195,9 @@ export function useEnhancedTopicSuggestions({
   format,
   enabled = true,
 }: UseEnhancedTopicSuggestionsOptions) {
+  const { user } = useAuth();
+  const { currentOrganization } = useOrganizationContext();
+  
   // Show default suggestions immediately for instant perceived loading
   const [suggestions, setSuggestions] = useState<EnhancedTopicSuggestion[]>(
     DEFAULT_SUGGESTIONS[contentGoal] || []
@@ -202,8 +208,10 @@ export function useEnhancedTopicSuggestions({
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('overall');
   const [minScore, setMinScore] = useState<number>(0);
+  const [autoSavedCount, setAutoSavedCount] = useState(0);
   
   const prevParamsRef = useRef<string>('');
+  const autoSavedTopicsRef = useRef<Set<string>>(new Set());
 
   const fetchSuggestions = useCallback(async () => {
     if (!enabled) return;
@@ -219,6 +227,7 @@ export function useEnhancedTopicSuggestions({
           body: {
             contentGoal,
             brandTemplateId,
+            organizationId: currentOrganization?.id,
             format,
             enhanced: true,
           },
@@ -377,6 +386,148 @@ export function useEnhancedTopicSuggestions({
     };
   }, [suggestions]);
 
+  // Auto-save AI suggestions to topic_history as drafts
+  const autoSaveSuggestions = useCallback(async (topics: EnhancedTopicSuggestion[]) => {
+    if (!user || topics.length === 0) return;
+
+    // Filter out already saved topics
+    const newTopics = topics.filter(t => !autoSavedTopicsRef.current.has(t.topic));
+    if (newTopics.length === 0) return;
+
+    try {
+      // Check which topics already exist in database
+      const topicTexts = newTopics.map(t => t.topic);
+      const { data: existing } = await supabase
+        .from('topic_history')
+        .select('topic')
+        .in('topic', topicTexts)
+        .eq('organization_id', currentOrganization?.id || '')
+        .limit(100);
+
+      const existingSet = new Set((existing || []).map(e => e.topic));
+      const toInsert = newTopics.filter(t => !existingSet.has(t.topic));
+
+      if (toInsert.length === 0) {
+        // Mark as already saved
+        newTopics.forEach(t => autoSavedTopicsRef.current.add(t.topic));
+        return;
+      }
+
+      const insertData = toInsert.map(topic => ({
+        topic: topic.topic,
+        category: topic.category,
+        content_goal: contentGoal,
+        format: format || 'multichannel',
+        pillar: topic.pillar || null,
+        scores: topic.scores || {},
+        related_keywords: topic.relatedKeywords || [],
+        reasoning: topic.reasoning || null,
+        usage_status: 'draft',
+        was_used: false,
+        is_favorite: false,
+        user_id: user.id,
+        organization_id: currentOrganization?.id || null,
+        brand_template_id: brandTemplateId || null,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('topic_history')
+        .insert(insertData);
+
+      if (!insertError) {
+        toInsert.forEach(t => autoSavedTopicsRef.current.add(t.topic));
+        setAutoSavedCount(prev => prev + toInsert.length);
+        toast.success(`Đã lưu ${toInsert.length} ý tưởng vào Kho`, {
+          description: 'Bạn có thể xem trong Kho Ý tưởng',
+          duration: 3000,
+        });
+      }
+    } catch (err) {
+      console.error('Error auto-saving suggestions:', err);
+    }
+  }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format]);
+
+  // Submit feedback for a suggestion
+  const submitFeedback = useCallback(async (
+    suggestion: EnhancedTopicSuggestion,
+    feedback: 'positive' | 'negative'
+  ) => {
+    if (!user) return;
+
+    try {
+      // Find the topic in history or create one
+      const { data: existing } = await supabase
+        .from('topic_history')
+        .select('id')
+        .eq('topic', suggestion.topic)
+        .eq('organization_id', currentOrganization?.id || '')
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('topic_history')
+          .update({ feedback })
+          .eq('id', existing.id);
+      } else {
+        // Insert with feedback
+        await supabase
+          .from('topic_history')
+          .insert({
+            topic: suggestion.topic,
+            category: suggestion.category,
+            content_goal: contentGoal,
+            format: format || 'multichannel',
+            scores: suggestion.scores || {},
+            reasoning: suggestion.reasoning || null,
+            usage_status: 'suggested',
+            was_used: false,
+            is_favorite: false,
+            feedback,
+            user_id: user.id,
+            organization_id: currentOrganization?.id || null,
+            brand_template_id: brandTemplateId || null,
+          });
+      }
+    } catch (err) {
+      console.error('Error submitting feedback:', err);
+    }
+  }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format]);
+
+  // Save a single suggestion to topic bank
+  const saveSuggestion = useCallback(async (suggestion: EnhancedTopicSuggestion) => {
+    if (!user) return null;
+
+    try {
+      const { data, error: insertError } = await supabase
+        .from('topic_history')
+        .insert({
+          topic: suggestion.topic,
+          category: suggestion.category,
+          content_goal: contentGoal,
+          format: format || 'multichannel',
+          pillar: suggestion.pillar || null,
+          scores: suggestion.scores || {},
+          related_keywords: suggestion.relatedKeywords || [],
+          reasoning: suggestion.reasoning || null,
+          usage_status: 'suggested',
+          was_used: false,
+          is_favorite: false,
+          user_id: user.id,
+          organization_id: currentOrganization?.id || null,
+          brand_template_id: brandTemplateId || null,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      autoSavedTopicsRef.current.add(suggestion.topic);
+      return data?.id;
+    } catch (err) {
+      console.error('Error saving suggestion:', err);
+      return null;
+    }
+  }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format]);
+
   return {
     suggestions: filteredSuggestions,
     allSuggestions: sortedSuggestions,
@@ -392,5 +543,10 @@ export function useEnhancedTopicSuggestions({
     setMinScore,
     // Stats
     stats,
+    // New: auto-save and feedback
+    autoSavedCount,
+    autoSaveSuggestions,
+    submitFeedback,
+    saveSuggestion,
   };
 }

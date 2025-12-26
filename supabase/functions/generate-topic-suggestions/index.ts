@@ -41,6 +41,7 @@ interface TopicGenerationInput {
   industry?: string;
   contentGoal?: string;
   brandTemplateId?: string;
+  organizationId?: string;
   format?: 'carousel' | 'script' | 'multichannel' | 'all';
   recentTopics?: string[];
   seasonality?: 'holiday' | 'event' | 'normal';
@@ -132,7 +133,7 @@ serve(async (req) => {
   try {
     const startTime = Date.now();
     const input: TopicGenerationInput = await req.json();
-    const { mode, rawTopic, industry, contentGoal, brandTemplateId, format, recentTopics, seasonality, videoType } = input;
+    const { mode, rawTopic, industry, contentGoal, brandTemplateId, organizationId, format, recentTopics, seasonality, videoType } = input;
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -148,8 +149,8 @@ serve(async (req) => {
       return await handleRefineMode(rawTopic, videoType, brandTemplateId, supabase);
     }
 
-    // Build cache key with extended parameters
-    const cacheKey = `topic-suggestions-v3:${industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}`;
+    // Build cache key with extended parameters - include organizationId for isolation
+    const cacheKey = `topic-suggestions-v4:${organizationId || 'global'}:${industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}`;
     
     // Check cache first
     const { data: cached } = await supabase
@@ -159,7 +160,7 @@ serve(async (req) => {
       .single();
 
     if (cached && new Date(cached.expires_at) > new Date()) {
-      console.log('Cache hit for topic suggestions v3');
+      console.log('Cache hit for topic suggestions v4');
       await supabase.rpc('increment_cache_hit', { p_cache_key: cacheKey });
       
       return new Response(JSON.stringify({
@@ -363,7 +364,8 @@ serve(async (req) => {
       function_name: 'generate-topic-suggestions',
       input_hash: cacheKey,
       response_data: suggestions,
-      cache_scope: brandTemplateId ? 'org' : 'global',
+      cache_scope: organizationId ? 'org' : 'global',
+      organization_id: organizationId || null,
       brand_template_id: brandTemplateId || null,
       expires_at: expiresAt.toISOString(),
     }, {
@@ -380,7 +382,7 @@ serve(async (req) => {
     await logPromptAnalytics(supabase, {
       functionName: 'generate-topic-suggestions',
       brandTemplateId: brandTemplateId || undefined,
-      organizationId: undefined,
+      organizationId: organizationId || undefined,
       contextRichnessScore,
       learningDataScore,
       executionTimeMs: executionTime,

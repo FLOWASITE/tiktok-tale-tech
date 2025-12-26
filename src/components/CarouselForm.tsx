@@ -124,6 +124,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     source: suggestionsSource,
     isEnhancing: suggestionsLoading,
     refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
   } = useEnhancedTopicSuggestions({
     brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
     contentGoal: 'education',
@@ -131,8 +133,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     enabled: true,
   });
 
-  // Extract topic strings for TopicSuggestionPanel
-  const topicSuggestions = enhancedSuggestions.map(s => s.topic);
   // Character count color
   const charCountColor = useMemo(() => {
     const length = topic.length;
@@ -276,12 +276,15 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         
         {/* Topic Suggestions */}
         <TopicSuggestionPanel
-          suggestions={topicSuggestions}
+          suggestions={enhancedSuggestions}
           source={suggestionsSource}
           isLoading={suggestionsLoading}
           onSelect={(suggestion) => setTopic(suggestion)}
           onRefresh={refreshSuggestions}
+          onSave={saveSuggestion}
+          onFeedback={submitFeedback}
           disabled={isLoading}
+          showEnhancedInfo={true}
         />
       </div>
 
