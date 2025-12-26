@@ -15,7 +15,7 @@ import {
 import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CHANNELS } from '@/types/multichannel';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
-import { useTopicSuggestions } from '@/hooks/useTopicSuggestions';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
@@ -87,18 +87,21 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
   const topicRef = useRef<HTMLTextAreaElement>(null);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
-  // Topic suggestions hook
+  // Topic suggestions hook - using unified AI engine
   const { 
-    suggestions: topicSuggestions, 
+    suggestions: enhancedSuggestions, 
     source: suggestionsSource, 
-    isLoading: suggestionsLoading, 
+    isEnhancing: suggestionsLoading, 
     refresh: refreshSuggestions 
-  } = useTopicSuggestions({
-    industry,
+  } = useEnhancedTopicSuggestions({
     contentGoal,
     brandTemplateId,
+    format: 'multichannel',
     enabled: hasLoadedDraft, // Only fetch after draft loaded
   });
+
+  // Extract topic strings for TopicSuggestionPanel
+  const topicSuggestions = enhancedSuggestions.map(s => s.topic);
 
   // Load draft from localStorage
   useEffect(() => {
