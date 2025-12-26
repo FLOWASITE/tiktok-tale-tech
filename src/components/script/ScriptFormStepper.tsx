@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
-import { useScriptTopicSuggestions } from '@/hooks/useScriptTopicSuggestions';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
@@ -126,23 +125,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic }: ScriptF
     topic: formData.topic,
     brandVoice: brandVoiceForHook,
     enabled: currentStep === 3 && formData.topic.length >= 10,
-  });
-
-  // AI Topic Suggestions - now on step 2
-  const {
-    suggestions: topicSuggestions,
-    source: suggestionsSource,
-    isLoading: suggestionsLoading,
-    refresh: refreshSuggestions,
-    sortBy,
-    setSortBy,
-    minScore,
-    setMinScore,
-  } = useScriptTopicSuggestions({
-    videoType: formData.video_type,
-    brandTemplateId: formData.brandTemplateId,
-    industry: selectedTemplate?.industry?.[0],
-    enabled: currentStep === 2,
   });
 
   // Topic Refinement - now on step 2
@@ -431,21 +413,13 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic }: ScriptF
                 </div>
               )}
 
-              {/* AI Topic Discovery Panel */}
+              {/* Topic Discovery Panel - reads from Kho Ý tưởng */}
               <ScriptTopicDiscoveryPanel
-                suggestions={topicSuggestions}
-                source={suggestionsSource}
-                isLoading={suggestionsLoading}
                 onSelect={(topic: EnhancedTopicSuggestion) => {
                   setFormData((prev) => ({ ...prev, topic: topic.topic }));
                   toast.success('Đã chọn chủ đề gợi ý');
                 }}
-                onRefresh={refreshSuggestions}
                 disabled={isLoading}
-                sortBy={sortBy}
-                onSortChange={setSortBy}
-                minScore={minScore}
-                onMinScoreChange={setMinScore}
                 brandTemplateId={formData.brandTemplateId}
               />
             </div>

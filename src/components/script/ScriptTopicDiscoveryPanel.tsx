@@ -1,16 +1,15 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Sparkles, 
   RefreshCw, 
   ChevronDown, 
-  Database, 
   Lightbulb,
   Search,
-  Filter,
   SlidersHorizontal,
-  Info,
   Library,
-  FileEdit
+  FileEdit,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -31,16 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TopicIdeaCard } from '@/components/topic/TopicIdeaCard';
 import { TopicEducationBadge } from './TopicEducationBadge';
-import { useTopicHistory, TopicHistoryItem } from '@/hooks/useTopicHistory';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { 
   EnhancedTopicSuggestion, 
   TopicCategory,
@@ -51,26 +43,10 @@ import {
 } from '@/types/topicDiscovery';
 
 interface ScriptTopicDiscoveryPanelProps {
-  suggestions: EnhancedTopicSuggestion[];
-  source: 'ai' | 'cache' | 'fallback';
-  isLoading: boolean;
   onSelect: (topic: EnhancedTopicSuggestion) => void;
-  onRefresh: () => void;
   disabled?: boolean;
-  sortBy: SortOption;
-  onSortChange: (sort: SortOption) => void;
-  minScore: number;
-  onMinScoreChange: (score: number) => void;
   brandTemplateId?: string;
 }
-
-type TabValue = 'ai' | 'bank';
-
-const SOURCE_CONFIG = {
-  ai: { icon: Sparkles, label: 'AI', tooltip: 'Gợi ý được tạo bởi AI dựa trên Brand của bạn', className: 'bg-primary/10 text-primary border-primary/30' },
-  cache: { icon: Database, label: 'Cached', tooltip: 'Gợi ý từ cache để phản hồi nhanh hơn', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30' },
-  fallback: { icon: Lightbulb, label: 'Mặc định', tooltip: 'Gợi ý mặc định khi chưa có đủ thông tin Brand', className: 'bg-muted text-muted-foreground border-border' },
-};
 
 const CATEGORY_FILTERS: { value: TopicCategory | 'all'; label: string }[] = [
   { value: 'all', label: 'Tất cả' },
@@ -81,25 +57,18 @@ const CATEGORY_FILTERS: { value: TopicCategory | 'all'; label: string }[] = [
 ];
 
 export function ScriptTopicDiscoveryPanel({
-  suggestions,
-  source,
-  isLoading,
   onSelect,
-  onRefresh,
   disabled = false,
-  sortBy,
-  onSortChange,
-  minScore,
-  onMinScoreChange,
   brandTemplateId,
 }: ScriptTopicDiscoveryPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<TopicCategory | 'all'>('all');
-  const [activeTab, setActiveTab] = useState<TabValue>('ai');
+  const [sortBy, setSortBy] = useState<SortOption>('overall');
+  const [minScore, setMinScore] = useState(0);
 
-  // Fetch topics from bank that are suitable for scripts
+  // Only read from Topic Bank - no separate AI call
   const { 
     history: bankTopics, 
     isLoading: bankLoading, 
@@ -109,14 +78,11 @@ export function ScriptTopicDiscoveryPanel({
     brandTemplateId,
     formats: ['script'],
     excludeDrafts: false,
-    enabled: activeTab === 'bank',
+    enabled: isOpen,
   });
 
-  const currentSource = SOURCE_CONFIG[source];
-  const SourceIcon = currentSource.icon;
-
-  // Convert bank topics to EnhancedTopicSuggestion format with extended props
-  const bankSuggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string })[] => {
+  // Convert bank topics to EnhancedTopicSuggestion format
+  const suggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string })[] => {
     return bankTopics.map(item => ({
       topic: item.topic,
       category: item.category,
@@ -127,19 +93,14 @@ export function ScriptTopicDiscoveryPanel({
       formats: ['script'] as TopicFormat[],
       estimatedEngagement: (item.scores?.engagement && item.scores.engagement >= 70 ? 'high' : 
         item.scores?.engagement && item.scores.engagement >= 40 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
-      // Store original item id for tracking
       _historyId: item.id,
       _usageStatus: item.usageStatus,
     }));
   }, [bankTopics]);
 
-  // Get current suggestions based on active tab
-  const currentSuggestions = activeTab === 'ai' ? suggestions : bankSuggestions;
-  const currentLoading = activeTab === 'ai' ? isLoading : bankLoading;
-
-  // Filter and sort suggestions - now uses currentSuggestions based on active tab
+  // Filter and sort suggestions
   const filteredSuggestions = useMemo(() => {
-    let result = [...currentSuggestions];
+    let result = [...suggestions];
 
     // Search filter
     if (searchQuery.trim()) {
@@ -175,14 +136,14 @@ export function ScriptTopicDiscoveryPanel({
     });
 
     return result;
-  }, [currentSuggestions, searchQuery, categoryFilter, minScore, sortBy]);
+  }, [suggestions, searchQuery, categoryFilter, minScore, sortBy]);
 
   const hasActiveFilters = searchQuery.trim() || categoryFilter !== 'all' || minScore > 0;
 
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
-    onMinScoreChange(0);
+    setMinScore(0);
   };
 
   return (
@@ -194,8 +155,8 @@ export function ScriptTopicDiscoveryPanel({
             type="button"
             className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span>Khám phá chủ đề</span>
+            <Library className="w-4 h-4 text-primary" />
+            <span>Chủ đề từ Kho Ý tưởng</span>
             <ChevronDown className={cn(
               "w-4 h-4 transition-transform duration-200",
               isOpen && "rotate-180"
@@ -204,27 +165,11 @@ export function ScriptTopicDiscoveryPanel({
         </CollapsibleTrigger>
 
         <div className="flex items-center gap-2">
-          {/* Source Badge - only show for AI tab */}
-          {activeTab === 'ai' && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "text-[10px] px-2 py-0 h-5 gap-1 border cursor-help",
-                      currentSource.className
-                    )}
-                  >
-                    <SourceIcon className="w-2.5 h-2.5" />
-                    {currentSource.label}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">{currentSource.tooltip}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {/* Topic count badge */}
+          {suggestions.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-2 h-5">
+              {suggestions.length} chủ đề
+            </Badge>
           )}
 
           <TopicEducationBadge />
@@ -234,42 +179,19 @@ export function ScriptTopicDiscoveryPanel({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={activeTab === 'ai' ? onRefresh : refreshBank}
-            disabled={currentLoading || disabled}
+            onClick={refreshBank}
+            disabled={bankLoading || disabled}
             className="h-6 w-6 p-0"
           >
             <RefreshCw className={cn(
               "w-3 h-3",
-              currentLoading && "animate-spin"
+              bankLoading && "animate-spin"
             )} />
           </Button>
         </div>
       </div>
 
       <CollapsibleContent className="space-y-3">
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="w-full">
-          <TabsList className="grid grid-cols-2 h-8">
-            <TabsTrigger value="ai" className="text-xs gap-1.5">
-              <Sparkles className="w-3 h-3" />
-              Gợi ý AI
-              {suggestions.length > 0 && (
-                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                  {suggestions.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="bank" className="text-xs gap-1.5">
-              <Library className="w-3 h-3" />
-              Từ Kho ý tưởng
-              {bankTopics.length > 0 && (
-                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                  {bankTopics.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
         {/* Search & Filter Bar */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -322,7 +244,7 @@ export function ScriptTopicDiscoveryPanel({
               {/* Sort */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Sắp xếp theo</Label>
-                <Select value={sortBy} onValueChange={(v) => onSortChange(v as SortOption)}>
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -365,7 +287,7 @@ export function ScriptTopicDiscoveryPanel({
               </div>
               <Slider
                 value={[minScore]}
-                onValueChange={([v]) => onMinScoreChange(v)}
+                onValueChange={([v]) => setMinScore(v)}
                 min={0}
                 max={80}
                 step={10}
@@ -376,7 +298,7 @@ export function ScriptTopicDiscoveryPanel({
         )}
 
         {/* Topic Grid */}
-        {currentLoading ? (
+        {bankLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-[200px] rounded-lg" />
@@ -385,36 +307,42 @@ export function ScriptTopicDiscoveryPanel({
         ) : filteredSuggestions.length === 0 ? (
           <div className="text-center py-8">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
-              {activeTab === 'bank' ? (
-                <Library className="w-5 h-5 text-muted-foreground" />
-              ) : (
-                <Search className="w-5 h-5 text-muted-foreground" />
-              )}
+              <Library className="w-5 h-5 text-muted-foreground" />
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-2">
               {hasActiveFilters 
                 ? 'Không tìm thấy chủ đề phù hợp với bộ lọc' 
-                : activeTab === 'bank'
-                  ? 'Chưa có ý tưởng nào cho định dạng Script trong Kho'
-                  : 'Chưa có gợi ý chủ đề'}
+                : 'Chưa có ý tưởng nào cho định dạng Script trong Kho'}
             </p>
-            {hasActiveFilters && (
+            {hasActiveFilters ? (
               <Button
                 type="button"
                 variant="link"
                 size="sm"
-                className="mt-2"
                 onClick={clearFilters}
               >
                 Xóa bộ lọc
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                asChild
+                className="gap-1.5"
+              >
+                <Link to="/topics">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Khám phá Kho Ý tưởng
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
               </Button>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {filteredSuggestions.map((topic, idx) => {
-              const extendedTopic = topic as EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string };
-              const isDraft = extendedTopic._usageStatus === 'draft';
+              const isDraft = topic._usageStatus === 'draft';
               
               return (
                 <div 
@@ -428,8 +356,8 @@ export function ScriptTopicDiscoveryPanel({
                     onSelect={onSelect}
                     disabled={disabled}
                     isDraft={isDraft}
-                    onSave={isDraft && confirmDraft && extendedTopic._historyId ? () => {
-                      confirmDraft(extendedTopic._historyId!);
+                    onSave={isDraft && confirmDraft && topic._historyId ? () => {
+                      confirmDraft(topic._historyId!);
                     } : undefined}
                   />
                   {isDraft && (
@@ -445,9 +373,9 @@ export function ScriptTopicDiscoveryPanel({
         )}
 
         {/* Results count */}
-        {!currentLoading && filteredSuggestions.length > 0 && (
+        {!bankLoading && filteredSuggestions.length > 0 && (
           <p className="text-xs text-muted-foreground text-center">
-            Hiển thị {filteredSuggestions.length}/{currentSuggestions.length} chủ đề
+            Hiển thị {filteredSuggestions.length}/{suggestions.length} chủ đề
           </p>
         )}
       </CollapsibleContent>
