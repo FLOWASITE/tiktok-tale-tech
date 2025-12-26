@@ -446,6 +446,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic }: ScriptF
                 onSortChange={setSortBy}
                 minScore={minScore}
                 onMinScoreChange={setMinScore}
+                brandTemplateId={formData.brandTemplateId}
               />
             </div>
           </div>

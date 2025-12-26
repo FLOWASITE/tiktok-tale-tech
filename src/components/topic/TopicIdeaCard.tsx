@@ -1,8 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
-  Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, type LucideIcon
+  Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -29,6 +30,7 @@ interface TopicIdeaCardProps {
   onSchedule?: (topic: EnhancedTopicSuggestion) => void;
   onShowExplanation?: (topic: EnhancedTopicSuggestion) => void;
   onRemove?: (topic: EnhancedTopicSuggestion) => void;
+  onCreateScript?: (topic: EnhancedTopicSuggestion) => void;
   isSelected?: boolean;
   disabled?: boolean;
   compact?: boolean;
@@ -36,6 +38,7 @@ interface TopicIdeaCardProps {
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   isDraft?: boolean;
+  brandTemplateId?: string;
 }
 
 const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; gradient: string; bgClass: string; textClass: string; label: string }> = {
@@ -100,6 +103,7 @@ export function TopicIdeaCard({
   onSchedule,
   onShowExplanation,
   onRemove,
+  onCreateScript,
   isSelected,
   disabled,
   compact = false,
@@ -107,13 +111,29 @@ export function TopicIdeaCard({
   checked = false,
   onCheckedChange,
   isDraft = true,
+  brandTemplateId,
 }: TopicIdeaCardProps) {
+  const navigate = useNavigate();
   const config = categoryConfig[topic.category] || categoryConfig.evergreen;
   const CategoryIcon = config.icon;
   const EventIcon = getEventIcon(topic.relatedEvent);
 
   const overallScore = topic.scores ? calculateOverallScore(topic.scores) : null;
   const scoreColorClass = overallScore !== null ? getScoreColor(overallScore) : 'slate';
+
+  // Check if topic supports script format
+  const supportsScript = topic.formats.includes('script');
+
+  const handleCreateScript = () => {
+    if (onCreateScript) {
+      onCreateScript(topic);
+    } else {
+      // Default: navigate to script creation with topic
+      const params = new URLSearchParams({ topic: topic.topic });
+      if (brandTemplateId) params.set('brandId', brandTemplateId);
+      navigate(`/scripts?${params.toString()}`);
+    }
+  };
 
   const getScoreBarColor = (value: number) => {
     if (value >= SCORE_THRESHOLDS.excellent) return 'bg-emerald-500';
@@ -391,6 +411,28 @@ export function TopicIdeaCard({
               <TooltipContent>Sử dụng ngay</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {/* Create Script button - only show if format includes script */}
+          {supportsScript && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCreateScript();
+                    }}
+                  >
+                    <Clapperboard className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Tạo Script</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           {onSchedule && (
             <TooltipProvider>

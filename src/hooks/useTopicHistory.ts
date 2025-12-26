@@ -58,12 +58,14 @@ interface UseTopicHistoryOptions {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
   format?: TopicFormat;
+  formats?: TopicFormat[]; // Filter by multiple formats
   limit?: number;
   enabled?: boolean;
+  excludeDrafts?: boolean; // Exclude draft status topics
 }
 
 export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
-  const { brandTemplateId, contentGoal, format, limit = 50, enabled = true } = options;
+  const { brandTemplateId, contentGoal, format, formats, limit = 50, enabled = true, excludeDrafts = false } = options;
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
   
@@ -102,6 +104,16 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
 
       if (format) {
         query = query.eq('format', format);
+      }
+
+      // Filter by multiple formats (OR condition)
+      if (formats && formats.length > 0) {
+        query = query.in('format', formats);
+      }
+
+      // Exclude draft status if specified
+      if (excludeDrafts) {
+        query = query.neq('usage_status', 'draft');
       }
 
       const { data, error: fetchError } = await query;
