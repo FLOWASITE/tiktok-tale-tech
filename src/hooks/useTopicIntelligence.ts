@@ -59,6 +59,9 @@ interface UseTopicIntelligenceOptions {
   contentGoal?: ContentGoal;
 }
 
+// Error code type for specific error handling
+export type AIErrorCode = 'CREDITS_EXHAUSTED' | 'RATE_LIMIT' | 'UNKNOWN';
+
 export function useTopicIntelligence(options: UseTopicIntelligenceOptions = {}) {
   const { brandTemplateId, contentGoal } = options;
   const { user } = useAuth();
@@ -70,12 +73,59 @@ export function useTopicIntelligence(options: UseTopicIntelligenceOptions = {}) 
   const [keywords, setKeywords] = useState<KeywordExpansion | null>(null);
   const [refinement, setRefinement] = useState<TopicRefinement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<AIErrorCode | null>(null);
+
+  // Helper to handle API errors consistently
+  const handleApiError = useCallback((err: any, fallbackMessage: string) => {
+    console.error(fallbackMessage, err);
+    
+    // Check for specific error codes from edge function
+    if (err?.context?.body) {
+      try {
+        const body = JSON.parse(err.context.body);
+        if (body.errorCode === 'CREDITS_EXHAUSTED') {
+          setError(body.error || 'AI credits đã hết');
+          setErrorCode('CREDITS_EXHAUSTED');
+          toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
+          return;
+        }
+        if (body.errorCode === 'RATE_LIMIT') {
+          setError(body.error || 'Rate limit exceeded');
+          setErrorCode('RATE_LIMIT');
+          toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
+          return;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    
+    // Check error message for 402/429 patterns
+    const errMessage = err?.message || '';
+    if (errMessage.includes('402') || errMessage.includes('credits')) {
+      setError('AI credits đã hết');
+      setErrorCode('CREDITS_EXHAUSTED');
+      toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
+      return;
+    }
+    if (errMessage.includes('429') || errMessage.includes('rate')) {
+      setError('Rate limit exceeded');
+      setErrorCode('RATE_LIMIT');
+      toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
+      return;
+    }
+    
+    setError(errMessage || fallbackMessage);
+    setErrorCode('UNKNOWN');
+    toast.error(fallbackMessage);
+  }, []);
 
   const analyzeGaps = useCallback(async () => {
     if (!user) return null;
     
     setIsLoading(true);
     setError(null);
+    setErrorCode(null);
     
     try {
       const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
@@ -93,23 +143,26 @@ export function useTopicIntelligence(options: UseTopicIntelligenceOptions = {}) 
         setGaps(data.result as GapAnalysisResult);
         return data.result as GapAnalysisResult;
       } else {
+        if (data.errorCode) {
+          handleApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể phân tích gaps');
+          return null;
+        }
         throw new Error(data.error || 'Unknown error');
       }
     } catch (err: any) {
-      console.error('Gap analysis error:', err);
-      setError(err.message);
-      toast.error('Không thể phân tích gaps');
+      handleApiError(err, 'Không thể phân tích gaps');
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [user, brandTemplateId, contentGoal, currentOrganization?.id]);
+  }, [user, brandTemplateId, contentGoal, currentOrganization?.id, handleApiError]);
 
   const analyzeClusters = useCallback(async () => {
     if (!user) return null;
     
     setIsLoading(true);
     setError(null);
+    setErrorCode(null);
     
     try {
       const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
@@ -127,23 +180,26 @@ export function useTopicIntelligence(options: UseTopicIntelligenceOptions = {}) 
         setClusters(data.result as ClusterAnalysisResult);
         return data.result as ClusterAnalysisResult;
       } else {
+        if (data.errorCode) {
+          handleApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể phân cụm topics');
+          return null;
+        }
         throw new Error(data.error || 'Unknown error');
       }
     } catch (err: any) {
-      console.error('Cluster analysis error:', err);
-      setError(err.message);
-      toast.error('Không thể phân cụm topics');
+      handleApiError(err, 'Không thể phân cụm topics');
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [user, brandTemplateId, contentGoal, currentOrganization?.id]);
+  }, [user, brandTemplateId, contentGoal, currentOrganization?.id, handleApiError]);
 
   const expandKeywords = useCallback(async () => {
     if (!user) return null;
     
     setIsLoading(true);
     setError(null);
+    setErrorCode(null);
     
     try {
       const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
@@ -161,23 +217,26 @@ export function useTopicIntelligence(options: UseTopicIntelligenceOptions = {}) 
         setKeywords(data.result as KeywordExpansion);
         return data.result as KeywordExpansion;
       } else {
+        if (data.errorCode) {
+          handleApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể mở rộng keywords');
+          return null;
+        }
         throw new Error(data.error || 'Unknown error');
       }
     } catch (err: any) {
-      console.error('Keyword expansion error:', err);
-      setError(err.message);
-      toast.error('Không thể mở rộng keywords');
+      handleApiError(err, 'Không thể mở rộng keywords');
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [user, brandTemplateId, contentGoal, currentOrganization?.id]);
+  }, [user, brandTemplateId, contentGoal, currentOrganization?.id, handleApiError]);
 
   const refineTopic = useCallback(async (topicToRefine: string) => {
     if (!user || !topicToRefine) return null;
     
     setIsLoading(true);
     setError(null);
+    setErrorCode(null);
     
     try {
       const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
@@ -196,17 +255,19 @@ export function useTopicIntelligence(options: UseTopicIntelligenceOptions = {}) 
         setRefinement(data.result as TopicRefinement);
         return data.result as TopicRefinement;
       } else {
+        if (data.errorCode) {
+          handleApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể tinh chỉnh topic');
+          return null;
+        }
         throw new Error(data.error || 'Unknown error');
       }
     } catch (err: any) {
-      console.error('Topic refinement error:', err);
-      setError(err.message);
-      toast.error('Không thể tinh chỉnh topic');
+      handleApiError(err, 'Không thể tinh chỉnh topic');
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [user, brandTemplateId, contentGoal, currentOrganization?.id]);
+  }, [user, brandTemplateId, contentGoal, currentOrganization?.id, handleApiError]);
 
   const clearResults = useCallback(() => {
     setGaps(null);
@@ -214,11 +275,13 @@ export function useTopicIntelligence(options: UseTopicIntelligenceOptions = {}) 
     setKeywords(null);
     setRefinement(null);
     setError(null);
+    setErrorCode(null);
   }, []);
 
   return {
     isLoading,
     error,
+    errorCode,
     // Gap Analysis
     gaps,
     analyzeGaps,

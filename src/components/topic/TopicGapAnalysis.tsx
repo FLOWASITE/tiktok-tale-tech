@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTopicIntelligence, TopicGap, GapAnalysisResult } from '@/hooks/useTopicIntelligence';
+import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
@@ -70,7 +71,9 @@ export function TopicGapAnalysis({
   const { 
     gaps, 
     analyzeGaps, 
-    isLoading 
+    isLoading,
+    error,
+    errorCode,
   } = useTopicIntelligence({ brandTemplateId, contentGoal });
 
   const toggleGapExpanded = (pillar: string) => {
@@ -95,6 +98,7 @@ export function TopicGapAnalysis({
 
   const highPriorityCount = sortedGaps.filter(g => g.severity === 'high').length;
   const totalSuggestions = sortedGaps.reduce((sum, g) => sum + g.suggestedTopics.length, 0);
+  const showCreditsError = errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT';
 
   return (
     <Card className="gradient-card border-border/50">
@@ -134,6 +138,12 @@ export function TopicGapAnalysis({
               <Skeleton key={i} className="h-24" />
             ))}
           </div>
+        ) : showCreditsError ? (
+          <TopicCreditsAlert 
+            errorCode={errorCode || undefined} 
+            errorMessage={error || undefined}
+            onRetry={errorCode === 'RATE_LIMIT' ? handleAnalyze : undefined}
+          />
         ) : !gaps ? (
           <div className="text-center py-8">
             <Target className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />

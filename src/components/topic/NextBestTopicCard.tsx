@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { useTopicRecommendations, NextBestTopic } from '@/hooks/useTopicRecommendations';
+import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
@@ -46,7 +47,9 @@ export function NextBestTopicCard({
     nextBest, 
     getNextBestTopic, 
     submitFeedback,
-    isLoading 
+    isLoading,
+    error,
+    errorCode,
   } = useTopicRecommendations({ brandTemplateId, contentGoal });
 
   const handleGetRecommendation = async () => {
@@ -67,6 +70,7 @@ export function NextBestTopicCard({
   };
 
   const timing = nextBest?.timing ? timingLabels[nextBest.timing] || timingLabels.anytime : null;
+  const showCreditsError = errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT';
 
   return (
     <Card className="gradient-card border-border/50 overflow-hidden">
@@ -111,6 +115,12 @@ export function NextBestTopicCard({
               <Skeleton className="h-6 w-24" />
             </div>
           </div>
+        ) : showCreditsError ? (
+          <TopicCreditsAlert 
+            errorCode={errorCode || undefined} 
+            errorMessage={error || undefined}
+            onRetry={errorCode === 'RATE_LIMIT' ? handleGetRecommendation : undefined}
+          />
         ) : !nextBest ? (
           <div className="text-center py-8">
             <Zap className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
