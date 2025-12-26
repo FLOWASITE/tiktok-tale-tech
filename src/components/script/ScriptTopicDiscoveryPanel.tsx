@@ -8,7 +8,9 @@ import {
   Search,
   Filter,
   SlidersHorizontal,
-  Info
+  Info,
+  Library,
+  FileEdit
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -35,11 +37,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TopicIdeaCard } from '@/components/topic/TopicIdeaCard';
 import { TopicEducationBadge } from './TopicEducationBadge';
+import { useTopicHistory, TopicHistoryItem } from '@/hooks/useTopicHistory';
 import { 
   EnhancedTopicSuggestion, 
   TopicCategory,
+  TopicFormat,
   SORT_OPTIONS, 
   SortOption,
   calculateOverallScore 
@@ -56,7 +61,10 @@ interface ScriptTopicDiscoveryPanelProps {
   onSortChange: (sort: SortOption) => void;
   minScore: number;
   onMinScoreChange: (score: number) => void;
+  brandTemplateId?: string;
 }
+
+type TabValue = 'ai' | 'bank';
 
 const SOURCE_CONFIG = {
   ai: { icon: Sparkles, label: 'AI', tooltip: 'Gợi ý được tạo bởi AI dựa trên Brand của bạn', className: 'bg-primary/10 text-primary border-primary/30' },
@@ -83,18 +91,55 @@ export function ScriptTopicDiscoveryPanel({
   onSortChange,
   minScore,
   onMinScoreChange,
+  brandTemplateId,
 }: ScriptTopicDiscoveryPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<TopicCategory | 'all'>('all');
+  const [activeTab, setActiveTab] = useState<TabValue>('ai');
+
+  // Fetch topics from bank that are suitable for scripts
+  const { 
+    history: bankTopics, 
+    isLoading: bankLoading, 
+    refresh: refreshBank,
+    confirmDraft 
+  } = useTopicHistory({
+    brandTemplateId,
+    formats: ['script'],
+    excludeDrafts: false,
+    enabled: activeTab === 'bank',
+  });
 
   const currentSource = SOURCE_CONFIG[source];
   const SourceIcon = currentSource.icon;
 
-  // Filter and sort suggestions
+  // Convert bank topics to EnhancedTopicSuggestion format with extended props
+  const bankSuggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string })[] => {
+    return bankTopics.map(item => ({
+      topic: item.topic,
+      category: item.category,
+      pillar: item.pillar,
+      scores: item.scores,
+      relatedKeywords: item.relatedKeywords || [],
+      reasoning: item.reasoning || '',
+      formats: ['script'] as TopicFormat[],
+      estimatedEngagement: (item.scores?.engagement && item.scores.engagement >= 70 ? 'high' : 
+        item.scores?.engagement && item.scores.engagement >= 40 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+      // Store original item id for tracking
+      _historyId: item.id,
+      _usageStatus: item.usageStatus,
+    }));
+  }, [bankTopics]);
+
+  // Get current suggestions based on active tab
+  const currentSuggestions = activeTab === 'ai' ? suggestions : bankSuggestions;
+  const currentLoading = activeTab === 'ai' ? isLoading : bankLoading;
+
+  // Filter and sort suggestions - now uses currentSuggestions based on active tab
   const filteredSuggestions = useMemo(() => {
-    let result = [...suggestions];
+    let result = [...currentSuggestions];
 
     // Search filter
     if (searchQuery.trim()) {
@@ -130,7 +175,7 @@ export function ScriptTopicDiscoveryPanel({
     });
 
     return result;
-  }, [suggestions, searchQuery, categoryFilter, minScore, sortBy]);
+  }, [currentSuggestions, searchQuery, categoryFilter, minScore, sortBy]);
 
   const hasActiveFilters = searchQuery.trim() || categoryFilter !== 'all' || minScore > 0;
 
@@ -150,7 +195,7 @@ export function ScriptTopicDiscoveryPanel({
             className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <Sparkles className="w-4 h-4 text-primary" />
-            <span>Khám phá chủ đề AI</span>
+            <span>Khám phá chủ đề</span>
             <ChevronDown className={cn(
               "w-4 h-4 transition-transform duration-200",
               isOpen && "rotate-180"
@@ -159,26 +204,28 @@ export function ScriptTopicDiscoveryPanel({
         </CollapsibleTrigger>
 
         <div className="flex items-center gap-2">
-          {/* Source Badge */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge 
-                  variant="outline" 
-                  className={cn(
-                    "text-[10px] px-2 py-0 h-5 gap-1 border cursor-help",
-                    currentSource.className
-                  )}
-                >
-                  <SourceIcon className="w-2.5 h-2.5" />
-                  {currentSource.label}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="text-xs">{currentSource.tooltip}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {/* Source Badge - only show for AI tab */}
+          {activeTab === 'ai' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-[10px] px-2 py-0 h-5 gap-1 border cursor-help",
+                      currentSource.className
+                    )}
+                  >
+                    <SourceIcon className="w-2.5 h-2.5" />
+                    {currentSource.label}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{currentSource.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           <TopicEducationBadge />
 
@@ -187,19 +234,42 @@ export function ScriptTopicDiscoveryPanel({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={onRefresh}
-            disabled={isLoading || disabled}
+            onClick={activeTab === 'ai' ? onRefresh : refreshBank}
+            disabled={currentLoading || disabled}
             className="h-6 w-6 p-0"
           >
             <RefreshCw className={cn(
               "w-3 h-3",
-              isLoading && "animate-spin"
+              currentLoading && "animate-spin"
             )} />
           </Button>
         </div>
       </div>
 
       <CollapsibleContent className="space-y-3">
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="w-full">
+          <TabsList className="grid grid-cols-2 h-8">
+            <TabsTrigger value="ai" className="text-xs gap-1.5">
+              <Sparkles className="w-3 h-3" />
+              Gợi ý AI
+              {suggestions.length > 0 && (
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                  {suggestions.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="bank" className="text-xs gap-1.5">
+              <Library className="w-3 h-3" />
+              Từ Kho ý tưởng
+              {bankTopics.length > 0 && (
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                  {bankTopics.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         {/* Search & Filter Bar */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -306,7 +376,7 @@ export function ScriptTopicDiscoveryPanel({
         )}
 
         {/* Topic Grid */}
-        {isLoading ? (
+        {currentLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-[200px] rounded-lg" />
@@ -315,12 +385,18 @@ export function ScriptTopicDiscoveryPanel({
         ) : filteredSuggestions.length === 0 ? (
           <div className="text-center py-8">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
-              <Search className="w-5 h-5 text-muted-foreground" />
+              {activeTab === 'bank' ? (
+                <Library className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Search className="w-5 h-5 text-muted-foreground" />
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {hasActiveFilters 
                 ? 'Không tìm thấy chủ đề phù hợp với bộ lọc' 
-                : 'Chưa có gợi ý chủ đề'}
+                : activeTab === 'bank'
+                  ? 'Chưa có ý tưởng nào cho định dạng Script trong Kho'
+                  : 'Chưa có gợi ý chủ đề'}
             </p>
             {hasActiveFilters && (
               <Button
@@ -336,21 +412,42 @@ export function ScriptTopicDiscoveryPanel({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {filteredSuggestions.map((topic, idx) => (
-              <TopicIdeaCard
-                key={`${topic.topic}-${idx}`}
-                topic={topic}
-                onSelect={onSelect}
-                disabled={disabled}
-              />
-            ))}
+            {filteredSuggestions.map((topic, idx) => {
+              const extendedTopic = topic as EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string };
+              const isDraft = extendedTopic._usageStatus === 'draft';
+              
+              return (
+                <div 
+                  key={`${topic.topic}-${idx}`}
+                  className={cn(
+                    isDraft && "opacity-80 border-dashed"
+                  )}
+                >
+                  <TopicIdeaCard
+                    topic={topic}
+                    onSelect={onSelect}
+                    disabled={disabled}
+                    isDraft={isDraft}
+                    onSave={isDraft && confirmDraft && extendedTopic._historyId ? () => {
+                      confirmDraft(extendedTopic._historyId!);
+                    } : undefined}
+                  />
+                  {isDraft && (
+                    <div className="mt-1 flex items-center gap-1 px-2">
+                      <FileEdit className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">Nháp - Nhấn "Giữ lại" để lưu</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
         {/* Results count */}
-        {!isLoading && filteredSuggestions.length > 0 && (
+        {!currentLoading && filteredSuggestions.length > 0 && (
           <p className="text-xs text-muted-foreground text-center">
-            Hiển thị {filteredSuggestions.length}/{suggestions.length} chủ đề
+            Hiển thị {filteredSuggestions.length}/{currentSuggestions.length} chủ đề
           </p>
         )}
       </CollapsibleContent>
