@@ -16,3 +16,8 @@ export { TopicGapAnalysis } from './TopicGapAnalysis';
 export { TopicClusterView } from './TopicClusterView';
 export { KeywordExpansionPanel } from './KeywordExpansionPanel';
 export { TopicRefiner } from './TopicRefiner';
+
+// Phase 2: Smart Recommendations
+export { NextBestTopicCard } from './NextBestTopicCard';
+export { WeeklySuggestionsPanel } from './WeeklySuggestionsPanel';
+export { TopicConflictChecker } from './TopicConflictChecker';

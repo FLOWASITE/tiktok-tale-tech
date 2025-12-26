@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, Sparkles, BookOpen, BarChart3, 
   TrendingUp, Star, Bookmark, RefreshCw,
-  ArrowRight, Zap, Target, Brain, Network, Search, Wand2
+  ArrowRight, Zap, Target, Brain, Network, Search, Wand2,
+  CalendarDays, AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,6 +21,9 @@ import { TopicGapAnalysis } from '@/components/topic/TopicGapAnalysis';
 import { TopicClusterView } from '@/components/topic/TopicClusterView';
 import { KeywordExpansionPanel } from '@/components/topic/KeywordExpansionPanel';
 import { TopicRefiner } from '@/components/topic/TopicRefiner';
+import { NextBestTopicCard } from '@/components/topic/NextBestTopicCard';
+import { WeeklySuggestionsPanel } from '@/components/topic/WeeklySuggestionsPanel';
+import { TopicConflictChecker } from '@/components/topic/TopicConflictChecker';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -244,9 +248,13 @@ const Topics = () => {
                 {suggestions.length}
               </Badge>
             </TabsTrigger>
+            <TabsTrigger value="smart" className="gap-2">
+              <Zap className="w-4 h-4" />
+              Smart
+            </TabsTrigger>
             <TabsTrigger value="intelligence" className="gap-2">
               <Brain className="w-4 h-4" />
-              AI Intelligence
+              AI Analysis
             </TabsTrigger>
             <TabsTrigger value="bank" className="gap-2">
               <BookOpen className="w-4 h-4" />
@@ -374,6 +382,55 @@ const Topics = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          {/* Smart Recommendations Tab */}
+          <TabsContent value="smart" className="space-y-6">
+            {/* Next Best Topic - Featured */}
+            <NextBestTopicCard
+              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              contentGoal={selectedGoal}
+              onSelectTopic={(topic) => {
+                navigate('/multichannel', { 
+                  state: { 
+                    prefillTopic: topic,
+                    prefillGoal: selectedGoal,
+                    fromTopics: true 
+                  } 
+                });
+              }}
+            />
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Weekly Plan */}
+              <WeeklySuggestionsPanel
+                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                contentGoal={selectedGoal}
+                onSelectTopic={(topic) => {
+                  navigate('/multichannel', { 
+                    state: { 
+                      prefillTopic: topic,
+                      prefillGoal: selectedGoal,
+                      fromTopics: true 
+                    } 
+                  });
+                }}
+                onScheduleTopic={(topic, day) => {
+                  navigate('/calendar', { 
+                    state: { 
+                      scheduleTopic: topic,
+                      scheduleGoal: selectedGoal,
+                    } 
+                  });
+                }}
+              />
+
+              {/* Conflict Checker */}
+              <TopicConflictChecker
+                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                contentGoal={selectedGoal}
+              />
             </div>
           </TabsContent>
 
