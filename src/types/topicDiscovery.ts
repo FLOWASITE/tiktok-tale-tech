@@ -1,7 +1,23 @@
 import { ContentGoal } from './multichannel';
 
 export type TopicCategory = 'evergreen' | 'trending' | 'seasonal' | 'reactive';
-export type TopicFormat = 'carousel' | 'script' | 'multichannel';
+export type TopicFormat = 
+  | 'carousel' 
+  | 'script' 
+  | 'multichannel'
+  // Extended formats (Phase 2)
+  | 'blog_post'
+  | 'infographic'
+  | 'podcast'
+  | 'case_study'
+  | 'whitepaper'
+  | 'webinar'
+  | 'live_stream'
+  | 'ugc'
+  | 'meme'
+  | 'poll'
+  | 'testimonial'
+  | 'newsletter';
 export type EngagementLevel = 'high' | 'medium' | 'low';
 export type SortOption = 'overall' | 'brandFit' | 'trend' | 'engagement' | 'competition';
 
@@ -159,10 +175,24 @@ export const ENGAGEMENT_LEVELS: { value: EngagementLevel; label: string; color: 
   { value: 'low', label: 'Thấp', color: 'slate' },
 ];
 
-export const FORMAT_LABELS: Record<TopicFormat, string> = {
-  carousel: 'Carousel',
-  script: 'Video Script',
-  multichannel: 'Đa kênh',
+export const FORMAT_LABELS: Record<TopicFormat, { label: string; icon: string; color: string; description: string }> = {
+  // Core formats (existing)
+  carousel: { label: 'Carousel', icon: 'Images', color: 'blue', description: 'Bài đăng nhiều slides, visual storytelling' },
+  script: { label: 'Video Script', icon: 'Video', color: 'purple', description: 'Kịch bản video ngắn/dài' },
+  multichannel: { label: 'Đa kênh', icon: 'Layers', color: 'emerald', description: 'Nội dung đăng nhiều nền tảng' },
+  // Extended formats (Phase 2)
+  blog_post: { label: 'Blog Post', icon: 'FileText', color: 'slate', description: 'Bài viết blog SEO-friendly' },
+  infographic: { label: 'Infographic', icon: 'PieChart', color: 'orange', description: 'Đồ họa thông tin, data visualization' },
+  podcast: { label: 'Podcast', icon: 'Mic', color: 'pink', description: 'Nội dung audio, talkshow' },
+  case_study: { label: 'Case Study', icon: 'Briefcase', color: 'amber', description: 'Phân tích case thực tế' },
+  whitepaper: { label: 'Whitepaper', icon: 'BookMarked', color: 'indigo', description: 'Tài liệu chuyên sâu, research' },
+  webinar: { label: 'Webinar', icon: 'Presentation', color: 'cyan', description: 'Hội thảo trực tuyến' },
+  live_stream: { label: 'Live Stream', icon: 'Radio', color: 'red', description: 'Phát trực tiếp, Q&A live' },
+  ugc: { label: 'UGC', icon: 'Users', color: 'teal', description: 'User-generated content campaign' },
+  meme: { label: 'Meme', icon: 'Smile', color: 'yellow', description: 'Meme marketing, viral content' },
+  poll: { label: 'Poll/Quiz', icon: 'Vote', color: 'violet', description: 'Khảo sát, bình chọn, quiz tương tác' },
+  testimonial: { label: 'Testimonial', icon: 'Quote', color: 'rose', description: 'Đánh giá khách hàng, social proof' },
+  newsletter: { label: 'Newsletter', icon: 'Mail', color: 'sky', description: 'Email marketing, bản tin' },
 };
 
 // Content Matrix labels

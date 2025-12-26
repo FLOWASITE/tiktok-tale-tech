@@ -925,6 +925,18 @@ function buildEnhancedPrompt(params: {
     carousel: 'carousel slides (visual, educational)',
     script: 'video script (engaging, storytelling)',
     multichannel: 'multi-channel posts (adaptable across platforms)',
+    blog_post: 'blog post (SEO-friendly, long-form)',
+    infographic: 'infographic (data visualization)',
+    podcast: 'podcast/audio content',
+    case_study: 'case study (detailed analysis)',
+    whitepaper: 'whitepaper/research (deep-dive)',
+    webinar: 'webinar (online seminar)',
+    live_stream: 'live stream (real-time engagement)',
+    ugc: 'user-generated content campaign',
+    meme: 'meme/viral content',
+    poll: 'poll/quiz (interactive)',
+    testimonial: 'testimonial/social proof',
+    newsletter: 'newsletter/email marketing',
     all: 'đa dạng formats',
   };
 
@@ -1109,7 +1121,7 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
     "category": "evergreen" | "trending" | "seasonal" | "reactive",
     "pillar": "Tên content pillar phù hợp nhất (nếu có pillars được định nghĩa)",
     "reasoning": "Lý do ngắn gọn tại sao chủ đề này phù hợp với brand (1-2 câu)",
-    "formats": ["carousel", "script", "multichannel"],
+    "formats": ["carousel" | "script" | "multichannel" | "blog_post" | "infographic" | "podcast" | "case_study" | "whitepaper" | "webinar" | "live_stream" | "ugc" | "meme" | "poll" | "testimonial" | "newsletter"],
     "relatedKeywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
     "bestTimeToPost": "HH:MM - HH:MM",
     "scores": {

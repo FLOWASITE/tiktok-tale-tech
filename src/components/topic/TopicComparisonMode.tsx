@@ -36,6 +36,17 @@ import {
   ImageIcon,
   Video,
   Layers,
+  FileText,
+  PieChart,
+  Mic,
+  Briefcase,
+  BookMarked,
+  Presentation,
+  Radio,
+  Smile,
+  Vote,
+  Quote,
+  Mail,
 } from 'lucide-react';
 import { EnhancedTopicSuggestion, TopicFormat, calculateOverallScore, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
@@ -54,12 +65,36 @@ const formatIcons: Record<TopicFormat, typeof ImageIcon> = {
   carousel: ImageIcon,
   script: Video,
   multichannel: Layers,
+  blog_post: FileText,
+  infographic: PieChart,
+  podcast: Mic,
+  case_study: Briefcase,
+  whitepaper: BookMarked,
+  webinar: Presentation,
+  live_stream: Radio,
+  ugc: Users,
+  meme: Smile,
+  poll: Vote,
+  testimonial: Quote,
+  newsletter: Mail,
 };
 
 const formatLabels: Record<TopicFormat, string> = {
   carousel: 'Carousel',
   script: 'Video Script',
   multichannel: 'Đa kênh',
+  blog_post: 'Blog Post',
+  infographic: 'Infographic',
+  podcast: 'Podcast',
+  case_study: 'Case Study',
+  whitepaper: 'Whitepaper',
+  webinar: 'Webinar',
+  live_stream: 'Live Stream',
+  ugc: 'UGC',
+  meme: 'Meme',
+  poll: 'Poll/Quiz',
+  testimonial: 'Testimonial',
+  newsletter: 'Newsletter',
 };
 
 export function TopicComparisonMode({

@@ -5,7 +5,9 @@ import {
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
   Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, 
   Globe, Database, FileText, Link2, BookOpen, Navigation, Search, ShoppingCart, Key,
-  Crown, GitBranch, ListTree, MessageCircleQuestion, Rocket, Repeat, type LucideIcon
+  Crown, GitBranch, ListTree, MessageCircleQuestion, Rocket, Repeat, 
+  PieChart, Mic, Briefcase, BookMarked, Presentation, Radio, Smile, Vote, Quote, Mail,
+  type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -82,6 +84,19 @@ const formatIcons: Record<TopicFormat, LucideIcon> = {
   carousel: ImageIcon,
   script: Video,
   multichannel: Layers,
+  // Extended formats
+  blog_post: FileText,
+  infographic: PieChart,
+  podcast: Mic,
+  case_study: Briefcase,
+  whitepaper: BookMarked,
+  webinar: Presentation,
+  live_stream: Radio,
+  ugc: Users,
+  meme: Smile,
+  poll: Vote,
+  testimonial: Quote,
+  newsletter: Mail,
 };
 
 // Search Intent configuration
