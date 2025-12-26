@@ -17,6 +17,15 @@ export interface TopicScores {
   engagement: number;    // 0-100: Tiềm năng tương tác
 }
 
+// Data source tracking for transparency
+export interface TopicDataSource {
+  hasRealData: boolean;       // Whether real-time data was used
+  perplexity: boolean;        // Perplexity web search was used
+  statistics: string[];       // Specific statistics used in the topic
+  citations: string[];        // Source URLs from Perplexity
+  dataType?: 'insight' | 'statistic' | 'case_study';  // Primary data type
+}
+
 export interface EnhancedTopicSuggestion {
   topic: string;
   category: TopicCategory;
@@ -34,6 +43,15 @@ export interface EnhancedTopicSuggestion {
   // Seasonal fields
   relatedEvent?: string;
   eventDate?: string;
+  // Data source transparency (Phase 1)
+  dataSources?: TopicDataSource;
+  // Enhanced reasoning (Phase 2)
+  scoreBreakdown?: {
+    brandFitReason?: string;
+    trendReason?: string;
+    competitionReason?: string;
+    engagementReason?: string;
+  };
 }
 
 export interface TopicHistoryItem {
