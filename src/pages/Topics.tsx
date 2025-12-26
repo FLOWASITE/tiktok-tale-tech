@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, Sparkles, BookOpen, BarChart3, 
   TrendingUp, Star, Bookmark, RefreshCw,
-  Zap, Target, Brain, CheckSquare, Layers
+  Zap, Target, Brain, CheckSquare, Layers, Grid3X3, LayoutList
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -224,80 +224,86 @@ const Topics = () => {
           onViewBrand={(id) => navigate(`/brands/${id}`)}
         />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          <Card className="gradient-card border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Sparkles className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{combinedStats.suggestionCount}</p>
-                <p className="text-xs text-muted-foreground">Gợi ý AI</p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Stats Cards - Show brand-specific when brand selected */}
+        {selectedBrandId ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <Card className="gradient-card border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{combinedStats.suggestionCount}</p>
+                  <p className="text-xs text-muted-foreground">Gợi ý AI</p>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="gradient-card border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <Bookmark className="w-5 h-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{combinedStats.totalTopics}</p>
-                <p className="text-xs text-muted-foreground">Đã lưu</p>
-              </div>
-            </CardContent>
-          </Card>
+            <Card className="gradient-card border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-violet-500/10">
+                  <Layers className="w-5 h-5 text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{contentPillars.length}</p>
+                  <p className="text-xs text-muted-foreground">Pillars</p>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="gradient-card border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-rose-500/10">
-                <Star className="w-5 h-5 text-rose-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{combinedStats.favorites}</p>
-                <p className="text-xs text-muted-foreground">Yêu thích</p>
-              </div>
-            </CardContent>
-          </Card>
+            <Card className="gradient-card border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <Bookmark className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{combinedStats.totalTopics}</p>
+                  <p className="text-xs text-muted-foreground">Đã lưu</p>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="gradient-card border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10">
-                <Zap className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{combinedStats.usedTopics}</p>
-                <p className="text-xs text-muted-foreground">Đã dùng</p>
-              </div>
-            </CardContent>
-          </Card>
+            <Card className="gradient-card border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10">
+                  <Zap className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{combinedStats.usedTopics}</p>
+                  <p className="text-xs text-muted-foreground">Đã dùng</p>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="gradient-card border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-violet-500/10">
-                <TrendingUp className="w-5 h-5 text-violet-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{combinedStats.topPerformersCount}</p>
-                <p className="text-xs text-muted-foreground">Hiệu suất cao</p>
-              </div>
-            </CardContent>
-          </Card>
+            <Card className="gradient-card border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-rose-500/10">
+                  <Star className="w-5 h-5 text-rose-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{combinedStats.favorites}</p>
+                  <p className="text-xs text-muted-foreground">Yêu thích</p>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="gradient-card border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-cyan-500/10">
-                <Target className="w-5 h-5 text-cyan-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{combinedStats.avgPerformance || '-'}</p>
-                <p className="text-xs text-muted-foreground">Điểm TB</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="gradient-card border-border/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-cyan-500/10">
+                  <Target className="w-5 h-5 text-cyan-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{suggestionStats?.averageScore || combinedStats.avgPerformance || '-'}</p>
+                  <p className="text-xs text-muted-foreground">Brand Fit TB</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center py-4 text-sm text-muted-foreground">
+            <p>Chọn Brand để xem thống kê chi tiết</p>
+          </div>
+        )}
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -399,6 +405,28 @@ const Topics = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* View Mode Toggle */}
+                  {contentPillars.length > 0 && suggestions.length > 0 && (
+                    <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                      <Button
+                        variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setViewMode('grid')}
+                      >
+                        <Grid3X3 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setViewMode('pillar')}
+                      >
+                        <LayoutList className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                  
                   {suggestions.length > 0 && (
                     <Button
                       variant={selectionMode ? 'secondary' : 'ghost'}
@@ -452,10 +480,16 @@ const Topics = () => {
                     </Card>
                   ))}
                 </div>
-              ) : suggestions.length === 0 ? (
-                <TopicEmptyState 
-                  type="ai-suggestions" 
-                  onAction={() => navigate('/brands')} 
+              ) : viewMode === 'pillar' && contentPillars.length > 0 ? (
+                <TopicsByPillarView
+                  topics={suggestions}
+                  contentPillars={contentPillars}
+                  onSelectTopic={handleSelectTopic}
+                  onSaveTopic={handleSaveTopic}
+                  onScheduleTopic={handleScheduleTopic}
+                  selectable={selectionMode}
+                  selectedTopics={selectedTopics}
+                  onToggleSelection={handleToggleTopicSelection}
                 />
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
