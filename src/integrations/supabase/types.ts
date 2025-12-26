@@ -1722,6 +1722,57 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_content_links: {
+        Row: {
+          content_id: string
+          content_status: string | null
+          content_title: string | null
+          content_type: string
+          created_at: string
+          id: string
+          organization_id: string | null
+          topic_history_id: string
+          user_id: string | null
+        }
+        Insert: {
+          content_id: string
+          content_status?: string | null
+          content_title?: string | null
+          content_type: string
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          topic_history_id: string
+          user_id?: string | null
+        }
+        Update: {
+          content_id?: string
+          content_status?: string | null
+          content_title?: string | null
+          content_type?: string
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          topic_history_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_content_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_content_links_topic_history_id_fkey"
+            columns: ["topic_history_id"]
+            isOneToOne: false
+            referencedRelation: "topic_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topic_history: {
         Row: {
           actual_engagement: Json | null

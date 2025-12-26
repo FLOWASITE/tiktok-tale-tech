@@ -25,6 +25,7 @@ import { calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { TopicLinkedContents } from './TopicLinkedContents';
 
 interface TopicHistoryCardProps {
   item: TopicHistoryItem;
@@ -182,6 +183,12 @@ export function TopicHistoryCard({
             </>
           )}
         </div>
+
+        {/* Linked Contents */}
+        <TopicLinkedContents 
+          topicHistoryId={item.id} 
+          onViewContent={onViewContent}
+        />
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-2 border-t">
