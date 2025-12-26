@@ -26,3 +26,5 @@ export { TopicConflictChecker } from './TopicConflictChecker';
 export { TopicEmptyState } from './TopicEmptyState';
 export { TopicAILearningBadge } from './TopicAILearningBadge';
 export { TopicCreditsAlert } from './TopicCreditsAlert';
+export { TopicDiscoveryOnboarding, resetTopicOnboarding } from './TopicDiscoveryOnboarding';
+export { TopicBulkActions } from './TopicBulkActions';

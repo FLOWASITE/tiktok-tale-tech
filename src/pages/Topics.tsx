@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, Sparkles, BookOpen, BarChart3, 
   TrendingUp, Star, Bookmark, RefreshCw,
   ArrowRight, Zap, Target, Brain, Network, Search, Wand2,
-  CalendarDays, AlertTriangle
+  CalendarDays, AlertTriangle, CheckSquare
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,6 +26,8 @@ import { WeeklySuggestionsPanel } from '@/components/topic/WeeklySuggestionsPane
 import { TopicConflictChecker } from '@/components/topic/TopicConflictChecker';
 import { TopicAILearningBadge } from '@/components/topic/TopicAILearningBadge';
 import { TopicEmptyState } from '@/components/topic/TopicEmptyState';
+import { TopicDiscoveryOnboarding } from '@/components/topic/TopicDiscoveryOnboarding';
+import { TopicBulkActions } from '@/components/topic/TopicBulkActions';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -46,6 +48,8 @@ const Topics = () => {
   const [activeTab, setActiveTab] = useState('discovery');
   const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
   const [selectedGoal, setSelectedGoal] = useState<ContentGoal>('engagement');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTopics, setSelectedTopics] = useState<EnhancedTopicSuggestion[]>([]);
 
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
   
@@ -110,6 +114,42 @@ const Topics = () => {
       } 
     });
   };
+
+  // Bulk actions handlers
+  const handleToggleTopicSelection = useCallback((topic: EnhancedTopicSuggestion, checked: boolean) => {
+    if (checked) {
+      setSelectedTopics(prev => [...prev, topic]);
+    } else {
+      setSelectedTopics(prev => prev.filter(t => t.topic !== topic.topic));
+    }
+  }, []);
+
+  const handleSelectAllTopics = useCallback(() => {
+    setSelectedTopics([...suggestions]);
+  }, [suggestions]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedTopics([]);
+    setSelectionMode(false);
+  }, []);
+
+  const handleSaveAllTopics = useCallback(async (topics: EnhancedTopicSuggestion[]) => {
+    for (const topic of topics) {
+      await saveTopic(topic, 'suggested');
+    }
+  }, [saveTopic]);
+
+  const handleScheduleAllTopics = useCallback((topics: EnhancedTopicSuggestion[]) => {
+    navigate('/calendar', { 
+      state: { 
+        bulkSchedule: topics.map(t => ({ topic: t.topic, goal: selectedGoal })),
+      } 
+    });
+  }, [navigate, selectedGoal]);
+
+  const isTopicSelected = useCallback((topic: EnhancedTopicSuggestion) => {
+    return selectedTopics.some(t => t.topic === topic.topic);
+  }, [selectedTopics]);
 
   return (
     <div className="relative">
@@ -334,15 +374,31 @@ const Topics = () => {
                     </Badge>
                   )}
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={refresh}
-                  disabled={suggestionsLoading || isEnhancing}
-                >
-                  <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
-                  Làm mới
-                </Button>
+                <div className="flex items-center gap-2">
+                  {suggestions.length > 0 && (
+                    <Button
+                      variant={selectionMode ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => {
+                        setSelectionMode(!selectionMode);
+                        if (selectionMode) setSelectedTopics([]);
+                      }}
+                      className="gap-1.5"
+                    >
+                      <CheckSquare className="w-4 h-4" />
+                      {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={refresh}
+                    disabled={suggestionsLoading || isEnhancing}
+                  >
+                    <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
+                    Làm mới
+                  </Button>
+                </div>
               </div>
 
               {suggestionsLoading ? (
@@ -390,6 +446,9 @@ const Topics = () => {
                         onSelect={handleSelectTopic}
                         onSave={handleSaveTopic}
                         onSchedule={handleScheduleTopic}
+                        selectable={selectionMode}
+                        checked={isTopicSelected(topic)}
+                        onCheckedChange={(checked) => handleToggleTopicSelection(topic, checked)}
                       />
                     </div>
                   ))}
@@ -540,6 +599,19 @@ const Topics = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Onboarding for first-time users */}
+      <TopicDiscoveryOnboarding />
+
+      {/* Bulk actions bar */}
+      <TopicBulkActions
+        selectedTopics={selectedTopics}
+        onSaveAll={handleSaveAllTopics}
+        onScheduleAll={handleScheduleAllTopics}
+        onClearSelection={handleClearSelection}
+        onSelectAll={handleSelectAllTopics}
+        totalCount={suggestions.length}
+      />
     </div>
   );
 };
