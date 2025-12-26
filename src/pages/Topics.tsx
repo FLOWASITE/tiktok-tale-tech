@@ -115,26 +115,64 @@ const Topics = () => {
 
   const { 
     history, 
+    drafts,
     favorites, 
     topPerformers, 
     stats: historyStats, 
     isLoading: historyLoading,
     saveTopic,
+    saveBulkTopics,
+    checkExistingTopics,
+    confirmDraft,
+    deleteTopic,
   } = useTopicHistory({
     brandTemplateId: selectedBrandId || undefined,
     contentGoal: selectedGoal,
     enabled: true,
   });
 
+  // Auto-save new suggestions as drafts
+  const [lastSavedSuggestions, setLastSavedSuggestions] = useState<string[]>([]);
+  
+  useEffect(() => {
+    const autoSaveDrafts = async () => {
+      if (!suggestions.length || suggestionsLoading || !selectedBrandId) return;
+      
+      // Get suggestion topics that haven't been saved yet
+      const suggestionTopicTexts = suggestions.map(s => s.topic);
+      const alreadySaved = suggestionTopicTexts.every(t => lastSavedSuggestions.includes(t));
+      
+      if (alreadySaved) return;
+      
+      // Filter out topics that already exist in history
+      const newTopics = checkExistingTopics(suggestions);
+      
+      if (newTopics.length > 0) {
+        await saveBulkTopics(newTopics, 'draft');
+      }
+      
+      // Mark these as saved
+      setLastSavedSuggestions(suggestionTopicTexts);
+    };
+    
+    autoSaveDrafts();
+  }, [suggestions, suggestionsLoading, selectedBrandId, checkExistingTopics, saveBulkTopics, lastSavedSuggestions]);
+
+  // Reset lastSavedSuggestions when brand or goal changes
+  useEffect(() => {
+    setLastSavedSuggestions([]);
+  }, [selectedBrandId, selectedGoal]);
+
   // Combined stats
   const combinedStats = useMemo(() => ({
     totalTopics: historyStats.totalTopics,
+    draftsCount: drafts.length,
     favorites: historyStats.favoriteCount,
     usedTopics: historyStats.usedTopics,
     avgPerformance: historyStats.averagePerformance || 0,
     suggestionCount: suggestions.length,
     topPerformersCount: topPerformers.length,
-  }), [historyStats, suggestions, topPerformers]);
+  }), [historyStats, drafts.length, suggestions, topPerformers]);
 
   const handleSelectTopic = async (topic: EnhancedTopicSuggestion) => {
     await saveTopic(topic, 'selected');
@@ -149,8 +187,14 @@ const Topics = () => {
   };
 
   const handleSaveTopic = async (topic: EnhancedTopicSuggestion) => {
-    await saveTopic(topic, 'suggested');
-    toast.success('Đã lưu vào ngân hàng ý tưởng');
+    // Find if this topic already exists as a draft
+    const existingDraft = drafts.find(d => d.topic.toLowerCase().trim() === topic.topic.toLowerCase().trim());
+    if (existingDraft) {
+      await confirmDraft(existingDraft.id);
+    } else {
+      await saveTopic(topic, 'suggested');
+      toast.success('Đã lưu vào ngân hàng ý tưởng');
+    }
   };
 
   const handleScheduleTopic = (topic: EnhancedTopicSuggestion) => {

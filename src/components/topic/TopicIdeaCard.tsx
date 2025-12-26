@@ -1,8 +1,8 @@
 import React from 'react';
 import { 
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
-  BookmarkPlus, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
-  Target, BarChart3, Users, Trophy, Flame, Gift, Star, type LucideIcon
+  BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
+  Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -28,12 +28,14 @@ interface TopicIdeaCardProps {
   onSave?: (topic: EnhancedTopicSuggestion) => void;
   onSchedule?: (topic: EnhancedTopicSuggestion) => void;
   onShowExplanation?: (topic: EnhancedTopicSuggestion) => void;
+  onRemove?: (topic: EnhancedTopicSuggestion) => void;
   isSelected?: boolean;
   disabled?: boolean;
   compact?: boolean;
   selectable?: boolean;
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
+  isDraft?: boolean;
 }
 
 const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; gradient: string; bgClass: string; textClass: string; label: string }> = {
@@ -97,12 +99,14 @@ export function TopicIdeaCard({
   onSave,
   onSchedule,
   onShowExplanation,
+  onRemove,
   isSelected,
   disabled,
   compact = false,
   selectable = false,
   checked = false,
   onCheckedChange,
+  isDraft = true,
 }: TopicIdeaCardProps) {
   const config = categoryConfig[topic.category] || categoryConfig.evergreen;
   const CategoryIcon = config.icon;
@@ -357,10 +361,14 @@ export function TopicIdeaCard({
                       onSave(topic);
                     }}
                   >
-                    <BookmarkPlus className="w-3.5 h-3.5" />
+                    {isDraft ? (
+                      <BookmarkCheck className="w-3.5 h-3.5" />
+                    ) : (
+                      <BookmarkPlus className="w-3.5 h-3.5" />
+                    )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Lưu</TooltipContent>
+                <TooltipContent>{isDraft ? 'Giữ lại' : 'Lưu'}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
