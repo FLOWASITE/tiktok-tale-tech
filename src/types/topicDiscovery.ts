@@ -19,6 +19,16 @@ export type TopicType = 'problem' | 'solution' | 'story' | 'data';
 export type FunnelStage = 'tofu' | 'mofu' | 'bofu';
 export type EmotionalTone = 'inspire' | 'educate' | 'entertain' | 'convince';
 
+// Content Series & Cluster types (Phase 2)
+export type ClusterRole = 'pillar' | 'cluster' | 'standalone';
+
+export interface ContentSeries {
+  seriesName: string;
+  totalParts: number;
+  currentPart?: number;
+  relatedTopics?: string[];
+}
+
 export interface TopicScores {
   brandFit: number;      // 0-100: Phù hợp với brand positioning
   trend: number;         // 0-100: Mức độ trending hiện tại
@@ -64,6 +74,9 @@ export interface EnhancedTopicSuggestion {
   // Search Intent & SEO (Phase 1)
   searchIntent?: SearchIntent;
   suggestedKeywords?: SuggestedKeywords;
+  // Content Series & Cluster (Phase 2)
+  series?: ContentSeries;
+  clusterRole?: ClusterRole;
 }
 
 export interface TopicHistoryItem {
@@ -171,6 +184,13 @@ export const SEARCH_INTENT_LABELS: { value: SearchIntent; label: string; icon: s
   { value: 'navigational', label: 'Navigational', icon: 'Navigation', color: 'slate', description: 'Tìm kiếm brand/website cụ thể' },
   { value: 'commercial', label: 'Commercial', icon: 'Search', color: 'amber', description: 'So sánh, nghiên cứu trước khi mua' },
   { value: 'transactional', label: 'Transactional', icon: 'ShoppingCart', color: 'emerald', description: 'Sẵn sàng mua hàng, chuyển đổi' },
+];
+
+// Cluster Role labels for Content Clusters
+export const CLUSTER_ROLE_LABELS: { value: ClusterRole; label: string; icon: string; color: string; description: string }[] = [
+  { value: 'pillar', label: 'Pillar', icon: 'Crown', color: 'amber', description: 'Nội dung trụ cột, bao quát chủ đề lớn' },
+  { value: 'cluster', label: 'Cluster', icon: 'GitBranch', color: 'blue', description: 'Nội dung chi tiết, liên kết với pillar' },
+  { value: 'standalone', label: 'Standalone', icon: 'FileText', color: 'slate', description: 'Nội dung độc lập, không thuộc cluster' },
 ];
 
 // Vietnamese seasonal events
