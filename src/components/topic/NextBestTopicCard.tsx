@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { 
   Zap, RefreshCw, ArrowRight, Target, Clock, 
-  Sparkles, ThumbsUp, ThumbsDown, FileText
+  Sparkles, ThumbsUp, ThumbsDown, FileText, Flame, Globe
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTopicRecommendations, NextBestTopic } from '@/hooks/useTopicRecommendations';
 import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { ContentGoal } from '@/types/multichannel';
@@ -34,6 +35,12 @@ const timingLabels: Record<string, { label: string; color: string }> = {
   this_week: { label: 'Tuần này', color: 'bg-blue-500' },
   next_week: { label: 'Tuần sau', color: 'bg-amber-500' },
   anytime: { label: 'Linh hoạt', color: 'bg-muted' },
+};
+
+const sourceLabels: Record<string, { label: string; icon: any }> = {
+  web_search: { label: 'Web Search', icon: Globe },
+  curated_event: { label: 'Sự kiện', icon: Sparkles },
+  curated_news: { label: 'Tin tức', icon: FileText },
 };
 
 export function NextBestTopicCard({
@@ -130,6 +137,36 @@ export function NextBestTopicCard({
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Trending Badge */}
+            {nextBest.trendingMatch && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30">
+                      <Flame className="w-4 h-4 text-orange-500" />
+                      <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                        Trending
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                        {nextBest.trendingMatch.velocityScore}/100
+                      </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <div className="space-y-1">
+                      <p className="font-medium text-xs">Dựa trên xu hướng thực tế</p>
+                      <p className="text-xs text-muted-foreground">
+                        Topic: "{nextBest.trendingMatch.topic}"
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Nguồn: {sourceLabels[nextBest.trendingMatch.source]?.label || nextBest.trendingMatch.source}
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             {/* Main Topic */}
             <div 
               className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-violet-500/10 border border-primary/20 cursor-pointer hover:border-primary/40 transition-all group"

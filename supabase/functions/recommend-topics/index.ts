@@ -81,19 +81,61 @@ Industry: ${(brand.industry || []).join(', ')}`;
       ? recentTopics.map(t => `- ${t.topic} (${t.category}, feedback: ${t.feedback || 'none'}, score: ${t.performance_score || 'N/A'})`).join('\n')
       : 'No topic history available';
 
+    // NEW: Fetch trending topics from database (enriched with Perplexity data)
+    let trendingContext = '';
+    let trendingTopicsData: any[] = [];
+    
+    if (recommendationType === 'next_best' || recommendationType === 'weekly') {
+      const { data: trendingTopics } = await supabase
+        .from('trending_topics')
+        .select('topic, category, velocity_score, peak_status, suggested_angles, source')
+        .eq('organization_id', organizationId)
+        .gt('expires_at', new Date().toISOString())
+        .order('velocity_score', { ascending: false })
+        .limit(10);
+
+      if (trendingTopics && trendingTopics.length > 0) {
+        trendingTopicsData = trendingTopics;
+        trendingContext = `
+## XU HƯỚNG ĐANG HOT (Real-time từ Perplexity Web Search + Curated Data):
+${trendingTopics.map((t, i) => 
+  `${i+1}. "${t.topic}" (velocity: ${t.velocity_score}/100, status: ${t.peak_status}, nguồn: ${t.source})
+   - Góc độ gợi ý: ${(t.suggested_angles || []).slice(0, 2).join(', ')}`
+).join('\n')}
+
+⚡ ƯU TIÊN: Tích hợp các xu hướng này vào đề xuất khi phù hợp với brand! Nếu đề xuất dựa trên trending, hãy indicate rõ trong response.
+`;
+        console.log(`Found ${trendingTopics.length} trending topics for context`);
+      } else {
+        console.log('No fresh trending data available');
+      }
+    }
+
     // Build prompt based on recommendation type
     let systemPrompt = '';
     let userPrompt = '';
 
     switch (recommendationType) {
       case 'next_best':
-        systemPrompt = `You are an expert content strategist. Analyze the brand context and topic history to recommend the SINGLE best topic to create next.
+        systemPrompt = `You are an expert content strategist. Analyze the brand context, topic history, and REAL-TIME TRENDING DATA to recommend the SINGLE best topic to create next.
 Consider:
 - Content gaps (pillars not covered recently)
-- High-performing topic patterns
+- High-performing topic patterns  
+- PRIORITIZE trending topics when they align with brand
 - Current trends and timing
 - Brand voice alignment
-Return JSON with: { "topic": string, "reason": string, "confidence": number (0-100), "pillar": string, "suggestedFormat": string, "timing": string }`;
+
+Return JSON with: { 
+  "topic": string, 
+  "reason": string, 
+  "confidence": number (0-100), 
+  "pillar": string, 
+  "suggestedFormat": string, 
+  "timing": string,
+  "trendingMatch": { "topic": string, "velocityScore": number, "source": "web_search" | "curated_event" | "curated_news" } | null 
+}
+
+If your recommendation is based on or inspired by a trending topic, include trendingMatch. Otherwise set it to null.`;
         
         userPrompt = `${brandContext}
 
@@ -102,8 +144,9 @@ Content Pillars: ${contentPillars.join(', ') || 'Not defined'}
 
 Recent Topic History:
 ${topicHistoryContext}
+${trendingContext}
 
-What is the SINGLE best topic to create next? Provide your recommendation in Vietnamese.`;
+What is the SINGLE best topic to create next? PRIORITIZE trending topics if they fit the brand. Provide your recommendation in Vietnamese.`;
         break;
 
       case 'weekly':
@@ -111,9 +154,27 @@ What is the SINGLE best topic to create next? Provide your recommendation in Vie
 Consider:
 - Cover different content pillars
 - Mix of formats (educational, entertaining, promotional)
+- INTEGRATE trending topics when relevant
 - Optimal posting schedule
 - Past performance patterns
-Return JSON with: { "weeklyPlan": [{ "day": string, "topic": string, "pillar": string, "format": string, "reason": string, "priority": number (1-10) }], "weekTheme": string, "insights": string }`;
+
+Return JSON with: { 
+  "weeklyPlan": [{ 
+    "day": string, 
+    "topic": string, 
+    "pillar": string, 
+    "format": string, 
+    "reason": string, 
+    "priority": number (1-10),
+    "isTrendingBased": boolean,
+    "trendingSource": string | null
+  }], 
+  "weekTheme": string, 
+  "insights": string,
+  "trendingTopicsUsed": number
+}
+
+For topics inspired by trending data, set isTrendingBased: true and include trendingSource (the original trending topic name).`;
         
         userPrompt = `${brandContext}
 
@@ -122,8 +183,9 @@ Content Pillars: ${contentPillars.join(', ') || 'Not defined'}
 
 Recent Topic History:
 ${topicHistoryContext}
+${trendingContext}
 
-Create a weekly content plan with 5-7 diverse topics. Respond in Vietnamese.`;
+Create a weekly content plan with 5-7 diverse topics. INTEGRATE trending topics where appropriate. Respond in Vietnamese.`;
         break;
 
       case 'conflict_check':

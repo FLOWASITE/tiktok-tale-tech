@@ -5,6 +5,12 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { ContentGoal } from '@/types/multichannel';
 import { toast } from 'sonner';
 
+export interface TrendingMatch {
+  topic: string;
+  velocityScore: number;
+  source: 'web_search' | 'curated_event' | 'curated_news';
+}
+
 export interface NextBestTopic {
   topic: string;
   reason: string;
@@ -12,6 +18,7 @@ export interface NextBestTopic {
   pillar: string;
   suggestedFormat: string;
   timing: string;
+  trendingMatch?: TrendingMatch | null;
 }
 
 export interface WeeklyPlanItem {
@@ -21,12 +28,15 @@ export interface WeeklyPlanItem {
   format: string;
   reason: string;
   priority: number;
+  isTrendingBased?: boolean;
+  trendingSource?: string | null;
 }
 
 export interface WeeklyPlan {
   weeklyPlan: WeeklyPlanItem[];
   weekTheme: string;
   insights: string;
+  trendingTopicsUsed?: number;
 }
 
 export interface TopicConflict {
