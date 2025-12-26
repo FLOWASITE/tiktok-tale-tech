@@ -5,7 +5,7 @@ import {
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
   Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, 
   Globe, Database, FileText, Link2, BookOpen, Navigation, Search, ShoppingCart, Key,
-  Crown, GitBranch, ListTree, type LucideIcon
+  Crown, GitBranch, ListTree, MessageCircleQuestion, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -530,6 +530,38 @@ export function TopicIdeaCard({
                           {topic.series.relatedTopics.slice(0, 3).map((t, i) => (
                             <p key={i} className="text-[9px] text-foreground truncate">• {t}</p>
                           ))}
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
+              {/* Audience Q&A Badge */}
+              {topic.isFromAudienceQA && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="text-[9px] px-1.5 py-0 gap-0.5 bg-gradient-to-r from-pink-500/10 to-rose-500/10 border-pink-500/30 text-pink-600 dark:text-pink-400"
+                      >
+                        <MessageCircleQuestion className="w-2.5 h-2.5" />
+                        FAQ
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[300px]">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        <MessageCircleQuestion className="w-3 h-3" />
+                        Audience Q&A Mining
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Topic này được tạo dựa trên câu hỏi thực tế từ khách hàng
+                      </p>
+                      {topic.audienceQuestion && (
+                        <div className="mt-1.5 pt-1.5 border-t border-border/50">
+                          <p className="text-[10px] text-muted-foreground">Câu hỏi gốc:</p>
+                          <p className="text-[10px] text-foreground italic">"{topic.audienceQuestion}"</p>
                         </div>
                       )}
                     </TooltipContent>

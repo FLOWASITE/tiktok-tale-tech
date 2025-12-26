@@ -76,6 +76,9 @@ export interface EnhancedTopicSuggestion {
   suggestedKeywords?: SuggestedKeywords;
   // Content Series & Cluster (Phase 2)
   series?: ContentSeries;
+  // Audience Q&A Mining (Phase 4)
+  audienceQuestion?: string;       // Original question from audience
+  isFromAudienceQA?: boolean;      // Flag if topic is derived from Q&A mining
   clusterRole?: ClusterRole;
 }
 
