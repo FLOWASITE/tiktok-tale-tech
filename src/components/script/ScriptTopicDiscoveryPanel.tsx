@@ -68,7 +68,7 @@ export function ScriptTopicDiscoveryPanel({
   const [sortBy, setSortBy] = useState<SortOption>('overall');
   const [minScore, setMinScore] = useState(0);
 
-  // Only read from Topic Bank - no separate AI call
+  // Read ALL topics from Topic Bank - no format filter
   const { 
     history: bankTopics, 
     isLoading: bankLoading, 
@@ -76,13 +76,12 @@ export function ScriptTopicDiscoveryPanel({
     confirmDraft 
   } = useTopicHistory({
     brandTemplateId,
-    formats: ['script'],
     excludeDrafts: false,
     enabled: isOpen,
   });
 
-  // Convert bank topics to EnhancedTopicSuggestion format
-  const suggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string })[] => {
+  // Convert bank topics to EnhancedTopicSuggestion format - preserve original format
+  const suggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string; _originalFormat?: string })[] => {
     return bankTopics.map(item => ({
       topic: item.topic,
       category: item.category,
@@ -90,11 +89,12 @@ export function ScriptTopicDiscoveryPanel({
       scores: item.scores,
       relatedKeywords: item.relatedKeywords || [],
       reasoning: item.reasoning || '',
-      formats: ['script'] as TopicFormat[],
+      formats: [item.format] as TopicFormat[],
       estimatedEngagement: (item.scores?.engagement && item.scores.engagement >= 70 ? 'high' : 
         item.scores?.engagement && item.scores.engagement >= 40 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
       _historyId: item.id,
       _usageStatus: item.usageStatus,
+      _originalFormat: item.format,
     }));
   }, [bankTopics]);
 
@@ -312,7 +312,7 @@ export function ScriptTopicDiscoveryPanel({
             <p className="text-sm text-muted-foreground mb-2">
               {hasActiveFilters 
                 ? 'Không tìm thấy chủ đề phù hợp với bộ lọc' 
-                : 'Chưa có ý tưởng nào cho định dạng Script trong Kho'}
+                : 'Chưa có ý tưởng nào trong Kho'}
             </p>
             {hasActiveFilters ? (
               <Button
