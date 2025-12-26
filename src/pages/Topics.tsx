@@ -716,6 +716,21 @@ const Topics = () => {
               }}
             />
 
+            {/* Trending Discovery */}
+            <TrendingDiscoveryPanel
+              brandTemplateId={selectedBrandId || undefined}
+              onSelectTopic={(topic, angles) => {
+                navigate('/multichannel', { 
+                  state: { 
+                    prefillTopic: topic,
+                    prefillGoal: selectedGoal,
+                    suggestedAngles: angles,
+                    fromTopics: true 
+                  } 
+                });
+              }}
+            />
+
             {/* Similar Success Topics */}
             <SimilarSuccessTopics
               brandTemplateId={selectedBrandId || undefined}
@@ -744,21 +759,6 @@ const Topics = () => {
                   state: { 
                     prefillTopic: topic,
                     prefillGoal: selectedGoal,
-                    fromTopics: true 
-                  } 
-                });
-              }}
-            />
-
-            {/* Trending Discovery - New Feature */}
-            <TrendingDiscoveryPanel
-              brandTemplateId={selectedBrandId || undefined}
-              onSelectTopic={(topic, angles) => {
-                navigate('/multichannel', { 
-                  state: { 
-                    prefillTopic: topic,
-                    prefillGoal: selectedGoal,
-                    suggestedAngles: angles,
                     fromTopics: true 
                   } 
                 });
