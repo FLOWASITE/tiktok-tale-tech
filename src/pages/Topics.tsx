@@ -934,32 +934,3 @@ const Topics = () => {
 };
 
 export default Topics;
-                totalFeedback={aiLearningStats.totalFeedback}
-                positiveFeedback={aiLearningStats.positiveFeedback}
-                negativeFeedback={aiLearningStats.negativeFeedback}
-                topPatterns={aiLearningStats.topPatterns}
-                personalizationLevel={aiLearningStats.personalizationLevel}
-                isLearning={isEnhancing}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Onboarding for first-time users */}
-      <TopicDiscoveryOnboarding />
-
-      {/* Bulk actions bar */}
-      <TopicBulkActions
-        selectedTopics={selectedTopics}
-        onSaveAll={handleSaveAllTopics}
-        onScheduleAll={handleScheduleAllTopics}
-        onClearSelection={handleClearSelection}
-        onSelectAll={handleSelectAllTopics}
-        totalCount={suggestions.length}
-      />
-    </div>
-  );
-};
-
-export default Topics;
