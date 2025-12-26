@@ -34,10 +34,13 @@ import {
   Calendar,
   ShieldAlert,
   Database,
+  CalendarDays,
+  Newspaper,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import CacheAnalytics from "@/components/admin/CacheAnalytics";
+import { Link } from "react-router-dom";
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("users");
@@ -110,6 +113,10 @@ export default function Admin() {
           <TabsTrigger value="cache" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
             AI Cache
+          </TabsTrigger>
+          <TabsTrigger value="curated" className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Curated Data
           </TabsTrigger>
         </TabsList>
 
@@ -358,6 +365,44 @@ export default function Admin() {
 
         <TabsContent value="cache" className="mt-6">
           <CacheAnalytics />
+        </TabsContent>
+
+        <TabsContent value="curated" className="mt-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-red-500" />
+                  Sự kiện theo mùa
+                </CardTitle>
+                <CardDescription>
+                  Quản lý sự kiện, lễ hội, chiến dịch marketing
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link to="/admin/events">
+                  <Button className="w-full">Quản lý sự kiện</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Newspaper className="h-5 w-5 text-blue-500" />
+                  Tin tức ngành
+                </CardTitle>
+                <CardDescription>
+                  Quản lý tin tức trending cho AI tham khảo
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link to="/admin/industry-news">
+                  <Button className="w-full">Quản lý tin tức</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

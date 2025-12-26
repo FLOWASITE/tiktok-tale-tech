@@ -27,6 +27,8 @@ import AdminIndustryVersions from "./pages/AdminIndustryVersions";
 import AdminIndustryPacks from "./pages/AdminIndustryPacks";
 import AdminCountries from "./pages/AdminCountries";
 import AdminCategories from "./pages/AdminCategories";
+import AdminEvents from "./pages/AdminEvents";
+import AdminIndustryNews from "./pages/AdminIndustryNews";
 import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
 import AccessDenied from "./pages/AccessDenied";
@@ -229,6 +231,30 @@ const App = () => (
                     <AdminProtectedRoute>
                       <AppLayout>
                         <AdminIndustryVersions />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/events"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminEvents />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/industry-news"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminIndustryNews />
                       </AppLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
