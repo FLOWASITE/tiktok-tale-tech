@@ -801,14 +801,6 @@ const Topics = () => {
           {/* Right: Sidebar - 4 cols - Hidden on mobile */}
           <div className="hidden lg:block lg:col-span-4 space-y-4">
             <div className="lg:sticky lg:top-4 space-y-4">
-              {/* Brand Info Card */}
-              <BrandInfoCard
-                brand={selectedBrand}
-                onChangeBrand={() => setBrandDialogOpen(true)}
-                onEditBrand={selectedBrand ? () => navigate(`/brands/${selectedBrand.id}`) : undefined}
-                isLoading={brandsLoading}
-              />
-
               {/* Upcoming Events */}
               <UpcomingEventsCard
                 onGetSuggestions={(event) => {
