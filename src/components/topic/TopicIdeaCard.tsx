@@ -7,6 +7,7 @@ import {
   Globe, Database, FileText, Link2, BookOpen, Navigation, Search, ShoppingCart, Key,
   Crown, GitBranch, ListTree, MessageCircleQuestion, Rocket, Repeat, 
   PieChart, Mic, Briefcase, BookMarked, Presentation, Radio, Smile, Vote, Quote, Mail,
+  Home, Award, DollarSign,
   type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
-import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, SearchIntent, ClusterRole, ContentTier, CONTENT_TIER_LABELS, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, SearchIntent, ClusterRole, ContentTier, CONTENT_TIER_LABELS, MediaOwnership, MEDIA_OWNERSHIP_LABELS, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 import { TopicQuickPreview } from './TopicQuickPreview';
 
 interface TopicIdeaCardProps {
@@ -191,6 +192,37 @@ const contentTierConfig: Record<ContentTier, { icon: LucideIcon; label: string; 
     textClass: 'text-emerald-600 dark:text-emerald-400',
     description: 'Always-on, SEO-driven, thu hút traffic tự nhiên',
     percentage: '60%',
+  },
+};
+
+// Media Ownership (Owned/Earned/Paid) configuration
+const mediaOwnershipConfig: Record<MediaOwnership, { icon: LucideIcon; label: string; color: string; bgClass: string; textClass: string; description: string; examples: string[] }> = {
+  owned: {
+    icon: Home,
+    label: 'Owned',
+    color: 'blue',
+    bgClass: 'bg-gradient-to-r from-blue-500/10 to-indigo-500/10',
+    textClass: 'text-blue-600 dark:text-blue-400',
+    description: 'Kênh do brand sở hữu và kiểm soát hoàn toàn',
+    examples: ['Website/Blog', 'Email', 'Fanpage', 'App'],
+  },
+  earned: {
+    icon: Award,
+    label: 'Earned',
+    color: 'emerald',
+    bgClass: 'bg-gradient-to-r from-emerald-500/10 to-green-500/10',
+    textClass: 'text-emerald-600 dark:text-emerald-400',
+    description: 'Nội dung viral, được chia sẻ tự nhiên',
+    examples: ['PR/Media', 'Reviews', 'Word-of-mouth', 'UGC'],
+  },
+  paid: {
+    icon: DollarSign,
+    label: 'Paid',
+    color: 'amber',
+    bgClass: 'bg-gradient-to-r from-amber-500/10 to-yellow-500/10',
+    textClass: 'text-amber-600 dark:text-amber-400',
+    description: 'Quảng cáo trả phí để đạt reach nhanh',
+    examples: ['Facebook Ads', 'Google Ads', 'Sponsored', 'Influencer'],
   },
 };
 
@@ -644,6 +676,42 @@ export function TopicIdeaCard({
                       <div className="mt-1.5 pt-1.5 border-t border-border/50">
                         <p className="text-[10px] text-muted-foreground">
                           Recommended balance: Hero 10%, Hub 30%, Hygiene 60%
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
+              {/* Media Ownership Badge (Owned/Earned/Paid) */}
+              {topic.mediaOwnership && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          'text-[9px] px-1.5 py-0 gap-0.5',
+                          mediaOwnershipConfig[topic.mediaOwnership].bgClass,
+                          mediaOwnershipConfig[topic.mediaOwnership].textClass,
+                          'border-current/30'
+                        )}
+                      >
+                        {React.createElement(mediaOwnershipConfig[topic.mediaOwnership].icon, { className: 'w-2.5 h-2.5' })}
+                        {mediaOwnershipConfig[topic.mediaOwnership].label}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[300px]">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        {React.createElement(mediaOwnershipConfig[topic.mediaOwnership].icon, { className: 'w-3 h-3' })}
+                        {mediaOwnershipConfig[topic.mediaOwnership].label} Media
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {mediaOwnershipConfig[topic.mediaOwnership].description}
+                      </p>
+                      <div className="mt-1.5 pt-1.5 border-t border-border/50">
+                        <p className="text-[10px] text-muted-foreground">
+                          VD: {mediaOwnershipConfig[topic.mediaOwnership].examples.join(', ')}
                         </p>
                       </div>
                     </TooltipContent>
