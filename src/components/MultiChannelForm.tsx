@@ -27,6 +27,7 @@ interface MultiChannelFormProps {
   isLoading: boolean;
   initialTopic?: string;
   initialGoal?: ContentGoal;
+  topicHistoryId?: string;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -61,7 +62,7 @@ const channelColors: Record<Channel, string> = {
 
 const DRAFT_KEY = 'multichannel_form_draft';
 
-export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoal }: MultiChannelFormProps) {
+export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoal, topicHistoryId }: MultiChannelFormProps) {
   const { templates, loading: loadingTemplates } = useBrandTemplates();
   const [topic, setTopic] = useState(initialTopic || '');
   const [industry, setIndustry] = useState('');
@@ -225,6 +226,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
       channels: selectedChannels,
       brandTemplateId: brandTemplateId || undefined,
       editedPreviews: previews,
+      topicHistoryId,
     });
 
     // Clear pending previews after submit

@@ -93,6 +93,7 @@ export interface MultiChannelFormData {
   channels: Channel[];
   brandTemplateId?: string;
   editedPreviews?: EditedPreviews;
+  topicHistoryId?: string;
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [

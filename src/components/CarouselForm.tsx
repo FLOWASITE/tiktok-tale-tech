@@ -55,6 +55,7 @@ interface CarouselFormProps {
   onSubmit: (data: CarouselFormData) => void;
   isLoading: boolean;
   initialTopic?: string;
+  topicHistoryId?: string;
 }
 
 const LOADING_PHASES = [
@@ -66,7 +67,7 @@ const LOADING_PHASES = [
 
 const MAX_TOPIC_LENGTH = 300;
 
-export function CarouselForm({ onSubmit, isLoading, initialTopic }: CarouselFormProps) {
+export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId }: CarouselFormProps) {
   const { templates, loading: templatesLoading, saveTemplate, deleteTemplate } = useBrandTemplates();
   
   const [topic, setTopic] = useState(initialTopic || '');
@@ -223,6 +224,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic }: CarouselForm
       includeLogo,
       logoUrl: getSelectedLogoUrl(),
       brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
+      topicHistoryId,
     });
   };
 

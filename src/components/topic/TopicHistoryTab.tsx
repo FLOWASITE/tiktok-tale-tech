@@ -32,7 +32,7 @@ import {
 interface TopicHistoryTabProps {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
-  onSelectTopic: (topic: string) => void;
+  onSelectTopic: (topic: string, topicHistoryId?: string) => void;
 }
 
 type FilterView = 'all' | 'favorites' | 'top-performers' | 'recent';
@@ -99,7 +99,7 @@ export function TopicHistoryTab({
   }, [filterView, favorites, topPerformers, recentlyUsed, history, categoryFilter, searchQuery]);
 
   const handleReuse = (item: TopicHistoryItem) => {
-    onSelectTopic(item.topic);
+    onSelectTopic(item.topic, item.id);
   };
 
   const handleFeedback = (id: string, feedback: FeedbackType) => {

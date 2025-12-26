@@ -163,6 +163,7 @@ export interface ScriptFormData {
   brandTemplateId?: string;
   hook?: HookDetails;
   angle?: TopicAngle;
+  topicHistoryId?: string;
 }
 
 // ============================================
