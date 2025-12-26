@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, Sparkles, BookOpen, BarChart3, 
   TrendingUp, Star, Bookmark, RefreshCw,
-  ArrowRight, Zap, Target
+  ArrowRight, Zap, Target, Brain, Network, Search, Wand2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +16,10 @@ import { TopicBankGrid } from '@/components/topic/TopicBankGrid';
 import { TopicAnalyticsDashboard } from '@/components/topic/TopicAnalyticsDashboard';
 import { SeasonalTopicsSection } from '@/components/topic/SeasonalTopicsSection';
 import { SimilarSuccessTopics } from '@/components/topic/SimilarSuccessTopics';
+import { TopicGapAnalysis } from '@/components/topic/TopicGapAnalysis';
+import { TopicClusterView } from '@/components/topic/TopicClusterView';
+import { KeywordExpansionPanel } from '@/components/topic/KeywordExpansionPanel';
+import { TopicRefiner } from '@/components/topic/TopicRefiner';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -232,13 +236,17 @@ const Topics = () => {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-muted/50 p-1">
+          <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
             <TabsTrigger value="discovery" className="gap-2">
               <Sparkles className="w-4 h-4" />
               Khám phá
               <Badge variant="secondary" className="ml-1 text-[10px]">
                 {suggestions.length}
               </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="intelligence" className="gap-2">
+              <Brain className="w-4 h-4" />
+              AI Intelligence
             </TabsTrigger>
             <TabsTrigger value="bank" className="gap-2">
               <BookOpen className="w-4 h-4" />
@@ -366,6 +374,73 @@ const Topics = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          {/* AI Intelligence Tab */}
+          <TabsContent value="intelligence" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Gap Analysis */}
+              <TopicGapAnalysis
+                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                contentGoal={selectedGoal}
+                onSelectTopic={(topic) => {
+                  navigate('/multichannel', { 
+                    state: { 
+                      prefillTopic: topic,
+                      prefillGoal: selectedGoal,
+                      fromTopics: true 
+                    } 
+                  });
+                }}
+              />
+
+              {/* Topic Clusters */}
+              <TopicClusterView
+                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                contentGoal={selectedGoal}
+                onSelectTopic={(topic) => {
+                  navigate('/multichannel', { 
+                    state: { 
+                      prefillTopic: topic,
+                      prefillGoal: selectedGoal,
+                      fromTopics: true 
+                    } 
+                  });
+                }}
+              />
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Keyword Expansion */}
+              <KeywordExpansionPanel
+                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                contentGoal={selectedGoal}
+                onSelectKeyword={(keyword) => {
+                  navigate('/multichannel', { 
+                    state: { 
+                      prefillTopic: keyword,
+                      prefillGoal: selectedGoal,
+                      fromTopics: true 
+                    } 
+                  });
+                }}
+              />
+
+              {/* Topic Refiner */}
+              <TopicRefiner
+                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                contentGoal={selectedGoal}
+                onSelectRefinedTopic={(topic) => {
+                  navigate('/multichannel', { 
+                    state: { 
+                      prefillTopic: topic,
+                      prefillGoal: selectedGoal,
+                      fromTopics: true 
+                    } 
+                  });
+                }}
+              />
             </div>
           </TabsContent>
 

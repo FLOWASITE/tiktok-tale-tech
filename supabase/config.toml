@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.generate-storyboard]
 verify_jwt = false
+
+[functions.analyze-topic-gaps]
+verify_jwt = false
