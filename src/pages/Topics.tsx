@@ -42,6 +42,7 @@ import { TopicComparisonMode } from '@/components/topic/TopicComparisonMode';
 import { TopicComparisonBar } from '@/components/topic/TopicComparisonBar';
 import { ContentPipelineView } from '@/components/topic/ContentPipelineView';
 import { AILearningDashboard } from '@/components/topic/AILearningDashboard';
+import { TrendingDiscoveryPanel } from '@/components/topic/TrendingDiscoveryPanel';
 import { MobileSidebarDrawer } from '@/components/topic/MobileSidebarDrawer';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
@@ -743,6 +744,21 @@ const Topics = () => {
                   state: { 
                     prefillTopic: topic,
                     prefillGoal: selectedGoal,
+                    fromTopics: true 
+                  } 
+                });
+              }}
+            />
+
+            {/* Trending Discovery - New Feature */}
+            <TrendingDiscoveryPanel
+              brandTemplateId={selectedBrandId || undefined}
+              onSelectTopic={(topic, angles) => {
+                navigate('/multichannel', { 
+                  state: { 
+                    prefillTopic: topic,
+                    prefillGoal: selectedGoal,
+                    suggestedAngles: angles,
                     fromTopics: true 
                   } 
                 });

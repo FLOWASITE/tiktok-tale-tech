@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.learn-from-feedback]
 verify_jwt = false
+
+[functions.discover-trending-topics]
+verify_jwt = false
