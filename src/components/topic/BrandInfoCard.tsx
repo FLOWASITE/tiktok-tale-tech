@@ -11,11 +11,14 @@ import { Separator } from '@/components/ui/separator';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { ContentPillar } from '@/types/topicDiscovery';
 
+import { Skeleton } from '@/components/ui/skeleton';
+
 interface BrandInfoCardProps {
   brand?: BrandTemplate;
   onChangeBrand: () => void;
   onEditBrand?: () => void;
   className?: string;
+  isLoading?: boolean;
 }
 
 export function BrandInfoCard({
@@ -23,7 +26,48 @@ export function BrandInfoCard({
   onChangeBrand,
   onEditBrand,
   className,
+  isLoading = false,
 }: BrandInfoCardProps) {
+  // Loading skeleton state
+  if (isLoading) {
+    return (
+      <Card className={cn('gradient-card overflow-hidden', className)}>
+        <div className="h-1 bg-gradient-to-r from-primary/30 via-violet-500/30 to-primary/30 animate-pulse" />
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="flex items-start gap-3">
+            <Skeleton className="w-10 h-10 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 px-4 pb-4 space-y-3">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-12" />
+            <div className="flex gap-1">
+              <Skeleton className="h-5 w-16 rounded-full" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-14" />
+            <div className="flex gap-1">
+              <Skeleton className="h-5 w-14 rounded-full" />
+              <Skeleton className="h-5 w-18 rounded-full" />
+              <Skeleton className="h-5 w-12 rounded-full" />
+            </div>
+          </div>
+          <Separator className="my-2" />
+          <div className="flex gap-2">
+            <Skeleton className="h-7 flex-1" />
+            <Skeleton className="h-7 w-7" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!brand) {
     return (
       <Card className={cn('gradient-card', className)}>

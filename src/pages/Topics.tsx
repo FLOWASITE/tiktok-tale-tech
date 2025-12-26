@@ -405,7 +405,7 @@ const Topics = () => {
 
             {/* AI Suggestions Grid - Always visible when brand selected */}
             {selectedBrandId ? (
-              <div className="space-y-4">
+              <div className="space-y-4" data-suggestions-section>
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-medium text-sm flex items-center gap-2">
@@ -551,42 +551,56 @@ const Topics = () => {
               />
             )}
 
-            {/* Compact Stats Row - 3 key metrics */}
+            {/* Compact Stats Row - 3 key metrics - Interactive */}
             {selectedBrandId && (
               <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
+                <button 
+                  className="flex items-center gap-2 hover:bg-primary/5 p-1 -m-1 rounded-lg transition-colors group"
+                  onClick={() => {
+                    const suggestionsSection = document.querySelector('[data-suggestions-section]');
+                    if (suggestionsSection) {
+                      suggestionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                >
+                  <div className="p-1.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                     <Sparkles className="w-4 h-4 text-primary" />
                   </div>
-                  <div>
+                  <div className="text-left">
                     <p className="text-lg font-bold">{combinedStats.suggestionCount}</p>
                     <p className="text-xs text-muted-foreground">Gợi ý AI</p>
                   </div>
-                </div>
+                </button>
 
                 <div className="h-8 w-px bg-border" />
 
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-amber-500/10">
+                <button 
+                  className="flex items-center gap-2 hover:bg-amber-500/5 p-1 -m-1 rounded-lg transition-colors group"
+                  onClick={() => setActiveTab('bank')}
+                >
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 group-hover:bg-amber-500/20 transition-colors">
                     <Bookmark className="w-4 h-4 text-amber-500" />
                   </div>
-                  <div>
+                  <div className="text-left">
                     <p className="text-lg font-bold">{combinedStats.totalTopics}</p>
                     <p className="text-xs text-muted-foreground">Đã lưu</p>
                   </div>
-                </div>
+                </button>
 
                 <div className="h-8 w-px bg-border" />
 
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10">
+                <button 
+                  className="flex items-center gap-2 hover:bg-emerald-500/5 p-1 -m-1 rounded-lg transition-colors group"
+                  onClick={() => setActiveTab('performance')}
+                >
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
                     <Percent className="w-4 h-4 text-emerald-500" />
                   </div>
-                  <div>
+                  <div className="text-left">
                     <p className="text-lg font-bold">{combinedStats.usageRate}%</p>
                     <p className="text-xs text-muted-foreground">Tỷ lệ sử dụng</p>
                   </div>
-                </div>
+                </button>
 
                 {contentPillars.length > 0 && (
                   <>
@@ -611,12 +625,9 @@ const Topics = () => {
               {isMobile ? (
                 <ScrollArea className="w-full whitespace-nowrap">
                   <TabsList className="bg-muted/50 p-1 inline-flex w-auto gap-1">
-                    <TabsTrigger value="discovery" className="gap-1.5 text-xs px-3">
+                <TabsTrigger value="discovery" className="gap-1.5 text-xs px-3">
                       <Sparkles className="w-3.5 h-3.5" />
-                      Gợi ý
-                      <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1">
-                        {suggestions.length}
-                      </Badge>
+                      Khám phá
                     </TabsTrigger>
                     <TabsTrigger value="smart" className="gap-1.5 text-xs px-3">
                       <Zap className="w-3.5 h-3.5" />
@@ -638,12 +649,9 @@ const Topics = () => {
                 </ScrollArea>
               ) : (
                 <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
-                  <TabsTrigger value="discovery" className="gap-2">
+                <TabsTrigger value="discovery" className="gap-2">
                     <Sparkles className="w-4 h-4" />
-                    Tất cả gợi ý
-                    <Badge variant="secondary" className="ml-1 text-[10px]">
-                      {suggestions.length}
-                    </Badge>
+                    Khám phá thêm
                   </TabsTrigger>
                   <TabsTrigger value="smart" className="gap-2">
                     <Zap className="w-4 h-4" />
@@ -663,7 +671,7 @@ const Topics = () => {
                 </TabsList>
               )}
 
-          {/* Discovery Tab - All AI Suggestions */}
+          {/* Discovery Tab - Khám phá thêm (Seasonal + Similar) */}
           <TabsContent value="discovery" className="space-y-6">
             {/* Seasonal Topics Section */}
             <SeasonalTopicsSection
@@ -702,129 +710,6 @@ const Topics = () => {
               }}
               limit={5}
             />
-
-            {/* All AI Suggestions Grid */}
-            {!selectedBrandId ? (
-              <TopicEmptyState 
-                type="no-brand-selected" 
-                onAction={() => setBrandDialogOpen(true)} 
-              />
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    Tất cả gợi ý AI ({suggestions.length})
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {contentPillars.length > 0 && suggestions.length > 0 && (
-                      <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                        <Button
-                          variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setViewMode('grid')}
-                        >
-                          <Grid3X3 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setViewMode('pillar')}
-                        >
-                          <LayoutList className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {suggestions.length > 0 && (
-                      <Button
-                        variant={selectionMode ? 'secondary' : 'ghost'}
-                        size="sm"
-                        onClick={() => {
-                          setSelectionMode(!selectionMode);
-                          if (selectionMode) setSelectedTopics([]);
-                        }}
-                        className="gap-1.5"
-                      >
-                        <CheckSquare className="w-4 h-4" />
-                        {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
-                      </Button>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={refresh}
-                      disabled={suggestionsLoading || isEnhancing}
-                    >
-                      <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
-                      Làm mới
-                    </Button>
-                  </div>
-                </div>
-
-                {suggestionsLoading ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Card key={i} className="p-4 space-y-3">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-6 w-full" />
-                      </Card>
-                    ))}
-                  </div>
-                ) : viewMode === 'pillar' && contentPillars.length > 0 ? (
-                  <TopicsByPillarView
-                    topics={suggestions}
-                    contentPillars={contentPillars}
-                    onSelectTopic={handleSelectTopic}
-                    onSaveTopic={handleSaveTopic}
-                    onScheduleTopic={handleScheduleTopic}
-                    selectable={selectionMode}
-                    selectedTopics={selectedTopics}
-                    onToggleSelection={handleToggleTopicSelection}
-                  />
-                ) : isMobile ? (
-                  // Mobile: Single column with TopicMobileCard
-                  <div className="grid gap-3">
-                    {suggestions.map((topic, index) => (
-                      <div
-                        key={`${topic.topic}-${index}`}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                      >
-                        <TopicMobileCard
-                          topic={topic}
-                          onSelect={handleSelectTopic}
-                          onSave={handleSaveTopic}
-                          onSchedule={handleScheduleTopic}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {suggestions.map((topic, index) => (
-                      <div
-                        key={`${topic.topic}-${index}`}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <TopicIdeaCard
-                          topic={topic}
-                          onSelect={handleSelectTopic}
-                          onSave={handleSaveTopic}
-                          onSchedule={handleScheduleTopic}
-                          selectable={selectionMode}
-                          checked={isTopicSelected(topic)}
-                          onCheckedChange={(checked) => handleToggleTopicSelection(topic, checked)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </TabsContent>
 
           {/* Smart Recommendations Tab */}
@@ -876,72 +761,6 @@ const Topics = () => {
             </div>
           </TabsContent>
 
-          {/* AI Intelligence Tab */}
-          <TabsContent value="intelligence" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Gap Analysis */}
-              <TopicGapAnalysis
-              brandTemplateId={selectedBrandId || undefined}
-                contentGoal={selectedGoal}
-                onSelectTopic={(topic) => {
-                  navigate('/multichannel', { 
-                    state: { 
-                      prefillTopic: topic,
-                      prefillGoal: selectedGoal,
-                      fromTopics: true 
-                    } 
-                  });
-                }}
-              />
-
-              {/* Topic Clusters */}
-              <TopicClusterView
-              brandTemplateId={selectedBrandId || undefined}
-                contentGoal={selectedGoal}
-                onSelectTopic={(topic) => {
-                  navigate('/multichannel', { 
-                    state: { 
-                      prefillTopic: topic,
-                      prefillGoal: selectedGoal,
-                      fromTopics: true 
-                    } 
-                  });
-                }}
-              />
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Keyword Expansion */}
-              <KeywordExpansionPanel
-              brandTemplateId={selectedBrandId || undefined}
-                contentGoal={selectedGoal}
-                onSelectKeyword={(keyword) => {
-                  navigate('/multichannel', { 
-                    state: { 
-                      prefillTopic: keyword,
-                      prefillGoal: selectedGoal,
-                      fromTopics: true 
-                    } 
-                  });
-                }}
-              />
-
-              {/* Topic Refiner */}
-              <TopicRefiner
-              brandTemplateId={selectedBrandId || undefined}
-                contentGoal={selectedGoal}
-                onSelectRefinedTopic={(topic) => {
-                  navigate('/multichannel', { 
-                    state: { 
-                      prefillTopic: topic,
-                      prefillGoal: selectedGoal,
-                      fromTopics: true 
-                    } 
-                  });
-                }}
-              />
-            </div>
-          </TabsContent>
 
           {/* Topic Bank Tab */}
           <TabsContent value="bank">
@@ -987,6 +806,7 @@ const Topics = () => {
                 brand={selectedBrand}
                 onChangeBrand={() => setBrandDialogOpen(true)}
                 onEditBrand={selectedBrand ? () => navigate(`/brands/${selectedBrand.id}`) : undefined}
+                isLoading={brandsLoading}
               />
 
               {/* Upcoming Events */}
