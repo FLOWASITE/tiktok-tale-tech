@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
-  Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, type LucideIcon
+  Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -39,6 +39,9 @@ interface TopicIdeaCardProps {
   onCheckedChange?: (checked: boolean) => void;
   isDraft?: boolean;
   brandTemplateId?: string;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent, topic: EnhancedTopicSuggestion) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
 const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; gradient: string; bgClass: string; textClass: string; label: string }> = {
@@ -112,6 +115,9 @@ export function TopicIdeaCard({
   onCheckedChange,
   isDraft = true,
   brandTemplateId,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
 }: TopicIdeaCardProps) {
   const navigate = useNavigate();
   const config = categoryConfig[topic.category] || categoryConfig.evergreen;
@@ -160,6 +166,20 @@ export function TopicIdeaCard({
     }
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    if (draggable && onDragStart) {
+      e.dataTransfer.setData('application/json', JSON.stringify(topic));
+      e.dataTransfer.effectAllowed = 'move';
+      onDragStart(e, topic);
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    if (onDragEnd) {
+      onDragEnd(e);
+    }
+  };
+
   const cardContent = (
     <Card
       className={cn(
@@ -169,8 +189,12 @@ export function TopicIdeaCard({
         isSelected && 'ring-2 ring-primary border-primary',
         checked && 'ring-2 ring-primary/50 bg-primary/5',
         disabled && 'opacity-50 cursor-not-allowed',
+        draggable && 'cursor-grab active:cursor-grabbing',
         compact ? 'p-3' : 'p-4'
       )}
+      draggable={draggable}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       onClick={(e) => {
         if (selectable && onCheckedChange) {
           e.stopPropagation();
@@ -188,6 +212,15 @@ export function TopicIdeaCard({
         )}
       />
 
+      {/* Drag Handle */}
+      {draggable && (
+        <div className="absolute top-1/2 -left-0.5 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="p-1 rounded-r bg-muted/80 backdrop-blur-sm">
+            <GripVertical className="w-3 h-3 text-muted-foreground" />
+          </div>
+        </div>
+      )}
+
       {/* Checkbox for selection mode */}
       {selectable && (
         <div 
@@ -203,7 +236,7 @@ export function TopicIdeaCard({
       )}
 
       {/* Header */}
-      <div className={cn('flex items-start gap-3', compact ? 'mb-2' : 'mb-3', selectable && 'pl-6')}>
+      <div className={cn('flex items-start gap-3', compact ? 'mb-2' : 'mb-3', selectable && 'pl-6', draggable && !selectable && 'pl-2')}>
         <div className={cn('rounded-lg shrink-0', config.bgClass, compact ? 'p-1.5' : 'p-2')}>
           <CategoryIcon className={cn(config.textClass, compact ? 'w-3.5 h-3.5' : 'w-4 h-4')} />
         </div>
