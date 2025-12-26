@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, Sparkles, BookOpen, BarChart3, 
   TrendingUp, Star, Bookmark, RefreshCw,
-  ArrowRight, Zap, Target, Brain, Network, Search, Wand2,
-  CalendarDays, AlertTriangle, CheckSquare
+  Zap, Target, Brain, CheckSquare, Layers
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,11 +27,14 @@ import { TopicAILearningBadge } from '@/components/topic/TopicAILearningBadge';
 import { TopicEmptyState } from '@/components/topic/TopicEmptyState';
 import { TopicDiscoveryOnboarding } from '@/components/topic/TopicDiscoveryOnboarding';
 import { TopicBulkActions } from '@/components/topic/TopicBulkActions';
+import { BrandSpotlightHeader } from '@/components/topic/BrandSpotlightHeader';
+import { BrandSwitcherDialog } from '@/components/topic/BrandSwitcherDialog';
+import { TopicsByPillarView } from '@/components/topic/TopicsByPillarView';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { ContentGoal } from '@/types/multichannel';
-import { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, ContentPillar } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -46,12 +48,26 @@ const CONTENT_GOALS: { value: ContentGoal; label: string }[] = [
 const Topics = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('discovery');
-  const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<ContentGoal>('engagement');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<EnhancedTopicSuggestion[]>([]);
+  const [brandDialogOpen, setBrandDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'pillar'>('grid');
 
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
+
+  // Get selected brand object
+  const selectedBrand = useMemo(() => {
+    if (!selectedBrandId) return undefined;
+    return brands.find(b => b.id === selectedBrandId);
+  }, [selectedBrandId, brands]);
+
+  // Get content pillars from selected brand
+  const contentPillars = useMemo(() => {
+    if (!selectedBrand?.content_pillars) return [];
+    return selectedBrand.content_pillars as ContentPillar[];
+  }, [selectedBrand]);
   
   const { 
     suggestions, 
@@ -61,9 +77,9 @@ const Topics = () => {
     refresh,
     stats: suggestionStats
   } = useEnhancedTopicSuggestions({
-    brandTemplateId: selectedBrandId === 'all' ? undefined : selectedBrandId,
+    brandTemplateId: selectedBrandId || undefined,
     contentGoal: selectedGoal,
-    enabled: activeTab === 'discovery',
+    enabled: activeTab === 'discovery' && !!selectedBrandId,
   });
 
   const { 
@@ -74,7 +90,7 @@ const Topics = () => {
     isLoading: historyLoading,
     saveTopic,
   } = useTopicHistory({
-    brandTemplateId: selectedBrandId === 'all' ? undefined : selectedBrandId,
+    brandTemplateId: selectedBrandId || undefined,
     contentGoal: selectedGoal,
     enabled: true,
   });
@@ -175,36 +191,38 @@ const Topics = () => {
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
-              <SelectTrigger className="w-44 h-9">
-                <SelectValue placeholder="Chọn Brand" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả Brand</SelectItem>
-                {brands.map((brand) => (
-                  <SelectItem key={brand.id} value={brand.id}>
-                    {brand.brand_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedGoal} onValueChange={(v) => setSelectedGoal(v as ContentGoal)}>
-              <SelectTrigger className="w-40 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CONTENT_GOALS.map((goal) => (
-                  <SelectItem key={goal.value} value={goal.value}>
-                    {goal.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Content Goal Filter */}
+          <Select value={selectedGoal} onValueChange={(v) => setSelectedGoal(v as ContentGoal)}>
+            <SelectTrigger className="w-40 h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTENT_GOALS.map((goal) => (
+                <SelectItem key={goal.value} value={goal.value}>
+                  {goal.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
+        {/* Brand Spotlight Header - Central Focus */}
+        <BrandSpotlightHeader
+          selectedBrand={selectedBrand}
+          onChangeBrand={() => setBrandDialogOpen(true)}
+          onEditBrand={selectedBrand ? () => navigate(`/brands/${selectedBrand.id}`) : undefined}
+        />
+
+        {/* Brand Switcher Dialog */}
+        <BrandSwitcherDialog
+          open={brandDialogOpen}
+          onOpenChange={setBrandDialogOpen}
+          brands={brands}
+          selectedBrandId={selectedBrandId || undefined}
+          onSelectBrand={(id) => setSelectedBrandId(id)}
+          onCreateBrand={() => navigate('/brands/new')}
+          onViewBrand={(id) => navigate(`/brands/${id}`)}
+        />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -338,7 +356,7 @@ const Topics = () => {
 
             {/* Similar Success Topics */}
             <SimilarSuccessTopics
-              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
               contentGoal={selectedGoal}
               onSelectTopic={(topic, goal) => {
                 navigate('/multichannel', { 
@@ -352,7 +370,13 @@ const Topics = () => {
               limit={5}
             />
 
-            {/* AI Suggestions */}
+            {/* AI Suggestions - Show empty state if no brand selected */}
+            {!selectedBrandId ? (
+              <TopicEmptyState 
+                type="no-brand-selected" 
+                onAction={() => setBrandDialogOpen(true)} 
+              />
+            ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -361,7 +385,7 @@ const Topics = () => {
                     Gợi ý AI
                   </h3>
                   <TopicAILearningBadge
-                    isPersonalized={selectedBrandId !== 'all'}
+                    isPersonalized={!!selectedBrandId}
                     isEnhancing={isEnhancing}
                     source={source}
                     usedCount={combinedStats.usedTopics}
@@ -455,13 +479,14 @@ const Topics = () => {
                 </div>
               )}
             </div>
+            )}
           </TabsContent>
 
           {/* Smart Recommendations Tab */}
           <TabsContent value="smart" className="space-y-6">
             {/* Next Best Topic - Featured */}
             <NextBestTopicCard
-              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
               contentGoal={selectedGoal}
               onSelectTopic={(topic) => {
                 navigate('/multichannel', { 
@@ -477,7 +502,7 @@ const Topics = () => {
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Weekly Plan */}
               <WeeklySuggestionsPanel
-                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                brandTemplateId={selectedBrandId || undefined}
                 contentGoal={selectedGoal}
                 onSelectTopic={(topic) => {
                   navigate('/multichannel', { 
@@ -500,7 +525,7 @@ const Topics = () => {
 
               {/* Conflict Checker */}
               <TopicConflictChecker
-                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+                brandTemplateId={selectedBrandId || undefined}
                 contentGoal={selectedGoal}
               />
             </div>
@@ -511,7 +536,7 @@ const Topics = () => {
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Gap Analysis */}
               <TopicGapAnalysis
-                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
                 contentGoal={selectedGoal}
                 onSelectTopic={(topic) => {
                   navigate('/multichannel', { 
@@ -526,7 +551,7 @@ const Topics = () => {
 
               {/* Topic Clusters */}
               <TopicClusterView
-                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
                 contentGoal={selectedGoal}
                 onSelectTopic={(topic) => {
                   navigate('/multichannel', { 
@@ -543,7 +568,7 @@ const Topics = () => {
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Keyword Expansion */}
               <KeywordExpansionPanel
-                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
                 contentGoal={selectedGoal}
                 onSelectKeyword={(keyword) => {
                   navigate('/multichannel', { 
@@ -558,7 +583,7 @@ const Topics = () => {
 
               {/* Topic Refiner */}
               <TopicRefiner
-                brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
                 contentGoal={selectedGoal}
                 onSelectRefinedTopic={(topic) => {
                   navigate('/multichannel', { 
@@ -576,7 +601,7 @@ const Topics = () => {
           {/* Topic Bank Tab */}
           <TabsContent value="bank">
             <TopicBankGrid
-              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
               contentGoal={selectedGoal}
               onSelectTopic={(topic) => {
                 navigate('/multichannel', { 
@@ -593,7 +618,7 @@ const Topics = () => {
           {/* Performance Tab */}
           <TabsContent value="performance">
             <TopicAnalyticsDashboard
-              brandTemplateId={selectedBrandId === 'all' ? undefined : selectedBrandId}
+              brandTemplateId={selectedBrandId || undefined}
               contentGoal={selectedGoal}
             />
           </TabsContent>
