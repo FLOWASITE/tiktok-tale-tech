@@ -121,6 +121,8 @@ export function TopicIdeaCard({
   onDragEnd,
 }: TopicIdeaCardProps) {
   const navigate = useNavigate();
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isSaved, setIsSaved] = React.useState(false);
   const config = categoryConfig[topic.category] || categoryConfig.evergreen;
   const CategoryIcon = config.icon;
   const EventIcon = getEventIcon(topic.relatedEvent);
@@ -409,20 +411,37 @@ export function TopicIdeaCard({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={(e) => {
+                    className={cn(
+                      "h-6 w-6 p-0 transition-all duration-300",
+                      isSaved && "text-amber-500 scale-110",
+                      isSaving && "animate-pulse"
+                    )}
+                    disabled={isSaving}
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      onSave(topic);
+                      setIsSaving(true);
+                      try {
+                        await onSave(topic);
+                        setIsSaved(true);
+                        // Reset after 2 seconds
+                        setTimeout(() => setIsSaved(false), 2000);
+                      } finally {
+                        setIsSaving(false);
+                      }
                     }}
                   >
-                    {isDraft ? (
+                    {isSaved ? (
+                      <BookmarkCheck className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    ) : isDraft ? (
                       <BookmarkCheck className="w-3.5 h-3.5" />
                     ) : (
                       <BookmarkPlus className="w-3.5 h-3.5" />
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{isDraft ? 'Giữ lại' : 'Lưu'}</TooltipContent>
+                <TooltipContent>
+                  {isSaved ? 'Đã lưu!' : isDraft ? 'Giữ lại' : 'Lưu'}
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
