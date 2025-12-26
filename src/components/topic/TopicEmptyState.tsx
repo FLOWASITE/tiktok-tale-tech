@@ -13,7 +13,8 @@ export type EmptyStateType =
   | 'topic-bank'
   | 'analytics'
   | 'weekly-plan'
-  | 'conflict-checker';
+  | 'conflict-checker'
+  | 'no-brand-selected';
 
 interface TopicEmptyStateProps {
   type: EmptyStateType;
@@ -91,6 +92,15 @@ const emptyStateConfig: Record<EmptyStateType, {
     description: 'Lưu ít nhất 2 topics vào ngân hàng để kiểm tra trùng lặp.',
     actionLabel: 'Thêm topics',
     illustration: '🔍',
+  },
+  'no-brand-selected': {
+    icon: Target,
+    iconGradient: 'from-primary to-violet-500',
+    iconBg: 'bg-primary/10',
+    title: 'Chọn Brand để cá nhân hóa',
+    description: 'AI sẽ tạo gợi ý phù hợp với định vị, tone of voice và content pillars của thương hiệu bạn.',
+    actionLabel: 'Chọn Brand',
+    illustration: '🎯',
   },
 };
 
