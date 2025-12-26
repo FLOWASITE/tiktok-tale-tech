@@ -37,6 +37,13 @@ interface IndustryInsight {
   citations: string[];
 }
 
+// ========== AUDIENCE Q&A MINING INTERFACE ==========
+interface AudienceQAResult {
+  questions: string[];
+  sources: string[];
+  categories: string[];
+}
+
 async function searchIndustryData(industry: string, brandName: string): Promise<IndustryInsight | null> {
   if (!PERPLEXITY_API_KEY) {
     console.log('Perplexity API not configured, skipping industry data search');
@@ -115,6 +122,89 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
     return result;
   } catch (error) {
     console.error('Perplexity search error:', error);
+    return null;
+  }
+}
+
+// ========== PERPLEXITY AUDIENCE Q&A MINING ==========
+async function searchAudienceQuestions(industry: string, targetAudience?: string): Promise<AudienceQAResult | null> {
+  if (!PERPLEXITY_API_KEY) {
+    console.log('Perplexity API not configured, skipping audience Q&A mining');
+    return null;
+  }
+
+  try {
+    const audienceContext = targetAudience || 'khách hàng';
+    const searchQuery = `Câu hỏi phổ biến nhất của ${audienceContext} về ${industry} Việt Nam. Những thắc mắc, vấn đề, khó khăn thường gặp khi tìm hiểu hoặc sử dụng dịch vụ/sản phẩm ${industry}. Bao gồm: câu hỏi từ forums, cộng đồng, People Also Ask, FAQ thường gặp.`;
+
+    console.log('Perplexity Q&A mining:', searchQuery.substring(0, 80));
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { 
+            role: 'system', 
+            content: `Bạn là chuyên gia nghiên cứu khách hàng. Liệt kê các câu hỏi THỰC SỰ mà khách hàng đang hỏi trên internet (forums, cộng đồng, Google, Facebook groups). Trả về dạng JSON:
+{
+  "questions": ["Câu hỏi 1?", "Câu hỏi 2?", ...],
+  "sources": ["forum/community name 1", "source 2", ...],
+  "categories": ["category 1", "category 2", ...]
+}
+Tập trung vào 8-12 câu hỏi phổ biến nhất, thực tế và có thể tạo content trả lời.` 
+          },
+          { role: 'user', content: searchQuery }
+        ],
+        search_recency_filter: 'month',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Perplexity Q&A API error:', response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const citations = data.citations || [];
+
+    console.log('Perplexity Q&A received, citations:', citations.length);
+
+    // Parse JSON from response
+    let result: AudienceQAResult = {
+      questions: [],
+      sources: citations.length > 0 ? citations.slice(0, 5) : [],
+      categories: []
+    };
+
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        result.questions = parsed.questions || [];
+        result.sources = parsed.sources || citations.slice(0, 5);
+        result.categories = parsed.categories || [];
+      } else {
+        // Fallback: extract lines as questions
+        const lines = content.split('\n').filter((line: string) => line.trim() && line.includes('?'));
+        result.questions = lines.slice(0, 10).map((q: string) => q.replace(/^[\d\.\-\*]+\s*/, '').trim());
+      }
+    } catch (parseError) {
+      console.error('Failed to parse Q&A response:', parseError);
+      const lines = content.split('\n').filter((line: string) => line.trim() && line.includes('?'));
+      result.questions = lines.slice(0, 10).map((q: string) => q.replace(/^[\d\.\-\*]+\s*/, '').trim());
+    }
+
+    console.log('Extracted', result.questions.length, 'audience questions');
+    return result;
+  } catch (error) {
+    console.error('Audience Q&A mining error:', error);
     return null;
   }
 }
@@ -235,6 +325,9 @@ interface EnhancedTopicSuggestion {
     relatedTopics?: string[];
   };
   clusterRole?: 'pillar' | 'cluster' | 'standalone';
+  // Audience Q&A Mining (Phase 4)
+  audienceQuestion?: string;
+  isFromAudienceQA?: boolean;
 }
 
 // Helper to infer search intent from funnel stage and topic type
@@ -399,20 +492,38 @@ serve(async (req) => {
       }
     }
 
-    // ========== NEW: Fetch real industry data from Perplexity ==========
+    // ========== PARALLEL: Fetch industry data AND audience Q&A from Perplexity ==========
     let industryInsight: IndustryInsight | null = null;
+    let audienceQA: AudienceQAResult | null = null;
     const industryToSearch = brandContext?.industry?.[0] || industry || '';
     const brandNameToSearch = brandContext?.brandName || '';
+    const targetAudienceToSearch = industryContext?.targetAudience || '';
     
     if (industryToSearch) {
-      console.log('Fetching real industry data from Perplexity...');
-      industryInsight = await searchIndustryData(industryToSearch, brandNameToSearch);
+      console.log('Fetching industry data AND audience Q&A from Perplexity in parallel...');
+      
+      // Execute both Perplexity calls in parallel
+      const [industryResult, qaResult] = await Promise.all([
+        searchIndustryData(industryToSearch, brandNameToSearch),
+        searchAudienceQuestions(industryToSearch, targetAudienceToSearch)
+      ]);
+      
+      industryInsight = industryResult;
+      audienceQA = qaResult;
+      
       if (industryInsight) {
         console.log('Industry insight loaded:', {
           insights: industryInsight.insights.length,
           statistics: industryInsight.statistics.length,
           caseStudies: industryInsight.caseStudies.length,
           citations: industryInsight.citations.length
+        });
+      }
+      
+      if (audienceQA) {
+        console.log('Audience Q&A loaded:', {
+          questions: audienceQA.questions.length,
+          sources: audienceQA.sources.length
         });
       }
     }
@@ -427,7 +538,8 @@ serve(async (req) => {
       recentTopics: recentTopics || learningContext?.recentTopics || [],
       seasonality,
       learningContext,
-      industryInsight, // NEW: Pass Perplexity data
+      industryInsight,
+      audienceQA, // NEW: Pass audience Q&A data
     });
 
     console.log('Generating enhanced topic suggestions with real industry data...');
@@ -544,6 +656,9 @@ serve(async (req) => {
             // Content Series & Cluster fields
             clusterRole: item.clusterRole || 'standalone',
             series: item.series || undefined,
+            // Audience Q&A Mining fields
+            audienceQuestion: item.audienceQuestion || undefined,
+            isFromAudienceQA: item.isFromAudienceQA === true || !!item.audienceQuestion,
           };
         });
       }
@@ -768,8 +883,9 @@ function buildEnhancedPrompt(params: {
   seasonality?: string;
   learningContext?: LearningContext | null;
   industryInsight?: IndustryInsight | null;
+  audienceQA?: AudienceQAResult | null;
 }): { system: string; user: string } {
-  const { industry, contentGoal, brandContext, industryContext, format, recentTopics, seasonality, learningContext, industryInsight } = params;
+  const { industry, contentGoal, brandContext, industryContext, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA } = params;
 
   const goalLabels: Record<string, string> = {
     education: 'giáo dục, chia sẻ kiến thức chuyên môn',
@@ -920,6 +1036,27 @@ ${industryInsight.citations.slice(0, 3).map((c, idx) => `${idx + 1}. ${c}`).join
 - Mention nguồn trong reasoning nếu phù hợp`;
   }
 
+  // Build Audience Q&A section (from Perplexity)
+  let audienceQASection = '';
+  if (audienceQA && audienceQA.questions.length > 0) {
+    audienceQASection = `
+## 🙋 AUDIENCE Q&A MINING (Câu hỏi thực tế từ khách hàng - CỰC KỲ QUAN TRỌNG):
+Các câu hỏi sau được thu thập từ forums, cộng đồng, Google "People Also Ask", Facebook groups - đây là những gì khách hàng THỰC SỰ ĐANG HỎI!
+
+### Câu hỏi phổ biến từ audience:
+${audienceQA.questions.slice(0, 10).map((q, idx) => `${idx + 1}. ${q}`).join('\n')}
+
+${audienceQA.sources.length > 0 ? `### Nguồn thu thập:
+${audienceQA.sources.slice(0, 3).map((s, idx) => `${idx + 1}. ${s}`).join('\n')}` : ''}
+
+### YÊU CẦU SỬ DỤNG AUDIENCE Q&A:
+- **ƯU TIÊN CAO**: Tạo 2-3 topics TRỰC TIẾP trả lời các câu hỏi trên
+- Topics từ Q&A mining có field "audienceQuestion" = câu hỏi gốc và "isFromAudienceQA" = true
+- Topics Q&A-based thường có searchIntent = "informational" và funnelStage = "tofu"
+- Điểm engagement cao hơn (+10-15) vì đây là nhu cầu thực tế của khách hàng
+- Format topic như: "Giải đáp: [câu hỏi]" hoặc "Tại sao [vấn đề từ câu hỏi]?" hoặc "[Số] điều về [topic từ câu hỏi]"`;
+  }
+
   const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm trong content marketing tại Việt Nam.
 
 Nhiệm vụ: Gợi ý các chủ đề content có chiến lược, phù hợp với brand và mục tiêu kinh doanh.
@@ -927,6 +1064,7 @@ ${brandSection}
 ${pillarsSection}
 ${industrySection}
 ${realDataSection}
+${audienceQASection}
 ${constraintsSection}
 ${seasonalityHint}
 ${seasonalCalendarSection}
@@ -967,7 +1105,9 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
       "longTail": ["long-tail keyword 1 (3-5 từ)", "long-tail keyword 2"]
     },
     "clusterRole": "pillar" | "cluster" | "standalone",
-    "series": "(optional) { seriesName: string, totalParts: number, currentPart: number, relatedTopics: string[] }"
+    "series": "(optional) { seriesName: string, totalParts: number, currentPart: number, relatedTopics: string[] }",
+    "audienceQuestion": "(optional) Câu hỏi gốc từ audience nếu topic dựa trên Q&A mining",
+    "isFromAudienceQA": "(optional) true nếu topic được tạo từ Audience Q&A"
   }
 ]
 
