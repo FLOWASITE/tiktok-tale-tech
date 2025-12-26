@@ -1869,6 +1869,78 @@ export type Database = {
           },
         ]
       }
+      trending_topics: {
+        Row: {
+          brand_template_id: string | null
+          category: string | null
+          competition_level: string | null
+          created_at: string | null
+          engagement_potential: number | null
+          expires_at: string | null
+          id: string
+          organization_id: string | null
+          peak_prediction: string | null
+          peak_status: string | null
+          related_keywords: string[] | null
+          source: string | null
+          suggested_angles: string[] | null
+          topic: string
+          updated_at: string | null
+          velocity_score: number | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          category?: string | null
+          competition_level?: string | null
+          created_at?: string | null
+          engagement_potential?: number | null
+          expires_at?: string | null
+          id?: string
+          organization_id?: string | null
+          peak_prediction?: string | null
+          peak_status?: string | null
+          related_keywords?: string[] | null
+          source?: string | null
+          suggested_angles?: string[] | null
+          topic: string
+          updated_at?: string | null
+          velocity_score?: number | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          category?: string | null
+          competition_level?: string | null
+          created_at?: string | null
+          engagement_potential?: number | null
+          expires_at?: string | null
+          id?: string
+          organization_id?: string | null
+          peak_prediction?: string | null
+          peak_status?: string | null
+          related_keywords?: string[] | null
+          source?: string | null
+          suggested_angles?: string[] | null
+          topic?: string
+          updated_at?: string | null
+          velocity_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trending_topics_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trending_topics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_logs: {
         Row: {
           created_at: string
