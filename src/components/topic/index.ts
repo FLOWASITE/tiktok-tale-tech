@@ -54,3 +54,6 @@ export { TopicComparisonMode } from './TopicComparisonMode';
 export { TopicComparisonBar } from './TopicComparisonBar';
 export { ContentPipelineView } from './ContentPipelineView';
 export { AILearningDashboard } from './AILearningDashboard';
+
+// Phase 7: Mobile
+export { MobileSidebarDrawer } from './MobileSidebarDrawer';
