@@ -27,6 +27,97 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+
+// ========== PERPLEXITY INDUSTRY DATA SEARCH ==========
+interface IndustryInsight {
+  insights: string[];
+  statistics: string[];
+  caseStudies: string[];
+  citations: string[];
+}
+
+async function searchIndustryData(industry: string, brandName: string): Promise<IndustryInsight | null> {
+  if (!PERPLEXITY_API_KEY) {
+    console.log('Perplexity API not configured, skipping industry data search');
+    return null;
+  }
+
+  try {
+    const currentYear = new Date().getFullYear();
+    const searchQuery = `${industry} Việt Nam ${currentYear}: thống kê ngành mới nhất, case studies thành công, insights marketing, báo cáo thị trường, xu hướng tiêu dùng, số liệu doanh thu, thị phần. Tập trung vào dữ liệu thực tế và số liệu cụ thể.`;
+
+    console.log('Perplexity industry search:', searchQuery.substring(0, 80));
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { 
+            role: 'system', 
+            content: `Bạn là chuyên gia phân tích ngành tại Việt Nam. Trả về dữ liệu theo format JSON:
+{
+  "insights": ["insight 1", "insight 2", ...],
+  "statistics": ["thống kê với con số cụ thể 1", "thống kê 2", ...],
+  "caseStudies": ["case study brand A: ...", "case study B: ...", ...]
+}
+Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-5 items.` 
+          },
+          { role: 'user', content: searchQuery }
+        ],
+        search_recency_filter: 'month',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Perplexity API error:', response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const citations = data.citations || [];
+
+    console.log('Perplexity industry data received, citations:', citations.length);
+
+    // Parse JSON from response
+    let result: IndustryInsight = {
+      insights: [],
+      statistics: [],
+      caseStudies: [],
+      citations
+    };
+
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        result.insights = parsed.insights || [];
+        result.statistics = parsed.statistics || [];
+        result.caseStudies = parsed.caseStudies || [];
+      } else {
+        // Fallback: extract lines as insights
+        const lines = content.split('\n').filter((line: string) => line.trim() && line.length > 20);
+        result.insights = lines.slice(0, 5);
+      }
+    } catch (parseError) {
+      console.error('Failed to parse Perplexity response:', parseError);
+      const lines = content.split('\n').filter((line: string) => line.trim() && line.length > 20);
+      result.insights = lines.slice(0, 5);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Perplexity search error:', error);
+    return null;
+  }
+}
 
 interface ContentPillar {
   name: string;
@@ -266,6 +357,24 @@ serve(async (req) => {
       }
     }
 
+    // ========== NEW: Fetch real industry data from Perplexity ==========
+    let industryInsight: IndustryInsight | null = null;
+    const industryToSearch = brandContext?.industry?.[0] || industry || '';
+    const brandNameToSearch = brandContext?.brandName || '';
+    
+    if (industryToSearch) {
+      console.log('Fetching real industry data from Perplexity...');
+      industryInsight = await searchIndustryData(industryToSearch, brandNameToSearch);
+      if (industryInsight) {
+        console.log('Industry insight loaded:', {
+          insights: industryInsight.insights.length,
+          statistics: industryInsight.statistics.length,
+          caseStudies: industryInsight.caseStudies.length,
+          citations: industryInsight.citations.length
+        });
+      }
+    }
+
     // Build the enhanced prompt with advanced techniques
     const prompt = buildEnhancedPrompt({
       industry: brandContext?.industry?.[0] || industry,
@@ -276,9 +385,10 @@ serve(async (req) => {
       recentTopics: recentTopics || learningContext?.recentTopics || [],
       seasonality,
       learningContext,
+      industryInsight, // NEW: Pass Perplexity data
     });
 
-    console.log('Generating enhanced topic suggestions with scores...');
+    console.log('Generating enhanced topic suggestions with real industry data...');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -564,8 +674,9 @@ function buildEnhancedPrompt(params: {
   recentTopics?: string[];
   seasonality?: string;
   learningContext?: LearningContext | null;
+  industryInsight?: IndustryInsight | null;
 }): { system: string; user: string } {
-  const { industry, contentGoal, brandContext, industryContext, format, recentTopics, seasonality, learningContext } = params;
+  const { industry, contentGoal, brandContext, industryContext, format, recentTopics, seasonality, learningContext, industryInsight } = params;
 
   const goalLabels: Record<string, string> = {
     education: 'giáo dục, chia sẻ kiến thức chuyên môn',
@@ -690,12 +801,39 @@ ${generalSeasonalEvents.map(e => `- **${e.event}** (${e.date})`).join('\n')}
   const contentMatrixSection = buildContentMatrixSection();
   const diversityCheckSection = buildDiversityCheckSection();
 
+  // Build Real Industry Data section (from Perplexity)
+  let realDataSection = '';
+  if (industryInsight) {
+    realDataSection = `
+## 📊 DỮ LIỆU THỰC TẾ NGÀNH (Real-time từ Perplexity - CỰC KỲ QUAN TRỌNG):
+Các dữ liệu sau là THỰC TẾ, được tìm kiếm từ internet. HÃY SỬ DỤNG để tạo topics có số liệu cụ thể!
+
+### Insights ngành:
+${industryInsight.insights.slice(0, 5).map((i, idx) => `${idx + 1}. ${i}`).join('\n')}
+
+### Thống kê & Số liệu thực tế:
+${industryInsight.statistics.slice(0, 5).map((s, idx) => `${idx + 1}. ${s}`).join('\n')}
+
+### Case Studies thực tế:
+${industryInsight.caseStudies.slice(0, 3).map((c, idx) => `${idx + 1}. ${c}`).join('\n')}
+
+${industryInsight.citations.length > 0 ? `### Nguồn tham khảo:
+${industryInsight.citations.slice(0, 3).map((c, idx) => `${idx + 1}. ${c}`).join('\n')}` : ''}
+
+### YÊU CẦU SỬ DỤNG DỮ LIỆU THỰC:
+- ƯU TIÊN CAO: Sử dụng số liệu thực tế trong tiêu đề topic (VD: "73% doanh nghiệp...", "Tăng 40% doanh thu...")
+- Tạo 3-4 topics dựa trên insights/statistics thực tế ở trên
+- Topics sử dụng data thực tế có scores.trend và scores.engagement CAO HƠN (+10-15 điểm)
+- Mention nguồn trong reasoning nếu phù hợp`;
+  }
+
   const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm trong content marketing tại Việt Nam.
 
 Nhiệm vụ: Gợi ý các chủ đề content có chiến lược, phù hợp với brand và mục tiêu kinh doanh.
 ${brandSection}
 ${pillarsSection}
 ${industrySection}
+${realDataSection}
 ${constraintsSection}
 ${seasonalityHint}
 ${seasonalCalendarSection}
