@@ -38,3 +38,7 @@ export { TopicMobileCard } from './TopicMobileCard';
 export { BrandSpotlightHeader } from './BrandSpotlightHeader';
 export { BrandSwitcherDialog } from './BrandSwitcherDialog';
 export { TopicsByPillarView } from './TopicsByPillarView';
+
+// Phase 5: AI-First Hero
+export { TopicAIHeroSection } from './TopicAIHeroSection';
+export { TopicFormatSelector } from './TopicFormatSelector';
