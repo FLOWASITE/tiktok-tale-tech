@@ -27,6 +27,7 @@ interface TopicIdeaCardProps {
   onSelect: (topic: EnhancedTopicSuggestion) => void;
   onSave?: (topic: EnhancedTopicSuggestion) => void;
   onSchedule?: (topic: EnhancedTopicSuggestion) => void;
+  onShowExplanation?: (topic: EnhancedTopicSuggestion) => void;
   isSelected?: boolean;
   disabled?: boolean;
   compact?: boolean;
@@ -95,6 +96,7 @@ export function TopicIdeaCard({
   onSelect,
   onSave,
   onSchedule,
+  onShowExplanation,
   isSelected,
   disabled,
   compact = false,
@@ -324,21 +326,22 @@ export function TopicIdeaCard({
         </div>
       )}
 
-      {/* Reasoning tooltip */}
+      {/* Reasoning button - opens explanation dialog */}
       <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1">
-                <Info className="w-3 h-3" />
-                Tại sao?
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[280px]">
-              <p className="text-xs leading-relaxed">{topic.reasoning}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-6 px-2 text-[10px] gap-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onShowExplanation) {
+              onShowExplanation(topic);
+            }
+          }}
+        >
+          <Info className="w-3 h-3" />
+          Tại sao?
+        </Button>
 
         <div className="flex gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
           {onSave && (

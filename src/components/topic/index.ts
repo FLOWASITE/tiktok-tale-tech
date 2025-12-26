@@ -28,3 +28,8 @@ export { TopicAILearningBadge } from './TopicAILearningBadge';
 export { TopicCreditsAlert } from './TopicCreditsAlert';
 export { TopicDiscoveryOnboarding, resetTopicOnboarding } from './TopicDiscoveryOnboarding';
 export { TopicBulkActions } from './TopicBulkActions';
+
+// Phase 3: Advanced Features
+export { TopicExplanationDialog } from './TopicExplanationDialog';
+export { TopicPersonalizationIndicator } from './TopicPersonalizationIndicator';
+export { TopicMobileCard } from './TopicMobileCard';
