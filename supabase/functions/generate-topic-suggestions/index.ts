@@ -328,6 +328,8 @@ interface EnhancedTopicSuggestion {
   // Audience Q&A Mining (Phase 4)
   audienceQuestion?: string;
   isFromAudienceQA?: boolean;
+  // Content Tier (3H Model)
+  contentTier?: 'hero' | 'hub' | 'hygiene';
 }
 
 // Helper to infer search intent from funnel stage and topic type
@@ -336,6 +338,28 @@ function inferSearchIntent(funnelStage?: string, topicType?: string): 'informati
   if (funnelStage === 'mofu') return 'commercial';
   if (topicType === 'story') return 'navigational';
   return 'informational';
+}
+
+// Helper to infer content tier (3H Model) from category, searchIntent, funnelStage
+function inferContentTier(
+  category?: string,
+  searchIntent?: string,
+  funnelStage?: string
+): 'hero' | 'hub' | 'hygiene' {
+  // Hero: reactive, seasonal + transactional (big campaigns, launches)
+  if (category === 'reactive' || (category === 'seasonal' && funnelStage === 'bofu')) {
+    return 'hero';
+  }
+  // Hub: evergreen series content, relationship-building (MOFU)
+  if ((category === 'evergreen' || category === 'trending') && funnelStage === 'mofu') {
+    return 'hub';
+  }
+  // Hygiene: informational, SEO-driven (TOFU content)
+  if (searchIntent === 'informational' || funnelStage === 'tofu') {
+    return 'hygiene';
+  }
+  // Default to hygiene (60% of content should be hygiene)
+  return 'hygiene';
 }
 
 // Persona context for fetching
@@ -659,6 +683,8 @@ serve(async (req) => {
             // Audience Q&A Mining fields
             audienceQuestion: item.audienceQuestion || undefined,
             isFromAudienceQA: item.isFromAudienceQA === true || !!item.audienceQuestion,
+            // Content Tier (3H Model)
+            contentTier: item.contentTier || inferContentTier(item.category, item.searchIntent || inferSearchIntent(item.funnelStage, item.topicType), item.funnelStage),
           };
         });
       }
@@ -1107,7 +1133,8 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
     "clusterRole": "pillar" | "cluster" | "standalone",
     "series": "(optional) { seriesName: string, totalParts: number, currentPart: number, relatedTopics: string[] }",
     "audienceQuestion": "(optional) Câu hỏi gốc từ audience nếu topic dựa trên Q&A mining",
-    "isFromAudienceQA": "(optional) true nếu topic được tạo từ Audience Q&A"
+    "isFromAudienceQA": "(optional) true nếu topic được tạo từ Audience Q&A",
+    "contentTier": "hero" | "hub" | "hygiene"
   }
 ]
 
@@ -1178,6 +1205,37 @@ Xây dựng hệ thống content có chiến lược với Topic Clusters và Co
 - **Funnel Balance**: ~40% TOFU, ~35% MOFU, ~25% BOFU
 - **Topic Types**: Mix problem/solution/story/data (ít nhất 2 types khác nhau)
 - **Emotional Tones**: Mix educate/inspire/convince/entertain (không quá 50% cùng tone)
+
+## 🎯 HERO-HUB-HYGIENE (3H MODEL) CLASSIFICATION:
+Mỗi topic PHẢI được phân loại theo mô hình 3H của Google:
+
+### Content Tiers:
+- **hero** (10% topics = 1 topic): 
+  - Big-bang content, viral potential, tạo buzz lớn
+  - VD: Product launches, brand campaigns, collabs với KOLs, challenges
+  - High production value, wide reach
+  - Thường là seasonal/reactive topics
+  - category thường = "reactive" hoặc "seasonal"
+  
+- **hub** (30% topics = 2-3 topics):
+  - Regular, scheduled content xây dựng loyalty
+  - VD: Weekly series, newsletters, podcast episodes, educational deep-dives
+  - Push content - chủ động đẩy đến audience
+  - Thường là evergreen content dạng series
+  - funnelStage thường = "mofu"
+  
+- **hygiene** (60% topics = 5-6 topics):
+  - Always-on, SEO-driven, answer common questions
+  - VD: FAQs, how-tos, tutorials, guides, comparisons
+  - Pull content - audience tìm đến qua search
+  - Thường là informational/commercial intent
+  - funnelStage thường = "tofu", searchIntent = "informational"
+
+### 3H Balance Requirements:
+- Mỗi batch 8-10 topics PHẢI có: 1 Hero, 2-3 Hub, 5-6 Hygiene
+- Hero content tập trung vào seasonal events hoặc brand campaigns
+- Hub content xây dựng series, educational deep-dives
+- Hygiene content phủ SEO keywords, FAQs, how-tos
 
 ## GUIDELINES:
 - Mỗi chủ đề phải CỤ THỂ và ACTIONABLE, không chung chung

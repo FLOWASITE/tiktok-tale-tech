@@ -5,7 +5,7 @@ import {
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
   Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, 
   Globe, Database, FileText, Link2, BookOpen, Navigation, Search, ShoppingCart, Key,
-  Crown, GitBranch, ListTree, MessageCircleQuestion, type LucideIcon
+  Crown, GitBranch, ListTree, MessageCircleQuestion, Rocket, Repeat, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -23,7 +23,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
-import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, SearchIntent, ClusterRole, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, SearchIntent, ClusterRole, ContentTier, CONTENT_TIER_LABELS, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 import { TopicQuickPreview } from './TopicQuickPreview';
 
 interface TopicIdeaCardProps {
@@ -145,6 +145,37 @@ const clusterRoleConfig: Record<ClusterRole, { icon: LucideIcon; label: string; 
     bgClass: 'bg-slate-500/10',
     textClass: 'text-slate-600 dark:text-slate-400',
     description: 'Nội dung độc lập',
+  },
+};
+
+// Content Tier (3H Model) configuration
+const contentTierConfig: Record<ContentTier, { icon: LucideIcon; label: string; color: string; bgClass: string; textClass: string; description: string; percentage: string }> = {
+  hero: {
+    icon: Rocket,
+    label: 'Hero',
+    color: 'purple',
+    bgClass: 'bg-gradient-to-r from-purple-500/10 to-pink-500/10',
+    textClass: 'text-purple-600 dark:text-purple-400',
+    description: 'Big campaign, viral content, tạo awareness mạnh',
+    percentage: '10%',
+  },
+  hub: {
+    icon: Repeat,
+    label: 'Hub',
+    color: 'blue',
+    bgClass: 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10',
+    textClass: 'text-blue-600 dark:text-blue-400',
+    description: 'Regular series, xây dựng audience trung thành',
+    percentage: '30%',
+  },
+  hygiene: {
+    icon: Search,
+    label: 'Hygiene',
+    color: 'emerald',
+    bgClass: 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10',
+    textClass: 'text-emerald-600 dark:text-emerald-400',
+    description: 'Always-on, SEO-driven, thu hút traffic tự nhiên',
+    percentage: '60%',
   },
 };
 
@@ -564,6 +595,42 @@ export function TopicIdeaCard({
                           <p className="text-[10px] text-foreground italic">"{topic.audienceQuestion}"</p>
                         </div>
                       )}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
+              {/* Content Tier Badge (3H Model) */}
+              {topic.contentTier && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          'text-[9px] px-1.5 py-0 gap-0.5',
+                          contentTierConfig[topic.contentTier].bgClass,
+                          contentTierConfig[topic.contentTier].textClass,
+                          'border-current/30'
+                        )}
+                      >
+                        {React.createElement(contentTierConfig[topic.contentTier].icon, { className: 'w-2.5 h-2.5' })}
+                        {contentTierConfig[topic.contentTier].label}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[300px]">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        {React.createElement(contentTierConfig[topic.contentTier].icon, { className: 'w-3 h-3' })}
+                        {contentTierConfig[topic.contentTier].label} Content ({contentTierConfig[topic.contentTier].percentage})
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {contentTierConfig[topic.contentTier].description}
+                      </p>
+                      <div className="mt-1.5 pt-1.5 border-t border-border/50">
+                        <p className="text-[10px] text-muted-foreground">
+                          Recommended balance: Hero 10%, Hub 30%, Hygiene 60%
+                        </p>
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

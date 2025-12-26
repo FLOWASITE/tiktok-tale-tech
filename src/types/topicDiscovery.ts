@@ -22,6 +22,9 @@ export type EmotionalTone = 'inspire' | 'educate' | 'entertain' | 'convince';
 // Content Series & Cluster types (Phase 2)
 export type ClusterRole = 'pillar' | 'cluster' | 'standalone';
 
+// Content Tier - Hero/Hub/Hygiene Model (Google's 3H)
+export type ContentTier = 'hero' | 'hub' | 'hygiene';
+
 export interface ContentSeries {
   seriesName: string;
   totalParts: number;
@@ -80,6 +83,8 @@ export interface EnhancedTopicSuggestion {
   audienceQuestion?: string;       // Original question from audience
   isFromAudienceQA?: boolean;      // Flag if topic is derived from Q&A mining
   clusterRole?: ClusterRole;
+  // Content Tier (3H Model)
+  contentTier?: ContentTier;       // hero/hub/hygiene classification
 }
 
 export interface TopicHistoryItem {
@@ -194,6 +199,53 @@ export const CLUSTER_ROLE_LABELS: { value: ClusterRole; label: string; icon: str
   { value: 'pillar', label: 'Pillar', icon: 'Crown', color: 'amber', description: 'Nội dung trụ cột, bao quát chủ đề lớn' },
   { value: 'cluster', label: 'Cluster', icon: 'GitBranch', color: 'blue', description: 'Nội dung chi tiết, liên kết với pillar' },
   { value: 'standalone', label: 'Standalone', icon: 'FileText', color: 'slate', description: 'Nội dung độc lập, không thuộc cluster' },
+];
+
+// Content Tier labels for Hero-Hub-Hygiene (3H Model)
+export const CONTENT_TIER_LABELS: { 
+  value: ContentTier; 
+  label: string; 
+  icon: string; 
+  color: string; 
+  bgClass: string;
+  textClass: string;
+  percentage: string;
+  description: string;
+  examples: string[];
+}[] = [
+  { 
+    value: 'hero', 
+    label: 'Hero', 
+    icon: 'Rocket', 
+    color: 'purple',
+    bgClass: 'bg-gradient-to-r from-purple-500/10 to-pink-500/10',
+    textClass: 'text-purple-600 dark:text-purple-400',
+    percentage: '10%',
+    description: 'Big campaigns, product launches, viral content - tạo awareness mạnh',
+    examples: ['Major brand campaigns', 'Product launches', 'Viral challenges', 'Collaboration với influencer lớn']
+  },
+  { 
+    value: 'hub', 
+    label: 'Hub', 
+    icon: 'Repeat', 
+    color: 'blue',
+    bgClass: 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10',
+    textClass: 'text-blue-600 dark:text-blue-400',
+    percentage: '30%',
+    description: 'Regular series, relationship-building content - xây dựng audience trung thành',
+    examples: ['Weekly series', 'Newsletters', 'Podcast episodes', 'Educational deep-dives']
+  },
+  { 
+    value: 'hygiene', 
+    label: 'Hygiene', 
+    icon: 'Search', 
+    color: 'emerald',
+    bgClass: 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10',
+    textClass: 'text-emerald-600 dark:text-emerald-400',
+    percentage: '60%',
+    description: 'Always-on, SEO-driven, problem-solving content - thu hút traffic tự nhiên',
+    examples: ['FAQs', 'How-to tutorials', 'Product comparisons', 'Guides & checklists']
+  },
 ];
 
 // Vietnamese seasonal events
