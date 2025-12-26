@@ -217,6 +217,30 @@ Trả về JSON với format:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
+      
+      // Handle rate limit and payment errors specifically
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Đã vượt quá giới hạn request. Vui lòng thử lại sau.',
+            errorCode: 'RATE_LIMIT'
+          }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.',
+            errorCode: 'CREDITS_EXHAUSTED'
+          }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       throw new Error(`AI gateway error: ${response.status}`);
     }
 

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useTopicRecommendations, TopicConflict } from '@/hooks/useTopicRecommendations';
+import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -71,7 +72,9 @@ export function TopicConflictChecker({
   const { 
     conflicts, 
     checkConflicts, 
-    isLoading 
+    isLoading,
+    error,
+    errorCode,
   } = useTopicRecommendations({ brandTemplateId, contentGoal });
 
   const handleCheck = async () => {
@@ -89,6 +92,7 @@ export function TopicConflictChecker({
   };
 
   const hasConflicts = conflicts && conflicts.conflicts.length > 0;
+  const showCreditsError = errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT';
 
   return (
     <Card className="gradient-card border-border/50">
@@ -143,6 +147,12 @@ export function TopicConflictChecker({
               <Skeleton key={i} className="h-20" />
             ))}
           </div>
+        ) : showCreditsError ? (
+          <TopicCreditsAlert 
+            errorCode={errorCode || undefined} 
+            errorMessage={error || undefined}
+            onRetry={errorCode === 'RATE_LIMIT' ? handleCheck : undefined}
+          />
         ) : conflicts ? (
           <div className="space-y-3">
             {/* Summary */}

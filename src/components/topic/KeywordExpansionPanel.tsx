@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTopicIntelligence, KeywordExpansion } from '@/hooks/useTopicIntelligence';
+import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -37,7 +38,9 @@ export function KeywordExpansionPanel({
   const { 
     keywords, 
     expandKeywords, 
-    isLoading 
+    isLoading,
+    error,
+    errorCode,
   } = useTopicIntelligence({ brandTemplateId, contentGoal });
 
   const handleExpand = async () => {
@@ -63,6 +66,8 @@ export function KeywordExpansionPanel({
   const totalKeywords = keywords 
     ? keywordCategories.reduce((sum, cat) => sum + getKeywordsByCategory(cat.key).length, 0)
     : 0;
+
+  const showCreditsError = errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT';
 
   return (
     <Card className="gradient-card border-border/50">
@@ -105,6 +110,12 @@ export function KeywordExpansionPanel({
               ))}
             </div>
           </div>
+        ) : showCreditsError ? (
+          <TopicCreditsAlert 
+            errorCode={errorCode || undefined} 
+            errorMessage={error || undefined}
+            onRetry={errorCode === 'RATE_LIMIT' ? handleExpand : undefined}
+          />
         ) : !keywords ? (
           <div className="text-center py-8">
             <Hash className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />

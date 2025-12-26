@@ -13,6 +13,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useTopicRecommendations, WeeklyPlanItem } from '@/hooks/useTopicRecommendations';
+import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
@@ -61,7 +62,9 @@ export function WeeklySuggestionsPanel({
   const { 
     weeklyPlan, 
     getWeeklyPlan, 
-    isLoading 
+    isLoading,
+    error,
+    errorCode,
   } = useTopicRecommendations({ brandTemplateId, contentGoal });
 
   const handleGenerate = async () => {
@@ -73,6 +76,8 @@ export function WeeklySuggestionsPanel({
     if (priority >= 5) return { label: 'Trung bình', variant: 'secondary' as const };
     return { label: 'Thấp', variant: 'outline' as const };
   };
+
+  const showCreditsError = errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT';
 
   return (
     <Card className="gradient-card border-border/50">
@@ -112,6 +117,12 @@ export function WeeklySuggestionsPanel({
               <Skeleton key={i} className="h-16" />
             ))}
           </div>
+        ) : showCreditsError ? (
+          <TopicCreditsAlert 
+            errorCode={errorCode || undefined} 
+            errorMessage={error || undefined}
+            onRetry={errorCode === 'RATE_LIMIT' ? handleGenerate : undefined}
+          />
         ) : !weeklyPlan ? (
           <div className="text-center py-8">
             <CalendarDays className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
