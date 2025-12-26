@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.analyze-topic-gaps]
 verify_jwt = false
+
+[functions.recommend-topics]
+verify_jwt = false
