@@ -32,11 +32,14 @@ import { BrandSpotlightHeader } from '@/components/topic/BrandSpotlightHeader';
 import { BrandSwitcherDialog } from '@/components/topic/BrandSwitcherDialog';
 import { TopicsByPillarView } from '@/components/topic/TopicsByPillarView';
 import { TopicAIHeroSection } from '@/components/topic/TopicAIHeroSection';
+import { UpcomingEventsCard } from '@/components/topic/UpcomingEventsCard';
+import { QuickAccessBank } from '@/components/topic/QuickAccessBank';
+import { AILearningStatus } from '@/components/topic/AILearningStatus';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { ContentGoal } from '@/types/multichannel';
-import { EnhancedTopicSuggestion, ContentPillar } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, ContentPillar, SeasonalEvent } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -194,6 +197,60 @@ const Topics = () => {
       usageRate,
     };
   }, [historyStats, drafts.length, suggestions, topPerformers]);
+
+  // Sidebar data transformations
+  const sidebarFavorites = useMemo(() => 
+    favorites.map(f => ({
+      id: f.id,
+      topic: f.topic,
+      pillar: f.pillar || undefined,
+      performanceScore: f.performanceScore || undefined,
+      isFavorite: true,
+    })), [favorites]);
+
+  const sidebarRecentTopics = useMemo(() => 
+    history.slice(0, 10).map(h => ({
+      id: h.id,
+      topic: h.topic,
+      pillar: h.pillar || undefined,
+      createdAt: h.createdAt,
+    })), [history]);
+
+  const sidebarTopPerformers = useMemo(() => 
+    topPerformers.map(t => ({
+      id: t.id,
+      topic: t.topic,
+      pillar: t.pillar || undefined,
+      performanceScore: t.performanceScore || undefined,
+    })), [topPerformers]);
+
+  // AI Learning stats
+  const aiLearningStats = useMemo(() => {
+    const positiveFeedback = history.filter(h => h.feedback === 'positive').length;
+    const negativeFeedback = history.filter(h => h.feedback === 'negative').length;
+    const totalFeedback = positiveFeedback + negativeFeedback;
+    
+    // Calculate personalization level based on data richness
+    const dataPoints = [
+      history.length > 0 ? 20 : 0,
+      favorites.length > 0 ? 15 : 0,
+      topPerformers.length > 0 ? 20 : 0,
+      totalFeedback > 5 ? 25 : totalFeedback * 5,
+      combinedStats.usedTopics > 5 ? 20 : combinedStats.usedTopics * 4,
+    ];
+    const personalizationLevel = Math.min(100, dataPoints.reduce((a, b) => a + b, 0));
+    
+    // Extract patterns from top performers
+    const topPatterns = [...new Set(topPerformers.slice(0, 4).map(t => t.pillar).filter(Boolean))] as string[];
+    
+    return {
+      totalFeedback,
+      positiveFeedback,
+      negativeFeedback,
+      personalizationLevel,
+      topPatterns,
+    };
+  }, [history, favorites, topPerformers, combinedStats.usedTopics]);
 
   const handleSelectTopic = async (topic: EnhancedTopicSuggestion) => {
     await saveTopic(topic, 'selected');
@@ -403,36 +460,40 @@ const Topics = () => {
           </div>
         )}
 
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
-            <TabsTrigger value="discovery" className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              Khám phá
-              <Badge variant="secondary" className="ml-1 text-[10px]">
-                {suggestions.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="smart" className="gap-2">
-              <Zap className="w-4 h-4" />
-              Smart
-            </TabsTrigger>
-            <TabsTrigger value="intelligence" className="gap-2">
-              <Brain className="w-4 h-4" />
-              AI Analysis
-            </TabsTrigger>
-            <TabsTrigger value="bank" className="gap-2">
-              <BookOpen className="w-4 h-4" />
-              Ngân hàng ý tưởng
-              <Badge variant="secondary" className="ml-1 text-[10px]">
-                {combinedStats.totalTopics}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="performance" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Hiệu suất
-            </TabsTrigger>
-          </TabsList>
+        {/* Two-Column Layout */}
+        <div className="grid grid-cols-12 gap-6">
+          {/* Left: Main Content */}
+          <div className="col-span-12 lg:col-span-8">
+            {/* Main Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+              <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
+                <TabsTrigger value="discovery" className="gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Khám phá
+                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                    {suggestions.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="smart" className="gap-2">
+                  <Zap className="w-4 h-4" />
+                  Smart
+                </TabsTrigger>
+                <TabsTrigger value="intelligence" className="gap-2">
+                  <Brain className="w-4 h-4" />
+                  AI Analysis
+                </TabsTrigger>
+                <TabsTrigger value="bank" className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Ngân hàng
+                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                    {combinedStats.totalTopics}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="performance" className="gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Hiệu suất
+                </TabsTrigger>
+              </TabsList>
 
           {/* Discovery Tab */}
           <TabsContent value="discovery" className="space-y-6">
@@ -755,7 +816,58 @@ const Topics = () => {
               contentGoal={selectedGoal}
             />
           </TabsContent>
-        </Tabs>
+            </Tabs>
+          </div>
+
+          {/* Right: Sidebar */}
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            <div className="lg:sticky lg:top-4 space-y-4">
+              {/* Upcoming Events */}
+              <UpcomingEventsCard
+                onGetSuggestions={(event) => {
+                  toast.info(`Đang lấy gợi ý cho ${event.name}...`);
+                  // Could trigger AI suggestion for this event
+                }}
+                onScheduleTopic={(topic, eventDate) => {
+                  navigate('/calendar', { 
+                    state: { 
+                      scheduleTopic: topic,
+                      scheduleGoal: selectedGoal,
+                      suggestedDate: eventDate.toISOString(),
+                    } 
+                  });
+                }}
+              />
+
+              {/* Quick Access Bank */}
+              <QuickAccessBank
+                favorites={sidebarFavorites}
+                recentTopics={sidebarRecentTopics}
+                topPerformers={sidebarTopPerformers}
+                onSelectTopic={(topic) => {
+                  navigate('/multichannel', { 
+                    state: { 
+                      prefillTopic: topic,
+                      prefillGoal: selectedGoal,
+                      fromTopics: true 
+                    } 
+                  });
+                }}
+                onViewAll={() => setActiveTab('bank')}
+              />
+
+              {/* AI Learning Status */}
+              <AILearningStatus
+                totalFeedback={aiLearningStats.totalFeedback}
+                positiveFeedback={aiLearningStats.positiveFeedback}
+                negativeFeedback={aiLearningStats.negativeFeedback}
+                topPatterns={aiLearningStats.topPatterns}
+                personalizationLevel={aiLearningStats.personalizationLevel}
+                isLearning={isEnhancing}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Onboarding for first-time users */}
