@@ -12,7 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { TopicIdeaCard } from '@/components/topic/TopicIdeaCard';
+import { TopicMobileCard } from '@/components/topic/TopicMobileCard';
 import { TopicBankGrid } from '@/components/topic/TopicBankGrid';
 import { TopicAnalyticsDashboard } from '@/components/topic/TopicAnalyticsDashboard';
 import { SeasonalTopicsSection } from '@/components/topic/SeasonalTopicsSection';
@@ -40,9 +42,11 @@ import { TopicComparisonMode } from '@/components/topic/TopicComparisonMode';
 import { TopicComparisonBar } from '@/components/topic/TopicComparisonBar';
 import { ContentPipelineView } from '@/components/topic/ContentPipelineView';
 import { AILearningDashboard } from '@/components/topic/AILearningDashboard';
+import { MobileSidebarDrawer } from '@/components/topic/MobileSidebarDrawer';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { ContentGoal } from '@/types/multichannel';
 import { EnhancedTopicSuggestion, ContentPillar, SeasonalEvent } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
@@ -60,6 +64,7 @@ const STORAGE_KEY_GOAL = 'topics-selected-goal';
 
 const Topics = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('discovery');
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(() => {
     // Load from localStorage on init
@@ -499,6 +504,24 @@ const Topics = () => {
                     selectedTopics={selectedTopics}
                     onToggleSelection={handleToggleTopicSelection}
                   />
+                ) : isMobile ? (
+                  // Mobile: Single column with TopicMobileCard
+                  <div className="grid gap-3">
+                    {suggestions.slice(0, 6).map((topic, index) => (
+                      <div
+                        key={`${topic.topic}-${index}`}
+                        className="animate-fade-in"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        <TopicMobileCard
+                          topic={topic}
+                          onSelect={handleSelectTopic}
+                          onSave={handleSaveTopic}
+                          onSchedule={handleScheduleTopic}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {suggestions.slice(0, 6).map((topic, index) => (
@@ -584,30 +607,61 @@ const Topics = () => {
 
             {/* Main Tabs - Reduced */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
-                <TabsTrigger value="discovery" className="gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Tất cả gợi ý
-                  <Badge variant="secondary" className="ml-1 text-[10px]">
-                    {suggestions.length}
-                  </Badge>
-                </TabsTrigger>
-                <TabsTrigger value="smart" className="gap-2">
-                  <Zap className="w-4 h-4" />
-                  Smart
-                </TabsTrigger>
-                <TabsTrigger value="bank" className="gap-2">
-                  <BookOpen className="w-4 h-4" />
-                  Ngân hàng
-                  <Badge variant="secondary" className="ml-1 text-[10px]">
-                    {combinedStats.totalTopics}
-                  </Badge>
-                </TabsTrigger>
-                <TabsTrigger value="performance" className="gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  Hiệu suất
-                </TabsTrigger>
-              </TabsList>
+              {/* Mobile: Horizontal scrollable tabs */}
+              {isMobile ? (
+                <ScrollArea className="w-full whitespace-nowrap">
+                  <TabsList className="bg-muted/50 p-1 inline-flex w-auto gap-1">
+                    <TabsTrigger value="discovery" className="gap-1.5 text-xs px-3">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Gợi ý
+                      <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1">
+                        {suggestions.length}
+                      </Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="smart" className="gap-1.5 text-xs px-3">
+                      <Zap className="w-3.5 h-3.5" />
+                      Smart
+                    </TabsTrigger>
+                    <TabsTrigger value="bank" className="gap-1.5 text-xs px-3">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Ngân hàng
+                      <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1">
+                        {combinedStats.totalTopics}
+                      </Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="performance" className="gap-1.5 text-xs px-3">
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      Hiệu suất
+                    </TabsTrigger>
+                  </TabsList>
+                  <ScrollBar orientation="horizontal" className="h-1.5" />
+                </ScrollArea>
+              ) : (
+                <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
+                  <TabsTrigger value="discovery" className="gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Tất cả gợi ý
+                    <Badge variant="secondary" className="ml-1 text-[10px]">
+                      {suggestions.length}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="smart" className="gap-2">
+                    <Zap className="w-4 h-4" />
+                    Smart
+                  </TabsTrigger>
+                  <TabsTrigger value="bank" className="gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    Ngân hàng
+                    <Badge variant="secondary" className="ml-1 text-[10px]">
+                      {combinedStats.totalTopics}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="performance" className="gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    Hiệu suất
+                  </TabsTrigger>
+                </TabsList>
+              )}
 
           {/* Discovery Tab - All AI Suggestions */}
           <TabsContent value="discovery" className="space-y-6">
@@ -730,6 +784,24 @@ const Topics = () => {
                     selectedTopics={selectedTopics}
                     onToggleSelection={handleToggleTopicSelection}
                   />
+                ) : isMobile ? (
+                  // Mobile: Single column with TopicMobileCard
+                  <div className="grid gap-3">
+                    {suggestions.map((topic, index) => (
+                      <div
+                        key={`${topic.topic}-${index}`}
+                        className="animate-fade-in"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        <TopicMobileCard
+                          topic={topic}
+                          onSelect={handleSelectTopic}
+                          onSave={handleSaveTopic}
+                          onSchedule={handleScheduleTopic}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {suggestions.map((topic, index) => (
@@ -907,8 +979,8 @@ const Topics = () => {
             </Tabs>
           </div>
 
-          {/* Right: Sidebar - 4 cols */}
-          <div className="col-span-12 lg:col-span-4 space-y-4">
+          {/* Right: Sidebar - 4 cols - Hidden on mobile */}
+          <div className="hidden lg:block lg:col-span-4 space-y-4">
             <div className="lg:sticky lg:top-4 space-y-4">
               {/* Brand Info Card */}
               <BrandInfoCard
@@ -963,6 +1035,40 @@ const Topics = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Sidebar Drawer */}
+      <MobileSidebarDrawer
+        brand={selectedBrand}
+        onChangeBrand={() => setBrandDialogOpen(true)}
+        onEditBrand={selectedBrand ? () => navigate(`/brands/${selectedBrand.id}`) : undefined}
+        onGetEventSuggestions={(event) => {
+          toast.info(`Đang lấy gợi ý cho ${event.name}...`);
+        }}
+        onScheduleTopic={(topic, eventDate) => {
+          navigate('/calendar', { 
+            state: { 
+              scheduleTopic: topic,
+              scheduleGoal: selectedGoal,
+              suggestedDate: eventDate.toISOString(),
+            } 
+          });
+        }}
+        favorites={sidebarFavorites}
+        recentTopics={sidebarRecentTopics}
+        topPerformers={sidebarTopPerformers}
+        onSelectTopic={(topic) => {
+          navigate('/multichannel', { 
+            state: { 
+              prefillTopic: topic,
+              prefillGoal: selectedGoal,
+              fromTopics: true 
+            } 
+          });
+        }}
+        onViewAllTopics={() => setActiveTab('bank')}
+        aiLearningStats={aiLearningStats}
+        isEnhancing={isEnhancing}
+      />
 
       {/* Onboarding for first-time users */}
       <TopicDiscoveryOnboarding />
