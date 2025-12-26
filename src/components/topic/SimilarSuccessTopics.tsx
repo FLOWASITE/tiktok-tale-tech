@@ -101,31 +101,7 @@ export function SimilarSuccessTopics({
   }
 
   if (successfulTopics.length === 0) {
-    return (
-      <Card className="gradient-card border-border/50 border-dashed">
-        <CardContent className="py-6 text-center">
-          <div className="text-4xl mb-3 opacity-80">📊</div>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500">
-              <TrendingUp className="w-4 h-4 text-white" />
-            </div>
-            <h4 className="font-medium text-sm">Chưa có dữ liệu hiệu suất</h4>
-          </div>
-          <p className="text-xs text-muted-foreground max-w-xs mx-auto mb-3">
-            Tạo và theo dõi content để xem những topics thành công nhất!
-          </p>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-xs"
-            onClick={() => navigate('/multichannel')}
-          >
-            Tạo nội dung đầu tiên
-            <ArrowRight className="w-3 h-3 ml-1" />
-          </Button>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   return (

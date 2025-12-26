@@ -143,8 +143,7 @@ export function QuickAccessBank({
                 </div>
               ) : (
                 <div className="text-center py-8 text-xs text-muted-foreground">
-                  <TrendingUp className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
-                  Chưa có dữ liệu hiệu suất
+                  Chưa có topics nổi bật
                 </div>
               )}
             </ScrollArea>
