@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, Sparkles, BookOpen, BarChart3, 
@@ -45,17 +45,48 @@ const CONTENT_GOALS: { value: ContentGoal; label: string }[] = [
   { value: 'education', label: 'Giáo dục' },
 ];
 
+const STORAGE_KEY_BRAND = 'topics-selected-brand';
+const STORAGE_KEY_GOAL = 'topics-selected-goal';
+
 const Topics = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('discovery');
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
-  const [selectedGoal, setSelectedGoal] = useState<ContentGoal>('engagement');
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(() => {
+    // Load from localStorage on init
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(STORAGE_KEY_BRAND);
+    }
+    return null;
+  });
+  const [selectedGoal, setSelectedGoal] = useState<ContentGoal>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_GOAL);
+      if (saved && ['engagement', 'awareness', 'conversion', 'education'].includes(saved)) {
+        return saved as ContentGoal;
+      }
+    }
+    return 'engagement';
+  });
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<EnhancedTopicSuggestion[]>([]);
   const [brandDialogOpen, setBrandDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'pillar'>('grid');
 
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
+
+  // Persist selected brand to localStorage
+  useEffect(() => {
+    if (selectedBrandId) {
+      localStorage.setItem(STORAGE_KEY_BRAND, selectedBrandId);
+    } else {
+      localStorage.removeItem(STORAGE_KEY_BRAND);
+    }
+  }, [selectedBrandId]);
+
+  // Persist selected goal to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_GOAL, selectedGoal);
+  }, [selectedGoal]);
 
   // Get selected brand object
   const selectedBrand = useMemo(() => {
