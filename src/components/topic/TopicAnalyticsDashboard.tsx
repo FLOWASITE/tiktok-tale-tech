@@ -204,18 +204,25 @@ export function TopicAnalyticsDashboard({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {categoryDistribution.map((cat) => (
-              <div key={cat.value} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <div className={cn('w-2.5 h-2.5 rounded-full', cat.color)} />
-                    {cat.label}
-                  </span>
-                  <span className="text-muted-foreground">{cat.count}</span>
+            {categoryDistribution.map((cat) => {
+              const colorClass = 
+                cat.color === 'emerald' ? 'bg-emerald-500' :
+                cat.color === 'orange' ? 'bg-orange-500' :
+                cat.color === 'purple' ? 'bg-purple-500' :
+                cat.color === 'red' ? 'bg-red-500' : 'bg-slate-500';
+              return (
+                <div key={cat.value} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <div className={cn('w-2.5 h-2.5 rounded-full', colorClass)} />
+                      {cat.label}
+                    </span>
+                    <span className="text-muted-foreground">{cat.count}</span>
+                  </div>
+                  <Progress value={cat.percentage} className="h-1.5" />
                 </div>
-                <Progress value={cat.percentage} className="h-1.5" />
-              </div>
-            ))}
+              );
+            })}
             {categoryDistribution.every(c => c.count === 0) && (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Chưa có dữ liệu
