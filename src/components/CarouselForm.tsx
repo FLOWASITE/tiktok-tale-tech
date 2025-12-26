@@ -20,10 +20,12 @@ import {
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
+import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { 
   Images, 
   Loader2, 
@@ -115,6 +117,21 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic }: CarouselForm
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
+  // Topic suggestions - unified AI engine
+  const {
+    suggestions: enhancedSuggestions,
+    source: suggestionsSource,
+    isEnhancing: suggestionsLoading,
+    refresh: refreshSuggestions,
+  } = useEnhancedTopicSuggestions({
+    brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
+    contentGoal: 'education',
+    format: 'carousel',
+    enabled: true,
+  });
+
+  // Extract topic strings for TopicSuggestionPanel
+  const topicSuggestions = enhancedSuggestions.map(s => s.topic);
   // Character count color
   const charCountColor = useMemo(() => {
     const length = topic.length;
@@ -254,6 +271,16 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic }: CarouselForm
             {topic.length}/{MAX_TOPIC_LENGTH}
           </div>
         </div>
+        
+        {/* Topic Suggestions */}
+        <TopicSuggestionPanel
+          suggestions={topicSuggestions}
+          source={suggestionsSource}
+          isLoading={suggestionsLoading}
+          onSelect={(suggestion) => setTopic(suggestion)}
+          onRefresh={refreshSuggestions}
+          disabled={isLoading}
+        />
       </div>
 
       {/* Platform Selector */}

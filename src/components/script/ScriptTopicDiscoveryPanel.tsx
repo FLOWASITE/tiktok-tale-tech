@@ -9,7 +9,9 @@ import {
   SlidersHorizontal,
   Library,
   FileEdit,
-  ExternalLink
+  ExternalLink,
+  Database,
+  Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +35,7 @@ import {
 import { TopicIdeaCard } from '@/components/topic/TopicIdeaCard';
 import { TopicEducationBadge } from './TopicEducationBadge';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { 
   EnhancedTopicSuggestion, 
   TopicCategory,
@@ -46,6 +49,7 @@ interface ScriptTopicDiscoveryPanelProps {
   onSelect: (topic: EnhancedTopicSuggestion) => void;
   disabled?: boolean;
   brandTemplateId?: string;
+  contentGoal?: 'education' | 'awareness' | 'engagement' | 'expertise' | 'conversion';
 }
 
 const CATEGORY_FILTERS: { value: TopicCategory | 'all'; label: string }[] = [
@@ -60,6 +64,7 @@ export function ScriptTopicDiscoveryPanel({
   onSelect,
   disabled = false,
   brandTemplateId,
+  contentGoal = 'education',
 }: ScriptTopicDiscoveryPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -68,7 +73,20 @@ export function ScriptTopicDiscoveryPanel({
   const [sortBy, setSortBy] = useState<SortOption>('overall');
   const [minScore, setMinScore] = useState(0);
 
-  // Read ALL topics from Topic Bank - no format filter
+  // AI Suggestions - unified engine
+  const {
+    suggestions: aiSuggestions,
+    source: aiSource,
+    isEnhancing: aiLoading,
+    refresh: refreshAI,
+  } = useEnhancedTopicSuggestions({
+    brandTemplateId,
+    contentGoal,
+    format: 'script',
+    enabled: isOpen,
+  });
+
+  // Read topics from Topic Bank
   const { 
     history: bankTopics, 
     isLoading: bankLoading, 
@@ -81,7 +99,7 @@ export function ScriptTopicDiscoveryPanel({
   });
 
   // Convert bank topics to EnhancedTopicSuggestion format - preserve original format
-  const suggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string; _originalFormat?: string })[] => {
+  const bankSuggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string; _originalFormat?: string; _source: 'bank' })[] => {
     return bankTopics.map(item => ({
       topic: item.topic,
       category: item.category,
@@ -95,12 +113,39 @@ export function ScriptTopicDiscoveryPanel({
       _historyId: item.id,
       _usageStatus: item.usageStatus,
       _originalFormat: item.format,
+      _source: 'bank' as const,
     }));
   }, [bankTopics]);
 
-  // Filter and sort suggestions
+  // Merge AI and Bank suggestions, deduplicate by topic
+  const allSuggestions = useMemo(() => {
+    const merged: (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string; _originalFormat?: string; _source: 'ai' | 'bank' })[] = [];
+    const seenTopics = new Set<string>();
+
+    // Add AI suggestions first (marked as AI source)
+    aiSuggestions.forEach(s => {
+      const key = s.topic.toLowerCase().trim();
+      if (!seenTopics.has(key)) {
+        seenTopics.add(key);
+        merged.push({ ...s, _source: 'ai' });
+      }
+    });
+
+    // Add bank suggestions (marked as bank source)
+    bankSuggestions.forEach(s => {
+      const key = s.topic.toLowerCase().trim();
+      if (!seenTopics.has(key)) {
+        seenTopics.add(key);
+        merged.push(s);
+      }
+    });
+
+    return merged;
+  }, [aiSuggestions, bankSuggestions]);
+
+  // Filter and sort suggestions - use merged allSuggestions
   const filteredSuggestions = useMemo(() => {
-    let result = [...suggestions];
+    let result = [...allSuggestions];
 
     // Search filter
     if (searchQuery.trim()) {
@@ -136,7 +181,7 @@ export function ScriptTopicDiscoveryPanel({
     });
 
     return result;
-  }, [suggestions, searchQuery, categoryFilter, minScore, sortBy]);
+  }, [allSuggestions, searchQuery, categoryFilter, minScore, sortBy]);
 
   const hasActiveFilters = searchQuery.trim() || categoryFilter !== 'all' || minScore > 0;
 
@@ -165,10 +210,18 @@ export function ScriptTopicDiscoveryPanel({
         </CollapsibleTrigger>
 
         <div className="flex items-center gap-2">
+          {/* Source badge */}
+          {aiSource === 'ai' && (
+            <Badge variant="outline" className="text-[9px] px-1.5 h-4 gap-0.5 bg-primary/10 text-primary border-primary/30">
+              <Sparkles className="w-2 h-2" />
+              AI
+            </Badge>
+          )}
+          
           {/* Topic count badge */}
-          {suggestions.length > 0 && (
+          {allSuggestions.length > 0 && (
             <Badge variant="secondary" className="text-[10px] px-2 h-5">
-              {suggestions.length} chủ đề
+              {allSuggestions.length} chủ đề
             </Badge>
           )}
 
@@ -375,7 +428,7 @@ export function ScriptTopicDiscoveryPanel({
         {/* Results count */}
         {!bankLoading && filteredSuggestions.length > 0 && (
           <p className="text-xs text-muted-foreground text-center">
-            Hiển thị {filteredSuggestions.length}/{suggestions.length} chủ đề
+            Hiển thị {filteredSuggestions.length}/{allSuggestions.length} chủ đề
           </p>
         )}
       </CollapsibleContent>

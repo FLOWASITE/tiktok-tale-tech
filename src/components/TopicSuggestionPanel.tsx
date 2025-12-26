@@ -3,16 +3,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Lightbulb, RefreshCw, ChevronDown, Sparkles, Database } from 'lucide-react';
+import { Lightbulb, RefreshCw, ChevronDown, Sparkles, Database, BookOpen, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
+import { EnhancedTopicSuggestion, calculateOverallScore } from '@/types/topicDiscovery';
 
 interface TopicSuggestionPanelProps {
-  suggestions: string[];
+  suggestions: string[] | EnhancedTopicSuggestion[];
   source: 'ai' | 'cache' | 'fallback';
   isLoading: boolean;
   onSelect: (suggestion: string) => void;
   onRefresh: () => void;
   disabled?: boolean;
+  showNavigateToTopics?: boolean;
 }
 
 export function TopicSuggestionPanel({
@@ -22,8 +25,10 @@ export function TopicSuggestionPanel({
   onSelect,
   onRefresh,
   disabled = false,
+  showNavigateToTopics = true,
 }: TopicSuggestionPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const navigate = useNavigate();
 
   const sourceConfig = {
     ai: { icon: Sparkles, label: 'AI', className: 'bg-primary/10 text-primary border-primary/30' },
@@ -33,6 +38,17 @@ export function TopicSuggestionPanel({
 
   const currentSource = sourceConfig[source];
   const SourceIcon = currentSource.icon;
+
+  // Normalize suggestions to handle both string[] and EnhancedTopicSuggestion[]
+  const normalizedSuggestions = suggestions.map(s => {
+    if (typeof s === 'string') {
+      return { topic: s, score: undefined };
+    }
+    return { 
+      topic: s.topic, 
+      score: s.scores ? calculateOverallScore(s.scores) : undefined 
+    };
+  });
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1.5 xs:space-y-2">
@@ -89,24 +105,49 @@ export function TopicSuggestionPanel({
             ))}
           </div>
         ) : (
-          <div className="flex flex-wrap gap-1 xs:gap-1.5">
-            {suggestions.map((suggestion, idx) => (
-              <Badge
-                key={idx}
-                variant="outline"
-                className={cn(
-                  "cursor-pointer transition-all text-[10px] xs:text-xs px-1.5 xs:px-2 py-0.5 max-w-full",
-                  "hover:bg-primary/10 hover:border-primary/50 hover:scale-[1.02]",
-                  "active:scale-95",
-                  disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:border-border hover:scale-100"
-                )}
-                onClick={() => !disabled && onSelect(suggestion)}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1 xs:gap-1.5">
+              {normalizedSuggestions.map((suggestion, idx) => (
+                <Badge
+                  key={idx}
+                  variant="outline"
+                  className={cn(
+                    "cursor-pointer transition-all text-[10px] xs:text-xs px-1.5 xs:px-2 py-0.5 max-w-full gap-1",
+                    "hover:bg-primary/10 hover:border-primary/50 hover:scale-[1.02]",
+                    "active:scale-95",
+                    disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:border-border hover:scale-100"
+                  )}
+                  onClick={() => !disabled && onSelect(suggestion.topic)}
+                >
+                  <span className="truncate" title={suggestion.topic}>
+                    {suggestion.topic.length > 35 ? suggestion.topic.slice(0, 35) + '...' : suggestion.topic}
+                  </span>
+                  {suggestion.score !== undefined && (
+                    <span className={cn(
+                      "text-[8px] font-medium px-1 rounded",
+                      suggestion.score >= 75 ? "bg-emerald-500/20 text-emerald-600" :
+                      suggestion.score >= 50 ? "bg-amber-500/20 text-amber-600" :
+                      "bg-muted text-muted-foreground"
+                    )}>
+                      {suggestion.score}
+                    </span>
+                  )}
+                </Badge>
+              ))}
+            </div>
+
+            {/* Navigate to Topics page */}
+            {showNavigateToTopics && (
+              <button
+                type="button"
+                onClick={() => navigate('/topics')}
+                className="flex items-center gap-1.5 text-[10px] xs:text-xs text-primary hover:underline"
               >
-                <span className="truncate" title={suggestion}>
-                  {suggestion.length > 35 ? suggestion.slice(0, 35) + '...' : suggestion}
-                </span>
-              </Badge>
-            ))}
+                <BookOpen className="w-3 h-3" />
+                Khám phá Kho ý tưởng
+                <ExternalLink className="w-2.5 h-2.5" />
+              </button>
+            )}
           </div>
         )}
       </CollapsibleContent>
