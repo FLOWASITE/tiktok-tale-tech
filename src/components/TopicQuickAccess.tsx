@@ -94,8 +94,9 @@ export function TopicQuickAccess({ className }: TopicQuickAccessProps) {
         ) : (
           <div className="space-y-2">
             {topSuggestions.map((topic, index) => {
-              const config = categoryConfig[topic.category];
+              const config = categoryConfig[topic.category as TopicCategory] ?? categoryConfig.evergreen;
               const CategoryIcon = config.icon;
+
               return (
                 <div 
                   key={`${topic.topic}-${index}`}
