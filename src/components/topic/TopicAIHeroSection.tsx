@@ -21,6 +21,7 @@ interface TopicAIHeroSectionProps {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
   onNavigate: (path: string, state?: any) => void;
+  variant?: 'default' | 'compact';
 }
 
 const categoryConfig = {
@@ -42,6 +43,7 @@ export function TopicAIHeroSection({
   brandTemplateId,
   contentGoal,
   onNavigate,
+  variant = 'default',
 }: TopicAIHeroSectionProps) {
   const [feedbackGiven, setFeedbackGiven] = useState<'positive' | 'negative' | null>(null);
   const [formatSelectorOpen, setFormatSelectorOpen] = useState(false);
@@ -111,32 +113,46 @@ export function TopicAIHeroSection({
   const category = inferredCategory ? categoryConfig[inferredCategory] : categoryConfig.trending;
   const CategoryIcon = category?.icon || Sparkles;
 
+  const isCompact = variant === 'compact';
+
   return (
     <>
-      <Card className="relative overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-background via-background to-primary/5">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-bl from-primary/20 to-transparent rounded-full blur-2xl animate-pulse" />
-          <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-gradient-to-tr from-violet-500/10 to-transparent rounded-full blur-xl" />
-        </div>
+      <Card className={cn(
+        'relative overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-background via-background to-primary/5',
+        isCompact && 'border'
+      )}>
+        {/* Animated background elements - hide in compact mode */}
+        {!isCompact && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-bl from-primary/20 to-transparent rounded-full blur-2xl animate-pulse" />
+            <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-gradient-to-tr from-violet-500/10 to-transparent rounded-full blur-xl" />
+          </div>
+        )}
         
-        <CardContent className="p-6 relative">
+        <CardContent className={cn('relative', isCompact ? 'p-4' : 'p-6')}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-5">
+          <div className={cn('flex items-center justify-between', isCompact ? 'mb-3' : 'mb-5')}>
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25">
-                <Wand2 className="w-6 h-6 text-primary-foreground" />
+              <div className={cn(
+                'rounded-2xl bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25',
+                isCompact ? 'p-2' : 'p-3'
+              )}>
+                <Wand2 className={cn('text-primary-foreground', isCompact ? 'w-4 h-4' : 'w-6 h-6')} />
               </div>
               <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
+                <h2 className={cn('font-bold flex items-center gap-2', isCompact ? 'text-base' : 'text-xl')}>
                   AI Gợi Ý Tốt Nhất
-                  <Badge variant="secondary" className="text-xs font-normal">
-                    Smart Pick
-                  </Badge>
+                  {!isCompact && (
+                    <Badge variant="secondary" className="text-xs font-normal">
+                      Smart Pick
+                    </Badge>
+                  )}
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  Topic được AI đề xuất dựa trên brand & mục tiêu của bạn
-                </p>
+                {!isCompact && (
+                  <p className="text-sm text-muted-foreground">
+                    Topic được AI đề xuất dựa trên brand & mục tiêu của bạn
+                  </p>
+                )}
               </div>
             </div>
             

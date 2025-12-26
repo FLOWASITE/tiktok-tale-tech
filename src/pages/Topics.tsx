@@ -28,8 +28,9 @@ import { TopicAILearningBadge } from '@/components/topic/TopicAILearningBadge';
 import { TopicEmptyState } from '@/components/topic/TopicEmptyState';
 import { TopicDiscoveryOnboarding } from '@/components/topic/TopicDiscoveryOnboarding';
 import { TopicBulkActions } from '@/components/topic/TopicBulkActions';
-import { BrandSpotlightHeader } from '@/components/topic/BrandSpotlightHeader';
 import { BrandSwitcherDialog } from '@/components/topic/BrandSwitcherDialog';
+import { BrandSelectorDropdown } from '@/components/topic/BrandSelectorDropdown';
+import { BrandInfoCard } from '@/components/topic/BrandInfoCard';
 import { TopicsByPillarView } from '@/components/topic/TopicsByPillarView';
 import { TopicAIHeroSection } from '@/components/topic/TopicAIHeroSection';
 import { UpcomingEventsCard } from '@/components/topic/UpcomingEventsCard';
@@ -336,7 +337,7 @@ const Topics = () => {
       </div>
 
       <div className="px-4 sm:container py-6 lg:py-8 relative space-y-6">
-        {/* Header */}
+        {/* Header - Compact with Brand Selector */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl gradient-primary shadow-lg">
@@ -350,27 +351,27 @@ const Topics = () => {
             </div>
           </div>
 
-          {/* Content Goal Filter */}
-          <Select value={selectedGoal} onValueChange={(v) => setSelectedGoal(v as ContentGoal)}>
-            <SelectTrigger className="w-40 h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CONTENT_GOALS.map((goal) => (
-                <SelectItem key={goal.value} value={goal.value}>
-                  {goal.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Right: Brand + Goal Selectors */}
+          <div className="flex items-center gap-3">
+            <BrandSelectorDropdown
+              brand={selectedBrand}
+              onOpen={() => setBrandDialogOpen(true)}
+            />
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <Select value={selectedGoal} onValueChange={(v) => setSelectedGoal(v as ContentGoal)}>
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTENT_GOALS.map((goal) => (
+                  <SelectItem key={goal.value} value={goal.value}>
+                    {goal.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-
-        {/* Brand Spotlight Header - Central Focus */}
-        <BrandSpotlightHeader
-          selectedBrand={selectedBrand}
-          onChangeBrand={() => setBrandDialogOpen(true)}
-          onEditBrand={selectedBrand ? () => navigate(`/brands/${selectedBrand.id}`) : undefined}
-        />
 
         {/* Brand Switcher Dialog */}
         <BrandSwitcherDialog
@@ -383,99 +384,210 @@ const Topics = () => {
           onViewBrand={(id) => navigate(`/brands/${id}`)}
         />
 
-        {/* AI Hero Section - Central Focus when brand selected */}
-        {selectedBrandId && (
-          <TopicAIHeroSection
-            brandTemplateId={selectedBrandId}
-            contentGoal={selectedGoal}
-            onNavigate={(path, state) => navigate(path, { state })}
-          />
-        )}
-
-        {/* Compact Stats Row - 3 key metrics */}
-        {selectedBrandId ? (
-          <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-primary/10">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-lg font-bold">{combinedStats.suggestionCount}</p>
-                <p className="text-xs text-muted-foreground">Gợi ý AI</p>
-              </div>
-            </div>
-
-            <div className="h-8 w-px bg-border" />
-
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-amber-500/10">
-                <Bookmark className="w-4 h-4 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-lg font-bold">{combinedStats.totalTopics}</p>
-                <p className="text-xs text-muted-foreground">Đã lưu</p>
-              </div>
-            </div>
-
-            <div className="h-8 w-px bg-border" />
-
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-emerald-500/10">
-                <Percent className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-lg font-bold">{combinedStats.usageRate}%</p>
-                <p className="text-xs text-muted-foreground">Tỷ lệ sử dụng</p>
-              </div>
-            </div>
-
-            {contentPillars.length > 0 && (
-              <>
-                <div className="h-8 w-px bg-border" />
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-violet-500/10">
-                    <Layers className="w-4 h-4 text-violet-500" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold">{contentPillars.length}</p>
-                    <p className="text-xs text-muted-foreground">Pillars</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="ml-auto flex items-center gap-2">
-              {suggestionStats && (
-                <Badge variant="outline" className="text-xs">
-                  Điểm TB: {suggestionStats.averageScore}
-                </Badge>
-              )}
-              <TopicAILearningBadge
-                isPersonalized={!!selectedBrandId}
-                isEnhancing={isEnhancing}
-                source={source}
-                usedCount={combinedStats.usedTopics}
-                favoritesCount={combinedStats.favorites}
-                learningCount={topPerformers.length}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            <p>Chọn Brand để xem AI gợi ý và thống kê chi tiết</p>
-          </div>
-        )}
-
         {/* Two-Column Layout */}
         <div className="grid grid-cols-12 gap-6">
-          {/* Left: Main Content */}
-          <div className="col-span-12 lg:col-span-8">
-            {/* Main Tabs */}
+          {/* Left: Main Content - 8 cols */}
+          <div className="col-span-12 lg:col-span-8 space-y-6">
+            {/* AI Hero Section - Compact */}
+            {selectedBrandId && (
+              <TopicAIHeroSection
+                brandTemplateId={selectedBrandId}
+                contentGoal={selectedGoal}
+                onNavigate={(path, state) => navigate(path, { state })}
+                variant="compact"
+              />
+            )}
+
+            {/* AI Suggestions Grid - Always visible when brand selected */}
+            {selectedBrandId ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-medium text-sm flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Gợi ý AI khác
+                    </h3>
+                    <TopicAILearningBadge
+                      isPersonalized={!!selectedBrandId}
+                      isEnhancing={isEnhancing}
+                      source={source}
+                      usedCount={combinedStats.usedTopics}
+                      favoritesCount={combinedStats.favorites}
+                      learningCount={topPerformers.length}
+                    />
+                    {suggestionStats && !isEnhancing && (
+                      <Badge variant="outline" className="text-xs">
+                        Điểm TB: {suggestionStats.averageScore}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* View Mode Toggle */}
+                    {contentPillars.length > 0 && suggestions.length > 0 && (
+                      <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                        <Button
+                          variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setViewMode('grid')}
+                        >
+                          <Grid3X3 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setViewMode('pillar')}
+                        >
+                          <LayoutList className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {suggestions.length > 0 && (
+                      <Button
+                        variant={selectionMode ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => {
+                          setSelectionMode(!selectionMode);
+                          if (selectionMode) setSelectedTopics([]);
+                        }}
+                        className="gap-1.5"
+                      >
+                        <CheckSquare className="w-4 h-4" />
+                        {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
+                      </Button>
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={refresh}
+                      disabled={suggestionsLoading || isEnhancing}
+                    >
+                      <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
+                      Làm mới
+                    </Button>
+                  </div>
+                </div>
+
+                {suggestionsLoading ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <Card key={i} className="p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-3/4" />
+                            <div className="flex gap-1.5">
+                              <Skeleton className="h-4 w-16 rounded-full" />
+                              <Skeleton className="h-4 w-12 rounded-full" />
+                            </div>
+                          </div>
+                        </div>
+                        <Skeleton className="h-6 w-full" />
+                      </Card>
+                    ))}
+                  </div>
+                ) : viewMode === 'pillar' && contentPillars.length > 0 ? (
+                  <TopicsByPillarView
+                    topics={suggestions}
+                    contentPillars={contentPillars}
+                    onSelectTopic={handleSelectTopic}
+                    onSaveTopic={handleSaveTopic}
+                    onScheduleTopic={handleScheduleTopic}
+                    selectable={selectionMode}
+                    selectedTopics={selectedTopics}
+                    onToggleSelection={handleToggleTopicSelection}
+                  />
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {suggestions.slice(0, 6).map((topic, index) => (
+                      <div
+                        key={`${topic.topic}-${index}`}
+                        className="animate-fade-in"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <TopicIdeaCard
+                          topic={topic}
+                          onSelect={handleSelectTopic}
+                          onSave={handleSaveTopic}
+                          onSchedule={handleScheduleTopic}
+                          selectable={selectionMode}
+                          checked={isTopicSelected(topic)}
+                          onCheckedChange={(checked) => handleToggleTopicSelection(topic, checked)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <TopicEmptyState 
+                type="no-brand-selected" 
+                onAction={() => setBrandDialogOpen(true)} 
+              />
+            )}
+
+            {/* Compact Stats Row - 3 key metrics */}
+            {selectedBrandId && (
+              <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{combinedStats.suggestionCount}</p>
+                    <p className="text-xs text-muted-foreground">Gợi ý AI</p>
+                  </div>
+                </div>
+
+                <div className="h-8 w-px bg-border" />
+
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-500/10">
+                    <Bookmark className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{combinedStats.totalTopics}</p>
+                    <p className="text-xs text-muted-foreground">Đã lưu</p>
+                  </div>
+                </div>
+
+                <div className="h-8 w-px bg-border" />
+
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10">
+                    <Percent className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{combinedStats.usageRate}%</p>
+                    <p className="text-xs text-muted-foreground">Tỷ lệ sử dụng</p>
+                  </div>
+                </div>
+
+                {contentPillars.length > 0 && (
+                  <>
+                    <div className="h-8 w-px bg-border" />
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-violet-500/10">
+                        <Layers className="w-4 h-4 text-violet-500" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold">{contentPillars.length}</p>
+                        <p className="text-xs text-muted-foreground">Pillars</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Main Tabs - Reduced */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
               <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
                 <TabsTrigger value="discovery" className="gap-2">
                   <Sparkles className="w-4 h-4" />
-                  Khám phá
+                  Tất cả gợi ý
                   <Badge variant="secondary" className="ml-1 text-[10px]">
                     {suggestions.length}
                   </Badge>
@@ -484,10 +596,6 @@ const Topics = () => {
                   <Zap className="w-4 h-4" />
                   Smart
                 </TabsTrigger>
-                <TabsTrigger value="intelligence" className="gap-2">
-                  <Brain className="w-4 h-4" />
-                  AI Analysis
-                </TabsTrigger>
                 <TabsTrigger value="bank" className="gap-2">
                   <BookOpen className="w-4 h-4" />
                   Ngân hàng
@@ -495,17 +603,13 @@ const Topics = () => {
                     {combinedStats.totalTopics}
                   </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="pipeline" className="gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Pipeline
-                </TabsTrigger>
                 <TabsTrigger value="performance" className="gap-2">
                   <BarChart3 className="w-4 h-4" />
                   Hiệu suất
                 </TabsTrigger>
               </TabsList>
 
-          {/* Discovery Tab */}
+          {/* Discovery Tab - All AI Suggestions */}
           <TabsContent value="discovery" className="space-y-6">
             {/* Seasonal Topics Section */}
             <SeasonalTopicsSection
@@ -545,143 +649,109 @@ const Topics = () => {
               limit={5}
             />
 
-            {/* AI Suggestions - Show empty state if no brand selected */}
+            {/* All AI Suggestions Grid */}
             {!selectedBrandId ? (
               <TopicEmptyState 
                 type="no-brand-selected" 
                 onAction={() => setBrandDialogOpen(true)} 
               />
             ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-medium text-sm flex items-center gap-2">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h3 className="font-medium flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-primary" />
-                    Gợi ý AI
+                    Tất cả gợi ý AI ({suggestions.length})
                   </h3>
-                  <TopicAILearningBadge
-                    isPersonalized={!!selectedBrandId}
-                    isEnhancing={isEnhancing}
-                    source={source}
-                    usedCount={combinedStats.usedTopics}
-                    favoritesCount={combinedStats.favorites}
-                    learningCount={topPerformers.length}
-                  />
-                  {suggestionStats && !isEnhancing && (
-                    <Badge variant="outline" className="text-xs">
-                      Điểm TB: {suggestionStats.averageScore}
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {/* View Mode Toggle */}
-                  {contentPillars.length > 0 && suggestions.length > 0 && (
-                    <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                  <div className="flex items-center gap-2">
+                    {contentPillars.length > 0 && suggestions.length > 0 && (
+                      <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                        <Button
+                          variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setViewMode('grid')}
+                        >
+                          <Grid3X3 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setViewMode('pillar')}
+                        >
+                          <LayoutList className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {suggestions.length > 0 && (
                       <Button
-                        variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                        variant={selectionMode ? 'secondary' : 'ghost'}
                         size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => setViewMode('grid')}
+                        onClick={() => {
+                          setSelectionMode(!selectionMode);
+                          if (selectionMode) setSelectedTopics([]);
+                        }}
+                        className="gap-1.5"
                       >
-                        <Grid3X3 className="w-4 h-4" />
+                        <CheckSquare className="w-4 h-4" />
+                        {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
                       </Button>
-                      <Button
-                        variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => setViewMode('pillar')}
-                      >
-                        <LayoutList className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {suggestions.length > 0 && (
-                    <Button
-                      variant={selectionMode ? 'secondary' : 'ghost'}
-                      size="sm"
-                      onClick={() => {
-                        setSelectionMode(!selectionMode);
-                        if (selectionMode) setSelectedTopics([]);
-                      }}
-                      className="gap-1.5"
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={refresh}
+                      disabled={suggestionsLoading || isEnhancing}
                     >
-                      <CheckSquare className="w-4 h-4" />
-                      {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
+                      <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
+                      Làm mới
                     </Button>
-                  )}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={refresh}
-                    disabled={suggestionsLoading || isEnhancing}
-                  >
-                    <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
-                    Làm mới
-                  </Button>
+                  </div>
                 </div>
-              </div>
 
-              {suggestionsLoading ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <Card key={i} className="p-4 space-y-3">
-                      <div className="flex items-start gap-3">
-                        <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-3/4" />
-                          <div className="flex gap-1.5">
-                            <Skeleton className="h-4 w-16 rounded-full" />
-                            <Skeleton className="h-4 w-12 rounded-full" />
-                          </div>
-                        </div>
+                {suggestionsLoading ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <Card key={i} className="p-4 space-y-3">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-6 w-full" />
+                      </Card>
+                    ))}
+                  </div>
+                ) : viewMode === 'pillar' && contentPillars.length > 0 ? (
+                  <TopicsByPillarView
+                    topics={suggestions}
+                    contentPillars={contentPillars}
+                    onSelectTopic={handleSelectTopic}
+                    onSaveTopic={handleSaveTopic}
+                    onScheduleTopic={handleScheduleTopic}
+                    selectable={selectionMode}
+                    selectedTopics={selectedTopics}
+                    onToggleSelection={handleToggleTopicSelection}
+                  />
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {suggestions.map((topic, index) => (
+                      <div
+                        key={`${topic.topic}-${index}`}
+                        className="animate-fade-in"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <TopicIdeaCard
+                          topic={topic}
+                          onSelect={handleSelectTopic}
+                          onSave={handleSaveTopic}
+                          onSchedule={handleScheduleTopic}
+                          selectable={selectionMode}
+                          checked={isTopicSelected(topic)}
+                          onCheckedChange={(checked) => handleToggleTopicSelection(topic, checked)}
+                        />
                       </div>
-                      <div className="space-y-1.5">
-                        {[1, 2, 3, 4].map((j) => (
-                          <div key={j} className="flex items-center gap-2">
-                            <Skeleton className="w-3 h-3 rounded" />
-                            <Skeleton className="h-2 flex-1 rounded-full" />
-                            <Skeleton className="w-6 h-3" />
-                          </div>
-                        ))}
-                      </div>
-                      <Skeleton className="h-6 w-full" />
-                    </Card>
-                  ))}
-                </div>
-              ) : viewMode === 'pillar' && contentPillars.length > 0 ? (
-                <TopicsByPillarView
-                  topics={suggestions}
-                  contentPillars={contentPillars}
-                  onSelectTopic={handleSelectTopic}
-                  onSaveTopic={handleSaveTopic}
-                  onScheduleTopic={handleScheduleTopic}
-                  selectable={selectionMode}
-                  selectedTopics={selectedTopics}
-                  onToggleSelection={handleToggleTopicSelection}
-                />
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {suggestions.map((topic, index) => (
-                    <div
-                      key={`${topic.topic}-${index}`}
-                      className="animate-fade-in"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <TopicIdeaCard
-                        topic={topic}
-                        onSelect={handleSelectTopic}
-                        onSave={handleSaveTopic}
-                        onSchedule={handleScheduleTopic}
-                        selectable={selectionMode}
-                        checked={isTopicSelected(topic)}
-                        onCheckedChange={(checked) => handleToggleTopicSelection(topic, checked)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </TabsContent>
 
@@ -837,14 +907,20 @@ const Topics = () => {
             </Tabs>
           </div>
 
-          {/* Right: Sidebar */}
+          {/* Right: Sidebar - 4 cols */}
           <div className="col-span-12 lg:col-span-4 space-y-4">
             <div className="lg:sticky lg:top-4 space-y-4">
+              {/* Brand Info Card */}
+              <BrandInfoCard
+                brand={selectedBrand}
+                onChangeBrand={() => setBrandDialogOpen(true)}
+                onEditBrand={selectedBrand ? () => navigate(`/brands/${selectedBrand.id}`) : undefined}
+              />
+
               {/* Upcoming Events */}
               <UpcomingEventsCard
                 onGetSuggestions={(event) => {
                   toast.info(`Đang lấy gợi ý cho ${event.name}...`);
-                  // Could trigger AI suggestion for this event
                 }}
                 onScheduleTopic={(topic, eventDate) => {
                   navigate('/calendar', { 
