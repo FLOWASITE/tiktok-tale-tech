@@ -511,21 +511,6 @@ const Topics = () => {
               }}
             />
 
-            {/* Similar Success Topics */}
-            <SimilarSuccessTopics
-              brandTemplateId={selectedBrandId || undefined}
-              contentGoal={selectedGoal}
-              onSelectTopic={(topic, goal) => {
-                navigate('/multichannel', { 
-                  state: { 
-                    prefillTopic: topic,
-                    prefillGoal: goal || selectedGoal,
-                    fromTopics: true 
-                  } 
-                });
-              }}
-              limit={5}
-            />
 
             {/* All AI Suggestions Grid */}
             {!selectedBrandId ? (
