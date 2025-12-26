@@ -2004,6 +2004,7 @@ export type Database = {
           peak_status: string | null
           related_keywords: string[] | null
           source: string | null
+          source_url: string | null
           suggested_angles: string[] | null
           topic: string
           updated_at: string | null
@@ -2022,6 +2023,7 @@ export type Database = {
           peak_status?: string | null
           related_keywords?: string[] | null
           source?: string | null
+          source_url?: string | null
           suggested_angles?: string[] | null
           topic: string
           updated_at?: string | null
@@ -2040,6 +2042,7 @@ export type Database = {
           peak_status?: string | null
           related_keywords?: string[] | null
           source?: string | null
+          source_url?: string | null
           suggested_angles?: string[] | null
           topic?: string
           updated_at?: string | null
