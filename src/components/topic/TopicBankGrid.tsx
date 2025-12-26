@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
   Search, Star, TrendingUp, Filter, History, X, 
-  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal 
+  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ interface TopicBankGridProps {
   onSelectTopic: (topic: string) => void;
 }
 
-type FilterView = 'all' | 'favorites' | 'top-performers' | 'recent';
+type FilterView = 'all' | 'drafts' | 'favorites' | 'top-performers' | 'recent';
 type ViewMode = 'grid' | 'list';
 
 export function TopicBankGrid({
@@ -54,6 +54,7 @@ export function TopicBankGrid({
 
   const {
     history,
+    drafts,
     favorites,
     topPerformers,
     recentlyUsed,
@@ -62,6 +63,7 @@ export function TopicBankGrid({
     toggleFavorite,
     submitFeedback,
     deleteTopic,
+    confirmDraft,
   } = useTopicHistory({
     brandTemplateId,
     contentGoal,
@@ -73,6 +75,9 @@ export function TopicBankGrid({
     let items: TopicHistoryItem[] = [];
 
     switch (filterView) {
+      case 'drafts':
+        items = drafts;
+        break;
       case 'favorites':
         items = favorites;
         break;
@@ -83,7 +88,8 @@ export function TopicBankGrid({
         items = recentlyUsed;
         break;
       default:
-        items = history;
+        // All - exclude drafts from "all" view to keep it clean
+        items = history.filter(h => h.usageStatus !== 'draft');
     }
 
     // Apply category filter
@@ -102,7 +108,7 @@ export function TopicBankGrid({
     }
 
     return items;
-  }, [filterView, favorites, topPerformers, recentlyUsed, history, categoryFilter, searchQuery]);
+  }, [filterView, drafts, favorites, topPerformers, recentlyUsed, history, categoryFilter, searchQuery]);
 
   const handleReuse = (item: TopicHistoryItem) => {
     onSelectTopic(item.topic);
@@ -110,6 +116,10 @@ export function TopicBankGrid({
 
   const handleFeedback = (id: string, feedback: FeedbackType) => {
     submitFeedback(id, feedback);
+  };
+
+  const handleConfirmDraft = async (item: TopicHistoryItem) => {
+    await confirmDraft(item.id);
   };
 
   const handleConfirmDelete = () => {
@@ -173,7 +183,16 @@ export function TopicBankGrid({
           onClick={() => setFilterView('all')}
         >
           <History className="h-4 w-4 mr-1" />
-          Tất cả
+          Đã lưu
+        </Button>
+        <Button
+          variant={filterView === 'drafts' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilterView('drafts')}
+          className={filterView === 'drafts' ? '' : 'border-dashed'}
+        >
+          <FileEdit className="h-4 w-4 mr-1" />
+          Nháp ({drafts.length})
         </Button>
         <Button
           variant={filterView === 'favorites' ? 'default' : 'outline'}
@@ -279,80 +298,103 @@ export function TopicBankGrid({
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredItems.map((item) => (
-            <Card 
-              key={item.id} 
-              className={cn(
-                'gradient-card border-border/50 hover:border-primary/30 transition-all cursor-pointer group',
-                item.isFavorite && 'ring-1 ring-amber-500/30'
-              )}
-              onClick={() => handleReuse(item)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <h4 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
-                    {item.topic}
-                  </h4>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleReuse(item); }}>
-                        <Play className="h-4 w-4 mr-2" />
-                        Sử dụng
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}>
-                        <Star className={cn('h-4 w-4 mr-2', item.isFavorite && 'fill-amber-500 text-amber-500')} />
-                        {item.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích'}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={(e) => { e.stopPropagation(); setDeleteId(item.id); }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Xóa
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+          {filteredItems.map((item) => {
+            const isDraft = item.usageStatus === 'draft';
+            return (
+              <Card 
+                key={item.id} 
+                className={cn(
+                  'gradient-card hover:border-primary/30 transition-all cursor-pointer group',
+                  isDraft ? 'border-dashed border-muted-foreground/30 opacity-80' : 'border-border/50',
+                  item.isFavorite && 'ring-1 ring-amber-500/30'
+                )}
+                onClick={() => handleReuse(item)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex-1 min-w-0">
+                      {isDraft && (
+                        <Badge variant="outline" className="text-[10px] mb-1 border-dashed bg-muted/50">
+                          <FileEdit className="h-2.5 w-2.5 mr-1" />
+                          Nháp
+                        </Badge>
+                      )}
+                      <h4 className={cn(
+                        'font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors',
+                        isDraft && 'text-muted-foreground'
+                      )}>
+                        {item.topic}
+                      </h4>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {isDraft && (
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleConfirmDraft(item); }}>
+                            <BookmarkCheck className="h-4 w-4 mr-2" />
+                            Giữ lại
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleReuse(item); }}>
+                          <Play className="h-4 w-4 mr-2" />
+                          Sử dụng
+                        </DropdownMenuItem>
+                        {!isDraft && (
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}>
+                            <Star className={cn('h-4 w-4 mr-2', item.isFavorite && 'fill-amber-500 text-amber-500')} />
+                            {item.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích'}
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={(e) => { e.stopPropagation(); setDeleteId(item.id); }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
 
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  <Badge variant="outline" className="text-[10px]">
-                    {item.category}
-                  </Badge>
-                  {item.pillar && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      {item.pillar}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    <Badge variant="outline" className="text-[10px]">
+                      {item.category}
                     </Badge>
-                  )}
-                  {item.isFavorite && (
-                    <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                  )}
-                </div>
-
-                {item.scores && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Điểm: {Math.round((item.scores.brandFit + item.scores.trend + item.scores.competition + item.scores.engagement) / 4)}</span>
-                    {item.performanceScore && (
-                      <>
-                        <span>•</span>
-                        <span className="text-emerald-600">Hiệu suất: {item.performanceScore}</span>
-                      </>
+                    {item.pillar && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {item.pillar}
+                      </Badge>
+                    )}
+                    {item.isFavorite && (
+                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
                     )}
                   </div>
-                )}
 
-                {item.usedAt && (
-                  <p className="text-[10px] text-muted-foreground mt-2">
-                    Đã dùng: {new Date(item.usedAt).toLocaleDateString('vi-VN')}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {item.scores && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Điểm: {Math.round((item.scores.brandFit + item.scores.trend + item.scores.competition + item.scores.engagement) / 4)}</span>
+                      {item.performanceScore && (
+                        <>
+                          <span>•</span>
+                          <span className="text-emerald-600">Hiệu suất: {item.performanceScore}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {item.usedAt && (
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      Đã dùng: {new Date(item.usedAt).toLocaleDateString('vi-VN')}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

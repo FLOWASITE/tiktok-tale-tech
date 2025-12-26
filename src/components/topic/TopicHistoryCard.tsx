@@ -50,6 +50,7 @@ const categoryColors: Record<string, string> = {
 };
 
 const statusConfig: Record<UsageStatus, { label: string; color: string; icon: React.ElementType }> = {
+  draft: { label: 'Nháp', color: 'bg-slate-500/10 text-slate-600 border-dashed border-slate-400', icon: Clock },
   suggested: { label: 'Đề xuất', color: 'bg-muted text-muted-foreground', icon: Clock },
   selected: { label: 'Đã chọn', color: 'bg-blue-500/10 text-blue-600', icon: CheckCircle2 },
   created: { label: 'Đã tạo', color: 'bg-amber-500/10 text-amber-600', icon: FileEdit },

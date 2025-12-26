@@ -12,7 +12,7 @@ import {
 import { ContentGoal } from '@/types/multichannel';
 import { toast } from 'sonner';
 
-export type UsageStatus = 'suggested' | 'selected' | 'created' | 'published';
+export type UsageStatus = 'draft' | 'suggested' | 'selected' | 'created' | 'published';
 export type FeedbackType = 'positive' | 'negative' | 'neutral';
 
 export interface TopicHistoryItem {
@@ -359,6 +359,104 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     }
   }, []);
 
+  // Save bulk topics (for auto-saving AI suggestions as drafts)
+  const saveBulkTopics = useCallback(async (
+    topics: EnhancedTopicSuggestion[],
+    status: UsageStatus = 'draft',
+    topicFormat: TopicFormat = 'multichannel'
+  ): Promise<string[]> => {
+    if (!user || topics.length === 0) return [];
+
+    setIsSaving(true);
+    const savedIds: string[] = [];
+
+    try {
+      const insertData = topics.map(topic => ({
+        topic: topic.topic,
+        category: topic.category,
+        content_goal: contentGoal || 'education',
+        format: topicFormat,
+        pillar: topic.pillar || null,
+        scores: topic.scores || {},
+        related_keywords: topic.relatedKeywords || [],
+        reasoning: topic.reasoning || null,
+        usage_status: status,
+        was_used: false,
+        is_favorite: false,
+        user_id: user.id,
+        organization_id: currentOrganization?.id || null,
+        brand_template_id: brandTemplateId || null,
+      }));
+
+      const { data, error: insertError } = await supabase
+        .from('topic_history')
+        .insert(insertData)
+        .select();
+
+      if (insertError) throw insertError;
+
+      // Update local state
+      const newItems: TopicHistoryItem[] = (data || []).map(item => ({
+        id: item.id,
+        topic: item.topic,
+        category: item.category as TopicCategory,
+        contentGoal: item.content_goal as ContentGoal,
+        format: item.format as TopicFormat,
+        pillar: item.pillar,
+        scores: item.scores as unknown as TopicScores | undefined,
+        relatedKeywords: item.related_keywords,
+        reasoning: item.reasoning,
+        wasUsed: item.was_used,
+        usageStatus: item.usage_status as UsageStatus,
+        isFavorite: item.is_favorite,
+        createdAt: item.created_at,
+      }));
+
+      setHistory(prev => [...newItems, ...prev]);
+      savedIds.push(...(data || []).map(d => d.id));
+
+      return savedIds;
+    } catch (err) {
+      console.error('Error bulk saving topics:', err);
+      return [];
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, currentOrganization?.id, brandTemplateId, contentGoal]);
+
+  // Check which topics already exist in history
+  const checkExistingTopics = useCallback((topics: EnhancedTopicSuggestion[]): EnhancedTopicSuggestion[] => {
+    const existingTopicTexts = new Set(history.map(h => h.topic.toLowerCase().trim()));
+    return topics.filter(t => !existingTopicTexts.has(t.topic.toLowerCase().trim()));
+  }, [history]);
+
+  // Confirm/Keep a draft topic (change status from draft to suggested)
+  const confirmDraft = useCallback(async (topicId: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('topic_history')
+        .update({ usage_status: 'suggested' })
+        .eq('id', topicId);
+
+      if (updateError) throw updateError;
+
+      setHistory(prev => prev.map(h =>
+        h.id === topicId ? { ...h, usageStatus: 'suggested' } : h
+      ));
+
+      toast.success('Đã lưu vào ngân hàng ý tưởng');
+    } catch (err) {
+      console.error('Error confirming draft:', err);
+      toast.error('Không thể xác nhận topic');
+    }
+  }, []);
+
+  // Get draft topics
+  const drafts = useMemo(() =>
+    history.filter(h => h.usageStatus === 'draft'),
+    [history]
+  );
+
   // Computed values
   const favorites = useMemo(() => 
     history.filter(h => h.isFavorite),
@@ -455,6 +553,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
 
   return {
     history,
+    drafts,
     favorites,
     topPerformers,
     recentlyUsed,
@@ -463,6 +562,9 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     isSaving,
     error,
     saveTopic,
+    saveBulkTopics,
+    checkExistingTopics,
+    confirmDraft,
     markAsUsed,
     markAsPublished,
     updatePerformance,
