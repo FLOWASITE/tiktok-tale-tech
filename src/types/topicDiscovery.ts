@@ -5,6 +5,15 @@ export type TopicFormat = 'carousel' | 'script' | 'multichannel';
 export type EngagementLevel = 'high' | 'medium' | 'low';
 export type SortOption = 'overall' | 'brandFit' | 'trend' | 'engagement' | 'competition';
 
+// Search Intent types for SEO
+export type SearchIntent = 'informational' | 'navigational' | 'commercial' | 'transactional';
+
+export interface SuggestedKeywords {
+  primary: string;
+  secondary: string[];
+  longTail: string[];
+}
+
 // Content Matrix types
 export type TopicType = 'problem' | 'solution' | 'story' | 'data';
 export type FunnelStage = 'tofu' | 'mofu' | 'bofu';
@@ -52,6 +61,9 @@ export interface EnhancedTopicSuggestion {
     competitionReason?: string;
     engagementReason?: string;
   };
+  // Search Intent & SEO (Phase 1)
+  searchIntent?: SearchIntent;
+  suggestedKeywords?: SuggestedKeywords;
 }
 
 export interface TopicHistoryItem {
@@ -151,6 +163,14 @@ export const EMOTIONAL_TONE_LABELS: { value: EmotionalTone; label: string; emoji
   { value: 'educate', label: 'Giáo dục', emoji: '📚', color: 'blue' },
   { value: 'entertain', label: 'Giải trí', emoji: '🎉', color: 'orange' },
   { value: 'convince', label: 'Thuyết phục', emoji: '💡', color: 'emerald' },
+];
+
+// Search Intent labels for SEO
+export const SEARCH_INTENT_LABELS: { value: SearchIntent; label: string; icon: string; color: string; description: string }[] = [
+  { value: 'informational', label: 'Informational', icon: 'BookOpen', color: 'blue', description: 'Tìm kiếm thông tin, kiến thức' },
+  { value: 'navigational', label: 'Navigational', icon: 'Navigation', color: 'slate', description: 'Tìm kiếm brand/website cụ thể' },
+  { value: 'commercial', label: 'Commercial', icon: 'Search', color: 'amber', description: 'So sánh, nghiên cứu trước khi mua' },
+  { value: 'transactional', label: 'Transactional', icon: 'ShoppingCart', color: 'emerald', description: 'Sẵn sàng mua hàng, chuyển đổi' },
 ];
 
 // Vietnamese seasonal events

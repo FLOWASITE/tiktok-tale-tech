@@ -220,6 +220,21 @@ interface EnhancedTopicSuggestion {
   dataSources?: TopicDataSource;
   // Enhanced reasoning
   scoreBreakdown?: ScoreBreakdown;
+  // Search Intent & SEO
+  searchIntent?: 'informational' | 'navigational' | 'commercial' | 'transactional';
+  suggestedKeywords?: {
+    primary: string;
+    secondary: string[];
+    longTail: string[];
+  };
+}
+
+// Helper to infer search intent from funnel stage and topic type
+function inferSearchIntent(funnelStage?: string, topicType?: string): 'informational' | 'navigational' | 'commercial' | 'transactional' {
+  if (funnelStage === 'bofu') return 'transactional';
+  if (funnelStage === 'mofu') return 'commercial';
+  if (topicType === 'story') return 'navigational';
+  return 'informational';
 }
 
 // Persona context for fetching
@@ -510,6 +525,13 @@ serve(async (req) => {
               trendReason: hasDataPattern ? 'Dựa trên dữ liệu thực tế từ web search' : (item.scores?.trend >= 70 ? 'Có tiềm năng trending' : 'Evergreen content'),
               competitionReason: item.scores?.competition >= 80 ? 'Góc tiếp cận độc đáo, ít cạnh tranh' : 'Cần góc nhìn khác biệt',
               engagementReason: item.scores?.engagement >= 80 ? 'Hook mạnh, có potential viral' : 'Tiềm năng tương tác trung bình',
+            },
+            // Search Intent & SEO fields
+            searchIntent: item.searchIntent || inferSearchIntent(item.funnelStage, item.topicType),
+            suggestedKeywords: item.suggestedKeywords || {
+              primary: item.relatedKeywords?.[0] || '',
+              secondary: item.relatedKeywords?.slice(1, 3) || [],
+              longTail: item.relatedKeywords?.slice(3, 5)?.map((k: string) => k) || [],
             },
           };
         });
@@ -926,7 +948,13 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
     "funnelStage": "tofu" | "mofu" | "bofu",
     "emotionalTone": "inspire" | "educate" | "entertain" | "convince",
     "relatedEvent": "(optional) Tên sự kiện liên quan nếu là seasonal/reactive topic",
-    "eventDate": "(optional) Ngày sự kiện DD/MM"
+    "eventDate": "(optional) Ngày sự kiện DD/MM",
+    "searchIntent": "informational" | "navigational" | "commercial" | "transactional",
+    "suggestedKeywords": {
+      "primary": "keyword chính để SEO",
+      "secondary": ["keyword phụ 1", "keyword phụ 2"],
+      "longTail": ["long-tail keyword 1 (3-5 từ)", "long-tail keyword 2"]
+    }
   }
 ]
 
@@ -940,6 +968,25 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
   - Topic mention persona-specific pain point → +10 điểm
   - Ví dụ: Topic "Tại sao 73% startup thất bại vì XYZ (và cách tránh)" = 60 + 10 (data) + 15 (contrarian) = 85
 - **engagement (0-100)**: Tiềm năng tương tác dựa trên hook, format, sharability. 90+ = viral potential, 70-89 = tương tác cao, <70 = trung bình.
+
+## SEARCH INTENT & SEO GUIDELINES:
+Mỗi topic PHẢI được phân loại search intent và gợi ý keywords SEO:
+
+### Search Intent Classification:
+- **informational**: User muốn tìm hiểu, học hỏi (VD: "Cách làm...", "Hướng dẫn...", "Tại sao...")
+- **navigational**: User tìm kiếm brand/website cụ thể (VD: topics về brand story, about us)
+- **commercial**: User đang nghiên cứu, so sánh trước khi mua (VD: "So sánh...", "Top 10...", "Review...")
+- **transactional**: User sẵn sàng hành động/mua (VD: "Đăng ký ngay...", "Mua...", "Tư vấn...")
+
+### Keyword Suggestions:
+- **primary**: 1 keyword chính (2-4 từ) để tối ưu SEO cho topic
+- **secondary**: 2-3 keywords liên quan có volume tìm kiếm cao
+- **longTail**: 2-3 long-tail keywords (4-7 từ) - cụ thể hơn, ít cạnh tranh
+
+### Mapping Intent → Funnel Stage:
+- informational → thường là TOFU
+- commercial → thường là MOFU
+- transactional → thường là BOFU
 
 ## UNIQUE ANGLE REQUIREMENTS:
 - Mỗi topic PHẢI có góc nhìn độc đáo, không generic

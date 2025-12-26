@@ -4,7 +4,7 @@ import {
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
   Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, 
-  Globe, Database, FileText, Link2, type LucideIcon
+  Globe, Database, FileText, Link2, BookOpen, Navigation, Search, ShoppingCart, Key, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -22,7 +22,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
-import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, SearchIntent, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 import { TopicQuickPreview } from './TopicQuickPreview';
 
 interface TopicIdeaCardProps {
@@ -81,6 +81,42 @@ const formatIcons: Record<TopicFormat, LucideIcon> = {
   carousel: ImageIcon,
   script: Video,
   multichannel: Layers,
+};
+
+// Search Intent configuration
+const searchIntentConfig: Record<SearchIntent, { icon: LucideIcon; label: string; color: string; bgClass: string; textClass: string; description: string }> = {
+  informational: {
+    icon: BookOpen,
+    label: 'Info',
+    color: 'blue',
+    bgClass: 'bg-blue-500/10',
+    textClass: 'text-blue-600 dark:text-blue-400',
+    description: 'Tìm kiếm thông tin, kiến thức',
+  },
+  navigational: {
+    icon: Navigation,
+    label: 'Nav',
+    color: 'slate',
+    bgClass: 'bg-slate-500/10',
+    textClass: 'text-slate-600 dark:text-slate-400',
+    description: 'Tìm kiếm brand/website cụ thể',
+  },
+  commercial: {
+    icon: Search,
+    label: 'Com',
+    color: 'amber',
+    bgClass: 'bg-amber-500/10',
+    textClass: 'text-amber-600 dark:text-amber-400',
+    description: 'So sánh, nghiên cứu trước khi mua',
+  },
+  transactional: {
+    icon: ShoppingCart,
+    label: 'Trans',
+    color: 'emerald',
+    bgClass: 'bg-emerald-500/10',
+    textClass: 'text-emerald-600 dark:text-emerald-400',
+    description: 'Sẵn sàng mua hàng, chuyển đổi',
+  },
 };
 
 const scoreConfig = [
@@ -351,6 +387,61 @@ export function TopicIdeaCard({
                   </Tooltip>
                 </TooltipProvider>
               )}
+            </div>
+          )}
+
+          {/* Search Intent & Keywords Badge */}
+          {topic.searchIntent && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        'text-[9px] px-1.5 py-0 gap-0.5',
+                        searchIntentConfig[topic.searchIntent].bgClass,
+                        searchIntentConfig[topic.searchIntent].textClass,
+                        'border-current/30'
+                      )}
+                    >
+                      {React.createElement(searchIntentConfig[topic.searchIntent].icon, { className: 'w-2.5 h-2.5' })}
+                      {searchIntentConfig[topic.searchIntent].label}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[280px]">
+                    <p className="text-xs font-medium flex items-center gap-1">
+                      {React.createElement(searchIntentConfig[topic.searchIntent].icon, { className: 'w-3 h-3' })}
+                      Search Intent: {topic.searchIntent.charAt(0).toUpperCase() + topic.searchIntent.slice(1)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {searchIntentConfig[topic.searchIntent].description}
+                    </p>
+                    {topic.suggestedKeywords && (
+                      <div className="mt-1.5 pt-1.5 border-t border-border/50">
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Key className="w-2.5 h-2.5" /> SEO Keywords:
+                        </p>
+                        {topic.suggestedKeywords.primary && (
+                          <p className="text-[10px] text-foreground font-medium mt-0.5">
+                            Primary: {topic.suggestedKeywords.primary}
+                          </p>
+                        )}
+                        {topic.suggestedKeywords.secondary?.length > 0 && (
+                          <p className="text-[9px] text-muted-foreground">
+                            Secondary: {topic.suggestedKeywords.secondary.join(', ')}
+                          </p>
+                        )}
+                        {topic.suggestedKeywords.longTail?.length > 0 && (
+                          <p className="text-[9px] text-muted-foreground">
+                            Long-tail: {topic.suggestedKeywords.longTail.slice(0, 2).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
         </div>
