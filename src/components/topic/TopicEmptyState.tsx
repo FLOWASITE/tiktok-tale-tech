@@ -5,6 +5,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ILLUSTRATION_MAP } from './TopicEmptyStateIllustrations';
 
 export type EmptyStateType = 
   | 'seasonal'
@@ -20,6 +21,8 @@ interface TopicEmptyStateProps {
   type: EmptyStateType;
   onAction?: () => void;
   className?: string;
+  /** Show animated illustration instead of emoji */
+  animated?: boolean;
 }
 
 const emptyStateConfig: Record<EmptyStateType, {
@@ -104,19 +107,34 @@ const emptyStateConfig: Record<EmptyStateType, {
   },
 };
 
-export function TopicEmptyState({ type, onAction, className }: TopicEmptyStateProps) {
+export function TopicEmptyState({ type, onAction, className, animated = true }: TopicEmptyStateProps) {
   const config = emptyStateConfig[type];
   const Icon = config.icon;
+  const IllustrationComponent = ILLUSTRATION_MAP[type];
 
   return (
-    <Card className={cn('gradient-card border-border/50 border-dashed', className)}>
-      <CardContent className="py-8 text-center">
-        {/* Illustration */}
-        <div className="mb-4 text-5xl opacity-80">{config.illustration}</div>
+    <Card className={cn('gradient-card border-border/50 border-dashed overflow-hidden', className)}>
+      <CardContent className="py-8 text-center relative">
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-30 pointer-events-none">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-bl-full" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-violet-500/10 to-transparent rounded-tr-full" />
+        </div>
+
+        {/* Illustration - animated or emoji */}
+        <div className="mb-4 flex justify-center relative z-10">
+          {animated && IllustrationComponent ? (
+            <IllustrationComponent />
+          ) : (
+            <div className="text-5xl opacity-80 animate-bounce" style={{ animationDuration: '2s' }}>
+              {config.illustration}
+            </div>
+          )}
+        </div>
         
         {/* Icon */}
         <div className={cn(
-          'mx-auto mb-4 p-3 rounded-xl w-fit',
+          'mx-auto mb-4 p-3 rounded-xl w-fit relative z-10',
           'bg-gradient-to-br',
           config.iconGradient
         )}>
@@ -124,14 +142,19 @@ export function TopicEmptyState({ type, onAction, className }: TopicEmptyStatePr
         </div>
 
         {/* Text */}
-        <h4 className="font-medium text-foreground mb-2">{config.title}</h4>
-        <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-4">
+        <h4 className="font-medium text-foreground mb-2 relative z-10">{config.title}</h4>
+        <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-4 relative z-10">
           {config.description}
         </p>
 
         {/* Action button */}
         {config.actionLabel && onAction && (
-          <Button variant="outline" size="sm" onClick={onAction} className="gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onAction} 
+            className="gap-2 relative z-10 hover:scale-105 transition-transform"
+          >
             {config.actionLabel}
             <ArrowRight className="w-4 h-4" />
           </Button>
