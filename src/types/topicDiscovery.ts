@@ -41,6 +41,51 @@ export type ClusterRole = 'pillar' | 'cluster' | 'standalone';
 // Content Tier - Hero/Hub/Hygiene Model (Google's 3H)
 export type ContentTier = 'hero' | 'hub' | 'hygiene';
 
+// Media Ownership - Owned/Earned/Paid Model
+export type MediaOwnership = 'owned' | 'earned' | 'paid';
+
+export const MEDIA_OWNERSHIP_LABELS: { 
+  value: MediaOwnership; 
+  label: string; 
+  icon: string; 
+  color: string; 
+  bgClass: string;
+  textClass: string;
+  description: string;
+  examples: string[];
+}[] = [
+  { 
+    value: 'owned', 
+    label: 'Owned', 
+    icon: 'Home', 
+    color: 'blue',
+    bgClass: 'bg-blue-500/10',
+    textClass: 'text-blue-600 dark:text-blue-400',
+    description: 'Kênh do brand sở hữu và kiểm soát hoàn toàn',
+    examples: ['Website/Blog', 'Email newsletter', 'Fanpage chính thức', 'App', 'YouTube channel']
+  },
+  { 
+    value: 'earned', 
+    label: 'Earned', 
+    icon: 'Award', 
+    color: 'emerald',
+    bgClass: 'bg-emerald-500/10',
+    textClass: 'text-emerald-600 dark:text-emerald-400',
+    description: 'Nội dung viral, được chia sẻ tự nhiên không mất phí',
+    examples: ['PR/Media coverage', 'User reviews', 'Word-of-mouth', 'Social shares', 'UGC']
+  },
+  { 
+    value: 'paid', 
+    label: 'Paid', 
+    icon: 'DollarSign', 
+    color: 'amber',
+    bgClass: 'bg-amber-500/10',
+    textClass: 'text-amber-600 dark:text-amber-400',
+    description: 'Quảng cáo trả phí để đạt reach nhanh chóng',
+    examples: ['Facebook/Google Ads', 'Sponsored posts', 'Influencer marketing', 'Affiliate']
+  },
+];
+
 export interface ContentSeries {
   seriesName: string;
   totalParts: number;
@@ -101,6 +146,8 @@ export interface EnhancedTopicSuggestion {
   clusterRole?: ClusterRole;
   // Content Tier (3H Model)
   contentTier?: ContentTier;       // hero/hub/hygiene classification
+  // Media Ownership (Owned/Earned/Paid)
+  mediaOwnership?: MediaOwnership; // owned/earned/paid classification
 }
 
 export interface TopicHistoryItem {

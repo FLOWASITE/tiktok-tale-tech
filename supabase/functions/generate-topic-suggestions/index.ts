@@ -330,6 +330,8 @@ interface EnhancedTopicSuggestion {
   isFromAudienceQA?: boolean;
   // Content Tier (3H Model)
   contentTier?: 'hero' | 'hub' | 'hygiene';
+  // Media Ownership (Owned/Earned/Paid)
+  mediaOwnership?: 'owned' | 'earned' | 'paid';
 }
 
 // Helper to infer search intent from funnel stage and topic type
@@ -360,6 +362,30 @@ function inferContentTier(
   }
   // Default to hygiene (60% of content should be hygiene)
   return 'hygiene';
+}
+
+// Helper to infer media ownership from format, contentTier, and topic characteristics
+function inferMediaOwnership(
+  formats?: string[],
+  contentTier?: string,
+  category?: string,
+  topicType?: string
+): 'owned' | 'earned' | 'paid' {
+  // Paid: Hero content often requires paid amplification
+  if (contentTier === 'hero' && (category === 'reactive' || category === 'seasonal')) {
+    return 'paid';
+  }
+  // Earned: UGC, testimonials, memes, viral-potential content
+  const earnedFormats = ['ugc', 'testimonial', 'meme'];
+  if (formats?.some(f => earnedFormats.includes(f))) {
+    return 'earned';
+  }
+  // Earned: Story-type content often gets organic shares
+  if (topicType === 'story') {
+    return 'earned';
+  }
+  // Default: Most content is owned media (blog, newsletter, fanpage posts)
+  return 'owned';
 }
 
 // Persona context for fetching
@@ -685,6 +711,13 @@ serve(async (req) => {
             isFromAudienceQA: item.isFromAudienceQA === true || !!item.audienceQuestion,
             // Content Tier (3H Model)
             contentTier: item.contentTier || inferContentTier(item.category, item.searchIntent || inferSearchIntent(item.funnelStage, item.topicType), item.funnelStage),
+            // Media Ownership (Owned/Earned/Paid)
+            mediaOwnership: item.mediaOwnership || inferMediaOwnership(
+              item.formats,
+              item.contentTier || inferContentTier(item.category, item.searchIntent, item.funnelStage),
+              item.category,
+              item.topicType
+            ),
           };
         });
       }
@@ -1146,7 +1179,8 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
     "series": "(optional) { seriesName: string, totalParts: number, currentPart: number, relatedTopics: string[] }",
     "audienceQuestion": "(optional) Câu hỏi gốc từ audience nếu topic dựa trên Q&A mining",
     "isFromAudienceQA": "(optional) true nếu topic được tạo từ Audience Q&A",
-    "contentTier": "hero" | "hub" | "hygiene"
+    "contentTier": "hero" | "hub" | "hygiene",
+    "mediaOwnership": "owned" | "earned" | "paid"
   }
 ]
 
@@ -1248,6 +1282,34 @@ Mỗi topic PHẢI được phân loại theo mô hình 3H của Google:
 - Hero content tập trung vào seasonal events hoặc brand campaigns
 - Hub content xây dựng series, educational deep-dives
 - Hygiene content phủ SEO keywords, FAQs, how-tos
+
+## 📡 MEDIA OWNERSHIP (OWNED/EARNED/PAID) CLASSIFICATION:
+Mỗi topic PHẢI được phân loại theo mô hình Media Ownership:
+
+### Media Types:
+- **owned** (Kênh sở hữu):
+  - Content đăng trên kênh do brand kiểm soát hoàn toàn
+  - VD: Website/Blog, Email newsletter, Fanpage chính thức, App, YouTube channel
+  - Ưu điểm: Kiểm soát 100%, chi phí thấp, xây dựng tài sản dài hạn
+  - Thường là: blog_post, newsletter, multichannel posts
+  
+- **earned** (Kênh lan truyền):
+  - Content được viral, chia sẻ tự nhiên không mất phí
+  - VD: PR/Media coverage, User reviews, Word-of-mouth, Social shares, UGC
+  - Ưu điểm: Độ tin cậy cao, reach tự nhiên, cost-effective
+  - Thường là: ugc, testimonial, meme, viral content, story-type topics
+  
+- **paid** (Kênh trả phí):
+  - Content quảng cáo để đạt reach nhanh chóng
+  - VD: Facebook/Google Ads, Sponsored posts, Influencer marketing, Affiliate
+  - Ưu điểm: Reach ngay lập tức, targeting chính xác, scalable
+  - Thường là: hero content, product launches, seasonal campaigns
+
+### Mapping Guidelines:
+- formats = ['ugc', 'testimonial', 'meme'] → thường là earned
+- contentTier = 'hero' + category = 'reactive'/'seasonal' → thường là paid
+- formats = ['blog_post', 'newsletter'] → thường là owned
+- topicType = 'story' → thường là earned (viral potential)
 
 ## GUIDELINES:
 - Mỗi chủ đề phải CỤ THỂ và ACTIONABLE, không chung chung
