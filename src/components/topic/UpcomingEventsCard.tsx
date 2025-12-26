@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SEASONAL_EVENTS, SeasonalEvent } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
 import { differenceInDays, differenceInHours, differenceInMinutes, differenceInSeconds, format } from 'date-fns';
@@ -14,6 +15,7 @@ interface UpcomingEventsCardProps {
   onScheduleTopic?: (topic: string, eventDate: Date) => void;
   limit?: number;
   isGenerating?: boolean;
+  isLoading?: boolean;
 }
 
 const eventTypeConfig = {
@@ -107,6 +109,7 @@ export function UpcomingEventsCard({
   onScheduleTopic,
   limit = 3,
   isGenerating = false,
+  isLoading = false,
 }: UpcomingEventsCardProps) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [selectedEventForAI, setSelectedEventForAI] = useState<SeasonalEvent | null>(null);
@@ -150,6 +153,30 @@ export function UpcomingEventsCard({
     setSelectedEventForAI(event);
     onGetSuggestions?.(event);
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card className="border-border/50 overflow-hidden">
+        <div className="p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <Skeleton className="w-10 h-10 rounded-xl" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+          <Skeleton className="h-16 w-full rounded-lg" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-1.5 w-full" />
+          </div>
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </Card>
+    );
+  }
 
   if (upcomingEvents.length === 0) {
     return null;

@@ -2,6 +2,7 @@ import { Brain, ThumbsUp, ThumbsDown, TrendingUp, Sparkles, Info } from 'lucide-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +13,7 @@ interface AILearningStatusProps {
   topPatterns?: string[];
   personalizationLevel: number; // 0-100
   isLearning?: boolean;
+  isLoading?: boolean;
 }
 
 export function AILearningStatus({
@@ -21,6 +23,7 @@ export function AILearningStatus({
   topPatterns = [],
   personalizationLevel,
   isLearning,
+  isLoading,
 }: AILearningStatusProps) {
   const positiveRate = totalFeedback > 0 
     ? Math.round((positiveFeedback / totalFeedback) * 100) 
@@ -35,6 +38,40 @@ export function AILearningStatus({
   };
 
   const levelInfo = getLevelLabel(personalizationLevel);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-4 w-4 rounded-full" />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <Skeleton className="h-2 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+          <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-8" />
+            </div>
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-4 w-12" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-border/50">
