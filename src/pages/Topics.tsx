@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, Sparkles, BookOpen, BarChart3, 
   TrendingUp, Star, Bookmark, RefreshCw,
-  Zap, Target, Brain, CheckSquare, Layers, Grid3X3, LayoutList
+  Zap, Target, Brain, CheckSquare, Layers, Grid3X3, LayoutList,
+  Percent
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,6 +31,7 @@ import { TopicBulkActions } from '@/components/topic/TopicBulkActions';
 import { BrandSpotlightHeader } from '@/components/topic/BrandSpotlightHeader';
 import { BrandSwitcherDialog } from '@/components/topic/BrandSwitcherDialog';
 import { TopicsByPillarView } from '@/components/topic/TopicsByPillarView';
+import { TopicAIHeroSection } from '@/components/topic/TopicAIHeroSection';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -177,15 +179,21 @@ const Topics = () => {
   }, [selectedBrandId, selectedGoal]);
 
   // Combined stats
-  const combinedStats = useMemo(() => ({
-    totalTopics: historyStats.totalTopics,
-    draftsCount: drafts.length,
-    favorites: historyStats.favoriteCount,
-    usedTopics: historyStats.usedTopics,
-    avgPerformance: historyStats.averagePerformance || 0,
-    suggestionCount: suggestions.length,
-    topPerformersCount: topPerformers.length,
-  }), [historyStats, drafts.length, suggestions, topPerformers]);
+  const combinedStats = useMemo(() => {
+    const usageRate = historyStats.totalTopics > 0 
+      ? Math.round((historyStats.usedTopics / historyStats.totalTopics) * 100) 
+      : 0;
+    return {
+      totalTopics: historyStats.totalTopics,
+      draftsCount: drafts.length,
+      favorites: historyStats.favoriteCount,
+      usedTopics: historyStats.usedTopics,
+      avgPerformance: historyStats.averagePerformance || 0,
+      suggestionCount: suggestions.length,
+      topPerformersCount: topPerformers.length,
+      usageRate,
+    };
+  }, [historyStats, drafts.length, suggestions, topPerformers]);
 
   const handleSelectTopic = async (topic: EnhancedTopicSuggestion) => {
     await saveTopic(topic, 'selected');
@@ -312,84 +320,86 @@ const Topics = () => {
           onViewBrand={(id) => navigate(`/brands/${id}`)}
         />
 
-        {/* Stats Cards - Show brand-specific when brand selected */}
+        {/* AI Hero Section - Central Focus when brand selected */}
+        {selectedBrandId && (
+          <TopicAIHeroSection
+            brandTemplateId={selectedBrandId}
+            contentGoal={selectedGoal}
+            onNavigate={(path, state) => navigate(path, { state })}
+          />
+        )}
+
+        {/* Compact Stats Row - 3 key metrics */}
         {selectedBrandId ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            <Card className="gradient-card border-border/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{combinedStats.suggestionCount}</p>
-                  <p className="text-xs text-muted-foreground">Gợi ý AI</p>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-lg font-bold">{combinedStats.suggestionCount}</p>
+                <p className="text-xs text-muted-foreground">Gợi ý AI</p>
+              </div>
+            </div>
 
-            <Card className="gradient-card border-border/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-violet-500/10">
-                  <Layers className="w-5 h-5 text-violet-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{contentPillars.length}</p>
-                  <p className="text-xs text-muted-foreground">Pillars</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="h-8 w-px bg-border" />
 
-            <Card className="gradient-card border-border/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10">
-                  <Bookmark className="w-5 h-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{combinedStats.totalTopics}</p>
-                  <p className="text-xs text-muted-foreground">Đã lưu</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-amber-500/10">
+                <Bookmark className="w-4 h-4 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-lg font-bold">{combinedStats.totalTopics}</p>
+                <p className="text-xs text-muted-foreground">Đã lưu</p>
+              </div>
+            </div>
 
-            <Card className="gradient-card border-border/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <Zap className="w-5 h-5 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{combinedStats.usedTopics}</p>
-                  <p className="text-xs text-muted-foreground">Đã dùng</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="h-8 w-px bg-border" />
 
-            <Card className="gradient-card border-border/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-rose-500/10">
-                  <Star className="w-5 h-5 text-rose-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{combinedStats.favorites}</p>
-                  <p className="text-xs text-muted-foreground">Yêu thích</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-500/10">
+                <Percent className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-lg font-bold">{combinedStats.usageRate}%</p>
+                <p className="text-xs text-muted-foreground">Tỷ lệ sử dụng</p>
+              </div>
+            </div>
 
-            <Card className="gradient-card border-border/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10">
-                  <Target className="w-5 h-5 text-cyan-500" />
+            {contentPillars.length > 0 && (
+              <>
+                <div className="h-8 w-px bg-border" />
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-violet-500/10">
+                    <Layers className="w-4 h-4 text-violet-500" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{contentPillars.length}</p>
+                    <p className="text-xs text-muted-foreground">Pillars</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{suggestionStats?.averageScore || combinedStats.avgPerformance || '-'}</p>
-                  <p className="text-xs text-muted-foreground">Brand Fit TB</p>
-                </div>
-              </CardContent>
-            </Card>
+              </>
+            )}
+
+            <div className="ml-auto flex items-center gap-2">
+              {suggestionStats && (
+                <Badge variant="outline" className="text-xs">
+                  Điểm TB: {suggestionStats.averageScore}
+                </Badge>
+              )}
+              <TopicAILearningBadge
+                isPersonalized={!!selectedBrandId}
+                isEnhancing={isEnhancing}
+                source={source}
+                usedCount={combinedStats.usedTopics}
+                favoritesCount={combinedStats.favorites}
+                learningCount={topPerformers.length}
+              />
+            </div>
           </div>
         ) : (
           <div className="text-center py-4 text-sm text-muted-foreground">
-            <p>Chọn Brand để xem thống kê chi tiết</p>
+            <p>Chọn Brand để xem AI gợi ý và thống kê chi tiết</p>
           </div>
         )}
 
