@@ -22,6 +22,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
 import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
+import { TopicQuickPreview } from './TopicQuickPreview';
 
 interface TopicIdeaCardProps {
   topic: EnhancedTopicSuggestion;
@@ -539,110 +540,30 @@ export function TopicIdeaCard({
     </Card>
   );
 
-  // Wrap with HoverCard for detailed preview
+  // Wrap with HoverCard for detailed preview using TopicQuickPreview
   return (
-    <HoverCard openDelay={400} closeDelay={100}>
+    <HoverCard openDelay={300} closeDelay={150}>
       <HoverCardTrigger asChild>
         {cardContent}
       </HoverCardTrigger>
       <HoverCardContent 
         side="right" 
         align="start" 
-        className="w-80 p-4"
-        sideOffset={8}
+        className="p-0 w-auto border-0 shadow-none bg-transparent animate-in fade-in-0 zoom-in-95 slide-in-from-left-2 duration-200"
+        sideOffset={12}
       >
-        <div className="space-y-3">
-          {/* Header */}
-          <div className="flex items-start gap-2">
-            <div className={cn('p-1.5 rounded-lg shrink-0', config.bgClass)}>
-              <CategoryIcon className={cn('w-4 h-4', config.textClass)} />
-            </div>
-            <div>
-              <h4 className="font-medium text-sm leading-tight">{topic.topic}</h4>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className={cn('text-[10px]', config.bgClass, config.textClass)}>
-                  {config.label}
-                </Badge>
-                {topic.pillar && (
-                  <Badge variant="secondary" className="text-[10px]">
-                    {topic.pillar}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Reasoning - Full */}
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-medium text-muted-foreground uppercase">Lý do gợi ý</p>
-            <p className="text-xs leading-relaxed text-foreground">
-              {topic.reasoning}
-            </p>
-          </div>
-
-          {/* Scores summary */}
-          {topic.scores && (
-            <div className="grid grid-cols-2 gap-2">
-              {scoreConfig.map(({ key, label, icon: ScoreIcon }) => {
-                const value = topic.scores![key];
-                return (
-                  <div key={key} className="flex items-center gap-1.5 text-xs">
-                    <ScoreIcon className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-muted-foreground">{label}:</span>
-                    <span className={cn(
-                      'font-medium',
-                      value >= 75 ? 'text-emerald-600' : value >= 60 ? 'text-amber-600' : 'text-red-600'
-                    )}>
-                      {value}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Keywords */}
-          {topic.relatedKeywords && topic.relatedKeywords.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase">Từ khóa liên quan</p>
-              <div className="flex flex-wrap gap-1">
-                {topic.relatedKeywords.slice(0, 6).map((kw) => (
-                  <Badge key={kw} variant="outline" className="text-[10px] px-1.5">
-                    {kw}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="flex gap-2 pt-2 border-t border-border/50">
-            <Button 
-              size="sm" 
-              className="flex-1 h-7 text-xs"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(topic);
-              }}
-            >
-              <Play className="w-3 h-3 mr-1" />
-              Sử dụng ngay
-            </Button>
-            {onSave && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-7 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSave(topic);
-                }}
-              >
-                <BookmarkPlus className="w-3 h-3" />
-              </Button>
-            )}
-          </div>
-        </div>
+        <TopicQuickPreview
+          topic={topic}
+          brandTemplateId={brandTemplateId}
+          onCreateContent={(format) => {
+            if (format === 'script') {
+              handleCreateScript();
+            } else {
+              onSelect(topic);
+            }
+          }}
+          className="animate-in fade-in-0 zoom-in-95 duration-300"
+        />
       </HoverCardContent>
     </HoverCard>
   );
