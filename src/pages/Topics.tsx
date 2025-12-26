@@ -10,9 +10,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TopicIdeaCard } from '@/components/topic/TopicIdeaCard';
 import { TopicMobileCard } from '@/components/topic/TopicMobileCard';
 import { TopicBankGrid } from '@/components/topic/TopicBankGrid';
@@ -411,53 +411,79 @@ const Topics = () => {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {/* View Mode Toggle */}
-                    {contentPillars.length > 0 && suggestions.length > 0 && (
-                      <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                        <Button
-                          variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setViewMode('grid')}
-                        >
-                          <Grid3X3 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setViewMode('pillar')}
-                        >
-                          <LayoutList className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {suggestions.length > 0 && (
-                      <Button
-                        variant={selectionMode ? 'secondary' : 'ghost'}
-                        size="sm"
-                        onClick={() => {
-                          setSelectionMode(!selectionMode);
-                          if (selectionMode) setSelectedTopics([]);
-                        }}
-                        className="gap-1.5"
-                      >
-                        <CheckSquare className="w-4 h-4" />
-                        {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
-                      </Button>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={refresh}
-                      disabled={suggestionsLoading || isEnhancing}
-                    >
-                      <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
-                      Làm mới
-                    </Button>
-                  </div>
+                  <TooltipProvider>
+                    <div className="flex items-center gap-2">
+                      {/* View Mode Toggle */}
+                      {contentPillars.length > 0 && suggestions.length > 0 && (
+                        <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setViewMode('grid')}
+                                aria-label="Xem dạng lưới"
+                              >
+                                <Grid3X3 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Xem dạng lưới</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setViewMode('pillar')}
+                                aria-label="Xem theo pillar"
+                              >
+                                <LayoutList className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Xem theo pillar</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      )}
+                      
+                      {suggestions.length > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant={selectionMode ? 'secondary' : 'ghost'}
+                              size="sm"
+                              onClick={() => {
+                                setSelectionMode(!selectionMode);
+                                if (selectionMode) setSelectedTopics([]);
+                              }}
+                              className="gap-1.5"
+                              aria-label={selectionMode ? 'Hủy chọn nhiều' : 'Chọn nhiều ý tưởng'}
+                            >
+                              <CheckSquare className="w-4 h-4" />
+                              {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{selectionMode ? 'Hủy chế độ chọn nhiều' : 'Chọn nhiều ý tưởng để thao tác'}</TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={refresh}
+                            disabled={suggestionsLoading || isEnhancing}
+                            aria-label="Làm mới gợi ý"
+                          >
+                            <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
+                            Làm mới
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Tạo gợi ý mới từ AI</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
                 </div>
 
                 {suggestionsLoading ? (
@@ -590,15 +616,24 @@ const Topics = () => {
                 {contentPillars.length > 0 && (
                   <>
                     <div className="h-8 w-px bg-border" />
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-violet-500/10">
+                    <button 
+                      className="flex items-center gap-2 hover:bg-violet-500/5 p-1 -m-1 rounded-lg transition-colors group"
+                      onClick={() => {
+                        setViewMode('pillar');
+                        const suggestionsSection = document.querySelector('[data-suggestions-section]');
+                        if (suggestionsSection) {
+                          suggestionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      }}
+                    >
+                      <div className="p-1.5 rounded-lg bg-violet-500/10 group-hover:bg-violet-500/20 transition-colors">
                         <Layers className="w-4 h-4 text-violet-500" />
                       </div>
-                      <div>
+                      <div className="text-left">
                         <p className="text-lg font-bold">{contentPillars.length}</p>
                         <p className="text-xs text-muted-foreground">Pillars</p>
                       </div>
-                    </div>
+                    </button>
                   </>
                 )}
               </div>
@@ -765,13 +800,6 @@ const Topics = () => {
             />
           </TabsContent>
 
-          {/* Pipeline Tab */}
-          <TabsContent value="pipeline">
-            <ContentPipelineView
-              brandTemplateId={selectedBrandId || undefined}
-              contentGoal={selectedGoal}
-            />
-          </TabsContent>
 
           {/* Performance Tab */}
           <TabsContent value="performance">
