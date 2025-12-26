@@ -57,3 +57,9 @@ export { AILearningDashboard } from './AILearningDashboard';
 
 // Phase 7: Mobile
 export { MobileSidebarDrawer } from './MobileSidebarDrawer';
+
+// Phase 7: Enhanced Empty States & Illustrations
+export * from './TopicEmptyStateIllustrations';
+
+// Phase 7: Error Boundary
+export { TopicErrorBoundary, withTopicErrorBoundary } from './TopicErrorBoundary';

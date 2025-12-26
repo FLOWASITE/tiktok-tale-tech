@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import {
   Tooltip,
   TooltipContent,
@@ -68,6 +69,25 @@ export function TopicComparisonMode({
   onSelectBest,
   onClearSelection,
 }: TopicComparisonModeProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard navigation: Escape to close, Enter to select best
+  useKeyboardNavigation({
+    onEscape: () => onOpenChange(false),
+    onEnter: () => {
+      if (bestTopic) onSelectBest(bestTopic.topic);
+    },
+    focusTrapRef: dialogRef,
+    enabled: open,
+  });
+
+  // Focus first button when dialog opens
+  useEffect(() => {
+    if (open && dialogRef.current) {
+      const firstButton = dialogRef.current.querySelector('button') as HTMLElement;
+      firstButton?.focus();
+    }
+  }, [open]);
   // Radar chart data
   const radarData = useMemo(() => {
     const metrics = [
@@ -128,7 +148,11 @@ export function TopicComparisonMode({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        ref={dialogRef}
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        data-keyboard-navigation
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-primary" />
