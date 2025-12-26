@@ -4,7 +4,8 @@ import {
   Leaf, TrendingUp, Calendar, Zap, Sparkles, Clock, 
   BookmarkPlus, BookmarkCheck, Play, CalendarPlus, Info, ImageIcon, Video, Layers,
   Target, BarChart3, Users, Trophy, Flame, Gift, Star, X, Clapperboard, GripVertical, 
-  Globe, Database, FileText, Link2, BookOpen, Navigation, Search, ShoppingCart, Key, type LucideIcon
+  Globe, Database, FileText, Link2, BookOpen, Navigation, Search, ShoppingCart, Key,
+  Crown, GitBranch, ListTree, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -22,7 +23,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
-import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, SearchIntent, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, TopicCategory, TopicFormat, TopicDataSource, SearchIntent, ClusterRole, calculateOverallScore, getScoreColor, SCORE_THRESHOLDS } from '@/types/topicDiscovery';
 import { TopicQuickPreview } from './TopicQuickPreview';
 
 interface TopicIdeaCardProps {
@@ -116,6 +117,34 @@ const searchIntentConfig: Record<SearchIntent, { icon: LucideIcon; label: string
     bgClass: 'bg-emerald-500/10',
     textClass: 'text-emerald-600 dark:text-emerald-400',
     description: 'Sẵn sàng mua hàng, chuyển đổi',
+  },
+};
+
+// Cluster Role configuration
+const clusterRoleConfig: Record<ClusterRole, { icon: LucideIcon; label: string; color: string; bgClass: string; textClass: string; description: string }> = {
+  pillar: {
+    icon: Crown,
+    label: 'Pillar',
+    color: 'amber',
+    bgClass: 'bg-amber-500/10',
+    textClass: 'text-amber-600 dark:text-amber-400',
+    description: 'Nội dung trụ cột, bao quát chủ đề lớn',
+  },
+  cluster: {
+    icon: GitBranch,
+    label: 'Cluster',
+    color: 'blue',
+    bgClass: 'bg-blue-500/10',
+    textClass: 'text-blue-600 dark:text-blue-400',
+    description: 'Nội dung chi tiết, liên kết với pillar',
+  },
+  standalone: {
+    icon: FileText,
+    label: 'Standalone',
+    color: 'slate',
+    bgClass: 'bg-slate-500/10',
+    textClass: 'text-slate-600 dark:text-slate-400',
+    description: 'Nội dung độc lập',
   },
 };
 
@@ -442,6 +471,71 @@ export function TopicIdeaCard({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              {/* Cluster Role Badge */}
+              {topic.clusterRole && topic.clusterRole !== 'standalone' && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          'text-[9px] px-1.5 py-0 gap-0.5',
+                          clusterRoleConfig[topic.clusterRole].bgClass,
+                          clusterRoleConfig[topic.clusterRole].textClass,
+                          'border-current/30'
+                        )}
+                      >
+                        {React.createElement(clusterRoleConfig[topic.clusterRole].icon, { className: 'w-2.5 h-2.5' })}
+                        {clusterRoleConfig[topic.clusterRole].label}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[280px]">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        {React.createElement(clusterRoleConfig[topic.clusterRole].icon, { className: 'w-3 h-3' })}
+                        {clusterRoleConfig[topic.clusterRole].label} Content
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {clusterRoleConfig[topic.clusterRole].description}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
+              {/* Content Series Badge */}
+              {topic.series && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="text-[9px] px-1.5 py-0 gap-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
+                      >
+                        <ListTree className="w-2.5 h-2.5" />
+                        Series {topic.series.currentPart || 1}/{topic.series.totalParts}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[300px]">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        <ListTree className="w-3 h-3" />
+                        {topic.series.seriesName}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Phần {topic.series.currentPart || 1} / {topic.series.totalParts} phần
+                      </p>
+                      {topic.series.relatedTopics && topic.series.relatedTopics.length > 0 && (
+                        <div className="mt-1.5 pt-1.5 border-t border-border/50">
+                          <p className="text-[10px] text-muted-foreground">Các phần khác:</p>
+                          {topic.series.relatedTopics.slice(0, 3).map((t, i) => (
+                            <p key={i} className="text-[9px] text-foreground truncate">• {t}</p>
+                          ))}
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           )}
         </div>

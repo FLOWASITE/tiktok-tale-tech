@@ -227,6 +227,14 @@ interface EnhancedTopicSuggestion {
     secondary: string[];
     longTail: string[];
   };
+  // Content Series & Cluster
+  series?: {
+    seriesName: string;
+    totalParts: number;
+    currentPart?: number;
+    relatedTopics?: string[];
+  };
+  clusterRole?: 'pillar' | 'cluster' | 'standalone';
 }
 
 // Helper to infer search intent from funnel stage and topic type
@@ -533,6 +541,9 @@ serve(async (req) => {
               secondary: item.relatedKeywords?.slice(1, 3) || [],
               longTail: item.relatedKeywords?.slice(3, 5)?.map((k: string) => k) || [],
             },
+            // Content Series & Cluster fields
+            clusterRole: item.clusterRole || 'standalone',
+            series: item.series || undefined,
           };
         });
       }
@@ -954,7 +965,9 @@ Trả về CHÍNH XÁC JSON array với mỗi item có cấu trúc sau:
       "primary": "keyword chính để SEO",
       "secondary": ["keyword phụ 1", "keyword phụ 2"],
       "longTail": ["long-tail keyword 1 (3-5 từ)", "long-tail keyword 2"]
-    }
+    },
+    "clusterRole": "pillar" | "cluster" | "standalone",
+    "series": "(optional) { seriesName: string, totalParts: number, currentPart: number, relatedTopics: string[] }"
   }
 ]
 
@@ -987,6 +1000,28 @@ Mỗi topic PHẢI được phân loại search intent và gợi ý keywords SEO
 - informational → thường là TOFU
 - commercial → thường là MOFU
 - transactional → thường là BOFU
+
+## CONTENT SERIES & CLUSTER GUIDELINES:
+Xây dựng hệ thống content có chiến lược với Topic Clusters và Content Series:
+
+### Cluster Role Classification:
+- **pillar**: Nội dung trụ cột, bao quát chủ đề lớn, deep-dive. Thường là long-form, comprehensive. Mỗi 8-10 topics nên có 1-2 pillar.
+- **cluster**: Nội dung chi tiết về một khía cạnh của pillar topic. Link ngược về pillar. Chiếm 50-60% topics.
+- **standalone**: Nội dung độc lập, không thuộc cluster nào (reactive, trending topics). 20-30% topics.
+
+### Content Series:
+- Đề xuất 1-2 topics dạng Series (có thể chia thành nhiều parts)
+- Series phù hợp cho: how-to guides, case study series, weekly tips
+- Format series object:
+  - seriesName: Tên series (VD: "Master Content Marketing")
+  - totalParts: Số phần dự kiến (3-5 parts)
+  - currentPart: Phần hiện tại (1 cho topic đầu tiên)
+  - relatedTopics: Gợi ý tiêu đề các parts khác
+
+### Cluster Linking Strategy:
+- Pillar topics nên có clusterRole = "pillar" và list relatedTopics trong series
+- Cluster topics link về pillar thông qua relatedKeywords chung
+
 
 ## UNIQUE ANGLE REQUIREMENTS:
 - Mỗi topic PHẢI có góc nhìn độc đáo, không generic
