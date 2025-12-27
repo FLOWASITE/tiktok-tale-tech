@@ -123,12 +123,13 @@ export function MarketingFrameworkSelector({
                 {value === fw.value && <Check className="w-3 h-3 ml-1" />}
               </Badge>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p className="font-medium">{fw.fullName}</p>
+            <TooltipContent className="max-w-xs" side="bottom">
+              <p className="font-semibold text-sm mb-1">{fw.fullName}</p>
               <p className="text-xs text-muted-foreground mb-2">{fw.description}</p>
-              <div className="space-y-1 border-t pt-2">
+              <div className="space-y-0.5 border-t pt-2 mt-2">
+                <p className="text-xs font-medium mb-1">Cấu trúc:</p>
                 {fw.structure.map((step, i) => (
-                  <p key={i} className="text-xs">{step}</p>
+                  <p key={i} className="text-xs text-muted-foreground">• {step}</p>
                 ))}
               </div>
             </TooltipContent>
