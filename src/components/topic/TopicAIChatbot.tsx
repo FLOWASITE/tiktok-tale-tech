@@ -421,14 +421,13 @@ export function TopicAIChatbot({
     };
   }, [sendMessage]);
 
-  const isMobileFullscreen = className?.includes('h-full');
+  const isMobileFullscreen = className?.includes('border-0') || className?.includes('rounded-none');
 
   return (
     <Card className={cn(
-      'flex flex-col',
+      'flex flex-col h-full max-h-full',
       // On mobile fullscreen: no border, no shadow for seamless look
-      isMobileFullscreen ? 'border-0 shadow-none rounded-none' : 'border-2 border-primary/20',
-      'h-full max-h-full',
+      isMobileFullscreen ? 'border-0 shadow-none rounded-none bg-background' : 'border-2 border-primary/20',
       className
     )}>
       {/* Header - Compact on mobile */}
