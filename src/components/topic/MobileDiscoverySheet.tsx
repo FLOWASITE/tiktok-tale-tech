@@ -77,7 +77,7 @@ export function MobileDiscoverySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+      <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <SheetHeader className="sticky top-0 z-10 bg-background border-b px-4 py-3">
           <div className="flex items-center gap-3">
@@ -91,7 +91,7 @@ export function MobileDiscoverySheet({
           </div>
         </SheetHeader>
 
-        <div className="overflow-y-auto pb-safe">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y pb-safe">
           {/* Next Best Topic */}
           {brandTemplateId && (
             <Card className="mx-4 mt-4 border-primary/20 bg-gradient-to-br from-primary/5 to-violet-500/5">
