@@ -319,7 +319,9 @@ export function TopicAIChatbot({
   // Voice input state
   const [isRecording, setIsRecording] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [interimText, setInterimText] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const lastFinalIndexRef = useRef(0);
   
   // Dynamic width state - based on content
   const [dynamicWidth, setDynamicWidth] = useState<'compact' | 'normal' | 'wide' | 'full'>('normal');
@@ -349,26 +351,36 @@ export function TopicAIChatbot({
         let finalTranscript = '';
         let interimTranscript = '';
         
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        // Only process NEW results (from lastFinalIndex onwards)
+        for (let i = lastFinalIndexRef.current; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
             finalTranscript += transcript;
+            lastFinalIndexRef.current = i + 1; // Track what we've processed
           } else {
             interimTranscript = transcript;
           }
         }
         
+        // Show interim text (placeholder - not committed yet)
+        setInterimText(interimTranscript);
+        
+        // Only append final transcript ONCE
         if (finalTranscript) {
           setInput(prev => {
-            const newValue = prev + (prev ? ' ' : '') + finalTranscript;
-            return newValue.slice(0, MAX_CHARS);
+            const separator = prev && !prev.endsWith(' ') ? ' ' : '';
+            return (prev + separator + finalTranscript.trim()).slice(0, MAX_CHARS);
           });
+          // Clear interim text when we have final
+          setInterimText('');
         }
       };
       
       recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
         setIsRecording(false);
+        setInterimText('');
+        lastFinalIndexRef.current = 0;
         if (event.error === 'not-allowed') {
           toast({
             title: 'Không có quyền truy cập microphone',
@@ -380,6 +392,8 @@ export function TopicAIChatbot({
       
       recognition.onend = () => {
         setIsRecording(false);
+        setInterimText('');
+        // Don't reset lastFinalIndexRef here - it will be reset on next start
       };
       
       recognitionRef.current = recognition;
@@ -397,9 +411,14 @@ export function TopicAIChatbot({
     if (isRecording) {
       recognitionRef.current.stop();
       setIsRecording(false);
+      setInterimText('');
+      lastFinalIndexRef.current = 0; // Reset tracker
       triggerHaptic('light');
     } else {
       try {
+        // Reset tracker before starting new session
+        lastFinalIndexRef.current = 0;
+        setInterimText('');
         recognitionRef.current.start();
         setIsRecording(true);
         triggerHaptic('medium');
@@ -409,6 +428,7 @@ export function TopicAIChatbot({
         });
       } catch (error) {
         console.error('Failed to start recognition:', error);
+        lastFinalIndexRef.current = 0;
       }
     }
   }, [isRecording]);
@@ -1487,6 +1507,15 @@ export function TopicAIChatbot({
         
         <div className="flex gap-1.5 sm:gap-2 items-end">
           <div className="flex-1 relative">
+            {/* Interim text indicator */}
+            {interimText && (
+              <div className="absolute -top-6 left-0 right-0 text-[10px] text-muted-foreground italic truncate animate-pulse">
+                <span className="inline-flex items-center gap-1">
+                  <Mic className="w-2.5 h-2.5" />
+                  {interimText}
+                </span>
+              </div>
+            )}
             <Textarea
               ref={textareaRef}
               value={input}
@@ -1502,10 +1531,11 @@ export function TopicAIChatbot({
                 }
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Nhập tin nhắn... (hỗ trợ Markdown)"
+              placeholder={isRecording ? "Đang nghe..." : "Nhập tin nhắn... (hỗ trợ Markdown)"}
               className={cn(
                 "min-h-[36px] max-h-[120px] resize-none text-xs sm:text-sm py-2 pr-14 transition-all",
-                input.length > MAX_CHARS * 0.95 && "border-destructive focus-visible:ring-destructive"
+                input.length > MAX_CHARS * 0.95 && "border-destructive focus-visible:ring-destructive",
+                isRecording && "ring-2 ring-primary/30"
               )}
               disabled={isLoading}
               style={{ height: '36px' }}
