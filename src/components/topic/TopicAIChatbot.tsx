@@ -3,7 +3,7 @@ import {
   Bot, Send, MessageSquare, Video, Images,
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
   ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX,
-  X, Loader2, HelpCircle, Eye, EyeOff, Keyboard
+  X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -18,6 +18,34 @@ import { ContentGoal } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
+
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
 
 // Character limit
 const MAX_CHARS = 500;
@@ -288,6 +316,11 @@ export function TopicAIChatbot({
   // Keyboard shortcuts hint
   const [showShortcutsHint, setShowShortcutsHint] = useState(false);
   
+  // Voice input state
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -297,6 +330,85 @@ export function TopicAIChatbot({
   
   // Sound effects
   const { playSend, playReceive, playNotification } = useSoundEffects(soundEnabled);
+  
+  // Check voice input support
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    setVoiceSupported(!!SpeechRecognition);
+    
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'vi-VN';
+      
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript = transcript;
+          }
+        }
+        
+        if (finalTranscript) {
+          setInput(prev => {
+            const newValue = prev + (prev ? ' ' : '') + finalTranscript;
+            return newValue.slice(0, MAX_CHARS);
+          });
+        }
+      };
+      
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        if (event.error === 'not-allowed') {
+          toast({
+            title: 'Không có quyền truy cập microphone',
+            description: 'Vui lòng cho phép truy cập microphone trong cài đặt trình duyệt.',
+            variant: 'destructive',
+          });
+        }
+      };
+      
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+      
+      recognitionRef.current = recognition;
+    }
+    
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
+  
+  // Toggle voice recording
+  const toggleVoiceInput = useCallback(() => {
+    if (!recognitionRef.current) return;
+    
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+      triggerHaptic('light');
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+        triggerHaptic('medium');
+        toast({
+          title: 'Đang ghi âm...',
+          description: 'Nói để nhập văn bản. Nhấn lại để dừng.',
+        });
+      } catch (error) {
+        console.error('Failed to start recognition:', error);
+      }
+    }
+  }, [isRecording]);
   
   // Check if user has seen onboarding
   useEffect(() => {
@@ -1351,6 +1463,33 @@ export function TopicAIChatbot({
               {input.length}/{MAX_CHARS}
             </span>
           </div>
+          {/* Voice input button */}
+          {voiceSupported && !isLoading && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={isRecording ? "destructive" : "outline"}
+                  className={cn(
+                    "shrink-0 h-9 w-9 transition-all",
+                    isRecording && "animate-pulse ring-2 ring-destructive/50"
+                  )}
+                  onClick={toggleVoiceInput}
+                >
+                  {isRecording ? (
+                    <MicOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Mic className="w-3.5 h-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {isRecording ? 'Dừng ghi âm' : 'Nhập giọng nói'}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
           {isLoading ? (
             <Button 
               type="button" 
