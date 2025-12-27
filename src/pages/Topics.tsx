@@ -526,6 +526,7 @@ const Topics = () => {
             brandTemplateId={selectedBrandId || undefined}
             contentGoal={selectedGoal}
             onInjectPrompt={handleInjectPrompt}
+            onNavigate={(path, state) => navigate(path, { state })}
           />
         </>
       )}

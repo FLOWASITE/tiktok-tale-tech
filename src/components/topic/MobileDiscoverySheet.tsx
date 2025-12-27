@@ -23,6 +23,7 @@ import { useCuratedEvents } from '@/hooks/useCuratedEvents';
 import { CuratedEvent, EVENT_TYPE_CONFIG, SOURCE_CONFIG, TrendingSource } from '@/types/curatedData';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
+import { TopicFormatSelector } from './TopicFormatSelector';
 
 // Filter options
 const FILTER_OPTIONS = [
@@ -40,6 +41,7 @@ interface MobileDiscoverySheetProps {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
   onInjectPrompt: (prompt: string) => void;
+  onNavigate?: (path: string, state?: any) => void;
 }
 
 export function MobileDiscoverySheet({
@@ -48,11 +50,16 @@ export function MobileDiscoverySheet({
   brandTemplateId,
   contentGoal,
   onInjectPrompt,
+  onNavigate,
 }: MobileDiscoverySheetProps) {
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Format selector states
+  const [formatSelectorOpen, setFormatSelectorOpen] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState('');
 
   const { 
     topics: trends, 
@@ -165,16 +172,47 @@ export function MobileDiscoverySheet({
 
   const hasActiveFilters = searchQuery.trim() || activeFilters.length > 0;
 
-  const handleSelectTopic = (topic: string) => {
-    onInjectPrompt(`Gợi ý content về: "${topic}"`);
+  // Open format selector with topic
+  const handleTopicClick = (topic: string) => {
+    if (onNavigate) {
+      setSelectedTopic(topic);
+      setFormatSelectorOpen(true);
+    } else {
+      // Fallback to inject prompt if no navigate function
+      onInjectPrompt(`Gợi ý content về: "${topic}"`);
+      onOpenChange(false);
+    }
+  };
+
+  // Handle format selection and navigate
+  const handleFormatSelect = (format: 'multichannel' | 'script' | 'carousel') => {
+    if (!onNavigate) return;
+    
+    const state = { 
+      prefillTopic: selectedTopic, 
+      prefillGoal: contentGoal, 
+      fromTopics: true 
+    };
+    
+    switch (format) {
+      case 'multichannel':
+        onNavigate('/multichannel', state);
+        break;
+      case 'script':
+        onNavigate('/scripts', { ...state, prefillTopic: selectedTopic });
+        break;
+      case 'carousel':
+        onNavigate('/carousel', { ...state, prefillTopic: selectedTopic });
+        break;
+    }
+    
+    setFormatSelectorOpen(false);
     onOpenChange(false);
   };
 
   const handleEventClick = (event: CuratedEvent) => {
-    const topics = event.suggested_topics?.join(', ') || '';
-    const angles = event.suggested_angles?.join(', ') || '';
-    onInjectPrompt(`Gợi ý content cho sự kiện "${event.name}"${topics ? `. Chủ đề gợi ý: ${topics}` : ''}${angles ? `. Góc tiếp cận: ${angles}` : ''}`);
-    onOpenChange(false);
+    const topic = event.suggested_topics?.[0] || event.name;
+    handleTopicClick(topic);
   };
 
   const getEventEmoji = (type: string) => {
@@ -287,7 +325,7 @@ export function MobileDiscoverySheet({
                     type="button"
                     variant="ghost"
                     className="w-full h-auto p-3 justify-start text-left"
-                    onClick={() => handleSelectTopic(nextBest.topic)}
+                    onClick={() => handleTopicClick(nextBest.topic)}
                   >
                     <div>
                       <p className="font-medium text-sm line-clamp-2">{nextBest.topic}</p>
@@ -355,7 +393,7 @@ export function MobileDiscoverySheet({
                         type="button"
                         variant="ghost"
                         className="w-full h-auto p-2 justify-start text-left hover:bg-muted/50"
-                        onClick={() => handleSelectTopic(suggestion.topic)}
+                        onClick={() => handleTopicClick(suggestion.topic)}
                       >
                         <div className="flex items-center gap-2 w-full">
                           <Badge variant="secondary" className="shrink-0 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
@@ -412,7 +450,7 @@ export function MobileDiscoverySheet({
                         type="button"
                         variant="ghost"
                         className="w-full h-auto p-2 justify-start text-left"
-                        onClick={() => handleSelectTopic(trend.topic)}
+                        onClick={() => handleTopicClick(trend.topic)}
                       >
                         <div className="flex items-center gap-2 w-full">
                           <Badge 
@@ -537,6 +575,15 @@ export function MobileDiscoverySheet({
           </Card>
         </div>
       </SheetContent>
+
+      {/* Format Selector Dialog */}
+      <TopicFormatSelector
+        open={formatSelectorOpen}
+        onOpenChange={setFormatSelectorOpen}
+        topic={selectedTopic}
+        contentGoal={contentGoal}
+        onSelectFormat={handleFormatSelect}
+      />
     </Sheet>
   );
 }
