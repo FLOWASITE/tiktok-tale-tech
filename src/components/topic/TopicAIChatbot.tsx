@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bot, Send, MessageSquare, Video, Images,
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
-  ArrowDown
+  ArrowDown, Copy, Check, AlertCircle, RotateCcw
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -78,6 +78,35 @@ function formatTimestamp(date: Date): string {
     return date.toLocaleDateString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
   }
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+// Copy button component
+function CopyButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 rounded-md bg-background/80 opacity-0 group-hover/message:opacity-100 transition-opacity hover:bg-background"
+      title="Sao chép"
+    >
+      {copied ? (
+        <Check className="w-3 h-3 text-green-500" />
+      ) : (
+        <Copy className="w-3 h-3 text-muted-foreground" />
+      )}
+    </button>
+  );
 }
 
 // Parse topics from AI response with multiple patterns
@@ -432,12 +461,20 @@ export function TopicAIChatbot({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     sendMessage(input);
+    // Reset textarea height after sending
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '36px';
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
+      // Reset textarea height after sending
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '36px';
+      }
     }
   };
 
@@ -551,34 +588,70 @@ export function TopicAIChatbot({
                 'max-w-[85%] sm:max-w-[80%] space-y-2.5',
                 message.role === 'user' && 'order-first'
               )}>
-                <div className={cn(
-                  'px-3 py-2.5 rounded-2xl',
-                  message.role === 'user' 
-                    ? 'bg-primary text-primary-foreground rounded-br-md' 
-                    : 'bg-muted rounded-bl-md'
-                )}>
-                  {message.content ? (
-                    message.role === 'assistant' ? (
-                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
-                      </div>
+                {/* Error state - Enhanced UI */}
+                {message.isError ? (
+                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 space-y-2">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Đã xảy ra lỗi</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Không thể tạo phản hồi. Vui lòng thử lại sau.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1.5 border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => {
+                        // Get the last user message and resend
+                        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+                        if (lastUserMsg) {
+                          sendMessage(lastUserMsg.content);
+                        }
+                      }}
+                      disabled={isLoading}
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Thử lại
+                    </Button>
+                  </div>
+                ) : (
+                  <div className={cn(
+                    'px-3 py-2.5 rounded-2xl group/message relative',
+                    message.role === 'user' 
+                      ? 'bg-primary text-primary-foreground rounded-br-md' 
+                      : 'bg-muted rounded-bl-md'
+                  )}>
+                    {message.content ? (
+                      message.role === 'assistant' ? (
+                        <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </p>
+                      )
                     ) : (
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                      </p>
-                    )
-                  ) : (
-                    isLoading && message.role === 'assistant' && <TypingIndicator />
-                  )}
-                </div>
+                      isLoading && message.role === 'assistant' && <TypingIndicator />
+                    )}
+                    
+                    {/* Copy button - shown on hover for assistant messages */}
+                    {message.role === 'assistant' && message.content && !isLoading && (
+                      <CopyButton content={message.content} />
+                    )}
+                  </div>
+                )}
                 
                 {/* Timestamp */}
-                <div className={cn(
-                  'text-[10px] text-muted-foreground/70 px-1 mt-0.5',
-                  message.role === 'user' ? 'text-right' : 'text-left'
-                )}>
-                  {formatTimestamp(message.timestamp)}
-                </div>
+                {!message.isError && (
+                  <div className={cn(
+                    'text-[10px] text-muted-foreground/70 px-1 mt-0.5',
+                    message.role === 'user' ? 'text-right' : 'text-left'
+                  )}>
+                    {formatTimestamp(message.timestamp)}
+                  </div>
+                )}
 
                 {/* Extracted Topics with Action Buttons */}
                 {message.extractedTopics && message.extractedTopics.length > 0 && (
@@ -710,15 +783,23 @@ export function TopicAIChatbot({
 
       {/* Input - Compact on mobile */}
       <form onSubmit={handleSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-background">
-        <div className="flex gap-1.5 sm:gap-2">
+        <div className="flex gap-1.5 sm:gap-2 items-end">
           <Textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Auto-resize textarea
+              if (textareaRef.current) {
+                textareaRef.current.style.height = 'auto';
+                textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+              }
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Nhập tin nhắn..."
-            className="min-h-[36px] max-h-[60px] sm:max-h-[100px] resize-none text-xs sm:text-sm py-2"
+            className="min-h-[36px] max-h-[120px] resize-none text-xs sm:text-sm py-2 transition-all"
             disabled={isLoading}
+            style={{ height: '36px' }}
           />
           {isLoading ? (
             <Button 
