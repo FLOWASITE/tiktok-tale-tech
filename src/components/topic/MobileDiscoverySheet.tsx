@@ -16,7 +16,7 @@ import { useTrendingTopics } from '@/hooks/useTrendingTopics';
 import { useTopicRecommendations } from '@/hooks/useTopicRecommendations';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useCuratedEvents } from '@/hooks/useCuratedEvents';
-import { CuratedEvent, EVENT_TYPE_CONFIG } from '@/types/curatedData';
+import { CuratedEvent, EVENT_TYPE_CONFIG, SOURCE_CONFIG, TrendingSource } from '@/types/curatedData';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
@@ -181,35 +181,45 @@ export function MobileDiscoverySheet({
                 </div>
               ) : trends.length > 0 ? (
                 <div className="space-y-2">
-                  {trends.slice(0, 5).map((trend, idx) => (
-                    <Button
-                      key={idx}
-                      variant="ghost"
-                      className="w-full h-auto p-2 justify-start text-left"
-                      onClick={() => handleSelectTopic(trend.topic)}
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        <Badge 
-                          variant="secondary" 
-                          className={cn(
-                            'shrink-0 h-5 w-5 p-0 flex items-center justify-center text-[10px]',
-                            idx === 0 && 'bg-orange-500 text-white',
-                            idx === 1 && 'bg-orange-400 text-white',
-                            idx === 2 && 'bg-orange-300 text-orange-900'
-                          )}
-                        >
-                          {idx + 1}
-                        </Badge>
-                        <span className="flex-1 text-sm line-clamp-1">{trend.topic}</span>
-                        <TrendingUp className={cn(
-                          'h-3.5 w-3.5 shrink-0',
-                          trend.peak_status === 'rising' && 'text-emerald-500',
-                          trend.peak_status === 'peaking' && 'text-amber-500',
-                          trend.peak_status === 'declining' && 'text-red-500'
-                        )} />
-                      </div>
-                    </Button>
-                  ))}
+                  {trends.slice(0, 5).map((trend, idx) => {
+                    const sourceConfig = trend.source ? SOURCE_CONFIG[trend.source as TrendingSource] : null;
+                    return (
+                      <Button
+                        key={idx}
+                        variant="ghost"
+                        className="w-full h-auto p-2 justify-start text-left"
+                        onClick={() => handleSelectTopic(trend.topic)}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <Badge 
+                            variant="secondary" 
+                            className={cn(
+                              'shrink-0 h-5 w-5 p-0 flex items-center justify-center text-[10px]',
+                              idx === 0 && 'bg-orange-500 text-white',
+                              idx === 1 && 'bg-orange-400 text-white',
+                              idx === 2 && 'bg-orange-300 text-orange-900'
+                            )}
+                          >
+                            {idx + 1}
+                          </Badge>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm line-clamp-1 block">{trend.topic}</span>
+                            {sourceConfig && (
+                              <Badge variant="outline" className={cn("h-3.5 px-1 text-[8px] mt-0.5 border", sourceConfig.color)}>
+                                {sourceConfig.icon} {sourceConfig.label}
+                              </Badge>
+                            )}
+                          </div>
+                          <TrendingUp className={cn(
+                            'h-3.5 w-3.5 shrink-0',
+                            trend.peak_status === 'rising' && 'text-emerald-500',
+                            trend.peak_status === 'peaking' && 'text-amber-500',
+                            trend.peak_status === 'declining' && 'text-red-500'
+                          )} />
+                        </div>
+                      </Button>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Chưa có dữ liệu trending</p>

@@ -15,7 +15,7 @@ import { useTrendingTopics, TrendingTopic } from '@/hooks/useTrendingTopics';
 import { useTopicRecommendations } from '@/hooks/useTopicRecommendations';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useCuratedEvents } from '@/hooks/useCuratedEvents';
-import { CuratedEvent, EVENT_TYPE_CONFIG } from '@/types/curatedData';
+import { CuratedEvent, EVENT_TYPE_CONFIG, SOURCE_CONFIG, TrendingSource } from '@/types/curatedData';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
@@ -261,6 +261,7 @@ export function DiscoveryFeedPanel({
                 <div className="space-y-1.5">
                   {hotTopics.map((topic) => {
                     const peakStatus = peakStatusConfig[topic.peak_status] || peakStatusConfig['rising'];
+                    const sourceConfig = topic.source ? SOURCE_CONFIG[topic.source as TrendingSource] : null;
                     return (
                       <button
                         key={topic.id}
@@ -283,6 +284,11 @@ export function DiscoveryFeedPanel({
                                 </div>
                                 <span className="text-[10px] text-muted-foreground">{topic.velocity_score}</span>
                               </div>
+                              {sourceConfig && (
+                                <Badge variant="outline" className={cn("h-3.5 px-1 text-[8px] border", sourceConfig.color)}>
+                                  {sourceConfig.icon} {sourceConfig.label}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <ArrowRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
