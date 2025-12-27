@@ -31,6 +31,8 @@ interface LocationState {
   prefillTopic?: string;
   prefillGoal?: ContentGoal;
   topicHistoryId?: string;
+  contentPurpose?: string;
+  marketingFramework?: string;
 }
 
 export default function MultiChannel() {
@@ -69,19 +71,29 @@ export default function MultiChannel() {
   const [initialTopic, setInitialTopic] = useState<string>('');
   const [initialGoal, setInitialGoal] = useState<ContentGoal | undefined>();
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
+  const [initialContentPurpose, setInitialContentPurpose] = useState<string | undefined>();
+  const [initialMarketingFramework, setInitialMarketingFramework] = useState<string | undefined>();
 
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
 
   // Handle prefill from Topics Hub
   useEffect(() => {
-    if (prefillData?.prefillTopic) {
-      setInitialTopic(prefillData.prefillTopic);
+    if (prefillData?.prefillTopic || prefillData?.prefillGoal || prefillData?.contentPurpose) {
+      if (prefillData.prefillTopic) {
+        setInitialTopic(prefillData.prefillTopic);
+      }
       if (prefillData.prefillGoal) {
         setInitialGoal(prefillData.prefillGoal);
       }
       if (prefillData.topicHistoryId) {
         setTopicHistoryId(prefillData.topicHistoryId);
+      }
+      if (prefillData.contentPurpose) {
+        setInitialContentPurpose(prefillData.contentPurpose);
+      }
+      if (prefillData.marketingFramework) {
+        setInitialMarketingFramework(prefillData.marketingFramework);
       }
       setFormSheetOpen(true);
       // Clear location state to prevent re-triggering
@@ -634,6 +646,8 @@ export default function MultiChannel() {
           initialTopic={initialTopic}
           initialGoal={initialGoal}
           topicHistoryId={topicHistoryId}
+          initialContentPurpose={initialContentPurpose as any}
+          initialMarketingFramework={initialMarketingFramework as any}
         />
       </SlidePanel>
 
