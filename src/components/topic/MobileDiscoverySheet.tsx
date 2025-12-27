@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { 
-  TrendingUp, Sparkles, Calendar, ChevronLeft, Flame, Zap, Gift
+  TrendingUp, Sparkles, Calendar, ChevronLeft, Flame, Zap, Gift, AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +15,8 @@ import {
 import { useTrendingTopics } from '@/hooks/useTrendingTopics';
 import { useTopicRecommendations } from '@/hooks/useTopicRecommendations';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
-import { SEASONAL_EVENTS } from '@/types/topicDiscovery';
+import { useCuratedEvents } from '@/hooks/useCuratedEvents';
+import { CuratedEvent, EVENT_TYPE_CONFIG } from '@/types/curatedData';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
@@ -46,13 +46,22 @@ export function MobileDiscoverySheet({
     enabled: open && !!brandTemplateId,
   });
 
-  const upcomingEvents = SEASONAL_EVENTS
-    .filter(e => e.date > new Date())
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .slice(0, 3);
+  const { 
+    isLoading: eventsLoading,
+    getUpcomingEvents,
+  } = useCuratedEvents();
+
+  const upcomingEvents = getUpcomingEvents(60).slice(0, 5);
 
   const handleSelectTopic = (topic: string) => {
     onInjectPrompt(`Gợi ý content về: "${topic}"`);
+    onOpenChange(false);
+  };
+
+  const handleEventClick = (event: CuratedEvent) => {
+    const topics = event.suggested_topics?.join(', ') || '';
+    const angles = event.suggested_angles?.join(', ') || '';
+    onInjectPrompt(`Gợi ý content cho sự kiện "${event.name}"${topics ? `. Chủ đề gợi ý: ${topics}` : ''}${angles ? `. Góc tiếp cận: ${angles}` : ''}`);
     onOpenChange(false);
   };
 
@@ -60,6 +69,8 @@ export function MobileDiscoverySheet({
     switch (type) {
       case 'holiday': return '🎉';
       case 'campaign': return '📢';
+      case 'industry_event': return '💼';
+      case 'awareness_day': return '📅';
       default: return '📅';
     }
   };
@@ -207,39 +218,76 @@ export function MobileDiscoverySheet({
           </Card>
 
           {/* Seasonal Events */}
-          {upcomingEvents.length > 0 && (
-            <Card className="mx-4 mt-3 mb-4">
-              <CardHeader className="pb-2 pt-3 px-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-pink-500" />
-                  Sự kiện sắp tới
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-3">
+          <Card className="mx-4 mt-3 mb-4">
+            <CardHeader className="pb-2 pt-3 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Gift className="h-4 w-4 text-pink-500" />
+                Sự kiện sắp tới
+                {eventsLoading && <Skeleton className="h-3 w-3 rounded-full" />}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3">
+              {eventsLoading && upcomingEvents.length === 0 ? (
                 <div className="space-y-2">
-                  {upcomingEvents.map((event, idx) => (
-                    <Button
-                      key={idx}
-                      variant="ghost"
-                      className="w-full h-auto p-2 justify-start text-left"
-                      onClick={() => onInjectPrompt(`Gợi ý content cho sự kiện: ${event.name}`)}
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        <span className="text-lg">{getEventEmoji(event.type)}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium line-clamp-1">{event.name}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {event.date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })}
-                          </p>
-                        </div>
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      </div>
-                    </Button>
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : upcomingEvents.length > 0 ? (
+                <div className="space-y-2">
+                  {upcomingEvents.map((event) => {
+                    const daysUntil = Math.ceil(
+                      (new Date(event.event_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                    );
+                    const isUrgent = daysUntil <= 7;
+                    const eventConfig = EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] 
+                      || EVENT_TYPE_CONFIG.holiday;
+                    
+                    return (
+                      <Button
+                        key={event.id}
+                        variant="ghost"
+                        className={cn(
+                          "w-full h-auto p-2 justify-start text-left",
+                          isUrgent && "bg-red-500/5 hover:bg-red-500/10"
+                        )}
+                        onClick={() => handleEventClick(event)}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <span className="text-lg">{getEventEmoji(event.event_type)}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium line-clamp-1">{event.name}</p>
+                              {isUrgent && (
+                                <span className="flex items-center gap-0.5 text-[9px] text-red-500 font-medium">
+                                  <AlertCircle className="w-2.5 h-2.5" />
+                                  Gấp
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className={cn(
+                                "text-[10px]",
+                                isUrgent ? "text-red-500 font-medium" : "text-muted-foreground"
+                              )}>
+                                Còn {daysUntil} ngày
+                              </p>
+                              <Badge variant="outline" className={cn("h-3.5 px-1 text-[8px] border", eventConfig.color)}>
+                                {eventConfig.label}
+                              </Badge>
+                            </div>
+                          </div>
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        </div>
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Không có sự kiện sắp tới</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </SheetContent>
     </Sheet>
