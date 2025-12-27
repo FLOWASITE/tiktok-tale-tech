@@ -24,6 +24,8 @@ import { MultiChannelPreviewDialog, EditedPreviews } from '@/components/MultiCha
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { ContentPurposeSelector } from '@/components/topic/ContentPurposeSelector';
 import { MarketingFrameworkSelector } from '@/components/topic/MarketingFrameworkSelector';
+import { QuickStartSection } from '@/components/QuickStartSection';
+import { QuickStartTemplate } from '@/types/quickStartTemplates';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -387,6 +389,36 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                 disabled={isLoading}
               />
             </div>
+
+            {/* Quick Start Section - Show when topic is empty */}
+            {!topic.trim() && (
+              <QuickStartSection
+                contentGoal={contentGoal}
+                onSelectTemplate={(template: QuickStartTemplate) => {
+                  // Set topic from template
+                  setTopic(template.suggestedTopicTemplate);
+                  
+                  // Set content purpose if available (for conversion templates)
+                  if (template.contentPurpose) {
+                    setContentPurpose(template.contentPurpose);
+                  }
+                  
+                  // Set marketing framework if available
+                  if (template.marketingFramework) {
+                    setMarketingFramework(template.marketingFramework);
+                  }
+                  
+                  // Expand advanced options for conversion goal
+                  if (contentGoal === 'conversion') {
+                    setShowAdvancedOptions(true);
+                  }
+                  
+                  // Focus topic field for editing
+                  setTimeout(() => topicRef.current?.focus(), 100);
+                }}
+                disabled={isLoading}
+              />
+            )}
 
             {/* Advanced Options Toggle - Show for Conversion goal */}
             {contentGoal === 'conversion' && (
