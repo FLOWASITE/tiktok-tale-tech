@@ -284,6 +284,7 @@ export function MobileDiscoverySheet({
                   <Skeleton className="h-12 w-full" />
                 ) : nextBest ? (
                   <Button
+                    type="button"
                     variant="ghost"
                     className="w-full h-auto p-3 justify-start text-left"
                     onClick={() => handleSelectTopic(nextBest.topic)}
@@ -351,6 +352,7 @@ export function MobileDiscoverySheet({
                     {filteredSuggestions.map((suggestion, idx) => (
                       <Button
                         key={idx}
+                        type="button"
                         variant="ghost"
                         className="w-full h-auto p-2 justify-start text-left hover:bg-muted/50"
                         onClick={() => handleSelectTopic(suggestion.topic)}
@@ -407,6 +409,7 @@ export function MobileDiscoverySheet({
                     return (
                       <Button
                         key={idx}
+                        type="button"
                         variant="ghost"
                         className="w-full h-auto p-2 justify-start text-left"
                         onClick={() => handleSelectTopic(trend.topic)}
@@ -487,6 +490,7 @@ export function MobileDiscoverySheet({
                     return (
                       <Button
                         key={event.id}
+                        type="button"
                         variant="ghost"
                         className={cn(
                           "w-full h-auto p-2 justify-start text-left",
