@@ -3,7 +3,7 @@ import {
   Bot, Send, MessageSquare, Video, Images,
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
   ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX,
-  X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff
+  X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff, User
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -13,11 +13,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
+import { useProfile } from '@/hooks/useProfile';
 
 // Web Speech API types
 interface SpeechRecognitionEvent extends Event {
@@ -335,6 +337,9 @@ export function TopicAIChatbot({
   
   // Sound effects
   const { playSend, playReceive, playNotification } = useSoundEffects(soundEnabled);
+  
+  // User profile for avatar
+  const { profile } = useProfile();
   
   // Check voice input support
   useEffect(() => {
@@ -1224,6 +1229,18 @@ export function TopicAIChatbot({
                 'max-w-[85%] sm:max-w-[80%] space-y-2.5',
                 message.role === 'user' && 'order-first'
               )}>
+              
+              {/* User avatar - positioned after the message bubble */}
+              {message.role === 'user' && (
+                <Avatar className="shrink-0 w-7 h-7 order-last">
+                  {profile?.avatar_url ? (
+                    <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'User'} />
+                  ) : null}
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                    {profile?.full_name?.charAt(0)?.toUpperCase() || <User className="w-3.5 h-3.5" />}
+                  </AvatarFallback>
+                </Avatar>
+              )}
                 {/* Error state - Enhanced UI */}
                 {message.isError ? (
                   <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 space-y-2">
