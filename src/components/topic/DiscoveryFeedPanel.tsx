@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   Flame, TrendingUp, Brain, ChevronLeft, ChevronRight,
   RefreshCw, Zap, ArrowRight, Sparkles, Lightbulb,
-  CalendarDays, Target, Star, AlertCircle
+  CalendarDays, Target, Star, AlertCircle, Search, X, Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 import { useTrendingTopics, TrendingTopic } from '@/hooks/useTrendingTopics';
 import { useTopicRecommendations } from '@/hooks/useTopicRecommendations';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
@@ -42,6 +43,16 @@ const peakStatusConfig: Record<string, { label: string; color: string }> = {
   'declining': { label: '📉', color: 'text-muted-foreground' },
 };
 
+// Filter configurations
+const FILTER_OPTIONS = [
+  { key: 'hot', label: '🔥 Hot', description: 'Điểm ≥70' },
+  { key: 'rising', label: '📈 Đang lên', description: 'Xu hướng tăng' },
+  { key: 'low_comp', label: '💎 Ít cạnh tranh', description: 'Cạnh tranh thấp' },
+  { key: 'urgent', label: '⚡ Gấp', description: 'Sự kiện trong 7 ngày' },
+] as const;
+
+type FilterKey = typeof FILTER_OPTIONS[number]['key'];
+
 export function DiscoveryFeedPanel({
   brandTemplateId,
   contentGoal = 'engagement',
@@ -57,6 +68,11 @@ export function DiscoveryFeedPanel({
     seasonal: true,
     aiLearning: false,
   });
+  
+  // Search & Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { 
     topics, 
@@ -111,16 +127,86 @@ export function DiscoveryFeedPanel({
   };
 
   const sortedTopics = [...topics].sort((a, b) => b.velocity_score - a.velocity_score);
-  const hotTopics = sortedTopics.filter(t => t.velocity_score >= 60).slice(0, 5);
+  
+  // Apply search and filters to hot topics
+  const filteredHotTopics = useMemo(() => {
+    let filtered = sortedTopics.filter(t => t.velocity_score >= 60);
+    
+    // Apply search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.topic.toLowerCase().includes(query) ||
+        t.suggested_angles?.some(a => a.toLowerCase().includes(query))
+      );
+    }
+    
+    // Apply filters
+    if (activeFilters.includes('hot')) {
+      filtered = filtered.filter(t => t.velocity_score >= 70);
+    }
+    if (activeFilters.includes('rising')) {
+      filtered = filtered.filter(t => t.peak_status === 'rising');
+    }
+    
+    return filtered.slice(0, 5);
+  }, [sortedTopics, searchQuery, activeFilters]);
 
-  // Get top 5 quick suggestions
-  const topQuickSuggestions = useMemo(() => 
-    quickSuggestions.slice(0, 5), [quickSuggestions]);
+  // Apply search to quick suggestions
+  const filteredQuickSuggestions = useMemo(() => {
+    let filtered = quickSuggestions;
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(s => 
+        s.topic.toLowerCase().includes(query) ||
+        s.category?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered.slice(0, 5);
+  }, [quickSuggestions, searchQuery]);
 
-  // Get upcoming events from database (within 60 days)
-  const upcomingEvents = useMemo(() => {
-    return getUpcomingEvents(60).slice(0, 5);
-  }, [getUpcomingEvents]);
+  // Apply search and filters to upcoming events
+  const filteredUpcomingEvents = useMemo(() => {
+    let filtered = getUpcomingEvents(60);
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(e => 
+        e.name.toLowerCase().includes(query) ||
+        e.suggested_topics?.some(t => t.toLowerCase().includes(query))
+      );
+    }
+    
+    if (activeFilters.includes('urgent')) {
+      filtered = filtered.filter(e => {
+        const daysUntil = Math.ceil(
+          (new Date(e.event_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
+        return daysUntil <= 7;
+      });
+    }
+    
+    return filtered.slice(0, 5);
+  }, [getUpcomingEvents, searchQuery, activeFilters]);
+
+  // Toggle filter
+  const toggleFilter = (filterKey: FilterKey) => {
+    setActiveFilters(prev => 
+      prev.includes(filterKey) 
+        ? prev.filter(f => f !== filterKey)
+        : [...prev, filterKey]
+    );
+  };
+  
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setActiveFilters([]);
+  };
+  
+  const hasActiveFilters = searchQuery.trim() || activeFilters.length > 0;
 
   const getLevelLabel = (level: number) => {
     if (level >= 80) return { label: 'Rất cao', color: 'text-emerald-500' };
@@ -164,14 +250,14 @@ export function DiscoveryFeedPanel({
             <TooltipContent side="left">Mở Discovery Feed</TooltipContent>
           </Tooltip>
           
-          {hotTopics.length > 0 && (
+          {filteredHotTopics.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="p-1.5 rounded-lg bg-orange-500/10 animate-pulse">
                   <Flame className="w-4 h-4 text-orange-500" />
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="left">{hotTopics.length} trending hot</TooltipContent>
+              <TooltipContent side="left">{filteredHotTopics.length} trending hot</TooltipContent>
             </Tooltip>
           )}
 
@@ -186,14 +272,14 @@ export function DiscoveryFeedPanel({
             </Tooltip>
           )}
 
-          {topQuickSuggestions.length > 0 && (
+          {filteredQuickSuggestions.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="p-1.5 rounded-lg bg-primary/10">
                   <Lightbulb className="w-4 h-4 text-primary" />
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="left">{topQuickSuggestions.length} gợi ý</TooltipContent>
+              <TooltipContent side="left">{filteredQuickSuggestions.length} gợi ý</TooltipContent>
             </Tooltip>
           )}
           
@@ -217,8 +303,21 @@ export function DiscoveryFeedPanel({
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">Discovery</span>
+          {hasActiveFilters && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">
+              {activeFilters.length + (searchQuery ? 1 : 0)} lọc
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant={showFilters ? "secondary" : "ghost"}
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className={cn("h-3.5 w-3.5", hasActiveFilters && "text-primary")} />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -239,6 +338,67 @@ export function DiscoveryFeedPanel({
         </div>
       </div>
 
+      {/* Search & Filter Panel */}
+      {showFilters && (
+        <div className="p-3 border-b border-border/50 space-y-2 bg-muted/30">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Tìm kiếm chủ đề..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          
+          {/* Filter Chips */}
+          <div className="flex flex-wrap gap-1">
+            {FILTER_OPTIONS.map((filter) => (
+              <TooltipProvider key={filter.key}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => toggleFilter(filter.key)}
+                      className={cn(
+                        "px-2 py-0.5 text-[10px] rounded-full border transition-colors",
+                        activeFilters.includes(filter.key)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-muted border-border"
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-[10px]">
+                    {filter.description}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
+            
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="px-2 py-0.5 text-[10px] rounded-full text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Xóa lọc
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <ScrollArea className="flex-1 overflow-auto">
         <div className="space-y-3 p-3">
@@ -250,7 +410,7 @@ export function DiscoveryFeedPanel({
                 <span className="text-xs font-medium">Trending Hot</span>
                 {trendingLoading && <Skeleton className="h-3 w-3 rounded-full" />}
               </div>
-              <Badge variant="secondary" className="h-4 px-1 text-[9px]">{hotTopics.length}</Badge>
+              <Badge variant="secondary" className="h-4 px-1 text-[9px]">{filteredHotTopics.length}</Badge>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
               {trendingLoading && topics.length === 0 ? (
@@ -259,9 +419,9 @@ export function DiscoveryFeedPanel({
                     <Skeleton key={i} className="h-12 w-full rounded-lg" />
                   ))}
                 </div>
-              ) : hotTopics.length > 0 ? (
+              ) : filteredHotTopics.length > 0 ? (
                 <div className="space-y-1.5">
-                  {hotTopics.map((topic) => {
+                  {filteredHotTopics.map((topic) => {
                     const peakStatus = peakStatusConfig[topic.peak_status] || peakStatusConfig['rising'];
                     const sourceConfig = topic.source ? SOURCE_CONFIG[topic.source as TrendingSource] : null;
                     return (
@@ -302,7 +462,7 @@ export function DiscoveryFeedPanel({
               ) : (
                 <div className="text-center py-3">
                   <p className="text-[10px] text-muted-foreground">
-                    Nhấn refresh để khám phá
+                    {hasActiveFilters ? 'Không có kết quả phù hợp' : 'Nhấn refresh để khám phá'}
                   </p>
                 </div>
               )}
@@ -398,7 +558,7 @@ export function DiscoveryFeedPanel({
                   </Badge>
                 )}
               </div>
-              <Badge variant="secondary" className="h-4 px-1 text-[9px]">{topQuickSuggestions.length}</Badge>
+              <Badge variant="secondary" className="h-4 px-1 text-[9px]">{filteredQuickSuggestions.length}</Badge>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
               <div className="relative">
@@ -418,9 +578,9 @@ export function DiscoveryFeedPanel({
                       <Skeleton key={i} className="h-6 w-20 rounded-full" />
                     ))}
                   </div>
-                ) : topQuickSuggestions.length > 0 ? (
+                ) : filteredQuickSuggestions.length > 0 ? (
                   <div className={cn("flex flex-wrap gap-1", isEnhancing && "opacity-60")}>
-                    {topQuickSuggestions.map((suggestion, idx) => (
+                    {filteredQuickSuggestions.map((suggestion, idx) => (
                       <button
                         key={idx}
                         className="px-2 py-1 text-[10px] rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 transition-colors line-clamp-1 max-w-full"
@@ -434,7 +594,7 @@ export function DiscoveryFeedPanel({
                 ) : (
                   <div className="text-center py-2">
                     <p className="text-[10px] text-muted-foreground">
-                      Chọn brand để xem gợi ý
+                      {hasActiveFilters ? 'Không có kết quả phù hợp' : 'Chọn brand để xem gợi ý'}
                     </p>
                   </div>
                 )}
@@ -450,7 +610,7 @@ export function DiscoveryFeedPanel({
                 <span className="text-xs font-medium">Sự kiện sắp đến</span>
                 {eventsLoading && <Skeleton className="h-3 w-3 rounded-full" />}
               </div>
-              <Badge variant="secondary" className="h-4 px-1 text-[9px]">{upcomingEvents.length}</Badge>
+              <Badge variant="secondary" className="h-4 px-1 text-[9px]">{filteredUpcomingEvents.length}</Badge>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
               {eventsLoading && curatedEvents.length === 0 ? (
@@ -459,9 +619,9 @@ export function DiscoveryFeedPanel({
                     <Skeleton key={i} className="h-12 w-full rounded-lg" />
                   ))}
                 </div>
-              ) : upcomingEvents.length > 0 ? (
+              ) : filteredUpcomingEvents.length > 0 ? (
                 <div className="space-y-1.5">
-                  {upcomingEvents.map((event) => {
+                  {filteredUpcomingEvents.map((event) => {
                     const daysUntil = Math.ceil(
                       (new Date(event.event_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                     );
@@ -522,7 +682,7 @@ export function DiscoveryFeedPanel({
               ) : (
                 <div className="text-center py-3">
                   <p className="text-[10px] text-muted-foreground">
-                    Không có sự kiện sắp tới
+                    {hasActiveFilters ? 'Không có kết quả phù hợp' : 'Không có sự kiện sắp tới'}
                   </p>
                 </div>
               )}
