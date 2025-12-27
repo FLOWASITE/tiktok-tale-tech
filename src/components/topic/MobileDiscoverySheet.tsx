@@ -341,28 +341,34 @@ export function MobileDiscoverySheet({
               </CardHeader>
               <CardContent className="px-4 pb-3">
                 {suggestionsLoading ? (
-                  <div className="flex gap-2">
+                  <div className="space-y-2">
                     {[1, 2, 3].map(i => (
-                      <Skeleton key={i} className="h-8 w-24" />
+                      <Skeleton key={i} className="h-10 w-full" />
                     ))}
                   </div>
                 ) : (
-                  <ScrollArea className="w-full whitespace-nowrap">
-                    <div className="flex gap-2">
-                      {filteredSuggestions.map((suggestion, idx) => (
-                        <Button
-                          key={idx}
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0 h-auto py-2 px-3 text-xs"
-                          onClick={() => handleSelectTopic(suggestion.topic)}
-                        >
-                          <span className="line-clamp-1 max-w-[120px]">{suggestion.topic}</span>
-                        </Button>
-                      ))}
-                    </div>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
+                  <div className="space-y-1.5">
+                    {filteredSuggestions.map((suggestion, idx) => (
+                      <Button
+                        key={idx}
+                        variant="ghost"
+                        className="w-full h-auto p-2 justify-start text-left hover:bg-muted/50"
+                        onClick={() => handleSelectTopic(suggestion.topic)}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <Badge variant="secondary" className="shrink-0 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                            {idx + 1}
+                          </Badge>
+                          <span className="text-sm line-clamp-2 flex-1">{suggestion.topic}</span>
+                          {suggestion.category && (
+                            <Badge variant="outline" className="shrink-0 h-4 px-1.5 text-[9px] text-muted-foreground">
+                              {suggestion.category}
+                            </Badge>
+                          )}
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>
