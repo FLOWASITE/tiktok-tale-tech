@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lightbulb, Bookmark, BarChart3, Brain } from 'lucide-react';
+import { Lightbulb, Bookmark, BarChart3, Brain, MessageSquare, Compass, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,7 +16,8 @@ import { DiscoveryFeedPanel } from '@/components/topic/DiscoveryFeedPanel';
 import { TopicComparisonMode } from '@/components/topic/TopicComparisonMode';
 import { TopicComparisonBar } from '@/components/topic/TopicComparisonBar';
 import { AILearningDashboard } from '@/components/topic/AILearningDashboard';
-import { MobileSidebarDrawer } from '@/components/topic/MobileSidebarDrawer';
+import { MobileTopicBankSheet } from '@/components/topic/MobileTopicBankSheet';
+import { MobileDiscoverySheet } from '@/components/topic/MobileDiscoverySheet';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -54,6 +55,11 @@ const Topics = () => {
   const [aiDashboardOpen, setAiDashboardOpen] = useState(false);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  
+  // Mobile states
+  const [mobileTab, setMobileTab] = useState<'chat' | 'bank' | 'discovery'>('chat');
+  const [mobileBankOpen, setMobileBankOpen] = useState(false);
+  const [mobileDiscoveryOpen, setMobileDiscoveryOpen] = useState(false);
 
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
 
@@ -289,8 +295,11 @@ const Topics = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {selectedBrandId ? (
             <>
-              {/* Chatbot - Main Focus - Full height on mobile */}
-              <div className="flex-1 flex flex-col p-2 sm:p-4 min-h-0">
+              {/* Chatbot - Main Focus - Full height on mobile with bottom padding for tabs */}
+              <div className={cn(
+                'flex-1 flex flex-col p-2 sm:p-4 min-h-0',
+                isMobile && 'pb-16' // Space for mobile bottom tabs
+              )}>
                 <TopicAIChatbot
                   brandTemplateId={selectedBrandId}
                   contentGoal={selectedGoal}
@@ -378,20 +387,73 @@ const Topics = () => {
         )}
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Bottom Tabs */}
       {isMobile && selectedBrandId && (
-        <MobileSidebarDrawer
-          favorites={sidebarFavorites}
-          recentTopics={sidebarRecentTopics}
-          topPerformers={sidebarTopPerformers}
-          onSelectTopic={(topic) => handleInjectPrompt(`Gợi ý content về: "${topic}"`)}
-          onViewAllTopics={() => setActiveTab('bank')}
-          aiLearningStats={aiLearningStats}
-          isEnhancing={false}
-          onChangeBrand={() => setBrandDialogOpen(true)}
-          onGetEventSuggestions={(event) => handleInjectPrompt(`Gợi ý content cho sự kiện: ${event.name}`)}
-          onScheduleTopic={(topic, date) => console.log('Schedule topic', topic, date)}
-        />
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-inset-bottom">
+          <div className="flex items-center justify-around h-14">
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-1 h-full flex-col gap-0.5 rounded-none',
+                mobileTab === 'chat' && 'text-primary bg-primary/5'
+              )}
+              onClick={() => setMobileTab('chat')}
+            >
+              <MessageSquare className="h-5 w-5" />
+              <span className="text-[10px]">Chat AI</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-1 h-full flex-col gap-0.5 rounded-none',
+                mobileTab === 'bank' && 'text-primary bg-primary/5'
+              )}
+              onClick={() => {
+                setMobileTab('bank');
+                setMobileBankOpen(true);
+              }}
+            >
+              <Bookmark className="h-5 w-5" />
+              <span className="text-[10px]">Kho ({combinedStats.totalTopics})</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-1 h-full flex-col gap-0.5 rounded-none',
+                mobileTab === 'discovery' && 'text-primary bg-primary/5'
+              )}
+              onClick={() => {
+                setMobileTab('discovery');
+                setMobileDiscoveryOpen(true);
+              }}
+            >
+              <Compass className="h-5 w-5" />
+              <span className="text-[10px]">Khám phá</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Sheets */}
+      {isMobile && (
+        <>
+          <MobileTopicBankSheet
+            open={mobileBankOpen}
+            onOpenChange={setMobileBankOpen}
+            brandTemplateId={selectedBrandId || undefined}
+            contentGoal={selectedGoal}
+            onSelectTopic={(topic, topicHistoryId) => {
+              navigate('/multichannel', { state: { prefillTopic: topic, prefillGoal: selectedGoal, fromTopics: true } });
+            }}
+          />
+          <MobileDiscoverySheet
+            open={mobileDiscoveryOpen}
+            onOpenChange={setMobileDiscoveryOpen}
+            brandTemplateId={selectedBrandId || undefined}
+            contentGoal={selectedGoal}
+            onInjectPrompt={handleInjectPrompt}
+          />
+        </>
       )}
 
       {/* Onboarding */}
