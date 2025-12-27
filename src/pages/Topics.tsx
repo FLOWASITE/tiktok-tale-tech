@@ -295,17 +295,17 @@ const Topics = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {selectedBrandId ? (
             <>
-              {/* Chatbot - Main Focus - Full height on mobile with bottom padding for tabs */}
+              {/* Chatbot - Main Focus - Full height on mobile */}
               <div className={cn(
-                'flex-1 flex flex-col p-2 sm:p-4 min-h-0',
-                isMobile && 'pb-16' // Space for mobile bottom tabs
+                'flex-1 flex flex-col min-h-0',
+                isMobile ? 'p-0 pb-14' : 'p-2 sm:p-4' // No padding on mobile, just bottom for tabs
               )}>
                 <TopicAIChatbot
                   brandTemplateId={selectedBrandId}
                   contentGoal={selectedGoal}
                   onNavigate={(path, state) => navigate(path, { state })}
                   isExpanded={isMobile || (leftPanelCollapsed && rightPanelCollapsed)}
-                  className="flex-1 min-h-0"
+                  className="flex-1 min-h-0 h-full"
                 />
               </div>
 
