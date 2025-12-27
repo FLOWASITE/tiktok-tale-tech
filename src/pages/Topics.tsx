@@ -57,7 +57,7 @@ const Topics = () => {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   
   // Mobile states
-  const [mobileTab, setMobileTab] = useState<'chat' | 'bank' | 'discovery'>('chat');
+  const [mobileTab, setMobileTab] = useState<'chat' | 'bank' | 'discovery' | 'analytics' | 'learning'>('chat');
   const [mobileBankOpen, setMobileBankOpen] = useState(false);
   const [mobileDiscoveryOpen, setMobileDiscoveryOpen] = useState(false);
 
@@ -300,63 +300,88 @@ const Topics = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {selectedBrandId ? (
             <>
-              {/* Chatbot - Main Focus - True fullscreen on mobile */}
-              <div className={cn(
-                'flex-1 flex flex-col min-h-0',
-                isMobile ? 'pb-14' : 'p-2 sm:p-4'
-              )}>
-                <TopicAIChatbot
-                  brandTemplateId={selectedBrandId}
-                  contentGoal={selectedGoal}
-                  onNavigate={(path, state) => navigate(path, { state })}
-                  isExpanded={isMobile || (leftPanelCollapsed && rightPanelCollapsed)}
-                  className={cn(
-                    "flex-1 min-h-0",
-                    isMobile && "h-full rounded-none border-0"
+              {/* Mobile content based on tab */}
+              {isMobile ? (
+                <div className="flex-1 flex flex-col min-h-0 pb-14 overflow-hidden">
+                  {mobileTab === 'chat' && (
+                    <TopicAIChatbot
+                      brandTemplateId={selectedBrandId}
+                      contentGoal={selectedGoal}
+                      onNavigate={(path, state) => navigate(path, { state })}
+                      isExpanded={true}
+                      className="flex-1 min-h-0 h-full rounded-none border-0"
+                    />
                   )}
-                />
-              </div>
-
-              {/* Bottom Tabs - Hidden on mobile, shown on desktop */}
-              <div className="hidden sm:block flex-shrink-0 border-t bg-muted/30">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="w-full h-10 bg-transparent border-b rounded-none justify-start px-4 gap-1 overflow-x-auto">
-                    <TabsTrigger value="bank" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
-                      <Bookmark className="w-3.5 h-3.5" />
-                      Ngân hàng
-                      <Badge variant="secondary" className="h-4 px-1 text-[10px]">{combinedStats.totalTopics}</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="analytics" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
-                      <BarChart3 className="w-3.5 h-3.5" />
-                      Phân tích
-                    </TabsTrigger>
-                    <TabsTrigger value="learning" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
-                      <Brain className="w-3.5 h-3.5" />
-                      AI Learning
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <div className="max-h-[35vh] overflow-auto">
-                    <TabsContent value="bank" className="m-0 p-4">
-                      <TopicBankGrid
-                        brandTemplateId={selectedBrandId}
-                        contentGoal={selectedGoal}
-                        onSelectTopic={(topic) => navigate('/multichannel', { state: { prefillTopic: topic, prefillGoal: selectedGoal, fromTopics: true } })}
-                      />
-                    </TabsContent>
-                    <TabsContent value="analytics" className="m-0 p-4">
+                  {mobileTab === 'analytics' && (
+                    <div className="flex-1 overflow-auto p-4">
                       <TopicAnalyticsDashboard brandTemplateId={selectedBrandId} />
-                    </TabsContent>
-                    <TabsContent value="learning" className="m-0 p-4">
+                    </div>
+                  )}
+                  {mobileTab === 'learning' && (
+                    <div className="flex-1 overflow-auto p-4">
                       <AILearningDashboard
                         brandTemplateId={selectedBrandId}
-                        open={activeTab === 'learning'}
-                        onOpenChange={(open) => !open && setActiveTab('bank')}
+                        open={true}
+                        onOpenChange={() => setMobileTab('chat')}
                       />
-                    </TabsContent>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Chatbot - Desktop */}
+                  <div className="flex-1 flex flex-col min-h-0 p-2 sm:p-4">
+                    <TopicAIChatbot
+                      brandTemplateId={selectedBrandId}
+                      contentGoal={selectedGoal}
+                      onNavigate={(path, state) => navigate(path, { state })}
+                      isExpanded={leftPanelCollapsed && rightPanelCollapsed}
+                      className="flex-1 min-h-0"
+                    />
                   </div>
-                </Tabs>
-              </div>
+
+                  {/* Bottom Tabs - Desktop only */}
+                  <div className="flex-shrink-0 border-t bg-muted/30">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                      <TabsList className="w-full h-10 bg-transparent border-b rounded-none justify-start px-4 gap-1 overflow-x-auto">
+                        <TabsTrigger value="bank" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
+                          <Bookmark className="w-3.5 h-3.5" />
+                          Ngân hàng
+                          <Badge variant="secondary" className="h-4 px-1 text-[10px]">{combinedStats.totalTopics}</Badge>
+                        </TabsTrigger>
+                        <TabsTrigger value="analytics" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          Phân tích
+                        </TabsTrigger>
+                        <TabsTrigger value="learning" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
+                          <Brain className="w-3.5 h-3.5" />
+                          AI Learning
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <div className="max-h-[35vh] overflow-auto">
+                        <TabsContent value="bank" className="m-0 p-4">
+                          <TopicBankGrid
+                            brandTemplateId={selectedBrandId}
+                            contentGoal={selectedGoal}
+                            onSelectTopic={(topic) => navigate('/multichannel', { state: { prefillTopic: topic, prefillGoal: selectedGoal, fromTopics: true } })}
+                          />
+                        </TabsContent>
+                        <TabsContent value="analytics" className="m-0 p-4">
+                          <TopicAnalyticsDashboard brandTemplateId={selectedBrandId} />
+                        </TabsContent>
+                        <TabsContent value="learning" className="m-0 p-4">
+                          <AILearningDashboard
+                            brandTemplateId={selectedBrandId}
+                            open={activeTab === 'learning'}
+                            onOpenChange={(open) => !open && setActiveTab('bank')}
+                          />
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
@@ -402,18 +427,18 @@ const Topics = () => {
             <Button
               variant="ghost"
               className={cn(
-                'flex-1 h-full flex-col gap-0.5 rounded-none',
+                'flex-1 h-full flex-col gap-0.5 rounded-none px-1',
                 mobileTab === 'chat' && 'text-primary bg-primary/5'
               )}
               onClick={() => setMobileTab('chat')}
             >
               <MessageSquare className="h-5 w-5" />
-              <span className="text-[10px]">Chat AI</span>
+              <span className="text-[10px]">Chat</span>
             </Button>
             <Button
               variant="ghost"
               className={cn(
-                'flex-1 h-full flex-col gap-0.5 rounded-none',
+                'flex-1 h-full flex-col gap-0.5 rounded-none px-1',
                 mobileTab === 'bank' && 'text-primary bg-primary/5'
               )}
               onClick={() => {
@@ -422,12 +447,34 @@ const Topics = () => {
               }}
             >
               <Bookmark className="h-5 w-5" />
-              <span className="text-[10px]">Kho ({combinedStats.totalTopics})</span>
+              <span className="text-[10px]">Kho</span>
             </Button>
             <Button
               variant="ghost"
               className={cn(
-                'flex-1 h-full flex-col gap-0.5 rounded-none',
+                'flex-1 h-full flex-col gap-0.5 rounded-none px-1',
+                mobileTab === 'analytics' && 'text-primary bg-primary/5'
+              )}
+              onClick={() => setMobileTab('analytics')}
+            >
+              <BarChart3 className="h-5 w-5" />
+              <span className="text-[10px]">Phân tích</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-1 h-full flex-col gap-0.5 rounded-none px-1',
+                mobileTab === 'learning' && 'text-primary bg-primary/5'
+              )}
+              onClick={() => setMobileTab('learning')}
+            >
+              <Brain className="h-5 w-5" />
+              <span className="text-[10px]">AI</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-1 h-full flex-col gap-0.5 rounded-none px-1',
                 mobileTab === 'discovery' && 'text-primary bg-primary/5'
               )}
               onClick={() => {
