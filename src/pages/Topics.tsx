@@ -368,6 +368,7 @@ const Topics = () => {
           )}>
             <DiscoveryFeedPanel
               brandTemplateId={selectedBrandId}
+              contentGoal={selectedGoal}
               aiLearningStats={aiLearningStats}
               onInjectPrompt={handleInjectPrompt}
               isCollapsed={rightPanelCollapsed}
