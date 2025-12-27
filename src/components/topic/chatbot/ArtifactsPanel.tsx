@@ -1,15 +1,33 @@
 import { useState, useCallback } from 'react';
 import { 
   X, Pencil, Save, Trash2, Plus, MessageSquare, Video, Images, 
-  ChevronRight, Sparkles, Copy, Check, BookmarkPlus, ExternalLink,
-  GripVertical
+  Sparkles, Copy, Check, BookmarkPlus, ExternalLink,
+  GripVertical, Download, FileJson, FileSpreadsheet, Trash
 } from 'lucide-react';
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
@@ -32,6 +50,280 @@ interface ArtifactsPanelProps {
   className?: string;
 }
 
+// Sortable Topic Item Component
+interface SortableTopicItemProps {
+  topic: ArtifactTopic;
+  index: number;
+  editingTopic: ArtifactTopic | null;
+  copiedId: string | null;
+  onEdit: (topic: ArtifactTopic) => void;
+  onCopy: (topic: ArtifactTopic) => void;
+  onDelete: (topicId: string) => void;
+  onSaveToBank?: (topic: ArtifactTopic) => void;
+  onRefine?: (topic: string) => void;
+  onCreateContent: (topic: ArtifactTopic, type: 'multichannel' | 'script' | 'carousel') => void;
+  setEditingTopic: (topic: ArtifactTopic | null) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+}
+
+function SortableTopicItem({
+  topic,
+  index,
+  editingTopic,
+  copiedId,
+  onEdit,
+  onCopy,
+  onDelete,
+  onSaveToBank,
+  onRefine,
+  onCreateContent,
+  setEditingTopic,
+  onSaveEdit,
+  onCancelEdit
+}: SortableTopicItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: topic.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 'auto'
+  };
+
+  const isEditing = editingTopic?.id === topic.id;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group p-3 rounded-xl border transition-all",
+        isEditing 
+          ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
+          : "border-border hover:border-primary/30 hover:bg-muted/50",
+        topic.isSaved && "border-green-500/30 bg-green-500/5",
+        isDragging && "shadow-lg"
+      )}
+    >
+      {isEditing ? (
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Topic
+            </label>
+            <Input
+              value={editingTopic.topic}
+              onChange={(e) => setEditingTopic({ ...editingTopic, topic: e.target.value })}
+              className="mt-1 h-8 text-sm"
+              placeholder="Nhập topic..."
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Lý do / Insight
+            </label>
+            <Textarea
+              value={editingTopic.reason || ''}
+              onChange={(e) => setEditingTopic({ ...editingTopic, reason: e.target.value })}
+              className="mt-1 min-h-[60px] text-xs resize-none"
+              placeholder="Tại sao topic này hiệu quả..."
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Format đề xuất
+            </label>
+            <Input
+              value={editingTopic.format || ''}
+              onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
+              className="mt-1 h-8 text-xs"
+              placeholder="Carousel, Video, Post..."
+            />
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button size="sm" className="h-7 text-xs gap-1" onClick={onSaveEdit}>
+              <Save className="w-3 h-3" />
+              Lưu
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelEdit}>
+              Hủy
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <div 
+              className="flex items-center gap-1 text-muted-foreground/50 cursor-grab hover:text-muted-foreground"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="w-3 h-3" />
+              <span className="text-[10px] font-mono">{index + 1}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium leading-snug line-clamp-2">
+                {topic.topic}
+              </p>
+              {topic.reason && (
+                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                  {topic.reason}
+                </p>
+              )}
+              {topic.format && (
+                <Badge variant="outline" className="mt-1.5 text-[10px] h-5">
+                  {topic.format}
+                </Badge>
+              )}
+            </div>
+            {topic.isSaved && (
+              <Badge variant="secondary" className="text-[9px] h-4 bg-green-500/10 text-green-600">
+                Đã lưu
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 w-6 p-0"
+                  onClick={() => onEdit(topic)}
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Chỉnh sửa</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 w-6 p-0"
+                  onClick={() => onCopy(topic)}
+                >
+                  {copiedId === topic.id ? (
+                    <Check className="w-3 h-3 text-green-500" />
+                  ) : (
+                    <Copy className="w-3 h-3" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Sao chép</TooltipContent>
+            </Tooltip>
+
+            {!topic.isSaved && onSaveToBank && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0"
+                    onClick={() => onSaveToBank(topic)}
+                  >
+                    <BookmarkPlus className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Lưu vào Bank</TooltipContent>
+              </Tooltip>
+            )}
+
+            {onRefine && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0"
+                    onClick={() => onRefine(topic.topic)}
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Xem chi tiết</TooltipContent>
+              </Tooltip>
+            )}
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  onClick={() => onDelete(topic.id)}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Xóa</TooltipContent>
+            </Tooltip>
+
+            <div className="flex-1" />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="secondary"
+                  className="h-6 px-2 text-[10px] gap-1 hover:bg-primary hover:text-primary-foreground"
+                  onClick={() => onCreateContent(topic, 'multichannel')}
+                >
+                  <MessageSquare className="w-2.5 h-2.5" />
+                  Multi
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Tạo Multi-channel</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="secondary"
+                  className="h-6 px-2 text-[10px] gap-1 hover:bg-violet-600 hover:text-white"
+                  onClick={() => onCreateContent(topic, 'script')}
+                >
+                  <Video className="w-2.5 h-2.5" />
+                  Script
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Tạo Script</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="secondary"
+                  className="h-6 px-2 text-[10px] gap-1 hover:bg-orange-500 hover:text-white"
+                  onClick={() => onCreateContent(topic, 'carousel')}
+                >
+                  <Images className="w-2.5 h-2.5" />
+                  Carousel
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Tạo Carousel</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ArtifactsPanel({
   topics,
   onTopicsChange,
@@ -43,6 +335,21 @@ export function ArtifactsPanel({
 }: ArtifactsPanelProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<ArtifactTopic | null>(null);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = topics.findIndex(t => t.id === active.id);
+      const newIndex = topics.findIndex(t => t.id === over.id);
+      onTopicsChange(arrayMove(topics, oldIndex, newIndex));
+    }
+  }, [topics, onTopicsChange]);
 
   const handleCopy = useCallback(async (topic: ArtifactTopic) => {
     const text = `${topic.topic}${topic.reason ? `\n\nLý do: ${topic.reason}` : ''}${topic.format ? `\nFormat: ${topic.format}` : ''}`;
@@ -98,6 +405,52 @@ export function ArtifactsPanel({
     });
   }, [topics, onTopicsChange, onSaveToBank]);
 
+  // Export functions
+  const handleExportJSON = useCallback(() => {
+    const exportData = topics.map(({ id, isEditing, isSaved, ...rest }) => rest);
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `topics-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Đã xuất file JSON!' });
+  }, [topics]);
+
+  const handleExportCSV = useCallback(() => {
+    const headers = ['Topic', 'Lý do', 'Format'];
+    const rows = topics.map(t => [
+      `"${(t.topic || '').replace(/"/g, '""')}"`,
+      `"${(t.reason || '').replace(/"/g, '""')}"`,
+      `"${(t.format || '').replace(/"/g, '""')}"`
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `topics-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Đã xuất file CSV!' });
+  }, [topics]);
+
+  const handleSaveAll = useCallback(() => {
+    const unsavedTopics = topics.filter(t => !t.isSaved);
+    unsavedTopics.forEach(t => onSaveToBank?.(t));
+    onTopicsChange(topics.map(t => ({ ...t, isSaved: true })));
+    toast({ 
+      title: `Đã lưu ${unsavedTopics.length} topics!`,
+      description: 'Tất cả topics đã được thêm vào danh sách của bạn.'
+    });
+  }, [topics, onTopicsChange, onSaveToBank]);
+
+  const handleDeleteAll = useCallback(() => {
+    onTopicsChange([]);
+    toast({ title: 'Đã xóa tất cả topics!' });
+  }, [onTopicsChange]);
+
   if (topics.length === 0) {
     return (
       <div className={cn(
@@ -145,6 +498,30 @@ export function ArtifactsPanel({
           </Badge>
         </div>
         <div className="flex items-center gap-1">
+          {/* Export dropdown */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <Download className="w-3.5 h-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Xuất topics</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={handleExportJSON} className="gap-2 text-xs">
+                <FileJson className="w-3.5 h-3.5" />
+                Xuất JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportCSV} className="gap-2 text-xs">
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Xuất CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleAddNew}>
@@ -159,254 +536,68 @@ export function ArtifactsPanel({
         </div>
       </div>
 
-      {/* Topics List */}
+      {/* Topics List with Drag & Drop */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-2">
-          {topics.map((topic, index) => (
-            <div
-              key={topic.id}
-              className={cn(
-                "group p-3 rounded-xl border transition-all",
-                editingTopic?.id === topic.id 
-                  ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
-                  : "border-border hover:border-primary/30 hover:bg-muted/50",
-                topic.isSaved && "border-green-500/30 bg-green-500/5"
-              )}
-            >
-              {editingTopic?.id === topic.id ? (
-                /* Edit Mode */
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                      Topic
-                    </label>
-                    <Input
-                      value={editingTopic.topic}
-                      onChange={(e) => setEditingTopic({ ...editingTopic, topic: e.target.value })}
-                      className="mt-1 h-8 text-sm"
-                      placeholder="Nhập topic..."
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                      Lý do / Insight
-                    </label>
-                    <Textarea
-                      value={editingTopic.reason || ''}
-                      onChange={(e) => setEditingTopic({ ...editingTopic, reason: e.target.value })}
-                      className="mt-1 min-h-[60px] text-xs resize-none"
-                      placeholder="Tại sao topic này hiệu quả..."
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                      Format đề xuất
-                    </label>
-                    <Input
-                      value={editingTopic.format || ''}
-                      onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
-                      className="mt-1 h-8 text-xs"
-                      placeholder="Carousel, Video, Post..."
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Button size="sm" className="h-7 text-xs gap-1" onClick={handleSaveEdit}>
-                      <Save className="w-3 h-3" />
-                      Lưu
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleCancelEdit}>
-                      Hủy
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                /* View Mode */
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <div className="flex items-center gap-1 text-muted-foreground/50 cursor-grab">
-                      <span className="text-[10px] font-mono">{index + 1}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-snug line-clamp-2">
-                        {topic.topic}
-                      </p>
-                      {topic.reason && (
-                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                          {topic.reason}
-                        </p>
-                      )}
-                      {topic.format && (
-                        <Badge variant="outline" className="mt-1.5 text-[10px] h-5">
-                          {topic.format}
-                        </Badge>
-                      )}
-                    </div>
-                    {topic.isSaved && (
-                      <Badge variant="secondary" className="text-[9px] h-4 bg-green-500/10 text-green-600">
-                        Đã lưu
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Action buttons - visible on hover */}
-                  <div className="flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-6 w-6 p-0"
-                          onClick={() => handleEdit(topic)}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Chỉnh sửa</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-6 w-6 p-0"
-                          onClick={() => handleCopy(topic)}
-                        >
-                          {copiedId === topic.id ? (
-                            <Check className="w-3 h-3 text-green-500" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Sao chép</TooltipContent>
-                    </Tooltip>
-
-                    {!topic.isSaved && onSaveToBank && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-6 w-6 p-0"
-                            onClick={() => handleSaveToBank(topic)}
-                          >
-                            <BookmarkPlus className="w-3 h-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Lưu vào Bank</TooltipContent>
-                      </Tooltip>
-                    )}
-
-                    {onRefine && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-6 w-6 p-0"
-                            onClick={() => onRefine(topic.topic)}
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Xem chi tiết</TooltipContent>
-                      </Tooltip>
-                    )}
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(topic.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Xóa</TooltipContent>
-                    </Tooltip>
-
-                    <div className="flex-1" />
-
-                    {/* Create content buttons */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="secondary"
-                          className="h-6 px-2 text-[10px] gap-1 hover:bg-primary hover:text-primary-foreground"
-                          onClick={() => onCreateContent(topic, 'multichannel')}
-                        >
-                          <MessageSquare className="w-2.5 h-2.5" />
-                          Multi
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Tạo Multi-channel</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="secondary"
-                          className="h-6 px-2 text-[10px] gap-1 hover:bg-violet-600 hover:text-white"
-                          onClick={() => onCreateContent(topic, 'script')}
-                        >
-                          <Video className="w-2.5 h-2.5" />
-                          Script
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Tạo Script</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="secondary"
-                          className="h-6 px-2 text-[10px] gap-1 hover:bg-orange-500 hover:text-white"
-                          onClick={() => onCreateContent(topic, 'carousel')}
-                        >
-                          <Images className="w-2.5 h-2.5" />
-                          Carousel
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Tạo Carousel</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              )}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={topics.map(t => t.id)} strategy={verticalListSortingStrategy}>
+            <div className="p-2 space-y-2">
+              {topics.map((topic, index) => (
+                <SortableTopicItem
+                  key={topic.id}
+                  topic={topic}
+                  index={index}
+                  editingTopic={editingTopic}
+                  copiedId={copiedId}
+                  onEdit={handleEdit}
+                  onCopy={handleCopy}
+                  onDelete={handleDelete}
+                  onSaveToBank={onSaveToBank ? handleSaveToBank : undefined}
+                  onRefine={onRefine}
+                  onCreateContent={onCreateContent}
+                  setEditingTopic={setEditingTopic}
+                  onSaveEdit={handleSaveEdit}
+                  onCancelEdit={handleCancelEdit}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       </ScrollArea>
 
       {/* Footer with bulk actions */}
-      {topics.length > 1 && (
-        <div className="p-2 border-t bg-muted/30">
+      {topics.length > 0 && (
+        <div className="p-2 border-t bg-muted/30 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground">
               {topics.filter(t => t.isSaved).length}/{topics.length} đã lưu
             </span>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="h-7 text-xs gap-1"
-              onClick={() => {
-                topics.forEach(t => {
-                  if (!t.isSaved && onSaveToBank) {
-                    handleSaveToBank(t);
-                  }
-                });
-              }}
-              disabled={topics.every(t => t.isSaved)}
-            >
-              <BookmarkPlus className="w-3 h-3" />
-              Lưu tất cả
-            </Button>
+            <div className="flex items-center gap-1">
+              {onSaveToBank && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 text-xs gap-1"
+                  onClick={handleSaveAll}
+                  disabled={topics.every(t => t.isSaved)}
+                >
+                  <BookmarkPlus className="w-3 h-3" />
+                  Lưu tất cả
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-7 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={handleDeleteAll}
+              >
+                <Trash className="w-3 h-3" />
+                Xóa tất cả
+              </Button>
+            </div>
           </div>
         </div>
       )}
