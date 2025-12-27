@@ -4,7 +4,7 @@ import {
   Sparkles, Package, Rocket, Gift, Lightbulb, RefreshCw,
   Heart, Users, TrendingUp, BookOpen, Crown, Target, Megaphone,
   AlertTriangle, HelpCircle, Camera, Vote, Flame, Zap,
-  Microscope, FileBarChart, Star, Square
+  Microscope, FileBarChart, Star, Square, Plus, Shuffle, Search
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -521,6 +521,48 @@ export function TopicAIChatbot({
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Follow-up Suggestions after AI response with topics */}
+                {message.role === 'assistant' && 
+                 message.id !== 'welcome' && 
+                 !message.isError && 
+                 message.content && 
+                 !isLoading && (
+                  <div className="flex flex-wrap gap-1.5 pl-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1 border-dashed"
+                      onClick={() => sendMessage('Gợi ý thêm các topic khác')}
+                      disabled={isLoading}
+                    >
+                      <Plus className="w-3 h-3" />
+                      Gợi ý thêm
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1 border-dashed"
+                      onClick={() => sendMessage('Thay đổi format content khác (video, carousel, bài viết dài...)')}
+                      disabled={isLoading}
+                    >
+                      <Shuffle className="w-3 h-3" />
+                      Đổi format
+                    </Button>
+                    {message.extractedTopics && message.extractedTopics.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 border-dashed"
+                        onClick={() => sendMessage(`Phân tích chi tiết hơn về topic: "${message.extractedTopics![0].topic}"`)}
+                        disabled={isLoading}
+                      >
+                        <Search className="w-3 h-3" />
+                        Chi tiết topic 1
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
