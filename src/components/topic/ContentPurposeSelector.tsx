@@ -76,7 +76,7 @@ export function ContentPurposeSelector({
   };
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={150}>
       <div className={cn('space-y-3', className)}>
         {/* Purpose Selector */}
         <Popover open={open} onOpenChange={setOpen}>

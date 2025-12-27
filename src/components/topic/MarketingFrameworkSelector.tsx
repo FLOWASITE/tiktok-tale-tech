@@ -39,7 +39,7 @@ export function MarketingFrameworkSelector({
 
   if (variant === 'dropdown') {
     return (
-      <TooltipProvider>
+      <TooltipProvider delayDuration={150}>
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -105,7 +105,7 @@ export function MarketingFrameworkSelector({
 
   // Inline variant
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={150}>
       <div className={cn('flex flex-wrap gap-2', className)}>
         {displayFrameworks.map((fw) => (
           <Tooltip key={fw.value}>
