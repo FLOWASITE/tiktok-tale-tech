@@ -429,6 +429,60 @@ export type Database = {
           },
         ]
       }
+      chat_feedback: {
+        Row: {
+          brand_template_id: string | null
+          conversation_id: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          message_content: string | null
+          message_id: string
+          organization_id: string | null
+          user_id: string
+          user_message: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          message_content?: string | null
+          message_id: string
+          organization_id?: string | null
+          user_id: string
+          user_message?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          message_content?: string | null
+          message_id?: string
+          organization_id?: string | null
+          user_id?: string
+          user_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_feedback_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_feedback_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
