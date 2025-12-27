@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -24,6 +24,7 @@ type AIErrorCode = 'RATE_LIMIT' | 'CREDITS_EXHAUSTED' | null;
 
 interface UseTrendingTopicsOptions {
   brandTemplateId?: string;
+  autoFetch?: boolean;
 }
 
 export function useTrendingTopics(options: UseTrendingTopicsOptions = {}) {
@@ -34,6 +35,7 @@ export function useTrendingTopics(options: UseTrendingTopicsOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<AIErrorCode>(null);
   const [source, setSource] = useState<'cache' | 'ai' | null>(null);
+  const hasFetched = useRef(false);
 
   const fetchTrendingTopics = useCallback(async (forceRefresh = false) => {
     if (!user || !currentOrganization) {
@@ -85,6 +87,19 @@ export function useTrendingTopics(options: UseTrendingTopicsOptions = {}) {
       setIsLoading(false);
     }
   }, [user, currentOrganization, options.brandTemplateId]);
+
+  // Auto-fetch on mount when conditions are met
+  useEffect(() => {
+    if (options.autoFetch !== false && user && currentOrganization && !hasFetched.current) {
+      hasFetched.current = true;
+      fetchTrendingTopics();
+    }
+  }, [user, currentOrganization, fetchTrendingTopics, options.autoFetch]);
+
+  // Reset fetch flag when org changes
+  useEffect(() => {
+    hasFetched.current = false;
+  }, [currentOrganization?.id, options.brandTemplateId]);
 
   const refresh = useCallback(() => {
     return fetchTrendingTopics(true);
