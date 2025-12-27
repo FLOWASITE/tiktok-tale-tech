@@ -175,16 +175,30 @@ function buildSystemPrompt(
 4. Tránh các topic đã được sử dụng gần đây
 5. Cân bằng giữa evergreen content và trending topics
 
-## Format trả lời khi gợi ý topic:
-Khi gợi ý topic, hãy format theo cấu trúc sau (để hệ thống có thể parse):
+## QUAN TRỌNG - Format trả lời khi gợi ý topic:
+Khi gợi ý topic, BẮT BUỘC phải format CHÍNH XÁC theo cấu trúc sau (để hệ thống có thể hiển thị nút bấm):
 
 **[TOPIC_START]**
-📌 **Topic:** [Tên topic cụ thể]
-💡 **Lý do:** [Tại sao phù hợp với brand - 1 câu]
+📌 **Topic:** [Tên topic cụ thể - viết rõ ràng, cô đọng]
+💡 **Lý do:** [Tại sao phù hợp - 1 câu ngắn]
 🎯 **Format đề xuất:** [Multi-channel / Script / Carousel]
 **[TOPIC_END]**
 
-Có thể gợi ý 2-4 topics trong một lần trả lời.`;
+Ví dụ đúng format:
+
+**[TOPIC_START]**
+📌 **Topic:** 5 Bước Xây Dựng Thương Hiệu Cá Nhân Trên LinkedIn
+💡 **Lý do:** Phù hợp với audience chuyên nghiệp, giúp tăng uy tín
+🎯 **Format đề xuất:** Carousel
+**[TOPIC_END]**
+
+**[TOPIC_START]**
+📌 **Topic:** Behind-the-scenes: Một Ngày Của Team Marketing
+💡 **Lý do:** Tạo kết nối cảm xúc, tăng tương tác cao
+🎯 **Format đề xuất:** Script
+**[TOPIC_END]**
+
+Gợi ý 2-4 topics trong một lần trả lời. LUÔN sử dụng đúng format trên.`;
 
   // Add brand context
   if (brandContext) {

@@ -44,6 +44,7 @@ export { TopicsByPillarView } from './TopicsByPillarView';
 
 // Phase 5: AI-First Hero
 export { TopicAIHeroSection } from './TopicAIHeroSection';
+export { TopicAIChatbot } from './TopicAIChatbot';
 export { TopicFormatSelector } from './TopicFormatSelector';
 export { UpcomingEventsCard } from './UpcomingEventsCard';
 export { QuickAccessBank } from './QuickAccessBank';

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bot, Send, Loader2, MessageSquare, Video, Images,
-  Sparkles, Package, Rocket, Gift, Lightbulb, RefreshCw
+  Sparkles, Package, Rocket, Gift, Lightbulb, RefreshCw,
+  Heart, Users, TrendingUp, BookOpen, Crown, Target, Megaphone
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   extractedTopics?: ExtractedTopic[];
+  isError?: boolean;
 }
 
 interface ExtractedTopic {
@@ -35,13 +37,21 @@ interface TopicAIChatbotProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-topics`;
 
-// Parse topics from AI response
+// Icon mapping for quick actions
+const iconMap: Record<string, React.ElementType> = {
+  Package, Rocket, Gift, Lightbulb, Heart, Users, 
+  TrendingUp, BookOpen, Crown, Target, Megaphone, Sparkles
+};
+
+// Parse topics from AI response with multiple patterns
 function extractTopicsFromMessage(content: string): ExtractedTopic[] {
   const topics: ExtractedTopic[] = [];
-  const regex = /\*\*\[TOPIC_START\]\*\*[\s\S]*?📌\s*\*\*Topic:\*\*\s*(.+?)[\n\r][\s\S]*?💡\s*\*\*Lý do:\*\*\s*(.+?)[\n\r][\s\S]*?🎯\s*\*\*Format đề xuất:\*\*\s*(.+?)[\n\r][\s\S]*?\*\*\[TOPIC_END\]\*\*/gi;
+  
+  // Pattern 1: Structured format with [TOPIC_START]/[TOPIC_END]
+  const structuredRegex = /\*\*\[TOPIC_START\]\*\*[\s\S]*?📌\s*\*\*Topic:\*\*\s*(.+?)[\n\r][\s\S]*?💡\s*\*\*Lý do:\*\*\s*(.+?)[\n\r][\s\S]*?🎯\s*\*\*Format đề xuất:\*\*\s*(.+?)[\n\r][\s\S]*?\*\*\[TOPIC_END\]\*\*/gi;
   
   let match;
-  while ((match = regex.exec(content)) !== null) {
+  while ((match = structuredRegex.exec(content)) !== null) {
     topics.push({
       topic: match[1].trim(),
       reason: match[2].trim(),
@@ -49,7 +59,33 @@ function extractTopicsFromMessage(content: string): ExtractedTopic[] {
     });
   }
   
-  return topics;
+  // Pattern 2: Numbered list with emoji bullets (📌 1. Topic: ...)
+  if (topics.length === 0) {
+    const numberedRegex = /(?:📌|\d+\.)\s*\*\*(?:Topic)?:?\*\*\s*([^\n]+)(?:[\n\r]+(?:💡|[-•])\s*(?:\*\*)?(?:Lý do)?:?\*?\*?\s*([^\n]+))?(?:[\n\r]+(?:🎯|[-•])\s*(?:\*\*)?(?:Format)?:?\*?\*?\s*([^\n]+))?/gi;
+    while ((match = numberedRegex.exec(content)) !== null) {
+      const topic = match[1]?.replace(/\*\*/g, '').trim();
+      if (topic && topic.length > 5) {
+        topics.push({
+          topic,
+          reason: match[2]?.replace(/\*\*/g, '').trim(),
+          format: match[3]?.replace(/\*\*/g, '').trim(),
+        });
+      }
+    }
+  }
+  
+  // Pattern 3: Simple bold topics with ** marks
+  if (topics.length === 0) {
+    const boldRegex = /(?:^|\n)\s*(?:\d+\.|[-•📌])\s*\*\*([^*\n]{10,80})\*\*/gm;
+    while ((match = boldRegex.exec(content)) !== null) {
+      const topic = match[1].trim();
+      if (topic && !topic.toLowerCase().includes('topic:') && !topic.toLowerCase().includes('lý do')) {
+        topics.push({ topic });
+      }
+    }
+  }
+  
+  return topics.slice(0, 5); // Max 5 topics
 }
 
 // Quick action chips based on content goal
@@ -58,7 +94,7 @@ const getQuickActions = (contentGoal?: ContentGoal) => {
   return templates.slice(0, 3).map(t => ({
     label: t.label,
     icon: t.icon,
-    prompt: `Tôi muốn tạo content ${t.description}. ${t.suggestedTopicTemplate}`,
+    prompt: `Tôi muốn tạo content với mục đích "${t.label}". ${t.description || ''}`,
   }));
 };
 
@@ -114,9 +150,9 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
     setInput('');
     setIsLoading(true);
 
-    // Prepare messages for API
+    // Prepare messages for API - filter out welcome message and error messages
     const apiMessages = [...messages, userMessage]
-      .filter(m => m.id !== 'welcome' || m.role !== 'assistant')
+      .filter(m => m.id !== 'welcome' && !m.isError)
       .map(m => ({ role: m.role, content: m.content }));
 
     let assistantContent = '';
@@ -209,6 +245,7 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
         role: 'assistant',
         content: '❌ Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
         timestamp: new Date(),
+        isError: true,
       }]);
     } finally {
       setIsLoading(false);
@@ -395,25 +432,22 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
         <div className="flex-shrink-0 px-4 py-2 border-t bg-muted/30">
           <p className="text-xs text-muted-foreground mb-2">Gợi ý nhanh:</p>
           <div className="flex flex-wrap gap-2">
-            {quickActions.map((action, index) => (
-              <Button
-                key={index}
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 text-xs h-8"
-                onClick={() => handleQuickAction(action.prompt)}
-                disabled={isLoading}
-              >
-                {action.icon === 'Package' && <Package className="w-3.5 h-3.5" />}
-                {action.icon === 'Rocket' && <Rocket className="w-3.5 h-3.5" />}
-                {action.icon === 'Gift' && <Gift className="w-3.5 h-3.5" />}
-                {action.icon === 'Lightbulb' && <Lightbulb className="w-3.5 h-3.5" />}
-                {!['Package', 'Rocket', 'Gift', 'Lightbulb'].includes(action.icon) && (
-                  <Sparkles className="w-3.5 h-3.5" />
-                )}
-                {action.label}
-              </Button>
-            ))}
+            {quickActions.map((action, index) => {
+              const IconComponent = iconMap[action.icon] || Sparkles;
+              return (
+                <Button
+                  key={index}
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5 text-xs h-8"
+                  onClick={() => handleQuickAction(action.prompt)}
+                  disabled={isLoading}
+                >
+                  <IconComponent className="w-3.5 h-3.5" />
+                  {action.label}
+                </Button>
+              );
+            })}
           </div>
         </div>
       )}
