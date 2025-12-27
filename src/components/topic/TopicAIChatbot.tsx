@@ -1868,9 +1868,9 @@ export function TopicAIChatbot({
             )}
           </Button>
         )}
-      </div>
-      </>
+        </>
       )}
+      </div>
 
       {/* Quick Actions - Compact on mobile */}
       {activeView === 'chat' && (
