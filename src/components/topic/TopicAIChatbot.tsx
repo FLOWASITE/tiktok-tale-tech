@@ -1237,9 +1237,18 @@ export function TopicAIChatbot({
       multichannel: '/multichannel',
       script: '/scripts',
       carousel: '/carousel',
-    };
-    
-    onNavigate(paths[format], {
+    } as const;
+
+    const path = paths[format];
+
+    // Debug + user feedback (helps confirm click is actually firing)
+    console.debug('[Topics] artifact action', { format, path, topic: topic?.topic });
+    toast({
+      title: 'Đang mở…',
+      description: `${format === 'multichannel' ? 'Tạo Multi-Channel' : format === 'script' ? 'Tạo Kịch bản Video' : 'Tạo Carousel'} từ topic: ${topic.topic}`,
+    });
+
+    onNavigate(path, {
       prefillTopic: topic.topic,
       prefillGoal: contentGoal,
       fromTopics: true,

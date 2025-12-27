@@ -295,26 +295,44 @@ function SortableTopicItem({
             <div className="flex sm:hidden items-center gap-0.5 shrink-0 ml-auto">
               <div className="flex items-center gap-0.5 bg-muted/50 rounded p-0.5">
                 <Button
+                  type="button"
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 touch-manipulation"
-                  onClick={() => onCreateContent(topic, 'multichannel')}
+                  onPointerDownCapture={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onCreateContent(topic, 'multichannel');
+                  }}
                 >
                   <MessageSquare className="w-3 h-3" />
                 </Button>
                 <Button
+                  type="button"
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 touch-manipulation"
-                  onClick={() => onCreateContent(topic, 'script')}
+                  onPointerDownCapture={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onCreateContent(topic, 'script');
+                  }}
                 >
                   <Video className="w-3 h-3" />
                 </Button>
                 <Button
+                  type="button"
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 touch-manipulation"
-                  onClick={() => onCreateContent(topic, 'carousel')}
+                  onPointerDownCapture={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onCreateContent(topic, 'carousel');
+                  }}
                 >
                   <Images className="w-3 h-3" />
                 </Button>
@@ -382,7 +400,18 @@ function SortableTopicItem({
               <div className="flex items-center gap-0.5 bg-muted/50 rounded p-0.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[9px]" onClick={() => onCreateContent(topic, 'multichannel')}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1.5 text-[9px]"
+                      onPointerDownCapture={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCreateContent(topic, 'multichannel');
+                      }}
+                    >
                       <MessageSquare className="w-2.5 h-2.5" />
                     </Button>
                   </TooltipTrigger>
@@ -390,7 +419,18 @@ function SortableTopicItem({
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[9px]" onClick={() => onCreateContent(topic, 'script')}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1.5 text-[9px]"
+                      onPointerDownCapture={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCreateContent(topic, 'script');
+                      }}
+                    >
                       <Video className="w-2.5 h-2.5" />
                     </Button>
                   </TooltipTrigger>
@@ -398,7 +438,18 @@ function SortableTopicItem({
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[9px]" onClick={() => onCreateContent(topic, 'carousel')}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1.5 text-[9px]"
+                      onPointerDownCapture={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCreateContent(topic, 'carousel');
+                      }}
+                    >
                       <Images className="w-2.5 h-2.5" />
                     </Button>
                   </TooltipTrigger>
