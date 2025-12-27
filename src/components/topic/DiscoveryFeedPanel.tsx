@@ -209,7 +209,7 @@ export function DiscoveryFeedPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-card/50 border-l border-border/50">
+    <div className="h-full flex flex-col bg-card/50 border-l border-border/50 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border/50">
         <div className="flex items-center gap-2">
@@ -238,8 +238,8 @@ export function DiscoveryFeedPanel({
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1 p-3">
-        <div className="space-y-3">
+      <ScrollArea className="flex-1 overflow-auto">
+        <div className="space-y-3 p-3">
           {/* Hot Trends Section */}
           <Collapsible open={sectionsOpen.trending} onOpenChange={() => toggleSection('trending')}>
             <CollapsibleTrigger className="flex items-center justify-between w-full py-1 hover:bg-muted/50 rounded px-1 -mx-1">
