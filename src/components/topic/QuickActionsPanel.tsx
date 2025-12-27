@@ -1,10 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { 
   Flame, Gift, TrendingUp, Zap, Dices, ChevronUp, ChevronDown,
-  Sparkles, Target, Heart, BookOpen
+  BookOpen, Eye, Award, Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
 
@@ -16,13 +15,13 @@ interface QuickActionsPanelProps {
   variant?: 'full' | 'compact';
 }
 
-// Category config with icons
+// Category config - synced with CONTENT_GOALS in multichannel.ts
 const CATEGORY_CONFIG: Record<ContentGoal, { label: string; emoji: string; icon: React.ElementType }> = {
   education: { label: 'Giáo dục', emoji: '📚', icon: BookOpen },
-  awareness: { label: 'Nhận thức', emoji: '💫', icon: Sparkles },
+  awareness: { label: 'Nhận diện', emoji: '👁️', icon: Eye },
   engagement: { label: 'Tương tác', emoji: '🔥', icon: Flame },
-  expertise: { label: 'Chuyên gia', emoji: '🧠', icon: Target },
-  conversion: { label: 'Chuyển đổi', emoji: '🎯', icon: Heart },
+  expertise: { label: 'Chuyên gia', emoji: '🧠', icon: Award },
+  conversion: { label: 'Chuyển đổi', emoji: '🎯', icon: Target },
 };
 
 // Quick prompts - compact version
@@ -130,24 +129,21 @@ export function QuickActionsPanel({
               </Button>
             ))}
             
-            {/* Goal selector - hide on very small screens */}
-            {contentGoal && (
-              <>
-                <span className="hidden xs:inline text-[9px] sm:text-[10px] text-muted-foreground ml-1 sm:ml-2">Mục tiêu:</span>
-                {Object.entries(CATEGORY_CONFIG).slice(0, 3).map(([key, config]) => (
-                  <Button
-                    key={key}
-                    variant={contentGoal === key ? 'default' : 'outline'}
-                    size="sm"
-                    className="hidden xs:inline-flex h-5 sm:h-6 text-[9px] sm:text-[10px] px-1.5 sm:px-2 gap-0.5 sm:gap-1"
-                    onClick={() => onAction(`Gợi ý topic với mục tiêu ${config.label}`)}
-                    disabled={isLoading}
-                  >
-                    {config.emoji}
-                  </Button>
-                ))}
-              </>
-            )}
+            {/* Goal selector - show all 5 goals */}
+            <span className="text-[9px] sm:text-[10px] text-muted-foreground ml-1 sm:ml-2">Mục tiêu:</span>
+            {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+              <Button
+                key={key}
+                variant={contentGoal === key ? 'default' : 'outline'}
+                size="sm"
+                className="h-5 sm:h-6 text-[9px] sm:text-[10px] px-1.5 sm:px-2 gap-0.5 sm:gap-1"
+                onClick={() => onAction(`Gợi ý topic với mục tiêu ${config.label}`)}
+                disabled={isLoading}
+              >
+                {config.emoji}
+                <span className="hidden sm:inline">{config.label}</span>
+              </Button>
+            ))}
           </div>
         )}
       </div>
