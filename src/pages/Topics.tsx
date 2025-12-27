@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lightbulb, Bookmark, BarChart3, Brain, MessageSquare, Compass, Sparkles } from 'lucide-react';
+import { Lightbulb, Bookmark, BarChart3, Brain, MessageSquare, Compass, Sparkles, Menu } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { TopicBankGrid } from '@/components/topic/TopicBankGrid';
 import { TopicAnalyticsDashboard } from '@/components/topic/TopicAnalyticsDashboard';
 import { TopicDiscoveryOnboarding } from '@/components/topic/TopicDiscoveryOnboarding';
@@ -240,6 +241,10 @@ const Topics = () => {
         <div className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 border-b bg-background/95 backdrop-blur">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              {/* Sidebar Toggle Button - Mobile only */}
+              {isMobile && (
+                <SidebarTrigger className="h-8 w-8 flex-shrink-0" />
+              )}
               <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-violet-600 shadow-lg flex-shrink-0">
                 <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
               </div>
@@ -262,6 +267,20 @@ const Topics = () => {
             </div>
             <BrandSelectorDropdown brand={selectedBrand} onOpen={() => setBrandDialogOpen(true)} />
           </div>
+        </div>
+      )}
+
+      {/* Mobile header for chat tab - with sidebar toggle */}
+      {isMobile && mobileTab === 'chat' && (
+        <div className="flex-shrink-0 px-3 py-2 border-b bg-background/95 backdrop-blur flex items-center gap-3">
+          <SidebarTrigger className="h-8 w-8 flex-shrink-0" />
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary to-violet-600 shadow-lg flex-shrink-0">
+              <Lightbulb className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <h1 className="text-sm font-bold text-foreground truncate">Kho Ý Tưởng</h1>
+          </div>
+          <BrandSelectorDropdown brand={selectedBrand} onOpen={() => setBrandDialogOpen(true)} />
         </div>
       )}
 
