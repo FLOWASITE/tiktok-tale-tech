@@ -83,12 +83,17 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
   const handleSubmit = async () => {
     if (!formData.name.trim()) return;
 
+    let result;
     if (editingProduct) {
-      await updateProduct(editingProduct.id, formData);
+      result = await updateProduct(editingProduct.id, formData);
     } else {
-      await createProduct(formData);
+      result = await createProduct(formData);
     }
-    setDialogOpen(false);
+    
+    // Only close dialog on success
+    if (result) {
+      setDialogOpen(false);
+    }
   };
 
   const handleDelete = async (productId: string) => {

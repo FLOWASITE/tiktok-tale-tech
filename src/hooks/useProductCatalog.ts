@@ -74,9 +74,9 @@ export function useProductCatalog(brandTemplateId?: string) {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Đã thêm sản phẩm');
       return data as BrandProduct;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Create product error:', err);
-      toast.error('Không thể tạo sản phẩm');
+      toast.error(err?.message || 'Không thể tạo sản phẩm');
       return null;
     } finally {
       setIsSubmitting(false);
@@ -120,9 +120,9 @@ export function useProductCatalog(brandTemplateId?: string) {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Đã cập nhật sản phẩm');
       return data as BrandProduct;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Update product error:', err);
-      toast.error('Không thể cập nhật sản phẩm');
+      toast.error(err?.message || 'Không thể cập nhật sản phẩm');
       return null;
     } finally {
       setIsSubmitting(false);
