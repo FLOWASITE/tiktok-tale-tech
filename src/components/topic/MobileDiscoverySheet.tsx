@@ -1,11 +1,14 @@
+import { useState, useMemo } from 'react';
 import { 
-  TrendingUp, Sparkles, Calendar, ChevronLeft, Flame, Zap, Gift, AlertCircle
+  TrendingUp, Sparkles, Calendar, ChevronLeft, Flame, Zap, Gift, AlertCircle,
+  Search, X, Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import {
   Sheet,
   SheetContent,
@@ -19,6 +22,15 @@ import { useCuratedEvents } from '@/hooks/useCuratedEvents';
 import { CuratedEvent, EVENT_TYPE_CONFIG, SOURCE_CONFIG, TrendingSource } from '@/types/curatedData';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
+
+// Filter options
+const FILTER_OPTIONS = [
+  { key: 'hot', label: '🔥 Hot', description: 'Điểm ≥70' },
+  { key: 'rising', label: '📈 Đang lên', description: 'Xu hướng tăng' },
+  { key: 'urgent', label: '⚡ Gấp', description: 'Sự kiện trong 7 ngày' },
+] as const;
+
+type FilterKey = typeof FILTER_OPTIONS[number]['key'];
 
 interface MobileDiscoverySheetProps {
   open: boolean;
@@ -35,6 +47,11 @@ export function MobileDiscoverySheet({
   contentGoal,
   onInjectPrompt,
 }: MobileDiscoverySheetProps) {
+  // Search & Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
   const { topics: trends, isLoading: trendsLoading } = useTrendingTopics({ brandTemplateId });
   const { nextBest, isLoading: recommendLoading, getNextBestTopic } = useTopicRecommendations({
     brandTemplateId,
@@ -52,6 +69,84 @@ export function MobileDiscoverySheet({
   } = useCuratedEvents();
 
   const upcomingEvents = getUpcomingEvents(60).slice(0, 5);
+
+  // Filter trends
+  const filteredTrends = useMemo(() => {
+    let filtered = [...trends];
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.topic.toLowerCase().includes(query) ||
+        t.suggested_angles?.some(a => a.toLowerCase().includes(query))
+      );
+    }
+    
+    if (activeFilters.includes('hot')) {
+      filtered = filtered.filter(t => t.velocity_score >= 70);
+    }
+    if (activeFilters.includes('rising')) {
+      filtered = filtered.filter(t => t.peak_status === 'rising');
+    }
+    
+    return filtered.slice(0, 5);
+  }, [trends, searchQuery, activeFilters]);
+
+  // Filter suggestions
+  const filteredSuggestions = useMemo(() => {
+    let filtered = [...suggestions];
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(s => 
+        s.topic.toLowerCase().includes(query) ||
+        s.category?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered.slice(0, 5);
+  }, [suggestions, searchQuery]);
+
+  // Filter events
+  const filteredEvents = useMemo(() => {
+    let filtered = [...upcomingEvents];
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(e => 
+        e.name.toLowerCase().includes(query) ||
+        e.suggested_topics?.some(t => t.toLowerCase().includes(query))
+      );
+    }
+    
+    if (activeFilters.includes('urgent')) {
+      filtered = filtered.filter(e => {
+        const daysUntil = Math.ceil(
+          (new Date(e.event_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
+        return daysUntil <= 7;
+      });
+    }
+    
+    return filtered;
+  }, [upcomingEvents, searchQuery, activeFilters]);
+
+  // Toggle filter
+  const toggleFilter = (filterKey: FilterKey) => {
+    setActiveFilters(prev => 
+      prev.includes(filterKey) 
+        ? prev.filter(f => f !== filterKey)
+        : [...prev, filterKey]
+    );
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setActiveFilters([]);
+  };
+
+  const hasActiveFilters = searchQuery.trim() || activeFilters.length > 0;
 
   const handleSelectTopic = (topic: string) => {
     onInjectPrompt(`Gợi ý content về: "${topic}"`);
@@ -78,17 +173,83 @@ export function MobileDiscoverySheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <SheetHeader className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+        {/* Header with Search & Filter */}
+        <SheetHeader className="sticky top-0 z-10 bg-background border-b px-4 py-3 space-y-2">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <SheetTitle className="text-base font-semibold flex items-center gap-2">
+            <SheetTitle className="text-base font-semibold flex items-center gap-2 flex-1">
               <Sparkles className="h-4 w-4 text-primary" />
               Khám phá
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                  {activeFilters.length + (searchQuery ? 1 : 0)} lọc
+                </Badge>
+              )}
             </SheetTitle>
+            <Button
+              variant={showFilters ? "secondary" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className={cn("h-4 w-4", hasActiveFilters && "text-primary")} />
+            </Button>
           </div>
+          
+          {/* Search & Filter Panel */}
+          {showFilters && (
+            <div className="space-y-2 pt-1">
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Tìm kiếm chủ đề..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 pl-9 pr-9 text-sm"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+              
+              {/* Filter Chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {FILTER_OPTIONS.map((filter) => (
+                  <button
+                    key={filter.key}
+                    onClick={() => toggleFilter(filter.key)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                      activeFilters.includes(filter.key)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-muted border-border"
+                    )}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+                
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-2.5 py-1 text-xs rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Xóa lọc
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </SheetHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y pb-safe">
@@ -145,7 +306,7 @@ export function MobileDiscoverySheet({
                 ) : (
                   <ScrollArea className="w-full whitespace-nowrap">
                     <div className="flex gap-2">
-                      {suggestions.slice(0, 5).map((suggestion, idx) => (
+                      {filteredSuggestions.map((suggestion, idx) => (
                         <Button
                           key={idx}
                           variant="outline"
@@ -179,9 +340,9 @@ export function MobileDiscoverySheet({
                     <Skeleton key={i} className="h-10 w-full" />
                   ))}
                 </div>
-              ) : trends.length > 0 ? (
+              ) : filteredTrends.length > 0 ? (
                 <div className="space-y-2">
-                  {trends.slice(0, 5).map((trend, idx) => {
+                  {filteredTrends.map((trend, idx) => {
                     const sourceConfig = trend.source ? SOURCE_CONFIG[trend.source as TrendingSource] : null;
                     return (
                       <Button
@@ -222,7 +383,9 @@ export function MobileDiscoverySheet({
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Chưa có dữ liệu trending</p>
+                <p className="text-sm text-muted-foreground">
+                  {hasActiveFilters ? 'Không có kết quả phù hợp' : 'Chưa có dữ liệu trending'}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -243,9 +406,9 @@ export function MobileDiscoverySheet({
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : upcomingEvents.length > 0 ? (
+              ) : filteredEvents.length > 0 ? (
                 <div className="space-y-2">
-                  {upcomingEvents.map((event) => {
+                  {filteredEvents.map((event) => {
                     const daysUntil = Math.ceil(
                       (new Date(event.event_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                     );
@@ -294,7 +457,9 @@ export function MobileDiscoverySheet({
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Không có sự kiện sắp tới</p>
+                <p className="text-sm text-muted-foreground">
+                  {hasActiveFilters ? 'Không có kết quả phù hợp' : 'Không có sự kiện sắp tới'}
+                </p>
               )}
             </CardContent>
           </Card>
