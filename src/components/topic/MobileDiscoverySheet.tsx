@@ -172,8 +172,18 @@ export function MobileDiscoverySheet({
 
   const hasActiveFilters = searchQuery.trim() || activeFilters.length > 0;
 
+  // Haptic feedback helper
+  const triggerHaptic = (style: 'light' | 'medium' | 'heavy' = 'light') => {
+    if ('vibrate' in navigator) {
+      const duration = style === 'light' ? 10 : style === 'medium' ? 20 : 30;
+      navigator.vibrate(duration);
+    }
+  };
+
   // Open format selector with topic
   const handleTopicClick = (topic: string) => {
+    triggerHaptic('medium');
+    
     if (onNavigate) {
       setSelectedTopic(topic);
       setFormatSelectorOpen(true);
@@ -324,7 +334,7 @@ export function MobileDiscoverySheet({
                   <Button
                     type="button"
                     variant="ghost"
-                    className="w-full h-auto p-3 justify-start text-left"
+                    className="w-full h-auto p-3 justify-start text-left transition-all duration-150 active:scale-[0.98] active:bg-primary/10"
                     onClick={() => handleTopicClick(nextBest.topic)}
                   >
                     <div>
@@ -392,7 +402,7 @@ export function MobileDiscoverySheet({
                         key={idx}
                         type="button"
                         variant="ghost"
-                        className="w-full h-auto p-2 justify-start text-left hover:bg-muted/50"
+                        className="w-full h-auto p-2 justify-start text-left hover:bg-muted/50 transition-all duration-150 active:scale-[0.98] active:bg-violet-500/10"
                         onClick={() => handleTopicClick(suggestion.topic)}
                       >
                         <div className="flex items-center gap-2 w-full">
@@ -449,7 +459,7 @@ export function MobileDiscoverySheet({
                         key={idx}
                         type="button"
                         variant="ghost"
-                        className="w-full h-auto p-2 justify-start text-left"
+                        className="w-full h-auto p-2 justify-start text-left transition-all duration-150 active:scale-[0.98] active:bg-orange-500/10"
                         onClick={() => handleTopicClick(trend.topic)}
                       >
                         <div className="flex items-center gap-2 w-full">
@@ -531,8 +541,8 @@ export function MobileDiscoverySheet({
                         type="button"
                         variant="ghost"
                         className={cn(
-                          "w-full h-auto p-2 justify-start text-left",
-                          isUrgent && "bg-red-500/5 hover:bg-red-500/10"
+                          "w-full h-auto p-2 justify-start text-left transition-all duration-150 active:scale-[0.98]",
+                          isUrgent ? "bg-red-500/5 hover:bg-red-500/10 active:bg-red-500/15" : "active:bg-primary/10"
                         )}
                         onClick={() => handleEventClick(event)}
                       >

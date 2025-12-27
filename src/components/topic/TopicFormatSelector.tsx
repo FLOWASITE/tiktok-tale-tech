@@ -92,20 +92,33 @@ export function TopicFormatSelector({
         </DialogHeader>
 
         <div className="grid gap-4 mt-4">
-          {formatOptions.map((format) => {
+          {formatOptions.map((format, index) => {
             const Icon = format.icon;
+            
+            // Haptic feedback helper
+            const triggerHaptic = () => {
+              if ('vibrate' in navigator) {
+                navigator.vibrate(15);
+              }
+            };
+            
             return (
               <button
                 key={format.id}
                 className={cn(
                   'group relative flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all duration-200',
                   format.borderColor,
-                  'hover:shadow-lg hover:scale-[1.01]'
+                  'hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]',
+                  'animate-fade-in'
                 )}
-                onClick={() => onSelectFormat(format.id)}
+                style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
+                onClick={() => {
+                  triggerHaptic();
+                  onSelectFormat(format.id);
+                }}
               >
                 {/* Icon */}
-                <div className={cn('shrink-0 p-3 rounded-xl bg-gradient-to-br shadow-lg', format.color)}>
+                <div className={cn('shrink-0 p-3 rounded-xl bg-gradient-to-br shadow-lg transition-transform duration-200 group-active:scale-95', format.color)}>
                   <Icon className="w-6 h-6 text-white" />
                 </div>
 
@@ -136,7 +149,7 @@ export function TopicFormatSelector({
                 </div>
 
                 {/* Arrow */}
-                <div className="shrink-0 self-center p-2 rounded-full bg-muted group-hover:bg-primary transition-colors">
+                <div className="shrink-0 self-center p-2 rounded-full bg-muted group-hover:bg-primary group-active:scale-90 transition-all duration-150">
                   <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary-foreground transition-colors" />
                 </div>
               </button>
