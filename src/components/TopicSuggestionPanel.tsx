@@ -35,6 +35,8 @@ import {
   TOPIC_CATEGORIES 
 } from '@/types/topicDiscovery';
 import { toast } from 'sonner';
+import { QuickStartSection } from '@/components/QuickStartSection';
+import { QuickStartTemplate, ContentGoal } from '@/types/quickStartTemplates';
 
 interface TopicSuggestionPanelProps {
   suggestions: string[] | EnhancedTopicSuggestion[];
@@ -47,6 +49,9 @@ interface TopicSuggestionPanelProps {
   disabled?: boolean;
   showNavigateToTopics?: boolean;
   showEnhancedInfo?: boolean;
+  showQuickStart?: boolean;
+  contentGoal?: ContentGoal;
+  onSelectQuickStart?: (template: QuickStartTemplate) => void;
 }
 
 const categoryIcons: Record<TopicCategory, React.ReactNode> = {
@@ -74,6 +79,9 @@ export function TopicSuggestionPanel({
   disabled = false,
   showNavigateToTopics = true,
   showEnhancedInfo = true,
+  showQuickStart = false,
+  contentGoal,
+  onSelectQuickStart,
 }: TopicSuggestionPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [feedbackGiven, setFeedbackGiven] = useState<Set<string>>(new Set());
@@ -344,6 +352,16 @@ export function TopicSuggestionPanel({
                   );
                 })}
               </div>
+
+              {/* Quick Start Section */}
+              {showQuickStart && contentGoal && onSelectQuickStart && (
+                <QuickStartSection
+                  contentGoal={contentGoal}
+                  onSelectTemplate={onSelectQuickStart}
+                  disabled={disabled}
+                  className="mt-3 pt-3 border-t"
+                />
+              )}
 
               {/* Navigate to Topics page */}
               {showNavigateToTopics && (
