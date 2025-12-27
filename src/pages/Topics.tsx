@@ -318,8 +318,7 @@ const Topics = () => {
                       <TopicBankGrid
                         brandTemplateId={selectedBrandId}
                         contentGoal={selectedGoal}
-                        onSelectTopic={(topic) => navigate('/multichannel', { state: { prefillTopic: topic.topic, prefillGoal: selectedGoal, fromTopics: true } })}
-                        onDeleteTopic={deleteTopic}
+                        onSelectTopic={(topic) => navigate('/multichannel', { state: { prefillTopic: topic, prefillGoal: selectedGoal, fromTopics: true } })}
                       />
                     </TabsContent>
                     <TabsContent value="analytics" className="m-0 p-4">
@@ -327,10 +326,9 @@ const Topics = () => {
                     </TabsContent>
                     <TabsContent value="learning" className="m-0 p-4">
                       <AILearningDashboard
+                        brandTemplateId={selectedBrandId}
                         open={activeTab === 'learning'}
                         onOpenChange={(open) => !open && setActiveTab('bank')}
-                        stats={aiLearningStats}
-                        topPatterns={aiLearningStats.topPatterns}
                       />
                     </TabsContent>
                   </div>
@@ -380,7 +378,12 @@ const Topics = () => {
           recentTopics={sidebarRecentTopics}
           topPerformers={sidebarTopPerformers}
           onSelectTopic={(topic) => handleInjectPrompt(`Gợi ý content về: "${topic}"`)}
-          onViewBank={() => setActiveTab('bank')}
+          onViewAllTopics={() => setActiveTab('bank')}
+          aiLearningStats={aiLearningStats}
+          isEnhancing={false}
+          onChangeBrand={() => setBrandDialogOpen(true)}
+          onGetEventSuggestions={(event) => handleInjectPrompt(`Gợi ý content cho sự kiện: ${event.name}`)}
+          onScheduleTopic={(topic, date) => console.log('Schedule topic', topic, date)}
         />
       )}
 
@@ -393,7 +396,6 @@ const Topics = () => {
         onClearSelection={handleClearSelection}
         onSaveAll={handleSaveAllTopics}
         onScheduleAll={handleScheduleAllTopics}
-        onCompare={() => setComparisonOpen(true)}
       />
 
       {/* Comparison Mode */}
@@ -401,6 +403,11 @@ const Topics = () => {
         open={comparisonOpen}
         onOpenChange={setComparisonOpen}
         topics={selectedTopics}
+        onSelectBest={(topic) => {
+          handleInjectPrompt(`Gợi ý content về: "${topic.topic}"`);
+          setComparisonOpen(false);
+        }}
+        onClearSelection={handleClearSelection}
       />
       <TopicComparisonBar
         selectedCount={selectedTopics.length}
