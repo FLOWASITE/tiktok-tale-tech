@@ -52,15 +52,21 @@ async function searchWithPerplexity(industry: string, brandName: string): Promis
   const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
   
   if (!perplexityApiKey) {
-    console.log('Perplexity API not configured, skipping web search');
+    console.log('[Perplexity] API not configured, skipping web search');
     return null;
   }
 
   try {
     const currentDate = new Date().toISOString().split('T')[0];
-    const searchQuery = `Xu hướng content marketing ${industry || 'social media'} Việt Nam ${currentDate}. Top trending topics, hashtags phổ biến trên TikTok, Facebook, Instagram tuần này.`;
+    const searchQuery = `Trending topics content marketing ${industry || 'social media'} Việt Nam tuần này ${currentDate}. 
+Liệt kê:
+1. Top 5 hashtags đang viral trên TikTok Việt Nam
+2. Chủ đề hot nhất trên Facebook, Instagram tuần này
+3. Xu hướng mới nổi trong ngành ${industry || 'marketing'}
+4. Tin tức nóng đang được bàn tán nhiều nhất`;
 
-    console.log('Searching Perplexity:', searchQuery.substring(0, 100));
+    console.log('[Perplexity] Searching:', searchQuery.substring(0, 150));
+    const startTime = Date.now();
 
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -73,17 +79,25 @@ async function searchWithPerplexity(industry: string, brandName: string): Promis
         messages: [
           { 
             role: 'system', 
-            content: 'Bạn là chuyên gia phân tích xu hướng social media tại Việt Nam. Trả lời ngắn gọn, liệt kê 5-8 xu hướng đang hot nhất.' 
+            content: `Bạn là chuyên gia phân tích xu hướng social media tại Việt Nam. 
+Nhiệm vụ: Liệt kê 6-10 xu hướng đang HOT NHẤT tuần này.
+Mỗi xu hướng cần ngắn gọn (dưới 10 từ).
+Ưu tiên: TikTok trends, viral hashtags, tin tức nóng, sự kiện đang được quan tâm.
+KHÔNG đưa ra lời khuyên, chỉ liệt kê xu hướng.` 
           },
           { role: 'user', content: searchQuery }
         ],
         search_recency_filter: 'week',
+        temperature: 0.3,
       }),
     });
 
+    const duration = Date.now() - startTime;
+    console.log(`[Perplexity] Response in ${duration}ms, status: ${response.status}`);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Perplexity API error:', response.status, errorText);
+      console.error('[Perplexity] API error:', response.status, errorText.substring(0, 200));
       return null;
     }
 
@@ -91,19 +105,33 @@ async function searchWithPerplexity(industry: string, brandName: string): Promis
     const content = data.choices?.[0]?.message?.content || '';
     const citations = data.citations || [];
 
-    console.log('Perplexity response:', content.substring(0, 300));
-    console.log('Citations:', citations.length);
+    console.log('[Perplexity] Response length:', content.length, 'Citations:', citations.length);
+    console.log('[Perplexity] Preview:', content.substring(0, 300));
 
-    // Extract trends from response
-    const lines = content.split('\n').filter((line: string) => line.trim());
-    const trends = lines.slice(0, 8);
+    // Extract trends from response - improved parsing
+    const lines = content.split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => {
+        // Skip empty lines and headers
+        if (!line || line.startsWith('#') || line.startsWith('##')) return false;
+        // Keep numbered or bulleted items
+        return /^[\d\.\-\*\•]/.test(line) || line.length > 10;
+      })
+      .map((line: string) => {
+        // Clean up line prefixes
+        return line.replace(/^[\d\.\-\*\•\s]+/, '').trim();
+      })
+      .filter((line: string) => line.length > 5 && line.length < 100);
+
+    const trends = lines.slice(0, 10);
+    console.log('[Perplexity] Extracted trends:', trends.length);
 
     return {
       trends,
       citations
     };
   } catch (error) {
-    console.error('Perplexity search error:', error);
+    console.error('[Perplexity] Search error:', error);
     return null;
   }
 }
@@ -115,8 +143,15 @@ serve(async (req) => {
 
   try {
     const { brandTemplateId, organizationId, industry, forceRefresh } = await req.json();
+    const requestStartTime = Date.now();
 
-    console.log('Discovering trending topics (Hybrid + Perplexity mode) for:', { brandTemplateId, organizationId, industry });
+    console.log('[discover-trending-topics] START', { 
+      brandTemplateId: brandTemplateId?.substring(0, 8) || 'none', 
+      organizationId: organizationId?.substring(0, 8) || 'none', 
+      industry, 
+      forceRefresh,
+      timestamp: new Date().toISOString()
+    });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -135,30 +170,48 @@ serve(async (req) => {
         .limit(15);
 
       if (cached && cached.length > 0) {
-        console.log('Returning cached trending topics:', cached.length);
+        console.log('[Cache] HIT - Returning', cached.length, 'cached topics');
         return new Response(JSON.stringify({ 
           success: true, 
           data: cached,
-          source: 'cache'
+          source: 'cache',
+          debug: {
+            cacheHit: true,
+            cachedCount: cached.length,
+            duration: Date.now() - requestStartTime
+          }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      console.log('[Cache] MISS - No valid cache found');
     }
 
     // ========== PHASE 1: Fetch Curated Data ==========
+    console.log('[Phase 1] Fetching curated data...');
     const now = new Date();
-    const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const fourteenDaysLater = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const sixtyDaysLater = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
 
-    // Fetch upcoming curated events (next 30 days)
-    const { data: curatedEvents } = await supabase
+    // Fetch urgent events (next 14 days) - these become "seasonal" category
+    const { data: urgentEvents } = await supabase
       .from('curated_events')
       .select('id, name, description, event_date, event_type, suggested_topics, suggested_angles, priority')
       .eq('is_active', true)
       .gte('event_date', now.toISOString().split('T')[0])
-      .lte('event_date', thirtyDaysLater.toISOString().split('T')[0])
+      .lte('event_date', fourteenDaysLater.toISOString().split('T')[0])
       .order('event_date', { ascending: true })
-      .limit(10);
+      .limit(5);
+
+    // Fetch upcoming events (14-60 days)
+    const { data: upcomingEvents } = await supabase
+      .from('curated_events')
+      .select('id, name, description, event_date, event_type, suggested_topics, suggested_angles, priority')
+      .eq('is_active', true)
+      .gt('event_date', fourteenDaysLater.toISOString().split('T')[0])
+      .lte('event_date', sixtyDaysLater.toISOString().split('T')[0])
+      .order('event_date', { ascending: true })
+      .limit(5);
 
     // Fetch active curated news (not expired)
     const { data: curatedNews } = await supabase
@@ -169,12 +222,16 @@ serve(async (req) => {
       .order('relevance_score', { ascending: false })
       .limit(10);
 
-    console.log('Curated data fetched:', {
-      events: curatedEvents?.length || 0,
+    const curatedEvents = [...(urgentEvents || []), ...(upcomingEvents || [])];
+
+    console.log('[Phase 1] Curated data fetched:', {
+      urgentEvents: urgentEvents?.length || 0,
+      upcomingEvents: upcomingEvents?.length || 0,
       news: curatedNews?.length || 0
     });
 
     // ========== PHASE 2: Perplexity Web Search ==========
+    console.log('[Phase 2] Starting Perplexity web search...');
     let brandName = '';
     let brandIndustry = industry || '';
     
@@ -193,8 +250,10 @@ serve(async (req) => {
 
     // Call Perplexity for real-time web search
     const perplexityResult = await searchWithPerplexity(brandIndustry, brandName);
+    console.log('[Phase 2] Perplexity result:', perplexityResult ? `${perplexityResult.trends.length} trends found` : 'No result');
 
     // ========== PHASE 3: Build Context for AI ==========
+    console.log('[Phase 3] Building AI context...');
     let brandContext = '';
     if (brandTemplateId) {
       const { data: brand } = await supabase
@@ -213,14 +272,25 @@ Content Pillars: ${JSON.stringify(brand.content_pillars || [])}
       }
     }
 
-    // Build curated context
+    // Build curated context - separate urgent vs upcoming events
     let curatedContext = '';
     
-    if (curatedEvents && curatedEvents.length > 0) {
-      curatedContext += `\n## SỰ KIỆN SẮP TỚI (VERIFIED - Đã xác minh):\n`;
-      curatedEvents.forEach((event: CuratedEvent) => {
+    if (urgentEvents && urgentEvents.length > 0) {
+      curatedContext += `\n## SỰ KIỆN GẤP (trong 14 ngày tới - CATEGORY: "seasonal"):\n`;
+      urgentEvents.forEach((event: CuratedEvent) => {
         const daysUntil = Math.ceil((new Date(event.event_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        curatedContext += `- ${event.name} (${event.event_date}, còn ${daysUntil} ngày): ${event.description || ''}\n`;
+        curatedContext += `- 🔴 ${event.name} (còn ${daysUntil} ngày): ${event.description || ''}\n`;
+        if (event.suggested_topics?.length) {
+          curatedContext += `  Gợi ý: ${event.suggested_topics.join(', ')}\n`;
+        }
+      });
+    }
+
+    if (upcomingEvents && upcomingEvents.length > 0) {
+      curatedContext += `\n## SỰ KIỆN SẮP TỚI (14-60 ngày - CATEGORY: "mua_vu"):\n`;
+      upcomingEvents.forEach((event: CuratedEvent) => {
+        const daysUntil = Math.ceil((new Date(event.event_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        curatedContext += `- ${event.name} (còn ${daysUntil} ngày): ${event.description || ''}\n`;
         if (event.suggested_topics?.length) {
           curatedContext += `  Gợi ý: ${event.suggested_topics.join(', ')}\n`;
         }
@@ -228,7 +298,7 @@ Content Pillars: ${JSON.stringify(brand.content_pillars || [])}
     }
 
     if (curatedNews && curatedNews.length > 0) {
-      curatedContext += `\n## TIN TỨC NGÀNH GẦN ĐÂY (VERIFIED - Đã xác minh):\n`;
+      curatedContext += `\n## TIN TỨC NGÀNH GẦN ĐÂY (VERIFIED):\n`;
       curatedNews.forEach((news: CuratedNews) => {
         curatedContext += `- ${news.title}: ${news.summary || 'N/A'}\n`;
         if (news.source_url) {
@@ -271,6 +341,9 @@ Content Pillars: ${JSON.stringify(brand.content_pillars || [])}
     });
 
     // ========== PHASE 4: AI Analysis with Full Hybrid Context ==========
+    console.log('[Phase 4] Calling AI for analysis...');
+    const aiStartTime = Date.now();
+
     const systemPrompt = `Bạn là chuyên gia phân tích xu hướng nội dung social media tại Việt Nam.
 Nhiệm vụ: Phân tích DỮ LIỆU THỰC TẾ đã được cung cấp và tạo danh sách 10-12 trending topics.
 
@@ -285,11 +358,25 @@ NGUỒN DỮ LIỆU (theo thứ tự ưu tiên):
 NGUYÊN TẮC QUAN TRỌNG:
 1. ƯU TIÊN CAO NHẤT cho Web Search (Perplexity) - đây là dữ liệu thực tế từ internet
 2. Topics từ web search có velocity_score cao (80-95) vì đang trending thực sự
-3. Sự kiện sắp tới còn <7 ngày = velocity 90+
-4. Chỉ tạo topics "ai" nếu không đủ từ các nguồn verified
+3. Sự kiện GẤP (<14 ngày) → category: "seasonal", velocity: 85-100
+4. Sự kiện sắp tới (14-60 ngày) → category: "mua_vu", velocity: 60-84
+5. Chỉ tạo topics "ai" nếu không đủ từ các nguồn verified
+
+CATEGORY MAPPING:
+- "seasonal": Sự kiện trong 14 ngày tới (Tết, Valentine, etc.)
+- "mua_vu": Sự kiện xa hơn, theo mùa vụ
+- "tin_tuc": Tin tức nóng từ curated news
+- "tiktok_trend": Xu hướng viral từ Perplexity
+- "web_trending": Xu hướng từ web search
+- "nganh_chuyen": Chủ đề chuyên ngành
+- "evergreen": Chủ đề bền vững
 
 TIÊU CHÍ ĐÁNH GIÁ:
-- velocity_score (0-100): Web search trends = 75-95, Events <7 ngày = 90+, <14 ngày = 70-89
+- velocity_score (0-100): 
+  * Web search trends = 75-95
+  * Sự kiện <7 ngày = 90-100
+  * Sự kiện 7-14 ngày = 80-89
+  * Sự kiện 14-30 ngày = 65-79
 - peak_status: "peaking" nếu đang hot/sự kiện trong tuần, "rising" nếu sắp tới
 - competition_level: Đánh giá dựa trên mức độ phổ biến
 
@@ -308,8 +395,8 @@ Hãy phân tích và trả về 10-12 trending topics dạng JSON array.
 
 Mỗi topic cần có:
 - topic: Chủ đề ngắn gọn (tối đa 10 từ)
-- category: "tin_tuc" | "mua_vu" | "tiktok_trend" | "evergreen" | "nganh_chuyen" | "web_trending"
-- velocity_score: số từ 0-100 (web_search topics nên có 75-95)
+- category: "seasonal" | "tin_tuc" | "mua_vu" | "tiktok_trend" | "web_trending" | "evergreen" | "nganh_chuyen"
+- velocity_score: số từ 0-100 (web_search/seasonal nên có 80-95)
 - peak_status: "rising" | "peaking" | "declining"
 - peak_prediction: thời điểm dự đoán đạt đỉnh
 - related_keywords: array 3-5 từ khóa liên quan
@@ -428,7 +515,7 @@ Trả về JSON array thuần túy, không markdown.`;
       console.error('Failed to cache trending topics:', insertError);
     }
 
-    // Count sources for logging
+    // Count sources and categories for logging
     const sourceCount = {
       web_search: trendingTopics.filter(t => t.source === 'web_search').length,
       curated_event: trendingTopics.filter(t => t.source === 'curated_event').length,
@@ -436,19 +523,42 @@ Trả về JSON array thuần túy, không markdown.`;
       ai: trendingTopics.filter(t => t.source === 'ai').length,
     };
 
-    console.log('Generated and cached', trendingTopics.length, 'trending topics (hybrid + perplexity mode)');
-    console.log('Source breakdown:', sourceCount);
+    const categoryCount = trendingTopics.reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const totalDuration = Date.now() - requestStartTime;
+    const aiDuration = Date.now() - aiStartTime;
+
+    console.log('[discover-trending-topics] COMPLETE', {
+      topicsGenerated: trendingTopics.length,
+      sourceBreakdown: sourceCount,
+      categoryBreakdown: categoryCount,
+      perplexityUsed: perplexityResult !== null,
+      curatedEventsUsed: curatedEvents?.length || 0,
+      curatedNewsUsed: curatedNews?.length || 0,
+      aiDuration: `${aiDuration}ms`,
+      totalDuration: `${totalDuration}ms`
+    });
 
     return new Response(JSON.stringify({ 
       success: true, 
       data: inserted || topicsToInsert,
       source: 'hybrid_perplexity',
       curatedDataUsed: {
-        events: curatedEvents?.length || 0,
+        urgentEvents: urgentEvents?.length || 0,
+        upcomingEvents: upcomingEvents?.length || 0,
         news: curatedNews?.length || 0
       },
       perplexityUsed: perplexityResult !== null,
-      sourceBreakdown: sourceCount
+      sourceBreakdown: sourceCount,
+      categoryBreakdown: categoryCount,
+      debug: {
+        totalDuration,
+        aiDuration,
+        perplexityTrends: perplexityResult?.trends.length || 0
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
