@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bot, Send, Loader2, MessageSquare, Video, Images,
   Sparkles, Package, Rocket, Gift, Lightbulb, RefreshCw,
-  Heart, Users, TrendingUp, BookOpen, Crown, Target, Megaphone
+  Heart, Users, TrendingUp, BookOpen, Crown, Target, Megaphone,
+  AlertTriangle, HelpCircle, Camera, Vote, Flame, Zap,
+  Microscope, FileBarChart, Star, Square
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
 import { QUICK_START_TEMPLATES } from '@/types/quickStartTemplates';
+import { toast } from '@/hooks/use-toast';
 
 interface ChatMessage {
   id: string;
@@ -37,11 +40,33 @@ interface TopicAIChatbotProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-topics`;
 
-// Icon mapping for quick actions
+const WELCOME_MESSAGE = `Xin chào! 👋 Tôi là AI trợ lý gợi ý ý tưởng content.
+
+Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
+- Sản phẩm/dịch vụ bạn muốn quảng bá
+- Đối tượng khách hàng mục tiêu
+- Hoặc bất kỳ ý tưởng nào bạn đang nghĩ đến
+
+Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`;
+
+// Icon mapping for quick actions - comprehensive list
 const iconMap: Record<string, React.ElementType> = {
   Package, Rocket, Gift, Lightbulb, Heart, Users, 
-  TrendingUp, BookOpen, Crown, Target, Megaphone, Sparkles
+  TrendingUp, BookOpen, Crown, Target, Megaphone, Sparkles,
+  AlertTriangle, HelpCircle, Camera, Vote, Flame, Zap,
+  Microscope, FileBarChart, Star
 };
+
+// Typing indicator component
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-1 px-2 py-1">
+      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+    </div>
+  );
+}
 
 // Parse topics from AI response with multiple patterns
 function extractTopicsFromMessage(content: string): ExtractedTopic[] {
@@ -98,6 +123,10 @@ const getQuickActions = (contentGoal?: ContentGoal) => {
   }));
 };
 
+// Storage key for localStorage
+const getStorageKey = (brandTemplateId?: string) => 
+  `topic-chat-${brandTemplateId || 'default'}`;
+
 export function TopicAIChatbot({
   brandTemplateId,
   contentGoal,
@@ -109,24 +138,54 @@ export function TopicAIChatbot({
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Add initial greeting
+  // Load messages from localStorage on mount
   useEffect(() => {
-    if (messages.length === 0) {
+    const storageKey = getStorageKey(brandTemplateId);
+    const saved = localStorage.getItem(storageKey);
+    
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Restore dates from strings
+        const restored = parsed.map((m: any) => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        }));
+        setMessages(restored);
+      } catch {
+        // Fallback to welcome message
+        setMessages([{
+          id: 'welcome',
+          role: 'assistant',
+          content: WELCOME_MESSAGE,
+          timestamp: new Date(),
+        }]);
+      }
+    } else {
       setMessages([{
         id: 'welcome',
         role: 'assistant',
-        content: `Xin chào! 👋 Tôi là AI trợ lý gợi ý ý tưởng content.
-
-Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
-- Sản phẩm/dịch vụ bạn muốn quảng bá
-- Đối tượng khách hàng mục tiêu
-- Hoặc bất kỳ ý tưởng nào bạn đang nghĩ đến
-
-Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
+        content: WELCOME_MESSAGE,
         timestamp: new Date(),
       }]);
     }
+  }, [brandTemplateId]);
+
+  // Save messages to localStorage when changed
+  useEffect(() => {
+    if (messages.length > 0 && messages[0].id !== 'welcome') {
+      const storageKey = getStorageKey(brandTemplateId);
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, brandTemplateId]);
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, []);
 
   // Auto scroll to bottom
@@ -135,6 +194,15 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleCancel = useCallback(() => {
+    abortControllerRef.current?.abort();
+    setIsLoading(false);
+    toast({
+      title: 'Đã dừng',
+      description: 'Đã dừng tạo phản hồi.',
+    });
+  }, []);
 
   const sendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
@@ -149,6 +217,9 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
 
     // Prepare messages for API - filter out welcome message and error messages
     const apiMessages = [...messages, userMessage]
@@ -169,7 +240,27 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
           brandTemplateId,
           contentGoal,
         }),
+        signal: abortControllerRef.current.signal,
       });
+
+      // Handle rate limit and payment errors
+      if (response.status === 429) {
+        toast({
+          variant: 'destructive',
+          title: 'Quá giới hạn',
+          description: 'Đã vượt quá giới hạn request. Vui lòng thử lại sau ít phút.',
+        });
+        throw new Error('RATE_LIMIT');
+      }
+
+      if (response.status === 402) {
+        toast({
+          variant: 'destructive',
+          title: 'Hết credits',
+          description: 'Vui lòng nạp thêm credits để tiếp tục sử dụng.',
+        });
+        throw new Error('PAYMENT_REQUIRED');
+      }
 
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`);
@@ -239,6 +330,23 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
       ));
 
     } catch (error) {
+      // Handle abort error silently
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
+      
+      // Handle known errors silently (toast already shown)
+      if (error instanceof Error && (error.message === 'RATE_LIMIT' || error.message === 'PAYMENT_REQUIRED')) {
+        setMessages(prev => [...prev, {
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: '❌ Không thể tạo phản hồi. Vui lòng thử lại sau.',
+          timestamp: new Date(),
+          isError: true,
+        }]);
+        return;
+      }
+
       console.error('Chat error:', error);
       setMessages(prev => [...prev, {
         id: `error-${Date.now()}`,
@@ -249,6 +357,7 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
       }]);
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   }, [messages, isLoading, brandTemplateId, contentGoal]);
 
@@ -283,17 +392,15 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
   };
 
   const handleReset = () => {
+    // Clear localStorage
+    const storageKey = getStorageKey(brandTemplateId);
+    localStorage.removeItem(storageKey);
+    
+    // Reset messages
     setMessages([{
       id: 'welcome',
       role: 'assistant',
-      content: `Xin chào! 👋 Tôi là AI trợ lý gợi ý ý tưởng content.
-
-Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
-- Sản phẩm/dịch vụ bạn muốn quảng bá
-- Đối tượng khách hàng mục tiêu
-- Hoặc bất kỳ ý tưởng nào bạn đang nghĩ đến
-
-Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
+      content: WELCOME_MESSAGE,
       timestamp: new Date(),
     }]);
   };
@@ -301,7 +408,11 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
   const quickActions = getQuickActions(contentGoal);
 
   return (
-    <Card className={cn('flex flex-col h-[600px] overflow-hidden border-2 border-primary/20', className)}>
+    <Card className={cn(
+      'flex flex-col overflow-hidden border-2 border-primary/20',
+      'h-[60vh] min-h-[400px] max-h-[700px]',
+      className
+    )}>
       {/* Header */}
       <CardHeader className="flex-shrink-0 pb-3 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
         <div className="flex items-center justify-between">
@@ -326,7 +437,7 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
             className="gap-1.5"
           >
             <RefreshCw className="w-4 h-4" />
-            Bắt đầu lại
+            <span className="hidden sm:inline">Bắt đầu lại</span>
           </Button>
         </div>
       </CardHeader>
@@ -349,7 +460,7 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
               )}
               
               <div className={cn(
-                'max-w-[80%] space-y-3',
+                'max-w-[85%] sm:max-w-[80%] space-y-3',
                 message.role === 'user' && 'order-first'
               )}>
                 <div className={cn(
@@ -358,14 +469,13 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
                     ? 'bg-primary text-primary-foreground rounded-br-md' 
                     : 'bg-muted rounded-bl-md'
                 )}>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {message.content || (isLoading && message.role === 'assistant' ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Đang suy nghĩ...
-                      </span>
-                    ) : null)}
-                  </p>
+                  {message.content ? (
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {message.content}
+                    </p>
+                  ) : (
+                    isLoading && message.role === 'assistant' && <TypingIndicator />
+                  )}
                 </div>
 
                 {/* Extracted Topics with Action Buttons */}
@@ -453,7 +563,7 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
       )}
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="flex-shrink-0 p-4 border-t bg-background">
+      <form onSubmit={handleSubmit} className="flex-shrink-0 p-3 sm:p-4 border-t bg-background">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
@@ -461,21 +571,30 @@ Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Nhập tin nhắn..."
-            className="min-h-[44px] max-h-[120px] resize-none"
+            className="min-h-[44px] max-h-[120px] resize-none text-sm"
             disabled={isLoading}
           />
-          <Button 
-            type="submit" 
-            size="icon"
-            className="shrink-0 h-11 w-11"
-            disabled={isLoading || !input.trim()}
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
+          {isLoading ? (
+            <Button 
+              type="button" 
+              size="icon"
+              variant="destructive"
+              className="shrink-0 h-11 w-11"
+              onClick={handleCancel}
+              title="Dừng"
+            >
+              <Square className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button 
+              type="submit" 
+              size="icon"
+              className="shrink-0 h-11 w-11"
+              disabled={!input.trim()}
+            >
               <Send className="w-4 h-4" />
-            )}
-          </Button>
+            </Button>
+          )}
         </div>
       </form>
     </Card>
