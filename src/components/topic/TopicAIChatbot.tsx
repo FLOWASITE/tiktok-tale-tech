@@ -1,22 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  Bot, Send, Loader2, MessageSquare, Video, Images,
-  Sparkles, Package, Rocket, Gift, Lightbulb, RefreshCw,
-  Heart, Users, TrendingUp, BookOpen, Crown, Target, Megaphone,
-  AlertTriangle, HelpCircle, Camera, Vote, Flame, Zap,
-  Microscope, FileBarChart, Star, Square, Plus, Shuffle, Search as SearchIcon
+  Bot, Send, MessageSquare, Video, Images,
+  Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
-import { QUICK_START_TEMPLATES } from '@/types/quickStartTemplates';
 import { toast } from '@/hooks/use-toast';
-
+import { QuickActionsPanel } from './QuickActionsPanel';
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -50,13 +46,6 @@ Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
 
 Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`;
 
-// Icon mapping for quick actions - comprehensive list
-const iconMap: Record<string, React.ElementType> = {
-  Package, Rocket, Gift, Lightbulb, Heart, Users, 
-  TrendingUp, BookOpen, Crown, Target, Megaphone, Sparkles,
-  AlertTriangle, HelpCircle, Camera, Vote, Flame, Zap,
-  Microscope, FileBarChart, Star
-};
 
 // Typing indicator component
 function TypingIndicator() {
@@ -114,15 +103,6 @@ function extractTopicsFromMessage(content: string): ExtractedTopic[] {
   return topics.slice(0, 5); // Max 5 topics
 }
 
-// Quick action chips based on content goal
-const getQuickActions = (contentGoal?: ContentGoal) => {
-  const templates = QUICK_START_TEMPLATES[contentGoal || 'engagement'] || [];
-  return templates.slice(0, 3).map(t => ({
-    label: t.label,
-    icon: t.icon,
-    prompt: `Tôi muốn tạo content với mục đích "${t.label}". ${t.description || ''}`,
-  }));
-};
 
 // Storage key for localStorage
 const getStorageKey = (brandTemplateId?: string) => 
@@ -410,7 +390,7 @@ export function TopicAIChatbot({
     }]);
   };
 
-  const quickActions = getQuickActions(contentGoal);
+  
 
   return (
     <Card className={cn(
@@ -599,28 +579,14 @@ export function TopicAIChatbot({
         </div>
       </ScrollArea>
 
-      {/* Quick Actions */}
-      {messages.length <= 2 && quickActions.length > 0 && (
-        <div className="flex-shrink-0 px-4 py-2 border-t bg-muted/30">
-          <p className="text-xs text-muted-foreground mb-2">Gợi ý nhanh:</p>
-          <div className="flex flex-wrap gap-2">
-            {quickActions.map((action, index) => {
-              const IconComponent = iconMap[action.icon] || Sparkles;
-              return (
-                <Button
-                  key={index}
-                  variant="secondary"
-                  size="sm"
-                  className="gap-1.5 text-xs h-8"
-                  onClick={() => handleQuickAction(action.prompt)}
-                  disabled={isLoading}
-                >
-                  <IconComponent className="w-3.5 h-3.5" />
-                  {action.label}
-                </Button>
-              );
-            })}
-          </div>
+      {/* Quick Actions Panel - Enhanced Version */}
+      {messages.length <= 2 && (
+        <div className="flex-shrink-0 px-4 py-3 border-t bg-gradient-to-b from-muted/30 to-muted/10 max-h-[45vh] overflow-y-auto">
+          <QuickActionsPanel
+            contentGoal={contentGoal}
+            onAction={handleQuickAction}
+            isLoading={isLoading}
+          />
         </div>
       )}
 
