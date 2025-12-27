@@ -34,7 +34,7 @@ import { BrandSwitcherDialog } from '@/components/topic/BrandSwitcherDialog';
 import { BrandSelectorDropdown } from '@/components/topic/BrandSelectorDropdown';
 import { BrandInfoCard } from '@/components/topic/BrandInfoCard';
 import { TopicsByPillarView } from '@/components/topic/TopicsByPillarView';
-import { TopicAIHeroSection } from '@/components/topic/TopicAIHeroSection';
+import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
 import { UpcomingEventsCard } from '@/components/topic/UpcomingEventsCard';
 import { QuickAccessBank } from '@/components/topic/QuickAccessBank';
 import { AILearningStatus } from '@/components/topic/AILearningStatus';
@@ -380,13 +380,12 @@ const Topics = () => {
         <div className="grid grid-cols-12 gap-6">
           {/* Left: Main Content - 8 cols */}
           <div className="col-span-12 lg:col-span-8 space-y-6">
-            {/* AI Hero Section - Compact */}
+            {/* AI Chatbot - Replacing TopicAIHeroSection */}
             {selectedBrandId && (
-              <TopicAIHeroSection
+              <TopicAIChatbot
                 brandTemplateId={selectedBrandId}
                 contentGoal={selectedGoal}
                 onNavigate={(path, state) => navigate(path, { state })}
-                variant="compact"
               />
             )}
 

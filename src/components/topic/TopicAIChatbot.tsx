@@ -1,0 +1,449 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { 
+  Bot, Send, Loader2, MessageSquare, Video, Images,
+  Sparkles, Package, Rocket, Gift, Lightbulb, RefreshCw
+} from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { ContentGoal } from '@/types/multichannel';
+import { QUICK_START_TEMPLATES } from '@/types/quickStartTemplates';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  extractedTopics?: ExtractedTopic[];
+}
+
+interface ExtractedTopic {
+  topic: string;
+  reason?: string;
+  format?: string;
+}
+
+interface TopicAIChatbotProps {
+  brandTemplateId?: string;
+  contentGoal?: ContentGoal;
+  onNavigate: (path: string, state?: any) => void;
+  className?: string;
+}
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-topics`;
+
+// Parse topics from AI response
+function extractTopicsFromMessage(content: string): ExtractedTopic[] {
+  const topics: ExtractedTopic[] = [];
+  const regex = /\*\*\[TOPIC_START\]\*\*[\s\S]*?📌\s*\*\*Topic:\*\*\s*(.+?)[\n\r][\s\S]*?💡\s*\*\*Lý do:\*\*\s*(.+?)[\n\r][\s\S]*?🎯\s*\*\*Format đề xuất:\*\*\s*(.+?)[\n\r][\s\S]*?\*\*\[TOPIC_END\]\*\*/gi;
+  
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    topics.push({
+      topic: match[1].trim(),
+      reason: match[2].trim(),
+      format: match[3].trim(),
+    });
+  }
+  
+  return topics;
+}
+
+// Quick action chips based on content goal
+const getQuickActions = (contentGoal?: ContentGoal) => {
+  const templates = QUICK_START_TEMPLATES[contentGoal || 'engagement'] || [];
+  return templates.slice(0, 3).map(t => ({
+    label: t.label,
+    icon: t.icon,
+    prompt: `Tôi muốn tạo content ${t.description}. ${t.suggestedTopicTemplate}`,
+  }));
+};
+
+export function TopicAIChatbot({
+  brandTemplateId,
+  contentGoal,
+  onNavigate,
+  className,
+}: TopicAIChatbotProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Add initial greeting
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([{
+        id: 'welcome',
+        role: 'assistant',
+        content: `Xin chào! 👋 Tôi là AI trợ lý gợi ý ý tưởng content.
+
+Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
+- Sản phẩm/dịch vụ bạn muốn quảng bá
+- Đối tượng khách hàng mục tiêu
+- Hoặc bất kỳ ý tưởng nào bạn đang nghĩ đến
+
+Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
+        timestamp: new Date(),
+      }]);
+    }
+  }, []);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendMessage = useCallback(async (messageText: string) => {
+    if (!messageText.trim() || isLoading) return;
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: messageText.trim(),
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    // Prepare messages for API
+    const apiMessages = [...messages, userMessage]
+      .filter(m => m.id !== 'welcome' || m.role !== 'assistant')
+      .map(m => ({ role: m.role, content: m.content }));
+
+    let assistantContent = '';
+
+    try {
+      const response = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: apiMessages,
+          brandTemplateId,
+          contentGoal,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = '';
+
+      // Create assistant message placeholder
+      const assistantId = `assistant-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: assistantId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        textBuffer += decoder.decode(value, { stream: true });
+
+        // Process line by line
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantContent += content;
+              // Update message with new content
+              setMessages(prev => prev.map(m => 
+                m.id === assistantId 
+                  ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
+                  : m
+              ));
+            }
+          } catch {
+            // Incomplete JSON, put back and wait
+            textBuffer = line + '\n' + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Final update with extracted topics
+      setMessages(prev => prev.map(m => 
+        m.id === assistantId 
+          ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
+          : m
+      ));
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: '❌ Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
+        timestamp: new Date(),
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [messages, isLoading, brandTemplateId, contentGoal]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(input);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  };
+
+  const handleQuickAction = (prompt: string) => {
+    sendMessage(prompt);
+  };
+
+  const handleTopicAction = (topic: ExtractedTopic, format: 'multichannel' | 'script' | 'carousel') => {
+    const paths = {
+      multichannel: '/multichannel',
+      script: '/scripts',
+      carousel: '/carousel',
+    };
+    
+    onNavigate(paths[format], {
+      prefillTopic: topic.topic,
+      prefillGoal: contentGoal,
+      fromTopics: true,
+    });
+  };
+
+  const handleReset = () => {
+    setMessages([{
+      id: 'welcome',
+      role: 'assistant',
+      content: `Xin chào! 👋 Tôi là AI trợ lý gợi ý ý tưởng content.
+
+Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
+- Sản phẩm/dịch vụ bạn muốn quảng bá
+- Đối tượng khách hàng mục tiêu
+- Hoặc bất kỳ ý tưởng nào bạn đang nghĩ đến
+
+Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`,
+      timestamp: new Date(),
+    }]);
+  };
+
+  const quickActions = getQuickActions(contentGoal);
+
+  return (
+    <Card className={cn('flex flex-col h-[600px] overflow-hidden border-2 border-primary/20', className)}>
+      {/* Header */}
+      <CardHeader className="flex-shrink-0 pb-3 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25">
+              <Bot className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h3 className="font-semibold flex items-center gap-2">
+                AI Gợi Ý Ý Tưởng
+                <Badge variant="secondary" className="text-xs">Smart Chat</Badge>
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Chat với AI để tìm topic phù hợp
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReset}
+            className="gap-1.5"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Bắt đầu lại
+          </Button>
+        </div>
+      </CardHeader>
+
+      {/* Messages */}
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <div className="space-y-4">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={cn(
+                'flex gap-3',
+                message.role === 'user' ? 'justify-end' : 'justify-start'
+              )}
+            >
+              {message.role === 'assistant' && (
+                <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                </div>
+              )}
+              
+              <div className={cn(
+                'max-w-[80%] space-y-3',
+                message.role === 'user' && 'order-first'
+              )}>
+                <div className={cn(
+                  'px-4 py-3 rounded-2xl',
+                  message.role === 'user' 
+                    ? 'bg-primary text-primary-foreground rounded-br-md' 
+                    : 'bg-muted rounded-bl-md'
+                )}>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {message.content || (isLoading && message.role === 'assistant' ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang suy nghĩ...
+                      </span>
+                    ) : null)}
+                  </p>
+                </div>
+
+                {/* Extracted Topics with Action Buttons */}
+                {message.extractedTopics && message.extractedTopics.length > 0 && (
+                  <div className="space-y-2 pl-2">
+                    {message.extractedTopics.map((topic, index) => (
+                      <div 
+                        key={index}
+                        className="p-3 rounded-xl bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 space-y-2"
+                      >
+                        <p className="font-medium text-sm">{topic.topic}</p>
+                        {topic.reason && (
+                          <p className="text-xs text-muted-foreground">{topic.reason}</p>
+                        )}
+                        <div className="flex flex-wrap gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 text-xs gap-1 hover:bg-primary hover:text-primary-foreground"
+                            onClick={() => handleTopicAction(topic, 'multichannel')}
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            Multi-channel
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 text-xs gap-1 hover:bg-violet-600 hover:text-white"
+                            onClick={() => handleTopicAction(topic, 'script')}
+                          >
+                            <Video className="w-3 h-3" />
+                            Script
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 text-xs gap-1 hover:bg-orange-500 hover:text-white"
+                            onClick={() => handleTopicAction(topic, 'carousel')}
+                          >
+                            <Images className="w-3 h-3" />
+                            Carousel
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {message.role === 'user' && (
+                <div className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-sm font-medium text-primary-foreground">
+                    👤
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+
+      {/* Quick Actions */}
+      {messages.length <= 2 && quickActions.length > 0 && (
+        <div className="flex-shrink-0 px-4 py-2 border-t bg-muted/30">
+          <p className="text-xs text-muted-foreground mb-2">Gợi ý nhanh:</p>
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((action, index) => (
+              <Button
+                key={index}
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 text-xs h-8"
+                onClick={() => handleQuickAction(action.prompt)}
+                disabled={isLoading}
+              >
+                {action.icon === 'Package' && <Package className="w-3.5 h-3.5" />}
+                {action.icon === 'Rocket' && <Rocket className="w-3.5 h-3.5" />}
+                {action.icon === 'Gift' && <Gift className="w-3.5 h-3.5" />}
+                {action.icon === 'Lightbulb' && <Lightbulb className="w-3.5 h-3.5" />}
+                {!['Package', 'Rocket', 'Gift', 'Lightbulb'].includes(action.icon) && (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="flex-shrink-0 p-4 border-t bg-background">
+        <div className="flex gap-2">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Nhập tin nhắn..."
+            className="min-h-[44px] max-h-[120px] resize-none"
+            disabled={isLoading}
+          />
+          <Button 
+            type="submit" 
+            size="icon"
+            className="shrink-0 h-11 w-11"
+            disabled={isLoading || !input.trim()}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
