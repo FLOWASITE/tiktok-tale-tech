@@ -1,4 +1,5 @@
 import { GraduationCap, Eye, MessageCircle, Award, Target, LucideIcon } from 'lucide-react';
+import { ContentPurpose, MarketingFramework } from './topicDiscovery';
 
 export type ContentGoal = 
   | 'education'      // Giáo dục
@@ -94,6 +95,8 @@ export interface MultiChannelFormData {
   brandTemplateId?: string;
   editedPreviews?: EditedPreviews;
   topicHistoryId?: string;
+  contentPurpose?: ContentPurpose;
+  marketingFramework?: MarketingFramework;
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [

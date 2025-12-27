@@ -21,6 +21,8 @@ interface FormData {
   brandTemplateId?: string;
   organization_id?: string;
   editedPreviews?: Record<string, EditedPreview>;
+  contentPurpose?: string;
+  marketingFramework?: string;
 }
 
 // Brand Voice label mappings
@@ -806,6 +808,15 @@ ${primaryColor ? `Màu chủ đạo: ${primaryColor}` : ""}
 
 ## MỤC TIÊU NỘI DUNG
 ${goalDescriptions[contentGoal] || contentGoal}
+
+## MARKETING FRAMEWORK (nếu có)
+Nếu user chọn framework, cấu trúc nội dung PHẢI theo framework đó:
+- PAS: Problem → Agitate → Solution
+- AIDA: Attention → Interest → Desire → Action
+- FAB: Features → Advantages → Benefits
+- 4U: Useful → Urgent → Unique → Ultra-specific
+- STAR: Situation → Task → Action → Result
+- BAB: Before → After → Bridge
 
 ## QUY ƯỚC THEO TỪNG KÊNH (SOCIAL CHANNEL SETTINGS)
 Brand Voice là LUẬT NỀN. Channel Settings là LUẬT TRIỂN KHAI.

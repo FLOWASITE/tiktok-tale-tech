@@ -3,7 +3,8 @@ import {
   Zap, RefreshCw, ArrowRight, Target, Clock, 
   Sparkles, ThumbsUp, ThumbsDown, FileText, 
   MessageSquare, Video, Images, SkipForward,
-  Wand2, TrendingUp, Leaf, Calendar, ChevronRight
+  Wand2, TrendingUp, Leaf, Calendar, ChevronRight,
+  Package, Rocket, Gift
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { useTopicRecommendations } from '@/hooks/useTopicRecommendations';
 import { TopicCreditsAlert } from './TopicCreditsAlert';
 import { TopicFormatSelector } from './TopicFormatSelector';
 import { ContentGoal } from '@/types/multichannel';
+import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
 
 interface TopicAIHeroSectionProps {
@@ -22,6 +24,7 @@ interface TopicAIHeroSectionProps {
   contentGoal?: ContentGoal;
   onNavigate: (path: string, state?: any) => void;
   variant?: 'default' | 'compact';
+  onContentPurposeSelect?: (purpose: ContentPurpose, framework: MarketingFramework) => void;
 }
 
 const categoryConfig = {
@@ -303,30 +306,114 @@ export function TopicAIHeroSection({
                   <Images className="w-4 h-4" />
                   Carousel
                 </Button>
+              </div>
 
-                {/* Feedback Section */}
-                <div className="ml-auto flex items-center gap-3 pl-4 border-l border-border">
-                  <span className="text-xs text-muted-foreground">Hữu ích?</span>
-                  <div className="flex gap-1">
-                    <Button
-                      variant={feedbackGiven === 'positive' ? 'default' : 'ghost'}
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleFeedback('positive')}
-                      disabled={feedbackGiven !== null}
-                    >
-                      <ThumbsUp className={cn('w-4 h-4', feedbackGiven === 'positive' && 'text-primary-foreground')} />
-                    </Button>
-                    <Button
-                      variant={feedbackGiven === 'negative' ? 'destructive' : 'ghost'}
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleFeedback('negative')}
-                      disabled={feedbackGiven !== null}
-                    >
-                      <ThumbsDown className="w-4 h-4" />
-                    </Button>
-                  </div>
+              {/* Sales Quick Actions - Show when goal is conversion */}
+              {contentGoal === 'conversion' && (
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">Bán hàng:</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1.5 text-blue-600 bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20"
+                          onClick={() => onNavigate('/multichannel', {
+                            prefillTopic: nextBest?.topic || 'Giới thiệu dịch vụ',
+                            prefillGoal: 'conversion',
+                            contentPurpose: 'service_intro',
+                            marketingFramework: 'FAB',
+                            fromTopics: true,
+                          })}
+                        >
+                          <Package className="w-3.5 h-3.5" />
+                          Giới thiệu dịch vụ
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-medium">Framework FAB</p>
+                        <p className="text-xs text-muted-foreground">Features → Advantages → Benefits</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1.5 text-purple-600 bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/20"
+                          onClick={() => onNavigate('/multichannel', {
+                            prefillTopic: nextBest?.topic || 'Ra mắt sản phẩm mới',
+                            prefillGoal: 'conversion',
+                            contentPurpose: 'product_launch',
+                            marketingFramework: 'AIDA',
+                            fromTopics: true,
+                          })}
+                        >
+                          <Rocket className="w-3.5 h-3.5" />
+                          Ra mắt sản phẩm
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-medium">Framework AIDA</p>
+                        <p className="text-xs text-muted-foreground">Attention → Interest → Desire → Action</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1.5 text-orange-600 bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20"
+                          onClick={() => onNavigate('/multichannel', {
+                            prefillTopic: nextBest?.topic || 'Chương trình khuyến mãi',
+                            prefillGoal: 'conversion',
+                            contentPurpose: 'promotion',
+                            marketingFramework: 'PAS',
+                            fromTopics: true,
+                          })}
+                        >
+                          <Gift className="w-3.5 h-3.5" />
+                          Khuyến mãi
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-medium">Framework PAS</p>
+                        <p className="text-xs text-muted-foreground">Problem → Agitate → Solution</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+
+              {/* Feedback Section */}
+              <div className="flex items-center gap-3 pt-3 border-t border-border/50">
+                <span className="text-xs text-muted-foreground">Hữu ích?</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant={feedbackGiven === 'positive' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleFeedback('positive')}
+                    disabled={feedbackGiven !== null}
+                  >
+                    <ThumbsUp className={cn('w-4 h-4', feedbackGiven === 'positive' && 'text-primary-foreground')} />
+                  </Button>
+                  <Button
+                    variant={feedbackGiven === 'negative' ? 'destructive' : 'ghost'}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleFeedback('negative')}
+                    disabled={feedbackGiven !== null}
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </div>
