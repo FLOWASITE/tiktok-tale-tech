@@ -289,14 +289,14 @@ const Topics = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {selectedBrandId ? (
             <>
-              {/* Chatbot - Main Focus - Responsive padding */}
-              <div className="flex-1 p-2 sm:p-4 overflow-hidden">
+              {/* Chatbot - Main Focus - Full height on mobile */}
+              <div className="flex-1 flex flex-col p-2 sm:p-4 min-h-0">
                 <TopicAIChatbot
                   brandTemplateId={selectedBrandId}
                   contentGoal={selectedGoal}
                   onNavigate={(path, state) => navigate(path, { state })}
                   isExpanded={isMobile || (leftPanelCollapsed && rightPanelCollapsed)}
-                  className="h-full"
+                  className="flex-1 min-h-0"
                 />
               </div>
 

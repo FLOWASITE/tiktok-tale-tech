@@ -423,10 +423,10 @@ export function TopicAIChatbot({
 
   return (
     <Card className={cn(
-      'flex flex-col overflow-hidden border-2 border-primary/20',
-      isExpanded 
-        ? 'h-full sm:h-[calc(100vh-180px)] min-h-[400px] sm:min-h-[500px]' 
-        : 'h-full sm:h-[65vh] min-h-[350px] sm:min-h-[450px] max-h-none sm:max-h-[750px]',
+      'flex flex-col border-2 border-primary/20',
+      // Mobile: use flex-1 to fill available space
+      // Desktop: use specific heights
+      'h-full max-h-full',
       className
     )}>
       {/* Header - Responsive */}
@@ -455,8 +455,8 @@ export function TopicAIChatbot({
         </div>
       </CardHeader>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-3 sm:p-4" ref={scrollRef}>
+      {/* Messages - Scrollable area with overflow */}
+      <ScrollArea className="flex-1 min-h-0 p-3 sm:p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.map((message) => (
             <div
