@@ -66,9 +66,9 @@ export function MobileSidebarDrawer({
         <Button
           variant="outline"
           size="icon"
-          className="lg:hidden fixed bottom-20 right-4 z-40 h-12 w-12 rounded-full shadow-lg bg-background border-2"
+          className="sm:hidden fixed top-[80px] right-3 z-40 h-10 w-10 rounded-full shadow-lg bg-background/95 backdrop-blur border-2"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-4 w-4" />
         </Button>
       </SheetTrigger>
       <SheetContent 
