@@ -4,8 +4,9 @@ import {
   Sparkles, Package, Rocket, Gift, Lightbulb, RefreshCw,
   Heart, Users, TrendingUp, BookOpen, Crown, Target, Megaphone,
   AlertTriangle, HelpCircle, Camera, Vote, Flame, Zap,
-  Microscope, FileBarChart, Star, Square, Plus, Shuffle, Search
+  Microscope, FileBarChart, Star, Square, Plus, Shuffle, Search as SearchIcon
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -391,6 +392,10 @@ export function TopicAIChatbot({
     });
   };
 
+  const handleTopicRefinement = useCallback((topicTitle: string) => {
+    sendMessage(`Làm chi tiết hơn về topic: "${topicTitle}". Hãy cho tôi biết thêm về các góc độ tiếp cận, ý tưởng cụ thể và cách triển khai.`);
+  }, [sendMessage]);
+
   const handleReset = () => {
     // Clear localStorage
     const storageKey = getStorageKey(brandTemplateId);
@@ -470,9 +475,15 @@ export function TopicAIChatbot({
                     : 'bg-muted rounded-bl-md'
                 )}>
                   {message.content ? (
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                      {message.content}
-                    </p>
+                    message.role === 'assistant' ? (
+                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {message.content}
+                      </p>
+                    )
                   ) : (
                     isLoading && message.role === 'assistant' && <TypingIndicator />
                   )}
@@ -484,9 +495,18 @@ export function TopicAIChatbot({
                     {message.extractedTopics.map((topic, index) => (
                       <div 
                         key={index}
-                        className="p-3 rounded-xl bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 space-y-2"
+                        className="p-3 rounded-xl bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 space-y-2 group"
                       >
-                        <p className="font-medium text-sm">{topic.topic}</p>
+                        {/* Clickable topic title for refinement */}
+                        <button
+                          className="font-medium text-sm text-left w-full hover:text-primary transition-colors flex items-center gap-1.5 group/title"
+                          onClick={() => handleTopicRefinement(topic.topic)}
+                          disabled={isLoading}
+                          title="Click để xem chi tiết"
+                        >
+                          <span className="flex-1">{topic.topic}</span>
+                          <SearchIcon className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-100 transition-opacity text-primary" />
+                        </button>
                         {topic.reason && (
                           <p className="text-xs text-muted-foreground">{topic.reason}</p>
                         )}
@@ -559,7 +579,7 @@ export function TopicAIChatbot({
                         onClick={() => sendMessage(`Phân tích chi tiết hơn về topic: "${message.extractedTopics![0].topic}"`)}
                         disabled={isLoading}
                       >
-                        <Search className="w-3 h-3" />
+                        <SearchIcon className="w-3 h-3" />
                         Chi tiết topic 1
                       </Button>
                     )}
