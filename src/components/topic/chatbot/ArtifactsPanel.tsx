@@ -291,30 +291,50 @@ function SortableTopicItem({
               </div>
             </div>
 
-            {/* Mobile: Single dropdown for all actions */}
-            <div className="flex sm:hidden shrink-0">
+            {/* Mobile: Primary actions visible + overflow menu */}
+            <div className="flex sm:hidden items-center gap-0.5 shrink-0 ml-auto">
+              <div className="flex items-center gap-0.5 bg-muted/50 rounded p-0.5">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 touch-manipulation"
+                  onClick={() => onCreateContent(topic, 'multichannel')}
+                >
+                  <MessageSquare className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 touch-manipulation"
+                  onClick={() => onCreateContent(topic, 'script')}
+                >
+                  <Video className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 touch-manipulation"
+                  onClick={() => onCreateContent(topic, 'carousel')}
+                >
+                  <Images className="w-3 h-3" />
+                </Button>
+              </div>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0 touch-manipulation">
                     <Pencil className="w-3 h-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-36">
-                  <DropdownMenuItem onClick={() => onCreateContent(topic, 'multichannel')} className="text-xs gap-2">
-                    <MessageSquare className="w-3 h-3" /> Multi-channel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onCreateContent(topic, 'script')} className="text-xs gap-2">
-                    <Video className="w-3 h-3" /> Script
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onCreateContent(topic, 'carousel')} className="text-xs gap-2">
-                    <Images className="w-3 h-3" /> Carousel
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onEdit(topic)} className="text-xs gap-2">
                     <Pencil className="w-3 h-3" /> Edit
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onCopy(topic)} className="text-xs gap-2">
                     <Copy className="w-3 h-3" /> Copy
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDuplicate(topic)} className="text-xs gap-2">
+                    <CopyPlus className="w-3 h-3" /> Duplicate
                   </DropdownMenuItem>
                   {!topic.isSaved && onSaveToBank && (
                     <DropdownMenuItem onClick={() => onSaveToBank(topic)} className="text-xs gap-2">

@@ -1276,7 +1276,7 @@ export function TopicAIChatbot({
     )}>
       {/* Main Chat Card */}
       <Card className={cn(
-        'flex flex-col h-full max-h-full flex-1 min-w-0 transition-all duration-300',
+        'relative flex flex-col h-full max-h-full flex-1 min-w-0 transition-all duration-300',
         // On mobile fullscreen: no border, no shadow for seamless look
         isMobileFullscreen ? 'border-0 shadow-none rounded-none bg-background' : 'border-2 border-primary/20',
         showArtifactsPanel && 'rounded-r-none border-r-0'
