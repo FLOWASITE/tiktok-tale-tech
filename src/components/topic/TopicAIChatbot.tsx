@@ -3,7 +3,7 @@ import {
   Bot, Send, MessageSquare, Video, Images,
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
   ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX,
-  X, Loader2, HelpCircle
+  X, Loader2, HelpCircle, Eye, EyeOff, Keyboard
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -282,6 +282,12 @@ export function TopicAIChatbot({
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   
+  // Markdown preview state
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
+  
+  // Keyboard shortcuts hint
+  const [showShortcutsHint, setShowShortcutsHint] = useState(false);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -472,6 +478,29 @@ export function TopicAIChatbot({
       description: 'Đã dừng tạo phản hồi.',
     });
   }, []);
+  
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+      
+      // Cmd/Ctrl + K to focus input
+      if (modKey && e.key === 'k') {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      }
+      
+      // Escape to cancel loading
+      if (e.key === 'Escape' && isLoading) {
+        e.preventDefault();
+        handleCancel();
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isLoading, handleCancel]);
 
   const sendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
@@ -695,10 +724,23 @@ export function TopicAIChatbot({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const modKey = isMac ? e.metaKey : e.ctrlKey;
+    
+    // Cmd/Ctrl + Enter to send (alternative)
+    if (modKey && e.key === 'Enter') {
+      e.preventDefault();
+      sendMessage(input);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '36px';
+      }
+      return;
+    }
+    
+    // Enter without shift to send
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
-      // Reset textarea height after sending
       if (textareaRef.current) {
         textareaRef.current.style.height = '36px';
       }
@@ -1207,7 +1249,72 @@ export function TopicAIChatbot({
       </div>
 
       {/* Input - Compact on mobile */}
-      <form onSubmit={handleSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-background">
+      <form onSubmit={handleSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-background space-y-1.5">
+        {/* Markdown preview */}
+        {showMarkdownPreview && input.trim() && (
+          <div className="p-2 rounded-lg bg-muted/50 border text-xs animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+            <div className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+              <Eye className="w-3 h-3" /> Preview
+            </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0.5">
+              <ReactMarkdown>{input}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+        
+        {/* Input toolbar */}
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center gap-1">
+            {/* Markdown preview toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn("h-6 w-6", showMarkdownPreview && "bg-primary/10 text-primary")}
+                  onClick={() => setShowMarkdownPreview(!showMarkdownPreview)}
+                >
+                  {showMarkdownPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {showMarkdownPreview ? 'Ẩn preview' : 'Xem preview Markdown'}
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* Keyboard shortcuts hint */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn("h-6 w-6", showShortcutsHint && "bg-primary/10")}
+                  onClick={() => setShowShortcutsHint(!showShortcutsHint)}
+                >
+                  <Keyboard className="w-3 h-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Phím tắt
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          
+          {/* Shortcuts hint panel */}
+          {showShortcutsHint && (
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground animate-in fade-in-0 duration-150">
+              <kbd className="px-1.5 py-0.5 bg-muted rounded text-[9px] font-mono">⌘/Ctrl+Enter</kbd>
+              <span>Gửi</span>
+              <kbd className="px-1.5 py-0.5 bg-muted rounded text-[9px] font-mono">Esc</kbd>
+              <span>Dừng</span>
+              <kbd className="px-1.5 py-0.5 bg-muted rounded text-[9px] font-mono">⌘/Ctrl+K</kbd>
+              <span>Focus</span>
+            </div>
+          )}
+        </div>
+        
         <div className="flex gap-1.5 sm:gap-2 items-end">
           <div className="flex-1 relative">
             <Textarea
@@ -1225,7 +1332,7 @@ export function TopicAIChatbot({
                 }
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Nhập tin nhắn..."
+              placeholder="Nhập tin nhắn... (hỗ trợ Markdown)"
               className={cn(
                 "min-h-[36px] max-h-[120px] resize-none text-xs sm:text-sm py-2 pr-14 transition-all",
                 input.length > MAX_CHARS * 0.95 && "border-destructive focus-visible:ring-destructive"
@@ -1251,19 +1358,26 @@ export function TopicAIChatbot({
               variant="destructive"
               className="shrink-0 h-9 w-9"
               onClick={handleCancel}
-              title="Dừng"
+              title="Dừng (Esc)"
             >
               <Square className="w-3.5 h-3.5" />
             </Button>
           ) : (
-            <Button 
-              type="submit" 
-              size="icon"
-              className="shrink-0 h-9 w-9"
-              disabled={!input.trim() || input.length > MAX_CHARS}
-            >
-              <Send className="w-3.5 h-3.5" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  type="submit" 
+                  size="icon"
+                  className="shrink-0 h-9 w-9"
+                  disabled={!input.trim() || input.length > MAX_CHARS}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Gửi (Enter hoặc ⌘/Ctrl+Enter)
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </form>
