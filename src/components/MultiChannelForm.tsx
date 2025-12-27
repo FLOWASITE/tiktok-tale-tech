@@ -26,6 +26,7 @@ import { ContentPurposeSelector } from '@/components/topic/ContentPurposeSelecto
 import { MarketingFrameworkSelector } from '@/components/topic/MarketingFrameworkSelector';
 import { QuickStartSection } from '@/components/QuickStartSection';
 import { QuickStartTemplate } from '@/types/quickStartTemplates';
+import { getTopicSuggestionsForTemplate } from '@/utils/topicTemplateUtils';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -77,6 +78,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
   const [contentPurpose, setContentPurpose] = useState<ContentPurpose | undefined>(initialContentPurpose);
   const [marketingFramework, setMarketingFramework] = useState<MarketingFramework | undefined>(initialMarketingFramework);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(!!initialContentPurpose || !!initialMarketingFramework);
+  const [selectedQuickStartTemplate, setSelectedQuickStartTemplate] = useState<QuickStartTemplate | null>(null);
 
   // Handle initialTopic/initialGoal prop changes
   useEffect(() => {
@@ -390,13 +392,13 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
               />
             </div>
 
-            {/* Quick Start Section - Show when topic is empty */}
-            {!topic.trim() && (
+            {/* Quick Start Section - Show when topic is empty and no template selected */}
+            {!topic.trim() && !selectedQuickStartTemplate && (
               <QuickStartSection
                 contentGoal={contentGoal}
                 onSelectTemplate={(template: QuickStartTemplate) => {
-                  // Set topic from template
-                  setTopic(template.suggestedTopicTemplate);
+                  // Save selected template for showing suggestions
+                  setSelectedQuickStartTemplate(template);
                   
                   // Set content purpose if available (for conversion templates)
                   if (template.contentPurpose) {
@@ -418,6 +420,55 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                 }}
                 disabled={isLoading}
               />
+            )}
+
+            {/* Topic Suggestions - Show after Quick Start template is selected */}
+            {selectedQuickStartTemplate && !topic.trim() && (
+              <div className="space-y-2 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">
+                    💡 Gợi ý topic cho "{selectedQuickStartTemplate.label}"
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setSelectedQuickStartTemplate(null)}
+                  >
+                    ← Chọn template khác
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {getTopicSuggestionsForTemplate(
+                    selectedQuickStartTemplate.id,
+                    industry || selectedTemplate?.industry?.join(', ')
+                  ).map((suggestion, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-colors py-1.5 px-3"
+                      onClick={() => {
+                        setTopic(suggestion);
+                        setTimeout(() => topicRef.current?.focus(), 100);
+                      }}
+                    >
+                      {suggestion}
+                    </Badge>
+                  ))}
+                  {/* Show template placeholder as fallback */}
+                  <Badge
+                    variant="secondary"
+                    className="cursor-pointer hover:bg-secondary/80 transition-colors py-1.5 px-3"
+                    onClick={() => {
+                      setTopic(selectedQuickStartTemplate.suggestedTopicTemplate);
+                      setTimeout(() => topicRef.current?.focus(), 100);
+                    }}
+                  >
+                    ✨ {selectedQuickStartTemplate.suggestedTopicTemplate}
+                  </Badge>
+                </div>
+              </div>
             )}
 
             {/* Advanced Options Toggle - Show for Conversion goal */}
