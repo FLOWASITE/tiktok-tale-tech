@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
   TrendingUp, Sparkles, Calendar, ChevronLeft, Flame, Zap, Gift, AlertCircle,
-  Search, X, Filter
+  Search, X, Filter, RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import {
   Sheet,
   SheetContent,
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
 const FILTER_OPTIONS = [
   { key: 'hot', label: '🔥 Hot', description: 'Điểm ≥70' },
   { key: 'rising', label: '📈 Đang lên', description: 'Xu hướng tăng' },
+  { key: 'low_comp', label: '💎 Ít cạnh tranh', description: 'Cạnh tranh thấp' },
   { key: 'urgent', label: '⚡ Gấp', description: 'Sự kiện trong 7 ngày' },
 ] as const;
 
@@ -52,12 +54,24 @@ export function MobileDiscoverySheet({
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { topics: trends, isLoading: trendsLoading } = useTrendingTopics({ brandTemplateId });
+  const { 
+    topics: trends, 
+    isLoading: trendsLoading,
+    refresh: refreshTrends 
+  } = useTrendingTopics({ brandTemplateId });
+  
   const { nextBest, isLoading: recommendLoading, getNextBestTopic } = useTopicRecommendations({
     brandTemplateId,
     contentGoal,
   });
-  const { suggestions, isLoading: suggestionsLoading } = useEnhancedTopicSuggestions({
+  
+  const { 
+    suggestions, 
+    isLoading: suggestionsLoading,
+    isEnhancing,
+    source: suggestionsSource,
+    refresh: refreshSuggestions 
+  } = useEnhancedTopicSuggestions({
     brandTemplateId,
     contentGoal,
     enabled: open && !!brandTemplateId,
@@ -87,6 +101,9 @@ export function MobileDiscoverySheet({
     }
     if (activeFilters.includes('rising')) {
       filtered = filtered.filter(t => t.peak_status === 'rising');
+    }
+    if (activeFilters.includes('low_comp')) {
+      filtered = filtered.filter(t => t.competition_level === 'low');
     }
     
     return filtered.slice(0, 5);
@@ -288,13 +305,39 @@ export function MobileDiscoverySheet({
           )}
 
           {/* Quick Suggestions */}
-          {brandTemplateId && suggestions.length > 0 && (
+          {brandTemplateId && (suggestions.length > 0 || isEnhancing) && (
             <Card className="mx-4 mt-3">
               <CardHeader className="pb-2 pt-3 px-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-violet-500" />
-                  Gợi ý nhanh
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    Gợi ý nhanh
+                    {isEnhancing && (
+                      <Badge className="h-4 px-1.5 text-[8px] bg-violet-500/10 text-violet-600 animate-pulse">
+                        🔄 AI đang tạo...
+                      </Badge>
+                    )}
+                    {!isEnhancing && suggestionsSource === 'ai' && (
+                      <Badge className="h-4 px-1.5 text-[8px] bg-emerald-500/10 text-emerald-600">
+                        ✨ AI
+                      </Badge>
+                    )}
+                    {!isEnhancing && suggestionsSource === 'fallback' && (
+                      <Badge variant="outline" className="h-4 px-1.5 text-[8px] text-muted-foreground">
+                        📋 Mẫu
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6"
+                    onClick={() => refreshSuggestions()}
+                    disabled={suggestionsLoading || isEnhancing}
+                  >
+                    <RefreshCw className={cn("h-3 w-3", (suggestionsLoading || isEnhancing) && "animate-spin")} />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="px-4 pb-3">
                 {suggestionsLoading ? (
@@ -328,10 +371,21 @@ export function MobileDiscoverySheet({
           {/* Trending Topics */}
           <Card className="mx-4 mt-3">
             <CardHeader className="pb-2 pt-3 px-4">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Flame className="h-4 w-4 text-orange-500" />
-                Đang hot
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Flame className="h-4 w-4 text-orange-500" />
+                  Đang hot
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6"
+                  onClick={() => refreshTrends()}
+                  disabled={trendsLoading}
+                >
+                  <RefreshCw className={cn("h-3 w-3", trendsLoading && "animate-spin")} />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="px-4 pb-3">
               {trendsLoading ? (
@@ -365,11 +419,19 @@ export function MobileDiscoverySheet({
                           </Badge>
                           <div className="flex-1 min-w-0">
                             <span className="text-sm line-clamp-1 block">{trend.topic}</span>
-                            {sourceConfig && (
-                              <Badge variant="outline" className={cn("h-3.5 px-1 text-[8px] mt-0.5 border", sourceConfig.color)}>
-                                {sourceConfig.icon} {sourceConfig.label}
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {sourceConfig && (
+                                <Badge variant="outline" className={cn("h-3.5 px-1 text-[8px] border", sourceConfig.color)}>
+                                  {sourceConfig.icon} {sourceConfig.label}
+                                </Badge>
+                              )}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {Math.round(trend.velocity_score)}%
+                                </span>
+                                <Progress value={trend.velocity_score} className="h-1 w-10" />
+                              </div>
+                            </div>
                           </div>
                           <TrendingUp className={cn(
                             'h-3.5 w-3.5 shrink-0',
