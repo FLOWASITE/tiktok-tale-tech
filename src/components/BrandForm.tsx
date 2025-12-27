@@ -15,6 +15,7 @@ import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
 import { SavedSamplesManager } from '@/components/SavedSamplesManager';
 import { VariantSampleComparison } from '@/components/VariantSampleComparison';
 import { ContentPillarsEditor } from '@/components/brand/ContentPillarsEditor';
+import { ProductCatalogEditor } from '@/components/brand/ProductCatalogEditor';
 import { useBrandVoiceVariants, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
 import { IndustryTemplate } from '@/hooks/useIndustryTemplates';
 import { ContentPillar } from '@/types/topicDiscovery';
@@ -564,6 +565,14 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 defaultExpanded={true}
                 showWrapper={true}
               />
+              
+              {/* Product Catalog - Only show when editing existing template */}
+              {template?.id && (
+                <ProductCatalogEditor
+                  brandTemplateId={template.id}
+                  className="pt-2"
+                />
+              )}
               
               {/* Quick Sample Generator with Rules */}
               <QuickSampleGenerator
