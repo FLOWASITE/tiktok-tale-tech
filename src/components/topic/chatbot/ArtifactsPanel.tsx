@@ -187,336 +187,164 @@ function SortableTopicItem({
         ref={setNodeRef}
         style={style}
         className={cn(
-          "group p-3 rounded-xl border transition-all duration-300 ease-out",
-          "hover:shadow-md hover:-translate-y-0.5",
+          "group p-2 rounded-lg border transition-all duration-200",
+          "hover:shadow-sm",
           isEditing 
-            ? "border-primary bg-gradient-to-br from-primary/10 via-primary/5 to-transparent ring-2 ring-primary/30 shadow-lg shadow-primary/10" 
-            : "border-border/60 hover:border-primary/40 bg-gradient-to-br from-background to-muted/30",
-          topic.isSaved && !isEditing && "border-green-500/40 bg-gradient-to-br from-green-500/10 via-green-500/5 to-transparent",
-          topic.isStarred && !isEditing && !topic.isSaved && "border-yellow-500/40 bg-gradient-to-br from-yellow-500/10 via-yellow-500/5 to-transparent",
-          isDragging && "shadow-xl shadow-primary/20 scale-[1.02] rotate-1 z-50"
+            ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
+            : "border-border/50 hover:border-primary/30 bg-background",
+          topic.isSaved && !isEditing && "border-green-500/30 bg-green-500/5",
+          topic.isStarred && !isEditing && !topic.isSaved && "border-yellow-500/30 bg-yellow-500/5",
+          isDragging && "shadow-md scale-[1.01] z-50"
         )}
       >
         {isEditing ? (
-          <div className="space-y-3">
-            <div>
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Topic
-              </label>
+          <div className="space-y-2">
+            <Input
+              value={editingTopic.topic}
+              onChange={(e) => setEditingTopic({ ...editingTopic, topic: e.target.value })}
+              className="h-7 text-xs"
+              placeholder="Topic..."
+              autoFocus
+            />
+            <Textarea
+              value={editingTopic.reason || ''}
+              onChange={(e) => setEditingTopic({ ...editingTopic, reason: e.target.value })}
+              className="min-h-[40px] text-xs resize-none"
+              placeholder="Lý do..."
+            />
+            <div className="flex items-center gap-1.5">
               <Input
-                value={editingTopic.topic}
-                onChange={(e) => setEditingTopic({ ...editingTopic, topic: e.target.value })}
-                className="mt-1 h-8 text-sm"
-                placeholder="Nhập topic..."
-                autoFocus
+                value={editingTopic.format || ''}
+                onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
+                className="h-7 text-xs flex-1"
+                placeholder="Format..."
               />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Lý do / Insight
-              </label>
-              <Textarea
-                value={editingTopic.reason || ''}
-                onChange={(e) => setEditingTopic({ ...editingTopic, reason: e.target.value })}
-                className="mt-1 min-h-[60px] text-xs resize-none"
-                placeholder="Tại sao topic này hiệu quả..."
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Format đề xuất
-                </label>
-                <Input
-                  value={editingTopic.format || ''}
-                  onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
-                  className="mt-1 h-8 text-xs"
-                  placeholder="Carousel, Video..."
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  Pillar/Tag
-                </label>
-                <Select
-                  value={editingTopic.tag || ''}
-                  onValueChange={(value) => setEditingTopic({ ...editingTopic, tag: value as TopicTagValue })}
-                >
-                  <SelectTrigger className="mt-1 h-8 text-xs">
-                    <SelectValue placeholder="Chọn tag..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Không có</SelectItem>
-                    {TOPIC_TAGS.map(tag => (
-                      <SelectItem key={tag.value} value={tag.value}>
-                        {tag.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={onSaveEdit}>
+              <Select
+                value={editingTopic.tag || 'none'}
+                onValueChange={(value) => setEditingTopic({ ...editingTopic, tag: (value === 'none' ? '' : value) as TopicTagValue })}
+              >
+                <SelectTrigger className="h-7 text-xs w-24">
+                  <SelectValue placeholder="Tag" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {TOPIC_TAGS.map(tag => (
+                    <SelectItem key={tag.value} value={tag.value}>{tag.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="h-7 px-2 text-xs" onClick={onSaveEdit}>
                 <Save className="w-3 h-3" />
-                Lưu
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelEdit}>
-                Hủy
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onCancelEdit}>
+                <X className="w-3 h-3" />
               </Button>
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            <div className="flex items-start gap-2">
-              <div 
-                className="flex items-center gap-1 text-muted-foreground/40 cursor-grab hover:text-muted-foreground transition-colors duration-200 active:cursor-grabbing"
-                {...attributes}
-                {...listeners}
-              >
-                <GripVertical className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-mono font-medium tabular-nums bg-muted/50 px-1 rounded">{index + 1}</span>
-              </div>
-              
-              {/* Star button with animation */}
-              <button
-                onClick={() => onToggleStar(topic.id)}
-                className={cn(
-                  "p-1 rounded-full transition-all duration-300 ease-out transform",
-                  topic.isStarred 
-                    ? "text-yellow-500 hover:text-yellow-600 hover:scale-110 bg-yellow-500/10" 
-                    : "text-muted-foreground/30 hover:text-yellow-500 hover:scale-110 hover:bg-yellow-500/10"
-                )}
-              >
-                <Star className={cn(
-                  "w-3.5 h-3.5 transition-transform duration-300", 
-                  topic.isStarred && "fill-current animate-[pulse_1s_ease-in-out]"
-                )} />
-              </button>
-              
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary/90 transition-colors duration-200">
-                  <HighlightText text={topic.topic} query={searchQuery} />
+          <div className="flex items-start gap-1.5">
+            <div 
+              className="flex items-center gap-0.5 text-muted-foreground/40 cursor-grab hover:text-muted-foreground active:cursor-grabbing shrink-0 mt-0.5"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="w-3 h-3" />
+              <span className="text-[9px] font-mono tabular-nums">{index + 1}</span>
+            </div>
+            
+            <button
+              onClick={() => onToggleStar(topic.id)}
+              className={cn(
+                "p-0.5 rounded shrink-0 mt-0.5",
+                topic.isStarred ? "text-yellow-500" : "text-muted-foreground/30 hover:text-yellow-500"
+              )}
+            >
+              <Star className={cn("w-3 h-3", topic.isStarred && "fill-current")} />
+            </button>
+            
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium leading-tight line-clamp-2">
+                <HighlightText text={topic.topic} query={searchQuery} />
+              </p>
+              {topic.reason && (
+                <p className="text-[10px] text-muted-foreground/70 line-clamp-1 mt-0.5">
+                  <HighlightText text={topic.reason} query={searchQuery} />
                 </p>
-                {topic.reason && (
-                  <p className="mt-1.5 text-xs text-muted-foreground/80 line-clamp-2 leading-relaxed">
-                    <HighlightText text={topic.reason} query={searchQuery} />
-                  </p>
+              )}
+              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                {topic.format && (
+                  <Badge variant="outline" className="text-[9px] h-4 px-1 border-primary/20 text-primary/70">
+                    {topic.format}
+                  </Badge>
                 )}
-                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                  {topic.format && (
-                    <Badge variant="outline" className="text-[10px] h-5 bg-background/50 backdrop-blur-sm border-primary/20 text-primary/80 font-medium">
-                      {topic.format}
-                    </Badge>
-                  )}
-                  {tagConfig && (
-                    <Badge 
-                      variant="outline" 
-                      className={cn(
-                        "text-[10px] h-5 border font-medium transition-all duration-200 hover:scale-105",
-                        tagConfig.color
-                      )}
-                    >
-                      {tagConfig.label}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex flex-col items-end gap-1.5">
+                {tagConfig && (
+                  <Badge variant="outline" className={cn("text-[9px] h-4 px-1", tagConfig.color)}>
+                    {tagConfig.label}
+                  </Badge>
+                )}
                 {topic.isSaved && (
-                  <Badge 
-                    variant="secondary" 
-                    className="text-[9px] h-5 px-2 bg-gradient-to-r from-green-500/15 to-emerald-500/15 text-green-600 border border-green-500/20 font-medium shadow-sm"
-                  >
-                    <Check className="w-2.5 h-2.5 mr-0.5" />
-                    Đã lưu
+                  <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-green-500/10 text-green-600">
+                    <Check className="w-2 h-2 mr-0.5" />Saved
                   </Badge>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-1 pt-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-1 group-hover:translate-y-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-7 w-7 p-0 rounded-full hover:bg-primary/10 hover:text-primary transition-all duration-200"
-                    onClick={() => onEdit(topic)}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Chỉnh sửa</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-7 w-7 p-0 rounded-full hover:bg-blue-500/10 hover:text-blue-500 transition-all duration-200"
-                    onClick={() => onCopy(topic)}
-                  >
-                    {copiedId === topic.id ? (
-                      <Check className="w-3.5 h-3.5 text-green-500 animate-scale-in" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Sao chép text</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-7 w-7 p-0 rounded-full hover:bg-violet-500/10 hover:text-violet-500 transition-all duration-200"
-                    onClick={() => onDuplicate(topic)}
-                  >
-                    <CopyPlus className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Nhân bản topic</TooltipContent>
-              </Tooltip>
-
-              {!topic.isSaved && onSaveToBank && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-7 w-7 p-0 rounded-full hover:bg-green-500/10 hover:text-green-500 transition-all duration-200"
-                      onClick={() => onSaveToBank(topic)}
-                    >
-                      <BookmarkPlus className="w-3.5 h-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Lưu vào Bank</TooltipContent>
-                </Tooltip>
-              )}
-
-              {/* Tag dropdown */}
+          
+            {/* Compact action row - always visible */}
+            <div className="flex items-center gap-0.5 shrink-0 ml-auto">
               <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-7 w-7 p-0 rounded-full hover:bg-orange-500/10 hover:text-orange-500 transition-all duration-200"
-                      >
-                        <Tag className="w-3.5 h-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Gắn tag</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="start" className="w-40 animate-scale-in">
-                  <DropdownMenuItem 
-                    onClick={() => onTagChange(topic.id, '')}
-                    className="text-xs gap-2"
-                  >
-                    <X className="w-3 h-3" />
-                    Không có tag
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0">
+                    <Pencil className="w-2.5 h-2.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-32">
+                  <DropdownMenuItem onClick={() => onEdit(topic)} className="text-xs gap-2">
+                    <Pencil className="w-3 h-3" /> Edit
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {TOPIC_TAGS.map(tag => (
-                    <DropdownMenuItem 
-                      key={tag.value}
-                      onClick={() => onTagChange(topic.id, tag.value)}
-                      className={cn(
-                        "text-xs gap-2 transition-colors duration-150", 
-                        topic.tag === tag.value && "bg-muted font-medium"
-                      )}
-                    >
-                      <div className={cn("w-2.5 h-2.5 rounded-full ring-1 ring-inset ring-black/10", tag.color.split(' ')[0])} />
-                      {tag.label}
-                      {topic.tag === tag.value && <Check className="w-3 h-3 ml-auto text-primary" />}
+                  <DropdownMenuItem onClick={() => onCopy(topic)} className="text-xs gap-2">
+                    <Copy className="w-3 h-3" /> Copy
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDuplicate(topic)} className="text-xs gap-2">
+                    <CopyPlus className="w-3 h-3" /> Duplicate
+                  </DropdownMenuItem>
+                  {!topic.isSaved && onSaveToBank && (
+                    <DropdownMenuItem onClick={() => onSaveToBank(topic)} className="text-xs gap-2">
+                      <BookmarkPlus className="w-3 h-3" /> Save
                     </DropdownMenuItem>
-                  ))}
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleDeleteClick} className="text-xs gap-2 text-destructive">
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {onRefine && (
+              <div className="flex items-center gap-0.5 bg-muted/50 rounded p-0.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-7 w-7 p-0 rounded-full hover:bg-cyan-500/10 hover:text-cyan-500 transition-all duration-200"
-                      onClick={() => onRefine(topic.topic)}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Xem chi tiết</TooltipContent>
-                </Tooltip>
-              )}
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-7 w-7 p-0 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
-                    onClick={handleDeleteClick}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Xóa</TooltipContent>
-              </Tooltip>
-
-              <div className="flex-1" />
-
-              <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-6 px-2 text-[10px] gap-1 rounded-md hover:bg-primary hover:text-primary-foreground transition-all duration-200"
-                      onClick={() => onCreateContent(topic, 'multichannel')}
-                    >
+                    <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[9px]" onClick={() => onCreateContent(topic, 'multichannel')}>
                       <MessageSquare className="w-2.5 h-2.5" />
-                      Multi
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Tạo Multi-channel</TooltipContent>
+                  <TooltipContent>Multi-channel</TooltipContent>
                 </Tooltip>
-
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-6 px-2 text-[10px] gap-1 rounded-md hover:bg-violet-600 hover:text-white transition-all duration-200"
-                      onClick={() => onCreateContent(topic, 'script')}
-                    >
+                    <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[9px]" onClick={() => onCreateContent(topic, 'script')}>
                       <Video className="w-2.5 h-2.5" />
-                      Script
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Tạo Script</TooltipContent>
+                  <TooltipContent>Script</TooltipContent>
                 </Tooltip>
-
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-6 px-2 text-[10px] gap-1 rounded-md hover:bg-orange-500 hover:text-white transition-all duration-200"
-                      onClick={() => onCreateContent(topic, 'carousel')}
-                    >
+                    <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[9px]" onClick={() => onCreateContent(topic, 'carousel')}>
                       <Images className="w-2.5 h-2.5" />
-                      Carousel
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Tạo Carousel</TooltipContent>
+                  <TooltipContent>Carousel</TooltipContent>
                 </Tooltip>
               </div>
             </div>
@@ -896,190 +724,114 @@ export function ArtifactsPanel({
       "flex flex-col h-full bg-gradient-to-b from-background via-background to-muted/20 border-l transition-all duration-300",
       className
     )}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b bg-gradient-to-r from-primary/8 via-violet-500/5 to-primary/8 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary/10 shadow-sm shadow-primary/10">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <h3 className="font-semibold text-sm">Topics</h3>
-          <Badge variant="secondary" className="text-[10px] h-5 tabular-nums font-medium bg-muted/80">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between px-2 py-1.5 border-b bg-muted/30">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <span className="font-medium text-xs">Topics</span>
+          <Badge variant="secondary" className="text-[9px] h-4 px-1 tabular-nums">
             {filteredTopics.length}/{topics.length}
           </Badge>
           {starredCount > 0 && (
-            <Badge variant="outline" className="text-[10px] h-5 gap-0.5 border-yellow-500/30 bg-yellow-500/10 text-yellow-600 font-medium tabular-nums">
-              <Star className="w-2.5 h-2.5 fill-current" />
-              {starredCount}
+            <Badge variant="outline" className="text-[9px] h-4 px-1 gap-0.5 border-yellow-500/30 text-yellow-600">
+              <Star className="w-2 h-2 fill-current" />{starredCount}
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-0.5">
-          {/* Export dropdown */}
+        <div className="flex items-center">
           <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-muted transition-all duration-200">
-                    <Download className="w-3.5 h-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Xuất topics</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="w-40 animate-scale-in">
-              <DropdownMenuItem onClick={handleExportJSON} className="gap-2 text-xs cursor-pointer">
-                <FileJson className="w-3.5 h-3.5 text-blue-500" />
-                Xuất JSON
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <Download className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-32">
+              <DropdownMenuItem onClick={handleExportJSON} className="text-xs gap-2">
+                <FileJson className="w-3 h-3" /> JSON
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportCSV} className="gap-2 text-xs cursor-pointer">
-                <FileSpreadsheet className="w-3.5 h-3.5 text-green-500" />
-                Xuất CSV
+              <DropdownMenuItem onClick={handleExportCSV} className="text-xs gap-2">
+                <FileSpreadsheet className="w-3 h-3" /> CSV
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-green-500/10 hover:text-green-600 transition-all duration-200" onClick={handleAddNew}>
-                <Plus className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Thêm topic mới</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7 rounded-full hover:bg-muted transition-all duration-200"
-                onClick={() => setIsCollapsed(true)}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Thu gọn</TooltipContent>
-          </Tooltip>
-          
-          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-muted transition-all duration-200" onClick={onClose}>
-            <X className="w-4 h-4" />
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAddNew}>
+            <Plus className="w-3 h-3" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsCollapsed(true)}>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
+            <X className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="p-2.5 border-b bg-muted/20 space-y-2.5">
-        <div className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors duration-200" />
+      {/* Compact Search & Filter */}
+      <div className="px-2 py-1.5 border-b space-y-1">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm kiếm topic..."
-            className="h-9 pl-9 text-xs rounded-lg border-border/60 focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all duration-200"
+            placeholder="Search..."
+            className="h-7 pl-7 pr-7 text-xs"
           />
           {searchQuery && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
-              onClick={() => setSearchQuery('')}
-            >
-              <X className="w-3 h-3" />
+            <Button variant="ghost" size="icon" className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5" onClick={() => setSearchQuery('')}>
+              <X className="w-2.5 h-2.5" />
             </Button>
           )}
         </div>
         
-        <div className="flex items-center gap-1 flex-wrap">
-          <Filter className="w-3 h-3 text-muted-foreground mr-0.5" />
-          {[
-            { value: 'all', label: 'Tất cả', icon: null },
-            { value: 'starred', label: 'Starred', icon: <Star className="w-2.5 h-2.5" /> },
-            { value: 'saved', label: 'Đã lưu', icon: null },
-            { value: 'unsaved', label: 'Chưa lưu', icon: null },
-          ].map(filter => (
+        <div className="flex items-center gap-0.5 flex-wrap">
+          {(['all', 'starred', 'saved', 'unsaved'] as const).map(f => (
             <Button
-              key={filter.value}
-              variant={filterType === filter.value ? 'secondary' : 'ghost'}
+              key={f}
+              variant={filterType === f ? 'secondary' : 'ghost'}
               size="sm"
-              className={cn(
-                "h-6 px-2 text-[10px] rounded-full transition-all duration-200",
-                filterType === filter.value && "bg-primary/10 text-primary hover:bg-primary/15",
-                filter.icon && "gap-0.5"
-              )}
-              onClick={() => setFilterType(filter.value as FilterType)}
+              className={cn("h-5 px-1.5 text-[9px]", filterType === f && "bg-primary/10 text-primary")}
+              onClick={() => setFilterType(f)}
             >
-              {filter.icon}
-              {filter.label}
+              {f === 'starred' && <Star className="w-2 h-2 mr-0.5" />}
+              {f === 'all' ? 'All' : f === 'starred' ? '' : f === 'saved' ? 'Saved' : 'Unsaved'}
             </Button>
           ))}
-        </div>
-
-        {/* Tag filter */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <Tag className="w-3 h-3 text-muted-foreground mr-0.5" />
-          <Button
-            variant={filterTag === '' ? 'secondary' : 'ghost'}
-            size="sm"
-            className={cn(
-              "h-5 px-2 text-[9px] rounded-full transition-all duration-200",
-              filterTag === '' && "bg-muted"
-            )}
-            onClick={() => setFilterTag('')}
-          >
-            All Tags
-          </Button>
-          {TOPIC_TAGS.map(tag => (
-            <Button
-              key={tag.value}
-              variant={filterTag === tag.value ? 'secondary' : 'ghost'}
-              size="sm"
-              className={cn(
-                "h-5 px-2 text-[9px] rounded-full transition-all duration-200 border border-transparent",
-                filterTag === tag.value && cn("border", tag.color)
-              )}
-              onClick={() => setFilterTag(tag.value)}
-            >
-              {tag.label}
-            </Button>
-          ))}
+          <div className="w-px h-3 bg-border mx-0.5" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={filterTag ? 'secondary' : 'ghost'} size="sm" className="h-5 px-1.5 text-[9px] gap-0.5">
+                <Tag className="w-2 h-2" />
+                {filterTag ? TOPIC_TAGS.find(t => t.value === filterTag)?.label : 'Tags'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-28">
+              <DropdownMenuItem onClick={() => setFilterTag('')} className="text-xs">All Tags</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {TOPIC_TAGS.map(tag => (
+                <DropdownMenuItem key={tag.value} onClick={() => setFilterTag(tag.value)} className="text-xs gap-2">
+                  <div className={cn("w-2 h-2 rounded-full", tag.color.split(' ')[0])} />
+                  {tag.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* Topics List with Drag & Drop */}
+      {/* Topics List */}
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         {filteredTopics.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-            <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center mb-3">
-              <Search className="w-5 h-5 text-muted-foreground/50" />
-            </div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">
-              Không tìm thấy topic nào
-            </p>
-            <p className="text-xs text-muted-foreground/70">
-              Thử thay đổi từ khóa hoặc bộ lọc
-            </p>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="mt-3 text-xs h-7 gap-1"
-              onClick={() => {
-                setSearchQuery('');
-                setFilterType('all');
-                setFilterTag('');
-              }}
-            >
-              <X className="w-3 h-3" />
-              Xóa bộ lọc
+          <div className="flex flex-col items-center justify-center p-4 text-center">
+            <Search className="w-4 h-4 text-muted-foreground/50 mb-2" />
+            <p className="text-xs text-muted-foreground">No topics found</p>
+            <Button variant="ghost" size="sm" className="mt-2 text-xs h-6" onClick={() => { setSearchQuery(''); setFilterType('all'); setFilterTag(''); }}>
+              Clear filters
             </Button>
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={filteredTopics.map(t => t.id)} strategy={verticalListSortingStrategy}>
-              <div className="p-2 space-y-2">
+              <div className="p-1.5 space-y-1">
                 {filteredTopics.map((topic, index) => (
                   <div key={topic.id} data-topic-id={topic.id}>
                     <SortableTopicItem
@@ -1109,45 +861,21 @@ export function ArtifactsPanel({
         )}
       </ScrollArea>
 
-      {/* Footer with bulk actions */}
+      {/* Compact Footer */}
       {topics.length > 0 && (
-        <div className="p-3 border-t bg-gradient-to-r from-muted/30 via-muted/50 to-muted/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-background/80 border border-border/50">
-                <Check className="w-2.5 h-2.5 text-green-500" />
-                <span className="tabular-nums font-medium">{savedCount}/{topics.length}</span>
-              </div>
-              {starredCount > 0 && (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-background/80 border border-border/50">
-                  <Star className="w-2.5 h-2.5 text-yellow-500 fill-yellow-500" />
-                  <span className="tabular-nums font-medium">{starredCount}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              {onSaveToBank && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-7 text-xs gap-1.5 rounded-full hover:bg-green-500/10 hover:text-green-600 hover:border-green-500/30 transition-all duration-200"
-                  onClick={handleSaveAll}
-                  disabled={topics.every(t => t.isSaved)}
-                >
-                  <BookmarkPlus className="w-3 h-3" />
-                  Lưu tất cả
-                </Button>
-              )}
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-7 text-xs gap-1.5 rounded-full hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all duration-200"
-                onClick={handleDeleteAll}
-              >
-                <Trash className="w-3 h-3" />
-                Xóa tất cả
+        <div className="px-2 py-1.5 border-t flex items-center justify-between">
+          <span className="text-[9px] text-muted-foreground tabular-nums">
+            {savedCount}/{topics.length} saved
+          </span>
+          <div className="flex items-center gap-1">
+            {onSaveToBank && (
+              <Button size="sm" variant="ghost" className="h-6 text-[9px] px-2" onClick={handleSaveAll} disabled={topics.every(t => t.isSaved)}>
+                <BookmarkPlus className="w-2.5 h-2.5 mr-1" /> Save all
               </Button>
-            </div>
+            )}
+            <Button size="sm" variant="ghost" className="h-6 text-[9px] px-2 text-destructive" onClick={handleDeleteAll}>
+              <Trash className="w-2.5 h-2.5 mr-1" /> Clear
+            </Button>
           </div>
         </div>
       )}
