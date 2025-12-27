@@ -1,13 +1,15 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
   Bot, Send, MessageSquare, Video, Images,
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
   ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX,
-  X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff, User
+  X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff, User,
+  PanelRightOpen, PanelRightClose
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { CodeBlock } from './chatbot/CodeBlock';
 import { MessageFeedback } from './chatbot/MessageFeedback';
+import { ArtifactsPanel, type ArtifactTopic } from './chatbot/ArtifactsPanel';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -331,6 +333,10 @@ export function TopicAIChatbot({
   
   // Dynamic width state - based on content
   const [dynamicWidth, setDynamicWidth] = useState<'compact' | 'normal' | 'wide' | 'full'>('normal');
+  
+  // Artifacts Panel state
+  const [showArtifactsPanel, setShowArtifactsPanel] = useState(false);
+  const [artifactTopics, setArtifactTopics] = useState<ArtifactTopic[]>([]);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1028,7 +1034,69 @@ export function TopicAIChatbot({
       content: WELCOME_MESSAGE,
       timestamp: new Date(),
     }]);
+    
+    // Clear artifacts
+    setArtifactTopics([]);
+    setShowArtifactsPanel(false);
   };
+
+  // Collect all extracted topics from messages for artifacts panel
+  const allExtractedTopics = useMemo<ArtifactTopic[]>(() => {
+    const topics: ArtifactTopic[] = [];
+    const seenTopics = new Set<string>();
+    
+    messages.forEach(msg => {
+      if (msg.extractedTopics) {
+        msg.extractedTopics.forEach((t, idx) => {
+          const topicKey = t.topic.toLowerCase().trim();
+          if (!seenTopics.has(topicKey)) {
+            seenTopics.add(topicKey);
+            topics.push({
+              id: `${msg.id}-topic-${idx}`,
+              topic: t.topic,
+              reason: t.reason,
+              format: t.format,
+            });
+          }
+        });
+      }
+    });
+    
+    return topics;
+  }, [messages]);
+
+  // Sync artifact topics with extracted topics
+  useEffect(() => {
+    if (allExtractedTopics.length > 0 && artifactTopics.length === 0) {
+      setArtifactTopics(allExtractedTopics);
+    } else if (allExtractedTopics.length > artifactTopics.length) {
+      // Add new topics while preserving existing ones (with their edited state)
+      const existingIds = new Set(artifactTopics.map(t => t.id));
+      const newTopics = allExtractedTopics.filter(t => !existingIds.has(t.id));
+      if (newTopics.length > 0) {
+        setArtifactTopics(prev => [...prev, ...newTopics]);
+        // Auto-open panel when new topics are extracted
+        if (!showArtifactsPanel && newTopics.length >= 2) {
+          setShowArtifactsPanel(true);
+        }
+      }
+    }
+  }, [allExtractedTopics, artifactTopics, showArtifactsPanel]);
+
+  // Handle artifact topic action
+  const handleArtifactTopicAction = useCallback((topic: ArtifactTopic, format: 'multichannel' | 'script' | 'carousel') => {
+    const paths = {
+      multichannel: '/multichannel',
+      script: '/scripts',
+      carousel: '/carousel',
+    };
+    
+    onNavigate(paths[format], {
+      prefillTopic: topic.topic,
+      prefillGoal: contentGoal,
+      fromTopics: true,
+    });
+  }, [onNavigate, contentGoal]);
 
   // Expose sendMessage for external injection
   useEffect(() => {
@@ -1051,14 +1119,20 @@ export function TopicAIChatbot({
 
   return (
     <TooltipProvider>
-    <Card className={cn(
-      'flex flex-col h-full max-h-full transition-all duration-300 ease-in-out',
-      // Dynamic width based on content
-      !isMobileFullscreen && widthClasses[dynamicWidth],
-      // On mobile fullscreen: no border, no shadow for seamless look
-      isMobileFullscreen ? 'border-0 shadow-none rounded-none bg-background' : 'border-2 border-primary/20',
+    <div className={cn(
+      'flex h-full max-h-full transition-all duration-300 ease-in-out',
+      // Dynamic width based on content and artifacts panel
+      !isMobileFullscreen && !showArtifactsPanel && widthClasses[dynamicWidth],
+      showArtifactsPanel && 'w-full max-w-5xl',
       className
     )}>
+      {/* Main Chat Card */}
+      <Card className={cn(
+        'flex flex-col h-full max-h-full flex-1 min-w-0 transition-all duration-300',
+        // On mobile fullscreen: no border, no shadow for seamless look
+        isMobileFullscreen ? 'border-0 shadow-none rounded-none bg-background' : 'border-2 border-primary/20',
+        showArtifactsPanel && 'rounded-r-none border-r-0'
+      )}>
       {/* Onboarding overlay */}
       {showOnboarding && (
         <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1188,6 +1262,39 @@ export function TopicAIChatbot({
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">Hướng dẫn</TooltipContent>
             </Tooltip>
+            
+            {/* Artifacts Panel toggle */}
+            {artifactTopics.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowArtifactsPanel(!showArtifactsPanel)}
+                    className={cn(
+                      "h-6 w-6 sm:h-7 sm:w-7 relative",
+                      showArtifactsPanel && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    {showArtifactsPanel ? (
+                      <PanelRightClose className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    ) : (
+                      <PanelRightOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    )}
+                    {!showArtifactsPanel && artifactTopics.length > 0 && (
+                      <Badge 
+                        className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[9px] bg-primary text-primary-foreground"
+                      >
+                        {artifactTopics.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {showArtifactsPanel ? 'Đóng panel Topics' : `Mở panel Topics (${artifactTopics.length})`}
+                </TooltipContent>
+              </Tooltip>
+            )}
             
             <Button
               variant="ghost"
@@ -1705,7 +1812,20 @@ export function TopicAIChatbot({
           )}
         </div>
       </form>
-    </Card>
+      </Card>
+
+      {/* Artifacts Panel - Split screen */}
+      {showArtifactsPanel && (
+        <ArtifactsPanel
+          topics={artifactTopics}
+          onTopicsChange={setArtifactTopics}
+          onClose={() => setShowArtifactsPanel(false)}
+          onCreateContent={handleArtifactTopicAction}
+          onRefine={handleTopicRefinement}
+          className="w-80 shrink-0 animate-in slide-in-from-right-4 duration-300"
+        />
+      )}
+    </div>
     </TooltipProvider>
   );
 }
