@@ -187,7 +187,7 @@ function SortableTopicItem({
         ref={setNodeRef}
         style={style}
         className={cn(
-          "group p-2 rounded-lg border transition-all duration-200",
+          "group p-1.5 sm:p-2 rounded-md sm:rounded-lg border transition-all duration-200",
           "hover:shadow-sm",
           isEditing 
             ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
@@ -198,7 +198,7 @@ function SortableTopicItem({
         )}
       >
         {isEditing ? (
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             <Input
               value={editingTopic.topic}
               onChange={(e) => setEditingTopic({ ...editingTopic, topic: e.target.value })}
@@ -209,21 +209,21 @@ function SortableTopicItem({
             <Textarea
               value={editingTopic.reason || ''}
               onChange={(e) => setEditingTopic({ ...editingTopic, reason: e.target.value })}
-              className="min-h-[40px] text-xs resize-none"
+              className="min-h-[36px] sm:min-h-[40px] text-xs resize-none"
               placeholder="Lý do..."
             />
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
               <Input
                 value={editingTopic.format || ''}
                 onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
-                className="h-7 text-xs flex-1"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs flex-1 min-w-[60px]"
                 placeholder="Format..."
               />
               <Select
                 value={editingTopic.tag || 'none'}
                 onValueChange={(value) => setEditingTopic({ ...editingTopic, tag: (value === 'none' ? '' : value) as TopicTagValue })}
               >
-                <SelectTrigger className="h-7 text-xs w-24">
+                <SelectTrigger className="h-6 sm:h-7 text-[10px] sm:text-xs w-16 sm:w-24">
                   <SelectValue placeholder="Tag" />
                 </SelectTrigger>
                 <SelectContent>
@@ -233,18 +233,19 @@ function SortableTopicItem({
                   ))}
                 </SelectContent>
               </Select>
-              <Button size="sm" className="h-7 px-2 text-xs" onClick={onSaveEdit}>
+              <Button size="sm" className="h-6 sm:h-7 px-2 text-xs" onClick={onSaveEdit}>
                 <Save className="w-3 h-3" />
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onCancelEdit}>
+              <Button size="sm" variant="ghost" className="h-6 sm:h-7 px-2 text-xs" onClick={onCancelEdit}>
                 <X className="w-3 h-3" />
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex items-start gap-1.5">
+          <div className="flex items-start gap-1 sm:gap-1.5">
+            {/* Hide drag handle on mobile */}
             <div 
-              className="flex items-center gap-0.5 text-muted-foreground/40 cursor-grab hover:text-muted-foreground active:cursor-grabbing shrink-0 mt-0.5"
+              className="hidden sm:flex items-center gap-0.5 text-muted-foreground/40 cursor-grab hover:text-muted-foreground active:cursor-grabbing shrink-0 mt-0.5"
               {...attributes}
               {...listeners}
             >
@@ -263,36 +264,73 @@ function SortableTopicItem({
             </button>
             
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium leading-tight line-clamp-2">
+              <p className="text-[11px] sm:text-xs font-medium leading-tight line-clamp-2">
                 <HighlightText text={topic.topic} query={searchQuery} />
               </p>
               {topic.reason && (
-                <p className="text-[10px] text-muted-foreground/70 line-clamp-1 mt-0.5">
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground/70 line-clamp-1 mt-0.5">
                   <HighlightText text={topic.reason} query={searchQuery} />
                 </p>
               )}
-              <div className="flex items-center gap-1 mt-1 flex-wrap">
+              <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1 flex-wrap">
                 {topic.format && (
-                  <Badge variant="outline" className="text-[9px] h-4 px-1 border-primary/20 text-primary/70">
+                  <Badge variant="outline" className="text-[8px] sm:text-[9px] h-3.5 sm:h-4 px-1 border-primary/20 text-primary/70">
                     {topic.format}
                   </Badge>
                 )}
                 {tagConfig && (
-                  <Badge variant="outline" className={cn("text-[9px] h-4 px-1", tagConfig.color)}>
+                  <Badge variant="outline" className={cn("text-[8px] sm:text-[9px] h-3.5 sm:h-4 px-1", tagConfig.color)}>
                     {tagConfig.label}
                   </Badge>
                 )}
                 {topic.isSaved && (
-                  <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-green-500/10 text-green-600">
-                    <Check className="w-2 h-2 mr-0.5" />Saved
+                  <Badge variant="secondary" className="text-[8px] sm:text-[9px] h-3.5 sm:h-4 px-1 bg-green-500/10 text-green-600">
+                    <Check className="w-2 h-2 sm:mr-0.5" /><span className="hidden sm:inline">Saved</span>
                   </Badge>
                 )}
               </div>
             </div>
 
+            {/* Mobile: Single dropdown for all actions */}
+            <div className="flex sm:hidden shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuItem onClick={() => onCreateContent(topic, 'multichannel')} className="text-xs gap-2">
+                    <MessageSquare className="w-3 h-3" /> Multi-channel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateContent(topic, 'script')} className="text-xs gap-2">
+                    <Video className="w-3 h-3" /> Script
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateContent(topic, 'carousel')} className="text-xs gap-2">
+                    <Images className="w-3 h-3" /> Carousel
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onEdit(topic)} className="text-xs gap-2">
+                    <Pencil className="w-3 h-3" /> Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCopy(topic)} className="text-xs gap-2">
+                    <Copy className="w-3 h-3" /> Copy
+                  </DropdownMenuItem>
+                  {!topic.isSaved && onSaveToBank && (
+                    <DropdownMenuItem onClick={() => onSaveToBank(topic)} className="text-xs gap-2">
+                      <BookmarkPlus className="w-3 h-3" /> Save
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleDeleteClick} className="text-xs gap-2 text-destructive">
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           
-            {/* Compact action row - always visible */}
-            <div className="flex items-center gap-0.5 shrink-0 ml-auto">
+            {/* Desktop: Full action row */}
+            <div className="hidden sm:flex items-center gap-0.5 shrink-0 ml-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="ghost" className="h-5 w-5 p-0">
@@ -722,26 +760,28 @@ export function ArtifactsPanel({
   return (
     <div className={cn(
       "flex flex-col h-full bg-gradient-to-b from-background via-background to-muted/20 border-l transition-all duration-300",
+      "w-full sm:w-auto",
       className
     )}>
-      {/* Compact Header */}
-      <div className="flex items-center justify-between px-2 py-1.5 border-b bg-muted/30">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
-          <span className="font-medium text-xs">Topics</span>
-          <Badge variant="secondary" className="text-[9px] h-4 px-1 tabular-nums">
+      {/* Compact Header - More compact on mobile */}
+      <div className="flex items-center justify-between px-1.5 sm:px-2 py-1 sm:py-1.5 border-b bg-muted/30">
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-primary" />
+          <span className="font-medium text-[10px] sm:text-xs">Topics</span>
+          <Badge variant="secondary" className="text-[8px] sm:text-[9px] h-3.5 sm:h-4 px-1 tabular-nums">
             {filteredTopics.length}/{topics.length}
           </Badge>
           {starredCount > 0 && (
-            <Badge variant="outline" className="text-[9px] h-4 px-1 gap-0.5 border-yellow-500/30 text-yellow-600">
+            <Badge variant="outline" className="text-[8px] sm:text-[9px] h-3.5 sm:h-4 px-1 gap-0.5 border-yellow-500/30 text-yellow-600">
               <Star className="w-2 h-2 fill-current" />{starredCount}
             </Badge>
           )}
         </div>
         <div className="flex items-center">
+          {/* Hide export on mobile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
+              <Button variant="ghost" size="icon" className="hidden sm:flex h-6 w-6">
                 <Download className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -754,54 +794,55 @@ export function ArtifactsPanel({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAddNew}>
+          <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6" onClick={handleAddNew}>
             <Plus className="w-3 h-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsCollapsed(true)}>
+          <Button variant="ghost" size="icon" className="hidden sm:flex h-6 w-6" onClick={() => setIsCollapsed(true)}>
             <ChevronRight className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
-            <X className="w-3.5 h-3.5" />
+          <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6" onClick={onClose}>
+            <X className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
           </Button>
         </div>
       </div>
 
-      {/* Compact Search & Filter */}
-      <div className="px-2 py-1.5 border-b space-y-1">
+      {/* Compact Search & Filter - Stacked on mobile */}
+      <div className="px-1.5 sm:px-2 py-1 sm:py-1.5 border-b space-y-1">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+          <Search className="absolute left-1.5 sm:left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search..."
-            className="h-7 pl-7 pr-7 text-xs"
+            className="h-6 sm:h-7 pl-6 sm:pl-7 pr-6 sm:pr-7 text-[10px] sm:text-xs"
           />
           {searchQuery && (
-            <Button variant="ghost" size="icon" className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5" onClick={() => setSearchQuery('')}>
-              <X className="w-2.5 h-2.5" />
+            <Button variant="ghost" size="icon" className="absolute right-0.5 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5" onClick={() => setSearchQuery('')}>
+              <X className="w-2 sm:w-2.5 h-2 sm:h-2.5" />
             </Button>
           )}
         </div>
         
-        <div className="flex items-center gap-0.5 flex-wrap">
+        {/* Filter buttons - scrollable on mobile */}
+        <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar">
           {(['all', 'starred', 'saved', 'unsaved'] as const).map(f => (
             <Button
               key={f}
               variant={filterType === f ? 'secondary' : 'ghost'}
               size="sm"
-              className={cn("h-5 px-1.5 text-[9px]", filterType === f && "bg-primary/10 text-primary")}
+              className={cn("h-5 px-1.5 text-[8px] sm:text-[9px] shrink-0", filterType === f && "bg-primary/10 text-primary")}
               onClick={() => setFilterType(f)}
             >
               {f === 'starred' && <Star className="w-2 h-2 mr-0.5" />}
-              {f === 'all' ? 'All' : f === 'starred' ? '' : f === 'saved' ? 'Saved' : 'Unsaved'}
+              {f === 'all' ? 'All' : f === 'starred' ? '' : f === 'saved' ? 'Saved' : 'New'}
             </Button>
           ))}
-          <div className="w-px h-3 bg-border mx-0.5" />
+          <div className="w-px h-3 bg-border mx-0.5 shrink-0" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant={filterTag ? 'secondary' : 'ghost'} size="sm" className="h-5 px-1.5 text-[9px] gap-0.5">
+              <Button variant={filterTag ? 'secondary' : 'ghost'} size="sm" className="h-5 px-1.5 text-[8px] sm:text-[9px] gap-0.5 shrink-0">
                 <Tag className="w-2 h-2" />
-                {filterTag ? TOPIC_TAGS.find(t => t.value === filterTag)?.label : 'Tags'}
+                <span className="hidden sm:inline">{filterTag ? TOPIC_TAGS.find(t => t.value === filterTag)?.label : 'Tags'}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-28">
@@ -861,20 +902,20 @@ export function ArtifactsPanel({
         )}
       </ScrollArea>
 
-      {/* Compact Footer */}
+      {/* Compact Footer - Even more compact on mobile */}
       {topics.length > 0 && (
-        <div className="px-2 py-1.5 border-t flex items-center justify-between">
-          <span className="text-[9px] text-muted-foreground tabular-nums">
-            {savedCount}/{topics.length} saved
+        <div className="px-1.5 sm:px-2 py-1 sm:py-1.5 border-t flex items-center justify-between">
+          <span className="text-[8px] sm:text-[9px] text-muted-foreground tabular-nums">
+            {savedCount}/{topics.length}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             {onSaveToBank && (
-              <Button size="sm" variant="ghost" className="h-6 text-[9px] px-2" onClick={handleSaveAll} disabled={topics.every(t => t.isSaved)}>
-                <BookmarkPlus className="w-2.5 h-2.5 mr-1" /> Save all
+              <Button size="sm" variant="ghost" className="h-5 sm:h-6 text-[8px] sm:text-[9px] px-1.5 sm:px-2" onClick={handleSaveAll} disabled={topics.every(t => t.isSaved)}>
+                <BookmarkPlus className="w-2.5 h-2.5" /><span className="hidden sm:inline ml-1">Save all</span>
               </Button>
             )}
-            <Button size="sm" variant="ghost" className="h-6 text-[9px] px-2 text-destructive" onClick={handleDeleteAll}>
-              <Trash className="w-2.5 h-2.5 mr-1" /> Clear
+            <Button size="sm" variant="ghost" className="h-5 sm:h-6 text-[8px] sm:text-[9px] px-1.5 sm:px-2 text-destructive" onClick={handleDeleteAll}>
+              <Trash className="w-2.5 h-2.5" /><span className="hidden sm:inline ml-1">Clear</span>
             </Button>
           </div>
         </div>
