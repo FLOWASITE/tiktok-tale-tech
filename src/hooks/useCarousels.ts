@@ -50,6 +50,13 @@ export function useCarousels() {
 
     setGenerating(true);
     try {
+      // Ensure we have a fresh session before calling the function
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        return null;
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-carousel', {
         body: { 
           ...formData, 
@@ -59,7 +66,10 @@ export function useCarousels() {
       });
 
       if (error) {
-        if (error.message?.includes('429')) {
+        console.error('Edge function error:', error);
+        if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+          toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.message?.includes('429')) {
           toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
         } else if (error.message?.includes('402')) {
           toast.error('Cần nạp thêm credits để tiếp tục sử dụng.');
@@ -70,7 +80,11 @@ export function useCarousels() {
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        if (data.error.includes('Unauthorized')) {
+          toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else {
+          toast.error(data.error);
+        }
         return null;
       }
 
