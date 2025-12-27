@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Flame, TrendingUp, Brain, ChevronLeft, ChevronRight,
-  RefreshCw, Zap, ArrowRight, Sparkles, Info, Lightbulb,
-  CalendarDays, Target, Star
+  RefreshCw, Zap, ArrowRight, Sparkles, Lightbulb,
+  CalendarDays, Target, Star, AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useTrendingTopics, TrendingTopic } from '@/hooks/useTrendingTopics';
 import { useTopicRecommendations } from '@/hooks/useTopicRecommendations';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
-import { SEASONAL_EVENTS } from '@/types/topicDiscovery';
+import { useCuratedEvents } from '@/hooks/useCuratedEvents';
+import { CuratedEvent, EVENT_TYPE_CONFIG } from '@/types/curatedData';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
@@ -80,6 +81,12 @@ export function DiscoveryFeedPanel({
     enabled: !!brandTemplateId && !isCollapsed,
   });
 
+  const {
+    events: curatedEvents,
+    isLoading: eventsLoading,
+    getUpcomingEvents,
+  } = useCuratedEvents();
+
   useEffect(() => {
     if (!isCollapsed && brandTemplateId) {
       fetchTrendingTopics();
@@ -95,8 +102,10 @@ export function DiscoveryFeedPanel({
     onInjectPrompt(`Gợi ý content chi tiết về: "${topic}"`);
   };
 
-  const handleSeasonalClick = (eventName: string) => {
-    onInjectPrompt(`Gợi ý content cho sự kiện: ${eventName}`);
+  const handleSeasonalClick = (event: CuratedEvent) => {
+    const topics = event.suggested_topics?.join(', ') || '';
+    const angles = event.suggested_angles?.join(', ') || '';
+    onInjectPrompt(`Gợi ý content cho sự kiện "${event.name}"${topics ? `. Chủ đề gợi ý: ${topics}` : ''}${angles ? `. Góc tiếp cận: ${angles}` : ''}`);
   };
 
   const sortedTopics = [...topics].sort((a, b) => b.velocity_score - a.velocity_score);
@@ -106,13 +115,10 @@ export function DiscoveryFeedPanel({
   const topQuickSuggestions = useMemo(() => 
     quickSuggestions.slice(0, 5), [quickSuggestions]);
 
-  // Get upcoming seasonal events
+  // Get upcoming events from database (within 60 days)
   const upcomingEvents = useMemo(() => {
-    const now = new Date();
-    return SEASONAL_EVENTS.filter(e => e.date > now)
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .slice(0, 3);
-  }, []);
+    return getUpcomingEvents(60).slice(0, 5);
+  }, [getUpcomingEvents]);
 
   const getLevelLabel = (level: number) => {
     if (level >= 80) return { label: 'Rất cao', color: 'text-emerald-500' };
@@ -123,7 +129,7 @@ export function DiscoveryFeedPanel({
   };
 
   const levelInfo = getLevelLabel(aiLearningStats.personalizationLevel);
-  const isLoading = trendingLoading || nextBestLoading || suggestionsLoading;
+  const isLoading = trendingLoading || nextBestLoading || suggestionsLoading || eventsLoading;
 
   const toggleSection = (section: keyof typeof sectionsOpen) => {
     setSectionsOpen(prev => ({ ...prev, [section]: !prev[section] }));
@@ -392,36 +398,76 @@ export function DiscoveryFeedPanel({
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Seasonal Topics Section */}
+          {/* Seasonal/Upcoming Events Section */}
           <Collapsible open={sectionsOpen.seasonal} onOpenChange={() => toggleSection('seasonal')}>
             <CollapsibleTrigger className="flex items-center justify-between w-full py-1 hover:bg-muted/50 rounded px-1 -mx-1">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-xs font-medium">Theo mùa</span>
+                <span className="text-xs font-medium">Sự kiện sắp đến</span>
+                {eventsLoading && <Skeleton className="h-3 w-3 rounded-full" />}
               </div>
               <Badge variant="secondary" className="h-4 px-1 text-[9px]">{upcomingEvents.length}</Badge>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
-              {upcomingEvents.length > 0 ? (
+              {eventsLoading && curatedEvents.length === 0 ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : upcomingEvents.length > 0 ? (
                 <div className="space-y-1.5">
                   {upcomingEvents.map((event) => {
-                    const daysUntil = Math.ceil((event.date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                    const eventEmoji = event.type === 'holiday' ? '🎊' : event.type === 'campaign' ? '🎯' : '🎉';
+                    const daysUntil = Math.ceil(
+                      (new Date(event.event_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                    );
+                    const isUrgent = daysUntil <= 7;
+                    const eventConfig = EVENT_TYPE_CONFIG[event.event_type as keyof typeof EVENT_TYPE_CONFIG] 
+                      || EVENT_TYPE_CONFIG.holiday;
+                    const eventEmoji = event.event_type === 'holiday' ? '🎊' 
+                      : event.event_type === 'campaign' ? '🎯' 
+                      : event.event_type === 'industry_event' ? '💼'
+                      : '📅';
+                    
                     return (
                       <button
                         key={event.id}
-                        className="w-full text-left p-2 rounded-lg hover:bg-amber-500/10 transition-colors group border border-transparent hover:border-amber-500/20"
-                        onClick={() => handleSeasonalClick(event.name)}
+                        className={cn(
+                          "w-full text-left p-2 rounded-lg transition-colors group border",
+                          isUrgent 
+                            ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/30" 
+                            : "border-transparent hover:bg-amber-500/10 hover:border-amber-500/20"
+                        )}
+                        onClick={() => handleSeasonalClick(event)}
                       >
                         <div className="flex items-start gap-2">
                           <span className="text-base">{eventEmoji}</span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium line-clamp-1 group-hover:text-amber-600 transition-colors">
-                              {event.name}
-                            </p>
-                            <p className="text-[9px] text-muted-foreground mt-0.5">
-                              Còn {daysUntil} ngày
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className={cn(
+                                "text-xs font-medium line-clamp-1 transition-colors",
+                                isUrgent ? "group-hover:text-red-600" : "group-hover:text-amber-600"
+                              )}>
+                                {event.name}
+                              </p>
+                              {isUrgent && (
+                                <span className="flex items-center gap-0.5 text-[9px] text-red-500 font-medium">
+                                  <AlertCircle className="w-2.5 h-2.5" />
+                                  Gấp
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className={cn(
+                                "text-[9px]",
+                                isUrgent ? "text-red-500 font-medium" : "text-muted-foreground"
+                              )}>
+                                Còn {daysUntil} ngày
+                              </p>
+                              <Badge variant="outline" className={cn("h-3.5 px-1 text-[8px] border", eventConfig.color)}>
+                                {eventConfig.label}
+                              </Badge>
+                            </div>
                           </div>
                           <ArrowRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
                         </div>
@@ -430,7 +476,7 @@ export function DiscoveryFeedPanel({
                   })}
                 </div>
               ) : (
-                <div className="text-center py-2">
+                <div className="text-center py-3">
                   <p className="text-[10px] text-muted-foreground">
                     Không có sự kiện sắp tới
                   </p>
