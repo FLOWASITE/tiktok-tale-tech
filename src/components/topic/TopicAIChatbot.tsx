@@ -557,7 +557,9 @@ export function TopicAIChatbot({
 
   // Save messages to localStorage when changed
   useEffect(() => {
-    if (messages.length > 0 && messages[0].id !== 'welcome') {
+    // Only save if there are messages beyond just the welcome message
+    const hasRealMessages = messages.length > 1 || (messages.length === 1 && messages[0].id !== 'welcome');
+    if (hasRealMessages) {
       const storageKey = getStorageKey(brandTemplateId);
       localStorage.setItem(storageKey, JSON.stringify(messages));
     }
