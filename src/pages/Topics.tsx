@@ -58,6 +58,7 @@ const CONTENT_GOALS: { value: ContentGoal; label: string }[] = [
   { value: 'awareness', label: 'Nâng cao nhận diện' },
   { value: 'conversion', label: 'Chuyển đổi' },
   { value: 'education', label: 'Giáo dục' },
+  { value: 'expertise', label: 'Chuyên môn' },
 ];
 
 const STORAGE_KEY_BRAND = 'topics-selected-brand';
@@ -77,7 +78,7 @@ const Topics = () => {
   const [selectedGoal, setSelectedGoal] = useState<ContentGoal>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY_GOAL);
-      if (saved && ['engagement', 'awareness', 'conversion', 'education'].includes(saved)) {
+      if (saved && ['engagement', 'awareness', 'conversion', 'education', 'expertise'].includes(saved)) {
         return saved as ContentGoal;
       }
     }
