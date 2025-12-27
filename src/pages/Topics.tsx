@@ -231,34 +231,39 @@ const Topics = () => {
   }, [navigate, selectedGoal]);
 
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
-      {/* Compact Header - Responsive */}
-      <div className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-violet-600 shadow-lg flex-shrink-0">
-              <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold text-foreground truncate">Kho Ý Tưởng</h1>
-              <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{combinedStats.suggestionCount} gợi ý</span>
-                <span>•</span>
-                <span>{combinedStats.totalTopics} đã lưu</span>
-                <span>•</span>
-                <span>{combinedStats.usageRate}% sử dụng</span>
+    <div className={cn(
+      "flex flex-col overflow-hidden",
+      isMobile ? "h-[100dvh] fixed inset-0 z-40" : "h-[calc(100vh-64px)]"
+    )}>
+      {/* Compact Header - Hidden on mobile when chat is active */}
+      {!(isMobile && mobileTab === 'chat') && (
+        <div className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 border-b bg-background/95 backdrop-blur">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-violet-600 shadow-lg flex-shrink-0">
+                <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
               </div>
-              {/* Mobile mini stats */}
-              <div className="flex sm:hidden items-center gap-1.5 text-[10px] text-muted-foreground">
-                <span>{combinedStats.suggestionCount} gợi ý</span>
-                <span>•</span>
-                <span>{combinedStats.totalTopics} lưu</span>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-lg font-bold text-foreground truncate">Kho Ý Tưởng</h1>
+                <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{combinedStats.suggestionCount} gợi ý</span>
+                  <span>•</span>
+                  <span>{combinedStats.totalTopics} đã lưu</span>
+                  <span>•</span>
+                  <span>{combinedStats.usageRate}% sử dụng</span>
+                </div>
+                {/* Mobile mini stats */}
+                <div className="flex sm:hidden items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span>{combinedStats.suggestionCount} gợi ý</span>
+                  <span>•</span>
+                  <span>{combinedStats.totalTopics} lưu</span>
+                </div>
               </div>
             </div>
+            <BrandSelectorDropdown brand={selectedBrand} onOpen={() => setBrandDialogOpen(true)} />
           </div>
-          <BrandSelectorDropdown brand={selectedBrand} onOpen={() => setBrandDialogOpen(true)} />
         </div>
-      </div>
+      )}
 
       {/* Brand Switcher Dialog */}
       <BrandSwitcherDialog
@@ -295,17 +300,20 @@ const Topics = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {selectedBrandId ? (
             <>
-              {/* Chatbot - Main Focus - Full height on mobile */}
+              {/* Chatbot - Main Focus - True fullscreen on mobile */}
               <div className={cn(
                 'flex-1 flex flex-col min-h-0',
-                isMobile ? 'p-0 pb-14' : 'p-2 sm:p-4' // No padding on mobile, just bottom for tabs
+                isMobile ? 'pb-14' : 'p-2 sm:p-4'
               )}>
                 <TopicAIChatbot
                   brandTemplateId={selectedBrandId}
                   contentGoal={selectedGoal}
                   onNavigate={(path, state) => navigate(path, { state })}
                   isExpanded={isMobile || (leftPanelCollapsed && rightPanelCollapsed)}
-                  className="flex-1 min-h-0 h-full"
+                  className={cn(
+                    "flex-1 min-h-0",
+                    isMobile && "h-full rounded-none border-0"
+                  )}
                 />
               </div>
 
