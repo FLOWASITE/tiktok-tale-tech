@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bot, Send, MessageSquare, Video, Images,
-  Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon
+  Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
+  ArrowDown
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -58,6 +59,25 @@ function TypingIndicator() {
       <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
     </div>
   );
+}
+
+// Format timestamp helper
+function formatTimestamp(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Vừa xong';
+  if (diffMins < 60) return `${diffMins} phút trước`;
+  if (diffHours < 24 && now.getDate() === date.getDate()) {
+    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  }
+  if (diffDays < 7) {
+    return date.toLocaleDateString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // Parse topics from AI response with multiple patterns
@@ -120,9 +140,14 @@ export function TopicAIChatbot({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isNearBottomRef = useRef(true);
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -172,12 +197,45 @@ export function TopicAIChatbot({
     };
   }, []);
 
-  // Auto scroll to bottom
+  // Auto scroll to bottom when near bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollContainerRef.current && isNearBottomRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    } else if (messages.length > 0 && !isNearBottomRef.current) {
+      // Increment unread count when new message arrives and user is scrolled up
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.id !== 'welcome') {
+        setUnreadCount(prev => prev + 1);
+      }
     }
   }, [messages]);
+
+  // Handle scroll to detect if user is near bottom
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const nearBottom = distanceFromBottom < 100;
+    
+    isNearBottomRef.current = nearBottom;
+    setShowScrollButton(!nearBottom);
+    
+    if (nearBottom) {
+      setUnreadCount(0);
+    }
+  }, []);
+
+  // Scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+      setUnreadCount(0);
+      setShowScrollButton(false);
+    }
+  }, []);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -191,16 +249,23 @@ export function TopicAIChatbot({
   const sendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
 
+    const userMessageId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: userMessageId,
       role: 'user',
       content: messageText.trim(),
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
+    setAnimatingMessageId(userMessageId);
+    setTimeout(() => setAnimatingMessageId(null), 500);
     setInput('');
     setIsLoading(true);
+    
+    // Auto scroll when sending message
+    isNearBottomRef.current = true;
+    setTimeout(scrollToBottom, 50);
 
     // Create abort controller for this request
     abortControllerRef.current = new AbortController();
@@ -457,14 +522,23 @@ export function TopicAIChatbot({
       </CardHeader>
 
       {/* Messages - Scrollable area */}
-      <ScrollArea className="flex-1 min-h-0 p-2 sm:p-4" ref={scrollRef}>
-        <div className="space-y-4">
+      <div className="relative flex-1 min-h-0">
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="absolute inset-0 overflow-y-auto p-2 sm:p-4"
+        >
+          <div ref={scrollRef} className="space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
               className={cn(
                 'flex gap-2.5',
-                message.role === 'user' ? 'justify-end' : 'justify-start'
+                message.role === 'user' ? 'justify-end' : 'justify-start',
+                // Animation for new messages
+                animatingMessageId === message.id && 'animate-in fade-in-0 duration-300',
+                animatingMessageId === message.id && message.role === 'user' && 'slide-in-from-right-4',
+                animatingMessageId === message.id && message.role === 'assistant' && 'slide-in-from-left-4'
               )}
             >
               {message.role === 'assistant' && (
@@ -496,6 +570,14 @@ export function TopicAIChatbot({
                   ) : (
                     isLoading && message.role === 'assistant' && <TypingIndicator />
                   )}
+                </div>
+                
+                {/* Timestamp */}
+                <div className={cn(
+                  'text-[10px] text-muted-foreground/70 px-1 mt-0.5',
+                  message.role === 'user' ? 'text-right' : 'text-left'
+                )}>
+                  {formatTimestamp(message.timestamp)}
                 </div>
 
                 {/* Extracted Topics with Action Buttons */}
@@ -593,8 +675,28 @@ export function TopicAIChatbot({
               )}
             </div>
           ))}
+          </div>
         </div>
-      </ScrollArea>
+        
+        {/* Scroll to bottom button */}
+        {showScrollButton && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="absolute bottom-4 right-4 h-9 w-9 rounded-full shadow-lg border bg-background/95 backdrop-blur-sm z-10 hover:bg-primary hover:text-primary-foreground transition-all"
+            onClick={scrollToBottom}
+          >
+            <ArrowDown className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <Badge 
+                className="absolute -top-2 -right-2 h-5 min-w-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Badge>
+            )}
+          </Button>
+        )}
+      </div>
 
       {/* Quick Actions - Compact on mobile */}
       <div className="flex-shrink-0 px-1.5 sm:px-3 py-1 sm:py-2 border-t bg-muted/30">
