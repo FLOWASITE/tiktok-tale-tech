@@ -123,7 +123,7 @@ export function MarketingFrameworkSelector({
                 {value === fw.value && <Check className="w-3 h-3 ml-1" />}
               </Badge>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs" side="bottom">
+            <TooltipContent className="max-w-xs z-[100]" side="bottom">
               <p className="font-semibold text-sm mb-1">{fw.fullName}</p>
               <p className="text-xs text-muted-foreground mb-2">{fw.description}</p>
               <div className="space-y-0.5 border-t pt-2 mt-2">

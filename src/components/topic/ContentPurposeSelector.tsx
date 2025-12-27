@@ -181,12 +181,13 @@ export function ContentPurposeSelector({
                         {selectedFramework === fw && <Check className="w-3 h-3 ml-1" />}
                       </Badge>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-medium">{frameworkInfo?.fullName}</p>
-                      <p className="text-xs text-muted-foreground">{frameworkInfo?.description}</p>
-                      <div className="mt-2 space-y-1">
+                    <TooltipContent side="bottom" className="max-w-xs z-[100]">
+                      <p className="font-semibold text-sm mb-1">{frameworkInfo?.fullName}</p>
+                      <p className="text-xs text-muted-foreground mb-2">{frameworkInfo?.description}</p>
+                      <div className="space-y-0.5 border-t pt-2 mt-2">
+                        <p className="text-xs font-medium mb-1">Cấu trúc:</p>
                         {frameworkInfo?.structure.map((step, i) => (
-                          <p key={i} className="text-xs">{step}</p>
+                          <p key={i} className="text-xs text-muted-foreground">• {step}</p>
                         ))}
                       </div>
                     </TooltipContent>
