@@ -1,0 +1,247 @@
+import { useState } from 'react';
+import { 
+  TrendingUp, Sparkles, Calendar, ChevronLeft, Flame, Zap, Gift
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { useTrendingTopics } from '@/hooks/useTrendingTopics';
+import { useTopicRecommendations } from '@/hooks/useTopicRecommendations';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { SEASONAL_EVENTS } from '@/types/topicDiscovery';
+import { ContentGoal } from '@/types/multichannel';
+import { cn } from '@/lib/utils';
+
+interface MobileDiscoverySheetProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  brandTemplateId?: string;
+  contentGoal?: ContentGoal;
+  onInjectPrompt: (prompt: string) => void;
+}
+
+export function MobileDiscoverySheet({
+  open,
+  onOpenChange,
+  brandTemplateId,
+  contentGoal,
+  onInjectPrompt,
+}: MobileDiscoverySheetProps) {
+  const { topics: trends, isLoading: trendsLoading } = useTrendingTopics({ brandTemplateId });
+  const { nextBest, isLoading: recommendLoading, getNextBestTopic } = useTopicRecommendations({
+    brandTemplateId,
+    contentGoal,
+  });
+  const { suggestions, isLoading: suggestionsLoading } = useEnhancedTopicSuggestions({
+    brandTemplateId,
+    contentGoal,
+    enabled: open && !!brandTemplateId,
+  });
+
+  const upcomingEvents = SEASONAL_EVENTS
+    .filter(e => e.date > new Date())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, 3);
+
+  const handleSelectTopic = (topic: string) => {
+    onInjectPrompt(`Gợi ý content về: "${topic}"`);
+    onOpenChange(false);
+  };
+
+  const getEventEmoji = (type: string) => {
+    switch (type) {
+      case 'holiday': return '🎉';
+      case 'campaign': return '📢';
+      default: return '📅';
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+        {/* Header */}
+        <SheetHeader className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <SheetTitle className="text-base font-semibold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Khám phá
+            </SheetTitle>
+          </div>
+        </SheetHeader>
+
+        <div className="overflow-y-auto pb-safe">
+          {/* Next Best Topic */}
+          {brandTemplateId && (
+            <Card className="mx-4 mt-4 border-primary/20 bg-gradient-to-br from-primary/5 to-violet-500/5">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-primary" />
+                  Topic tốt nhất
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+              {recommendLoading ? (
+                  <Skeleton className="h-12 w-full" />
+                ) : nextBest ? (
+                  <Button
+                    variant="ghost"
+                    className="w-full h-auto p-3 justify-start text-left"
+                    onClick={() => handleSelectTopic(nextBest.topic)}
+                  >
+                    <div>
+                      <p className="font-medium text-sm line-clamp-2">{nextBest.topic}</p>
+                      {nextBest.confidence && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Độ tin cậy: {Math.round(nextBest.confidence * 100)}%
+                        </p>
+                      )}
+                    </div>
+                  </Button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Chưa có đủ dữ liệu</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quick Suggestions */}
+          {brandTemplateId && suggestions.length > 0 && (
+            <Card className="mx-4 mt-3">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-violet-500" />
+                  Gợi ý nhanh
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                {suggestionsLoading ? (
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map(i => (
+                      <Skeleton key={i} className="h-8 w-24" />
+                    ))}
+                  </div>
+                ) : (
+                  <ScrollArea className="w-full whitespace-nowrap">
+                    <div className="flex gap-2">
+                      {suggestions.slice(0, 5).map((suggestion, idx) => (
+                        <Button
+                          key={idx}
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 h-auto py-2 px-3 text-xs"
+                          onClick={() => handleSelectTopic(suggestion.topic)}
+                        >
+                          <span className="line-clamp-1 max-w-[120px]">{suggestion.topic}</span>
+                        </Button>
+                      ))}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Trending Topics */}
+          <Card className="mx-4 mt-3">
+            <CardHeader className="pb-2 pt-3 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Flame className="h-4 w-4 text-orange-500" />
+                Đang hot
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3">
+              {trendsLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              ) : trends.length > 0 ? (
+                <div className="space-y-2">
+                  {trends.slice(0, 5).map((trend, idx) => (
+                    <Button
+                      key={idx}
+                      variant="ghost"
+                      className="w-full h-auto p-2 justify-start text-left"
+                      onClick={() => handleSelectTopic(trend.topic)}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <Badge 
+                          variant="secondary" 
+                          className={cn(
+                            'shrink-0 h-5 w-5 p-0 flex items-center justify-center text-[10px]',
+                            idx === 0 && 'bg-orange-500 text-white',
+                            idx === 1 && 'bg-orange-400 text-white',
+                            idx === 2 && 'bg-orange-300 text-orange-900'
+                          )}
+                        >
+                          {idx + 1}
+                        </Badge>
+                        <span className="flex-1 text-sm line-clamp-1">{trend.topic}</span>
+                        <TrendingUp className={cn(
+                          'h-3.5 w-3.5 shrink-0',
+                          trend.peak_status === 'rising' && 'text-emerald-500',
+                          trend.peak_status === 'peaking' && 'text-amber-500',
+                          trend.peak_status === 'declining' && 'text-red-500'
+                        )} />
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Chưa có dữ liệu trending</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Seasonal Events */}
+          {upcomingEvents.length > 0 && (
+            <Card className="mx-4 mt-3 mb-4">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-pink-500" />
+                  Sự kiện sắp tới
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <div className="space-y-2">
+                  {upcomingEvents.map((event, idx) => (
+                    <Button
+                      key={idx}
+                      variant="ghost"
+                      className="w-full h-auto p-2 justify-start text-left"
+                      onClick={() => onInjectPrompt(`Gợi ý content cho sự kiện: ${event.name}`)}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <span className="text-lg">{getEventEmoji(event.type)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium line-clamp-1">{event.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {event.date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })}
+                          </p>
+                        </div>
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
