@@ -210,7 +210,7 @@ export function TopicAIHeroSection({
               onRetry={errorCode === 'RATE_LIMIT' ? handleGetRecommendation : undefined}
             />
           ) : !nextBest ? (
-            <div className="text-center py-12 space-y-4">
+          <div className="text-center py-8 space-y-4">
               <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
                 <Zap className="w-10 h-10 text-primary/50" />
               </div>
@@ -220,6 +220,89 @@ export function TopicAIHeroSection({
                   Nhấn "Lấy gợi ý AI" để AI phân tích và đề xuất topic tốt nhất cho bạn
                 </p>
               </div>
+              
+              {/* Quick Actions - Available without AI suggestion for conversion goal */}
+              {contentGoal === 'conversion' && (
+                <div className="pt-4 border-t border-border/50 space-y-3">
+                  <p className="text-xs text-muted-foreground">Hoặc bắt đầu ngay với:</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1.5 text-blue-600 bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20"
+                            onClick={() => onNavigate('/multichannel', {
+                              prefillGoal: 'conversion',
+                              contentPurpose: 'service_intro',
+                              marketingFramework: 'FAB',
+                              fromTopics: true,
+                            })}
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                            Giới thiệu dịch vụ
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Framework FAB</p>
+                          <p className="text-xs text-muted-foreground">Features → Advantages → Benefits</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1.5 text-purple-600 bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/20"
+                            onClick={() => onNavigate('/multichannel', {
+                              prefillGoal: 'conversion',
+                              contentPurpose: 'product_launch',
+                              marketingFramework: 'AIDA',
+                              fromTopics: true,
+                            })}
+                          >
+                            <Rocket className="w-3.5 h-3.5" />
+                            Ra mắt sản phẩm
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Framework AIDA</p>
+                          <p className="text-xs text-muted-foreground">Attention → Interest → Desire → Action</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1.5 text-orange-600 bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20"
+                            onClick={() => onNavigate('/multichannel', {
+                              prefillGoal: 'conversion',
+                              contentPurpose: 'promotion',
+                              marketingFramework: 'PAS',
+                              fromTopics: true,
+                            })}
+                          >
+                            <Gift className="w-3.5 h-3.5" />
+                            Khuyến mãi
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Framework PAS</p>
+                          <p className="text-xs text-muted-foreground">Problem → Agitate → Solution</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-5">
