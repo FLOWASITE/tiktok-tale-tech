@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.discover-trending-topics]
 verify_jwt = false
+
+[functions.chat-topics]
+verify_jwt = false
