@@ -6,6 +6,9 @@ import {
   X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff, User,
   PanelRightOpen, PanelRightClose
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import ReactMarkdown from 'react-markdown';
 import { CodeBlock } from './chatbot/CodeBlock';
 import { MessageFeedback } from './chatbot/MessageFeedback';
@@ -294,6 +297,8 @@ export function TopicAIChatbot({
   className,
   isExpanded = false,
 }: TopicAIChatbotProps) {
+  const { user } = useAuth();
+  const { currentOrganization } = useOrganizationContext();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -894,12 +899,38 @@ export function TopicAIChatbot({
 
   // Handle thumbs up/down feedback
   const handleFeedback = useCallback(async (messageId: string, feedback: 'up' | 'down') => {
-    // Update message with feedback
+    // Update message with feedback in UI
     setMessages(prev => prev.map(m => 
       m.id === messageId 
         ? { ...m, feedback } 
         : m
     ));
+    
+    // Find the message and the previous user message for context
+    const messageIndex = messages.findIndex(m => m.id === messageId);
+    const message = messages.find(m => m.id === messageId);
+    const previousUserMessage = messages
+      .slice(0, messageIndex)
+      .reverse()
+      .find(m => m.role === 'user');
+    
+    // Save to database if user is logged in
+    if (user?.id) {
+      const { error } = await supabase.from('chat_feedback').insert({
+        user_id: user.id,
+        organization_id: currentOrganization?.id || null,
+        message_id: messageId,
+        conversation_id: getStorageKey(brandTemplateId),
+        feedback_type: feedback,
+        message_content: message?.content?.slice(0, 5000) || null, // Limit content size
+        user_message: previousUserMessage?.content?.slice(0, 2000) || null,
+        brand_template_id: brandTemplateId || null,
+      });
+      
+      if (error) {
+        console.error('Failed to save feedback:', error);
+      }
+    }
     
     // Show toast
     toast({
@@ -908,9 +939,7 @@ export function TopicAIChatbot({
         ? 'Phản hồi của bạn giúp AI cải thiện.' 
         : 'Chúng tôi sẽ cố gắng cải thiện.',
     });
-    
-    // TODO: Save to database for AI improvement
-  }, []);
+  }, [messages, user, currentOrganization, brandTemplateId]);
 
   // Handle regenerate response
   const handleRegenerate = useCallback(async (assistantMessage: ChatMessage) => {
