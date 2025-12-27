@@ -421,23 +421,25 @@ export function TopicAIChatbot({
     };
   }, [sendMessage]);
 
+  const isMobileFullscreen = className?.includes('h-full');
+
   return (
     <Card className={cn(
-      'flex flex-col border-2 border-primary/20',
-      // Mobile: use flex-1 to fill available space
-      // Desktop: use specific heights
+      'flex flex-col',
+      // On mobile fullscreen: no border, no shadow for seamless look
+      isMobileFullscreen ? 'border-0 shadow-none rounded-none' : 'border-2 border-primary/20',
       'h-full max-h-full',
       className
     )}>
-      {/* Header - Responsive */}
-      <CardHeader className="flex-shrink-0 py-2 sm:py-2.5 px-3 sm:px-4 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
+      {/* Header - Compact on mobile */}
+      <CardHeader className="flex-shrink-0 py-1.5 sm:py-2.5 px-2 sm:px-4 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25">
               <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+              <h3 className="font-semibold text-xs sm:text-sm flex items-center gap-1.5">
                 Flowa Mind
                 <Badge variant="secondary" className="text-[9px] sm:text-[10px] h-3.5 sm:h-4 px-1 sm:px-1.5">AI</Badge>
               </h3>
@@ -447,16 +449,16 @@ export function TopicAIChatbot({
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="gap-1 sm:gap-1.5 h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3"
+            className="gap-1 h-6 sm:h-7 text-[10px] sm:text-xs px-1.5 sm:px-3"
           >
             <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            <span className="hidden xs:inline">Mới</span>
+            <span className="hidden sm:inline">Mới</span>
           </Button>
         </div>
       </CardHeader>
 
-      {/* Messages - Scrollable area with overflow */}
-      <ScrollArea className="flex-1 min-h-0 p-3 sm:p-4" ref={scrollRef}>
+      {/* Messages - Scrollable area */}
+      <ScrollArea className="flex-1 min-h-0 p-2 sm:p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.map((message) => (
             <div
@@ -595,8 +597,8 @@ export function TopicAIChatbot({
         </div>
       </ScrollArea>
 
-      {/* Quick Actions - Floating Bar (Always visible) - Responsive */}
-      <div className="flex-shrink-0 px-2 sm:px-3 py-1.5 sm:py-2 border-t bg-muted/30">
+      {/* Quick Actions - Compact on mobile */}
+      <div className="flex-shrink-0 px-1.5 sm:px-3 py-1 sm:py-2 border-t bg-muted/30">
         <QuickActionsPanel
           contentGoal={contentGoal}
           onAction={handleQuickAction}
@@ -605,8 +607,8 @@ export function TopicAIChatbot({
         />
       </div>
 
-      {/* Input - Responsive */}
-      <form onSubmit={handleSubmit} className="flex-shrink-0 p-2 sm:p-3 border-t bg-background">
+      {/* Input - Compact on mobile */}
+      <form onSubmit={handleSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-background">
         <div className="flex gap-1.5 sm:gap-2">
           <Textarea
             ref={textareaRef}
@@ -614,7 +616,7 @@ export function TopicAIChatbot({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Nhập tin nhắn..."
-            className="min-h-[36px] sm:min-h-[40px] max-h-[80px] sm:max-h-[100px] resize-none text-xs sm:text-sm"
+            className="min-h-[36px] max-h-[60px] sm:max-h-[100px] resize-none text-xs sm:text-sm py-2"
             disabled={isLoading}
           />
           {isLoading ? (
@@ -622,20 +624,20 @@ export function TopicAIChatbot({
               type="button" 
               size="icon"
               variant="destructive"
-              className="shrink-0 h-9 w-9 sm:h-10 sm:w-10"
+              className="shrink-0 h-9 w-9"
               onClick={handleCancel}
               title="Dừng"
             >
-              <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Square className="w-3.5 h-3.5" />
             </Button>
           ) : (
             <Button 
               type="submit" 
               size="icon"
-              className="shrink-0 h-9 w-9 sm:h-10 sm:w-10"
+              className="shrink-0 h-9 w-9"
               disabled={!input.trim()}
             >
-              <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Send className="w-3.5 h-3.5" />
             </Button>
           )}
         </div>
