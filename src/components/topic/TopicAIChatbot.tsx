@@ -1226,21 +1226,8 @@ export function TopicAIChatbot({
               )}
               
               <div className={cn(
-                'max-w-[85%] sm:max-w-[80%] space-y-2.5',
-                message.role === 'user' && 'order-first'
+                'max-w-[85%] sm:max-w-[80%] space-y-2.5'
               )}>
-              
-              {/* User avatar - positioned after the message bubble */}
-              {message.role === 'user' && (
-                <Avatar className="shrink-0 w-7 h-7 order-last">
-                  {profile?.avatar_url ? (
-                    <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'User'} />
-                  ) : null}
-                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                    {profile?.full_name?.charAt(0)?.toUpperCase() || <User className="w-3.5 h-3.5" />}
-                  </AvatarFallback>
-                </Avatar>
-              )}
                 {/* Error state - Enhanced UI */}
                 {message.isError ? (
                   <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 space-y-2">
@@ -1414,11 +1401,14 @@ export function TopicAIChatbot({
               </div>
 
               {message.role === 'user' && (
-                <div className="shrink-0 w-7 h-7 rounded-full bg-primary flex items-center justify-center">
-                  <span className="text-xs font-medium text-primary-foreground">
-                    👤
-                  </span>
-                </div>
+                <Avatar className="shrink-0 w-7 h-7">
+                  {profile?.avatar_url ? (
+                    <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'User'} />
+                  ) : null}
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {profile?.full_name?.charAt(0)?.toUpperCase() || <User className="w-3.5 h-3.5" />}
+                  </AvatarFallback>
+                </Avatar>
               )}
             </div>
           ))}
