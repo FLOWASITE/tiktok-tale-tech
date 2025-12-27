@@ -289,6 +289,10 @@ function extractTopicsFromMessage(content: string): ExtractedTopic[] {
 const getStorageKey = (brandTemplateId?: string) => 
   `topic-chat-${brandTemplateId || 'default'}`;
 
+// Storage key for artifacts
+const getArtifactsStorageKey = (brandTemplateId?: string) => 
+  `topic-artifacts-${brandTemplateId || 'default'}`;
+
 export function TopicAIChatbot({
   brandTemplateId,
   contentGoal,
@@ -342,6 +346,7 @@ export function TopicAIChatbot({
   // Artifacts Panel state
   const [showArtifactsPanel, setShowArtifactsPanel] = useState(false);
   const [artifactTopics, setArtifactTopics] = useState<ArtifactTopic[]>([]);
+  const [isSavingToBank, setIsSavingToBank] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -579,6 +584,31 @@ export function TopicAIChatbot({
       localStorage.setItem(storageKey, JSON.stringify(messages));
     }
   }, [messages, brandTemplateId]);
+
+  // Load artifacts from localStorage on mount
+  useEffect(() => {
+    const artifactsKey = getArtifactsStorageKey(brandTemplateId);
+    const saved = localStorage.getItem(artifactsKey);
+    
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setArtifactTopics(parsed);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }, [brandTemplateId]);
+
+  // Save artifacts to localStorage when changed
+  useEffect(() => {
+    if (artifactTopics.length > 0) {
+      const artifactsKey = getArtifactsStorageKey(brandTemplateId);
+      localStorage.setItem(artifactsKey, JSON.stringify(artifactTopics));
+    }
+  }, [artifactTopics, brandTemplateId]);
   
   // Calculate dynamic width based on content
   useEffect(() => {
@@ -1052,9 +1082,13 @@ export function TopicAIChatbot({
   }, [sendMessage]);
 
   const handleReset = () => {
-    // Clear localStorage
+    // Clear localStorage for messages
     const storageKey = getStorageKey(brandTemplateId);
     localStorage.removeItem(storageKey);
+    
+    // Clear localStorage for artifacts
+    const artifactsKey = getArtifactsStorageKey(brandTemplateId);
+    localStorage.removeItem(artifactsKey);
     
     // Reset messages
     setMessages([{
@@ -1068,6 +1102,74 @@ export function TopicAIChatbot({
     setArtifactTopics([]);
     setShowArtifactsPanel(false);
   };
+
+  // Save topic to database (topic_history table)
+  const handleSaveToBank = useCallback(async (topic: ArtifactTopic) => {
+    if (!user?.id) {
+      toast({
+        title: 'Cần đăng nhập',
+        description: 'Vui lòng đăng nhập để lưu topic vào bank.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingToBank(true);
+
+    try {
+      // Map tag to category
+      const categoryMap: Record<string, string> = {
+        awareness: 'awareness',
+        engagement: 'engagement', 
+        conversion: 'conversion',
+        education: 'educational',
+        entertainment: 'entertainment',
+        trust: 'thought-leadership',
+      };
+
+      const { error } = await supabase.from('topic_history').insert({
+        user_id: user.id,
+        organization_id: currentOrganization?.id || null,
+        brand_template_id: brandTemplateId || null,
+        topic: topic.topic,
+        reasoning: topic.reason || null,
+        format: topic.format || 'post',
+        category: categoryMap[topic.tag || ''] || 'general',
+        content_goal: contentGoal || 'engagement',
+        is_favorite: topic.isStarred || false,
+        usage_status: 'saved',
+      });
+
+      if (error) {
+        console.error('Failed to save topic:', error);
+        toast({
+          title: 'Lỗi lưu topic',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Update artifact topic with saved status
+      setArtifactTopics(prev => 
+        prev.map(t => t.id === topic.id ? { ...t, isSaved: true } : t)
+      );
+
+      toast({
+        title: 'Đã lưu vào Topic Bank!',
+        description: 'Topic đã được thêm vào danh sách của bạn.',
+      });
+    } catch (err) {
+      console.error('Save to bank error:', err);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể lưu topic. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingToBank(false);
+    }
+  }, [user, currentOrganization, brandTemplateId, contentGoal]);
 
   // Collect all extracted topics from messages for artifacts panel
   const allExtractedTopics = useMemo<ArtifactTopic[]>(() => {
@@ -1094,23 +1196,40 @@ export function TopicAIChatbot({
     return topics;
   }, [messages]);
 
-  // Sync artifact topics with extracted topics
+  // Sync artifact topics with extracted topics (only if not loaded from localStorage)
   useEffect(() => {
-    if (allExtractedTopics.length > 0 && artifactTopics.length === 0) {
-      setArtifactTopics(allExtractedTopics);
-    } else if (allExtractedTopics.length > artifactTopics.length) {
-      // Add new topics while preserving existing ones (with their edited state)
-      const existingIds = new Set(artifactTopics.map(t => t.id));
-      const newTopics = allExtractedTopics.filter(t => !existingIds.has(t.id));
-      if (newTopics.length > 0) {
-        setArtifactTopics(prev => [...prev, ...newTopics]);
-        // Auto-open panel when new topics are extracted
-        if (!showArtifactsPanel && newTopics.length >= 2) {
-          setShowArtifactsPanel(true);
+    // Skip sync if artifacts were loaded from localStorage
+    const artifactsKey = getArtifactsStorageKey(brandTemplateId);
+    const hasPersistedArtifacts = localStorage.getItem(artifactsKey);
+    
+    if (hasPersistedArtifacts) {
+      // If we have persisted artifacts, only add NEW topics from messages
+      if (allExtractedTopics.length > 0) {
+        const existingTopicTexts = new Set(artifactTopics.map(t => t.topic.toLowerCase().trim()));
+        const newTopics = allExtractedTopics.filter(t => !existingTopicTexts.has(t.topic.toLowerCase().trim()));
+        if (newTopics.length > 0) {
+          setArtifactTopics(prev => [...prev, ...newTopics]);
+          if (!showArtifactsPanel && newTopics.length >= 2) {
+            setShowArtifactsPanel(true);
+          }
+        }
+      }
+    } else {
+      // First time - sync from extracted topics
+      if (allExtractedTopics.length > 0 && artifactTopics.length === 0) {
+        setArtifactTopics(allExtractedTopics);
+      } else if (allExtractedTopics.length > artifactTopics.length) {
+        const existingIds = new Set(artifactTopics.map(t => t.id));
+        const newTopics = allExtractedTopics.filter(t => !existingIds.has(t.id));
+        if (newTopics.length > 0) {
+          setArtifactTopics(prev => [...prev, ...newTopics]);
+          if (!showArtifactsPanel && newTopics.length >= 2) {
+            setShowArtifactsPanel(true);
+          }
         }
       }
     }
-  }, [allExtractedTopics, artifactTopics, showArtifactsPanel]);
+  }, [allExtractedTopics, artifactTopics, showArtifactsPanel, brandTemplateId]);
 
   // Handle artifact topic action
   const handleArtifactTopicAction = useCallback((topic: ArtifactTopic, format: 'multichannel' | 'script' | 'carousel') => {
@@ -1850,6 +1969,7 @@ export function TopicAIChatbot({
           onTopicsChange={setArtifactTopics}
           onClose={() => setShowArtifactsPanel(false)}
           onCreateContent={handleArtifactTopicAction}
+          onSaveToBank={handleSaveToBank}
           onRefine={handleTopicRefinement}
           className="w-80 shrink-0 animate-in slide-in-from-right-4 duration-300"
         />
