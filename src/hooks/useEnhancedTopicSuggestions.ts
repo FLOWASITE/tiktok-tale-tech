@@ -12,6 +12,7 @@ import {
   TopicScores,
   calculateOverallScore 
 } from '@/types/topicDiscovery';
+import { QUICK_START_TEMPLATES, QuickStartTemplate } from '@/types/quickStartTemplates';
 import { toast } from 'sonner';
 
 interface UseEnhancedTopicSuggestionsOptions {
@@ -27,152 +28,55 @@ interface TopicSuggestionsResult {
   error?: string;
 }
 
-// Default suggestions with enhanced structure and scores
-const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = {
-  education: [
-    {
-      topic: 'Hướng dẫn từng bước cho người mới bắt đầu',
-      category: 'evergreen',
-      formats: ['carousel', 'script', 'multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'Nội dung hướng dẫn luôn có giá trị lâu dài và được tìm kiếm nhiều',
-      relatedKeywords: ['hướng dẫn', 'bắt đầu', 'cơ bản', 'tutorial'],
-      bestTimeToPost: '9:00 - 11:00',
-      scores: { brandFit: 80, trend: 65, competition: 75, engagement: 80 },
-      topicType: 'solution',
-      funnelStage: 'tofu',
-      emotionalTone: 'educate',
+// Map funnel stage to topic category
+function mapFunnelToCategory(funnelStage: string): TopicCategory {
+  switch (funnelStage) {
+    case 'tofu':
+      return 'evergreen';
+    case 'mofu':
+      return 'trending';
+    case 'bofu':
+      return 'reactive';
+    default:
+      return 'evergreen';
+  }
+}
+
+// Convert Quick Start Template to EnhancedTopicSuggestion
+function templateToSuggestion(template: QuickStartTemplate, goal: ContentGoal): EnhancedTopicSuggestion {
+  // Calculate scores based on funnel stage and emotional tone
+  const baseScore = goal === 'conversion' ? 80 : 70;
+  const engagementBoost = template.funnelStage === 'bofu' ? 10 : template.funnelStage === 'mofu' ? 5 : 0;
+  const trendBoost = template.emotionalTone === 'entertain' ? 15 : template.emotionalTone === 'inspire' ? 10 : 0;
+  
+  return {
+    topic: template.suggestedTopicTemplate,
+    category: mapFunnelToCategory(template.funnelStage),
+    formats: ['carousel', 'script', 'multichannel'] as TopicFormat[],
+    estimatedEngagement: template.funnelStage === 'bofu' ? 'high' : 'medium' as EngagementLevel,
+    reasoning: template.description,
+    relatedKeywords: [],
+    scores: { 
+      brandFit: baseScore + 5, 
+      trend: baseScore - 5 + trendBoost, 
+      competition: baseScore - 10, 
+      engagement: baseScore + engagementBoost 
     },
-    {
-      topic: '5 sai lầm phổ biến và cách tránh',
-      category: 'evergreen',
-      formats: ['carousel', 'multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'Người dùng luôn muốn tránh sai lầm, dễ gây tương tác và chia sẻ',
-      relatedKeywords: ['sai lầm', 'tránh', 'kinh nghiệm', 'bài học'],
-      scores: { brandFit: 75, trend: 70, competition: 65, engagement: 85 },
-      topicType: 'problem',
-      funnelStage: 'tofu',
-      emotionalTone: 'educate',
-    },
-    {
-      topic: 'Checklist hoàn chỉnh cho năm 2025',
-      category: 'seasonal',
-      formats: ['carousel', 'multichannel'],
-      estimatedEngagement: 'medium',
-      reasoning: 'Checklist dễ lưu và chia sẻ, phù hợp đầu năm mới',
-      relatedKeywords: ['checklist', '2025', 'kế hoạch', 'mục tiêu'],
-      scores: { brandFit: 70, trend: 80, competition: 60, engagement: 70 },
-      topicType: 'solution',
-      funnelStage: 'mofu',
-      emotionalTone: 'educate',
-    },
-  ],
-  awareness: [
-    {
-      topic: 'Câu chuyện đằng sau thương hiệu',
-      category: 'evergreen',
-      formats: ['script', 'multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'Storytelling tạo kết nối cảm xúc mạnh với khách hàng',
-      relatedKeywords: ['câu chuyện', 'brand story', 'khởi nghiệp', 'hành trình'],
-      scores: { brandFit: 95, trend: 60, competition: 80, engagement: 85 },
-      topicType: 'story',
-      funnelStage: 'tofu',
-      emotionalTone: 'inspire',
-    },
-    {
-      topic: 'Giá trị cốt lõi mà chúng tôi theo đuổi',
-      category: 'evergreen',
-      formats: ['carousel', 'multichannel'],
-      estimatedEngagement: 'medium',
-      reasoning: 'Giúp khách hàng hiểu và tin tưởng thương hiệu hơn',
-      relatedKeywords: ['giá trị', 'core values', 'sứ mệnh', 'tầm nhìn'],
-      scores: { brandFit: 90, trend: 55, competition: 70, engagement: 70 },
-      topicType: 'story',
-      funnelStage: 'mofu',
-      emotionalTone: 'inspire',
-    },
-  ],
-  engagement: [
-    {
-      topic: 'Bạn nghĩ gì về xu hướng này?',
-      category: 'reactive',
-      formats: ['multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'Câu hỏi mở khuyến khích bình luận và thảo luận',
-      relatedKeywords: ['xu hướng', 'ý kiến', 'bình luận', 'thảo luận'],
-      scores: { brandFit: 70, trend: 85, competition: 50, engagement: 95 },
-      topicType: 'data',
-      funnelStage: 'tofu',
-      emotionalTone: 'entertain',
-    },
-    {
-      topic: 'Thử thách 7 ngày: Bạn có dám thử?',
-      category: 'trending',
-      formats: ['script', 'multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'Challenges luôn viral và tạo FOMO',
-      relatedKeywords: ['challenge', 'thử thách', '7 ngày', 'viral'],
-      scores: { brandFit: 65, trend: 90, competition: 55, engagement: 90 },
-      topicType: 'solution',
-      funnelStage: 'mofu',
-      emotionalTone: 'inspire',
-    },
-  ],
-  expertise: [
-    {
-      topic: 'Phân tích chuyên sâu: Xu hướng thị trường 2025',
-      category: 'seasonal',
-      formats: ['carousel', 'script', 'multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'Nội dung chuyên sâu xây dựng uy tín và được share nhiều',
-      relatedKeywords: ['phân tích', 'xu hướng', 'thị trường', 'dự báo'],
-      scores: { brandFit: 85, trend: 80, competition: 70, engagement: 80 },
-      topicType: 'data',
-      funnelStage: 'mofu',
-      emotionalTone: 'educate',
-    },
-    {
-      topic: 'Case study thành công từ thực tế',
-      category: 'evergreen',
-      formats: ['carousel', 'multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'Case study là proof of concept tốt nhất',
-      relatedKeywords: ['case study', 'thành công', 'khách hàng', 'kết quả'],
-      scores: { brandFit: 80, trend: 65, competition: 75, engagement: 75 },
-      topicType: 'story',
-      funnelStage: 'bofu',
-      emotionalTone: 'convince',
-    },
-  ],
-  conversion: [
-    {
-      topic: 'Ưu đãi độc quyền: Chỉ còn 24 giờ',
-      category: 'reactive',
-      formats: ['multichannel'],
-      estimatedEngagement: 'high',
-      reasoning: 'FOMO và urgency thúc đẩy hành động nhanh',
-      relatedKeywords: ['ưu đãi', 'giảm giá', 'flash sale', 'khuyến mãi'],
-      scores: { brandFit: 75, trend: 70, competition: 60, engagement: 85 },
-      topicType: 'solution',
-      funnelStage: 'bofu',
-      emotionalTone: 'convince',
-    },
-    {
-      topic: 'Vì sao khách hàng chọn chúng tôi',
-      category: 'evergreen',
-      formats: ['carousel', 'script', 'multichannel'],
-      estimatedEngagement: 'medium',
-      reasoning: 'Social proof tăng niềm tin và conversion',
-      relatedKeywords: ['testimonial', 'review', 'khách hàng', 'lý do'],
-      scores: { brandFit: 85, trend: 60, competition: 65, engagement: 70 },
-      topicType: 'story',
-      funnelStage: 'bofu',
-      emotionalTone: 'convince',
-    },
-  ],
-};
+    topicType: template.emotionalTone === 'convince' ? 'solution' : 
+               template.emotionalTone === 'inspire' ? 'story' : 
+               template.emotionalTone === 'educate' ? 'solution' : 'data',
+    funnelStage: template.funnelStage,
+    emotionalTone: template.emotionalTone,
+  };
+}
+
+// Generate DEFAULT_SUGGESTIONS from QUICK_START_TEMPLATES
+const DEFAULT_SUGGESTIONS: Record<ContentGoal, EnhancedTopicSuggestion[]> = (
+  Object.entries(QUICK_START_TEMPLATES) as [ContentGoal, QuickStartTemplate[]][]
+).reduce((acc, [goal, templates]) => {
+  acc[goal] = templates.map(t => templateToSuggestion(t, goal));
+  return acc;
+}, {} as Record<ContentGoal, EnhancedTopicSuggestion[]>);
 
 // Sorting functions
 function sortByOverall(a: EnhancedTopicSuggestion, b: EnhancedTopicSuggestion): number {
