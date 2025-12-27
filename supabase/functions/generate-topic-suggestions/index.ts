@@ -408,8 +408,8 @@ serve(async (req) => {
 
   try {
     const startTime = Date.now();
-    const input: TopicGenerationInput = await req.json();
-    const { mode, rawTopic, industry, contentGoal, brandTemplateId, organizationId, format, recentTopics, seasonality, videoType } = input;
+    const input: TopicGenerationInput & { forceRefresh?: boolean } = await req.json();
+    const { mode, rawTopic, industry, contentGoal, brandTemplateId, organizationId, format, recentTopics, seasonality, videoType, forceRefresh } = input;
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -428,23 +428,27 @@ serve(async (req) => {
     // Build cache key with extended parameters - include organizationId for isolation
     const cacheKey = `topic-suggestions-v4:${organizationId || 'global'}:${industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}`;
     
-    // Check cache first
-    const { data: cached } = await supabase
-      .from('ai_response_cache')
-      .select('response_data, expires_at')
-      .eq('cache_key', cacheKey)
-      .single();
+    // Check cache first (skip if forceRefresh is true)
+    if (!forceRefresh) {
+      const { data: cached } = await supabase
+        .from('ai_response_cache')
+        .select('response_data, expires_at')
+        .eq('cache_key', cacheKey)
+        .single();
 
-    if (cached && new Date(cached.expires_at) > new Date()) {
-      console.log('Cache hit for topic suggestions v4');
-      await supabase.rpc('increment_cache_hit', { p_cache_key: cacheKey });
-      
-      return new Response(JSON.stringify({
-        suggestions: cached.response_data,
-        source: 'cache'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      if (cached && new Date(cached.expires_at) > new Date()) {
+        console.log('Cache hit for topic suggestions v4');
+        await supabase.rpc('increment_cache_hit', { p_cache_key: cacheKey });
+        
+        return new Response(JSON.stringify({
+          suggestions: cached.response_data,
+          source: 'cache'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      console.log('Force refresh requested, skipping cache');
     }
 
     // Fetch brand context, industry context, and learning context IN PARALLEL

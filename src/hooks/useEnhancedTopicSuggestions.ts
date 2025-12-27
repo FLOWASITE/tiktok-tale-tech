@@ -117,7 +117,7 @@ export function useEnhancedTopicSuggestions({
   const prevParamsRef = useRef<string>('');
   const autoSavedTopicsRef = useRef<Set<string>>(new Set());
 
-  const fetchSuggestions = useCallback(async () => {
+  const fetchSuggestions = useCallback(async (forceRefresh = false) => {
     if (!enabled) return;
 
     // Don't show main loading state - we already have defaults
@@ -134,6 +134,7 @@ export function useEnhancedTopicSuggestions({
             organizationId: currentOrganization?.id,
             format,
             enhanced: true,
+            forceRefresh, // Pass to bypass cache on backend
           },
         }
       );
@@ -220,7 +221,8 @@ export function useEnhancedTopicSuggestions({
 
   const refresh = useCallback(() => {
     prevParamsRef.current = '';
-    fetchSuggestions();
+    hasLoadedRef.current = false;
+    fetchSuggestions(true); // Force refresh to bypass cache
   }, [fetchSuggestions]);
 
   // Sort and filter suggestions
