@@ -1,9 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { 
   X, Pencil, Save, Trash2, Plus, MessageSquare, Video, Images, 
   Sparkles, Copy, Check, BookmarkPlus, ExternalLink,
   GripVertical, Download, FileJson, FileSpreadsheet, Trash,
-  Search, Filter, ChevronLeft, ChevronRight
+  Search, Filter, ChevronLeft, ChevronRight, Star, CopyPlus, Tag
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -39,8 +39,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+
+// Predefined tags/pillars
+const TOPIC_TAGS = [
+  { value: 'awareness', label: 'Awareness', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+  { value: 'engagement', label: 'Engagement', color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+  { value: 'conversion', label: 'Conversion', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  { value: 'education', label: 'Education', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+  { value: 'entertainment', label: 'Entertainment', color: 'bg-pink-500/10 text-pink-600 border-pink-500/20' },
+  { value: 'trust', label: 'Trust Building', color: 'bg-teal-500/10 text-teal-600 border-teal-500/20' },
+] as const;
+
+type TopicTagValue = typeof TOPIC_TAGS[number]['value'] | '';
 
 export interface ArtifactTopic {
   id: string;
@@ -49,6 +68,8 @@ export interface ArtifactTopic {
   format?: string;
   isEditing?: boolean;
   isSaved?: boolean;
+  isStarred?: boolean;
+  tag?: TopicTagValue;
 }
 
 interface ArtifactsPanelProps {
@@ -61,7 +82,7 @@ interface ArtifactsPanelProps {
   className?: string;
 }
 
-type FilterType = 'all' | 'saved' | 'unsaved';
+type FilterType = 'all' | 'saved' | 'unsaved' | 'starred';
 
 // Sortable Topic Item Component
 interface SortableTopicItemProps {
@@ -79,6 +100,9 @@ interface SortableTopicItemProps {
   setEditingTopic: (topic: ArtifactTopic | null) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
+  onToggleStar: (topicId: string) => void;
+  onDuplicate: (topic: ArtifactTopic) => void;
+  onTagChange: (topicId: string, tag: TopicTagValue) => void;
 }
 
 // Highlight matching text
@@ -103,6 +127,10 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   );
 }
 
+function getTagConfig(tagValue: string | undefined) {
+  return TOPIC_TAGS.find(t => t.value === tagValue);
+}
+
 function SortableTopicItem({
   topic,
   index,
@@ -117,7 +145,10 @@ function SortableTopicItem({
   onCreateContent,
   setEditingTopic,
   onSaveEdit,
-  onCancelEdit
+  onCancelEdit,
+  onToggleStar,
+  onDuplicate,
+  onTagChange
 }: SortableTopicItemProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -138,6 +169,7 @@ function SortableTopicItem({
   };
 
   const isEditing = editingTopic?.id === topic.id;
+  const tagConfig = getTagConfig(topic.tag);
 
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
@@ -159,6 +191,7 @@ function SortableTopicItem({
             ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
             : "border-border hover:border-primary/30 hover:bg-muted/50",
           topic.isSaved && "border-green-500/30 bg-green-500/5",
+          topic.isStarred && "border-yellow-500/30 bg-yellow-500/5",
           isDragging && "shadow-lg"
         )}
       >
@@ -187,16 +220,39 @@ function SortableTopicItem({
                 placeholder="Tại sao topic này hiệu quả..."
               />
             </div>
-            <div>
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Format đề xuất
-              </label>
-              <Input
-                value={editingTopic.format || ''}
-                onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
-                className="mt-1 h-8 text-xs"
-                placeholder="Carousel, Video, Post..."
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Format đề xuất
+                </label>
+                <Input
+                  value={editingTopic.format || ''}
+                  onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
+                  className="mt-1 h-8 text-xs"
+                  placeholder="Carousel, Video..."
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  Pillar/Tag
+                </label>
+                <Select
+                  value={editingTopic.tag || ''}
+                  onValueChange={(value) => setEditingTopic({ ...editingTopic, tag: value as TopicTagValue })}
+                >
+                  <SelectTrigger className="mt-1 h-8 text-xs">
+                    <SelectValue placeholder="Chọn tag..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Không có</SelectItem>
+                    {TOPIC_TAGS.map(tag => (
+                      <SelectItem key={tag.value} value={tag.value}>
+                        {tag.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="flex items-center gap-2 pt-1">
               <Button size="sm" className="h-7 text-xs gap-1" onClick={onSaveEdit}>
@@ -219,6 +275,20 @@ function SortableTopicItem({
                 <GripVertical className="w-3 h-3" />
                 <span className="text-[10px] font-mono">{index + 1}</span>
               </div>
+              
+              {/* Star button */}
+              <button
+                onClick={() => onToggleStar(topic.id)}
+                className={cn(
+                  "p-0.5 rounded transition-colors",
+                  topic.isStarred 
+                    ? "text-yellow-500 hover:text-yellow-600" 
+                    : "text-muted-foreground/30 hover:text-yellow-500"
+                )}
+              >
+                <Star className={cn("w-3.5 h-3.5", topic.isStarred && "fill-current")} />
+              </button>
+              
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium leading-snug line-clamp-2">
                   <HighlightText text={topic.topic} query={searchQuery} />
@@ -228,17 +298,30 @@ function SortableTopicItem({
                     <HighlightText text={topic.reason} query={searchQuery} />
                   </p>
                 )}
-                {topic.format && (
-                  <Badge variant="outline" className="mt-1.5 text-[10px] h-5">
-                    {topic.format}
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {topic.format && (
+                    <Badge variant="outline" className="text-[10px] h-5">
+                      {topic.format}
+                    </Badge>
+                  )}
+                  {tagConfig && (
+                    <Badge 
+                      variant="outline" 
+                      className={cn("text-[10px] h-5 border", tagConfig.color)}
+                    >
+                      {tagConfig.label}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex flex-col items-end gap-1">
+                {topic.isSaved && (
+                  <Badge variant="secondary" className="text-[9px] h-4 bg-green-500/10 text-green-600">
+                    Đã lưu
                   </Badge>
                 )}
               </div>
-              {topic.isSaved && (
-                <Badge variant="secondary" className="text-[9px] h-4 bg-green-500/10 text-green-600">
-                  Đã lưu
-                </Badge>
-              )}
             </div>
 
             <div className="flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -271,7 +354,21 @@ function SortableTopicItem({
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Sao chép</TooltipContent>
+                <TooltipContent>Sao chép text</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0"
+                    onClick={() => onDuplicate(topic)}
+                  >
+                    <CopyPlus className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Nhân bản topic</TooltipContent>
               </Tooltip>
 
               {!topic.isSaved && onSaveToBank && (
@@ -289,6 +386,43 @@ function SortableTopicItem({
                   <TooltipContent>Lưu vào Bank</TooltipContent>
                 </Tooltip>
               )}
+
+              {/* Tag dropdown */}
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0"
+                      >
+                        <Tag className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Gắn tag</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="start" className="w-36">
+                  <DropdownMenuItem 
+                    onClick={() => onTagChange(topic.id, '')}
+                    className="text-xs"
+                  >
+                    Không có tag
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {TOPIC_TAGS.map(tag => (
+                    <DropdownMenuItem 
+                      key={tag.value}
+                      onClick={() => onTagChange(topic.id, tag.value)}
+                      className={cn("text-xs gap-2", topic.tag === tag.value && "bg-muted")}
+                    >
+                      <div className={cn("w-2 h-2 rounded-full", tag.color.split(' ')[0].replace('/10', ''))} />
+                      {tag.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {onRefine && (
                 <Tooltip>
@@ -409,8 +543,11 @@ export function ArtifactsPanel({
   const [editingTopic, setEditingTopic] = useState<ArtifactTopic | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
+  const [filterTag, setFilterTag] = useState<TopicTagValue>('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [newTopicId, setNewTopicId] = useState<string | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // DnD sensors
   const sensors = useSensors(
@@ -418,15 +555,29 @@ export function ArtifactsPanel({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Sort topics: starred first, then by original order
+  const sortedTopics = useMemo(() => {
+    const starred = topics.filter(t => t.isStarred);
+    const unstarred = topics.filter(t => !t.isStarred);
+    return [...starred, ...unstarred];
+  }, [topics]);
+
   // Filtered topics
   const filteredTopics = useMemo(() => {
-    let result = topics;
+    let result = sortedTopics;
     
     // Apply filter
     if (filterType === 'saved') {
       result = result.filter(t => t.isSaved);
     } else if (filterType === 'unsaved') {
       result = result.filter(t => !t.isSaved);
+    } else if (filterType === 'starred') {
+      result = result.filter(t => t.isStarred);
+    }
+
+    // Apply tag filter
+    if (filterTag) {
+      result = result.filter(t => t.tag === filterTag);
     }
     
     // Apply search
@@ -440,7 +591,18 @@ export function ArtifactsPanel({
     }
     
     return result;
-  }, [topics, filterType, searchQuery]);
+  }, [sortedTopics, filterType, filterTag, searchQuery]);
+
+  // Scroll to new topic when created
+  useEffect(() => {
+    if (newTopicId && scrollAreaRef.current) {
+      const element = scrollAreaRef.current.querySelector(`[data-topic-id="${newTopicId}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      setNewTopicId(null);
+    }
+  }, [newTopicId]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -483,8 +645,9 @@ export function ArtifactsPanel({
   }, [topics, onTopicsChange]);
 
   const handleAddNew = useCallback(() => {
+    const newId = `topic-${Date.now()}`;
     const newTopic: ArtifactTopic = {
-      id: `topic-${Date.now()}`,
+      id: newId,
       topic: 'Topic mới',
       reason: '',
       format: '',
@@ -492,6 +655,7 @@ export function ArtifactsPanel({
     };
     onTopicsChange([...topics, newTopic]);
     setEditingTopic(newTopic);
+    setNewTopicId(newId);
   }, [topics, onTopicsChange]);
 
   const handleSaveToBank = useCallback((topic: ArtifactTopic) => {
@@ -505,9 +669,44 @@ export function ArtifactsPanel({
     });
   }, [topics, onTopicsChange, onSaveToBank]);
 
+  const handleToggleStar = useCallback((topicId: string) => {
+    onTopicsChange(topics.map(t => 
+      t.id === topicId ? { ...t, isStarred: !t.isStarred } : t
+    ));
+  }, [topics, onTopicsChange]);
+
+  const handleDuplicate = useCallback((topic: ArtifactTopic) => {
+    const newId = `topic-${Date.now()}`;
+    const duplicatedTopic: ArtifactTopic = {
+      ...topic,
+      id: newId,
+      topic: `${topic.topic} (copy)`,
+      isSaved: false,
+      isEditing: true
+    };
+    
+    // Insert after the original topic
+    const originalIndex = topics.findIndex(t => t.id === topic.id);
+    const newTopics = [...topics];
+    newTopics.splice(originalIndex + 1, 0, duplicatedTopic);
+    
+    onTopicsChange(newTopics);
+    setEditingTopic(duplicatedTopic);
+    setNewTopicId(newId);
+    toast({ title: 'Đã nhân bản topic!' });
+  }, [topics, onTopicsChange]);
+
+  const handleTagChange = useCallback((topicId: string, tag: TopicTagValue) => {
+    onTopicsChange(topics.map(t => 
+      t.id === topicId ? { ...t, tag } : t
+    ));
+    const tagLabel = tag ? TOPIC_TAGS.find(t => t.value === tag)?.label : 'Đã xóa tag';
+    toast({ title: tagLabel ? `Đã gắn tag: ${tagLabel}` : 'Đã xóa tag!' });
+  }, [topics, onTopicsChange]);
+
   // Export functions
   const handleExportJSON = useCallback(() => {
-    const exportData = topics.map(({ id, isEditing, isSaved, ...rest }) => rest);
+    const exportData = topics.map(({ id, isEditing, ...rest }) => rest);
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -519,11 +718,14 @@ export function ArtifactsPanel({
   }, [topics]);
 
   const handleExportCSV = useCallback(() => {
-    const headers = ['Topic', 'Lý do', 'Format'];
+    const headers = ['Topic', 'Lý do', 'Format', 'Tag', 'Starred', 'Saved'];
     const rows = topics.map(t => [
       `"${(t.topic || '').replace(/"/g, '""')}"`,
       `"${(t.reason || '').replace(/"/g, '""')}"`,
-      `"${(t.format || '').replace(/"/g, '""')}"`
+      `"${(t.format || '').replace(/"/g, '""')}"`,
+      `"${t.tag || ''}"`,
+      t.isStarred ? 'Yes' : 'No',
+      t.isSaved ? 'Yes' : 'No'
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
@@ -555,8 +757,13 @@ export function ArtifactsPanel({
     setShowDeleteAllConfirm(false);
     setSearchQuery('');
     setFilterType('all');
+    setFilterTag('');
     toast({ title: 'Đã xóa tất cả topics!' });
   }, [onTopicsChange]);
+
+  // Stats
+  const starredCount = topics.filter(t => t.isStarred).length;
+  const savedCount = topics.filter(t => t.isSaved).length;
 
   // Collapsed mini mode
   if (isCollapsed) {
@@ -586,6 +793,13 @@ export function ArtifactsPanel({
               {topics.length}
             </Badge>
           </div>
+
+          {starredCount > 0 && (
+            <div className="flex flex-col items-center gap-1">
+              <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+              <span className="text-[10px] text-muted-foreground">{starredCount}</span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -651,6 +865,12 @@ export function ArtifactsPanel({
           <Badge variant="secondary" className="text-[10px] h-5">
             {filteredTopics.length}/{topics.length}
           </Badge>
+          {starredCount > 0 && (
+            <Badge variant="outline" className="text-[10px] h-5 gap-0.5 border-yellow-500/30 text-yellow-600">
+              <Star className="w-2.5 h-2.5 fill-current" />
+              {starredCount}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {/* Export dropdown */}
@@ -728,39 +948,73 @@ export function ArtifactsPanel({
           )}
         </div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
           <Filter className="w-3 h-3 text-muted-foreground" />
-          <div className="flex items-center gap-1">
+          <Button
+            variant={filterType === 'all' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setFilterType('all')}
+          >
+            Tất cả
+          </Button>
+          <Button
+            variant={filterType === 'starred' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-6 px-2 text-[10px] gap-0.5"
+            onClick={() => setFilterType('starred')}
+          >
+            <Star className="w-2.5 h-2.5" />
+            Starred
+          </Button>
+          <Button
+            variant={filterType === 'saved' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setFilterType('saved')}
+          >
+            Đã lưu
+          </Button>
+          <Button
+            variant={filterType === 'unsaved' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setFilterType('unsaved')}
+          >
+            Chưa lưu
+          </Button>
+        </div>
+
+        {/* Tag filter */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <Tag className="w-3 h-3 text-muted-foreground" />
+          <Button
+            variant={filterTag === '' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-5 px-1.5 text-[9px]"
+            onClick={() => setFilterTag('')}
+          >
+            All Tags
+          </Button>
+          {TOPIC_TAGS.map(tag => (
             <Button
-              variant={filterType === 'all' ? 'secondary' : 'ghost'}
+              key={tag.value}
+              variant={filterTag === tag.value ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setFilterType('all')}
+              className={cn(
+                "h-5 px-1.5 text-[9px]",
+                filterTag === tag.value && tag.color
+              )}
+              onClick={() => setFilterTag(tag.value)}
             >
-              Tất cả
+              {tag.label}
             </Button>
-            <Button
-              variant={filterType === 'saved' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setFilterType('saved')}
-            >
-              Đã lưu ({topics.filter(t => t.isSaved).length})
-            </Button>
-            <Button
-              variant={filterType === 'unsaved' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setFilterType('unsaved')}
-            >
-              Chưa lưu ({topics.filter(t => !t.isSaved).length})
-            </Button>
-          </div>
+          ))}
         </div>
       </div>
 
       {/* Topics List with Drag & Drop */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" ref={scrollAreaRef}>
         {filteredTopics.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-6 text-center">
             <Search className="w-8 h-8 text-muted-foreground/50 mb-2" />
@@ -780,23 +1034,27 @@ export function ArtifactsPanel({
             <SortableContext items={filteredTopics.map(t => t.id)} strategy={verticalListSortingStrategy}>
               <div className="p-2 space-y-2">
                 {filteredTopics.map((topic, index) => (
-                  <SortableTopicItem
-                    key={topic.id}
-                    topic={topic}
-                    index={index}
-                    editingTopic={editingTopic}
-                    copiedId={copiedId}
-                    searchQuery={searchQuery}
-                    onEdit={handleEdit}
-                    onCopy={handleCopy}
-                    onDelete={handleDelete}
-                    onSaveToBank={onSaveToBank ? handleSaveToBank : undefined}
-                    onRefine={onRefine}
-                    onCreateContent={onCreateContent}
-                    setEditingTopic={setEditingTopic}
-                    onSaveEdit={handleSaveEdit}
-                    onCancelEdit={handleCancelEdit}
-                  />
+                  <div key={topic.id} data-topic-id={topic.id}>
+                    <SortableTopicItem
+                      topic={topic}
+                      index={index}
+                      editingTopic={editingTopic}
+                      copiedId={copiedId}
+                      searchQuery={searchQuery}
+                      onEdit={handleEdit}
+                      onCopy={handleCopy}
+                      onDelete={handleDelete}
+                      onSaveToBank={onSaveToBank ? handleSaveToBank : undefined}
+                      onRefine={onRefine}
+                      onCreateContent={onCreateContent}
+                      setEditingTopic={setEditingTopic}
+                      onSaveEdit={handleSaveEdit}
+                      onCancelEdit={handleCancelEdit}
+                      onToggleStar={handleToggleStar}
+                      onDuplicate={handleDuplicate}
+                      onTagChange={handleTagChange}
+                    />
+                  </div>
                 ))}
               </div>
             </SortableContext>
@@ -809,7 +1067,7 @@ export function ArtifactsPanel({
         <div className="p-2 border-t bg-muted/30 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground">
-              {topics.filter(t => t.isSaved).length}/{topics.length} đã lưu
+              {savedCount}/{topics.length} đã lưu • {starredCount} starred
             </span>
             <div className="flex items-center gap-1">
               {onSaveToBank && (
