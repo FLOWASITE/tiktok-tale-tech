@@ -150,14 +150,14 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className="flex items-center justify-between">
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto hover:bg-transparent">
+            <Button type="button" variant="ghost" className="flex items-center gap-2 p-0 h-auto hover:bg-transparent">
               <Package className="h-4 w-4 text-primary" />
               <span className="font-medium">Sản phẩm/Dịch vụ</span>
               <Badge variant="secondary" className="ml-1">{products.length}</Badge>
               {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
-          <Button variant="outline" size="sm" onClick={handleOpenCreate}>
+          <Button type="button" variant="outline" size="sm" onClick={handleOpenCreate}>
             <Plus className="h-4 w-4 mr-1" />
             Thêm
           </Button>
@@ -212,6 +212,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
@@ -221,6 +222,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
                       <Star className={cn("h-4 w-4", product.is_featured ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
                     </Button>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
@@ -229,6 +231,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive hover:text-destructive"
@@ -479,8 +482,8 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
           </ScrollArea>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Hủy</Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting || !formData.name.trim()}>
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Hủy</Button>
+            <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !formData.name.trim()}>
               {isSubmitting ? 'Đang lưu...' : editingProduct ? 'Cập nhật' : 'Thêm sản phẩm'}
             </Button>
           </DialogFooter>
