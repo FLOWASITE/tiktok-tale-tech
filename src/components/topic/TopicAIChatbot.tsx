@@ -427,11 +427,11 @@ export function TopicAIChatbot({
             </div>
             <div>
               <h3 className="font-semibold flex items-center gap-2">
-                Topic Assistant
+                Flowa Mind
                 <Badge variant="secondary" className="text-xs">AI</Badge>
               </h3>
               <p className="text-xs text-muted-foreground">
-                Khám phá ý tưởng content cùng AI
+                Brainstorm ý tưởng content cùng AI
               </p>
             </div>
           </div>
