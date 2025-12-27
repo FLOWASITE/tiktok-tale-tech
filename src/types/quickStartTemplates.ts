@@ -1,6 +1,9 @@
 import { ContentGoal } from './multichannel';
 import { ContentPurpose, MarketingFramework, FunnelStage, EmotionalTone } from './topicDiscovery';
 
+// Re-export ContentGoal for convenience
+export type { ContentGoal } from './multichannel';
+
 export interface QuickStartTemplate {
   id: string;
   label: string;
