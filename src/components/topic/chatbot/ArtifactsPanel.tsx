@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { 
   X, Pencil, Save, Trash2, Plus, MessageSquare, Video, Images, 
   Sparkles, Copy, Check, BookmarkPlus, ExternalLink,
-  GripVertical, Download, FileJson, FileSpreadsheet, Trash
+  GripVertical, Download, FileJson, FileSpreadsheet, Trash,
+  Search, Filter, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -28,6 +29,16 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
@@ -50,12 +61,15 @@ interface ArtifactsPanelProps {
   className?: string;
 }
 
+type FilterType = 'all' | 'saved' | 'unsaved';
+
 // Sortable Topic Item Component
 interface SortableTopicItemProps {
   topic: ArtifactTopic;
   index: number;
   editingTopic: ArtifactTopic | null;
   copiedId: string | null;
+  searchQuery: string;
   onEdit: (topic: ArtifactTopic) => void;
   onCopy: (topic: ArtifactTopic) => void;
   onDelete: (topicId: string) => void;
@@ -67,11 +81,34 @@ interface SortableTopicItemProps {
   onCancelEdit: () => void;
 }
 
+// Highlight matching text
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  
+  return (
+    <>
+      {parts.map((part, i) => 
+        regex.test(part) ? (
+          <mark key={i} className="bg-yellow-300/50 dark:bg-yellow-500/30 rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 function SortableTopicItem({
   topic,
   index,
   editingTopic,
   copiedId,
+  searchQuery,
   onEdit,
   onCopy,
   onDelete,
@@ -82,6 +119,8 @@ function SortableTopicItem({
   onSaveEdit,
   onCancelEdit
 }: SortableTopicItemProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
   const {
     attributes,
     listeners,
@@ -100,227 +139,260 @@ function SortableTopicItem({
 
   const isEditing = editingTopic?.id === topic.id;
 
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete(topic.id);
+    setShowDeleteConfirm(false);
+  };
+
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "group p-3 rounded-xl border transition-all",
-        isEditing 
-          ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
-          : "border-border hover:border-primary/30 hover:bg-muted/50",
-        topic.isSaved && "border-green-500/30 bg-green-500/5",
-        isDragging && "shadow-lg"
-      )}
-    >
-      {isEditing ? (
-        <div className="space-y-3">
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              Topic
-            </label>
-            <Input
-              value={editingTopic.topic}
-              onChange={(e) => setEditingTopic({ ...editingTopic, topic: e.target.value })}
-              className="mt-1 h-8 text-sm"
-              placeholder="Nhập topic..."
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              Lý do / Insight
-            </label>
-            <Textarea
-              value={editingTopic.reason || ''}
-              onChange={(e) => setEditingTopic({ ...editingTopic, reason: e.target.value })}
-              className="mt-1 min-h-[60px] text-xs resize-none"
-              placeholder="Tại sao topic này hiệu quả..."
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              Format đề xuất
-            </label>
-            <Input
-              value={editingTopic.format || ''}
-              onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
-              className="mt-1 h-8 text-xs"
-              placeholder="Carousel, Video, Post..."
-            />
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <Button size="sm" className="h-7 text-xs gap-1" onClick={onSaveEdit}>
-              <Save className="w-3 h-3" />
-              Lưu
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelEdit}>
-              Hủy
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-start gap-2">
-            <div 
-              className="flex items-center gap-1 text-muted-foreground/50 cursor-grab hover:text-muted-foreground"
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="w-3 h-3" />
-              <span className="text-[10px] font-mono">{index + 1}</span>
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "group p-3 rounded-xl border transition-all",
+          isEditing 
+            ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
+            : "border-border hover:border-primary/30 hover:bg-muted/50",
+          topic.isSaved && "border-green-500/30 bg-green-500/5",
+          isDragging && "shadow-lg"
+        )}
+      >
+        {isEditing ? (
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Topic
+              </label>
+              <Input
+                value={editingTopic.topic}
+                onChange={(e) => setEditingTopic({ ...editingTopic, topic: e.target.value })}
+                className="mt-1 h-8 text-sm"
+                placeholder="Nhập topic..."
+                autoFocus
+              />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium leading-snug line-clamp-2">
-                {topic.topic}
-              </p>
-              {topic.reason && (
-                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                  {topic.reason}
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Lý do / Insight
+              </label>
+              <Textarea
+                value={editingTopic.reason || ''}
+                onChange={(e) => setEditingTopic({ ...editingTopic, reason: e.target.value })}
+                className="mt-1 min-h-[60px] text-xs resize-none"
+                placeholder="Tại sao topic này hiệu quả..."
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Format đề xuất
+              </label>
+              <Input
+                value={editingTopic.format || ''}
+                onChange={(e) => setEditingTopic({ ...editingTopic, format: e.target.value })}
+                className="mt-1 h-8 text-xs"
+                placeholder="Carousel, Video, Post..."
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button size="sm" className="h-7 text-xs gap-1" onClick={onSaveEdit}>
+                <Save className="w-3 h-3" />
+                Lưu
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelEdit}>
+                Hủy
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <div 
+                className="flex items-center gap-1 text-muted-foreground/50 cursor-grab hover:text-muted-foreground"
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical className="w-3 h-3" />
+                <span className="text-[10px] font-mono">{index + 1}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium leading-snug line-clamp-2">
+                  <HighlightText text={topic.topic} query={searchQuery} />
                 </p>
-              )}
-              {topic.format && (
-                <Badge variant="outline" className="mt-1.5 text-[10px] h-5">
-                  {topic.format}
+                {topic.reason && (
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                    <HighlightText text={topic.reason} query={searchQuery} />
+                  </p>
+                )}
+                {topic.format && (
+                  <Badge variant="outline" className="mt-1.5 text-[10px] h-5">
+                    {topic.format}
+                  </Badge>
+                )}
+              </div>
+              {topic.isSaved && (
+                <Badge variant="secondary" className="text-[9px] h-4 bg-green-500/10 text-green-600">
+                  Đã lưu
                 </Badge>
               )}
             </div>
-            {topic.isSaved && (
-              <Badge variant="secondary" className="text-[9px] h-4 bg-green-500/10 text-green-600">
-                Đã lưu
-              </Badge>
-            )}
-          </div>
 
-          <div className="flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-6 w-6 p-0"
-                  onClick={() => onEdit(topic)}
-                >
-                  <Pencil className="w-3 h-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Chỉnh sửa</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-6 w-6 p-0"
-                  onClick={() => onCopy(topic)}
-                >
-                  {copiedId === topic.id ? (
-                    <Check className="w-3 h-3 text-green-500" />
-                  ) : (
-                    <Copy className="w-3 h-3" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Sao chép</TooltipContent>
-            </Tooltip>
-
-            {!topic.isSaved && onSaveToBank && (
+            <div className="flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
                     size="sm" 
                     variant="ghost" 
                     className="h-6 w-6 p-0"
-                    onClick={() => onSaveToBank(topic)}
+                    onClick={() => onEdit(topic)}
                   >
-                    <BookmarkPlus className="w-3 h-3" />
+                    <Pencil className="w-3 h-3" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Lưu vào Bank</TooltipContent>
+                <TooltipContent>Chỉnh sửa</TooltipContent>
               </Tooltip>
-            )}
 
-            {onRefine && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
                     size="sm" 
                     variant="ghost" 
                     className="h-6 w-6 p-0"
-                    onClick={() => onRefine(topic.topic)}
+                    onClick={() => onCopy(topic)}
                   >
-                    <ExternalLink className="w-3 h-3" />
+                    {copiedId === topic.id ? (
+                      <Check className="w-3 h-3 text-green-500" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Xem chi tiết</TooltipContent>
+                <TooltipContent>Sao chép</TooltipContent>
               </Tooltip>
-            )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                  onClick={() => onDelete(topic.id)}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Xóa</TooltipContent>
-            </Tooltip>
+              {!topic.isSaved && onSaveToBank && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 w-6 p-0"
+                      onClick={() => onSaveToBank(topic)}
+                    >
+                      <BookmarkPlus className="w-3 h-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Lưu vào Bank</TooltipContent>
+                </Tooltip>
+              )}
 
-            <div className="flex-1" />
+              {onRefine && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 w-6 p-0"
+                      onClick={() => onRefine(topic.topic)}
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Xem chi tiết</TooltipContent>
+                </Tooltip>
+              )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="secondary"
-                  className="h-6 px-2 text-[10px] gap-1 hover:bg-primary hover:text-primary-foreground"
-                  onClick={() => onCreateContent(topic, 'multichannel')}
-                >
-                  <MessageSquare className="w-2.5 h-2.5" />
-                  Multi
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Tạo Multi-channel</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    onClick={handleDeleteClick}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Xóa</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="secondary"
-                  className="h-6 px-2 text-[10px] gap-1 hover:bg-violet-600 hover:text-white"
-                  onClick={() => onCreateContent(topic, 'script')}
-                >
-                  <Video className="w-2.5 h-2.5" />
-                  Script
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Tạo Script</TooltipContent>
-            </Tooltip>
+              <div className="flex-1" />
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="secondary"
-                  className="h-6 px-2 text-[10px] gap-1 hover:bg-orange-500 hover:text-white"
-                  onClick={() => onCreateContent(topic, 'carousel')}
-                >
-                  <Images className="w-2.5 h-2.5" />
-                  Carousel
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Tạo Carousel</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    className="h-6 px-2 text-[10px] gap-1 hover:bg-primary hover:text-primary-foreground"
+                    onClick={() => onCreateContent(topic, 'multichannel')}
+                  >
+                    <MessageSquare className="w-2.5 h-2.5" />
+                    Multi
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Tạo Multi-channel</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    className="h-6 px-2 text-[10px] gap-1 hover:bg-violet-600 hover:text-white"
+                    onClick={() => onCreateContent(topic, 'script')}
+                  >
+                    <Video className="w-2.5 h-2.5" />
+                    Script
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Tạo Script</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    className="h-6 px-2 text-[10px] gap-1 hover:bg-orange-500 hover:text-white"
+                    onClick={() => onCreateContent(topic, 'carousel')}
+                  >
+                    <Images className="w-2.5 h-2.5" />
+                    Carousel
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Tạo Carousel</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa topic này?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa topic "<span className="font-medium text-foreground">{topic.topic.slice(0, 50)}{topic.topic.length > 50 ? '...' : ''}</span>"? 
+              Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -335,12 +407,40 @@ export function ArtifactsPanel({
 }: ArtifactsPanelProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<ArtifactTopic | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Filtered topics
+  const filteredTopics = useMemo(() => {
+    let result = topics;
+    
+    // Apply filter
+    if (filterType === 'saved') {
+      result = result.filter(t => t.isSaved);
+    } else if (filterType === 'unsaved') {
+      result = result.filter(t => !t.isSaved);
+    }
+    
+    // Apply search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(t => 
+        t.topic.toLowerCase().includes(query) ||
+        t.reason?.toLowerCase().includes(query) ||
+        t.format?.toLowerCase().includes(query)
+      );
+    }
+    
+    return result;
+  }, [topics, filterType, searchQuery]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -447,14 +547,54 @@ export function ArtifactsPanel({
   }, [topics, onTopicsChange, onSaveToBank]);
 
   const handleDeleteAll = useCallback(() => {
+    setShowDeleteAllConfirm(true);
+  }, []);
+
+  const handleConfirmDeleteAll = useCallback(() => {
     onTopicsChange([]);
+    setShowDeleteAllConfirm(false);
+    setSearchQuery('');
+    setFilterType('all');
     toast({ title: 'Đã xóa tất cả topics!' });
   }, [onTopicsChange]);
+
+  // Collapsed mini mode
+  if (isCollapsed) {
+    return (
+      <div className={cn(
+        "flex flex-col h-full bg-background border-l w-12 transition-all duration-300",
+        className
+      )}>
+        <div className="flex flex-col items-center py-3 gap-3">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => setIsCollapsed(false)}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Mở rộng</TooltipContent>
+          </Tooltip>
+          
+          <div className="flex flex-col items-center gap-1">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+              {topics.length}
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (topics.length === 0) {
     return (
       <div className={cn(
-        "flex flex-col h-full bg-background border-l",
+        "flex flex-col h-full bg-background border-l transition-all duration-300",
         className
       )}>
         <div className="flex items-center justify-between p-3 border-b bg-muted/30">
@@ -462,9 +602,24 @@ export function ArtifactsPanel({
             <Sparkles className="w-4 h-4 text-primary" />
             <h3 className="font-semibold text-sm">Topics</h3>
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7"
+                  onClick={() => setIsCollapsed(true)}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Thu gọn</TooltipContent>
+            </Tooltip>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6 text-center">
           <div className="space-y-3">
@@ -485,7 +640,7 @@ export function ArtifactsPanel({
 
   return (
     <div className={cn(
-      "flex flex-col h-full bg-background border-l",
+      "flex flex-col h-full bg-background border-l transition-all duration-300",
       className
     )}>
       {/* Header */}
@@ -494,7 +649,7 @@ export function ArtifactsPanel({
           <Sparkles className="w-4 h-4 text-primary" />
           <h3 className="font-semibold text-sm">Topics</h3>
           <Badge variant="secondary" className="text-[10px] h-5">
-            {topics.length}
+            {filteredTopics.length}/{topics.length}
           </Badge>
         </div>
         <div className="flex items-center gap-1">
@@ -530,42 +685,123 @@ export function ArtifactsPanel({
             </TooltipTrigger>
             <TooltipContent>Thêm topic mới</TooltipContent>
           </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={() => setIsCollapsed(true)}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Thu gọn</TooltipContent>
+          </Tooltip>
+          
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
+      {/* Search & Filter */}
+      <div className="p-2 border-b space-y-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm topic..."
+            className="h-8 pl-8 text-xs"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+              onClick={() => setSearchQuery('')}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <Filter className="w-3 h-3 text-muted-foreground" />
+          <div className="flex items-center gap-1">
+            <Button
+              variant={filterType === 'all' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setFilterType('all')}
+            >
+              Tất cả
+            </Button>
+            <Button
+              variant={filterType === 'saved' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setFilterType('saved')}
+            >
+              Đã lưu ({topics.filter(t => t.isSaved).length})
+            </Button>
+            <Button
+              variant={filterType === 'unsaved' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setFilterType('unsaved')}
+            >
+              Chưa lưu ({topics.filter(t => !t.isSaved).length})
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Topics List with Drag & Drop */}
       <ScrollArea className="flex-1">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={topics.map(t => t.id)} strategy={verticalListSortingStrategy}>
-            <div className="p-2 space-y-2">
-              {topics.map((topic, index) => (
-                <SortableTopicItem
-                  key={topic.id}
-                  topic={topic}
-                  index={index}
-                  editingTopic={editingTopic}
-                  copiedId={copiedId}
-                  onEdit={handleEdit}
-                  onCopy={handleCopy}
-                  onDelete={handleDelete}
-                  onSaveToBank={onSaveToBank ? handleSaveToBank : undefined}
-                  onRefine={onRefine}
-                  onCreateContent={onCreateContent}
-                  setEditingTopic={setEditingTopic}
-                  onSaveEdit={handleSaveEdit}
-                  onCancelEdit={handleCancelEdit}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        {filteredTopics.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-6 text-center">
+            <Search className="w-8 h-8 text-muted-foreground/50 mb-2" />
+            <p className="text-sm text-muted-foreground">
+              Không tìm thấy topic nào
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Thử thay đổi từ khóa hoặc bộ lọc
+            </p>
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={filteredTopics.map(t => t.id)} strategy={verticalListSortingStrategy}>
+              <div className="p-2 space-y-2">
+                {filteredTopics.map((topic, index) => (
+                  <SortableTopicItem
+                    key={topic.id}
+                    topic={topic}
+                    index={index}
+                    editingTopic={editingTopic}
+                    copiedId={copiedId}
+                    searchQuery={searchQuery}
+                    onEdit={handleEdit}
+                    onCopy={handleCopy}
+                    onDelete={handleDelete}
+                    onSaveToBank={onSaveToBank ? handleSaveToBank : undefined}
+                    onRefine={onRefine}
+                    onCreateContent={onCreateContent}
+                    setEditingTopic={setEditingTopic}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={handleCancelEdit}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
       </ScrollArea>
 
       {/* Footer with bulk actions */}
@@ -601,6 +837,28 @@ export function ArtifactsPanel({
           </div>
         </div>
       )}
+
+      {/* Delete All Confirmation Dialog */}
+      <AlertDialog open={showDeleteAllConfirm} onOpenChange={setShowDeleteAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa tất cả topics?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa <span className="font-medium text-foreground">{topics.length} topics</span>? 
+              Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDeleteAll}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Xóa tất cả
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
