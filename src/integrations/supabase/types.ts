@@ -151,6 +151,96 @@ export type Database = {
           },
         ]
       }
+      brand_products: {
+        Row: {
+          benefits: string[] | null
+          best_channels: string[] | null
+          brand_template_id: string
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          is_featured: boolean | null
+          keywords: string[] | null
+          name: string
+          organization_id: string | null
+          pain_points_solved: string[] | null
+          price_display: string | null
+          sku: string | null
+          sort_order: number | null
+          suggested_content_angles: string[] | null
+          target_audience: string | null
+          unique_selling_points: string[] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          benefits?: string[] | null
+          best_channels?: string[] | null
+          brand_template_id: string
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          name: string
+          organization_id?: string | null
+          pain_points_solved?: string[] | null
+          price_display?: string | null
+          sku?: string | null
+          sort_order?: number | null
+          suggested_content_angles?: string[] | null
+          target_audience?: string | null
+          unique_selling_points?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          benefits?: string[] | null
+          best_channels?: string[] | null
+          brand_template_id?: string
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          name?: string
+          organization_id?: string | null
+          pain_points_solved?: string[] | null
+          price_display?: string | null
+          sku?: string | null
+          sort_order?: number | null
+          suggested_content_angles?: string[] | null
+          target_audience?: string | null
+          unique_selling_points?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_products_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_products_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_templates: {
         Row: {
           allow_emoji: boolean | null

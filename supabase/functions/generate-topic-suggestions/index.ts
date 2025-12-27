@@ -246,6 +246,19 @@ interface BrandContext {
   languageStyle?: string[];
   allowEmoji?: boolean;
   contentPillars?: ContentPillar[];
+  products?: BrandProduct[];
+}
+
+interface BrandProduct {
+  name: string;
+  category?: string;
+  description?: string;
+  unique_selling_points?: string[];
+  target_audience?: string;
+  pain_points_solved?: string[];
+  benefits?: string[];
+  suggested_content_angles?: string[];
+  is_featured?: boolean;
 }
 
 interface IndustryContext {
@@ -493,6 +506,20 @@ serve(async (req) => {
         };
 
         console.log('Brand context loaded:', brandContext.brandName, 'Pillars:', brandContext.contentPillars?.length || 0);
+
+        // Fetch products for this brand template
+        const { data: products } = await supabase
+          .from('brand_products')
+          .select('name, category, description, unique_selling_points, target_audience, pain_points_solved, benefits, suggested_content_angles, is_featured')
+          .eq('brand_template_id', brandTemplateId)
+          .eq('is_active', true)
+          .order('is_featured', { ascending: false })
+          .order('sort_order', { ascending: true });
+
+        if (products && products.length > 0) {
+          brandContext.products = products as BrandProduct[];
+          console.log('Products loaded:', products.length);
+        }
 
         // PARALLEL: Fetch industry context and learning context simultaneously
         const learningPromise = fetchLearningContext(supabase, brandTemplateId, null);
@@ -1000,6 +1027,27 @@ ${brandContext.allowEmoji !== undefined ? `- Cho phép emoji: ${brandContext.all
 ${brandContext.contentPillars.map(p => `- ${p.name}: ${p.weight}% - Keywords: ${p.keywords.join(', ')}`).join('\n')}
 
 Quan trọng: Mỗi chủ đề PHẢI được gán vào 1 content pillar phù hợp nhất trong "pillar" field.`;
+  }
+
+  // Build product catalog section
+  let productsSection = '';
+  if (brandContext?.products?.length) {
+    const featuredProducts = brandContext.products.filter(p => p.is_featured);
+    const otherProducts = brandContext.products.filter(p => !p.is_featured).slice(0, 3);
+    const productsToShow = [...featuredProducts, ...otherProducts];
+    
+    productsSection = `
+## SẢN PHẨM/DỊCH VỤ CỦA BRAND:
+${productsToShow.map(p => `
+### ${p.is_featured ? '⭐ ' : ''}${p.name}${p.category ? ` (${p.category})` : ''}
+${p.description ? `- Mô tả: ${p.description}` : ''}
+${p.unique_selling_points?.length ? `- USP: ${p.unique_selling_points.join(', ')}` : ''}
+${p.pain_points_solved?.length ? `- Giải quyết vấn đề: ${p.pain_points_solved.join(', ')}` : ''}
+${p.benefits?.length ? `- Lợi ích: ${p.benefits.join(', ')}` : ''}
+${p.suggested_content_angles?.length ? `- Góc content gợi ý: ${p.suggested_content_angles.join(', ')}` : ''}
+`).join('')}
+
+Khi content goal là "conversion", ƯU TIÊN gợi ý topic về sản phẩm cụ thể sử dụng USP và benefits trong reasoning.`;
   }
 
   // Build industry section
