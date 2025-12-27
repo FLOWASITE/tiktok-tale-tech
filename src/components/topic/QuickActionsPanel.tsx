@@ -60,13 +60,13 @@ export function QuickActionsPanel({
     onAction(randomPrompt);
   };
 
-  // Compact floating bar version
+  // Compact floating bar version - Responsive
   if (variant === 'compact') {
     return (
-      <div className={cn('space-y-2', className)}>
+      <div className={cn('space-y-1.5 sm:space-y-2', className)}>
         {/* Main row - always visible */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Quick prompts */}
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+          {/* Quick prompts - show less on mobile */}
           {QUICK_PROMPTS.slice(0, isExpanded ? 4 : 2).map((item, index) => {
             const IconComponent = item.icon;
             return (
@@ -74,12 +74,13 @@ export function QuickActionsPanel({
                 key={index}
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs gap-1.5 bg-background/80 hover:bg-primary hover:text-primary-foreground transition-all"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs gap-1 sm:gap-1.5 bg-background/80 hover:bg-primary hover:text-primary-foreground transition-all px-2 sm:px-3"
                 onClick={() => onAction(item.prompt)}
                 disabled={isLoading}
               >
-                <IconComponent className="w-3 h-3" />
-                {item.label}
+                <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                <span className="hidden xs:inline">{item.label}</span>
+                <span className="xs:hidden">{item.label.split(' ')[0]}</span>
               </Button>
             );
           })}
@@ -88,39 +89,40 @@ export function QuickActionsPanel({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-xs gap-1.5 bg-gradient-to-r from-violet-500/10 to-pink-500/10 border-violet-500/30 hover:from-violet-500/20 hover:to-pink-500/20"
+            className="h-6 sm:h-7 text-[10px] sm:text-xs gap-1 sm:gap-1.5 bg-gradient-to-r from-violet-500/10 to-pink-500/10 border-violet-500/30 hover:from-violet-500/20 hover:to-pink-500/20 px-2 sm:px-3"
             onClick={handleRandomInspiration}
             disabled={isLoading}
           >
-            <Dices className="w-3 h-3" />
-            Ngẫu nhiên
+            <Dices className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+            <span className="hidden xs:inline">Ngẫu nhiên</span>
+            <span className="xs:hidden">🎲</span>
           </Button>
 
           {/* Expand toggle */}
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0"
+            className="h-6 w-6 sm:h-7 sm:w-7 p-0"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {isExpanded ? (
-              <ChevronDown className="w-3.5 h-3.5" />
+              <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             ) : (
-              <ChevronUp className="w-3.5 h-3.5" />
+              <ChevronUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             )}
           </Button>
         </div>
 
-        {/* Expanded row - content types */}
+        {/* Expanded row - content types - Responsive */}
         {isExpanded && (
-          <div className="flex items-center gap-1.5 flex-wrap animate-in slide-in-from-bottom-2 duration-200">
-            <span className="text-[10px] text-muted-foreground">Format:</span>
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap animate-in slide-in-from-bottom-2 duration-200">
+            <span className="text-[9px] sm:text-[10px] text-muted-foreground">Format:</span>
             {CONTENT_TYPES.map((item, index) => (
               <Button
                 key={index}
                 variant="secondary"
                 size="sm"
-                className="h-6 text-[10px] px-2"
+                className="h-5 sm:h-6 text-[9px] sm:text-[10px] px-1.5 sm:px-2"
                 onClick={() => onAction(item.prompt)}
                 disabled={isLoading}
               >
@@ -128,16 +130,16 @@ export function QuickActionsPanel({
               </Button>
             ))}
             
-            {/* Goal selector */}
+            {/* Goal selector - hide on very small screens */}
             {contentGoal && (
               <>
-                <span className="text-[10px] text-muted-foreground ml-2">Mục tiêu:</span>
+                <span className="hidden xs:inline text-[9px] sm:text-[10px] text-muted-foreground ml-1 sm:ml-2">Mục tiêu:</span>
                 {Object.entries(CATEGORY_CONFIG).slice(0, 3).map(([key, config]) => (
                   <Button
                     key={key}
                     variant={contentGoal === key ? 'default' : 'outline'}
                     size="sm"
-                    className="h-6 text-[10px] px-2 gap-1"
+                    className="hidden xs:inline-flex h-5 sm:h-6 text-[9px] sm:text-[10px] px-1.5 sm:px-2 gap-0.5 sm:gap-1"
                     onClick={() => onAction(`Gợi ý topic với mục tiêu ${config.label}`)}
                     disabled={isLoading}
                   >

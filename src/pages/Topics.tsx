@@ -226,21 +226,27 @@ const Topics = () => {
 
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
-      {/* Compact Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-violet-600 shadow-lg">
-              <Lightbulb className="w-5 h-5 text-primary-foreground" />
+      {/* Compact Header - Responsive */}
+      <div className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 border-b bg-background/95 backdrop-blur">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-violet-600 shadow-lg flex-shrink-0">
+              <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">Kho Ý Tưởng</h1>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-foreground truncate">Kho Ý Tưởng</h1>
+              <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{combinedStats.suggestionCount} gợi ý</span>
                 <span>•</span>
                 <span>{combinedStats.totalTopics} đã lưu</span>
                 <span>•</span>
                 <span>{combinedStats.usageRate}% sử dụng</span>
+              </div>
+              {/* Mobile mini stats */}
+              <div className="flex sm:hidden items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span>{combinedStats.suggestionCount} gợi ý</span>
+                <span>•</span>
+                <span>{combinedStats.totalTopics} lưu</span>
               </div>
             </div>
           </div>
@@ -283,48 +289,51 @@ const Topics = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {selectedBrandId ? (
             <>
-              {/* Chatbot - Main Focus */}
-              <div className="flex-1 p-4 overflow-hidden">
+              {/* Chatbot - Main Focus - Responsive padding */}
+              <div className="flex-1 p-2 sm:p-4 overflow-hidden">
                 <TopicAIChatbot
                   brandTemplateId={selectedBrandId}
                   contentGoal={selectedGoal}
                   onNavigate={(path, state) => navigate(path, { state })}
-                  isExpanded={leftPanelCollapsed && rightPanelCollapsed}
+                  isExpanded={isMobile || (leftPanelCollapsed && rightPanelCollapsed)}
                   className="h-full"
                 />
               </div>
 
-              {/* Bottom Tabs - Compact */}
+              {/* Bottom Tabs - Compact & Responsive */}
               <div className="flex-shrink-0 border-t bg-muted/30">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="w-full h-10 bg-transparent border-b rounded-none justify-start px-4 gap-1">
-                    <TabsTrigger value="bank" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background">
-                      <Bookmark className="w-3.5 h-3.5" />
-                      Ngân hàng
-                      <Badge variant="secondary" className="h-4 px-1 text-[10px]">{combinedStats.totalTopics}</Badge>
+                  <TabsList className="w-full h-9 sm:h-10 bg-transparent border-b rounded-none justify-start px-2 sm:px-4 gap-0.5 sm:gap-1 overflow-x-auto">
+                    <TabsTrigger value="bank" className="h-7 sm:h-8 text-[10px] sm:text-xs gap-1 sm:gap-1.5 data-[state=active]:bg-background px-2 sm:px-3">
+                      <Bookmark className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span className="hidden xs:inline">Ngân hàng</span>
+                      <span className="xs:hidden">Lưu</span>
+                      <Badge variant="secondary" className="h-4 px-1 text-[9px] sm:text-[10px] hidden sm:inline-flex">{combinedStats.totalTopics}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger value="analytics" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background">
-                      <BarChart3 className="w-3.5 h-3.5" />
-                      Phân tích
+                    <TabsTrigger value="analytics" className="h-7 sm:h-8 text-[10px] sm:text-xs gap-1 sm:gap-1.5 data-[state=active]:bg-background px-2 sm:px-3">
+                      <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span className="hidden xs:inline">Phân tích</span>
+                      <span className="xs:hidden">Stats</span>
                     </TabsTrigger>
-                    <TabsTrigger value="learning" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background">
-                      <Brain className="w-3.5 h-3.5" />
-                      AI Learning
+                    <TabsTrigger value="learning" className="h-7 sm:h-8 text-[10px] sm:text-xs gap-1 sm:gap-1.5 data-[state=active]:bg-background px-2 sm:px-3">
+                      <Brain className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span className="hidden xs:inline">AI Learning</span>
+                      <span className="xs:hidden">AI</span>
                     </TabsTrigger>
                   </TabsList>
 
-                  <div className="max-h-[35vh] overflow-auto">
-                    <TabsContent value="bank" className="m-0 p-4">
+                  <div className="max-h-[30vh] sm:max-h-[35vh] overflow-auto">
+                    <TabsContent value="bank" className="m-0 p-2 sm:p-4">
                       <TopicBankGrid
                         brandTemplateId={selectedBrandId}
                         contentGoal={selectedGoal}
                         onSelectTopic={(topic) => navigate('/multichannel', { state: { prefillTopic: topic, prefillGoal: selectedGoal, fromTopics: true } })}
                       />
                     </TabsContent>
-                    <TabsContent value="analytics" className="m-0 p-4">
+                    <TabsContent value="analytics" className="m-0 p-2 sm:p-4">
                       <TopicAnalyticsDashboard brandTemplateId={selectedBrandId} />
                     </TabsContent>
-                    <TabsContent value="learning" className="m-0 p-4">
+                    <TabsContent value="learning" className="m-0 p-2 sm:p-4">
                       <AILearningDashboard
                         brandTemplateId={selectedBrandId}
                         open={activeTab === 'learning'}
@@ -336,13 +345,13 @@ const Topics = () => {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center space-y-4">
-                <div className="p-4 rounded-2xl bg-primary/10 inline-block">
-                  <Lightbulb className="w-12 h-12 text-primary" />
+            <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+              <div className="text-center space-y-3 sm:space-y-4">
+                <div className="p-3 sm:p-4 rounded-2xl bg-primary/10 inline-block">
+                  <Lightbulb className="w-8 h-8 sm:w-12 sm:h-12 text-primary" />
                 </div>
-                <h2 className="text-xl font-semibold">Chọn thương hiệu để bắt đầu</h2>
-                <p className="text-muted-foreground max-w-md">
+                <h2 className="text-lg sm:text-xl font-semibold">Chọn thương hiệu để bắt đầu</h2>
+                <p className="text-sm sm:text-base text-muted-foreground max-w-md px-4">
                   Chọn một thương hiệu để AI có thể gợi ý các ý tưởng content phù hợp với brand voice của bạn.
                 </p>
                 <Button onClick={() => setBrandDialogOpen(true)} className="gap-2">
