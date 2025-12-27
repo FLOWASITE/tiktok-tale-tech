@@ -4,7 +4,7 @@ import {
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
   ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX,
   X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff, User,
-  PanelRightOpen, PanelRightClose
+  PanelRightOpen, PanelRightClose, Compass
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,8 @@ import ReactMarkdown from 'react-markdown';
 import { CodeBlock } from './chatbot/CodeBlock';
 import { MessageFeedback } from './chatbot/MessageFeedback';
 import { ArtifactsPanel, type ArtifactTopic } from './chatbot/ArtifactsPanel';
+import { DiscoveryTab } from './chatbot/DiscoveryTab';
+import { DiscoveryChips } from './chatbot/DiscoveryChips';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -347,6 +349,9 @@ export function TopicAIChatbot({
   const [showArtifactsPanel, setShowArtifactsPanel] = useState(false);
   const [artifactTopics, setArtifactTopics] = useState<ArtifactTopic[]>([]);
   const [isSavingToBank, setIsSavingToBank] = useState(false);
+  
+  // Active view state for tabs: chat, discovery, artifacts
+  const [activeView, setActiveView] = useState<'chat' | 'discovery'>('chat');
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1255,6 +1260,45 @@ export function TopicAIChatbot({
     });
   }, [onNavigate, contentGoal]);
 
+  // Handle discovery create content
+  const handleDiscoveryCreateContent = useCallback((topic: string, format: 'multichannel' | 'script' | 'carousel') => {
+    const paths = {
+      multichannel: '/multichannel',
+      script: '/scripts',
+      carousel: '/carousel',
+    } as const;
+
+    triggerHaptic('heavy');
+    toast({
+      title: 'Đang mở…',
+      description: `${format === 'multichannel' ? 'Tạo Multi-Channel' : format === 'script' ? 'Tạo Kịch bản Video' : 'Tạo Carousel'} từ topic: ${topic}`,
+    });
+
+    onNavigate(paths[format], {
+      prefillTopic: topic,
+      prefillGoal: contentGoal,
+      fromTopics: true,
+    });
+  }, [onNavigate, contentGoal]);
+
+  // Handle discovery inject prompt
+  const handleDiscoveryInject = useCallback((prompt: string) => {
+    setInput(prompt.slice(0, MAX_CHARS));
+    setActiveView('chat');
+    textareaRef.current?.focus();
+  }, []);
+
+  // Handle discovery send message
+  const handleDiscoverySendMessage = useCallback((message: string) => {
+    setActiveView('chat');
+    setTimeout(() => sendMessage(message), 100);
+  }, [sendMessage]);
+
+  // Handle discovery chip click
+  const handleDiscoveryChipClick = useCallback((prompt: string) => {
+    sendMessage(prompt);
+  }, [sendMessage]);
+
   // Expose sendMessage for external injection
   useEffect(() => {
     // Store ref for parent access
@@ -1493,6 +1537,34 @@ export function TopicAIChatbot({
             )}
           </div>
         )}
+        
+        {/* Tabs navigation */}
+        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50">
+          <Button
+            variant={activeView === 'chat' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveView('chat')}
+            className={cn(
+              "h-7 text-[10px] sm:text-xs gap-1.5 flex-1 transition-all duration-150",
+              activeView === 'chat' ? 'shadow-sm' : 'hover:bg-muted'
+            )}
+          >
+            <MessageSquare className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span>Chat</span>
+          </Button>
+          <Button
+            variant={activeView === 'discovery' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveView('discovery')}
+            className={cn(
+              "h-7 text-[10px] sm:text-xs gap-1.5 flex-1 transition-all duration-150",
+              activeView === 'discovery' ? 'shadow-sm' : 'hover:bg-muted'
+            )}
+          >
+            <Compass className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span>Khám phá</span>
+          </Button>
+        </div>
       </CardHeader>
 
       {/* Messages - Scrollable area with pull-to-refresh */}
@@ -1520,6 +1592,21 @@ export function TopicAIChatbot({
           </div>
         )}
         
+      {/* Discovery Tab View */}
+      {activeView === 'discovery' && (
+        <DiscoveryTab
+          brandTemplateId={brandTemplateId}
+          contentGoal={contentGoal}
+          onInjectPrompt={handleDiscoveryInject}
+          onSendMessage={handleDiscoverySendMessage}
+          onCreateContent={handleDiscoveryCreateContent}
+          className="flex-1 min-h-0"
+        />
+      )}
+
+      {/* Chat View */}
+      {activeView === 'chat' && (
+        <>
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
@@ -1782,8 +1869,11 @@ export function TopicAIChatbot({
           </Button>
         )}
       </div>
+      </>
+      )}
 
       {/* Quick Actions - Compact on mobile */}
+      {activeView === 'chat' && (
       <div className="flex-shrink-0 px-1.5 sm:px-3 py-1 sm:py-2 border-t bg-muted/30">
         <QuickActionsPanel
           contentGoal={contentGoal}
@@ -1792,6 +1882,7 @@ export function TopicAIChatbot({
           variant="compact"
         />
       </div>
+      )}
 
       {/* Input - Compact on mobile */}
       <form onSubmit={handleSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-background space-y-1.5">
