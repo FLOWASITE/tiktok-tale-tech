@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bot, Send, MessageSquare, Video, Images,
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
-  ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX
+  ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX,
+  X, Loader2, HelpCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -10,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
@@ -18,6 +21,12 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 
 // Character limit
 const MAX_CHARS = 500;
+
+// Pull-to-refresh threshold
+const PULL_THRESHOLD = 80;
+
+// Onboarding storage key
+const getOnboardingKey = () => 'topic-chat-onboarding-seen';
 
 interface ChatMessage {
   id: string;
@@ -257,6 +266,22 @@ export function TopicAIChatbot({
   const [unreadCount, setUnreadCount] = useState(0);
   const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  // Search state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  
+  // Pull-to-refresh state
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartY = useRef(0);
+  
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -267,6 +292,14 @@ export function TopicAIChatbot({
   // Sound effects
   const { playSend, playReceive, playNotification } = useSoundEffects(soundEnabled);
   
+  // Check if user has seen onboarding
+  useEffect(() => {
+    const seen = localStorage.getItem(getOnboardingKey());
+    if (!seen) {
+      setShowOnboarding(true);
+    }
+  }, []);
+  
   // Track document visibility for notification sounds
   useEffect(() => {
     const handleVisibility = () => {
@@ -275,6 +308,73 @@ export function TopicAIChatbot({
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
+  
+  // Search messages when query changes
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const results = messages
+        .filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()) && !m.isError)
+        .map(m => m.id);
+      setSearchResults(results);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery, messages]);
+  
+  // Dismiss onboarding
+  const dismissOnboarding = useCallback(() => {
+    setShowOnboarding(false);
+    localStorage.setItem(getOnboardingKey(), 'true');
+  }, []);
+  
+  // Handle pull-to-refresh touch events
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (scrollContainerRef.current?.scrollTop === 0) {
+      pullStartY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  }, []);
+  
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling || isRefreshing) return;
+    
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - pullStartY.current;
+    
+    if (diff > 0 && scrollContainerRef.current?.scrollTop === 0) {
+      setPullDistance(Math.min(diff * 0.5, PULL_THRESHOLD * 1.5));
+    }
+  }, [isPulling, isRefreshing]);
+  
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      triggerHaptic('medium');
+      
+      // Perform refresh (reset chat)
+      setTimeout(() => {
+        handleReset();
+        setIsRefreshing(false);
+        setPullDistance(0);
+        setIsPulling(false);
+        toast({
+          title: 'Đã làm mới',
+          description: 'Lịch sử chat đã được xóa.',
+        });
+      }, 600);
+    } else {
+      setPullDistance(0);
+      setIsPulling(false);
+    }
+  }, [pullDistance, isRefreshing]);
+  
+  // Highlight search term in text
+  const highlightSearchTerm = useCallback((text: string) => {
+    if (!searchQuery.trim()) return text;
+    
+    const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark class="bg-yellow-300 dark:bg-yellow-600 px-0.5 rounded">$1</mark>');
+  }, [searchQuery]);
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -653,12 +753,77 @@ export function TopicAIChatbot({
   const isMobileFullscreen = className?.includes('border-0') || className?.includes('rounded-none');
 
   return (
+    <TooltipProvider>
     <Card className={cn(
       'flex flex-col h-full max-h-full',
       // On mobile fullscreen: no border, no shadow for seamless look
       isMobileFullscreen ? 'border-0 shadow-none rounded-none bg-background' : 'border-2 border-primary/20',
       className
     )}>
+      {/* Onboarding overlay */}
+      {showOnboarding && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl p-4 max-w-xs space-y-3 shadow-xl animate-in zoom-in-95 fade-in-0 duration-300">
+            {onboardingStep === 0 && (
+              <>
+                <div className="flex items-center gap-2 text-primary">
+                  <Bot className="w-5 h-5" />
+                  <h4 className="font-semibold">Chào mừng đến Flowa Mind!</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Tôi là AI trợ lý giúp bạn tìm ý tưởng content. Hãy mô tả sản phẩm hoặc chủ đề bạn muốn tạo content!
+                </p>
+                <div className="flex justify-between">
+                  <Button variant="ghost" size="sm" onClick={dismissOnboarding}>Bỏ qua</Button>
+                  <Button size="sm" onClick={() => setOnboardingStep(1)}>Tiếp theo</Button>
+                </div>
+              </>
+            )}
+            {onboardingStep === 1 && (
+              <>
+                <div className="flex items-center gap-2 text-primary">
+                  <SearchIcon className="w-5 h-5" />
+                  <h4 className="font-semibold">Tìm kiếm & Tính năng</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Dùng nút 🔍 để tìm trong lịch sử chat. Kéo xuống ở đầu chat để làm mới (trên mobile).
+                </p>
+                <div className="flex justify-between">
+                  <Button variant="ghost" size="sm" onClick={() => setOnboardingStep(0)}>Quay lại</Button>
+                  <Button size="sm" onClick={() => setOnboardingStep(2)}>Tiếp theo</Button>
+                </div>
+              </>
+            )}
+            {onboardingStep === 2 && (
+              <>
+                <div className="flex items-center gap-2 text-primary">
+                  <Sparkles className="w-5 h-5" />
+                  <h4 className="font-semibold">Topic thành Content</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Khi AI gợi ý topic, bạn có thể nhấn để tạo ngay Multichannel, Script hoặc Carousel!
+                </p>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={dismissOnboarding}>Bắt đầu!</Button>
+                </div>
+              </>
+            )}
+            {/* Step indicators */}
+            <div className="flex justify-center gap-1 pt-1">
+              {[0, 1, 2].map(step => (
+                <div 
+                  key={step} 
+                  className={cn(
+                    'w-1.5 h-1.5 rounded-full transition-colors',
+                    onboardingStep === step ? 'bg-primary' : 'bg-muted'
+                  )} 
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header - Compact on mobile */}
       <CardHeader className="flex-shrink-0 py-1.5 sm:py-2.5 px-2 sm:px-4 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
         <div className="flex items-center justify-between">
@@ -673,20 +838,58 @@ export function TopicAIChatbot({
               </h3>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className="h-6 w-6 sm:h-7 sm:w-7"
-              title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
-            >
-              {soundEnabled ? (
-                <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              ) : (
-                <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
-              )}
-            </Button>
+          <div className="flex items-center gap-0.5">
+            {/* Search toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsSearchOpen(!isSearchOpen)}
+                  className={cn("h-6 w-6 sm:h-7 sm:w-7", isSearchOpen && "bg-primary/10")}
+                >
+                  <SearchIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Tìm trong chat</TooltipContent>
+            </Tooltip>
+            
+            {/* Sound toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="h-6 w-6 sm:h-7 sm:w-7"
+                >
+                  {soundEnabled ? (
+                    <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  ) : (
+                    <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* Help/onboarding */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { setOnboardingStep(0); setShowOnboarding(true); }}
+                  className="h-6 w-6 sm:h-7 sm:w-7"
+                >
+                  <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Hướng dẫn</TooltipContent>
+            </Tooltip>
+            
             <Button
               variant="ghost"
               size="sm"
@@ -698,26 +901,85 @@ export function TopicAIChatbot({
             </Button>
           </div>
         </div>
+        
+        {/* Search bar - expandable */}
+        {isSearchOpen && (
+          <div className="mt-2 flex gap-1.5 animate-in slide-in-from-top-2 duration-200">
+            <div className="relative flex-1">
+              <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm..."
+                className="h-7 pl-7 pr-7 text-xs"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2"
+                >
+                  <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                </button>
+              )}
+            </div>
+            {searchResults.length > 0 && (
+              <Badge variant="secondary" className="text-[10px] h-7 px-2 shrink-0">
+                {searchResults.length} kết quả
+              </Badge>
+            )}
+          </div>
+        )}
       </CardHeader>
 
-      {/* Messages - Scrollable area */}
+      {/* Messages - Scrollable area with pull-to-refresh */}
       <div className="relative flex-1 min-h-0">
+        {/* Pull-to-refresh indicator */}
+        {(pullDistance > 0 || isRefreshing) && (
+          <div 
+            className="absolute top-0 left-0 right-0 flex justify-center items-center z-10 transition-all"
+            style={{ height: Math.min(pullDistance, PULL_THRESHOLD * 1.5) }}
+          >
+            <div className={cn(
+              "flex items-center gap-1.5 text-xs text-muted-foreground transition-transform",
+              pullDistance >= PULL_THRESHOLD && "text-primary"
+            )}>
+              {isRefreshing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className={cn(
+                  "w-4 h-4 transition-transform duration-200",
+                  pullDistance >= PULL_THRESHOLD && "rotate-180"
+                )} />
+              )}
+              <span>{isRefreshing ? 'Đang làm mới...' : pullDistance >= PULL_THRESHOLD ? 'Thả để làm mới' : 'Kéo để làm mới'}</span>
+            </div>
+          </div>
+        )}
+        
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="absolute inset-0 overflow-y-auto p-2 sm:p-4"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="absolute inset-0 overflow-y-auto p-2 sm:p-4 transition-transform"
+          style={{ transform: pullDistance > 0 ? `translateY(${Math.min(pullDistance, PULL_THRESHOLD * 1.5)}px)` : undefined }}
         >
           <div ref={scrollRef} className="space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
+              id={`msg-${message.id}`}
               className={cn(
                 'flex gap-2.5',
                 message.role === 'user' ? 'justify-end' : 'justify-start',
                 // Animation for new messages
                 animatingMessageId === message.id && 'animate-in fade-in-0 duration-300',
                 animatingMessageId === message.id && message.role === 'user' && 'slide-in-from-right-4',
-                animatingMessageId === message.id && message.role === 'assistant' && 'slide-in-from-left-4'
+                animatingMessageId === message.id && message.role === 'assistant' && 'slide-in-from-left-4',
+                // Highlight search results
+                searchResults.includes(message.id) && 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-background rounded-xl'
               )}
             >
               {message.role === 'assistant' && (
@@ -767,11 +1029,21 @@ export function TopicAIChatbot({
                     {message.content ? (
                       message.role === 'assistant' ? (
                         <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                          {searchQuery && searchResults.includes(message.id) ? (
+                            <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(message.content) }} />
+                          ) : (
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          )}
                         </div>
                       ) : (
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {message.content}
+                        <p 
+                          className="text-sm whitespace-pre-wrap leading-relaxed"
+                          dangerouslySetInnerHTML={searchQuery && searchResults.includes(message.id) 
+                            ? { __html: highlightSearchTerm(message.content) }
+                            : undefined
+                          }
+                        >
+                          {!(searchQuery && searchResults.includes(message.id)) && message.content}
                         </p>
                       )
                     ) : (
@@ -996,5 +1268,6 @@ export function TopicAIChatbot({
         </div>
       </form>
     </Card>
+    </TooltipProvider>
   );
 }
