@@ -6,6 +6,8 @@ import {
   X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff, User
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { CodeBlock } from './chatbot/CodeBlock';
+import { MessageFeedback } from './chatbot/MessageFeedback';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +68,7 @@ interface ChatMessage {
   extractedTopics?: ExtractedTopic[];
   isError?: boolean;
   reactions?: string[];
+  feedback?: 'up' | 'down';
 }
 
 interface ExtractedTopic {
@@ -296,6 +299,7 @@ export function TopicAIChatbot({
   const [unreadCount, setUnreadCount] = useState(0);
   const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
   
   // Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -882,6 +886,62 @@ export function TopicAIChatbot({
     }));
   }, []);
 
+  // Handle thumbs up/down feedback
+  const handleFeedback = useCallback(async (messageId: string, feedback: 'up' | 'down') => {
+    // Update message with feedback
+    setMessages(prev => prev.map(m => 
+      m.id === messageId 
+        ? { ...m, feedback } 
+        : m
+    ));
+    
+    // Show toast
+    toast({
+      title: feedback === 'up' ? '👍 Cảm ơn phản hồi!' : '👎 Cảm ơn phản hồi!',
+      description: feedback === 'up' 
+        ? 'Phản hồi của bạn giúp AI cải thiện.' 
+        : 'Chúng tôi sẽ cố gắng cải thiện.',
+    });
+    
+    // TODO: Save to database for AI improvement
+  }, []);
+
+  // Handle regenerate response
+  const handleRegenerate = useCallback(async (assistantMessage: ChatMessage) => {
+    if (isLoading || regeneratingMessageId) return;
+    
+    setRegeneratingMessageId(assistantMessage.id);
+    
+    // Find the user message before this assistant message
+    const messageIndex = messages.findIndex(m => m.id === assistantMessage.id);
+    if (messageIndex <= 0) {
+      setRegeneratingMessageId(null);
+      return;
+    }
+    
+    // Get the previous user message
+    const previousUserMessage = messages
+      .slice(0, messageIndex)
+      .reverse()
+      .find(m => m.role === 'user');
+    
+    if (!previousUserMessage) {
+      setRegeneratingMessageId(null);
+      return;
+    }
+    
+    // Remove the current assistant message
+    setMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
+    
+    // Send again with enhanced prompt
+    const regeneratePrompt = previousUserMessage.content + '\n\n(Hãy trả lời theo cách khác, sáng tạo hơn)';
+    
+    // Use sendMessage to regenerate
+    await sendMessage(regeneratePrompt);
+    
+    setRegeneratingMessageId(null);
+  }, [messages, isLoading, regeneratingMessageId, sendMessage]);
+
   // Handle injected prompts from parent
   useEffect(() => {
     if (onInjectPrompt) {
@@ -1270,7 +1330,27 @@ export function TopicAIChatbot({
                           {searchQuery && searchResults.includes(message.id) ? (
                             <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(message.content) }} />
                           ) : (
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                            <ReactMarkdown
+                              components={{
+                                code({ node, inline, className, children, ...props }: any) {
+                                  const match = /language-(\w+)/.exec(className || '');
+                                  const codeString = String(children).replace(/\n$/, '');
+                                  
+                                  if (!inline && (match || codeString.includes('\n'))) {
+                                    return <CodeBlock language={match?.[1]}>{codeString}</CodeBlock>;
+                                  }
+                                  
+                                  // Inline code
+                                  return (
+                                    <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono" {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                }
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
                           )}
                         </div>
                       ) : (
@@ -1305,12 +1385,14 @@ export function TopicAIChatbot({
                       {formatTimestamp(message.timestamp)}
                     </span>
                     
-                    {/* Emoji Reactions - only for assistant messages */}
+                    {/* Message Feedback - Thumbs up/down and Regenerate for assistant messages */}
                     {message.role === 'assistant' && message.content && !isLoading && message.id !== 'welcome' && (
-                      <EmojiReactions 
-                        messageId={message.id} 
-                        reactions={message.reactions} 
-                        onReact={handleReaction} 
+                      <MessageFeedback 
+                        messageId={message.id}
+                        initialFeedback={message.feedback}
+                        onFeedback={handleFeedback}
+                        onRegenerate={() => handleRegenerate(message)}
+                        isRegenerating={regeneratingMessageId === message.id}
                       />
                     )}
                   </div>
@@ -1588,16 +1670,22 @@ export function TopicAIChatbot({
           )}
           
           {isLoading ? (
-            <Button 
-              type="button" 
-              size="icon"
-              variant="destructive"
-              className="shrink-0 h-9 w-9"
-              onClick={handleCancel}
-              title="Dừng (Esc)"
-            >
-              <Square className="w-3.5 h-3.5" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  type="button" 
+                  size="icon"
+                  variant="destructive"
+                  className="shrink-0 h-9 w-9 animate-pulse ring-2 ring-destructive/30"
+                  onClick={handleCancel}
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Dừng (Esc)
+              </TooltipContent>
+            </Tooltip>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
