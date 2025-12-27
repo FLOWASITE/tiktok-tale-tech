@@ -22,6 +22,7 @@ interface ChatMessage {
   timestamp: Date;
   extractedTopics?: ExtractedTopic[];
   isError?: boolean;
+  reactions?: string[];
 }
 
 interface ExtractedTopic {
@@ -80,6 +81,17 @@ function formatTimestamp(date: Date): string {
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+// Haptic feedback helper
+function triggerHaptic(type: 'light' | 'medium' | 'heavy' = 'light') {
+  if ('vibrate' in navigator) {
+    const durations = { light: 10, medium: 25, heavy: 50 };
+    navigator.vibrate(durations[type]);
+  }
+}
+
+// Available reaction emojis
+const REACTION_EMOJIS = ['👍', '❤️', '🔥', '💡', '👏'];
+
 // Copy button component
 function CopyButton({ content }: { content: string }) {
   const [copied, setCopied] = useState(false);
@@ -88,6 +100,7 @@ function CopyButton({ content }: { content: string }) {
     try {
       await navigator.clipboard.writeText(content);
       setCopied(true);
+      triggerHaptic('light');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
@@ -106,6 +119,68 @@ function CopyButton({ content }: { content: string }) {
         <Copy className="w-3 h-3 text-muted-foreground" />
       )}
     </button>
+  );
+}
+
+// Emoji reactions component
+function EmojiReactions({ 
+  messageId, 
+  reactions = [], 
+  onReact 
+}: { 
+  messageId: string; 
+  reactions?: string[]; 
+  onReact: (messageId: string, emoji: string) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handleReact = (emoji: string) => {
+    triggerHaptic('medium');
+    onReact(messageId, emoji);
+    setShowPicker(false);
+  };
+
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      {/* Existing reactions */}
+      {reactions.length > 0 && (
+        <div className="flex gap-0.5">
+          {reactions.map((emoji, idx) => (
+            <span 
+              key={idx} 
+              className="text-sm cursor-pointer hover:scale-125 transition-transform"
+              onClick={() => handleReact(emoji)}
+            >
+              {emoji}
+            </span>
+          ))}
+        </div>
+      )}
+      
+      {/* Add reaction button */}
+      <div className="relative">
+        <button
+          onClick={() => setShowPicker(!showPicker)}
+          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
+        >
+          {reactions.length === 0 ? '+ React' : '+'}
+        </button>
+        
+        {showPicker && (
+          <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 p-1 bg-popover border rounded-lg shadow-lg z-10 animate-in fade-in-0 zoom-in-95 duration-150">
+            {REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => handleReact(emoji)}
+                className="text-base hover:scale-125 transition-transform p-1 hover:bg-muted rounded"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -278,6 +353,9 @@ export function TopicAIChatbot({
   const sendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
 
+    // Haptic feedback when sending
+    triggerHaptic('medium');
+
     const userMessageId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
       id: userMessageId,
@@ -406,6 +484,9 @@ export function TopicAIChatbot({
           ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
           : m
       ));
+      
+      // Haptic feedback when receiving complete message
+      triggerHaptic('light');
 
     } catch (error) {
       // Handle abort error silently
@@ -437,7 +518,23 @@ export function TopicAIChatbot({
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [messages, isLoading, brandTemplateId, contentGoal]);
+  }, [messages, isLoading, brandTemplateId, contentGoal, scrollToBottom]);
+
+  // Handle emoji reaction
+  const handleReaction = useCallback((messageId: string, emoji: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id === messageId) {
+        const currentReactions = m.reactions || [];
+        // Toggle reaction - if already exists, remove it, otherwise add
+        const hasReaction = currentReactions.includes(emoji);
+        const newReactions = hasReaction 
+          ? currentReactions.filter(r => r !== emoji)
+          : [...currentReactions, emoji];
+        return { ...m, reactions: newReactions };
+      }
+      return m;
+    }));
+  }, []);
 
   // Handle injected prompts from parent
   useEffect(() => {
@@ -643,13 +740,24 @@ export function TopicAIChatbot({
                   </div>
                 )}
                 
-                {/* Timestamp */}
+                {/* Timestamp and Reactions */}
                 {!message.isError && (
                   <div className={cn(
-                    'text-[10px] text-muted-foreground/70 px-1 mt-0.5',
-                    message.role === 'user' ? 'text-right' : 'text-left'
+                    'flex items-center gap-2 px-1 mt-0.5',
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
                   )}>
-                    {formatTimestamp(message.timestamp)}
+                    <span className="text-[10px] text-muted-foreground/70">
+                      {formatTimestamp(message.timestamp)}
+                    </span>
+                    
+                    {/* Emoji Reactions - only for assistant messages */}
+                    {message.role === 'assistant' && message.content && !isLoading && message.id !== 'welcome' && (
+                      <EmojiReactions 
+                        messageId={message.id} 
+                        reactions={message.reactions} 
+                        onReact={handleReaction} 
+                      />
+                    )}
                   </div>
                 )}
 
