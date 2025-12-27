@@ -425,21 +425,21 @@ export function TopicAIChatbot({
     <Card className={cn(
       'flex flex-col overflow-hidden border-2 border-primary/20',
       isExpanded 
-        ? 'h-[calc(100vh-180px)] min-h-[500px]' 
-        : 'h-[65vh] min-h-[450px] max-h-[750px]',
+        ? 'h-full sm:h-[calc(100vh-180px)] min-h-[400px] sm:min-h-[500px]' 
+        : 'h-full sm:h-[65vh] min-h-[350px] sm:min-h-[450px] max-h-none sm:max-h-[750px]',
       className
     )}>
-      {/* Header */}
-      <CardHeader className="flex-shrink-0 py-2.5 px-4 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
+      {/* Header - Responsive */}
+      <CardHeader className="flex-shrink-0 py-2 sm:py-2.5 px-3 sm:px-4 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25">
-              <Bot className="w-4 h-4 text-primary-foreground" />
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25">
+              <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm flex items-center gap-2">
+              <h3 className="font-semibold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
                 Flowa Mind
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5">AI</Badge>
+                <Badge variant="secondary" className="text-[9px] sm:text-[10px] h-3.5 sm:h-4 px-1 sm:px-1.5">AI</Badge>
               </h3>
             </div>
           </div>
@@ -447,10 +447,10 @@ export function TopicAIChatbot({
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="gap-1.5 h-7 text-xs"
+            className="gap-1 sm:gap-1.5 h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Mới</span>
+            <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden xs:inline">Mới</span>
           </Button>
         </div>
       </CardHeader>
@@ -595,8 +595,8 @@ export function TopicAIChatbot({
         </div>
       </ScrollArea>
 
-      {/* Quick Actions - Floating Bar (Always visible) */}
-      <div className="flex-shrink-0 px-3 py-2 border-t bg-muted/30">
+      {/* Quick Actions - Floating Bar (Always visible) - Responsive */}
+      <div className="flex-shrink-0 px-2 sm:px-3 py-1.5 sm:py-2 border-t bg-muted/30">
         <QuickActionsPanel
           contentGoal={contentGoal}
           onAction={handleQuickAction}
@@ -605,16 +605,16 @@ export function TopicAIChatbot({
         />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="flex-shrink-0 p-3 border-t bg-background">
-        <div className="flex gap-2">
+      {/* Input - Responsive */}
+      <form onSubmit={handleSubmit} className="flex-shrink-0 p-2 sm:p-3 border-t bg-background">
+        <div className="flex gap-1.5 sm:gap-2">
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Nhập tin nhắn..."
-            className="min-h-[40px] max-h-[100px] resize-none text-sm"
+            className="min-h-[36px] sm:min-h-[40px] max-h-[80px] sm:max-h-[100px] resize-none text-xs sm:text-sm"
             disabled={isLoading}
           />
           {isLoading ? (
@@ -622,20 +622,20 @@ export function TopicAIChatbot({
               type="button" 
               size="icon"
               variant="destructive"
-              className="shrink-0 h-10 w-10"
+              className="shrink-0 h-9 w-9 sm:h-10 sm:w-10"
               onClick={handleCancel}
               title="Dừng"
             >
-              <Square className="w-4 h-4" />
+              <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
           ) : (
             <Button 
               type="submit" 
               size="icon"
-              className="shrink-0 h-10 w-10"
+              className="shrink-0 h-9 w-9 sm:h-10 sm:w-10"
               disabled={!input.trim()}
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
           )}
         </div>
