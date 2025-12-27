@@ -12,8 +12,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CHANNELS } from '@/types/multichannel';
+import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
@@ -21,12 +22,16 @@ import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
 import { MultiChannelPreviewDialog, EditedPreviews } from '@/components/MultiChannelPreviewDialog';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { ContentPurposeSelector } from '@/components/topic/ContentPurposeSelector';
+import { MarketingFrameworkSelector } from '@/components/topic/MarketingFrameworkSelector';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
   isLoading: boolean;
   initialTopic?: string;
   initialGoal?: ContentGoal;
+  initialContentPurpose?: ContentPurpose;
+  initialMarketingFramework?: MarketingFramework;
   topicHistoryId?: string;
 }
 
@@ -62,11 +67,14 @@ const channelColors: Record<Channel, string> = {
 
 const DRAFT_KEY = 'multichannel_form_draft';
 
-export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoal, topicHistoryId }: MultiChannelFormProps) {
+export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoal, initialContentPurpose, initialMarketingFramework, topicHistoryId }: MultiChannelFormProps) {
   const { templates, loading: loadingTemplates } = useBrandTemplates();
   const [topic, setTopic] = useState(initialTopic || '');
   const [industry, setIndustry] = useState('');
   const [contentGoal, setContentGoal] = useState<ContentGoal>(initialGoal || 'education');
+  const [contentPurpose, setContentPurpose] = useState<ContentPurpose | undefined>(initialContentPurpose);
+  const [marketingFramework, setMarketingFramework] = useState<MarketingFramework | undefined>(initialMarketingFramework);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(!!initialContentPurpose || !!initialMarketingFramework);
 
   // Handle initialTopic/initialGoal prop changes
   useEffect(() => {
@@ -80,6 +88,18 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
       setContentGoal(initialGoal);
     }
   }, [initialGoal]);
+
+  // Handle initialContentPurpose/initialMarketingFramework prop changes
+  useEffect(() => {
+    if (initialContentPurpose) {
+      setContentPurpose(initialContentPurpose);
+      setShowAdvancedOptions(true);
+    }
+    if (initialMarketingFramework) {
+      setMarketingFramework(initialMarketingFramework);
+      setShowAdvancedOptions(true);
+    }
+  }, [initialContentPurpose, initialMarketingFramework]);
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(['facebook', 'instagram']);
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [hasSetDefault, setHasSetDefault] = useState(false);
@@ -226,6 +246,8 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
       brandTemplateId: brandTemplateId || undefined,
       editedPreviews: previews,
       topicHistoryId,
+      contentPurpose,
+      marketingFramework,
     });
 
     // Clear pending previews after submit
@@ -365,6 +387,58 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                 disabled={isLoading}
               />
             </div>
+
+            {/* Advanced Options Toggle - Show for Conversion goal */}
+            {contentGoal === 'conversion' && (
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Tùy chọn bán hàng nâng cao
+                  </span>
+                  {showAdvancedOptions ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </Button>
+
+                {showAdvancedOptions && (
+                  <div className="space-y-4 p-3 rounded-lg bg-muted/30 border border-border/50">
+                    {/* Content Purpose */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">Mục đích bán hàng</Label>
+                      <ContentPurposeSelector
+                        value={contentPurpose}
+                        onValueChange={setContentPurpose}
+                        selectedFramework={marketingFramework}
+                        onFrameworkChange={setMarketingFramework}
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    {/* Marketing Framework - show if no purpose selected */}
+                    {!contentPurpose && (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Marketing Framework (tùy chọn)</Label>
+                        <MarketingFrameworkSelector
+                          value={marketingFramework}
+                          onValueChange={setMarketingFramework}
+                          disabled={isLoading}
+                          variant="inline"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Channels by Category */}
             <div className="space-y-2 xs:space-y-3">

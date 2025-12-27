@@ -44,6 +44,127 @@ export type ContentTier = 'hero' | 'hub' | 'hygiene';
 // Media Ownership - Owned/Earned/Paid Model
 export type MediaOwnership = 'owned' | 'earned' | 'paid';
 
+// Content Purpose - Mục đích nội dung chi tiết (dùng khi Content Goal = conversion)
+export type ContentPurpose = 
+  | 'service_intro'      // Giới thiệu dịch vụ
+  | 'product_launch'     // Ra mắt sản phẩm
+  | 'promotion'          // Khuyến mãi/Ưu đãi
+  | 'lead_generation'    // Thu hút khách hàng tiềm năng
+  | 'testimonial_request' // Đánh giá khách hàng
+  | 'upsell';            // Bán thêm/Nâng cấp
+
+// Marketing Framework for structured content
+export type MarketingFramework = 'PAS' | 'AIDA' | 'FAB' | '4U' | 'STAR' | 'BAB';
+
+export const CONTENT_PURPOSE_LABELS: {
+  value: ContentPurpose;
+  label: string;
+  icon: string;
+  color: string;
+  description: string;
+  suggestedFrameworks: MarketingFramework[];
+}[] = [
+  {
+    value: 'service_intro',
+    label: '📦 Giới thiệu dịch vụ',
+    icon: 'Package',
+    color: 'blue',
+    description: 'Highlight lợi ích, quy trình, giá trị dịch vụ',
+    suggestedFrameworks: ['FAB', 'PAS', 'AIDA'],
+  },
+  {
+    value: 'product_launch',
+    label: '🚀 Ra mắt sản phẩm',
+    icon: 'Rocket',
+    color: 'purple',
+    description: 'Launch mới, tính năng nổi bật',
+    suggestedFrameworks: ['AIDA', 'FAB', '4U'],
+  },
+  {
+    value: 'promotion',
+    label: '🎁 Khuyến mãi/Ưu đãi',
+    icon: 'Gift',
+    color: 'orange',
+    description: 'Giảm giá, combo, quà tặng',
+    suggestedFrameworks: ['PAS', '4U', 'AIDA'],
+  },
+  {
+    value: 'lead_generation',
+    label: '🎯 Thu hút khách hàng',
+    icon: 'Target',
+    color: 'emerald',
+    description: 'Lead magnet, đăng ký tư vấn',
+    suggestedFrameworks: ['PAS', 'BAB', 'AIDA'],
+  },
+  {
+    value: 'testimonial_request',
+    label: '⭐ Đánh giá khách hàng',
+    icon: 'Star',
+    color: 'amber',
+    description: 'Social proof, case study',
+    suggestedFrameworks: ['STAR', 'BAB'],
+  },
+  {
+    value: 'upsell',
+    label: '📈 Bán thêm/Nâng cấp',
+    icon: 'TrendingUp',
+    color: 'cyan',
+    description: 'Cross-sell, upsell, bundle',
+    suggestedFrameworks: ['FAB', 'PAS', '4U'],
+  },
+];
+
+export const MARKETING_FRAMEWORK_LABELS: {
+  value: MarketingFramework;
+  label: string;
+  fullName: string;
+  description: string;
+  structure: string[];
+}[] = [
+  {
+    value: 'PAS',
+    label: 'PAS',
+    fullName: 'Problem - Agitate - Solution',
+    description: 'Tốt cho pain point rõ ràng',
+    structure: ['🔴 Problem: Nêu vấn đề', '😰 Agitate: Khuếch đại nỗi đau', '✅ Solution: Giải pháp của bạn'],
+  },
+  {
+    value: 'AIDA',
+    label: 'AIDA',
+    fullName: 'Attention - Interest - Desire - Action',
+    description: 'Tốt cho sản phẩm/dịch vụ mới',
+    structure: ['👀 Attention: Thu hút chú ý', '💡 Interest: Gây hứng thú', '❤️ Desire: Tạo khao khát', '🎯 Action: Kêu gọi hành động'],
+  },
+  {
+    value: 'FAB',
+    label: 'FAB',
+    fullName: 'Features - Advantages - Benefits',
+    description: 'Tốt cho giới thiệu dịch vụ',
+    structure: ['📋 Features: Tính năng', '⚡ Advantages: Ưu điểm', '🎁 Benefits: Lợi ích cho khách'],
+  },
+  {
+    value: '4U',
+    label: '4U',
+    fullName: 'Useful - Urgent - Unique - Ultra-specific',
+    description: 'Tốt cho khuyến mãi, urgency',
+    structure: ['💎 Useful: Hữu ích', '⏰ Urgent: Khẩn cấp', '🌟 Unique: Độc đáo', '🎯 Ultra-specific: Cụ thể'],
+  },
+  {
+    value: 'STAR',
+    label: 'STAR',
+    fullName: 'Situation - Task - Action - Result',
+    description: 'Tốt cho case study, testimonial',
+    structure: ['📍 Situation: Bối cảnh', '📋 Task: Nhiệm vụ', '⚡ Action: Hành động', '🏆 Result: Kết quả'],
+  },
+  {
+    value: 'BAB',
+    label: 'BAB',
+    fullName: 'Before - After - Bridge',
+    description: 'Tốt cho transformation story',
+    structure: ['😔 Before: Trước khi dùng', '😊 After: Sau khi dùng', '🌉 Bridge: Cầu nối (sản phẩm/dịch vụ)'],
+  },
+];
+
 export const MEDIA_OWNERSHIP_LABELS: { 
   value: MediaOwnership; 
   label: string; 
