@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { QuickActionsPanel } from './QuickActionsPanel';
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -32,7 +33,9 @@ interface TopicAIChatbotProps {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
   onNavigate: (path: string, state?: any) => void;
+  onInjectPrompt?: (prompt: string) => void;
   className?: string;
+  isExpanded?: boolean;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-topics`;
@@ -45,7 +48,6 @@ Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
 - Hoặc bất kỳ ý tưởng nào bạn đang nghĩ đến
 
 Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`;
-
 
 // Typing indicator component
 function TypingIndicator() {
@@ -103,7 +105,6 @@ function extractTopicsFromMessage(content: string): ExtractedTopic[] {
   return topics.slice(0, 5); // Max 5 topics
 }
 
-
 // Storage key for localStorage
 const getStorageKey = (brandTemplateId?: string) => 
   `topic-chat-${brandTemplateId || 'default'}`;
@@ -112,7 +113,9 @@ export function TopicAIChatbot({
   brandTemplateId,
   contentGoal,
   onNavigate,
+  onInjectPrompt,
   className,
+  isExpanded = false,
 }: TopicAIChatbotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -342,6 +345,25 @@ export function TopicAIChatbot({
     }
   }, [messages, isLoading, brandTemplateId, contentGoal]);
 
+  // Handle injected prompts from parent
+  useEffect(() => {
+    if (onInjectPrompt) {
+      // Expose sendMessage to parent via callback
+    }
+  }, [onInjectPrompt]);
+
+  // Public method to inject prompt
+  const injectPrompt = useCallback((prompt: string) => {
+    sendMessage(prompt);
+  }, [sendMessage]);
+
+  // Expose injectPrompt if onInjectPrompt is provided
+  useEffect(() => {
+    if (onInjectPrompt) {
+      // Parent can call this
+    }
+  }, [onInjectPrompt, injectPrompt]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     sendMessage(input);
@@ -390,66 +412,72 @@ export function TopicAIChatbot({
     }]);
   };
 
-  
+  // Expose sendMessage for external injection
+  useEffect(() => {
+    // Store ref for parent access
+    (window as any).__topicChatSendMessage = sendMessage;
+    return () => {
+      delete (window as any).__topicChatSendMessage;
+    };
+  }, [sendMessage]);
 
   return (
     <Card className={cn(
       'flex flex-col overflow-hidden border-2 border-primary/20',
-      'h-[60vh] min-h-[400px] max-h-[700px]',
+      isExpanded 
+        ? 'h-[calc(100vh-180px)] min-h-[500px]' 
+        : 'h-[65vh] min-h-[450px] max-h-[750px]',
       className
     )}>
       {/* Header */}
-      <CardHeader className="flex-shrink-0 pb-3 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
+      <CardHeader className="flex-shrink-0 py-2.5 px-4 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25">
-              <Bot className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary via-violet-600 to-primary shadow-lg shadow-primary/25">
+              <Bot className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold flex items-center gap-2">
+              <h3 className="font-semibold text-sm flex items-center gap-2">
                 Flowa Mind
-                <Badge variant="secondary" className="text-xs">AI</Badge>
+                <Badge variant="secondary" className="text-[10px] h-4 px-1.5">AI</Badge>
               </h3>
-              <p className="text-xs text-muted-foreground">
-                Brainstorm ý tưởng content cùng AI
-              </p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="gap-1.5"
+            className="gap-1.5 h-7 text-xs"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span className="hidden sm:inline">Bắt đầu lại</span>
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Mới</span>
           </Button>
         </div>
       </CardHeader>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-3 sm:p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
               className={cn(
-                'flex gap-3',
+                'flex gap-2.5',
                 message.role === 'user' ? 'justify-end' : 'justify-start'
               )}
             >
               {message.role === 'assistant' && (
-                <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-primary" />
+                <div className="shrink-0 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
                 </div>
               )}
               
               <div className={cn(
-                'max-w-[85%] sm:max-w-[80%] space-y-3',
+                'max-w-[85%] sm:max-w-[80%] space-y-2.5',
                 message.role === 'user' && 'order-first'
               )}>
                 <div className={cn(
-                  'px-4 py-3 rounded-2xl',
+                  'px-3 py-2.5 rounded-2xl',
                   message.role === 'user' 
                     ? 'bg-primary text-primary-foreground rounded-br-md' 
                     : 'bg-muted rounded-bl-md'
@@ -471,51 +499,51 @@ export function TopicAIChatbot({
 
                 {/* Extracted Topics with Action Buttons */}
                 {message.extractedTopics && message.extractedTopics.length > 0 && (
-                  <div className="space-y-2 pl-2">
+                  <div className="space-y-1.5 pl-1">
                     {message.extractedTopics.map((topic, index) => (
                       <div 
                         key={index}
-                        className="p-3 rounded-xl bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 space-y-2 group"
+                        className="p-2.5 rounded-xl bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 space-y-1.5 group"
                       >
                         {/* Clickable topic title for refinement */}
                         <button
-                          className="font-medium text-sm text-left w-full hover:text-primary transition-colors flex items-center gap-1.5 group/title"
+                          className="font-medium text-xs text-left w-full hover:text-primary transition-colors flex items-center gap-1.5 group/title"
                           onClick={() => handleTopicRefinement(topic.topic)}
                           disabled={isLoading}
                           title="Click để xem chi tiết"
                         >
-                          <span className="flex-1">{topic.topic}</span>
-                          <SearchIcon className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-100 transition-opacity text-primary" />
+                          <span className="flex-1 line-clamp-2">{topic.topic}</span>
+                          <SearchIcon className="w-3 h-3 opacity-0 group-hover/title:opacity-100 transition-opacity text-primary shrink-0" />
                         </button>
                         {topic.reason && (
-                          <p className="text-xs text-muted-foreground">{topic.reason}</p>
+                          <p className="text-[10px] text-muted-foreground line-clamp-2">{topic.reason}</p>
                         )}
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1">
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-7 text-xs gap-1 hover:bg-primary hover:text-primary-foreground"
+                            className="h-6 text-[10px] gap-1 px-2 hover:bg-primary hover:text-primary-foreground"
                             onClick={() => handleTopicAction(topic, 'multichannel')}
                           >
-                            <MessageSquare className="w-3 h-3" />
-                            Multi-channel
+                            <MessageSquare className="w-2.5 h-2.5" />
+                            Multi
                           </Button>
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-7 text-xs gap-1 hover:bg-violet-600 hover:text-white"
+                            className="h-6 text-[10px] gap-1 px-2 hover:bg-violet-600 hover:text-white"
                             onClick={() => handleTopicAction(topic, 'script')}
                           >
-                            <Video className="w-3 h-3" />
+                            <Video className="w-2.5 h-2.5" />
                             Script
                           </Button>
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-7 text-xs gap-1 hover:bg-orange-500 hover:text-white"
+                            className="h-6 text-[10px] gap-1 px-2 hover:bg-orange-500 hover:text-white"
                             onClick={() => handleTopicAction(topic, 'carousel')}
                           >
-                            <Images className="w-3 h-3" />
+                            <Images className="w-2.5 h-2.5" />
                             Carousel
                           </Button>
                         </div>
@@ -530,46 +558,34 @@ export function TopicAIChatbot({
                  !message.isError && 
                  message.content && 
                  !isLoading && (
-                  <div className="flex flex-wrap gap-1.5 pl-2 pt-1">
+                  <div className="flex flex-wrap gap-1 pl-1 pt-0.5">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-xs gap-1 border-dashed"
+                      className="h-6 text-[10px] gap-1 border-dashed"
                       onClick={() => sendMessage('Gợi ý thêm các topic khác')}
                       disabled={isLoading}
                     >
-                      <Plus className="w-3 h-3" />
-                      Gợi ý thêm
+                      <Plus className="w-2.5 h-2.5" />
+                      Thêm
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-xs gap-1 border-dashed"
-                      onClick={() => sendMessage('Thay đổi format content khác (video, carousel, bài viết dài...)')}
+                      className="h-6 text-[10px] gap-1 border-dashed"
+                      onClick={() => sendMessage('Thay đổi format content khác')}
                       disabled={isLoading}
                     >
-                      <Shuffle className="w-3 h-3" />
-                      Đổi format
+                      <Shuffle className="w-2.5 h-2.5" />
+                      Format
                     </Button>
-                    {message.extractedTopics && message.extractedTopics.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 border-dashed"
-                        onClick={() => sendMessage(`Phân tích chi tiết hơn về topic: "${message.extractedTopics![0].topic}"`)}
-                        disabled={isLoading}
-                      >
-                        <SearchIcon className="w-3 h-3" />
-                        Chi tiết topic 1
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>
 
               {message.role === 'user' && (
-                <div className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary-foreground">
+                <div className="shrink-0 w-7 h-7 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-xs font-medium text-primary-foreground">
                     👤
                   </span>
                 </div>
@@ -579,19 +595,18 @@ export function TopicAIChatbot({
         </div>
       </ScrollArea>
 
-      {/* Quick Actions Panel - Enhanced Version */}
-      {messages.length <= 2 && (
-        <div className="flex-shrink-0 px-4 py-3 border-t bg-gradient-to-b from-muted/30 to-muted/10 max-h-[45vh] overflow-y-auto">
-          <QuickActionsPanel
-            contentGoal={contentGoal}
-            onAction={handleQuickAction}
-            isLoading={isLoading}
-          />
-        </div>
-      )}
+      {/* Quick Actions - Floating Bar (Always visible) */}
+      <div className="flex-shrink-0 px-3 py-2 border-t bg-muted/30">
+        <QuickActionsPanel
+          contentGoal={contentGoal}
+          onAction={handleQuickAction}
+          isLoading={isLoading}
+          variant="compact"
+        />
+      </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="flex-shrink-0 p-3 sm:p-4 border-t bg-background">
+      <form onSubmit={handleSubmit} className="flex-shrink-0 p-3 border-t bg-background">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
@@ -599,7 +614,7 @@ export function TopicAIChatbot({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Nhập tin nhắn..."
-            className="min-h-[44px] max-h-[120px] resize-none text-sm"
+            className="min-h-[40px] max-h-[100px] resize-none text-sm"
             disabled={isLoading}
           />
           {isLoading ? (
@@ -607,7 +622,7 @@ export function TopicAIChatbot({
               type="button" 
               size="icon"
               variant="destructive"
-              className="shrink-0 h-11 w-11"
+              className="shrink-0 h-10 w-10"
               onClick={handleCancel}
               title="Dừng"
             >
@@ -617,7 +632,7 @@ export function TopicAIChatbot({
             <Button 
               type="submit" 
               size="icon"
-              className="shrink-0 h-11 w-11"
+              className="shrink-0 h-10 w-10"
               disabled={!input.trim()}
             >
               <Send className="w-4 h-4" />

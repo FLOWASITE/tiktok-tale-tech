@@ -1,65 +1,30 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Lightbulb, Sparkles, BookOpen, BarChart3, 
-  TrendingUp, Star, Bookmark, RefreshCw,
-  Zap, Target, Brain, CheckSquare, Layers, Grid3X3, LayoutList,
-  Percent
-} from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Lightbulb, Bookmark, BarChart3, Brain } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { TopicIdeaCard } from '@/components/topic/TopicIdeaCard';
-import { TopicMobileCard } from '@/components/topic/TopicMobileCard';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TopicBankGrid } from '@/components/topic/TopicBankGrid';
 import { TopicAnalyticsDashboard } from '@/components/topic/TopicAnalyticsDashboard';
-import { SeasonalTopicsSection } from '@/components/topic/SeasonalTopicsSection';
-import { SimilarSuccessTopics } from '@/components/topic/SimilarSuccessTopics';
-import { TopicGapAnalysis } from '@/components/topic/TopicGapAnalysis';
-import { TopicClusterView } from '@/components/topic/TopicClusterView';
-import { KeywordExpansionPanel } from '@/components/topic/KeywordExpansionPanel';
-import { TopicRefiner } from '@/components/topic/TopicRefiner';
-import { NextBestTopicCard } from '@/components/topic/NextBestTopicCard';
-import { WeeklySuggestionsPanel } from '@/components/topic/WeeklySuggestionsPanel';
-import { TopicConflictChecker } from '@/components/topic/TopicConflictChecker';
-import { TopicAILearningBadge } from '@/components/topic/TopicAILearningBadge';
-import { TopicEmptyState } from '@/components/topic/TopicEmptyState';
 import { TopicDiscoveryOnboarding } from '@/components/topic/TopicDiscoveryOnboarding';
 import { TopicBulkActions } from '@/components/topic/TopicBulkActions';
 import { BrandSwitcherDialog } from '@/components/topic/BrandSwitcherDialog';
 import { BrandSelectorDropdown } from '@/components/topic/BrandSelectorDropdown';
-import { BrandInfoCard } from '@/components/topic/BrandInfoCard';
-import { TopicsByPillarView } from '@/components/topic/TopicsByPillarView';
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
-import { UpcomingEventsCard } from '@/components/topic/UpcomingEventsCard';
-import { QuickAccessBank } from '@/components/topic/QuickAccessBank';
-import { AILearningStatus } from '@/components/topic/AILearningStatus';
+import { ContextBankPanel } from '@/components/topic/ContextBankPanel';
+import { DiscoveryFeedPanel } from '@/components/topic/DiscoveryFeedPanel';
 import { TopicComparisonMode } from '@/components/topic/TopicComparisonMode';
 import { TopicComparisonBar } from '@/components/topic/TopicComparisonBar';
-import { ContentPipelineView } from '@/components/topic/ContentPipelineView';
 import { AILearningDashboard } from '@/components/topic/AILearningDashboard';
-import { TrendingDiscoveryPanel } from '@/components/topic/TrendingDiscoveryPanel';
 import { MobileSidebarDrawer } from '@/components/topic/MobileSidebarDrawer';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ContentGoal } from '@/types/multichannel';
-import { EnhancedTopicSuggestion, ContentPillar, SeasonalEvent } from '@/types/topicDiscovery';
+import { EnhancedTopicSuggestion, ContentPillar, SEASONAL_EVENTS } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-const CONTENT_GOALS: { value: ContentGoal; label: string }[] = [
-  { value: 'engagement', label: 'Tăng tương tác' },
-  { value: 'awareness', label: 'Nâng cao nhận diện' },
-  { value: 'conversion', label: 'Chuyển đổi' },
-  { value: 'education', label: 'Giáo dục' },
-  { value: 'expertise', label: 'Chuyên môn' },
-];
 
 const STORAGE_KEY_BRAND = 'topics-selected-brand';
 const STORAGE_KEY_GOAL = 'topics-selected-goal';
@@ -67,9 +32,8 @@ const STORAGE_KEY_GOAL = 'topics-selected-goal';
 const Topics = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState('discovery');
+  const [activeTab, setActiveTab] = useState('bank');
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(() => {
-    // Load from localStorage on init
     if (typeof window !== 'undefined') {
       return localStorage.getItem(STORAGE_KEY_BRAND);
     }
@@ -84,12 +48,12 @@ const Topics = () => {
     }
     return 'engagement';
   });
-  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<EnhancedTopicSuggestion[]>([]);
   const [brandDialogOpen, setBrandDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'pillar'>('grid');
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [aiDashboardOpen, setAiDashboardOpen] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
 
@@ -112,16 +76,6 @@ const Topics = () => {
     if (!selectedBrandId) return undefined;
     return brands.find(b => b.id === selectedBrandId);
   }, [selectedBrandId, brands]);
-
-  // Get content pillars from selected brand
-  const contentPillars = useMemo(() => {
-    if (!selectedBrand?.content_pillars) return [];
-    return selectedBrand.content_pillars as ContentPillar[];
-  }, [selectedBrand]);
-  
-  // Keep suggestions in memory across tabs - only fetch when on discovery tab
-  // but preserve data when switching to other tabs
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   
   const { 
     suggestions, 
@@ -129,21 +83,11 @@ const Topics = () => {
     isLoading: suggestionsLoading,
     isEnhancing,
     refresh,
-    stats: suggestionStats
   } = useEnhancedTopicSuggestions({
     brandTemplateId: selectedBrandId || undefined,
     contentGoal: selectedGoal,
-    // Only enable fetching when on discovery tab AND has brand selected
-    // But the hook internally preserves suggestions when disabled
-    enabled: !!selectedBrandId && (activeTab === 'discovery' || !hasLoadedOnce),
+    enabled: !!selectedBrandId,
   });
-
-  // Track if we've loaded suggestions at least once
-  useEffect(() => {
-    if (suggestions.length > 0 && source !== 'fallback') {
-      setHasLoadedOnce(true);
-    }
-  }, [suggestions, source]);
 
   const { 
     history, 
@@ -169,28 +113,18 @@ const Topics = () => {
   useEffect(() => {
     const autoSaveDrafts = async () => {
       if (!suggestions.length || suggestionsLoading || !selectedBrandId) return;
-      
-      // Get suggestion topics that haven't been saved yet
       const suggestionTopicTexts = suggestions.map(s => s.topic);
       const alreadySaved = suggestionTopicTexts.every(t => lastSavedSuggestions.includes(t));
-      
       if (alreadySaved) return;
-      
-      // Filter out topics that already exist in history
       const newTopics = checkExistingTopics(suggestions);
-      
       if (newTopics.length > 0) {
         await saveBulkTopics(newTopics, 'draft');
       }
-      
-      // Mark these as saved
       setLastSavedSuggestions(suggestionTopicTexts);
     };
-    
     autoSaveDrafts();
   }, [suggestions, suggestionsLoading, selectedBrandId, checkExistingTopics, saveBulkTopics, lastSavedSuggestions]);
 
-  // Reset lastSavedSuggestions when brand or goal changes
   useEffect(() => {
     setLastSavedSuggestions([]);
   }, [selectedBrandId, selectedGoal]);
@@ -205,7 +139,6 @@ const Topics = () => {
       draftsCount: drafts.length,
       favorites: historyStats.favoriteCount,
       usedTopics: historyStats.usedTopics,
-      avgPerformance: historyStats.averagePerformance || 0,
       suggestionCount: suggestions.length,
       topPerformersCount: topPerformers.length,
       usageRate,
@@ -243,8 +176,6 @@ const Topics = () => {
     const positiveFeedback = history.filter(h => h.feedback === 'positive').length;
     const negativeFeedback = history.filter(h => h.feedback === 'negative').length;
     const totalFeedback = positiveFeedback + negativeFeedback;
-    
-    // Calculate personalization level based on data richness
     const dataPoints = [
       history.length > 0 ? 20 : 0,
       favorites.length > 0 ? 15 : 0,
@@ -253,33 +184,23 @@ const Topics = () => {
       combinedStats.usedTopics > 5 ? 20 : combinedStats.usedTopics * 4,
     ];
     const personalizationLevel = Math.min(100, dataPoints.reduce((a, b) => a + b, 0));
-    
-    // Extract patterns from top performers
     const topPatterns = [...new Set(topPerformers.slice(0, 4).map(t => t.pillar).filter(Boolean))] as string[];
-    
-    return {
-      totalFeedback,
-      positiveFeedback,
-      negativeFeedback,
-      personalizationLevel,
-      topPatterns,
-    };
+    return { totalFeedback, positiveFeedback, negativeFeedback, personalizationLevel, topPatterns };
   }, [history, favorites, topPerformers, combinedStats.usedTopics]);
 
-  const handleSelectTopic = async (topic: EnhancedTopicSuggestion) => {
-    await saveTopic(topic, 'selected');
-    // Navigate to multichannel with prefilled topic
-    navigate('/multichannel', { 
-      state: { 
-        prefillTopic: topic.topic,
-        prefillGoal: selectedGoal,
-        fromTopics: true 
-      } 
-    });
-  };
+  // Upcoming events
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    return SEASONAL_EVENTS.filter(e => e.date > now).sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 3);
+  }, []);
+
+  // Handler for injecting prompts from panels
+  const handleInjectPrompt = useCallback((prompt: string) => {
+    const sendFn = (window as any).__topicChatSendMessage;
+    if (sendFn) sendFn(prompt);
+  }, []);
 
   const handleSaveTopic = async (topic: EnhancedTopicSuggestion) => {
-    // Find if this topic already exists as a draft
     const existingDraft = drafts.find(d => d.topic.toLowerCase().trim() === topic.topic.toLowerCase().trim());
     if (existingDraft) {
       await confirmDraft(existingDraft.id);
@@ -289,31 +210,8 @@ const Topics = () => {
     }
   };
 
-  const handleScheduleTopic = (topic: EnhancedTopicSuggestion) => {
-    navigate('/calendar', { 
-      state: { 
-        scheduleTopic: topic.topic,
-        scheduleGoal: selectedGoal,
-      } 
-    });
-  };
-
-  // Bulk actions handlers
-  const handleToggleTopicSelection = useCallback((topic: EnhancedTopicSuggestion, checked: boolean) => {
-    if (checked) {
-      setSelectedTopics(prev => [...prev, topic]);
-    } else {
-      setSelectedTopics(prev => prev.filter(t => t.topic !== topic.topic));
-    }
-  }, []);
-
-  const handleSelectAllTopics = useCallback(() => {
-    setSelectedTopics([...suggestions]);
-  }, [suggestions]);
-
   const handleClearSelection = useCallback(() => {
     setSelectedTopics([]);
-    setSelectionMode(false);
   }, []);
 
   const handleSaveAllTopics = useCallback(async (topics: EnhancedTopicSuggestion[]) => {
@@ -323,634 +221,191 @@ const Topics = () => {
   }, [saveTopic]);
 
   const handleScheduleAllTopics = useCallback((topics: EnhancedTopicSuggestion[]) => {
-    navigate('/calendar', { 
-      state: { 
-        bulkSchedule: topics.map(t => ({ topic: t.topic, goal: selectedGoal })),
-      } 
-    });
+    navigate('/calendar', { state: { bulkSchedule: topics.map(t => ({ topic: t.topic, goal: selectedGoal })) } });
   }, [navigate, selectedGoal]);
 
-  const isTopicSelected = useCallback((topic: EnhancedTopicSuggestion) => {
-    return selectedTopics.some(t => t.topic === topic.topic);
-  }, [selectedTopics]);
-
   return (
-    <div className="relative">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 right-1/6 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="px-4 sm:container py-6 lg:py-8 relative space-y-6">
-        {/* Header - Compact with Brand Selector */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
+      {/* Compact Header */}
+      <div className="flex-shrink-0 px-4 py-3 border-b bg-background/95 backdrop-blur">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl gradient-primary shadow-lg">
-              <Lightbulb className="w-6 h-6 text-primary-foreground" />
+            <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-violet-600 shadow-lg">
+              <Lightbulb className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Kho Ý Tưởng</h1>
-              <p className="text-sm text-muted-foreground">
-                Khám phá & quản lý chủ đề content
-              </p>
-            </div>
-          </div>
-
-          {/* Right: Brand Selector */}
-          <BrandSelectorDropdown
-            brand={selectedBrand}
-            onOpen={() => setBrandDialogOpen(true)}
-          />
-        </div>
-
-        {/* Brand Switcher Dialog */}
-        <BrandSwitcherDialog
-          open={brandDialogOpen}
-          onOpenChange={setBrandDialogOpen}
-          brands={brands}
-          selectedBrandId={selectedBrandId || undefined}
-          onSelectBrand={(id) => setSelectedBrandId(id)}
-          onCreateBrand={() => navigate('/brands/new')}
-          onViewBrand={(id) => navigate(`/brands/${id}`)}
-        />
-
-        {/* Two-Column Layout */}
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left: Main Content - 8 cols */}
-          <div className="col-span-12 lg:col-span-8 space-y-6">
-            {/* AI Chatbot - Replacing TopicAIHeroSection */}
-            {selectedBrandId && (
-              <TopicAIChatbot
-                brandTemplateId={selectedBrandId}
-                contentGoal={selectedGoal}
-                onNavigate={(path, state) => navigate(path, { state })}
-              />
-            )}
-
-            {/* AI Suggestions Grid - Always visible when brand selected */}
-            {selectedBrandId ? (
-              <div className="space-y-4" data-suggestions-section>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-medium text-sm flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Gợi ý AI khác
-                    </h3>
-                    <TopicAILearningBadge
-                      isPersonalized={!!selectedBrandId}
-                      isEnhancing={isEnhancing}
-                      source={source}
-                      usedCount={combinedStats.usedTopics}
-                      favoritesCount={combinedStats.favorites}
-                      learningCount={topPerformers.length}
-                    />
-                    {suggestionStats && !isEnhancing && (
-                      <Badge variant="outline" className="text-xs">
-                        Điểm TB: {suggestionStats.averageScore}
-                      </Badge>
-                    )}
-                  </div>
-                  <TooltipProvider>
-                    <div className="flex items-center gap-2">
-                      {/* View Mode Toggle */}
-                      {contentPillars.length > 0 && suggestions.length > 0 && (
-                        <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => setViewMode('grid')}
-                                aria-label="Xem dạng lưới"
-                              >
-                                <Grid3X3 className="w-4 h-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Xem dạng lưới</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant={viewMode === 'pillar' ? 'secondary' : 'ghost'}
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => setViewMode('pillar')}
-                                aria-label="Xem theo pillar"
-                              >
-                                <LayoutList className="w-4 h-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Xem theo pillar</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      )}
-                      
-                      {suggestions.length > 0 && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant={selectionMode ? 'secondary' : 'ghost'}
-                              size="sm"
-                              onClick={() => {
-                                setSelectionMode(!selectionMode);
-                                if (selectionMode) setSelectedTopics([]);
-                              }}
-                              className="gap-1.5"
-                              aria-label={selectionMode ? 'Hủy chọn nhiều' : 'Chọn nhiều ý tưởng'}
-                            >
-                              <CheckSquare className="w-4 h-4" />
-                              {selectionMode ? 'Hủy chọn' : 'Chọn nhiều'}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{selectionMode ? 'Hủy chế độ chọn nhiều' : 'Chọn nhiều ý tưởng để thao tác'}</TooltipContent>
-                        </Tooltip>
-                      )}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={refresh}
-                            disabled={suggestionsLoading || isEnhancing}
-                            aria-label="Làm mới gợi ý"
-                          >
-                            <RefreshCw className={cn('w-4 h-4 mr-2', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
-                            Làm mới
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Tạo gợi ý mới từ AI</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </TooltipProvider>
-                </div>
-
-                {suggestionsLoading ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Card key={i} className="p-4 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-3/4" />
-                            <div className="flex gap-1.5">
-                              <Skeleton className="h-4 w-16 rounded-full" />
-                              <Skeleton className="h-4 w-12 rounded-full" />
-                            </div>
-                          </div>
-                        </div>
-                        <Skeleton className="h-6 w-full" />
-                      </Card>
-                    ))}
-                  </div>
-                ) : viewMode === 'pillar' && contentPillars.length > 0 ? (
-                  <TopicsByPillarView
-                    topics={suggestions}
-                    contentPillars={contentPillars}
-                    onSelectTopic={handleSelectTopic}
-                    onSaveTopic={handleSaveTopic}
-                    onScheduleTopic={handleScheduleTopic}
-                    selectable={selectionMode}
-                    selectedTopics={selectedTopics}
-                    onToggleSelection={handleToggleTopicSelection}
-                  />
-                ) : isMobile ? (
-                  // Mobile: Single column with TopicMobileCard
-                  <div className="grid gap-3">
-                    {suggestions.slice(0, 6).map((topic, index) => (
-                      <div
-                        key={`${topic.topic}-${index}`}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                      >
-                        <TopicMobileCard
-                          topic={topic}
-                          onSelect={handleSelectTopic}
-                          onSave={handleSaveTopic}
-                          onSchedule={handleScheduleTopic}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {suggestions.slice(0, 6).map((topic, index) => (
-                      <div
-                        key={`${topic.topic}-${index}`}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <TopicIdeaCard
-                          topic={topic}
-                          onSelect={handleSelectTopic}
-                          onSave={handleSaveTopic}
-                          onSchedule={handleScheduleTopic}
-                          selectable={selectionMode}
-                          checked={isTopicSelected(topic)}
-                          onCheckedChange={(checked) => handleToggleTopicSelection(topic, checked)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <h1 className="text-lg font-bold text-foreground">Kho Ý Tưởng</h1>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{combinedStats.suggestionCount} gợi ý</span>
+                <span>•</span>
+                <span>{combinedStats.totalTopics} đã lưu</span>
+                <span>•</span>
+                <span>{combinedStats.usageRate}% sử dụng</span>
               </div>
-            ) : (
-              <TopicEmptyState 
-                type="no-brand-selected" 
-                onAction={() => setBrandDialogOpen(true)} 
-              />
-            )}
-
-            {/* Compact Stats Row - 3 key metrics - Interactive */}
-            {selectedBrandId && (
-              <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-                <button 
-                  className="flex items-center gap-2 hover:bg-primary/5 p-1 -m-1 rounded-lg transition-colors group"
-                  onClick={() => {
-                    const suggestionsSection = document.querySelector('[data-suggestions-section]');
-                    if (suggestionsSection) {
-                      suggestionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                  }}
-                >
-                  <div className="p-1.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-lg font-bold">{combinedStats.suggestionCount}</p>
-                    <p className="text-xs text-muted-foreground">Gợi ý AI</p>
-                  </div>
-                </button>
-
-                <div className="h-8 w-px bg-border" />
-
-                <button 
-                  className="flex items-center gap-2 hover:bg-amber-500/5 p-1 -m-1 rounded-lg transition-colors group"
-                  onClick={() => setActiveTab('bank')}
-                >
-                  <div className="p-1.5 rounded-lg bg-amber-500/10 group-hover:bg-amber-500/20 transition-colors">
-                    <Bookmark className="w-4 h-4 text-amber-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-lg font-bold">{combinedStats.totalTopics}</p>
-                    <p className="text-xs text-muted-foreground">Đã lưu</p>
-                  </div>
-                </button>
-
-                <div className="h-8 w-px bg-border" />
-
-                <button 
-                  className="flex items-center gap-2 hover:bg-emerald-500/5 p-1 -m-1 rounded-lg transition-colors group"
-                  onClick={() => setActiveTab('performance')}
-                >
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
-                    <Percent className="w-4 h-4 text-emerald-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-lg font-bold">{combinedStats.usageRate}%</p>
-                    <p className="text-xs text-muted-foreground">Tỷ lệ sử dụng</p>
-                  </div>
-                </button>
-
-                {contentPillars.length > 0 && (
-                  <>
-                    <div className="h-8 w-px bg-border" />
-                    <button 
-                      className="flex items-center gap-2 hover:bg-violet-500/5 p-1 -m-1 rounded-lg transition-colors group"
-                      onClick={() => {
-                        setViewMode('pillar');
-                        const suggestionsSection = document.querySelector('[data-suggestions-section]');
-                        if (suggestionsSection) {
-                          suggestionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }
-                      }}
-                    >
-                      <div className="p-1.5 rounded-lg bg-violet-500/10 group-hover:bg-violet-500/20 transition-colors">
-                        <Layers className="w-4 h-4 text-violet-500" />
-                      </div>
-                      <div className="text-left">
-                        <p className="text-lg font-bold">{contentPillars.length}</p>
-                        <p className="text-xs text-muted-foreground">Pillars</p>
-                      </div>
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Main Tabs - Reduced */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              {/* Mobile: Horizontal scrollable tabs */}
-              {isMobile ? (
-                <ScrollArea className="w-full whitespace-nowrap">
-                  <TabsList className="bg-muted/50 p-1 inline-flex w-auto gap-1">
-                <TabsTrigger value="discovery" className="gap-1.5 text-xs px-3">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Khám phá
-                    </TabsTrigger>
-                    <TabsTrigger value="smart" className="gap-1.5 text-xs px-3">
-                      <Zap className="w-3.5 h-3.5" />
-                      Smart
-                    </TabsTrigger>
-                    <TabsTrigger value="bank" className="gap-1.5 text-xs px-3">
-                      <BookOpen className="w-3.5 h-3.5" />
-                      Ngân hàng
-                      <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1">
-                        {combinedStats.totalTopics}
-                      </Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="performance" className="gap-1.5 text-xs px-3">
-                      <BarChart3 className="w-3.5 h-3.5" />
-                      Hiệu suất
-                    </TabsTrigger>
-                  </TabsList>
-                  <ScrollBar orientation="horizontal" className="h-1.5" />
-                </ScrollArea>
-              ) : (
-                <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
-                <TabsTrigger value="discovery" className="gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Khám phá thêm
-                  </TabsTrigger>
-                  <TabsTrigger value="smart" className="gap-2">
-                    <Zap className="w-4 h-4" />
-                    Smart
-                  </TabsTrigger>
-                  <TabsTrigger value="bank" className="gap-2">
-                    <BookOpen className="w-4 h-4" />
-                    Ngân hàng
-                    <Badge variant="secondary" className="ml-1 text-[10px]">
-                      {combinedStats.totalTopics}
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="performance" className="gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    Hiệu suất
-                  </TabsTrigger>
-                </TabsList>
-              )}
-
-          {/* Discovery Tab - Khám phá thêm (Seasonal + Similar) */}
-          <TabsContent value="discovery" className="space-y-6">
-            {/* Seasonal Topics Section */}
-            <SeasonalTopicsSection
-              onSelectTopic={(topic, goal) => {
-                navigate('/multichannel', { 
-                  state: { 
-                    prefillTopic: topic,
-                    prefillGoal: goal || selectedGoal,
-                    fromTopics: true 
-                  } 
-                });
-              }}
-              onScheduleTopic={(topic, eventDate) => {
-                navigate('/calendar', { 
-                  state: { 
-                    scheduleTopic: topic,
-                    scheduleGoal: selectedGoal,
-                    suggestedDate: eventDate.toISOString(),
-                  } 
-                });
-              }}
-            />
-
-            {/* Trending Discovery */}
-            <TrendingDiscoveryPanel
-              brandTemplateId={selectedBrandId || undefined}
-              onSelectTopic={(topic, angles) => {
-                navigate('/multichannel', { 
-                  state: { 
-                    prefillTopic: topic,
-                    prefillGoal: selectedGoal,
-                    suggestedAngles: angles,
-                    fromTopics: true 
-                  } 
-                });
-              }}
-            />
-
-            {/* Similar Success Topics */}
-            <SimilarSuccessTopics
-              brandTemplateId={selectedBrandId || undefined}
-              contentGoal={selectedGoal}
-              onSelectTopic={(topic, goal) => {
-                navigate('/multichannel', { 
-                  state: { 
-                    prefillTopic: topic,
-                    prefillGoal: goal || selectedGoal,
-                    fromTopics: true 
-                  } 
-                });
-              }}
-              limit={5}
-            />
-          </TabsContent>
-
-          {/* Smart Recommendations Tab */}
-          <TabsContent value="smart" className="space-y-6">
-            {/* Next Best Topic - Featured */}
-            <NextBestTopicCard
-              brandTemplateId={selectedBrandId || undefined}
-              contentGoal={selectedGoal}
-              onSelectTopic={(topic) => {
-                navigate('/multichannel', { 
-                  state: { 
-                    prefillTopic: topic,
-                    prefillGoal: selectedGoal,
-                    fromTopics: true 
-                  } 
-                });
-              }}
-            />
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Weekly Plan */}
-              <WeeklySuggestionsPanel
-                brandTemplateId={selectedBrandId || undefined}
-                contentGoal={selectedGoal}
-                onSelectTopic={(topic) => {
-                  navigate('/multichannel', { 
-                    state: { 
-                      prefillTopic: topic,
-                      prefillGoal: selectedGoal,
-                      fromTopics: true 
-                    } 
-                  });
-                }}
-                onScheduleTopic={(topic, day) => {
-                  navigate('/calendar', { 
-                    state: { 
-                      scheduleTopic: topic,
-                      scheduleGoal: selectedGoal,
-                    } 
-                  });
-                }}
-              />
-
-              {/* Conflict Checker */}
-              <TopicConflictChecker
-                brandTemplateId={selectedBrandId || undefined}
-                contentGoal={selectedGoal}
-              />
-            </div>
-          </TabsContent>
-
-
-          {/* Topic Bank Tab */}
-          <TabsContent value="bank">
-            <TopicBankGrid
-              brandTemplateId={selectedBrandId || undefined}
-              contentGoal={selectedGoal}
-              onSelectTopic={(topic, topicHistoryId) => {
-                navigate('/multichannel', { 
-                  state: { 
-                    prefillTopic: topic,
-                    prefillGoal: selectedGoal,
-                    topicHistoryId,
-                    fromTopics: true 
-                  } 
-                });
-              }}
-            />
-          </TabsContent>
-
-
-          {/* Performance Tab */}
-          <TabsContent value="performance">
-            <TopicAnalyticsDashboard
-              brandTemplateId={selectedBrandId || undefined}
-              contentGoal={selectedGoal}
-            />
-          </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Right: Sidebar - 4 cols - Hidden on mobile */}
-          <div className="hidden lg:block lg:col-span-4 space-y-4">
-            <div className="lg:sticky lg:top-4 space-y-4">
-              {/* Upcoming Events */}
-              <UpcomingEventsCard
-                onGetSuggestions={(event) => {
-                  toast.info(`Đang lấy gợi ý cho ${event.name}...`);
-                }}
-                onScheduleTopic={(topic, eventDate) => {
-                  navigate('/calendar', { 
-                    state: { 
-                      scheduleTopic: topic,
-                      scheduleGoal: selectedGoal,
-                      suggestedDate: eventDate.toISOString(),
-                    } 
-                  });
-                }}
-              />
-
-              {/* Quick Access Bank */}
-              <QuickAccessBank
-                favorites={sidebarFavorites}
-                recentTopics={sidebarRecentTopics}
-                topPerformers={sidebarTopPerformers}
-                onSelectTopic={(topic) => {
-                  navigate('/multichannel', { 
-                    state: { 
-                      prefillTopic: topic,
-                      prefillGoal: selectedGoal,
-                      fromTopics: true 
-                    } 
-                  });
-                }}
-                onViewAll={() => setActiveTab('bank')}
-              />
-
-              {/* AI Learning Status */}
-              <AILearningStatus
-                totalFeedback={aiLearningStats.totalFeedback}
-                positiveFeedback={aiLearningStats.positiveFeedback}
-                negativeFeedback={aiLearningStats.negativeFeedback}
-                topPatterns={aiLearningStats.topPatterns}
-                personalizationLevel={aiLearningStats.personalizationLevel}
-                isLearning={isEnhancing}
-              />
             </div>
           </div>
+          <BrandSelectorDropdown brand={selectedBrand} onOpen={() => setBrandDialogOpen(true)} />
         </div>
       </div>
 
-      {/* Mobile Sidebar Drawer */}
-      <MobileSidebarDrawer
-        brand={selectedBrand}
-        onChangeBrand={() => setBrandDialogOpen(true)}
-        onEditBrand={selectedBrand ? () => navigate(`/brands/${selectedBrand.id}`) : undefined}
-        onGetEventSuggestions={(event) => {
-          toast.info(`Đang lấy gợi ý cho ${event.name}...`);
-        }}
-        onScheduleTopic={(topic, eventDate) => {
-          navigate('/calendar', { 
-            state: { 
-              scheduleTopic: topic,
-              scheduleGoal: selectedGoal,
-              suggestedDate: eventDate.toISOString(),
-            } 
-          });
-        }}
-        favorites={sidebarFavorites}
-        recentTopics={sidebarRecentTopics}
-        topPerformers={sidebarTopPerformers}
-        onSelectTopic={(topic) => {
-          navigate('/multichannel', { 
-            state: { 
-              prefillTopic: topic,
-              prefillGoal: selectedGoal,
-              fromTopics: true 
-            } 
-          });
-        }}
-        onViewAllTopics={() => setActiveTab('bank')}
-        aiLearningStats={aiLearningStats}
-        isEnhancing={isEnhancing}
+      {/* Brand Switcher Dialog */}
+      <BrandSwitcherDialog
+        open={brandDialogOpen}
+        onOpenChange={setBrandDialogOpen}
+        brands={brands}
+        selectedBrandId={selectedBrandId || undefined}
+        onSelectBrand={(id) => setSelectedBrandId(id)}
+        onCreateBrand={() => navigate('/brands/new')}
+        onViewBrand={(id) => navigate(`/brands/${id}`)}
       />
 
-      {/* Onboarding for first-time users */}
+      {/* Main 3-Panel Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Context Bank (Desktop only) */}
+        {!isMobile && selectedBrandId && (
+          <div className={cn(
+            'flex-shrink-0 transition-all duration-300',
+            leftPanelCollapsed ? 'w-12' : 'w-64'
+          )}>
+            <ContextBankPanel
+              favorites={sidebarFavorites}
+              recentTopics={sidebarRecentTopics}
+              topPerformers={sidebarTopPerformers}
+              upcomingEvents={upcomingEvents}
+              onInjectPrompt={handleInjectPrompt}
+              isCollapsed={leftPanelCollapsed}
+              onToggleCollapse={() => setLeftPanelCollapsed(!leftPanelCollapsed)}
+            />
+          </div>
+        )}
+
+        {/* Center - Chatbot + Bottom Tabs */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {selectedBrandId ? (
+            <>
+              {/* Chatbot - Main Focus */}
+              <div className="flex-1 p-4 overflow-hidden">
+                <TopicAIChatbot
+                  brandTemplateId={selectedBrandId}
+                  contentGoal={selectedGoal}
+                  onNavigate={(path, state) => navigate(path, { state })}
+                  isExpanded={leftPanelCollapsed && rightPanelCollapsed}
+                  className="h-full"
+                />
+              </div>
+
+              {/* Bottom Tabs - Compact */}
+              <div className="flex-shrink-0 border-t bg-muted/30">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="w-full h-10 bg-transparent border-b rounded-none justify-start px-4 gap-1">
+                    <TabsTrigger value="bank" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background">
+                      <Bookmark className="w-3.5 h-3.5" />
+                      Ngân hàng
+                      <Badge variant="secondary" className="h-4 px-1 text-[10px]">{combinedStats.totalTopics}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="analytics" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background">
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      Phân tích
+                    </TabsTrigger>
+                    <TabsTrigger value="learning" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background">
+                      <Brain className="w-3.5 h-3.5" />
+                      AI Learning
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <div className="max-h-[35vh] overflow-auto">
+                    <TabsContent value="bank" className="m-0 p-4">
+                      <TopicBankGrid
+                        brandTemplateId={selectedBrandId}
+                        contentGoal={selectedGoal}
+                        onSelectTopic={(topic) => navigate('/multichannel', { state: { prefillTopic: topic.topic, prefillGoal: selectedGoal, fromTopics: true } })}
+                        onDeleteTopic={deleteTopic}
+                      />
+                    </TabsContent>
+                    <TabsContent value="analytics" className="m-0 p-4">
+                      <TopicAnalyticsDashboard brandTemplateId={selectedBrandId} />
+                    </TabsContent>
+                    <TabsContent value="learning" className="m-0 p-4">
+                      <AILearningDashboard
+                        open={activeTab === 'learning'}
+                        onOpenChange={(open) => !open && setActiveTab('bank')}
+                        stats={aiLearningStats}
+                        topPatterns={aiLearningStats.topPatterns}
+                      />
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center space-y-4">
+                <div className="p-4 rounded-2xl bg-primary/10 inline-block">
+                  <Lightbulb className="w-12 h-12 text-primary" />
+                </div>
+                <h2 className="text-xl font-semibold">Chọn thương hiệu để bắt đầu</h2>
+                <p className="text-muted-foreground max-w-md">
+                  Chọn một thương hiệu để AI có thể gợi ý các ý tưởng content phù hợp với brand voice của bạn.
+                </p>
+                <Button onClick={() => setBrandDialogOpen(true)} className="gap-2">
+                  <Lightbulb className="w-4 h-4" />
+                  Chọn thương hiệu
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Panel - Discovery Feed (Desktop only) */}
+        {!isMobile && selectedBrandId && (
+          <div className={cn(
+            'flex-shrink-0 transition-all duration-300',
+            rightPanelCollapsed ? 'w-12' : 'w-64'
+          )}>
+            <DiscoveryFeedPanel
+              brandTemplateId={selectedBrandId}
+              aiLearningStats={aiLearningStats}
+              onInjectPrompt={handleInjectPrompt}
+              isCollapsed={rightPanelCollapsed}
+              onToggleCollapse={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Drawer */}
+      {isMobile && selectedBrandId && (
+        <MobileSidebarDrawer
+          favorites={sidebarFavorites}
+          recentTopics={sidebarRecentTopics}
+          topPerformers={sidebarTopPerformers}
+          onSelectTopic={(topic) => handleInjectPrompt(`Gợi ý content về: "${topic}"`)}
+          onViewBank={() => setActiveTab('bank')}
+        />
+      )}
+
+      {/* Onboarding */}
       <TopicDiscoveryOnboarding />
 
-      {/* Bulk actions bar */}
+      {/* Bulk Actions */}
       <TopicBulkActions
         selectedTopics={selectedTopics}
+        onClearSelection={handleClearSelection}
         onSaveAll={handleSaveAllTopics}
         onScheduleAll={handleScheduleAllTopics}
-        onClearSelection={handleClearSelection}
-        onSelectAll={handleSelectAllTopics}
-        totalCount={suggestions.length}
+        onCompare={() => setComparisonOpen(true)}
       />
 
-      {/* Topic Comparison Mode */}
+      {/* Comparison Mode */}
       <TopicComparisonMode
         open={comparisonOpen}
         onOpenChange={setComparisonOpen}
         topics={selectedTopics}
-        onSelectBest={(topic) => {
-          handleSelectTopic(topic);
-          setComparisonOpen(false);
-          handleClearSelection();
-        }}
-        onClearSelection={handleClearSelection}
       />
-
-      {/* Topic Comparison Bar */}
       <TopicComparisonBar
-        selectedTopics={selectedTopics}
-        onRemoveTopic={(topic) => handleToggleTopicSelection(topic, false)}
+        selectedCount={selectedTopics.length}
         onCompare={() => setComparisonOpen(true)}
-        onClearAll={handleClearSelection}
-      />
-
-      {/* AI Learning Dashboard */}
-      <AILearningDashboard
-        open={aiDashboardOpen}
-        onOpenChange={setAiDashboardOpen}
-        brandTemplateId={selectedBrandId || undefined}
-        contentGoal={selectedGoal}
+        onClear={handleClearSelection}
       />
     </div>
   );
