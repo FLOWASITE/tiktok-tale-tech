@@ -427,11 +427,11 @@ export function TopicAIChatbot({
             </div>
             <div>
               <h3 className="font-semibold flex items-center gap-2">
-                AI Gợi Ý Ý Tưởng
-                <Badge variant="secondary" className="text-xs">Smart Chat</Badge>
+                Topic Assistant
+                <Badge variant="secondary" className="text-xs">AI</Badge>
               </h3>
               <p className="text-xs text-muted-foreground">
-                Chat với AI để tìm topic phù hợp
+                Khám phá ý tưởng content cùng AI
               </p>
             </div>
           </div>
