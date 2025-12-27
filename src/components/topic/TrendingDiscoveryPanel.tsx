@@ -30,7 +30,9 @@ interface TrendingDiscoveryPanelProps {
 const categoryConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   'tin_tuc': { label: 'Tin tức', icon: <Zap className="w-3 h-3" />, color: 'bg-red-500/10 text-red-600 border-red-500/20' },
   'mua_vu': { label: 'Mùa vụ', icon: <Clock className="w-3 h-3" />, color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+  'seasonal': { label: 'Theo mùa', icon: <Flame className="w-3 h-3" />, color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
   'tiktok_trend': { label: 'TikTok', icon: <Flame className="w-3 h-3" />, color: 'bg-pink-500/10 text-pink-600 border-pink-500/20' },
+  'web_trending': { label: 'Web', icon: <TrendingUp className="w-3 h-3" />, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
   'evergreen': { label: 'Evergreen', icon: <Target className="w-3 h-3" />, color: 'bg-green-500/10 text-green-600 border-green-500/20' },
   'nganh_chuyen': { label: 'Ngành', icon: <Users className="w-3 h-3" />, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
 };
