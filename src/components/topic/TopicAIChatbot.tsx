@@ -2,18 +2,22 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bot, Send, MessageSquare, Video, Images,
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
-  ArrowDown, Copy, Check, AlertCircle, RotateCcw
+  ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { QuickActionsPanel } from './QuickActionsPanel';
+import { useSoundEffects } from '@/hooks/useSoundEffects';
+
+// Character limit
+const MAX_CHARS = 500;
 
 interface ChatMessage {
   id: string;
@@ -51,13 +55,18 @@ Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
 
 Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`;
 
-// Typing indicator component
-function TypingIndicator() {
+// Skeleton loading component - simulates text about to appear
+function MessageSkeleton() {
   return (
-    <div className="flex items-center gap-1 px-2 py-1">
-      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+    <div className="space-y-2 py-1 animate-pulse">
+      <Skeleton className="h-3 w-[85%] bg-primary/10" />
+      <Skeleton className="h-3 w-[70%] bg-primary/10" />
+      <Skeleton className="h-3 w-[60%] bg-primary/10" />
+      <div className="flex items-center gap-1 pt-1">
+        <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+        <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+        <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+      </div>
     </div>
   );
 }
@@ -247,11 +256,25 @@ export function TopicAIChatbot({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isNearBottomRef = useRef(true);
+  const documentVisibleRef = useRef(true);
+  
+  // Sound effects
+  const { playSend, playReceive, playNotification } = useSoundEffects(soundEnabled);
+  
+  // Track document visibility for notification sounds
+  useEffect(() => {
+    const handleVisibility = () => {
+      documentVisibleRef.current = document.visibilityState === 'visible';
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -352,9 +375,11 @@ export function TopicAIChatbot({
 
   const sendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
+    if (messageText.length > MAX_CHARS) return;
 
-    // Haptic feedback when sending
+    // Haptic feedback and sound when sending
     triggerHaptic('medium');
+    playSend();
 
     const userMessageId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
@@ -485,8 +510,13 @@ export function TopicAIChatbot({
           : m
       ));
       
-      // Haptic feedback when receiving complete message
+      // Haptic feedback and sound when receiving complete message
       triggerHaptic('light');
+      if (!documentVisibleRef.current) {
+        playNotification();
+      } else {
+        playReceive();
+      }
 
     } catch (error) {
       // Handle abort error silently
@@ -518,7 +548,7 @@ export function TopicAIChatbot({
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [messages, isLoading, brandTemplateId, contentGoal, scrollToBottom]);
+  }, [messages, isLoading, brandTemplateId, contentGoal, scrollToBottom, playSend, playReceive, playNotification]);
 
   // Handle emoji reaction
   const handleReaction = useCallback((messageId: string, emoji: string) => {
@@ -643,15 +673,30 @@ export function TopicAIChatbot({
               </h3>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReset}
-            className="gap-1 h-6 sm:h-7 text-[10px] sm:text-xs px-1.5 sm:px-3"
-          >
-            <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            <span className="hidden sm:inline">Mới</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className="h-6 w-6 sm:h-7 sm:w-7"
+              title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+            >
+              {soundEnabled ? (
+                <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              ) : (
+                <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="gap-1 h-6 sm:h-7 text-[10px] sm:text-xs px-1.5 sm:px-3"
+            >
+              <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline">Mới</span>
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
@@ -730,7 +775,7 @@ export function TopicAIChatbot({
                         </p>
                       )
                     ) : (
-                      isLoading && message.role === 'assistant' && <TypingIndicator />
+                      isLoading && message.role === 'assistant' && <MessageSkeleton />
                     )}
                     
                     {/* Copy button - shown on hover for assistant messages */}
@@ -892,23 +937,41 @@ export function TopicAIChatbot({
       {/* Input - Compact on mobile */}
       <form onSubmit={handleSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-background">
         <div className="flex gap-1.5 sm:gap-2 items-end">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              // Auto-resize textarea
-              if (textareaRef.current) {
-                textareaRef.current.style.height = 'auto';
-                textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
-              }
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Nhập tin nhắn..."
-            className="min-h-[36px] max-h-[120px] resize-none text-xs sm:text-sm py-2 transition-all"
-            disabled={isLoading}
-            style={{ height: '36px' }}
-          />
+          <div className="flex-1 relative">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= MAX_CHARS) {
+                  setInput(value);
+                }
+                // Auto-resize textarea
+                if (textareaRef.current) {
+                  textareaRef.current.style.height = 'auto';
+                  textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+                }
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="Nhập tin nhắn..."
+              className={cn(
+                "min-h-[36px] max-h-[120px] resize-none text-xs sm:text-sm py-2 pr-14 transition-all",
+                input.length > MAX_CHARS * 0.95 && "border-destructive focus-visible:ring-destructive"
+              )}
+              disabled={isLoading}
+              style={{ height: '36px' }}
+            />
+            {/* Character counter */}
+            <span className={cn(
+              "absolute bottom-1.5 right-2 text-[10px] transition-colors pointer-events-none",
+              input.length === 0 && "text-transparent",
+              input.length > 0 && input.length <= MAX_CHARS * 0.8 && "text-muted-foreground/50",
+              input.length > MAX_CHARS * 0.8 && input.length <= MAX_CHARS * 0.95 && "text-amber-500",
+              input.length > MAX_CHARS * 0.95 && "text-destructive font-medium"
+            )}>
+              {input.length}/{MAX_CHARS}
+            </span>
+          </div>
           {isLoading ? (
             <Button 
               type="button" 
@@ -925,7 +988,7 @@ export function TopicAIChatbot({
               type="submit" 
               size="icon"
               className="shrink-0 h-9 w-9"
-              disabled={!input.trim()}
+              disabled={!input.trim() || input.length > MAX_CHARS}
             >
               <Send className="w-3.5 h-3.5" />
             </Button>
