@@ -321,6 +321,9 @@ export function TopicAIChatbot({
   const [voiceSupported, setVoiceSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   
+  // Dynamic width state - based on content
+  const [dynamicWidth, setDynamicWidth] = useState<'compact' | 'normal' | 'wide' | 'full'>('normal');
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -534,6 +537,51 @@ export function TopicAIChatbot({
       localStorage.setItem(storageKey, JSON.stringify(messages));
     }
   }, [messages, brandTemplateId]);
+  
+  // Calculate dynamic width based on content
+  useEffect(() => {
+    if (messages.length <= 1) {
+      setDynamicWidth('normal');
+      return;
+    }
+    
+    // Analyze message content to determine optimal width
+    const recentMessages = messages.slice(-5); // Last 5 messages
+    let maxContentLength = 0;
+    let hasCodeBlocks = false;
+    let hasLongLines = false;
+    let hasTables = false;
+    
+    recentMessages.forEach(msg => {
+      if (msg.content) {
+        maxContentLength = Math.max(maxContentLength, msg.content.length);
+        // Check for code blocks
+        if (msg.content.includes('```') || msg.content.includes('`')) {
+          hasCodeBlocks = true;
+        }
+        // Check for tables (markdown tables)
+        if (msg.content.includes('|---') || msg.content.includes('| ---')) {
+          hasTables = true;
+        }
+        // Check for long lines (lines > 80 chars)
+        const lines = msg.content.split('\n');
+        if (lines.some(line => line.length > 80)) {
+          hasLongLines = true;
+        }
+      }
+    });
+    
+    // Determine width based on content analysis
+    if (hasTables || hasCodeBlocks || maxContentLength > 1500) {
+      setDynamicWidth('full');
+    } else if (hasLongLines || maxContentLength > 800) {
+      setDynamicWidth('wide');
+    } else if (maxContentLength < 200 && messages.length <= 3) {
+      setDynamicWidth('compact');
+    } else {
+      setDynamicWidth('normal');
+    }
+  }, [messages]);
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -905,11 +953,21 @@ export function TopicAIChatbot({
   }, [sendMessage]);
 
   const isMobileFullscreen = className?.includes('border-0') || className?.includes('rounded-none');
+  
+  // Dynamic width classes
+  const widthClasses = {
+    compact: 'w-full max-w-sm',
+    normal: 'w-full max-w-lg',
+    wide: 'w-full max-w-2xl',
+    full: 'w-full max-w-4xl',
+  };
 
   return (
     <TooltipProvider>
     <Card className={cn(
-      'flex flex-col h-full max-h-full',
+      'flex flex-col h-full max-h-full transition-all duration-300 ease-in-out',
+      // Dynamic width based on content
+      !isMobileFullscreen && widthClasses[dynamicWidth],
       // On mobile fullscreen: no border, no shadow for seamless look
       isMobileFullscreen ? 'border-0 shadow-none rounded-none bg-background' : 'border-2 border-primary/20',
       className
