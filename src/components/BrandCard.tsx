@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign, FileText, ExternalLink } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign, FileText, ExternalLink, Scroll, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -194,6 +194,19 @@ export function BrandCard({
                 />
               )}
             </div>
+            
+            {/* Guideline Status Badge */}
+            {!template.brand_guideline?.trim() ? (
+              <Badge variant="outline" className="text-[10px] gap-1 text-amber-600 border-amber-500/50 bg-amber-500/10">
+                <AlertTriangle className="w-3 h-3" />
+                Thiếu guideline
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] gap-1 text-green-600 border-green-500/50 bg-green-500/10">
+                <CheckCircle2 className="w-3 h-3" />
+                Có guideline
+              </Badge>
+            )}
           </div>
           
           {/* Voice Tags - hidden on small screens */}
@@ -369,18 +382,48 @@ export function BrandCard({
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <p className="text-xs text-muted-foreground line-clamp-2 cursor-help">
-                    {template.brand_guideline}
-                  </p>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p className="text-xs whitespace-pre-wrap">{template.brand_guideline}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {/* Brand Guideline Section - Highlighted */}
+            {template.brand_guideline?.trim() ? (
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Scroll className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-medium text-primary">Nguyên tắc Brand</span>
+                  <CheckCircle2 className="w-3 h-3 text-green-500" />
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-sm text-muted-foreground italic line-clamp-2 cursor-help">
+                        "{template.brand_guideline}"
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <p className="text-xs whitespace-pre-wrap">{template.brand_guideline}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg border border-amber-500/50 bg-amber-500/10">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-amber-600">Thiếu Nguyên tắc Brand</p>
+                    <p className="text-xs text-amber-600/80 mt-0.5">
+                      AI cần hướng dẫn để tạo nội dung đúng phong cách brand.
+                    </p>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 h-auto text-xs text-amber-600 hover:text-amber-700 mt-1"
+                      onClick={() => onEdit(template)}
+                    >
+                      Thêm ngay →
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Brand Voice Summary */}
             {(template.tone_of_voice?.length || template.formality_level || template.brand_positioning) && (
