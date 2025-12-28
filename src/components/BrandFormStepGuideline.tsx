@@ -305,8 +305,12 @@ export function BrandFormStepGuideline({
           value={brandGuideline}
           onChange={(e) => setBrandGuideline(e.target.value)}
           placeholder="Mô tả phong cách viết, nguyên tắc, và hướng dẫn cụ thể cho việc tạo nội dung..."
-          rows={8}
-          className="resize-none text-sm"
+          rows={12}
+          className="resize-none font-mono text-sm leading-relaxed tracking-wide whitespace-pre-wrap"
+          style={{ 
+            fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace",
+            lineHeight: '1.75'
+          }}
         />
       </div>
       
