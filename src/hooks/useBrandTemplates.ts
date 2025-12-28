@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { ContentPillar } from '@/types/topicDiscovery';
+import { BrandFooterInfo } from '@/components/BrandFormStepBusiness';
 
 export interface BrandTemplate {
   id: string;
@@ -39,6 +40,8 @@ export interface BrandTemplate {
   sample_texts: Record<string, string> | null;
   // Content Pillars for topic strategy
   content_pillars?: ContentPillar[];
+  // Footer info for AI content generation
+  footer_info?: BrandFooterInfo | null;
 }
 
 // Helper to transform DB response to BrandTemplate
@@ -48,6 +51,7 @@ function transformDbResponse(data: any): BrandTemplate {
     content_pillars: Array.isArray(data.content_pillars) ? data.content_pillars : [],
     channel_overrides: data.channel_overrides || null,
     sample_texts: data.sample_texts || null,
+    footer_info: data.footer_info || null,
   };
 }
 
