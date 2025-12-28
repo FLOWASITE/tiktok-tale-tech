@@ -244,7 +244,7 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
                     <span className="hidden xs:inline">Industry</span>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>Có liên kết Industry Memory Pack</TooltipContent>
+                <TooltipContent>Industry Rules applied</TooltipContent>
               </Tooltip>
             )}
           </div>

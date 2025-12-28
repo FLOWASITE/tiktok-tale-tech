@@ -40,7 +40,7 @@ export function VersionUpgradeAlert({
     <Alert className={`border-blue-500/50 bg-blue-500/10 ${className}`}>
       <ArrowUp className="h-5 w-5 text-blue-500" />
       <AlertTitle className="flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400">
-        <span>Industry Memory Upgraded</span>
+        <span>Industry Rules đã nâng cấp</span>
         <Badge 
           variant="outline" 
           className="text-[10px] border-blue-500/30 text-blue-600 dark:text-blue-400"

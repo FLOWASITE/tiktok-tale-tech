@@ -37,7 +37,7 @@ export function IndustryRulesIndicator({
       <div className={`flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 ${className}`}>
         <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
         <span className="text-xs text-amber-600 dark:text-amber-400">
-          Chưa liên kết Industry Memory
+          Chưa liên kết Industry Rules
         </span>
       </div>
     );
@@ -64,7 +64,7 @@ export function IndustryRulesIndicator({
           <div className="space-y-2 text-xs">
             <p className="font-medium flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-              Industry Memory sẽ được áp dụng
+              Industry Rules sẽ được áp dụng
             </p>
             <div className="space-y-1 text-muted-foreground">
               {complianceCount > 0 && (

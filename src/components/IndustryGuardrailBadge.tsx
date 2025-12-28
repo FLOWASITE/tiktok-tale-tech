@@ -75,7 +75,7 @@ export function IndustryGuardrailBadge({
             <div className="space-y-2 text-xs">
               <p className="font-semibold flex items-center gap-1.5 text-emerald-500">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Industry Memory đã được áp dụng
+                Industry Rules đã được áp dụng
               </p>
               <div className="space-y-1">
                 {complianceCount > 0 && (
