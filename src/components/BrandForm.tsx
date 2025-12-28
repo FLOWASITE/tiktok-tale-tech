@@ -20,6 +20,7 @@ import { ContentPillarsEditor } from '@/components/brand/ContentPillarsEditor';
 import { useBrandVoiceVariants, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
 import { IndustryTemplate } from '@/hooks/useIndustryTemplates';
 import { ContentPillar } from '@/types/topicDiscovery';
+import { CustomerPersona } from '@/types/customerPersona';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { ChevronLeft, ChevronRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null);
   const [sampleTexts, setSampleTexts] = useState<Record<string, string> | null>(null);
   const [footerInfo, setFooterInfo] = useState<BrandFooterInfo>(DEFAULT_FOOTER_INFO);
+  const [personas, setPersonas] = useState<CustomerPersona[]>([]);
   
   // Validation & AI
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -442,8 +444,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           {currentStep === 2 && (
             <BrandFormStepBusiness
               brandTemplateId={template?.id}
+              brandName={brandName}
+              brandPositioning={brandPositioning}
               footerInfo={footerInfo}
               onFooterInfoChange={setFooterInfo}
+              personas={personas}
+              onPersonasChange={setPersonas}
               primaryColor={primaryColor}
               setPrimaryColor={setPrimaryColor}
               logoPreview={logoPreview}
