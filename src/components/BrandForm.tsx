@@ -7,8 +7,8 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepBusiness, BrandFooterInfo, DEFAULT_FOOTER_INFO } from '@/components/BrandFormStepBusiness';
-import { BrandFormStepVisual } from '@/components/BrandFormStepVisual';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
+import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
@@ -87,6 +87,22 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     deleteVariant,
     refetch: refetchVariants,
   } = useBrandVoiceVariants(template?.id);
+
+  // Customer personas hook - for loading/saving personas
+  const {
+    personas: dbPersonas,
+    createPersona,
+    updatePersona,
+    deletePersona: deleteDbPersona,
+    refresh: refetchPersonas,
+  } = useCustomerPersonas({ brandTemplateId: template?.id, enabled: !!template?.id });
+
+  // Sync dbPersonas to local state when loaded from database
+  useEffect(() => {
+    if (template?.id && dbPersonas.length > 0) {
+      setPersonas(dbPersonas);
+    }
+  }, [template?.id, dbPersonas]);
 
   useEffect(() => {
     if (template) {
@@ -341,6 +357,42 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
     // Call onSubmit and get the result (for new templates)
     const result = await onSubmit(formData, scope, logoFile, deleteLogo);
+    
+    // Get the template ID (either from result for new templates, or from existing template)
+    const templateId = result && typeof result === 'object' && 'id' in result ? result.id : template?.id;
+    
+    // Save/sync customer personas
+    if (templateId && personas.length > 0) {
+      try {
+        // Get existing personas from DB to compare
+        const existingPersonaIds = new Set(dbPersonas.map(p => p.id));
+        const currentPersonaIds = new Set(personas.filter(p => p.id).map(p => p.id));
+        
+        // Delete personas that were removed
+        for (const dbPersona of dbPersonas) {
+          if (!currentPersonaIds.has(dbPersona.id)) {
+            await deleteDbPersona(dbPersona.id);
+          }
+        }
+        
+        // Create or update personas
+        for (const persona of personas) {
+          if (persona.id && existingPersonaIds.has(persona.id)) {
+            // Update existing persona
+            await updatePersona(persona.id, persona);
+          } else {
+            // Create new persona
+            await createPersona({
+              ...persona,
+              brand_template_id: templateId,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to sync personas:', error);
+        toast.error('Một số Customer Personas chưa được lưu');
+      }
+    }
     
     // If this is a new template and we have pending samples, save them
     if (!template && result && typeof result === 'object' && 'id' in result && pendingSamples.length > 0) {
