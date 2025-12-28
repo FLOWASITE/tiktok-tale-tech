@@ -129,12 +129,15 @@ export function ContentPillarsEditor({
                 <Columns className="w-4 h-4 text-violet-500" />
               </div>
               <div className="text-left">
-                <span className="font-medium text-sm">Content Pillars</span>
-                {pillars.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">
-                    {pillars.length} pillars
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">📊 Phân bổ chủ đề nội dung</span>
+                  {pillars.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      {pillars.length} pillars
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">AI sẽ gợi ý topics theo tỷ lệ này</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

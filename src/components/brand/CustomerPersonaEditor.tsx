@@ -146,12 +146,20 @@ export function CustomerPersonaEditor({
         >
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-primary" />
-            <span className="font-medium text-sm">Customer Personas</span>
-            {personas.length > 0 && (
-              <Badge variant="secondary" className="text-[10px] h-5">
-                {personas.length} persona{personas.length > 1 ? 's' : ''}
-              </Badge>
-            )}
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">👥 Chân dung khách hàng</span>
+                <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">
+                  Tùy chọn
+                </Badge>
+                {personas.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] h-5">
+                    {personas.length} persona{personas.length > 1 ? 's' : ''}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground text-left">Giúp AI hiểu pain points, desires của khách hàng</p>
+            </div>
           </div>
           <ChevronDown className={cn(
             "w-4 h-4 text-muted-foreground transition-transform",
