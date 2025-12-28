@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
+import { BrandFormStepBusiness, BrandFooterInfo, DEFAULT_FOOTER_INFO } from '@/components/BrandFormStepBusiness';
 import { BrandFormStepVisual } from '@/components/BrandFormStepVisual';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
@@ -16,7 +17,6 @@ import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
 import { SavedSamplesManager } from '@/components/SavedSamplesManager';
 import { VariantSampleComparison } from '@/components/VariantSampleComparison';
 import { ContentPillarsEditor } from '@/components/brand/ContentPillarsEditor';
-import { ProductCatalogEditor } from '@/components/brand/ProductCatalogEditor';
 import { useBrandVoiceVariants, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
 import { IndustryTemplate } from '@/hooks/useIndustryTemplates';
 import { ContentPillar } from '@/types/topicDiscovery';
@@ -65,6 +65,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [contentPillars, setContentPillars] = useState<ContentPillar[]>([]);
   const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null);
   const [sampleTexts, setSampleTexts] = useState<Record<string, string> | null>(null);
+  const [footerInfo, setFooterInfo] = useState<BrandFooterInfo>(DEFAULT_FOOTER_INFO);
   
   // Validation & AI
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -108,6 +109,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setContentPillars((template as any).content_pillars || []);
       setIndustryTemplateId(template.industry_template_id || null);
       setSampleTexts(template.sample_texts || null);
+      setFooterInfo(template.footer_info || DEFAULT_FOOTER_INFO);
       setShowQuickStart(false);
       setCurrentStep(1);
     } else {
@@ -143,7 +145,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     e.preventDefault();
     e.stopPropagation();
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 5));
+      setCurrentStep(prev => Math.min(prev + 1, 6));
     }
   };
 
@@ -305,7 +307,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep !== 5) return;
+    if (currentStep !== 6) return;
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
@@ -332,6 +334,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       channel_overrides: Object.keys(channelOverrides).length > 0 ? channelOverrides : null,
       content_pillars: contentPillars.length > 0 ? contentPillars : [],
       sample_texts: sampleTexts,
+      footer_info: footerInfo.company_name || footerInfo.phone || footerInfo.email ? footerInfo : null,
     };
 
     // Call onSubmit and get the result (for new templates)
@@ -435,8 +438,17 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 2: Visual */}
+          {/* Step 2: Business Info */}
           {currentStep === 2 && (
+            <BrandFormStepBusiness
+              brandTemplateId={template?.id}
+              footerInfo={footerInfo}
+              onFooterInfoChange={setFooterInfo}
+            />
+          )}
+
+          {/* Step 3: Visual */}
+          {currentStep === 3 && (
             <BrandFormStepVisual
               primaryColor={primaryColor}
               setPrimaryColor={setPrimaryColor}
@@ -454,8 +466,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 3: Brand Voice */}
-          {currentStep === 3 && (
+          {/* Step 4: Brand Voice */}
+          {currentStep === 4 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-base font-medium">Brand Voice Profile</span>
@@ -541,8 +553,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 4: Channel Settings */}
-          {currentStep === 4 && (
+          {/* Step 5: Channel Settings */}
+          {currentStep === 5 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
               <ChannelSettingsEditor
                 value={channelOverrides}
@@ -550,14 +562,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 defaultExpanded={true}
                 showWrapper={true}
               />
-              
-              {/* Product Catalog - Only show when editing existing template */}
-              {template?.id && (
-                <ProductCatalogEditor
-                  brandTemplateId={template.id}
-                  className="pt-2"
-                />
-              )}
               
               {/* Quick Sample Generator with Rules */}
               <QuickSampleGenerator
@@ -576,8 +580,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             </div>
           )}
 
-          {/* Step 5: Brand Guideline */}
-          {currentStep === 5 && (
+          {/* Step 6: Brand Guideline */}
+          {currentStep === 6 && (
             <BrandFormStepGuideline
               brandName={brandName}
               industries={industries}
@@ -643,7 +647,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 5 ? (
+          {currentStep < 6 ? (
             <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />

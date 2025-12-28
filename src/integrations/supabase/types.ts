@@ -252,6 +252,7 @@ export type Database = {
           content_pillars: Json | null
           country_code: string | null
           created_at: string
+          footer_info: Json | null
           forbidden_words: string[] | null
           formality_level: string | null
           id: string
@@ -280,6 +281,7 @@ export type Database = {
           content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
+          footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
           id?: string
@@ -308,6 +310,7 @@ export type Database = {
           content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
+          footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
           id?: string
