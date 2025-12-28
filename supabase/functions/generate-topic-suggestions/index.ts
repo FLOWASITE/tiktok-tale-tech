@@ -5,8 +5,11 @@ import {
   buildFewShotExamples, 
   buildLearningSection,
   buildSelfCorrectionRules,
+  buildExtendedBrandPrompt,
   type LearningContext,
-  type MergedRules
+  type MergedRules,
+  type BrandContext as ExtendedBrandContext,
+  type CustomerPersona,
 } from "../_shared/prompt-utils.ts";
 import { fetchLearningContext, logPromptAnalytics } from "../_shared/learning-context.ts";
 import {

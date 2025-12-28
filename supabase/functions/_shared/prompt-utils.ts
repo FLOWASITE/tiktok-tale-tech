@@ -23,6 +23,54 @@ export interface BrandContext {
   languageStyle?: string[];
   allowEmoji?: boolean;
   contentPillars?: ContentPillar[];
+  products?: BrandProduct[];
+  // Extended brand identity fields
+  mission?: string;
+  vision?: string;
+  uniqueValueProposition?: string;
+  tagline?: string;
+  // Market & Competition
+  mainCompetitors?: string[];
+  competitiveAdvantages?: string[];
+  marketSegment?: string;
+  targetAgeRange?: string;
+  targetGender?: string;
+  targetLocations?: string[];
+  // Content Guidelines
+  brandHashtags?: string[];
+  signaturePhrases?: string[];
+  ctaTemplates?: string[];
+  evergreenThemes?: string[];
+  // Customer Personas
+  primaryPersona?: CustomerPersona;
+  allPersonas?: CustomerPersona[];
+}
+
+export interface BrandProduct {
+  name: string;
+  category?: string;
+  description?: string;
+  unique_selling_points?: string[];
+  target_audience?: string;
+  pain_points_solved?: string[];
+  benefits?: string[];
+  suggested_content_angles?: string[];
+  is_featured?: boolean;
+}
+
+export interface CustomerPersona {
+  name: string;
+  avatarEmoji?: string;
+  occupation?: string;
+  ageRange?: string;
+  gender?: string;
+  painPoints?: string[];
+  desires?: string[];
+  objections?: string[];
+  buyingTriggers?: string[];
+  preferredChannels?: string[];
+  typicalFunnelStage?: string;
+  isPrimary?: boolean;
 }
 
 export interface ContentPillar {
@@ -472,4 +520,212 @@ export function calculatePromptQuality(context: PromptContext): PromptQualitySco
     learningDataScore: Math.min(100, learningScore),
     overallScore: Math.min(100, overallScore),
   };
+}
+
+// ============================================
+// EXTENDED BRAND CONTEXT BUILDERS
+// ============================================
+
+/**
+ * Build Brand Identity section for prompts
+ */
+export function buildBrandIdentitySection(brand: BrandContext): string {
+  const parts: string[] = [];
+
+  if (!brand.mission && !brand.vision && !brand.uniqueValueProposition && !brand.tagline) {
+    return '';
+  }
+
+  parts.push(`## 🎯 BRAND IDENTITY (SỬ DỤNG TRONG NỘI DUNG)`);
+
+  if (brand.mission) {
+    parts.push(`\n### Mission (Sứ mệnh)`);
+    parts.push(brand.mission);
+    parts.push(`→ Nội dung nên phản ánh sứ mệnh này`);
+  }
+
+  if (brand.vision) {
+    parts.push(`\n### Vision (Tầm nhìn)`);
+    parts.push(brand.vision);
+    parts.push(`→ Xây dựng narrative hướng đến tầm nhìn`);
+  }
+
+  if (brand.uniqueValueProposition) {
+    parts.push(`\n### Unique Value Proposition (USP)`);
+    parts.push(brand.uniqueValueProposition);
+    parts.push(`→ USP là ĐIỂM NHẤN quan trọng, nên xuất hiện hoặc được gợi nhắc trong content`);
+  }
+
+  if (brand.tagline) {
+    parts.push(`\n### Tagline`);
+    parts.push(`"${brand.tagline}"`);
+    parts.push(`→ Có thể sử dụng tự nhiên làm outro hoặc kết thúc content`);
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Build Market Positioning section for prompts
+ */
+export function buildMarketPositioningSection(brand: BrandContext): string {
+  const parts: string[] = [];
+
+  const hasData = brand.mainCompetitors?.length || brand.competitiveAdvantages?.length ||
+    brand.marketSegment || brand.targetAgeRange || brand.targetGender || brand.targetLocations?.length;
+
+  if (!hasData) return '';
+
+  parts.push(`## 🏆 MARKET POSITIONING`);
+
+  if (brand.marketSegment) {
+    parts.push(`\n### Phân khúc thị trường: ${brand.marketSegment}`);
+  }
+
+  if (brand.targetAgeRange || brand.targetGender || brand.targetLocations?.length) {
+    const demographics: string[] = [];
+    if (brand.targetAgeRange) demographics.push(`Độ tuổi: ${brand.targetAgeRange}`);
+    if (brand.targetGender) demographics.push(`Giới tính: ${brand.targetGender}`);
+    if (brand.targetLocations?.length) demographics.push(`Khu vực: ${brand.targetLocations.join(', ')}`);
+    
+    parts.push(`\n### Demographics`);
+    demographics.forEach(d => parts.push(`- ${d}`));
+  }
+
+  if (brand.mainCompetitors?.length) {
+    parts.push(`\n### Đối thủ cạnh tranh (ĐỂ HIỂU CONTEXT, KHÔNG NHẮC TÊN):`);
+    parts.push(brand.mainCompetitors.join(', '));
+    parts.push(`⚠️ KHÔNG bao giờ nhắc tên đối thủ trong content`);
+  }
+
+  if (brand.competitiveAdvantages?.length) {
+    parts.push(`\n### Lợi thế cạnh tranh (NÊN HIGHLIGHT):`);
+    brand.competitiveAdvantages.forEach(adv => parts.push(`- ✓ ${adv}`));
+    parts.push(`→ Nội dung NÊN khéo léo làm nổi bật các lợi thế này`);
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Build Content Guidelines section for prompts
+ */
+export function buildContentGuidelinesSection(brand: BrandContext): string {
+  const parts: string[] = [];
+
+  const hasData = brand.brandHashtags?.length || brand.signaturePhrases?.length ||
+    brand.ctaTemplates?.length || brand.evergreenThemes?.length;
+
+  if (!hasData) return '';
+
+  parts.push(`## 📝 CONTENT GUIDELINES`);
+
+  if (brand.brandHashtags?.length) {
+    parts.push(`\n### Brand Hashtags (Đính kèm cho social posts):`);
+    parts.push(brand.brandHashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' '));
+    parts.push(`→ LUÔN đính kèm 1-3 brand hashtags cho các kênh social`);
+  }
+
+  if (brand.signaturePhrases?.length) {
+    parts.push(`\n### Signature Phrases (Câu nói đặc trưng):`);
+    brand.signaturePhrases.slice(0, 5).forEach(phrase => {
+      parts.push(`- "${phrase}"`);
+    });
+    parts.push(`→ Sử dụng TỰ NHIÊN trong nội dung, không gượng ép`);
+  }
+
+  if (brand.ctaTemplates?.length) {
+    parts.push(`\n### CTA Templates (Ưu tiên sử dụng):`);
+    brand.ctaTemplates.slice(0, 5).forEach(cta => {
+      parts.push(`- ${cta}`);
+    });
+    parts.push(`→ CTA trong content NÊN theo một trong các mẫu trên`);
+  }
+
+  if (brand.evergreenThemes?.length) {
+    parts.push(`\n### Evergreen Themes (Chủ đề xanh - luôn phù hợp):`);
+    parts.push(brand.evergreenThemes.join(', '));
+    parts.push(`→ Có thể dùng làm content pillars hoặc góc tiếp cận`);
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Build Customer Persona section for prompts
+ */
+export function buildCustomerPersonaSection(persona: CustomerPersona | null | undefined): string {
+  if (!persona) return '';
+
+  const parts: string[] = [];
+
+  parts.push(`## 👤 TARGET PERSONA${persona.isPrimary ? ' (PRIMARY)' : ''}`);
+  parts.push(`\n### ${persona.avatarEmoji || '👤'} ${persona.name}`);
+
+  if (persona.occupation || persona.ageRange || persona.gender) {
+    const profile: string[] = [];
+    if (persona.occupation) profile.push(persona.occupation);
+    if (persona.ageRange) profile.push(persona.ageRange);
+    if (persona.gender) profile.push(persona.gender);
+    parts.push(`Profile: ${profile.join(' | ')}`);
+  }
+
+  if (persona.painPoints?.length) {
+    parts.push(`\n### Pain Points (Nỗi đau cần giải quyết):`);
+    persona.painPoints.slice(0, 5).forEach(pp => parts.push(`- 🔴 ${pp}`));
+    parts.push(`→ Content PHẢI address các pain points này`);
+  }
+
+  if (persona.desires?.length) {
+    parts.push(`\n### Desires (Điều họ mong muốn):`);
+    persona.desires.slice(0, 5).forEach(d => parts.push(`- 🟢 ${d}`));
+    parts.push(`→ Show rằng brand có thể giúp họ đạt được`);
+  }
+
+  if (persona.objections?.length) {
+    parts.push(`\n### Objections (Rào cản mua hàng):`);
+    persona.objections.slice(0, 5).forEach(obj => parts.push(`- ⚠️ ${obj}`));
+    parts.push(`→ Nội dung nên giải quyết trước các objections này`);
+  }
+
+  if (persona.buyingTriggers?.length) {
+    parts.push(`\n### Buying Triggers (Yếu tố thúc đẩy mua):`);
+    persona.buyingTriggers.slice(0, 5).forEach(bt => parts.push(`- 💡 ${bt}`));
+    parts.push(`→ Sử dụng làm hooks hoặc CTA triggers`);
+  }
+
+  if (persona.typicalFunnelStage) {
+    const stageMap: Record<string, string> = {
+      awareness: 'TOFU - Đang tìm hiểu',
+      consideration: 'MOFU - Đang so sánh',
+      decision: 'BOFU - Sẵn sàng mua',
+    };
+    parts.push(`\n### Funnel Stage: ${stageMap[persona.typicalFunnelStage] || persona.typicalFunnelStage}`);
+    parts.push(`→ Điều chỉnh tone và CTA phù hợp với stage này`);
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Build complete extended brand prompt section
+ */
+export function buildExtendedBrandPrompt(brand: BrandContext | null): string {
+  if (!brand) return '';
+
+  const sections: string[] = [];
+
+  const identitySection = buildBrandIdentitySection(brand);
+  if (identitySection) sections.push(identitySection);
+
+  const marketSection = buildMarketPositioningSection(brand);
+  if (marketSection) sections.push(marketSection);
+
+  const guidelinesSection = buildContentGuidelinesSection(brand);
+  if (guidelinesSection) sections.push(guidelinesSection);
+
+  const personaSection = buildCustomerPersonaSection(brand.primaryPersona);
+  if (personaSection) sections.push(personaSection);
+
+  return sections.join('\n\n');
 }
