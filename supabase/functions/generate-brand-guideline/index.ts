@@ -206,6 +206,11 @@ serve(async (req) => {
       language_style,
       preferred_words,
       forbidden_words,
+      // New fields for richer context
+      products,
+      customer_personas,
+      selected_channels,
+      brand_template_id,
     } = await req.json();
 
     // Validate required fields
@@ -216,54 +221,121 @@ serve(async (req) => {
       );
     }
 
+    // Fetch products if brand_template_id provided but no products passed
+    let productList = products || [];
+    if (brand_template_id && productList.length === 0) {
+      const { data: fetchedProducts } = await supabase
+        .from('brand_products')
+        .select('name, description, category, benefits, unique_selling_points, target_audience')
+        .eq('brand_template_id', brand_template_id)
+        .eq('is_active', true)
+        .limit(5);
+      
+      if (fetchedProducts) {
+        productList = fetchedProducts;
+      }
+    }
+
+    // Fetch customer personas if brand_template_id provided
+    let personaList = customer_personas || [];
+    if (brand_template_id && personaList.length === 0) {
+      const { data: fetchedPersonas } = await supabase
+        .from('customer_personas')
+        .select('name, age_range, occupation, pain_points, desires, preferred_channels')
+        .eq('brand_template_id', brand_template_id)
+        .limit(3);
+      
+      if (fetchedPersonas) {
+        personaList = fetchedPersonas;
+      }
+    }
+
     // Detect target audience from industry (now from database)
     const targetAudience = await detectTargetAudience(industry || [], supabase);
     
     // Get color tone suggestion
     const colorToneSuggestion = getColorToneSuggestion(primary_color || '');
 
-    // Build the prompt with all context
-    const systemPrompt = `BẠN LÀ CHUYÊN GIA BRAND STRATEGIST VIỆT NAM với 15 năm kinh nghiệm.
+    // Build product context
+    const productContext = productList.length > 0 
+      ? productList.map((p: any) => 
+          `• ${p.name}${p.category ? ` (${p.category})` : ''}: ${p.description || ''}${p.unique_selling_points?.length ? ` | USP: ${p.unique_selling_points.join(', ')}` : ''}`
+        ).join('\n')
+      : 'Chưa có thông tin sản phẩm/dịch vụ';
 
-NHIỆM VỤ: Viết Brand Writing Guideline 3-5 câu bằng tiếng Việt, CỤ THỂ và ACTIONABLE.
+    // Build persona context
+    const personaContext = personaList.length > 0
+      ? personaList.map((p: any) =>
+          `• ${p.name}${p.age_range ? ` (${p.age_range})` : ''}${p.occupation ? `, ${p.occupation}` : ''}: ${p.pain_points?.slice(0, 2).join(', ') || 'N/A'}`
+        ).join('\n')
+      : null;
 
-NGUYÊN TẮC BẮT BUỘC:
-1. KHÔNG dùng từ chung chung như: "năng động", "sáng tạo", "hiệu quả", "chất lượng cao", "uy tín", "chuyên nghiệp" nếu không có ngữ cảnh cụ thể
-2. Mỗi câu trong guideline phải là 1 NGUYÊN TẮC VIẾT RÕ RÀNG mà AI khác đọc có thể làm theo
-3. Guideline phải phản ánh ĐẶC THÙ NGÀNH và ĐỐI TƯỢNG KHÁCH HÀNG
-4. Ưu tiên các quy tắc về: Tone, Cách mở đầu/kết thúc, Cấu trúc câu, CTA, Từ ngữ cấm/nên dùng
-5. Nếu có logo, đề cập cách sử dụng trong content
+    // Build channels context
+    const channelsContext = selected_channels?.length > 0
+      ? selected_channels.join(', ')
+      : 'Facebook, Instagram, Website';
 
-VÍ DỤ GUIDELINE TỐT (Ngành Kế toán - B2B):
-"Mở đầu bằng số liệu hoặc deadline thuế cụ thể (VD: 'Trước 30/01/2025'). Câu không quá 25 từ, tránh thuật ngữ kỹ thuật khi không cần thiết. Kết thúc bằng CTA rõ ràng như 'Đặt lịch tư vấn miễn phí' thay vì 'Liên hệ ngay'. Luôn đề cập lợi ích tài chính cụ thể khi có thể. Logo đặt góc dưới phải với khoảng cách 16px."
+    // Enhanced system prompt
+    const systemPrompt = `BẠN LÀ CHUYÊN GIA BRAND STRATEGIST VIỆT NAM với 15 năm kinh nghiệm xây dựng Brand Voice cho doanh nghiệp.
 
-VÍ DỤ GUIDELINE TỐT (Ngành F&B - B2C):
-"Dùng ngôn ngữ gần gũi, xưng 'mình/bạn'. Mô tả món ăn bằng cảm giác (giòn, thơm, béo ngậy) thay vì chỉ liệt kê nguyên liệu. Story thay vì quảng cáo trực tiếp. Emoji phù hợp: 🍜🥢✨ (tối đa 2 emoji/post). Hashtag địa phương + trend."
+NHIỆM VỤ: Tạo Brand Writing Guideline STRUCTURED và ACTIONABLE bằng tiếng Việt.
 
-VÍ DỤ GUIDELINE XẤU (TRÁNH):
-"Viết content chuyên nghiệp, sáng tạo và hiệu quả. Thể hiện giá trị thương hiệu. Tạo sự khác biệt với đối thủ."`;
+QUY TẮC BẮT BUỘC:
+1. KHÔNG dùng từ chung chung: "năng động", "sáng tạo", "hiệu quả", "chất lượng cao", "uy tín", "chuyên nghiệp" nếu không gắn với hành động cụ thể
+2. Mỗi nguyên tắc phải là HÀNH ĐỘNG RÕ RÀNG mà copywriter/AI có thể làm theo ngay
+3. Guideline phải phản ánh ĐẶC THÙ NGÀNH + SẢN PHẨM + ĐỐI TƯỢNG KHÁCH HÀNG cụ thể
+4. Ưu tiên các quy tắc thực tế về: Cách xưng hô, Cấu trúc câu, CTA, Từ ngữ nên/cấm dùng, Emoji/hashtag
 
+CÁCH VIẾT GUIDELINE TỐT:
+- ❌ "Viết content chuyên nghiệp" → ✅ "Mở đầu bằng số liệu/fact cụ thể, không dùng câu cảm thán"
+- ❌ "Thể hiện sự uy tín" → ✅ "Đề cập năm kinh nghiệm/số lượng khách hàng trong mỗi bài"
+- ❌ "Tạo sự gần gũi" → ✅ "Xưng 'mình/bạn', thêm câu hỏi tương tác cuối bài"
+
+OUTPUT STRUCTURE:
+- writing_style: Mô tả cách viết tổng quan (tone, sentence length, vocabulary level)
+- dos: 4-6 điều NÊN làm cụ thể
+- donts: 3-5 điều KHÔNG NÊN làm
+- examples: Ví dụ tốt và xấu đối chiếu
+- cta_templates: 2-3 mẫu CTA phù hợp với brand`;
+
+    // Enhanced user prompt with more context
     const userPrompt = `TẠO BRAND WRITING GUIDELINE CHO:
 
-THÔNG TIN THƯƠNG HIỆU:
-- Tên: ${brand_name}
-- Ngành: ${(industry || []).join(', ') || 'Chưa xác định'}
-- Đối tượng: ${targetAudience === 'B2B' ? 'Doanh nghiệp (B2B)' : targetAudience === 'B2C' ? 'Người tiêu dùng (B2C)' : 'Cả B2B và B2C'}
-- Màu chủ đạo: ${primary_color || 'Chưa có'} ${colorToneSuggestion ? `→ Tone phù hợp: ${colorToneSuggestion}` : ''}
-- Có logo: ${has_logo ? 'Có' : 'Không'}
-- Định vị: ${brand_positioning || 'Chưa xác định'}
-- Tone of Voice: ${(tone_of_voice || []).join(', ') || 'Chưa xác định'}
-- Mức độ trang trọng: ${formality_level || 'semi_formal'}
-- Phong cách ngôn ngữ: ${(language_style || []).join(', ') || 'Chưa xác định'}
-- Từ nên dùng: ${(preferred_words || []).join(', ') || 'Chưa có'}
-- Từ cấm: ${(forbidden_words || []).join(', ') || 'Chưa có'}
+═══ THÔNG TIN THƯƠNG HIỆU ═══
+• Tên: ${brand_name}
+• Ngành: ${(industry || []).join(', ') || 'Chưa xác định'}
+• Đối tượng: ${targetAudience === 'B2B' ? 'Doanh nghiệp (B2B)' : targetAudience === 'B2C' ? 'Người tiêu dùng (B2C)' : 'Cả B2B và B2C'}
+• Định vị: ${brand_positioning || 'Chưa xác định'}
 
-YÊU CẦU:
-1. Viết guideline 3-5 câu, mỗi câu là 1 nguyên tắc viết content cụ thể
-2. Tạo 1 ví dụ câu content MẪU ĐÚNG theo guideline
-3. Tạo 1 ví dụ câu content MẪU SAI (chung chung, sáo rỗng) để đối chiếu`;
+═══ BRAND VOICE HIỆN TẠI ═══
+• Tone of Voice: ${(tone_of_voice || []).join(', ') || 'Chưa xác định'}
+• Mức độ trang trọng: ${formality_level === 'formal' ? 'Trang trọng' : formality_level === 'semi_formal' ? 'Bán trang trọng' : formality_level === 'casual' ? 'Thân mật' : formality_level === 'friendly' ? 'Gần gũi' : 'Chưa xác định'}
+• Phong cách ngôn ngữ: ${(language_style || []).join(', ') || 'Chưa xác định'}
+• Từ nên dùng: ${(preferred_words || []).slice(0, 10).join(', ') || 'Chưa có'}
+• Từ cấm: ${(forbidden_words || []).slice(0, 10).join(', ') || 'Chưa có'}
 
-    console.log('Calling Lovable AI for brand guideline generation...');
+═══ SẢN PHẨM/DỊCH VỤ ═══
+${productContext}
+
+═══ KHÁCH HÀNG MỤC TIÊU ═══
+${personaContext || `Đối tượng ${targetAudience === 'B2B' ? 'doanh nghiệp cần giải pháp chuyên nghiệp' : 'người tiêu dùng cần sản phẩm/dịch vụ phù hợp nhu cầu cá nhân'}`}
+
+═══ KÊNH TRUYỀN THÔNG CHÍNH ═══
+${channelsContext}
+
+═══ VISUAL IDENTITY ═══
+• Màu chủ đạo: ${primary_color || 'Chưa có'} ${colorToneSuggestion ? `→ Gợi ý tone: ${colorToneSuggestion}` : ''}
+• Có logo: ${has_logo ? 'Có (cần hướng dẫn đặt logo)' : 'Không'}
+
+═══ YÊU CẦU ═══
+Tạo guideline CHI TIẾT với:
+1. writing_style: Mô tả phong cách viết phù hợp với ngành và đối tượng
+2. dos: 4-6 nguyên tắc NÊN làm (hành động cụ thể)
+3. donts: 3-5 điều KHÔNG NÊN làm (với lý do)
+4. examples: 1 ví dụ tốt + 1 ví dụ xấu để đối chiếu
+5. cta_templates: 2-3 mẫu CTA phù hợp`;
+
+    console.log('Calling Lovable AI for enhanced brand guideline generation...');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -281,39 +353,87 @@ YÊU CẦU:
           type: 'function',
           function: {
             name: 'generate_brand_guideline',
-            description: 'Tạo Brand Writing Guideline chi tiết với ví dụ đối chiếu và gợi ý Brand Voice settings',
+            description: 'Tạo Brand Writing Guideline có cấu trúc với dos/donts và ví dụ',
             parameters: {
               type: 'object',
               properties: {
-                guideline: {
+                core_principle: {
                   type: 'string',
-                  description: 'Brand writing guideline 3-5 câu, mỗi câu là 1 nguyên tắc viết content cụ thể và actionable'
+                  description: 'Nguyên tắc cốt lõi 1-2 câu định hướng toàn bộ content (VD: "Trở thành người bạn đồng hành đáng tin cậy trong hành trình...")'
                 },
-                example_good: {
-                  type: 'string',
-                  description: '1 câu/đoạn content mẫu ĐÚNG theo guideline, phù hợp với ngành và tone'
+                writing_style: {
+                  type: 'object',
+                  description: 'Phong cách viết tổng quan',
+                  properties: {
+                    tone: { type: 'string', description: 'Mô tả tone voice chính (VD: "Thân thiện như nói chuyện với bạn bè, không lên lớp")' },
+                    sentence_structure: { type: 'string', description: 'Cấu trúc câu (VD: "Ngắn gọn, tối đa 20 từ/câu, ưu tiên câu chủ động")' },
+                    vocabulary_level: { type: 'string', description: 'Cấp độ từ vựng (VD: "Đơn giản, tránh thuật ngữ chuyên môn trừ khi cần thiết")' },
+                    addressing: { type: 'string', description: 'Cách xưng hô (VD: "Xưng mình/bạn với B2C, tôi/quý vị với B2B")' }
+                  },
+                  required: ['tone', 'sentence_structure', 'vocabulary_level', 'addressing'],
+                  additionalProperties: false
                 },
-                example_bad: {
-                  type: 'string',
-                  description: '1 câu/đoạn content mẫu SAI (chung chung, sáo rỗng, không theo guideline)'
-                },
-                key_principles: {
+                dos: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Danh sách 3-5 nguyên tắc chính dạng bullet points ngắn gọn'
+                  description: '4-6 điều NÊN làm cụ thể (VD: "Mở đầu bằng số liệu hoặc câu hỏi kích thích tò mò")'
+                },
+                donts: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: '3-5 điều KHÔNG NÊN làm với lý do (VD: "Không dùng từ \'giá rẻ\' - thay bằng \'tiết kiệm\' hoặc \'hợp lý\'")'
+                },
+                examples: {
+                  type: 'object',
+                  description: 'Ví dụ đối chiếu',
+                  properties: {
+                    good: { type: 'string', description: '1 đoạn content mẫu ĐÚNG theo guideline (50-100 từ)' },
+                    bad: { type: 'string', description: '1 đoạn content mẫu SAI để đối chiếu (50-100 từ)' },
+                    good_explanation: { type: 'string', description: 'Giải thích ngắn gọn tại sao ví dụ tốt' },
+                    bad_explanation: { type: 'string', description: 'Giải thích ngắn gọn tại sao ví dụ xấu' }
+                  },
+                  required: ['good', 'bad', 'good_explanation', 'bad_explanation'],
+                  additionalProperties: false
+                },
+                cta_templates: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: '2-3 mẫu CTA phù hợp với brand (VD: "Đặt lịch tư vấn miễn phí", "Nhận báo giá trong 5 phút")'
+                },
+                emoji_guide: {
+                  type: 'object',
+                  description: 'Hướng dẫn sử dụng emoji (nếu allow_emoji)',
+                  properties: {
+                    recommended: { type: 'array', items: { type: 'string' }, description: 'Emoji nên dùng (3-5 emoji)' },
+                    max_per_post: { type: 'number', description: 'Số emoji tối đa mỗi post' },
+                    placement: { type: 'string', description: 'Vị trí đặt emoji (VD: "Đầu tiêu đề, cuối CTA")' }
+                  },
+                  required: ['recommended', 'max_per_post', 'placement'],
+                  additionalProperties: false
+                },
+                hashtag_strategy: {
+                  type: 'object',
+                  description: 'Chiến lược hashtag',
+                  properties: {
+                    brand_hashtags: { type: 'array', items: { type: 'string' }, description: 'Hashtag thương hiệu gợi ý' },
+                    content_hashtags: { type: 'array', items: { type: 'string' }, description: 'Hashtag nội dung phổ biến' },
+                    max_hashtags: { type: 'number', description: 'Số hashtag tối đa' }
+                  },
+                  required: ['brand_hashtags', 'content_hashtags', 'max_hashtags'],
+                  additionalProperties: false
                 },
                 suggested_brand_positioning: {
                   type: 'string',
                   enum: ['business', 'expert', 'community', 'personal'],
-                  description: 'Gợi ý định vị thương hiệu phù hợp: business (Doanh nghiệp), expert (Chuyên gia), community (Cộng đồng), personal (Cá nhân)'
+                  description: 'Gợi ý định vị thương hiệu'
                 },
                 suggested_formality_level: {
                   type: 'string',
                   enum: ['formal', 'semi_formal', 'casual', 'friendly'],
-                  description: 'Gợi ý mức độ trang trọng: formal (Trang trọng), semi_formal (Bán trang trọng), casual (Thân mật), friendly (Gần gũi)'
+                  description: 'Gợi ý mức độ trang trọng'
                 }
               },
-              required: ['guideline', 'example_good', 'example_bad', 'key_principles', 'suggested_brand_positioning', 'suggested_formality_level'],
+              required: ['core_principle', 'writing_style', 'dos', 'donts', 'examples', 'cta_templates', 'suggested_brand_positioning', 'suggested_formality_level'],
               additionalProperties: false
             }
           }
@@ -349,18 +469,39 @@ YÊU CẦU:
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       const result = JSON.parse(toolCall.function.arguments);
-      console.log('Brand guideline generated successfully via tool call');
+      console.log('Enhanced brand guideline generated successfully');
+      
+      // Build legacy guideline text from structured data for backward compatibility
+      const legacyGuideline = [
+        result.core_principle,
+        result.writing_style?.tone ? `Tone: ${result.writing_style.tone}` : '',
+        result.writing_style?.addressing ? `Xưng hô: ${result.writing_style.addressing}` : '',
+        ...(result.dos?.slice(0, 3).map((d: string) => `• ${d}`) || []),
+      ].filter(Boolean).join('. ');
       
       return new Response(
         JSON.stringify({
-          guideline: result.guideline,
-          example_good: result.example_good,
-          example_bad: result.example_bad,
-          key_principles: result.key_principles,
+          // Legacy fields for backward compatibility
+          guideline: legacyGuideline,
+          example_good: result.examples?.good || '',
+          example_bad: result.examples?.bad || '',
+          key_principles: result.dos?.slice(0, 5) || [],
           suggested_brand_positioning: result.suggested_brand_positioning,
           suggested_formality_level: result.suggested_formality_level,
           target_audience: targetAudience,
           color_tone_suggestion: colorToneSuggestion,
+          
+          // New structured fields
+          structured_guideline: {
+            core_principle: result.core_principle,
+            writing_style: result.writing_style,
+            dos: result.dos,
+            donts: result.donts,
+            examples: result.examples,
+            cta_templates: result.cta_templates,
+            emoji_guide: result.emoji_guide,
+            hashtag_strategy: result.hashtag_strategy,
+          }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -379,6 +520,7 @@ YÊU CẦU:
           suggested_formality_level: 'semi_formal',
           target_audience: targetAudience,
           color_tone_suggestion: colorToneSuggestion,
+          structured_guideline: null,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
