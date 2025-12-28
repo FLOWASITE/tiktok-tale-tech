@@ -332,30 +332,77 @@ export function BrandFormStepGuideline({
         </div>
         
         {isViewMode && !isGuidelineEmpty ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none p-4 rounded-lg border bg-muted/30 min-h-[200px]">
-            <ReactMarkdown
-              components={{
-                h1: ({ children }) => <h1 className="text-lg font-bold mt-4 mb-2 first:mt-0">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-base font-semibold mt-3 mb-2 text-primary">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-sm font-medium mt-2 mb-1">{children}</h3>,
-                p: ({ children }) => <p className="mb-2 text-sm leading-relaxed">{children}</p>,
-                ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
-                li: ({ children }) => <li className="text-sm">{children}</li>,
-                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                em: ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
-                blockquote: ({ children }) => (
-                  <blockquote className="border-l-2 border-primary pl-3 my-2 italic text-muted-foreground">
-                    {children}
-                  </blockquote>
-                ),
-                code: ({ children }) => (
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{children}</code>
-                ),
-              }}
-            >
-              {brandGuideline}
-            </ReactMarkdown>
+          <div className="relative rounded-xl border bg-gradient-to-br from-background via-muted/20 to-muted/40 shadow-sm overflow-hidden">
+            {/* Header decoration */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+            
+            <div className="p-5 sm:p-6 min-h-[280px]">
+              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-p:text-muted-foreground prose-li:text-muted-foreground">
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 className="text-xl font-bold mt-6 mb-3 first:mt-0 pb-2 border-b border-border/50 text-foreground flex items-center gap-2">
+                        <span className="w-1.5 h-6 bg-primary rounded-full" />
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-base font-semibold mt-5 mb-2.5 text-primary flex items-center gap-2">
+                        <span className="w-1 h-4 bg-primary/60 rounded-full" />
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="text-sm font-medium mt-4 mb-2 text-foreground/90">{children}</h3>
+                    ),
+                    p: ({ children }) => (
+                      <p className="mb-3 text-sm leading-relaxed text-foreground/80">{children}</p>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="my-3 space-y-2 pl-0">{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="my-3 space-y-2 pl-4 list-decimal marker:text-primary/60">{children}</ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="flex items-start gap-2.5 text-sm leading-relaxed">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/50 mt-2 shrink-0" />
+                        <span className="text-foreground/80">{children}</span>
+                      </li>
+                    ),
+                    strong: ({ children }) => (
+                      <strong className="font-semibold text-foreground">{children}</strong>
+                    ),
+                    em: ({ children }) => (
+                      <em className="italic text-muted-foreground">{children}</em>
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-3 border-primary/40 bg-primary/5 pl-4 pr-3 py-2.5 my-3 rounded-r-lg italic text-foreground/70">
+                        {children}
+                      </blockquote>
+                    ),
+                    code: ({ children }) => (
+                      <code className="bg-muted/80 px-1.5 py-0.5 rounded text-xs font-mono text-primary">{children}</code>
+                    ),
+                    hr: () => (
+                      <hr className="my-4 border-border/50" />
+                    ),
+                  }}
+                >
+                  {brandGuideline}
+                </ReactMarkdown>
+              </div>
+            </div>
+            
+            {/* Footer hint */}
+            <div className="px-5 py-2.5 bg-muted/30 border-t border-border/30 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                Nhấn "Sửa" để chỉnh sửa guideline
+              </span>
+              <Badge variant="secondary" className="text-[10px]">
+                Markdown
+              </Badge>
+            </div>
           </div>
         ) : (
           <Textarea
