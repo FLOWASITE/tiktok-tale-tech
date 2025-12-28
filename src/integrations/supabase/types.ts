@@ -245,95 +245,143 @@ export type Database = {
         Row: {
           allow_emoji: boolean | null
           brand_guideline: string
+          brand_hashtags: string[] | null
           brand_name: string
           brand_positioning: string | null
           channel_overrides: Json | null
+          competitive_advantages: string[] | null
           compliance_rules: string[] | null
           content_pillars: Json | null
           country_code: string | null
           created_at: string
+          cta_templates: string[] | null
           deleted_at: string | null
           deleted_by: string | null
+          evergreen_themes: string[] | null
           footer_info: Json | null
           forbidden_words: string[] | null
           formality_level: string | null
           id: string
+          image_style: string | null
           include_logo: boolean
           industry: string[] | null
           industry_template_id: string | null
           is_default: boolean
           language_style: string[] | null
           logo_url: string | null
+          main_competitors: string[] | null
+          market_segment: string | null
+          mission: string | null
           name: string
           organization_id: string | null
           preferred_words: string[] | null
           primary_color: string | null
           sample_texts: Json | null
+          secondary_colors: string[] | null
+          signature_phrases: string[] | null
+          tagline: string | null
+          target_age_range: string | null
+          target_gender: string | null
+          target_locations: string[] | null
           tone_of_voice: string[] | null
+          unique_value_proposition: string | null
           updated_at: string
           user_id: string | null
+          vision: string | null
         }
         Insert: {
           allow_emoji?: boolean | null
           brand_guideline: string
+          brand_hashtags?: string[] | null
           brand_name: string
           brand_positioning?: string | null
           channel_overrides?: Json | null
+          competitive_advantages?: string[] | null
           compliance_rules?: string[] | null
           content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
+          cta_templates?: string[] | null
           deleted_at?: string | null
           deleted_by?: string | null
+          evergreen_themes?: string[] | null
           footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
           id?: string
+          image_style?: string | null
           include_logo?: boolean
           industry?: string[] | null
           industry_template_id?: string | null
           is_default?: boolean
           language_style?: string[] | null
           logo_url?: string | null
+          main_competitors?: string[] | null
+          market_segment?: string | null
+          mission?: string | null
           name: string
           organization_id?: string | null
           preferred_words?: string[] | null
           primary_color?: string | null
           sample_texts?: Json | null
+          secondary_colors?: string[] | null
+          signature_phrases?: string[] | null
+          tagline?: string | null
+          target_age_range?: string | null
+          target_gender?: string | null
+          target_locations?: string[] | null
           tone_of_voice?: string[] | null
+          unique_value_proposition?: string | null
           updated_at?: string
           user_id?: string | null
+          vision?: string | null
         }
         Update: {
           allow_emoji?: boolean | null
           brand_guideline?: string
+          brand_hashtags?: string[] | null
           brand_name?: string
           brand_positioning?: string | null
           channel_overrides?: Json | null
+          competitive_advantages?: string[] | null
           compliance_rules?: string[] | null
           content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
+          cta_templates?: string[] | null
           deleted_at?: string | null
           deleted_by?: string | null
+          evergreen_themes?: string[] | null
           footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
           id?: string
+          image_style?: string | null
           include_logo?: boolean
           industry?: string[] | null
           industry_template_id?: string | null
           is_default?: boolean
           language_style?: string[] | null
           logo_url?: string | null
+          main_competitors?: string[] | null
+          market_segment?: string | null
+          mission?: string | null
           name?: string
           organization_id?: string | null
           preferred_words?: string[] | null
           primary_color?: string | null
           sample_texts?: Json | null
+          secondary_colors?: string[] | null
+          signature_phrases?: string[] | null
+          tagline?: string | null
+          target_age_range?: string | null
+          target_gender?: string | null
+          target_locations?: string[] | null
           tone_of_voice?: string[] | null
+          unique_value_proposition?: string | null
           updated_at?: string
           user_id?: string | null
+          vision?: string | null
         }
         Relationships: [
           {
