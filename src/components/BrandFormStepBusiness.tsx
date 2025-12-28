@@ -32,7 +32,8 @@ import {
   Star,
   Users,
   Wand2,
-  Eye
+  Eye,
+  Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CustomerPersona } from '@/types/customerPersona';
@@ -180,10 +181,34 @@ export function BrandFormStepBusiness({
   isDefault,
   setIsDefault,
 }: BrandFormStepBusinessProps) {
+  // When editing, open sections that have data; when creating, only Visual is open
+  const hasVisualData = !!logoPreview || primaryColor !== '#000000';
+  const hasPersonasData = personas.length > 0;
+  const hasFooterData = !!(footerInfo.company_name || footerInfo.phone || footerInfo.email || footerInfo.website);
+  
   const [isVisualOpen, setIsVisualOpen] = useState(true);
   const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId);
-  const [isPersonasOpen, setIsPersonasOpen] = useState(false);
-  const [isFooterOpen, setIsFooterOpen] = useState(false);
+  const [isPersonasOpen, setIsPersonasOpen] = useState(hasPersonasData);
+  const [isFooterOpen, setIsFooterOpen] = useState(hasFooterData);
+
+  // Completion calculations
+  const visualCompletion = (() => {
+    let score = 0;
+    if (primaryColor && primaryColor !== '#000000') score += 50;
+    if (logoPreview) score += 50;
+    return score;
+  })();
+
+  const personasCompletion = personas.length > 0 ? 100 : 0;
+
+  const footerCompletion = (() => {
+    let filled = 0;
+    const fields = ['company_name', 'phone', 'email', 'website'] as const;
+    fields.forEach(f => {
+      if (footerInfo[f]) filled++;
+    });
+    return Math.round((filled / fields.length) * 100);
+  })();
 
   // Auto-fill company_name from brandName if empty
   const handleUseBrandName = () => {
@@ -272,10 +297,21 @@ export function BrandFormStepBusiness({
                     </CardDescription>
                   </div>
                 </div>
-                <ChevronDown className={cn(
-                  "w-4 h-4 text-muted-foreground transition-transform",
-                  isVisualOpen && "rotate-180"
-                )} />
+                <div className="flex items-center gap-2">
+                  {visualCompletion === 100 ? (
+                    <Badge variant="default" className="text-[10px] px-1.5 py-0.5 bg-green-500/90">
+                      <Check className="w-3 h-3 mr-0.5" /> Hoàn tất
+                    </Badge>
+                  ) : visualCompletion > 0 ? (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                      {visualCompletion}%
+                    </Badge>
+                  ) : null}
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    isVisualOpen && "rotate-180"
+                  )} />
+                </div>
               </div>
             </CardHeader>
           </CollapsibleTrigger>
@@ -372,10 +408,17 @@ export function BrandFormStepBusiness({
                     </CardDescription>
                   </div>
                 </div>
-                <ChevronDown className={cn(
-                  "w-4 h-4 text-muted-foreground transition-transform",
-                  isProductsOpen && "rotate-180"
-                )} />
+                <div className="flex items-center gap-2">
+                  {!brandTemplateId && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 text-muted-foreground">
+                      Sau khi lưu
+                    </Badge>
+                  )}
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    isProductsOpen && "rotate-180"
+                  )} />
+                </div>
               </div>
             </CardHeader>
           </CollapsibleTrigger>
@@ -414,9 +457,13 @@ export function BrandFormStepBusiness({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {personas.length > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
-                      {personas.length} persona
+                  {personasCompletion === 100 ? (
+                    <Badge variant="default" className="text-[10px] px-1.5 py-0.5 bg-green-500/90">
+                      <Check className="w-3 h-3 mr-0.5" /> {personas.length} persona
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 text-muted-foreground">
+                      Tùy chọn
                     </Badge>
                   )}
                   <ChevronDown className={cn(
@@ -457,8 +504,17 @@ export function BrandFormStepBusiness({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {footerInfo.enabled_for_content && (
+                  {footerCompletion === 100 ? (
+                    <Badge variant="default" className="text-[10px] px-1.5 py-0.5 bg-green-500/90">
+                      <Check className="w-3 h-3 mr-0.5" /> Hoàn tất
+                    </Badge>
+                  ) : footerCompletion > 0 ? (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                      {footerCompletion}%
+                    </Badge>
+                  ) : null}
+                  {footerInfo.enabled_for_content && (
+                    <Badge variant="default" className="text-[10px] px-1.5 py-0.5">
                       Đang bật
                     </Badge>
                   )}
