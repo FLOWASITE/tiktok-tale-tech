@@ -1,17 +1,11 @@
 import { useRef, useCallback, useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
-import { Upload, X, Image as ImageIcon, Wand2, Loader2, Sparkles, Check } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface BrandFormStepVisualProps {
-  brandName: string;
-  industries: string[];
   primaryColor: string;
   setPrimaryColor: (value: string) => void;
   logoPreview: string | null;
@@ -21,31 +15,13 @@ interface BrandFormStepVisualProps {
   deleteLogo: boolean;
   setDeleteLogo: (value: boolean) => void;
   existingLogoUrl?: string | null;
-  brandGuideline: string;
-  setBrandGuideline: (value: string) => void;
   includeLogo: boolean;
   setIncludeLogo: (value: boolean) => void;
   isDefault: boolean;
   setIsDefault: (value: boolean) => void;
-  // AI results
-  guidelineExampleGood: string;
-  setGuidelineExampleGood: (value: string) => void;
-  guidelineExampleBad: string;
-  setGuidelineExampleBad: (value: string) => void;
-  guidelineKeyPrinciples: string[];
-  setGuidelineKeyPrinciples: (value: string[]) => void;
-  // Brand voice for AI generation
-  toneOfVoice: string[];
-  formalityLevel: string;
-  brandPositioning: string;
-  languageStyle: string[];
-  preferredWords: string[];
-  forbiddenWords: string[];
 }
 
 export function BrandFormStepVisual({
-  brandName,
-  industries,
   primaryColor,
   setPrimaryColor,
   logoPreview,
@@ -55,28 +31,13 @@ export function BrandFormStepVisual({
   deleteLogo,
   setDeleteLogo,
   existingLogoUrl,
-  brandGuideline,
-  setBrandGuideline,
   includeLogo,
   setIncludeLogo,
   isDefault,
   setIsDefault,
-  guidelineExampleGood,
-  setGuidelineExampleGood,
-  guidelineExampleBad,
-  setGuidelineExampleBad,
-  guidelineKeyPrinciples,
-  setGuidelineKeyPrinciples,
-  toneOfVoice,
-  formalityLevel,
-  brandPositioning,
-  languageStyle,
-  preferredWords,
-  forbiddenWords,
 }: BrandFormStepVisualProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isGeneratingGuideline, setIsGeneratingGuideline] = useState(false);
 
   const handleFileSelect = useCallback((file: File) => {
     if (file && file.type.startsWith('image/')) {
@@ -121,59 +82,10 @@ export function BrandFormStepVisual({
     }
   };
 
-  const handleGenerateGuideline = async () => {
-    if (!brandName.trim()) {
-      toast.error('Cần có tên brand để tạo guideline');
-      return;
-    }
-
-    setIsGeneratingGuideline(true);
-    setGuidelineExampleGood('');
-    setGuidelineExampleBad('');
-    setGuidelineKeyPrinciples([]);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-brand-guideline', {
-        body: {
-          brand_name: brandName.trim(),
-          industry: industries,
-          primary_color: primaryColor,
-          has_logo: !!logoFile || !!logoPreview || !!existingLogoUrl,
-          tone_of_voice: toneOfVoice,
-          formality_level: formalityLevel,
-          brand_positioning: brandPositioning,
-          language_style: languageStyle,
-          preferred_words: preferredWords,
-          forbidden_words: forbiddenWords,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.error) {
-        toast.error(data.error);
-        return;
-      }
-
-      if (data?.guideline) {
-        setBrandGuideline(data.guideline);
-        setGuidelineExampleGood(data.example_good || '');
-        setGuidelineExampleBad(data.example_bad || '');
-        setGuidelineKeyPrinciples(data.key_principles || []);
-        toast.success('Đã tạo Brand Guideline với AI!');
-      }
-    } catch (error) {
-      console.error('Error generating guideline:', error);
-      toast.error('Không thể tạo guideline. Vui lòng thử lại.');
-    } finally {
-      setIsGeneratingGuideline(false);
-    }
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-200">
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Left Column - Logo & Color */}
+        {/* Left Column - Logo Upload */}
         <div className="space-y-5">
           {/* Logo Upload */}
           <div className="space-y-2">
@@ -234,9 +146,6 @@ export function BrandFormStepVisual({
             </div>
           </div>
 
-          {/* Color Picker */}
-          <BrandColorPicker value={primaryColor} onChange={setPrimaryColor} />
-
           {/* Checkboxes */}
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
@@ -263,77 +172,9 @@ export function BrandFormStepVisual({
           </div>
         </div>
 
-        {/* Right Column - Brand Guideline */}
+        {/* Right Column - Color Picker */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="brandGuideline">Brand Guideline</Label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleGenerateGuideline}
-              disabled={isGeneratingGuideline || !brandName.trim()}
-              className="gap-1 h-7 text-xs"
-            >
-              {isGeneratingGuideline ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Wand2 className="w-3 h-3" />
-              )}
-              AI Tạo Guideline
-            </Button>
-          </div>
-          <Textarea
-            id="brandGuideline"
-            value={brandGuideline}
-            onChange={(e) => setBrandGuideline(e.target.value)}
-            placeholder="Mô tả phong cách, màu sắc, tone of voice..."
-            rows={6}
-            className="resize-none"
-          />
-          
-          {/* AI Guideline Preview */}
-          {(guidelineExampleGood || guidelineExampleBad || guidelineKeyPrinciples.length > 0) && (
-            <div className="mt-3 space-y-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
-              <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                <Sparkles className="w-4 h-4" />
-                AI Preview
-              </div>
-              
-              {guidelineKeyPrinciples.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Nguyên tắc chính:</p>
-                  <ul className="text-xs space-y-1 list-disc list-inside text-foreground/80">
-                    {guidelineKeyPrinciples.map((principle, idx) => (
-                      <li key={idx}>{principle}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {guidelineExampleGood && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Ví dụ đúng:
-                  </p>
-                  <p className="text-xs p-2 rounded bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 text-green-800 dark:text-green-300">
-                    "{guidelineExampleGood}"
-                  </p>
-                </div>
-              )}
-              
-              {guidelineExampleBad && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
-                    <X className="w-3 h-3" /> Ví dụ sai (tránh):
-                  </p>
-                  <p className="text-xs p-2 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-300 line-through">
-                    "{guidelineExampleBad}"
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          <BrandColorPicker value={primaryColor} onChange={setPrimaryColor} />
         </div>
       </div>
     </div>

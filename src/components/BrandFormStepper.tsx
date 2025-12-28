@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Check, User, Palette, Megaphone, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, User, Palette, Megaphone, Globe, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 
 export interface Step {
@@ -14,6 +14,7 @@ export const BRAND_FORM_STEPS: Step[] = [
   { id: 2, title: 'Hình ảnh', shortTitle: 'Visual', icon: <Palette className="w-4 h-4" /> },
   { id: 3, title: 'Brand Voice', shortTitle: 'Voice', icon: <Megaphone className="w-4 h-4" /> },
   { id: 4, title: 'Kênh', shortTitle: 'Channels', icon: <Globe className="w-4 h-4" /> },
+  { id: 5, title: 'Guideline', shortTitle: 'Guideline', icon: <FileText className="w-4 h-4" /> },
 ];
 
 interface BrandFormStepperProps {

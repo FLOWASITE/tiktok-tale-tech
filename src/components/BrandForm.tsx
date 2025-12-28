@@ -7,6 +7,7 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepVisual } from '@/components/BrandFormStepVisual';
+import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
 import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
@@ -142,7 +143,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     e.preventDefault();
     e.stopPropagation();
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
+      setCurrentStep(prev => Math.min(prev + 1, 5));
     }
   };
 
@@ -304,7 +305,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep !== 4) return;
+    if (currentStep !== 5) return;
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
@@ -437,8 +438,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
           {/* Step 2: Visual */}
           {currentStep === 2 && (
             <BrandFormStepVisual
-              brandName={brandName}
-              industries={industries}
               primaryColor={primaryColor}
               setPrimaryColor={setPrimaryColor}
               logoPreview={logoPreview}
@@ -448,24 +447,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               deleteLogo={deleteLogo}
               setDeleteLogo={setDeleteLogo}
               existingLogoUrl={template?.logo_url}
-              brandGuideline={brandGuideline}
-              setBrandGuideline={setBrandGuideline}
               includeLogo={includeLogo}
               setIncludeLogo={setIncludeLogo}
               isDefault={isDefault}
               setIsDefault={setIsDefault}
-              guidelineExampleGood={guidelineExampleGood}
-              setGuidelineExampleGood={setGuidelineExampleGood}
-              guidelineExampleBad={guidelineExampleBad}
-              setGuidelineExampleBad={setGuidelineExampleBad}
-              guidelineKeyPrinciples={guidelineKeyPrinciples}
-              setGuidelineKeyPrinciples={setGuidelineKeyPrinciples}
-              toneOfVoice={toneOfVoice}
-              formalityLevel={formalityLevel}
-              brandPositioning={brandPositioning}
-              languageStyle={languageStyle}
-              preferredWords={preferredWords}
-              forbiddenWords={forbiddenWords}
             />
           )}
 
@@ -590,6 +575,33 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               />
             </div>
           )}
+
+          {/* Step 5: Brand Guideline */}
+          {currentStep === 5 && (
+            <BrandFormStepGuideline
+              brandName={brandName}
+              industries={industries}
+              brandTemplateId={template?.id}
+              primaryColor={primaryColor}
+              hasLogo={!!logoFile || !!logoPreview || !!template?.logo_url}
+              brandPositioning={brandPositioning}
+              toneOfVoice={toneOfVoice}
+              formalityLevel={formalityLevel}
+              languageStyle={languageStyle}
+              preferredWords={preferredWords}
+              forbiddenWords={forbiddenWords}
+              allowEmoji={allowEmoji}
+              channelOverrides={channelOverrides}
+              brandGuideline={brandGuideline}
+              setBrandGuideline={setBrandGuideline}
+              guidelineExampleGood={guidelineExampleGood}
+              setGuidelineExampleGood={setGuidelineExampleGood}
+              guidelineExampleBad={guidelineExampleBad}
+              setGuidelineExampleBad={setGuidelineExampleBad}
+              guidelineKeyPrinciples={guidelineKeyPrinciples}
+              setGuidelineKeyPrinciples={setGuidelineKeyPrinciples}
+            />
+          )}
         </div>
 
         {/* Mini Preview Panel */}
@@ -631,7 +643,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 4 ? (
+          {currentStep < 5 ? (
             <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />
