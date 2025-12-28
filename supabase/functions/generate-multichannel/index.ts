@@ -2,6 +2,11 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
+import { 
+  buildExtendedBrandPrompt,
+  type BrandContext as ExtendedBrandContext,
+  type CustomerPersona 
+} from "../_shared/prompt-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -758,7 +763,8 @@ const getSystemPrompt = (
   brandVoice?: BrandVoice,
   channelOverrides?: ChannelOverrides,
   mergedRules?: MergedRules,
-  industryMemory?: IndustryMemory | null
+  industryMemory?: IndustryMemory | null,
+  extendedBrandContext?: ExtendedBrandContext | null
 ): string => {
   const goalDescriptions: Record<string, string> = {
     education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
@@ -789,9 +795,14 @@ const getSystemPrompt = (
       ? 'người tiêu dùng (B2C)' 
       : 'cả doanh nghiệp và người tiêu dùng (B2B & B2C)';
 
+  // Build Extended Brand Context section
+  const extendedBrandSection = extendedBrandContext ? buildExtendedBrandPrompt(extendedBrandContext) : "";
+
   return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
+
+${extendedBrandSection}
 
 ## NGUYÊN TẮC LÕI
 ONE TOPIC → ONE CORE MESSAGE → MULTI-CHANNEL CONTENT
@@ -922,6 +933,7 @@ serve(async (req) => {
     let industryTemplateId: string | null = null;
     let industryMemory: IndustryMemory | null = null;
     let mergedRules: MergedRules | undefined;
+    let extendedBrandContext: ExtendedBrandContext | null = null;
 
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
@@ -956,6 +968,65 @@ serve(async (req) => {
         channelOverrides = template.channel_overrides || null;
         console.log("Brand Voice loaded:", brandVoice.brand_positioning, brandVoice.tone_of_voice);
         
+        // Build Extended Brand Context for enhanced prompts
+        extendedBrandContext = {
+          brandName: template.brand_name,
+          brandPositioning: template.brand_positioning,
+          toneOfVoice: template.tone_of_voice,
+          preferredWords: template.preferred_words,
+          forbiddenWords: template.forbidden_words,
+          industry: template.industry,
+          formality: template.formality_level,
+          languageStyle: template.language_style,
+          allowEmoji: template.allow_emoji ?? true,
+          contentPillars: template.content_pillars || [],
+          // Extended brand identity
+          mission: template.mission,
+          vision: template.vision,
+          uniqueValueProposition: template.unique_value_proposition,
+          tagline: template.tagline,
+          // Market & Competition
+          mainCompetitors: template.main_competitors || [],
+          competitiveAdvantages: template.competitive_advantages || [],
+          marketSegment: template.market_segment,
+          targetAgeRange: template.target_age_range,
+          targetGender: template.target_gender,
+          targetLocations: template.target_locations || [],
+          // Content Guidelines
+          brandHashtags: template.brand_hashtags || [],
+          signaturePhrases: template.signature_phrases || [],
+          ctaTemplates: template.cta_templates || [],
+          evergreenThemes: template.evergreen_themes || [],
+        };
+        
+        // Fetch customer personas for this brand
+        const { data: personas } = await supabase
+          .from('customer_personas')
+          .select('*')
+          .eq('brand_template_id', formData.brandTemplateId)
+          .order('is_primary', { ascending: false });
+        
+        if (personas && personas.length > 0) {
+          const mapPersona = (p: any): CustomerPersona => ({
+            name: p.name,
+            avatarEmoji: p.avatar_emoji,
+            occupation: p.occupation,
+            ageRange: p.age_range,
+            gender: p.gender,
+            painPoints: p.pain_points || [],
+            desires: p.desires || [],
+            objections: p.objections || [],
+            buyingTriggers: p.buying_triggers || [],
+            preferredChannels: p.preferred_channels || [],
+            typicalFunnelStage: p.typical_funnel_stage,
+            isPrimary: p.is_primary,
+          });
+          
+          extendedBrandContext.primaryPersona = mapPersona(personas.find((p: any) => p.is_primary) || personas[0]);
+          extendedBrandContext.allPersonas = personas.map(mapPersona);
+          console.log("Customer personas loaded:", personas.length, "Primary:", extendedBrandContext.primaryPersona?.name);
+        }
+        
         // CRITICAL: Fetch Industry Memory from database (Single Source of Truth)
         if (industryTemplateId) {
           industryMemory = await fetchIndustryMemory(supabase, industryTemplateId);
@@ -984,7 +1055,8 @@ serve(async (req) => {
       brandVoice,
       channelOverrides,
       mergedRules,
-      industryMemory
+      industryMemory,
+      extendedBrandContext
     );
 
     // Build user prompt with optional edited previews as examples
