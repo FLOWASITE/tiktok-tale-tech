@@ -165,14 +165,14 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Industry Memory">
+                    <SidebarMenuButton asChild tooltip="Industry Memory Packs">
                       <NavLink
                         to="/admin/industries"
                         className="flex items-center gap-3 text-primary/80 hover:text-primary transition-colors"
                         activeClassName="bg-primary/10 text-primary font-medium"
                       >
                         <Globe className="w-4 h-4 flex-shrink-0" />
-                        <span className={isCollapsed ? 'sr-only' : ''}>Industry Memory</span>
+                        <span className={isCollapsed ? 'sr-only' : ''}>Industry Memory Packs</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
