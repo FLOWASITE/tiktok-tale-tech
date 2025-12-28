@@ -727,5 +727,274 @@ export function buildExtendedBrandPrompt(brand: BrandContext | null): string {
   const personaSection = buildCustomerPersonaSection(brand.primaryPersona);
   if (personaSection) sections.push(personaSection);
 
+  // Add all personas if available
+  if (brand.allPersonas?.length && brand.allPersonas.length > 1) {
+    sections.push(buildAllPersonasSection(brand.allPersonas));
+  }
+
+  // Add products context
+  if (brand.products?.length) {
+    sections.push(buildProductsContextSection(brand.products));
+  }
+
   return sections.join('\n\n');
 }
+
+/**
+ * Build all personas section for comprehensive audience understanding
+ */
+export function buildAllPersonasSection(personas: CustomerPersona[]): string {
+  if (!personas?.length) return '';
+
+  const parts: string[] = [];
+  parts.push(`## 👥 TẤT CẢ CUSTOMER PERSONAS (${personas.length} personas)`);
+
+  personas.forEach((persona, index) => {
+    const isPrimary = persona.isPrimary;
+    parts.push(`\n### ${index + 1}. ${persona.avatarEmoji || '👤'} ${persona.name}${isPrimary ? ' ⭐ (Primary)' : ''}`);
+    
+    const profile: string[] = [];
+    if (persona.occupation) profile.push(persona.occupation);
+    if (persona.ageRange) profile.push(persona.ageRange);
+    if (persona.gender) profile.push(persona.gender);
+    if (profile.length) parts.push(`Profile: ${profile.join(' | ')}`);
+    
+    if (persona.painPoints?.length) {
+      parts.push(`Pain Points: ${persona.painPoints.slice(0, 3).join(', ')}`);
+    }
+    if (persona.desires?.length) {
+      parts.push(`Desires: ${persona.desires.slice(0, 3).join(', ')}`);
+    }
+    if (persona.buyingTriggers?.length) {
+      parts.push(`Buying Triggers: ${persona.buyingTriggers.slice(0, 3).join(', ')}`);
+    }
+  });
+
+  parts.push(`\n→ Khi gợi ý topic, cân nhắc pain points và desires của TẤT CẢ personas`);
+  
+  return parts.join('\n');
+}
+
+/**
+ * Build products context section for prompts
+ */
+export function buildProductsContextSection(products: BrandProduct[]): string {
+  if (!products?.length) return '';
+
+  const parts: string[] = [];
+  const featuredProducts = products.filter(p => p.is_featured);
+  const otherProducts = products.filter(p => !p.is_featured);
+
+  parts.push(`## 🛍️ SẢN PHẨM/DỊCH VỤ (${products.length} sản phẩm)`);
+
+  // Featured products first
+  if (featuredProducts.length > 0) {
+    parts.push(`\n### ⭐ Sản phẩm nổi bật:`);
+    featuredProducts.forEach(product => {
+      parts.push(`\n**${product.name}**${product.category ? ` (${product.category})` : ''}`);
+      if (product.description) {
+        parts.push(`Mô tả: ${product.description.slice(0, 150)}...`);
+      }
+      if (product.unique_selling_points?.length) {
+        parts.push(`USPs: ${product.unique_selling_points.slice(0, 3).join(', ')}`);
+      }
+      if (product.pain_points_solved?.length) {
+        parts.push(`Giải quyết: ${product.pain_points_solved.slice(0, 3).join(', ')}`);
+      }
+      if (product.suggested_content_angles?.length) {
+        parts.push(`Góc content gợi ý: ${product.suggested_content_angles.slice(0, 3).join(', ')}`);
+      }
+    });
+    parts.push(`→ ƯU TIÊN tạo content về sản phẩm nổi bật`);
+  }
+
+  // Other products (summary)
+  if (otherProducts.length > 0) {
+    parts.push(`\n### Sản phẩm khác:`);
+    otherProducts.slice(0, 5).forEach(product => {
+      parts.push(`- ${product.name}${product.category ? ` (${product.category})` : ''}`);
+    });
+    if (otherProducts.length > 5) {
+      parts.push(`...và ${otherProducts.length - 5} sản phẩm khác`);
+    }
+  }
+
+  parts.push(`\n→ Topics có thể xoay quanh sản phẩm, use cases, benefits, testimonials`);
+
+  return parts.join('\n');
+}
+
+/**
+ * Database types for fetching brand context
+ */
+export interface BrandContextDBRow {
+  brand_name: string;
+  brand_positioning?: string;
+  tone_of_voice?: string[];
+  preferred_words?: string[];
+  forbidden_words?: string[];
+  industry?: string[];
+  formality_level?: string;
+  language_style?: string[];
+  allow_emoji?: boolean;
+  content_pillars?: any;
+  // Extended fields
+  mission?: string;
+  vision?: string;
+  unique_value_proposition?: string;
+  tagline?: string;
+  main_competitors?: string[];
+  competitive_advantages?: string[];
+  market_segment?: string;
+  target_age_range?: string;
+  target_gender?: string;
+  target_locations?: string[];
+  brand_hashtags?: string[];
+  signature_phrases?: string[];
+  cta_templates?: string[];
+  evergreen_themes?: string[];
+}
+
+export interface CustomerPersonaDBRow {
+  name: string;
+  avatar_emoji?: string;
+  occupation?: string;
+  age_range?: string;
+  gender?: string;
+  pain_points?: string[];
+  desires?: string[];
+  objections?: string[];
+  buying_triggers?: string[];
+  preferred_channels?: string[];
+  typical_funnel_stage?: string;
+  is_primary?: boolean;
+}
+
+/**
+ * Map database brand row to BrandContext
+ */
+export function mapBrandDBToBrandContext(
+  row: BrandContextDBRow,
+  products?: BrandProduct[],
+  personas?: CustomerPersonaDBRow[]
+): BrandContext {
+  const primaryPersona = personas?.find(p => p.is_primary);
+  
+  return {
+    brandName: row.brand_name,
+    brandPositioning: row.brand_positioning,
+    toneOfVoice: row.tone_of_voice,
+    preferredWords: row.preferred_words,
+    forbiddenWords: row.forbidden_words,
+    industry: row.industry,
+    formality: row.formality_level,
+    languageStyle: row.language_style,
+    allowEmoji: row.allow_emoji,
+    contentPillars: row.content_pillars,
+    products: products,
+    // Extended identity
+    mission: row.mission,
+    vision: row.vision,
+    uniqueValueProposition: row.unique_value_proposition,
+    tagline: row.tagline,
+    // Market & Competition
+    mainCompetitors: row.main_competitors,
+    competitiveAdvantages: row.competitive_advantages,
+    marketSegment: row.market_segment,
+    targetAgeRange: row.target_age_range,
+    targetGender: row.target_gender,
+    targetLocations: row.target_locations,
+    // Content Guidelines
+    brandHashtags: row.brand_hashtags,
+    signaturePhrases: row.signature_phrases,
+    ctaTemplates: row.cta_templates,
+    evergreenThemes: row.evergreen_themes,
+    // Personas
+    primaryPersona: primaryPersona ? mapPersonaDBToPersona(primaryPersona) : undefined,
+    allPersonas: personas?.map(mapPersonaDBToPersona),
+  };
+}
+
+/**
+ * Map database persona row to CustomerPersona
+ */
+export function mapPersonaDBToPersona(row: CustomerPersonaDBRow): CustomerPersona {
+  return {
+    name: row.name,
+    avatarEmoji: row.avatar_emoji,
+    occupation: row.occupation,
+    ageRange: row.age_range,
+    gender: row.gender,
+    painPoints: row.pain_points,
+    desires: row.desires,
+    objections: row.objections,
+    buyingTriggers: row.buying_triggers,
+    preferredChannels: row.preferred_channels,
+    typicalFunnelStage: row.typical_funnel_stage,
+    isPrimary: row.is_primary,
+  };
+}
+
+/**
+ * Extended brand SELECT query for Supabase
+ */
+export const EXTENDED_BRAND_SELECT = `
+  brand_name,
+  brand_positioning,
+  tone_of_voice,
+  preferred_words,
+  forbidden_words,
+  industry,
+  formality_level,
+  language_style,
+  allow_emoji,
+  content_pillars,
+  mission,
+  vision,
+  unique_value_proposition,
+  tagline,
+  main_competitors,
+  competitive_advantages,
+  market_segment,
+  target_age_range,
+  target_gender,
+  target_locations,
+  brand_hashtags,
+  signature_phrases,
+  cta_templates,
+  evergreen_themes,
+  industry_template_id
+`;
+
+/**
+ * Customer persona SELECT query for Supabase
+ */
+export const CUSTOMER_PERSONA_SELECT = `
+  name,
+  avatar_emoji,
+  occupation,
+  age_range,
+  gender,
+  pain_points,
+  desires,
+  objections,
+  buying_triggers,
+  preferred_channels,
+  typical_funnel_stage,
+  is_primary
+`;
+
+/**
+ * Featured products SELECT query for Supabase
+ */
+export const FEATURED_PRODUCTS_SELECT = `
+  name,
+  category,
+  description,
+  unique_selling_points,
+  target_audience,
+  pain_points_solved,
+  benefits,
+  suggested_content_angles,
+  is_featured
+`;

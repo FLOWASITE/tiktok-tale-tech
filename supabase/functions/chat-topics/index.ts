@@ -26,6 +26,13 @@ interface BrandContext {
   toneOfVoice?: string[];
   industry?: string[];
   contentPillars?: Array<{ name: string; keywords: string[] }>;
+  // Extended fields
+  uniqueValueProposition?: string;
+  targetAgeRange?: string;
+  targetGender?: string;
+  evergreenThemes?: string[];
+  brandHashtags?: string[];
+  mainCompetitors?: string[];
 }
 
 serve(async (req) => {
@@ -44,43 +51,84 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch brand context if available
+    // Fetch brand context with extended fields + personas + products in parallel
     let brandContext: BrandContext | null = null;
+    let personasContext: string[] = [];
+    let productsContext: string[] = [];
+    let recentTopics: string[] = [];
+    
     if (brandTemplateId) {
-      const { data: brand } = await supabase
-        .from('brand_templates')
-        .select('brand_name, brand_positioning, tone_of_voice, industry, content_pillars')
-        .eq('id', brandTemplateId)
-        .single();
+      const [brandResult, personasResult, productsResult, historyResult] = await Promise.all([
+        supabase
+          .from('brand_templates')
+          .select(`
+            brand_name, brand_positioning, tone_of_voice, industry, content_pillars,
+            unique_value_proposition, target_age_range, target_gender, evergreen_themes,
+            brand_hashtags, main_competitors
+          `)
+          .eq('id', brandTemplateId)
+          .single(),
+        supabase
+          .from('customer_personas')
+          .select('name, occupation, age_range, pain_points, desires, buying_triggers, is_primary')
+          .eq('brand_template_id', brandTemplateId)
+          .order('is_primary', { ascending: false })
+          .limit(5),
+        supabase
+          .from('brand_products')
+          .select('name, category, description, unique_selling_points, suggested_content_angles, is_featured')
+          .eq('brand_template_id', brandTemplateId)
+          .eq('is_active', true)
+          .order('is_featured', { ascending: false })
+          .limit(5),
+        supabase
+          .from('topic_history')
+          .select('topic')
+          .eq('brand_template_id', brandTemplateId)
+          .order('created_at', { ascending: false })
+          .limit(10)
+      ]);
       
-      if (brand) {
+      if (brandResult.data) {
+        const brand = brandResult.data;
         brandContext = {
           brandName: brand.brand_name,
           brandPositioning: brand.brand_positioning,
           toneOfVoice: brand.tone_of_voice,
           industry: brand.industry,
           contentPillars: brand.content_pillars as any,
+          uniqueValueProposition: brand.unique_value_proposition,
+          targetAgeRange: brand.target_age_range,
+          targetGender: brand.target_gender,
+          evergreenThemes: brand.evergreen_themes,
+          brandHashtags: brand.brand_hashtags,
+          mainCompetitors: brand.main_competitors,
         };
       }
-    }
 
-    // Fetch recent topic history for context
-    let recentTopics: string[] = [];
-    if (brandTemplateId) {
-      const { data: history } = await supabase
-        .from('topic_history')
-        .select('topic')
-        .eq('brand_template_id', brandTemplateId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (history) {
-        recentTopics = history.map(h => h.topic);
+      // Build personas context
+      if (personasResult.data?.length) {
+        personasContext = personasResult.data.map((p: any) => 
+          `${p.name}${p.is_primary ? ' ⭐' : ''} (${p.occupation || 'N/A'}, ${p.age_range || 'N/A'}): Pain Points: ${(p.pain_points || []).slice(0, 3).join(', ')}; Desires: ${(p.desires || []).slice(0, 3).join(', ')}`
+        );
+        console.log('Loaded', personasResult.data.length, 'personas for chat context');
+      }
+
+      // Build products context
+      if (productsResult.data?.length) {
+        productsContext = productsResult.data.map((p: any) => 
+          `${p.is_featured ? '⭐ ' : ''}${p.name}${p.category ? ` (${p.category})` : ''}: ${(p.suggested_content_angles || []).slice(0, 2).join(', ')}`
+        );
+        console.log('Loaded', productsResult.data.length, 'products for chat context');
+      }
+
+      if (historyResult.data) {
+        recentTopics = historyResult.data.map(h => h.topic);
       }
     }
 
-    // Build system prompt
-    const systemPrompt = buildSystemPrompt(brandContext, contentGoal, recentTopics);
+    // Build system prompt with extended context
+    const systemPrompt = buildSystemPrompt(brandContext, contentGoal, recentTopics, personasContext, productsContext);
 
     // Prepare messages for AI
     const aiMessages: ChatMessage[] = [
@@ -150,7 +198,9 @@ serve(async (req) => {
 function buildSystemPrompt(
   brandContext: BrandContext | null, 
   contentGoal?: string, 
-  recentTopics?: string[]
+  recentTopics?: string[],
+  personasContext?: string[],
+  productsContext?: string[]
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -227,6 +277,40 @@ Gợi ý 2-4 topics, phân cách bằng dấu --- giữa mỗi topic.`;
 - **Content Pillars:**
 ${brandContext.contentPillars.map(p => `  • ${p.name}: ${p.keywords?.slice(0, 3).join(', ') || ''}`).join('\n')}`;
     }
+
+    // Extended brand info
+    if (brandContext.uniqueValueProposition) {
+      prompt += `
+- **UVP:** ${brandContext.uniqueValueProposition}`;
+    }
+
+    if (brandContext.evergreenThemes?.length) {
+      prompt += `
+- **Evergreen Themes:** ${brandContext.evergreenThemes.join(', ')}`;
+    }
+
+    if (brandContext.targetAgeRange || brandContext.targetGender) {
+      prompt += `
+- **Target Audience:** ${brandContext.targetAgeRange || ''} ${brandContext.targetGender || ''}`;
+    }
+  }
+
+  // Add personas context
+  if (personasContext?.length) {
+    prompt += `
+
+## Customer Personas (ĐỐI TƯỢNG KHÁCH HÀNG):
+${personasContext.map(p => `- ${p}`).join('\n')}
+→ Gợi ý topics GIẢI QUYẾT pain points hoặc khơi gợi desires của personas!`;
+  }
+
+  // Add products context
+  if (productsContext?.length) {
+    prompt += `
+
+## Products/Services (SẢN PHẨM/DỊCH VỤ):
+${productsContext.map(p => `- ${p}`).join('\n')}
+→ Có thể gợi ý topics về use cases, benefits, testimonials của sản phẩm`;
   }
 
   // Add content goal
