@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
+import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
+import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { BrandForm } from '@/components/BrandForm';
 import { BrandViewHero } from '@/components/brand/BrandViewHero';
 import { BrandViewOverviewTab } from '@/components/brand/BrandViewOverviewTab';
@@ -8,6 +10,7 @@ import { BrandViewVoiceTab } from '@/components/brand/BrandViewVoiceTab';
 import { BrandViewStrategyTab } from '@/components/brand/BrandViewStrategyTab';
 import { BrandViewChannelsTab } from '@/components/brand/BrandViewChannelsTab';
 import { BrandViewSamplesTab } from '@/components/brand/BrandViewSamplesTab';
+import { BrandViewPersonasTab } from '@/components/brand/BrandViewPersonasTab';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -25,7 +28,9 @@ import {
   Target,
   Settings2,
   FileText,
+  Users,
 } from 'lucide-react';
+import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
 import { toast } from 'sonner';
 import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 
@@ -50,12 +55,21 @@ export default function BrandView() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Fetch personas and products for completeness calculation
+  const { personas } = useCustomerPersonas({ brandTemplateId: id, enabled: !!id });
+  const { products } = useProductCatalog(id);
+
   useEffect(() => {
     if (!loading && id) {
       const found = templates.find((t) => t.id === id);
       setTemplate(found || null);
     }
   }, [templates, loading, id]);
+
+  // Calculate brand completeness
+  const completeness = template 
+    ? calculateBrandCompleteness(template, personas.length, products.length)
+    : null;
 
   const handleSubmit = async (
     data: BrandFormData,
@@ -154,7 +168,7 @@ export default function BrandView() {
   return (
     <div className="container mx-auto py-4 md:py-6 px-4 md:px-6 space-y-4 md:space-y-6 max-w-4xl">
       {/* Hero Section */}
-      <div className="rounded-xl border border-border bg-card">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         <BrandViewHero
           template={template}
           onEdit={() => setEditDialogOpen(true)}
@@ -163,54 +177,70 @@ export default function BrandView() {
           onDuplicate={handleDuplicate}
           onRefresh={handleRefresh}
           refreshing={refreshing}
+          completeness={completeness}
+          personasCount={personas.length}
+          productsCount={products.length}
         />
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full h-auto flex-wrap justify-start gap-1 bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="gap-1.5 text-xs md:text-sm">
+        <TabsList className="w-full h-auto flex-wrap justify-start gap-1 bg-muted/50 p-1 rounded-lg">
+          <TabsTrigger value="overview" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <LayoutDashboard className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Tổng quan</span>
             <span className="sm:hidden">TQ</span>
           </TabsTrigger>
-          <TabsTrigger value="voice" className="gap-1.5 text-xs md:text-sm">
+          <TabsTrigger value="voice" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <Volume2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Brand Voice</span>
             <span className="sm:hidden">Voice</span>
           </TabsTrigger>
-          <TabsTrigger value="strategy" className="gap-1.5 text-xs md:text-sm">
+          <TabsTrigger value="personas" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
+            <Users className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Personas</span>
+            {personas.length > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded-full">
+                {personas.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="strategy" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <Target className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Chiến lược</span>
             <span className="sm:hidden">CL</span>
           </TabsTrigger>
-          <TabsTrigger value="channels" className="gap-1.5 text-xs md:text-sm">
+          <TabsTrigger value="channels" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <Settings2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Kênh</span>
           </TabsTrigger>
-          <TabsTrigger value="samples" className="gap-1.5 text-xs md:text-sm">
+          <TabsTrigger value="samples" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <FileText className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Samples</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-4 animate-in fade-in duration-200">
           <BrandViewOverviewTab template={template} />
         </TabsContent>
 
-        <TabsContent value="voice" className="mt-4">
+        <TabsContent value="voice" className="mt-4 animate-in fade-in duration-200">
           <BrandViewVoiceTab template={template} />
         </TabsContent>
 
-        <TabsContent value="strategy" className="mt-4">
+        <TabsContent value="personas" className="mt-4 animate-in fade-in duration-200">
+          <BrandViewPersonasTab template={template} />
+        </TabsContent>
+
+        <TabsContent value="strategy" className="mt-4 animate-in fade-in duration-200">
           <BrandViewStrategyTab template={template} />
         </TabsContent>
 
-        <TabsContent value="channels" className="mt-4">
+        <TabsContent value="channels" className="mt-4 animate-in fade-in duration-200">
           <BrandViewChannelsTab template={template} />
         </TabsContent>
 
-        <TabsContent value="samples" className="mt-4">
+        <TabsContent value="samples" className="mt-4 animate-in fade-in duration-200">
           <BrandViewSamplesTab template={template} />
         </TabsContent>
       </Tabs>
