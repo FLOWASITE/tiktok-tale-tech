@@ -177,29 +177,47 @@ export function BrandViewVoiceTab({ template }: BrandViewVoiceTabProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {template.brand_guideline ? (
+        {template.brand_guideline ? (
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown
                 components={{
                   h1: ({ children }) => (
-                    <h1 className="text-lg font-bold mt-4 mb-2 first:mt-0">{children}</h1>
+                    <h1 className="text-lg font-bold mt-4 mb-2 first:mt-0 text-foreground border-b border-border pb-2">{children}</h1>
                   ),
                   h2: ({ children }) => (
-                    <h2 className="text-base font-semibold mt-3 mb-2 text-primary">{children}</h2>
+                    <h2 className="text-base font-semibold mt-4 mb-2 text-primary flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      {children}
+                    </h2>
                   ),
                   h3: ({ children }) => (
-                    <h3 className="text-sm font-medium mt-2 mb-1">{children}</h3>
+                    <h3 className="text-sm font-medium mt-3 mb-1.5 text-foreground">{children}</h3>
                   ),
                   p: ({ children }) => (
-                    <p className="mb-2 text-sm leading-relaxed">{children}</p>
+                    <p className="mb-3 text-sm leading-relaxed text-foreground/90">{children}</p>
                   ),
                   ul: ({ children }) => (
-                    <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>
+                    <ul className="mb-3 space-y-2 pl-0 list-none">{children}</ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>
+                    <ol className="mb-3 space-y-2 pl-0 list-none counter-reset-item">{children}</ol>
                   ),
-                  li: ({ children }) => <li className="text-sm">{children}</li>,
+                  li: ({ children, ...props }) => {
+                    const parent = (props as any).node?.parentNode?.tagName;
+                    const isOrdered = parent === 'ol';
+                    return (
+                      <li className="text-sm flex items-start gap-2.5 pl-1">
+                        {isOrdered ? (
+                          <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center shrink-0 mt-0.5">
+                            •
+                          </span>
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0 mt-2" />
+                        )}
+                        <span className="flex-1">{children}</span>
+                      </li>
+                    );
+                  },
                   strong: ({ children }) => (
                     <strong className="font-semibold text-foreground">{children}</strong>
                   ),
@@ -207,14 +225,17 @@ export function BrandViewVoiceTab({ template }: BrandViewVoiceTabProps) {
                     <em className="italic text-muted-foreground">{children}</em>
                   ),
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 border-primary pl-3 my-2 italic text-muted-foreground">
+                    <blockquote className="border-l-3 border-primary bg-primary/5 pl-4 pr-3 py-2 my-3 rounded-r-lg">
                       {children}
                     </blockquote>
                   ),
                   code: ({ children }) => (
-                    <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-primary">
                       {children}
                     </code>
+                  ),
+                  hr: () => (
+                    <hr className="my-4 border-border" />
                   ),
                 }}
               >
