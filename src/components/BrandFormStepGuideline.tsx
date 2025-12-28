@@ -1,13 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
-import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 import { 
   Wand2, 
   Loader2, 
@@ -19,9 +17,7 @@ import {
   Megaphone, 
   Globe,
   AlertCircle,
-  RefreshCw,
-  Plus,
-  Trash2
+  RefreshCw
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -86,8 +82,6 @@ export function BrandFormStepGuideline({
 }: BrandFormStepGuidelineProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [newPrinciple, setNewPrinciple] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const isGuidelineEmpty = !brandGuideline.trim() || brandGuideline === DEFAULT_GUIDELINE;
   const activeChannels = Object.keys(channelOverrides).filter(k => channelOverrides[k]?.enabled);
@@ -150,23 +144,6 @@ export function BrandFormStepGuideline({
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const addPrinciple = () => {
-    if (newPrinciple.trim()) {
-      setGuidelineKeyPrinciples([...guidelineKeyPrinciples, newPrinciple.trim()]);
-      setNewPrinciple('');
-    }
-  };
-
-  const removePrinciple = (index: number) => {
-    setGuidelineKeyPrinciples(guidelineKeyPrinciples.filter((_, i) => i !== index));
-  };
-
-  const updatePrinciple = (index: number, value: string) => {
-    const updated = [...guidelineKeyPrinciples];
-    updated[index] = value;
-    setGuidelineKeyPrinciples(updated);
   };
 
   return (
@@ -311,7 +288,7 @@ export function BrandFormStepGuideline({
         </CardContent>
       </Card>
 
-      {/* Guideline Editor with Markdown Toolbar */}
+      {/* Guideline Editor */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label htmlFor="brandGuideline" className="text-base font-medium">
@@ -323,112 +300,69 @@ export function BrandFormStepGuideline({
             </Badge>
           )}
         </div>
-        <MarkdownToolbar
-          textareaRef={textareaRef}
-          value={brandGuideline}
-          onChange={setBrandGuideline}
-          disabled={isGenerating}
-        />
         <Textarea
-          ref={textareaRef}
           id="brandGuideline"
           value={brandGuideline}
           onChange={(e) => setBrandGuideline(e.target.value)}
-          placeholder="Mô tả phong cách viết, nguyên tắc, và hướng dẫn cụ thể cho việc tạo nội dung...
-
-Hỗ trợ Markdown:
-**in đậm**, *in nghiêng*, `code`
-# Heading 1, ## Heading 2
-- Danh sách"
-          rows={10}
-          className="resize-none text-sm font-mono"
+          placeholder="Mô tả phong cách viết, nguyên tắc, và hướng dẫn cụ thể cho việc tạo nội dung..."
+          rows={8}
+          className="resize-none text-sm"
         />
       </div>
-
-      {/* Structured Sections */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Key Principles */}
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-primary" />
-              <Label className="font-medium">Nguyên tắc chính</Label>
-            </div>
-            <div className="space-y-2">
-              {guidelineKeyPrinciples.map((principle, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <Input
-                    value={principle}
-                    onChange={(e) => updatePrinciple(idx, e.target.value)}
-                    className="text-sm"
-                    placeholder="Nguyên tắc..."
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 h-9 w-9 text-muted-foreground hover:text-destructive"
-                    onClick={() => removePrinciple(idx)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newPrinciple}
-                  onChange={(e) => setNewPrinciple(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPrinciple())}
-                  className="text-sm"
-                  placeholder="Thêm nguyên tắc mới..."
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="shrink-0 h-9 w-9"
-                  onClick={addPrinciple}
-                  disabled={!newPrinciple.trim()}
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Examples */}
-        <Card>
+      
+      {/* AI Guideline Preview */}
+      {(guidelineExampleGood || guidelineExampleBad || guidelineKeyPrinciples.length > 0) && (
+        <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-4 space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-green-600" />
-                <Label className="font-medium text-green-700 dark:text-green-400">Ví dụ đúng</Label>
-              </div>
-              <Textarea
-                value={guidelineExampleGood}
-                onChange={(e) => setGuidelineExampleGood(e.target.value)}
-                placeholder="Ví dụ content đúng chuẩn brand..."
-                rows={3}
-                className="text-sm resize-none bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
-              />
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Sparkles className="w-4 h-4" />
+              AI Preview - Chi tiết Guideline
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <X className="w-4 h-4 text-red-600" />
-                <Label className="font-medium text-red-700 dark:text-red-400">Ví dụ sai (tránh)</Label>
+            
+            {guidelineKeyPrinciples.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Nguyên tắc chính:</p>
+                <ul className="text-sm space-y-1.5">
+                  {guidelineKeyPrinciples.map((principle, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <span className="text-muted-foreground">{principle}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <Textarea
-                value={guidelineExampleBad}
-                onChange={(e) => setGuidelineExampleBad(e.target.value)}
-                placeholder="Ví dụ content không nên dùng..."
-                rows={3}
-                className="text-sm resize-none bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
-              />
+            )}
+            
+            <div className="grid sm:grid-cols-2 gap-4">
+              {guidelineExampleGood && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                    <Check className="w-4 h-4" /> Ví dụ đúng
+                  </p>
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900">
+                    <p className="text-sm text-green-800 dark:text-green-300">
+                      "{guidelineExampleGood}"
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {guidelineExampleBad && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                    <X className="w-4 h-4" /> Ví dụ sai (tránh)
+                  </p>
+                  <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900">
+                    <p className="text-sm text-red-800 dark:text-red-300 line-through">
+                      "{guidelineExampleBad}"
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }
