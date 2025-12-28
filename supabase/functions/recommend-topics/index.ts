@@ -45,28 +45,88 @@ serve(async (req) => {
 
     console.log(`Processing recommendation: ${recommendationType}`);
 
-    // Fetch brand context if available
+    // Fetch brand context with extended fields + personas + products in parallel
     let brandContext = '';
     let contentPillars: string[] = [];
+    let personasContext = '';
+    let productsContext = '';
+    
     if (brandTemplateId) {
-      const { data: brand } = await supabase
-        .from('brand_templates')
-        .select('brand_name, brand_positioning, tone_of_voice, content_pillars, industry')
-        .eq('id', brandTemplateId)
-        .single();
+      const [brandResult, personasResult, productsResult] = await Promise.all([
+        supabase
+          .from('brand_templates')
+          .select(`
+            brand_name, brand_positioning, tone_of_voice, content_pillars, industry,
+            unique_value_proposition, mission, main_competitors, competitive_advantages,
+            evergreen_themes, target_age_range, target_gender
+          `)
+          .eq('id', brandTemplateId)
+          .single(),
+        supabase
+          .from('customer_personas')
+          .select('name, occupation, age_range, pain_points, desires, buying_triggers, objections, is_primary')
+          .eq('brand_template_id', brandTemplateId)
+          .order('is_primary', { ascending: false })
+          .limit(5),
+        supabase
+          .from('brand_products')
+          .select('name, category, description, unique_selling_points, pain_points_solved, suggested_content_angles, is_featured')
+          .eq('brand_template_id', brandTemplateId)
+          .eq('is_active', true)
+          .order('is_featured', { ascending: false })
+          .limit(5)
+      ]);
 
-      if (brand) {
+      if (brandResult.data) {
+        const brand = brandResult.data;
         brandContext = `
 Brand: ${brand.brand_name}
 Positioning: ${brand.brand_positioning || 'N/A'}
+UVP: ${brand.unique_value_proposition || 'N/A'}
+Mission: ${brand.mission || 'N/A'}
 Tone: ${(brand.tone_of_voice || []).join(', ')}
-Industry: ${(brand.industry || []).join(', ')}`;
+Industry: ${(brand.industry || []).join(', ')}
+Target: ${brand.target_age_range || ''} ${brand.target_gender || ''}
+Competitive Advantages: ${(brand.competitive_advantages || []).join(', ')}
+Evergreen Themes: ${(brand.evergreen_themes || []).join(', ')}`;
         
         if (brand.content_pillars) {
           const pillars = brand.content_pillars as any[];
           contentPillars = pillars.map(p => p.name || p);
         }
       }
+
+      // Build personas context
+      if (personasResult.data?.length) {
+        personasContext = `
+
+## CUSTOMER PERSONAS:
+${personasResult.data.map((p: any) => `
+- ${p.name}${p.is_primary ? ' ⭐ Primary' : ''} (${p.occupation || 'N/A'}, ${p.age_range || 'N/A'})
+  Pain Points: ${(p.pain_points || []).slice(0, 3).join(', ')}
+  Desires: ${(p.desires || []).slice(0, 3).join(', ')}
+  Objections: ${(p.objections || []).slice(0, 2).join(', ')}
+  Buying Triggers: ${(p.buying_triggers || []).slice(0, 3).join(', ')}`).join('\n')}
+→ Topics PHẢI giải quyết pain points hoặc khơi gợi desires của personas`;
+        console.log('Loaded', personasResult.data.length, 'personas');
+      }
+
+      // Build products context
+      if (productsResult.data?.length) {
+        productsContext = `
+
+## PRODUCTS/SERVICES:
+${productsResult.data.map((p: any) => `
+- ${p.is_featured ? '⭐ ' : ''}${p.name}${p.category ? ` (${p.category})` : ''}
+  USPs: ${(p.unique_selling_points || []).slice(0, 2).join(', ')}
+  Solves: ${(p.pain_points_solved || []).slice(0, 2).join(', ')}
+  Content Angles: ${(p.suggested_content_angles || []).slice(0, 2).join(', ')}`).join('\n')}
+→ Có thể tạo topics về use cases, benefits, testimonials của sản phẩm`;
+        console.log('Loaded', productsResult.data.length, 'products');
+      }
+
+      // Combine all contexts
+      brandContext = brandContext + personasContext + productsContext;
     }
 
     // Fetch topic history for context

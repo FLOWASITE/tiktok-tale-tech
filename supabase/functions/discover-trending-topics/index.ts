@@ -230,21 +230,83 @@ serve(async (req) => {
       news: curatedNews?.length || 0
     });
 
-    // ========== PHASE 2: Perplexity Web Search ==========
-    console.log('[Phase 2] Starting Perplexity web search...');
+    // ========== PHASE 2: Fetch Extended Brand Context + Perplexity ==========
+    console.log('[Phase 2] Fetching extended brand context + Perplexity...');
     let brandName = '';
     let brandIndustry = industry || '';
+    let extendedBrandContext = '';
+    let personasContext = '';
+    let productsContext = '';
     
     if (brandTemplateId) {
-      const { data: brand } = await supabase
-        .from('brand_templates')
-        .select('brand_name, industry, brand_positioning, content_pillars')
-        .eq('id', brandTemplateId)
-        .single();
+      // Fetch brand with extended fields + personas + products in parallel
+      const [brandResult, personasResult, productsResult] = await Promise.all([
+        supabase
+          .from('brand_templates')
+          .select(`
+            brand_name, industry, brand_positioning, content_pillars,
+            unique_value_proposition, target_age_range, target_gender,
+            evergreen_themes, brand_hashtags, main_competitors
+          `)
+          .eq('id', brandTemplateId)
+          .single(),
+        supabase
+          .from('customer_personas')
+          .select('name, occupation, age_range, pain_points, desires, buying_triggers, is_primary')
+          .eq('brand_template_id', brandTemplateId)
+          .order('is_primary', { ascending: false })
+          .limit(5),
+        supabase
+          .from('brand_products')
+          .select('name, category, description, unique_selling_points, suggested_content_angles, is_featured')
+          .eq('brand_template_id', brandTemplateId)
+          .eq('is_active', true)
+          .order('is_featured', { ascending: false })
+          .limit(5)
+      ]);
 
-      if (brand) {
+      if (brandResult.data) {
+        const brand = brandResult.data;
         brandName = brand.brand_name;
         brandIndustry = Array.isArray(brand.industry) ? brand.industry.join(', ') : brand.industry || '';
+        
+        extendedBrandContext = `
+Brand: ${brand.brand_name}
+Industry: ${brandIndustry || 'General'}
+Positioning: ${brand.brand_positioning || 'N/A'}
+UVP: ${brand.unique_value_proposition || 'N/A'}
+Target: ${brand.target_age_range || ''} ${brand.target_gender || ''}
+Content Pillars: ${JSON.stringify(brand.content_pillars || [])}
+Evergreen Themes: ${(brand.evergreen_themes || []).join(', ')}
+Competitors: ${(brand.main_competitors || []).join(', ')}
+`;
+      }
+
+      // Build personas context
+      if (personasResult.data?.length) {
+        const primaryPersona = personasResult.data.find((p: any) => p.is_primary);
+        personasContext = `
+## CUSTOMER PERSONAS:
+${personasResult.data.map((p: any) => `
+- ${p.name}${p.is_primary ? ' ⭐' : ''} (${p.occupation || 'N/A'}, ${p.age_range || 'N/A'})
+  Pain Points: ${(p.pain_points || []).slice(0, 3).join(', ')}
+  Desires: ${(p.desires || []).slice(0, 3).join(', ')}
+  Buying Triggers: ${(p.buying_triggers || []).slice(0, 3).join(', ')}`).join('\n')}
+→ Trending topics phải GIẢI QUYẾT pain points hoặc khơi gợi desires của personas này`;
+        console.log('[Phase 2] Loaded', personasResult.data.length, 'personas');
+      }
+
+      // Build products context
+      if (productsResult.data?.length) {
+        const featured = productsResult.data.filter((p: any) => p.is_featured);
+        productsContext = `
+## PRODUCTS/SERVICES:
+${productsResult.data.map((p: any) => `
+- ${p.is_featured ? '⭐ ' : ''}${p.name}${p.category ? ` (${p.category})` : ''}
+  ${p.description ? p.description.slice(0, 100) + '...' : ''}
+  Content Angles: ${(p.suggested_content_angles || []).slice(0, 3).join(', ')}`).join('\n')}
+→ Topics có thể gắn với sản phẩm cụ thể để tăng relevance`;
+        console.log('[Phase 2] Loaded', productsResult.data.length, 'products');
       }
     }
 
@@ -253,24 +315,8 @@ serve(async (req) => {
     console.log('[Phase 2] Perplexity result:', perplexityResult ? `${perplexityResult.trends.length} trends found` : 'No result');
 
     // ========== PHASE 3: Build Context for AI ==========
-    console.log('[Phase 3] Building AI context...');
-    let brandContext = '';
-    if (brandTemplateId) {
-      const { data: brand } = await supabase
-        .from('brand_templates')
-        .select('brand_name, industry, brand_positioning, content_pillars')
-        .eq('id', brandTemplateId)
-        .single();
-
-      if (brand) {
-        brandContext = `
-Brand: ${brand.brand_name}
-Industry: ${Array.isArray(brand.industry) ? brand.industry.join(', ') : brand.industry || 'General'}
-Positioning: ${brand.brand_positioning || 'N/A'}
-Content Pillars: ${JSON.stringify(brand.content_pillars || [])}
-`;
-      }
-    }
+    console.log('[Phase 3] Building AI context with extended brand data...');
+    const brandContext = extendedBrandContext + personasContext + productsContext;
 
     // Build curated context - separate urgent vs upcoming events
     let curatedContext = '';
