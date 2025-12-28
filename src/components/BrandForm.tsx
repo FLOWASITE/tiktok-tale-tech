@@ -7,6 +7,7 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepBusiness, BrandFooterInfo, DEFAULT_FOOTER_INFO } from '@/components/BrandFormStepBusiness';
+import { BrandFormStepStrategy } from '@/components/BrandFormStepStrategy';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
 import { BrandVoiceSection } from '@/components/BrandVoiceSection';
@@ -70,6 +71,24 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [personas, setPersonas] = useState<CustomerPersona[]>([]);
   const [localProducts, setLocalProducts] = useState<Array<{ id: string; name: string; sku: string; category: string; description: string; price_display: string; image_url: string; unique_selling_points: string[]; target_audience: string; pain_points_solved: string[]; benefits: string[]; keywords: string[]; suggested_content_angles: string[]; best_channels: string[]; is_featured: boolean; is_active: boolean; }>>([]);
   
+  // Strategy fields (new)
+  const [mission, setMission] = useState('');
+  const [vision, setVision] = useState('');
+  const [uniqueValueProposition, setUniqueValueProposition] = useState('');
+  const [tagline, setTagline] = useState('');
+  const [targetAgeRange, setTargetAgeRange] = useState('');
+  const [targetGender, setTargetGender] = useState('');
+  const [marketSegment, setMarketSegment] = useState('');
+  const [targetLocations, setTargetLocations] = useState<string[]>([]);
+  const [brandHashtags, setBrandHashtags] = useState<string[]>([]);
+  const [signaturePhrases, setSignaturePhrases] = useState<string[]>([]);
+  const [ctaTemplates, setCtaTemplates] = useState<string[]>([]);
+  const [evergreenThemes, setEvergreenThemes] = useState<string[]>([]);
+  const [secondaryColors, setSecondaryColors] = useState<string[]>([]);
+  const [imageStyle, setImageStyle] = useState('');
+  const [mainCompetitors, setMainCompetitors] = useState<string[]>([]);
+  const [competitiveAdvantages, setCompetitiveAdvantages] = useState<string[]>([]);
+  
   // Validation & AI
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [guidelineExampleGood, setGuidelineExampleGood] = useState('');
@@ -129,6 +148,23 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setIndustryTemplateId(template.industry_template_id || null);
       setSampleTexts(template.sample_texts || null);
       setFooterInfo(template.footer_info || DEFAULT_FOOTER_INFO);
+      // New strategy fields
+      setMission(template.mission || '');
+      setVision(template.vision || '');
+      setUniqueValueProposition(template.unique_value_proposition || '');
+      setTagline(template.tagline || '');
+      setTargetAgeRange(template.target_age_range || '');
+      setTargetGender(template.target_gender || '');
+      setMarketSegment(template.market_segment || '');
+      setTargetLocations(template.target_locations || []);
+      setBrandHashtags(template.brand_hashtags || []);
+      setSignaturePhrases(template.signature_phrases || []);
+      setCtaTemplates(template.cta_templates || []);
+      setEvergreenThemes(template.evergreen_themes || []);
+      setSecondaryColors(template.secondary_colors || []);
+      setImageStyle(template.image_style || '');
+      setMainCompetitors(template.main_competitors || []);
+      setCompetitiveAdvantages(template.competitive_advantages || []);
       setShowQuickStart(false);
       setCurrentStep(1);
     } else {
@@ -164,7 +200,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     e.preventDefault();
     e.stopPropagation();
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 5));
+      setCurrentStep(prev => Math.min(prev + 1, 6));
     }
   };
 
@@ -326,7 +362,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep !== 5) return;
+    if (currentStep !== 6) return;
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
@@ -354,6 +390,23 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       content_pillars: contentPillars.length > 0 ? contentPillars : [],
       sample_texts: sampleTexts,
       footer_info: footerInfo.company_name || footerInfo.phone || footerInfo.email ? footerInfo : null,
+      // New strategy fields
+      mission: mission || null,
+      vision: vision || null,
+      unique_value_proposition: uniqueValueProposition || null,
+      tagline: tagline || null,
+      target_age_range: targetAgeRange || null,
+      target_gender: targetGender || null,
+      market_segment: marketSegment || null,
+      target_locations: targetLocations.length > 0 ? targetLocations : null,
+      brand_hashtags: brandHashtags.length > 0 ? brandHashtags : null,
+      signature_phrases: signaturePhrases.length > 0 ? signaturePhrases : null,
+      cta_templates: ctaTemplates.length > 0 ? ctaTemplates : null,
+      evergreen_themes: evergreenThemes.length > 0 ? evergreenThemes : null,
+      secondary_colors: secondaryColors.length > 0 ? secondaryColors : null,
+      image_style: imageStyle || null,
+      main_competitors: mainCompetitors.length > 0 ? mainCompetitors : null,
+      competitive_advantages: competitiveAdvantages.length > 0 ? competitiveAdvantages : null,
     };
 
     // Call onSubmit and get the result (for new templates)
@@ -541,8 +594,46 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 3: Brand Voice */}
+          {/* Step 3: Strategy */}
           {currentStep === 3 && (
+            <BrandFormStepStrategy
+              mission={mission}
+              setMission={setMission}
+              vision={vision}
+              setVision={setVision}
+              uniqueValueProposition={uniqueValueProposition}
+              setUniqueValueProposition={setUniqueValueProposition}
+              tagline={tagline}
+              setTagline={setTagline}
+              targetAgeRange={targetAgeRange}
+              setTargetAgeRange={setTargetAgeRange}
+              targetGender={targetGender}
+              setTargetGender={setTargetGender}
+              marketSegment={marketSegment}
+              setMarketSegment={setMarketSegment}
+              targetLocations={targetLocations}
+              setTargetLocations={setTargetLocations}
+              brandHashtags={brandHashtags}
+              setBrandHashtags={setBrandHashtags}
+              signaturePhrases={signaturePhrases}
+              setSignaturePhrases={setSignaturePhrases}
+              ctaTemplates={ctaTemplates}
+              setCtaTemplates={setCtaTemplates}
+              evergreenThemes={evergreenThemes}
+              setEvergreenThemes={setEvergreenThemes}
+              secondaryColors={secondaryColors}
+              setSecondaryColors={setSecondaryColors}
+              imageStyle={imageStyle}
+              setImageStyle={setImageStyle}
+              mainCompetitors={mainCompetitors}
+              setMainCompetitors={setMainCompetitors}
+              competitiveAdvantages={competitiveAdvantages}
+              setCompetitiveAdvantages={setCompetitiveAdvantages}
+            />
+          )}
+
+          {/* Step 4: Brand Voice */}
+          {currentStep === 4 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-base font-medium">Brand Voice Profile</span>
@@ -628,8 +719,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 4: Channel Settings */}
-          {currentStep === 4 && (
+          {/* Step 5: Channel Settings */}
+          {currentStep === 5 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
               <ChannelSettingsEditor
                 value={channelOverrides}
@@ -655,8 +746,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             </div>
           )}
 
-          {/* Step 5: Brand Guideline */}
-          {currentStep === 5 && (
+          {/* Step 6: Brand Guideline */}
+          {currentStep === 6 && (
             <BrandFormStepGuideline
               brandName={brandName}
               industries={industries}
@@ -722,7 +813,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 5 ? (
+          {currentStep < 6 ? (
             <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />

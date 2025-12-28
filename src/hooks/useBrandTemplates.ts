@@ -42,6 +42,32 @@ export interface BrandTemplate {
   content_pillars?: ContentPillar[];
   // Footer info for AI content generation
   footer_info?: BrandFooterInfo | null;
+  
+  // Brand Identity & Story (new fields)
+  mission?: string | null;
+  vision?: string | null;
+  unique_value_proposition?: string | null;
+  tagline?: string | null;
+  
+  // Target Market (new fields)
+  target_age_range?: string | null;
+  target_gender?: string | null;
+  market_segment?: string | null;
+  target_locations?: string[] | null;
+  
+  // Content Strategy (new fields)
+  brand_hashtags?: string[] | null;
+  signature_phrases?: string[] | null;
+  cta_templates?: string[] | null;
+  evergreen_themes?: string[] | null;
+  
+  // Brand Assets (new fields)
+  secondary_colors?: string[] | null;
+  image_style?: string | null;
+  
+  // Competitor Analysis (new fields)
+  main_competitors?: string[] | null;
+  competitive_advantages?: string[] | null;
 }
 
 // Helper to transform DB response to BrandTemplate
