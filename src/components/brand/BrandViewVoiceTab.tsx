@@ -226,6 +226,30 @@ export function BrandViewVoiceTab({ template }: BrandViewVoiceTabProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Sample Texts */}
+      {template.sample_texts && Object.keys(template.sample_texts).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              Văn bản mẫu theo kênh
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Object.entries(template.sample_texts).map(([channel, text]) => (
+              text && (
+                <div key={channel} className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {channel.replace('_', ' ')}
+                  </span>
+                  <p className="text-sm mt-1 whitespace-pre-wrap">{text}</p>
+                </div>
+              )
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
