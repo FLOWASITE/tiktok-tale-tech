@@ -427,12 +427,6 @@ export function BrandCard({
                   </span>
                 </div>
               </div>
-              
-              {template.is_default && (
-                <Badge variant="secondary" className="shrink-0 text-xs">
-                  Mặc định
-                </Badge>
-              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
