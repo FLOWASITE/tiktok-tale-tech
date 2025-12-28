@@ -120,7 +120,8 @@ const isValidEmail = (email: string): boolean => {
 const isValidVNPhone = (phone: string): boolean => {
   if (!phone) return true;
   const cleaned = phone.replace(/[\s.-]/g, '');
-  return /^(0|\+84)[0-9]{9,10}$/.test(cleaned);
+  // Valid VN phone: 0xxxxxxxxx (10 digits) or +84xxxxxxxxx (9-10 digits after +84)
+  return /^(0[0-9]{9}|\+84[0-9]{9,10})$/.test(cleaned);
 };
 
 const formatWebsiteUrl = (url: string): string => {
@@ -179,10 +180,10 @@ export function BrandFormStepBusiness({
   isDefault,
   setIsDefault,
 }: BrandFormStepBusinessProps) {
-  const [isFooterOpen, setIsFooterOpen] = useState(true);
-  const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId);
   const [isVisualOpen, setIsVisualOpen] = useState(true);
-  const [isPersonasOpen, setIsPersonasOpen] = useState(true);
+  const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId);
+  const [isPersonasOpen, setIsPersonasOpen] = useState(false);
+  const [isFooterOpen, setIsFooterOpen] = useState(false);
 
   // Auto-fill company_name from brandName if empty
   const handleUseBrandName = () => {
@@ -354,6 +355,47 @@ export function BrandFormStepBusiness({
         </Card>
       </Collapsible>
 
+      {/* Products Section */}
+      <Collapsible open={isProductsOpen} onOpenChange={setIsProductsOpen}>
+        <Card className="overflow-hidden">
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <CardTitle className="text-base">Sản phẩm & Dịch vụ</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      Danh sách sản phẩm, dịch vụ chính của thương hiệu
+                    </CardDescription>
+                  </div>
+                </div>
+                <ChevronDown className={cn(
+                  "w-4 h-4 text-muted-foreground transition-transform",
+                  isProductsOpen && "rotate-180"
+                )} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0 pb-4 px-4">
+              {brandTemplateId ? (
+                <ProductCatalogEditor brandTemplateId={brandTemplateId} />
+              ) : (
+                <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-lg border border-dashed">
+                  <Info className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <p className="text-sm text-muted-foreground">
+                    Bạn có thể thêm sản phẩm sau khi tạo Brand Template.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       {/* Customer Personas Section */}
       <Collapsible open={isPersonasOpen} onOpenChange={setIsPersonasOpen}>
         <Card className="overflow-hidden">
@@ -392,47 +434,6 @@ export function BrandFormStepBusiness({
                 onPersonasChange={onPersonasChange}
                 brandPositioning={brandPositioning}
               />
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      {/* Products Section */}
-      <Collapsible open={isProductsOpen} onOpenChange={setIsProductsOpen}>
-        <Card className="overflow-hidden">
-          <CollapsibleTrigger className="w-full">
-            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="text-left">
-                    <CardTitle className="text-base">Sản phẩm & Dịch vụ</CardTitle>
-                    <CardDescription className="text-xs mt-0.5">
-                      Danh sách sản phẩm, dịch vụ chính của thương hiệu
-                    </CardDescription>
-                  </div>
-                </div>
-                <ChevronDown className={cn(
-                  "w-4 h-4 text-muted-foreground transition-transform",
-                  isProductsOpen && "rotate-180"
-                )} />
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="pt-0 pb-4 px-4">
-              {brandTemplateId ? (
-                <ProductCatalogEditor brandTemplateId={brandTemplateId} />
-              ) : (
-                <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-lg border border-dashed">
-                  <Info className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    Bạn có thể thêm sản phẩm sau khi tạo Brand Template.
-                  </p>
-                </div>
-              )}
             </CardContent>
           </CollapsibleContent>
         </Card>
@@ -737,7 +738,7 @@ export function BrandFormStepBusiness({
                     </div>
                   </div>
 
-                  {/* Footer Preview */}
+                  {/* Footer Preview - always show if there are display fields selected */}
                   {footerInfo.display_fields.length > 0 && (
                     <div className="space-y-2">
                       <Label className="text-sm flex items-center gap-1.5">
