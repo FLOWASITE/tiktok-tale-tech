@@ -12,7 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, Channel, CHANNELS } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -27,6 +27,7 @@ import { MarketingFrameworkSelector } from '@/components/topic/MarketingFramewor
 import { QuickStartSection } from '@/components/QuickStartSection';
 import { QuickStartTemplate } from '@/types/quickStartTemplates';
 import { getTopicSuggestionsForTemplate } from '@/utils/topicTemplateUtils';
+import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -329,7 +330,41 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
             <div className="space-y-1.5 xs:space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="topic" className="text-xs xs:text-sm">Chủ đề / Ý tưởng</Label>
-                <span className="text-[10px] xs:text-xs text-muted-foreground">{topicLength}/500</span>
+                <div className="flex items-center gap-2">
+                  {selectedTemplate?.industry_template_id && (
+                    <GlossaryQuickLookup
+                      industryTemplateId={selectedTemplate.industry_template_id}
+                      onInsertTerm={(term) => {
+                        const textarea = topicRef.current;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const before = topic.slice(0, cursorPos);
+                          const after = topic.slice(cursorPos);
+                          setTopic((before + term + after).slice(0, 500));
+                          setTimeout(() => {
+                            textarea.focus();
+                            const newPos = cursorPos + term.length;
+                            textarea.setSelectionRange(newPos, newPos);
+                          }, 0);
+                        } else {
+                          setTopic((topic + ' ' + term).slice(0, 500));
+                        }
+                      }}
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <Book className="h-3 w-3" />
+                          Từ điển
+                        </Button>
+                      }
+                    />
+                  )}
+                  <span className="text-[10px] xs:text-xs text-muted-foreground">{topicLength}/500</span>
+                </div>
               </div>
               <Textarea
                 ref={topicRef}

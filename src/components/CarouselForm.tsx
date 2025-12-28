@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,7 @@ import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { 
   Images, 
   Loader2, 
@@ -35,7 +36,8 @@ import {
   Sparkles, 
   Wand2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Book
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -69,6 +71,7 @@ const MAX_TOPIC_LENGTH = 300;
 
 export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId }: CarouselFormProps) {
   const { templates, loading: templatesLoading, saveTemplate, deleteTemplate } = useBrandTemplates();
+  const topicInputRef = useRef<HTMLInputElement>(null);
   
   const [topic, setTopic] = useState(initialTopic || '');
 
@@ -249,12 +252,47 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
 
       {/* Topic Input */}
       <div className="space-y-3 stagger-item" style={{ animationDelay: '100ms' }}>
-        <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-          Chủ đề Carousel
-          <span className="text-primary">*</span>
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+            Chủ đề Carousel
+            <span className="text-primary">*</span>
+          </Label>
+          {selectedTemplate?.industry_template_id && (
+            <GlossaryQuickLookup
+              industryTemplateId={selectedTemplate.industry_template_id}
+              onInsertTerm={(term) => {
+                const input = topicInputRef.current;
+                if (input) {
+                  const cursorPos = input.selectionStart || topic.length;
+                  const before = topic.slice(0, cursorPos);
+                  const after = topic.slice(cursorPos);
+                  setTopic((before + term + after).slice(0, MAX_TOPIC_LENGTH));
+                  setTimeout(() => {
+                    input.focus();
+                    const newPos = cursorPos + term.length;
+                    input.setSelectionRange(newPos, newPos);
+                  }, 0);
+                } else {
+                  setTopic((topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH));
+                }
+              }}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Book className="h-3 w-3" />
+                  Từ điển
+                </Button>
+              }
+            />
+          )}
+        </div>
         <div className="relative group">
           <Input
+            ref={topicInputRef}
             id="topic"
             placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
             value={topic}
