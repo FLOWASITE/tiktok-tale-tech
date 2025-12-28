@@ -34,16 +34,6 @@ interface BrandFormStepStrategyProps {
   tagline: string;
   setTagline: (value: string) => void;
   
-  // Target Market
-  targetAgeRange: string;
-  setTargetAgeRange: (value: string) => void;
-  targetGender: string;
-  setTargetGender: (value: string) => void;
-  marketSegment: string;
-  setMarketSegment: (value: string) => void;
-  targetLocations: string[];
-  setTargetLocations: (value: string[]) => void;
-  
   // Content Strategy
   brandHashtags: string[];
   setBrandHashtags: (value: string[]) => void;
@@ -103,10 +93,6 @@ export function BrandFormStepStrategy({
   vision, setVision,
   uniqueValueProposition, setUniqueValueProposition,
   tagline, setTagline,
-  targetAgeRange, setTargetAgeRange,
-  targetGender, setTargetGender,
-  marketSegment, setMarketSegment,
-  targetLocations, setTargetLocations,
   brandHashtags, setBrandHashtags,
   signaturePhrases, setSignaturePhrases,
   ctaTemplates, setCtaTemplates,
@@ -116,6 +102,19 @@ export function BrandFormStepStrategy({
   mainCompetitors, setMainCompetitors,
   competitiveAdvantages, setCompetitiveAdvantages,
 }: BrandFormStepStrategyProps) {
+  const [newHashtag, setNewHashtag] = useState('');
+  const [newPhrase, setNewPhrase] = useState('');
+  const [newCta, setNewCta] = useState('');
+  const [newTheme, setNewTheme] = useState('');
+  const [newCompetitor, setNewCompetitor] = useState('');
+  const [newAdvantage, setNewAdvantage] = useState('');
+  const [newColor, setNewColor] = useState('#6366f1');
+  
+  const [openSections, setOpenSections] = useState({
+    identity: true,
+    content: false,
+    competitor: false,
+  });
   const [newHashtag, setNewHashtag] = useState('');
   const [newPhrase, setNewPhrase] = useState('');
   const [newCta, setNewCta] = useState('');

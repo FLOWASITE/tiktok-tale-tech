@@ -7,6 +7,7 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepBusiness, BrandFooterInfo, DEFAULT_FOOTER_INFO } from '@/components/BrandFormStepBusiness';
+import { BrandFormStepPersonas } from '@/components/BrandFormStepPersonas';
 import { BrandFormStepStrategy } from '@/components/BrandFormStepStrategy';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
@@ -200,7 +201,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     e.preventDefault();
     e.stopPropagation();
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 6));
+      setCurrentStep(prev => Math.min(prev + 1, 7));
     }
   };
 
@@ -362,7 +363,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep !== 6) return;
+    if (currentStep !== 7) return;
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
@@ -574,8 +575,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               brandPositioning={brandPositioning}
               footerInfo={footerInfo}
               onFooterInfoChange={setFooterInfo}
-              personas={personas}
-              onPersonasChange={setPersonas}
               localProducts={localProducts}
               onLocalProductsChange={setLocalProducts}
               primaryColor={primaryColor}
@@ -594,8 +593,18 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 3: Strategy */}
+          {/* Step 3: Customer Personas */}
           {currentStep === 3 && (
+            <BrandFormStepPersonas
+              personas={personas}
+              onPersonasChange={setPersonas}
+              brandPositioning={brandPositioning}
+              brandName={brandName}
+            />
+          )}
+
+          {/* Step 4: Strategy */}
+          {currentStep === 4 && (
             <BrandFormStepStrategy
               mission={mission}
               setMission={setMission}
@@ -605,14 +614,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               setUniqueValueProposition={setUniqueValueProposition}
               tagline={tagline}
               setTagline={setTagline}
-              targetAgeRange={targetAgeRange}
-              setTargetAgeRange={setTargetAgeRange}
-              targetGender={targetGender}
-              setTargetGender={setTargetGender}
-              marketSegment={marketSegment}
-              setMarketSegment={setMarketSegment}
-              targetLocations={targetLocations}
-              setTargetLocations={setTargetLocations}
               brandHashtags={brandHashtags}
               setBrandHashtags={setBrandHashtags}
               signaturePhrases={signaturePhrases}
@@ -632,8 +633,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 4: Brand Voice */}
-          {currentStep === 4 && (
+          {/* Step 5: Brand Voice */}
+          {currentStep === 5 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-base font-medium">Brand Voice Profile</span>

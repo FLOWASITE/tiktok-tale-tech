@@ -140,9 +140,6 @@ interface BrandFormStepBusinessProps {
   brandPositioning?: string;
   footerInfo: BrandFooterInfo;
   onFooterInfoChange: (info: BrandFooterInfo) => void;
-  // Customer Personas
-  personas: CustomerPersona[];
-  onPersonasChange: (personas: CustomerPersona[]) => void;
   // Products (local mode for new brands)
   localProducts: LocalProduct[];
   onLocalProductsChange: (products: LocalProduct[]) => void;
@@ -168,8 +165,6 @@ export function BrandFormStepBusiness({
   brandPositioning,
   footerInfo,
   onFooterInfoChange,
-  personas,
-  onPersonasChange,
   localProducts,
   onLocalProductsChange,
   primaryColor,
@@ -188,13 +183,11 @@ export function BrandFormStepBusiness({
 }: BrandFormStepBusinessProps) {
   // When editing, open sections that have data; when creating, only Visual is open
   const hasVisualData = !!logoPreview || primaryColor !== '#000000';
-  const hasPersonasData = personas.length > 0;
   const hasProductsData = localProducts.length > 0;
   const hasFooterData = !!(footerInfo.company_name || footerInfo.phone || footerInfo.email || footerInfo.website);
   
   const [isVisualOpen, setIsVisualOpen] = useState(true);
   const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId || hasProductsData);
-  const [isPersonasOpen, setIsPersonasOpen] = useState(hasPersonasData);
   const [isFooterOpen, setIsFooterOpen] = useState(hasFooterData);
 
   // Completion calculations
@@ -204,8 +197,6 @@ export function BrandFormStepBusiness({
     if (logoPreview) score += 50;
     return score;
   })();
-
-  const personasCompletion = personas.length > 0 ? 100 : 0;
 
   const footerCompletion = (() => {
     let filled = 0;
@@ -434,53 +425,6 @@ export function BrandFormStepBusiness({
                 brandTemplateId={brandTemplateId || undefined}
                 localProducts={localProducts}
                 onLocalProductsChange={onLocalProductsChange}
-              />
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      {/* Customer Personas Section */}
-      <Collapsible open={isPersonasOpen} onOpenChange={setIsPersonasOpen}>
-        <Card className="overflow-hidden">
-          <CollapsibleTrigger className="w-full">
-            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="text-left">
-                    <CardTitle className="text-base">Khách hàng mục tiêu</CardTitle>
-                    <CardDescription className="text-xs mt-0.5">
-                      Customer Personas giúp AI tạo nội dung phù hợp
-                    </CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {personasCompletion === 100 ? (
-                    <Badge variant="default" className="text-[10px] px-1.5 py-0.5 bg-green-500/90">
-                      <Check className="w-3 h-3 mr-0.5" /> {personas.length} persona
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 text-muted-foreground">
-                      Tùy chọn
-                    </Badge>
-                  )}
-                  <ChevronDown className={cn(
-                    "w-4 h-4 text-muted-foreground transition-transform",
-                    isPersonasOpen && "rotate-180"
-                  )} />
-                </div>
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="pt-0 pb-4 px-4">
-              <CustomerPersonaEditor
-                personas={personas}
-                onPersonasChange={onPersonasChange}
-                brandPositioning={brandPositioning}
               />
             </CardContent>
           </CollapsibleContent>
