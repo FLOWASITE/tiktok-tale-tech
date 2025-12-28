@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useBrandAnalytics } from '@/hooks/useBrandAnalytics';
+import { useBrandCounts } from '@/hooks/useBrandCounts';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
@@ -49,6 +50,9 @@ export default function Brands() {
   // Brand Analytics - fetch usage stats for all templates
   const brandIds = useMemo(() => templates.map(t => t.id), [templates]);
   const { getUsageForBrand } = useBrandAnalytics(brandIds);
+  
+  // Brand Counts - fetch personas and products counts
+  const { getCountsForBrand } = useBrandCounts(brandIds);
   
   const [editingTemplate, setEditingTemplate] = useState<BrandTemplate | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -501,6 +505,7 @@ export default function Brands() {
               selected={selectedIds.has(template.id)}
               onSelectChange={handleSelectChange}
               usageStats={getUsageForBrand(template.id)}
+              brandCounts={getCountsForBrand(template.id)}
             />
           ))}
         </div>
