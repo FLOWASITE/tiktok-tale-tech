@@ -45,6 +45,8 @@ import { AssignedApproverInfo } from '@/components/AssignedApproverInfo';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { ContentValidationDialog } from '@/components/ContentValidationDialog';
 import { useIndustryMemoryForBrand } from '@/hooks/useIndustryMemory';
+import { useContentVersionCheck } from '@/hooks/useIndustryUpgradeCheck';
+import { VersionOutdatedBadge } from '@/components/VersionUpgradeAlert';
 // New viewer components
 import { ContentMockupToggle } from '@/components/viewer/ContentMockupToggle';
 import { QuickChannelNav } from '@/components/viewer/QuickChannelNav';
@@ -330,6 +332,12 @@ export function MultiChannelViewer({
 
   // Fetch Industry Memory for brand template
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryForBrand(content?.brand_template_id);
+
+  // Check for industry version upgrade
+  const { isOutdated: hasVersionUpgrade, latestVersion, industryName: upgradeIndustryName } = useContentVersionCheck(
+    content?.industry_template_version,
+    industryMemory?.id
+  );
 
   // State for selected channel in new layout - must be before early return
   const [selectedChannel, setSelectedChannel] = useState<Channel>(content?.selected_channels?.[0] || 'facebook');
@@ -619,6 +627,14 @@ export function MultiChannelViewer({
                     isLoading={isLoadingIndustry}
                     className="hidden md:flex"
                   />
+                  {/* Version Upgrade Badge */}
+                  {hasVersionUpgrade && latestVersion && (
+                    <VersionOutdatedBadge
+                      currentVersion={content.industry_template_version || '1.0'}
+                      latestVersion={latestVersion}
+                      className="hidden md:flex"
+                    />
+                  )}
                 </>
               )}
             </div>
