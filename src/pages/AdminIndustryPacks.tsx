@@ -18,6 +18,7 @@ import {
   Zap,
   Plus,
   Pencil,
+  Book,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -57,6 +58,7 @@ import { useIndustryTemplates } from '@/hooks/useIndustryTemplates';
 import { useIndustryPackDetails } from '@/hooks/useIndustryPackDetails';
 import { IndustryMemoryPack, IndustryPackStatus } from '@/types/industryMemoryPack';
 import { IndustryPackRulesEditor } from '@/components/admin/IndustryPackRulesEditor';
+import { IndustryGlossaryEditor } from '@/components/admin/IndustryGlossaryEditor';
 
 const statusConfig: Record<IndustryPackStatus, {
   label: string;
@@ -90,6 +92,7 @@ function PackCard({
   onDeprecate, 
   onReactivate,
   onEditRules,
+  onEditGlossary,
   onEdit,
   isUpdating,
 }: { 
@@ -98,6 +101,7 @@ function PackCard({
   onDeprecate: () => void;
   onReactivate: () => void;
   onEditRules: () => void;
+  onEditGlossary: () => void;
   onEdit: () => void;
   isUpdating: boolean;
 }) {
@@ -219,6 +223,22 @@ function PackCard({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Quản lý System Rules & Argument Patterns</TooltipContent>
+            </Tooltip>
+
+            {/* Glossary Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-8"
+                  onClick={onEditGlossary}
+                  disabled={isUpdating}
+                >
+                  <Book className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Từ điển ngành</TooltipContent>
             </Tooltip>
 
             {pack.status === 'draft' && (
@@ -363,6 +383,7 @@ export default function AdminIndustryPacks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [editingPackId, setEditingPackId] = useState<string | null>(null);
+  const [glossaryPackId, setGlossaryPackId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editPackId, setEditPackId] = useState<string | null>(null);
   
@@ -403,6 +424,7 @@ export default function AdminIndustryPacks() {
 
   // Derived state (not hooks)
   const editingPack = packs.find(p => p.id === editingPackId);
+  const glossaryPack = packs.find(p => p.id === glossaryPackId);
   const packToEdit = packs.find(p => p.id === editPackId);
 
   // Reset create form
@@ -636,6 +658,7 @@ export default function AdminIndustryPacks() {
                         onDeprecate={() => deprecatePack(pack.id)}
                         onReactivate={() => reactivatePack(pack.id)}
                         onEditRules={() => setEditingPackId(pack.id)}
+                        onEditGlossary={() => setGlossaryPackId(pack.id)}
                         onEdit={() => handleOpenEditDialog(pack.id)}
                         isUpdating={isUpdating}
                       />
@@ -662,6 +685,7 @@ export default function AdminIndustryPacks() {
                         onDeprecate={() => deprecatePack(pack.id)}
                         onReactivate={() => reactivatePack(pack.id)}
                         onEditRules={() => setEditingPackId(pack.id)}
+                        onEditGlossary={() => setGlossaryPackId(pack.id)}
                         onEdit={() => handleOpenEditDialog(pack.id)}
                         isUpdating={isUpdating}
                       />
@@ -896,6 +920,16 @@ export default function AdminIndustryPacks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Glossary Editor Dialog */}
+      {glossaryPackId && glossaryPack && (
+        <IndustryGlossaryEditor
+          open={!!glossaryPackId}
+          onOpenChange={(open) => !open && setGlossaryPackId(null)}
+          packId={glossaryPackId}
+          packName={glossaryPack.name || glossaryPack.code || 'Pack'}
+        />
+      )}
     </div>
   );
 }
