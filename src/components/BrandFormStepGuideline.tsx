@@ -140,6 +140,7 @@ export function BrandFormStepGuideline({
         setGuidelineExampleBad(data.example_bad || '');
         setGuidelineKeyPrinciples(data.key_principles || []);
         setHasGenerated(true);
+        setIsViewMode(true); // Switch to View mode after generation
         toast.success('Đã tạo Brand Guideline với AI!');
       }
     } catch (error) {
