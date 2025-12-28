@@ -13,8 +13,6 @@ import {
   Hash, 
   MessageSquareQuote, 
   Megaphone, 
-  Users, 
-  MapPin, 
   ChevronDown, 
   Plus, 
   X,
@@ -57,27 +55,6 @@ interface BrandFormStepStrategyProps {
   setCompetitiveAdvantages: (value: string[]) => void;
 }
 
-const AGE_RANGES = [
-  { value: '18-24', label: '18-24 (Gen Z)' },
-  { value: '25-34', label: '25-34 (Millennials)' },
-  { value: '35-44', label: '35-44 (Gen X)' },
-  { value: '45-54', label: '45-54' },
-  { value: '55+', label: '55+' },
-  { value: 'all', label: 'Tất cả độ tuổi' },
-];
-
-const GENDER_OPTIONS = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'male', label: 'Nam' },
-  { value: 'female', label: 'Nữ' },
-];
-
-const MARKET_SEGMENTS = [
-  { value: 'mass', label: 'Mass Market (Đại chúng)' },
-  { value: 'mid', label: 'Mid-tier (Trung cấp)' },
-  { value: 'premium', label: 'Premium (Cao cấp)' },
-  { value: 'luxury', label: 'Luxury (Xa xỉ)' },
-];
 
 const IMAGE_STYLES = [
   { value: 'minimal', label: 'Minimal (Tối giản)' },
@@ -112,21 +89,6 @@ export function BrandFormStepStrategy({
   
   const [openSections, setOpenSections] = useState({
     identity: true,
-    content: false,
-    competitor: false,
-  });
-  const [newHashtag, setNewHashtag] = useState('');
-  const [newPhrase, setNewPhrase] = useState('');
-  const [newCta, setNewCta] = useState('');
-  const [newTheme, setNewTheme] = useState('');
-  const [newLocation, setNewLocation] = useState('');
-  const [newCompetitor, setNewCompetitor] = useState('');
-  const [newAdvantage, setNewAdvantage] = useState('');
-  const [newColor, setNewColor] = useState('#6366f1');
-  
-  const [openSections, setOpenSections] = useState({
-    identity: true,
-    target: true,
     content: false,
     competitor: false,
   });
@@ -236,118 +198,6 @@ export function BrandFormStepStrategy({
                   placeholder="Just Do It, Think Different, ..."
                   className="text-sm"
                 />
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      {/* Target Market Section */}
-      <Collapsible open={openSections.target} onOpenChange={() => toggleSection('target')}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" />
-                  <div>
-                    <CardTitle className="text-base">Target Market</CardTitle>
-                    <CardDescription className="text-xs">Đối tượng khách hàng mục tiêu</CardDescription>
-                  </div>
-                </div>
-                <ChevronDown className={cn(
-                  "w-4 h-4 transition-transform",
-                  openSections.target && "rotate-180"
-                )} />
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4 pt-0">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label className="text-sm">Độ tuổi</Label>
-                  <Select value={targetAgeRange} onValueChange={setTargetAgeRange}>
-                    <SelectTrigger className="text-sm">
-                      <SelectValue placeholder="Chọn độ tuổi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AGE_RANGES.map(age => (
-                        <SelectItem key={age.value} value={age.value}>{age.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm">Giới tính</Label>
-                  <Select value={targetGender} onValueChange={setTargetGender}>
-                    <SelectTrigger className="text-sm">
-                      <SelectValue placeholder="Chọn giới tính" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GENDER_OPTIONS.map(g => (
-                        <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm">Phân khúc</Label>
-                  <Select value={marketSegment} onValueChange={setMarketSegment}>
-                    <SelectTrigger className="text-sm">
-                      <SelectValue placeholder="Chọn phân khúc" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MARKET_SEGMENTS.map(seg => (
-                        <SelectItem key={seg.value} value={seg.value}>{seg.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  Khu vực mục tiêu
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newLocation}
-                    onChange={(e) => setNewLocation(e.target.value)}
-                    placeholder="Nhập tỉnh/thành phố..."
-                    className="text-sm flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addToArray(newLocation, setTargetLocations, targetLocations, () => setNewLocation(''));
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addToArray(newLocation, setTargetLocations, targetLocations, () => setNewLocation(''))}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {targetLocations.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {targetLocations.map((loc, i) => (
-                      <Badge key={i} variant="secondary" className="gap-1 text-xs">
-                        {loc}
-                        <X
-                          className="w-3 h-3 cursor-pointer hover:text-destructive"
-                          onClick={() => removeFromArray(i, setTargetLocations, targetLocations)}
-                        />
-                      </Badge>
-                    ))}
-                  </div>
-                )}
               </div>
             </CardContent>
           </CollapsibleContent>
