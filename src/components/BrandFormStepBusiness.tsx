@@ -31,7 +31,8 @@ import {
   Trash2,
   Star,
   Users,
-  Wand2
+  Wand2,
+  Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CustomerPersona } from '@/types/customerPersona';
@@ -81,6 +82,55 @@ const DISPLAY_FIELD_OPTIONS = [
   { id: 'business_hours', label: 'Giờ làm việc', icon: Clock },
   { id: 'tagline', label: 'Slogan', icon: Sparkles },
 ];
+
+// Footer Templates
+const FOOTER_TEMPLATES = [
+  { 
+    id: 'minimal', 
+    label: 'Tối giản', 
+    description: 'Chỉ hiển thị thông tin cơ bản',
+    fields: ['phone', 'website'] 
+  },
+  { 
+    id: 'full_contact', 
+    label: 'Liên hệ đầy đủ', 
+    description: 'Hiển thị tất cả thông tin liên hệ',
+    fields: ['company_name', 'phone', 'email', 'website', 'address'] 
+  },
+  { 
+    id: 'social_first', 
+    label: 'Mạng xã hội', 
+    description: 'Ưu tiên các kênh social',
+    fields: ['social_links', 'website', 'phone'] 
+  },
+  { 
+    id: 'professional', 
+    label: 'Chuyên nghiệp', 
+    description: 'Phù hợp cho B2B',
+    fields: ['company_name', 'tagline', 'phone', 'email', 'website', 'business_hours'] 
+  },
+];
+
+// Validation helpers
+const isValidEmail = (email: string): boolean => {
+  if (!email) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const isValidVNPhone = (phone: string): boolean => {
+  if (!phone) return true;
+  const cleaned = phone.replace(/[\s.-]/g, '');
+  return /^(0|\+84)[0-9]{9,10}$/.test(cleaned);
+};
+
+const formatWebsiteUrl = (url: string): string => {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (trimmed && !trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+};
 
 interface BrandFormStepBusinessProps {
   brandTemplateId?: string | null;
@@ -506,7 +556,13 @@ export function BrandFormStepBusiness({
                     placeholder="0123 456 789"
                     value={footerInfo.phone}
                     onChange={(e) => updateFooterField('phone', e.target.value)}
+                    className={cn(
+                      footerInfo.phone && !isValidVNPhone(footerInfo.phone) && "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {footerInfo.phone && !isValidVNPhone(footerInfo.phone) && (
+                    <p className="text-[11px] text-destructive">Số điện thoại không hợp lệ</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -520,7 +576,13 @@ export function BrandFormStepBusiness({
                     placeholder="contact@company.com"
                     value={footerInfo.email}
                     onChange={(e) => updateFooterField('email', e.target.value)}
+                    className={cn(
+                      footerInfo.email && !isValidEmail(footerInfo.email) && "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {footerInfo.email && !isValidEmail(footerInfo.email) && (
+                    <p className="text-[11px] text-destructive">Email không hợp lệ</p>
+                  )}
                 </div>
               </div>
 
@@ -532,9 +594,15 @@ export function BrandFormStepBusiness({
                   </Label>
                   <Input
                     id="website"
-                    placeholder="https://www.company.com"
+                    placeholder="www.company.com"
                     value={footerInfo.website}
                     onChange={(e) => updateFooterField('website', e.target.value)}
+                    onBlur={(e) => {
+                      const formatted = formatWebsiteUrl(e.target.value);
+                      if (formatted !== footerInfo.website) {
+                        updateFooterField('website', formatted);
+                      }
+                    }}
                   />
                 </div>
 
@@ -611,34 +679,131 @@ export function BrandFormStepBusiness({
 
               {/* Display Fields Selection */}
               {footerInfo.enabled_for_content && (
-                <div className="space-y-3 pt-2 border-t">
-                  <Label className="text-sm">Thông tin hiển thị trong nội dung</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {DISPLAY_FIELD_OPTIONS.map((field) => {
-                      const isSelected = footerInfo.display_fields.includes(field.id);
-                      const Icon = field.icon;
-                      return (
+                <div className="space-y-4 pt-3 border-t">
+                  {/* Footer Templates */}
+                  <div className="space-y-2">
+                    <Label className="text-sm flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Template nhanh
+                    </Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {FOOTER_TEMPLATES.map((template) => (
                         <button
-                          key={field.id}
+                          key={template.id}
                           type="button"
-                          onClick={() => toggleDisplayField(field.id)}
+                          onClick={() => updateFooterField('display_fields', template.fields)}
                           className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                            isSelected
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            "p-2 rounded-lg border text-left transition-all hover:border-primary/50",
+                            JSON.stringify(footerInfo.display_fields.sort()) === JSON.stringify(template.fields.sort())
+                              ? "border-primary bg-primary/5"
+                              : "border-border"
                           )}
                         >
-                          <Checkbox
-                            checked={isSelected}
-                            className="w-3.5 h-3.5 pointer-events-none"
-                          />
-                          <Icon className="w-3 h-3" />
-                          {field.label}
+                          <p className="text-xs font-medium">{template.label}</p>
+                          <p className="text-[10px] text-muted-foreground line-clamp-1">{template.description}</p>
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
+
+                  {/* Custom Field Selection */}
+                  <div className="space-y-2">
+                    <Label className="text-sm">Tùy chỉnh thông tin hiển thị</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {DISPLAY_FIELD_OPTIONS.map((field) => {
+                        const isSelected = footerInfo.display_fields.includes(field.id);
+                        const Icon = field.icon;
+                        return (
+                          <button
+                            key={field.id}
+                            type="button"
+                            onClick={() => toggleDisplayField(field.id)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                              isSelected
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            )}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              className="w-3.5 h-3.5 pointer-events-none"
+                            />
+                            <Icon className="w-3 h-3" />
+                            {field.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Footer Preview */}
+                  {footerInfo.display_fields.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5" />
+                        Xem trước footer
+                      </Label>
+                      <div className="p-3 bg-muted/30 rounded-lg border border-dashed text-xs space-y-1.5">
+                        {footerInfo.display_fields.includes('tagline') && footerInfo.tagline && (
+                          <p className="italic text-muted-foreground">{footerInfo.tagline}</p>
+                        )}
+                        {footerInfo.display_fields.includes('company_name') && footerInfo.company_name && (
+                          <p className="font-medium">{footerInfo.company_name}</p>
+                        )}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                          {footerInfo.display_fields.includes('phone') && footerInfo.phone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3" /> {footerInfo.phone}
+                            </span>
+                          )}
+                          {footerInfo.display_fields.includes('email') && footerInfo.email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="w-3 h-3" /> {footerInfo.email}
+                            </span>
+                          )}
+                          {footerInfo.display_fields.includes('website') && footerInfo.website && (
+                            <span className="flex items-center gap-1">
+                              <Globe className="w-3 h-3" /> {footerInfo.website}
+                            </span>
+                          )}
+                        </div>
+                        {footerInfo.display_fields.includes('address') && footerInfo.address && (
+                          <p className="flex items-center gap-1 text-muted-foreground">
+                            <MapPin className="w-3 h-3 shrink-0" /> {footerInfo.address}
+                          </p>
+                        )}
+                        {footerInfo.display_fields.includes('business_hours') && footerInfo.business_hours && (
+                          <p className="flex items-center gap-1 text-muted-foreground">
+                            <Clock className="w-3 h-3 shrink-0" /> {footerInfo.business_hours}
+                          </p>
+                        )}
+                        {footerInfo.display_fields.includes('social_links') && Object.values(footerInfo.social_links).some(v => v) && (
+                          <div className="flex items-center gap-2 pt-1">
+                            {footerInfo.social_links.facebook && <Facebook className="w-3.5 h-3.5 text-blue-600" />}
+                            {footerInfo.social_links.instagram && <Instagram className="w-3.5 h-3.5 text-pink-600" />}
+                            {footerInfo.social_links.youtube && <Youtube className="w-3.5 h-3.5 text-red-600" />}
+                            {footerInfo.social_links.zalo && (
+                              <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-bold flex items-center justify-center rounded">Z</span>
+                            )}
+                          </div>
+                        )}
+                        {!footerInfo.display_fields.some(f => {
+                          if (f === 'company_name') return !!footerInfo.company_name;
+                          if (f === 'phone') return !!footerInfo.phone;
+                          if (f === 'email') return !!footerInfo.email;
+                          if (f === 'website') return !!footerInfo.website;
+                          if (f === 'address') return !!footerInfo.address;
+                          if (f === 'tagline') return !!footerInfo.tagline;
+                          if (f === 'business_hours') return !!footerInfo.business_hours;
+                          if (f === 'social_links') return Object.values(footerInfo.social_links).some(v => v);
+                          return false;
+                        }) && (
+                          <p className="text-muted-foreground italic">Chưa có thông tin để hiển thị. Vui lòng điền các trường ở trên.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
