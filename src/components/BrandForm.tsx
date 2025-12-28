@@ -720,8 +720,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 5: Channel Settings */}
-          {currentStep === 5 && (
+          {/* Step 6: Channel Settings */}
+          {currentStep === 6 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
               <ChannelSettingsEditor
                 value={channelOverrides}
@@ -747,8 +747,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             </div>
           )}
 
-          {/* Step 6: Brand Guideline */}
-          {currentStep === 6 && (
+          {/* Step 7: Brand Guideline */}
+          {currentStep === 7 && (
             <BrandFormStepGuideline
               brandName={brandName}
               industries={industries}
@@ -814,7 +814,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 6 ? (
+          {currentStep < 7 ? (
             <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />
