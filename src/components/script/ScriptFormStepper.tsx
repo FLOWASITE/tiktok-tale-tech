@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -18,7 +18,8 @@ import {
   Settings,
   CheckCircle2,
   X,
-  Target
+  Target,
+  Book
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -40,6 +41,7 @@ import { HookStepContent } from '@/components/script/HookStepContent';
 import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector';
 import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
+import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
@@ -78,6 +80,7 @@ const MAX_TOPIC_LENGTH = 300;
 
 export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId }: ScriptFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
+  const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -353,13 +356,55 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
             {/* Topic Input - Second */}
             <div className="space-y-3">
-              <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-                Chủ đề video
-                <span className="text-primary">*</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+                  Chủ đề video
+                  <span className="text-primary">*</span>
+                </Label>
+                {selectedTemplate?.industry_template_id && (
+                  <GlossaryQuickLookup
+                    industryTemplateId={selectedTemplate.industry_template_id}
+                    onInsertTerm={(term) => {
+                      const textarea = topicTextareaRef.current;
+                      if (textarea) {
+                        const cursorPos = textarea.selectionStart;
+                        const currentTopic = formData.topic;
+                        const before = currentTopic.slice(0, cursorPos);
+                        const after = currentTopic.slice(cursorPos);
+                        setFormData((prev) => ({ 
+                          ...prev, 
+                          topic: (before + term + after).slice(0, MAX_TOPIC_LENGTH) 
+                        }));
+                        setTimeout(() => {
+                          textarea.focus();
+                          const newPos = cursorPos + term.length;
+                          textarea.setSelectionRange(newPos, newPos);
+                        }, 0);
+                      } else {
+                        setFormData((prev) => ({ 
+                          ...prev, 
+                          topic: (prev.topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH) 
+                        }));
+                      }
+                    }}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <Book className="h-3 w-3" />
+                        Từ điển
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
               
               <div className="relative group">
                 <Textarea
+                  ref={topicTextareaRef}
                   id="topic"
                   placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm phổ biến khi đầu tư chứng khoán mà người mới thường mắc phải..."
                   value={formData.topic}
