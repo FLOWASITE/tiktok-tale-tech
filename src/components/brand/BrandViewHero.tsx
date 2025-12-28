@@ -27,6 +27,8 @@ import {
   Target,
   Users,
   MapPin,
+  Package,
+  TrendingUp,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -41,6 +43,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { FORMALITY_LEVEL_OPTIONS } from '@/components/BrandVoiceSection';
+import { BrandCompleteness } from '@/utils/brandCompleteness';
+import { BrandCompletenessRing } from './BrandCompletenessRing';
+import { cn } from '@/lib/utils';
 
 interface BrandViewHeroProps {
   template: BrandTemplate;
@@ -50,6 +55,9 @@ interface BrandViewHeroProps {
   onDuplicate: () => void;
   onRefresh: () => void;
   refreshing: boolean;
+  completeness?: BrandCompleteness | null;
+  personasCount?: number;
+  productsCount?: number;
 }
 
 export function BrandViewHero({
@@ -60,6 +68,9 @@ export function BrandViewHero({
   onDuplicate,
   onRefresh,
   refreshing,
+  completeness,
+  personasCount = 0,
+  productsCount = 0,
 }: BrandViewHeroProps) {
   const { currentOrganization } = useOrganizationContext();
   const isOrganizationBrand = !!template.organization_id;
@@ -68,22 +79,34 @@ export function BrandViewHero({
     (o) => o.value === template.formality_level
   )?.label;
 
+  // Get secondary color or generate a complementary one
+  const secondaryColor = template.secondary_colors?.[0] || 
+    (template.primary_color ? adjustColor(template.primary_color, 30) : undefined);
+
   return (
     <div className="relative">
-      {/* Background gradient with brand color */}
+      {/* Enhanced Background gradient with brand colors */}
       <div
-        className="absolute inset-0 rounded-xl opacity-10"
+        className="absolute inset-0 opacity-20"
         style={{
           background: template.primary_color
-            ? `linear-gradient(135deg, ${template.primary_color} 0%, transparent 60%)`
-            : undefined,
+            ? `linear-gradient(135deg, ${template.primary_color} 0%, ${secondaryColor || 'transparent'} 50%, transparent 100%)`
+            : 'linear-gradient(135deg, hsl(var(--primary)/0.3) 0%, transparent 100%)',
+        }}
+      />
+      
+      {/* Decorative pattern overlay */}
+      <div className="absolute inset-0 opacity-5 pointer-events-none"
+        style={{
+          backgroundImage: `radial-gradient(circle at 25% 25%, ${template.primary_color || 'hsl(var(--primary))'} 1px, transparent 1px)`,
+          backgroundSize: '24px 24px',
         }}
       />
 
       <div className="relative space-y-4 p-4 md:p-6">
         {/* Top row: Back + Actions */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild className="hover:bg-background/50">
             <Link to="/brands">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Brands
@@ -96,19 +119,19 @@ export function BrandViewHero({
               size="icon"
               onClick={onRefresh}
               disabled={refreshing}
-              className="h-8 w-8"
+              className="h-8 w-8 hover:bg-background/50"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
 
-            <Button size="sm" onClick={onEdit}>
-              <Edit2 className="w-4 h-4 mr-2" />
+            <Button size="sm" onClick={onEdit} className="gap-1.5 shadow-sm">
+              <Edit2 className="w-4 h-4" />
               Chỉnh sửa
             </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8">
+                <Button variant="outline" size="icon" className="h-8 w-8 bg-background/50">
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -153,10 +176,10 @@ export function BrandViewHero({
         </div>
 
         {/* Brand Identity */}
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-4 md:gap-6">
           {/* Avatar */}
           {template.logo_url ? (
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 border-border overflow-hidden bg-background shadow-sm shrink-0">
+            <div className="w-16 h-16 md:w-24 md:h-24 rounded-xl border-2 border-border overflow-hidden bg-background shadow-lg shrink-0 ring-4 ring-background/50">
               <img
                 src={template.logo_url}
                 alt={`${template.brand_name} logo`}
@@ -165,13 +188,13 @@ export function BrandViewHero({
             </div>
           ) : (
             <div
-              className="w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 border-dashed border-border flex items-center justify-center shrink-0 shadow-sm"
+              className="w-16 h-16 md:w-24 md:h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center shrink-0 shadow-lg ring-4 ring-background/50"
               style={{
-                backgroundColor: template.primary_color ? `${template.primary_color}20` : 'hsl(var(--muted))',
+                backgroundColor: template.primary_color ? `${template.primary_color}30` : 'hsl(var(--muted))',
               }}
             >
               <span
-                className="text-2xl md:text-3xl font-bold"
+                className="text-2xl md:text-4xl font-bold"
                 style={{ color: template.primary_color || 'hsl(var(--muted-foreground))' }}
               >
                 {template.brand_name.charAt(0).toUpperCase()}
@@ -180,10 +203,10 @@ export function BrandViewHero({
           )}
 
           {/* Info */}
-          <div className="min-w-0 flex-1 space-y-1">
+          <div className="min-w-0 flex-1 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               {template.is_default && (
-                <Star className="w-5 h-5 text-yellow-500 fill-yellow-500 shrink-0" />
+                <Star className="w-5 h-5 text-yellow-500 fill-yellow-500 shrink-0 drop-shadow-sm" />
               )}
               <h1 className="text-xl md:text-2xl font-bold truncate">{template.brand_name}</h1>
             </div>
@@ -194,9 +217,9 @@ export function BrandViewHero({
               </p>
             )}
 
-            <div className="flex items-center gap-2 flex-wrap pt-1">
+            <div className="flex items-center gap-2 flex-wrap">
               {isOrganizationBrand ? (
-                <Badge variant="outline" className="gap-1 bg-primary/5 border-primary/20">
+                <Badge variant="outline" className="gap-1 bg-primary/10 border-primary/30">
                   <Building2 className="w-3 h-3" />
                   {currentOrganization?.name || 'Tổ chức'}
                 </Badge>
@@ -206,43 +229,79 @@ export function BrandViewHero({
                   Cá nhân
                 </Badge>
               )}
-              {template.is_default && <Badge>Mặc định</Badge>}
+              {template.is_default && <Badge className="bg-primary/90">Mặc định</Badge>}
               {template.industry?.slice(0, 2).map((ind) => (
-                <Badge key={ind} variant="outline">
+                <Badge key={ind} variant="outline" className="bg-background/50">
                   {ind}
                 </Badge>
               ))}
             </div>
 
             {template.mission && (
-              <p className="text-sm text-muted-foreground line-clamp-2 pt-2">
+              <p className="text-sm text-muted-foreground line-clamp-2">
                 {template.mission}
               </p>
             )}
           </div>
+
+          {/* Completeness Ring - Desktop */}
+          {completeness && (
+            <div className="hidden md:block shrink-0">
+              <BrandCompletenessRing completeness={completeness} size="lg" />
+            </div>
+          )}
         </div>
 
-        {/* Quick Stats Row */}
-        <div className="flex flex-wrap gap-2 md:gap-3 pt-2">
+        {/* Stats Row */}
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 pt-2">
+          {/* Completeness Ring - Mobile */}
+          {completeness && (
+            <div className="md:hidden">
+              <BrandCompletenessRing completeness={completeness} size="sm" showLabel={false} />
+            </div>
+          )}
+
           {/* Primary Color */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/80 border border-border/50 shadow-sm">
             <div
-              className="w-4 h-4 rounded-full border border-border"
+              className="w-4 h-4 rounded-full border border-border shadow-inner"
               style={{ backgroundColor: template.primary_color || '#888888' }}
             />
             <span className="text-xs font-mono">{template.primary_color || 'N/A'}</span>
           </div>
 
+          {/* Personas Count */}
+          <div className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm",
+            personasCount > 0 
+              ? "bg-primary/10 border-primary/30" 
+              : "bg-background/80 border-border/50"
+          )}>
+            <Users className={cn("w-3.5 h-3.5", personasCount > 0 ? "text-primary" : "text-muted-foreground")} />
+            <span className="text-xs">{personasCount} Personas</span>
+          </div>
+
+          {/* Products Count */}
+          <div className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm",
+            productsCount > 0 
+              ? "bg-emerald-500/10 border-emerald-500/30" 
+              : "bg-background/80 border-border/50"
+          )}>
+            <Package className={cn("w-3.5 h-3.5", productsCount > 0 ? "text-emerald-600" : "text-muted-foreground")} />
+            <span className="text-xs">{productsCount} Sản phẩm</span>
+          </div>
+
           {/* Formality */}
           {formalityLabel && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/80 border border-border/50 shadow-sm">
               <Target className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs">{formalityLabel}</span>
             </div>
           )}
 
           {/* Emoji */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/80 border border-border/50 shadow-sm">
             {template.allow_emoji !== false ? (
               <>
                 <Smile className="w-3.5 h-3.5 text-green-600" />
@@ -258,15 +317,15 @@ export function BrandViewHero({
 
           {/* Target Age */}
           {template.target_age_range && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
-              <Users className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/80 border border-border/50 shadow-sm">
+              <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs">{template.target_age_range}</span>
             </div>
           )}
 
           {/* Target Location */}
           {template.target_locations && template.target_locations.length > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/80 border border-border/50 shadow-sm">
               <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs">{template.target_locations[0]}</span>
               {template.target_locations.length > 1 && (
@@ -280,4 +339,18 @@ export function BrandViewHero({
       </div>
     </div>
   );
+}
+
+// Helper function to adjust color brightness
+function adjustColor(hex: string, percent: number): string {
+  try {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+    const G = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amt));
+    const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
+    return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
+  } catch {
+    return hex;
+  }
 }
