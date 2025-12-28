@@ -140,7 +140,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     let score = 0;
     if (name.trim()) score += 15;
     if (brandName.trim()) score += 15;
-    if (brandGuideline.trim() && brandGuideline !== DEFAULT_BRAND_GUIDELINE) score += 10;
+    if (brandGuideline.trim()) score += 10;
     if (industries.length > 0) score += 10;
     if (brandPositioning) score += 10;
     if (toneOfVoice.length > 0) score += 10;

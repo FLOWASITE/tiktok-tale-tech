@@ -58,7 +58,7 @@ interface BrandFormStepGuidelineProps {
   setGuidelineKeyPrinciples: (value: string[]) => void;
 }
 
-const DEFAULT_GUIDELINE = 'Viết content chuyên nghiệp, thân thiện và dễ hiểu.';
+
 
 export function BrandFormStepGuideline({
   brandName,
@@ -87,7 +87,7 @@ export function BrandFormStepGuideline({
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   
-  const isGuidelineEmpty = !brandGuideline.trim() || brandGuideline === DEFAULT_GUIDELINE;
+  const isGuidelineEmpty = !brandGuideline.trim();
   
   // Preprocess guideline text to proper Markdown format
   const formatGuidelineForDisplay = (text: string): string => {

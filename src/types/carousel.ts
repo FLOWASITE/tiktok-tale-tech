@@ -54,14 +54,7 @@ export interface CarouselFormData {
   topicHistoryId?: string;
 }
 
-export const DEFAULT_BRAND_GUIDELINE = `Professional tax expert infographic style.
-Use Thuế Hộ by TAF.vn official branding.
-Primary colors: TAF red, black, white, high contrast.
-Clean, minimal, mobile-first layout.
-Clear Vietnamese text, sans-serif font, no distortion.
-Include Thuế Hộ by TAF.vn logo at bottom corner, subtle and professional.
-Tone: expert, serious, legal-compliance focused.
-Avoid cartoon, playful, decorative styles.`;
+export const DEFAULT_BRAND_GUIDELINE = '';
 
 export const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: 'facebook', label: 'Facebook' },
