@@ -68,6 +68,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [sampleTexts, setSampleTexts] = useState<Record<string, string> | null>(null);
   const [footerInfo, setFooterInfo] = useState<BrandFooterInfo>(DEFAULT_FOOTER_INFO);
   const [personas, setPersonas] = useState<CustomerPersona[]>([]);
+  const [localProducts, setLocalProducts] = useState<Array<{ id: string; name: string; sku: string; category: string; description: string; price_display: string; image_url: string; unique_selling_points: string[]; target_audience: string; pain_points_solved: string[]; benefits: string[]; keywords: string[]; suggested_content_angles: string[]; best_channels: string[]; is_featured: boolean; is_active: boolean; }>>([]);
   
   // Validation & AI
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -394,6 +395,26 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       }
     }
     
+    // Save local products if this is a new template
+    if (!template && result && typeof result === 'object' && 'id' in result && localProducts.length > 0) {
+      const newTemplateId = result.id;
+      try {
+        for (const product of localProducts) {
+          const { id, ...productData } = product;
+          await supabase.from('brand_products').insert({
+            brand_template_id: newTemplateId,
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            ...productData,
+          });
+        }
+        toast.success(`Đã lưu ${localProducts.length} sản phẩm!`);
+        setLocalProducts([]);
+      } catch (error) {
+        console.error('Failed to save products:', error);
+        toast.error('Một số sản phẩm chưa được lưu');
+      }
+    }
+    
     // If this is a new template and we have pending samples, save them
     if (!template && result && typeof result === 'object' && 'id' in result && pendingSamples.length > 0) {
       const newTemplateId = result.id;
@@ -502,6 +523,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               onFooterInfoChange={setFooterInfo}
               personas={personas}
               onPersonasChange={setPersonas}
+              localProducts={localProducts}
+              onLocalProductsChange={setLocalProducts}
               primaryColor={primaryColor}
               setPrimaryColor={setPrimaryColor}
               logoPreview={logoPreview}

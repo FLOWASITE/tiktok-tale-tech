@@ -20,9 +20,17 @@ import {
 } from '@/types/product';
 import { cn } from '@/lib/utils';
 
+// Local product type for temp products (no db fields)
+export interface LocalProduct extends ProductFormData {
+  id: string;
+}
+
 interface ProductCatalogEditorProps {
   brandTemplateId?: string;
   className?: string;
+  // For local mode (new brand, not yet saved)
+  localProducts?: LocalProduct[];
+  onLocalProductsChange?: (products: LocalProduct[]) => void;
 }
 
 const defaultFormData: ProductFormData = {
@@ -43,11 +51,23 @@ const defaultFormData: ProductFormData = {
   is_active: true,
 };
 
-export function ProductCatalogEditor({ brandTemplateId, className }: ProductCatalogEditorProps) {
-  const { products, isLoading, isSubmitting, createProduct, updateProduct, deleteProduct, toggleFeatured } = useProductCatalog(brandTemplateId);
+export function ProductCatalogEditor({ 
+  brandTemplateId, 
+  className,
+  localProducts,
+  onLocalProductsChange,
+}: ProductCatalogEditorProps) {
+  // Use local mode if brandTemplateId is not available but localProducts handlers are provided
+  const isLocalMode = !brandTemplateId && !!onLocalProductsChange;
+  
+  const { products: dbProducts, isLoading, isSubmitting, createProduct, updateProduct, deleteProduct, toggleFeatured } = useProductCatalog(brandTemplateId);
+  
+  // Determine which products to display
+  const products = isLocalMode ? (localProducts || []) : dbProducts;
+  
   const [isOpen, setIsOpen] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<BrandProduct | null>(null);
+  const [editingProduct, setEditingProduct] = useState<BrandProduct | LocalProduct | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(defaultFormData);
   const [newItem, setNewItem] = useState('');
   const [activeArrayField, setActiveArrayField] = useState<keyof ProductFormData | null>(null);
@@ -58,7 +78,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
     setDialogOpen(true);
   };
 
-  const handleOpenEdit = (product: BrandProduct) => {
+  const handleOpenEdit = (product: BrandProduct | LocalProduct) => {
     setEditingProduct(product);
     setFormData({
       name: product.name,
@@ -83,8 +103,27 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
   const handleSubmit = async () => {
     if (!formData.name.trim()) return;
 
+    if (isLocalMode && onLocalProductsChange) {
+      // Local mode: update local state
+      if (editingProduct) {
+        const updatedProducts = (localProducts || []).map(p => 
+          p.id === editingProduct.id ? { ...p, ...formData } : p
+        );
+        onLocalProductsChange(updatedProducts);
+      } else {
+        const newProduct: LocalProduct = {
+          ...formData,
+          id: `temp-${Date.now()}`,
+        };
+        onLocalProductsChange([...(localProducts || []), newProduct]);
+      }
+      setDialogOpen(false);
+      return;
+    }
+
+    // Database mode
     let result;
-    if (editingProduct) {
+    if (editingProduct && 'brand_template_id' in editingProduct) {
       result = await updateProduct(editingProduct.id, formData);
     } else {
       result = await createProduct(formData);
@@ -98,7 +137,23 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
 
   const handleDelete = async (productId: string) => {
     if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
-      await deleteProduct(productId);
+      if (isLocalMode && onLocalProductsChange) {
+        const updatedProducts = (localProducts || []).filter(p => p.id !== productId);
+        onLocalProductsChange(updatedProducts);
+      } else {
+        await deleteProduct(productId);
+      }
+    }
+  };
+
+  const handleToggleFeatured = async (productId: string, isFeatured: boolean) => {
+    if (isLocalMode && onLocalProductsChange) {
+      const updatedProducts = (localProducts || []).map(p => 
+        p.id === productId ? { ...p, is_featured: isFeatured } : p
+      );
+      onLocalProductsChange(updatedProducts);
+    } else {
+      await toggleFeatured(productId, isFeatured);
     }
   };
 
@@ -137,7 +192,8 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
     }
   };
 
-  if (!brandTemplateId) {
+  // Show nothing if not in local mode and no brandTemplateId
+  if (!brandTemplateId && !isLocalMode) {
     return (
       <div className={cn("rounded-lg border border-dashed border-muted-foreground/30 p-4 text-center text-muted-foreground text-sm", className)}>
         Lưu brand template trước để thêm sản phẩm
@@ -154,6 +210,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
               <Package className="h-4 w-4 text-primary" />
               <span className="font-medium">Sản phẩm/Dịch vụ</span>
               <Badge variant="secondary" className="ml-1">{products.length}</Badge>
+              {isLocalMode && <Badge variant="outline" className="ml-1 text-[10px]">Tạm</Badge>}
               {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
@@ -164,7 +221,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
         </div>
 
         <CollapsibleContent className="pt-3 space-y-2">
-          {isLoading ? (
+          {isLoading && !isLocalMode ? (
             <div className="text-sm text-muted-foreground">Đang tải...</div>
           ) : products.length === 0 ? (
             <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
@@ -216,7 +273,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => toggleFeatured(product.id, !product.is_featured)}
+                      onClick={() => handleToggleFeatured(product.id, !product.is_featured)}
                       title={product.is_featured ? 'Bỏ nổi bật' : 'Đánh dấu nổi bật'}
                     >
                       <Star className={cn("h-4 w-4", product.is_featured ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
@@ -429,15 +486,45 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
                 )}
               </div>
 
-              {/* Content Angles */}
+              {/* Keywords */}
               <div>
                 <Label className="flex items-center gap-2">
                   <Tag className="h-4 w-4" />
-                  Góc content phù hợp
+                  Từ khóa SEO
                 </Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    value={activeArrayField === 'keywords' ? newItem : ''}
+                    onChange={e => { setNewItem(e.target.value); setActiveArrayField('keywords'); }}
+                    onFocus={() => setActiveArrayField('keywords')}
+                    placeholder="áo thun nam, thời trang eco..."
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addArrayItem('keywords'))}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem('keywords')}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {formData.keywords.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {formData.keywords.map((item, idx) => (
+                      <Badge key={idx} variant="secondary" className="flex items-center gap-1">
+                        {item}
+                        <X 
+                          className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                          onClick={() => removeArrayItem('keywords', item)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Content Angles */}
+              <div>
+                <Label>Góc độ content phù hợp</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {CONTENT_ANGLES.map(angle => (
-                    <Badge
+                    <Badge 
                       key={angle.value}
                       variant={formData.suggested_content_angles.includes(angle.value) ? 'default' : 'outline'}
                       className="cursor-pointer"
@@ -454,7 +541,7 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
                 <Label>Kênh phù hợp nhất</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {BEST_CHANNELS.map(channel => (
-                    <Badge
+                    <Badge 
                       key={channel.value}
                       variant={formData.best_channels.includes(channel.value) ? 'default' : 'outline'}
                       className="cursor-pointer"
@@ -466,14 +553,14 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
                 </div>
               </div>
 
-              {/* Featured Toggle */}
+              {/* Featured Switch */}
               <div className="flex items-center justify-between pt-2 border-t">
                 <div className="flex items-center gap-2">
                   <Star className="h-4 w-4 text-yellow-500" />
-                  <Label htmlFor="featured">Sản phẩm nổi bật</Label>
+                  <Label htmlFor="is_featured">Sản phẩm nổi bật</Label>
                 </div>
                 <Switch
-                  id="featured"
+                  id="is_featured"
                   checked={formData.is_featured}
                   onCheckedChange={v => setFormData(prev => ({ ...prev, is_featured: v }))}
                 />
@@ -481,10 +568,16 @@ export function ProductCatalogEditor({ brandTemplateId, className }: ProductCata
             </div>
           </ScrollArea>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Hủy</Button>
-            <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !formData.name.trim()}>
-              {isSubmitting ? 'Đang lưu...' : editingProduct ? 'Cập nhật' : 'Thêm sản phẩm'}
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button 
+              type="button" 
+              onClick={handleSubmit}
+              disabled={!formData.name.trim() || isSubmitting}
+            >
+              {isSubmitting ? 'Đang lưu...' : (editingProduct ? 'Cập nhật' : 'Thêm')}
             </Button>
           </DialogFooter>
         </DialogContent>

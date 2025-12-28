@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ProductCatalogEditor } from '@/components/brand/ProductCatalogEditor';
+import { ProductCatalogEditor, LocalProduct } from '@/components/brand/ProductCatalogEditor';
 import { CustomerPersonaEditor } from '@/components/brand/CustomerPersonaEditor';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -143,6 +143,9 @@ interface BrandFormStepBusinessProps {
   // Customer Personas
   personas: CustomerPersona[];
   onPersonasChange: (personas: CustomerPersona[]) => void;
+  // Products (local mode for new brands)
+  localProducts: LocalProduct[];
+  onLocalProductsChange: (products: LocalProduct[]) => void;
   // Visual props
   primaryColor: string;
   setPrimaryColor: (color: string) => void;
@@ -167,6 +170,8 @@ export function BrandFormStepBusiness({
   onFooterInfoChange,
   personas,
   onPersonasChange,
+  localProducts,
+  onLocalProductsChange,
   primaryColor,
   setPrimaryColor,
   logoPreview,
@@ -184,10 +189,11 @@ export function BrandFormStepBusiness({
   // When editing, open sections that have data; when creating, only Visual is open
   const hasVisualData = !!logoPreview || primaryColor !== '#000000';
   const hasPersonasData = personas.length > 0;
+  const hasProductsData = localProducts.length > 0;
   const hasFooterData = !!(footerInfo.company_name || footerInfo.phone || footerInfo.email || footerInfo.website);
   
   const [isVisualOpen, setIsVisualOpen] = useState(true);
-  const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId);
+  const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId || hasProductsData);
   const [isPersonasOpen, setIsPersonasOpen] = useState(hasPersonasData);
   const [isFooterOpen, setIsFooterOpen] = useState(hasFooterData);
 
@@ -424,16 +430,11 @@ export function BrandFormStepBusiness({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent className="pt-0 pb-4 px-4">
-              {brandTemplateId ? (
-                <ProductCatalogEditor brandTemplateId={brandTemplateId} />
-              ) : (
-                <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-lg border border-dashed">
-                  <Info className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    Bạn có thể thêm sản phẩm sau khi tạo Brand Template.
-                  </p>
-                </div>
-              )}
+              <ProductCatalogEditor 
+                brandTemplateId={brandTemplateId || undefined}
+                localProducts={localProducts}
+                onLocalProductsChange={onLocalProductsChange}
+              />
             </CardContent>
           </CollapsibleContent>
         </Card>
