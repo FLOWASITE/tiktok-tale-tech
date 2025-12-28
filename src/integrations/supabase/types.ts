@@ -1192,6 +1192,110 @@ export type Database = {
           },
         ]
       }
+      industry_glossary: {
+        Row: {
+          abbreviation: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          industry_template_id: string
+          is_active: boolean
+          is_preferred: boolean
+          related_terms: string[] | null
+          sort_order: number
+          term: string
+          updated_at: string
+          usage_context: string | null
+        }
+        Insert: {
+          abbreviation?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          industry_template_id: string
+          is_active?: boolean
+          is_preferred?: boolean
+          related_terms?: string[] | null
+          sort_order?: number
+          term: string
+          updated_at?: string
+          usage_context?: string | null
+        }
+        Update: {
+          abbreviation?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          industry_template_id?: string
+          is_active?: boolean
+          is_preferred?: boolean
+          related_terms?: string[] | null
+          sort_order?: number
+          term?: string
+          updated_at?: string
+          usage_context?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_glossary_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_glossary_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_glossary_translations: {
+        Row: {
+          created_at: string
+          definition: string
+          example_usage: string | null
+          glossary_id: string
+          id: string
+          language_code: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          definition: string
+          example_usage?: string | null
+          glossary_id: string
+          id?: string
+          language_code?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          definition?: string
+          example_usage?: string | null
+          glossary_id?: string
+          id?: string
+          language_code?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_glossary_translations_glossary_id_fkey"
+            columns: ["glossary_id"]
+            isOneToOne: false
+            referencedRelation: "industry_glossary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industry_memory_versions: {
         Row: {
           brand_voice: Json | null
