@@ -6,7 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ProductCatalogEditor } from '@/components/brand/ProductCatalogEditor';
+import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Building2, 
@@ -21,7 +23,12 @@ import {
   Instagram,
   Youtube,
   Sparkles,
-  Info
+  Info,
+  Palette,
+  Upload,
+  ImageIcon,
+  Trash2,
+  Star
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -75,15 +82,43 @@ interface BrandFormStepBusinessProps {
   brandTemplateId?: string | null;
   footerInfo: BrandFooterInfo;
   onFooterInfoChange: (info: BrandFooterInfo) => void;
+  // Visual props
+  primaryColor: string;
+  setPrimaryColor: (color: string) => void;
+  logoPreview: string | null;
+  setLogoPreview: (url: string | null) => void;
+  logoFile: File | null;
+  setLogoFile: (file: File | null) => void;
+  deleteLogo: boolean;
+  setDeleteLogo: (value: boolean) => void;
+  existingLogoUrl?: string | null;
+  includeLogo: boolean;
+  setIncludeLogo: (value: boolean) => void;
+  isDefault: boolean;
+  setIsDefault: (value: boolean) => void;
 }
 
 export function BrandFormStepBusiness({
   brandTemplateId,
   footerInfo,
   onFooterInfoChange,
+  primaryColor,
+  setPrimaryColor,
+  logoPreview,
+  setLogoPreview,
+  logoFile,
+  setLogoFile,
+  deleteLogo,
+  setDeleteLogo,
+  existingLogoUrl,
+  includeLogo,
+  setIncludeLogo,
+  isDefault,
+  setIsDefault,
 }: BrandFormStepBusinessProps) {
   const [isFooterOpen, setIsFooterOpen] = useState(true);
   const [isProductsOpen, setIsProductsOpen] = useState(true);
+  const [isVisualOpen, setIsVisualOpen] = useState(true);
 
   const updateFooterField = <K extends keyof BrandFooterInfo>(
     field: K,
@@ -113,6 +148,23 @@ export function BrandFormStepBusiness({
     updateFooterField('display_fields', newFields);
   };
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+      setDeleteLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    if (existingLogoUrl) {
+      setDeleteLogo(true);
+    }
+  };
+
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
       {/* Header */}
@@ -121,12 +173,112 @@ export function BrandFormStepBusiness({
           <Building2 className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold">Thông tin doanh nghiệp</h2>
+          <h2 className="text-lg font-semibold">Doanh nghiệp & Hình ảnh</h2>
           <p className="text-sm text-muted-foreground">
-            Sản phẩm, dịch vụ và thông tin liên hệ cho nội dung
+            Thông tin doanh nghiệp, màu sắc và logo thương hiệu
           </p>
         </div>
       </div>
+
+      {/* Visual Section */}
+      <Collapsible open={isVisualOpen} onOpenChange={setIsVisualOpen}>
+        <Card className="overflow-hidden">
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Palette className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <CardTitle className="text-base">Nhận diện thương hiệu</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      Màu sắc chủ đạo và logo
+                    </CardDescription>
+                  </div>
+                </div>
+                <ChevronDown className={cn(
+                  "w-4 h-4 text-muted-foreground transition-transform",
+                  isVisualOpen && "rotate-180"
+                )} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0 pb-4 px-4 space-y-4">
+              {/* Color Picker */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-sm">
+                  <Palette className="w-3.5 h-3.5" />
+                  Màu chủ đạo
+                </Label>
+                <BrandColorPicker
+                  value={primaryColor}
+                  onChange={setPrimaryColor}
+                />
+              </div>
+
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-sm">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Logo thương hiệu
+                </Label>
+                <div className="flex items-start gap-4">
+                  {logoPreview ? (
+                    <div className="relative group">
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="w-20 h-20 object-contain rounded-lg border bg-muted/30"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={handleRemoveLogo}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-20 h-20 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
+                      <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                      <span className="text-[10px] text-muted-foreground">Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleLogoChange}
+                      />
+                    </label>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Hiển thị logo trong nội dung</Label>
+                      <Switch
+                        checked={includeLogo}
+                        onCheckedChange={setIncludeLogo}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm flex items-center gap-1.5">
+                        <Star className="w-3.5 h-3.5 text-amber-500" />
+                        Đặt làm mặc định
+                      </Label>
+                      <Switch
+                        checked={isDefault}
+                        onCheckedChange={setIsDefault}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Products Section */}
       <Collapsible open={isProductsOpen} onOpenChange={setIsProductsOpen}>
