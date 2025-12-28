@@ -1,4 +1,4 @@
-import { Bell, Check, Trash2 } from 'lucide-react';
+import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,9 +13,56 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
+// Notification type config for styling
+const notificationTypeConfig: Record<string, { 
+  icon: React.ReactNode; 
+  bgColor: string;
+  textColor: string;
+}> = {
+  industry_upgrade: {
+    icon: <ArrowUpCircle className="h-4 w-4" />,
+    bgColor: 'bg-purple-500/10',
+    textColor: 'text-purple-500',
+  },
+  assignment_created: {
+    icon: <UserPlus className="h-4 w-4" />,
+    bgColor: 'bg-blue-500/10',
+    textColor: 'text-blue-500',
+  },
+  assignment_status_changed: {
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    bgColor: 'bg-green-500/10',
+    textColor: 'text-green-500',
+  },
+};
 export const NotificationDropdown = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (notification: any) => {
+    if (!notification.read_at) {
+      markAsRead(notification.id);
+    }
+
+    // Handle navigation based on notification type
+    const data = notification.data as Record<string, any> | null;
+    if (data?.upgrade_url) {
+      navigate(data.upgrade_url);
+    } else if (data?.content_id) {
+      navigate(`/multichannel?content=${data.content_id}`);
+    }
+  };
+
+  const getTypeConfig = (type: string) => {
+    return notificationTypeConfig[type] || {
+      icon: <Bell className="h-4 w-4" />,
+      bgColor: 'bg-muted',
+      textColor: 'text-muted-foreground',
+    };
+  };
 
   return (
     <DropdownMenu>
@@ -54,56 +101,85 @@ export const NotificationDropdown = () => {
               Không có thông báo nào
             </div>
           ) : (
-            notifications.map((notification) => (
-              <DropdownMenuItem
-                key={notification.id}
-                className={`flex flex-col items-start p-3 cursor-pointer ${
-                  !notification.read_at ? 'bg-muted/50' : ''
-                }`}
-                onClick={() => !notification.read_at && markAsRead(notification.id)}
-              >
-                <div className="flex items-start justify-between w-full gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{notification.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {notification.message}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(notification.created_at), {
-                        addSuffix: true,
-                        locale: vi,
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    {!notification.read_at && (
+            notifications.map((notification) => {
+              const typeConfig = getTypeConfig(notification.type);
+              
+              return (
+                <DropdownMenuItem
+                  key={notification.id}
+                  className={cn(
+                    "flex flex-col items-start p-3 cursor-pointer",
+                    !notification.read_at && "bg-muted/50"
+                  )}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <div className="flex items-start gap-3 w-full">
+                    {/* Type Icon */}
+                    <div className={cn(
+                      "flex-shrink-0 p-2 rounded-full",
+                      typeConfig.bgColor,
+                      typeConfig.textColor
+                    )}>
+                      {typeConfig.icon}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{notification.title}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {notification.message}
+                      </p>
+                      
+                      {/* Show version info for industry upgrade */}
+                      {notification.type === 'industry_upgrade' && notification.data && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            v{(notification.data as any).from_version}
+                          </Badge>
+                          <span className="text-muted-foreground">→</span>
+                          <Badge className="text-[10px] px-1.5 py-0 bg-purple-500">
+                            v{(notification.data as any).to_version}
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(notification.created_at), {
+                          addSuffix: true,
+                          locale: vi,
+                        })}
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-1">
+                      {!notification.read_at && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(notification.id);
+                          }}
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6"
                         onClick={(e) => {
                           e.stopPropagation();
-                          markAsRead(notification.id);
+                          deleteNotification(notification.id);
                         }}
                       >
-                        <Check className="h-3 w-3" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteNotification(notification.id);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              </DropdownMenuItem>
-            ))
+                </DropdownMenuItem>
+              );
+            })
           )}
         </ScrollArea>
       </DropdownMenuContent>
