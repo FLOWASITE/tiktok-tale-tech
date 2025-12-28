@@ -145,7 +145,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     e.preventDefault();
     e.stopPropagation();
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 6));
+      setCurrentStep(prev => Math.min(prev + 1, 5));
     }
   };
 
@@ -307,7 +307,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep !== 6) return;
+    if (currentStep !== 5) return;
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
@@ -438,18 +438,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 2: Business Info */}
+          {/* Step 2: Business & Visual */}
           {currentStep === 2 && (
             <BrandFormStepBusiness
               brandTemplateId={template?.id}
               footerInfo={footerInfo}
               onFooterInfoChange={setFooterInfo}
-            />
-          )}
-
-          {/* Step 3: Visual */}
-          {currentStep === 3 && (
-            <BrandFormStepVisual
               primaryColor={primaryColor}
               setPrimaryColor={setPrimaryColor}
               logoPreview={logoPreview}
@@ -466,8 +460,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 4: Brand Voice */}
-          {currentStep === 4 && (
+          {/* Step 3: Brand Voice */}
+          {currentStep === 3 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-base font-medium">Brand Voice Profile</span>
@@ -553,8 +547,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 5: Channel Settings */}
-          {currentStep === 5 && (
+          {/* Step 4: Channel Settings */}
+          {currentStep === 4 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
               <ChannelSettingsEditor
                 value={channelOverrides}
@@ -580,8 +574,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             </div>
           )}
 
-          {/* Step 6: Brand Guideline */}
-          {currentStep === 6 && (
+          {/* Step 5: Brand Guideline */}
+          {currentStep === 5 && (
             <BrandFormStepGuideline
               brandName={brandName}
               industries={industries}
@@ -647,7 +641,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 6 ? (
+          {currentStep < 5 ? (
             <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />
