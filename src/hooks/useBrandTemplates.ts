@@ -287,12 +287,67 @@ export function useBrandTemplates() {
     }
   };
 
+  // Soft delete - marks template as deleted without removing data
   const deleteTemplate = async (id: string) => {
     try {
-      // Get template to check for logo
-      const template = templates.find(t => t.id === id);
+      const { error } = await supabase
+        .from('brand_templates')
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          deleted_by: user?.id 
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      toast.success('🗑️ Đã xóa template!', {
+        description: 'Template có thể được khôi phục bởi admin',
+      });
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast.error('❌ Không thể xóa template', {
+        className: 'animate-error-shake',
+      });
+    }
+  };
+
+  // Restore soft-deleted template (admin only)
+  const restoreTemplate = async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('brand_templates')
+        .update({ 
+          deleted_at: null,
+          deleted_by: null 
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Refetch to get restored template
+      await fetchTemplates();
+      toast.success('✨ Đã khôi phục template!');
+      return true;
+    } catch (error) {
+      console.error('Error restoring template:', error);
+      toast.error('❌ Không thể khôi phục template', {
+        className: 'animate-error-shake',
+      });
+      return false;
+    }
+  };
+
+  // Permanent delete - actually removes template and logo (admin only)
+  const permanentDeleteTemplate = async (id: string) => {
+    try {
+      // Get template to check for logo - need to query directly since it's deleted
+      const { data: template } = await supabase
+        .from('brand_templates')
+        .select('logo_url')
+        .eq('id', id)
+        .single();
+      
       if (template?.logo_url) {
-        // Extract file path from URL and delete from storage
         const url = new URL(template.logo_url);
         const pathParts = url.pathname.split('/');
         const filePath = pathParts.slice(pathParts.indexOf(BUCKET_NAME) + 1).join('/');
@@ -303,13 +358,32 @@ export function useBrandTemplates() {
       
       const { error } = await supabase.from('brand_templates').delete().eq('id', id);
       if (error) throw error;
-      setTemplates((prev) => prev.filter((t) => t.id !== id));
-      toast.success('🗑️ Đã xóa template!');
+      toast.success('🗑️ Đã xóa vĩnh viễn template!');
     } catch (error) {
-      console.error('Error deleting template:', error);
-      toast.error('❌ Không thể xóa template', {
+      console.error('Error permanently deleting template:', error);
+      toast.error('❌ Không thể xóa vĩnh viễn template', {
         className: 'animate-error-shake',
       });
+    }
+  };
+
+  // Fetch deleted templates for admin restoration
+  const fetchDeletedTemplates = async (): Promise<BrandTemplate[]> => {
+    if (!user || !currentOrganization) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('brand_templates')
+        .select('*')
+        .eq('organization_id', currentOrganization.id)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(transformDbResponse);
+    } catch (error) {
+      console.error('Error fetching deleted templates:', error);
+      return [];
     }
   };
 
@@ -363,6 +437,9 @@ export function useBrandTemplates() {
     saveTemplate,
     updateTemplate,
     deleteTemplate,
+    restoreTemplate,
+    permanentDeleteTemplate,
+    fetchDeletedTemplates,
     duplicateTemplate,
     setDefaultTemplate,
     uploadLogo,

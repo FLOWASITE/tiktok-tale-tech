@@ -252,6 +252,8 @@ export type Database = {
           content_pillars: Json | null
           country_code: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           footer_info: Json | null
           forbidden_words: string[] | null
           formality_level: string | null
@@ -281,6 +283,8 @@ export type Database = {
           content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
@@ -310,6 +314,8 @@ export type Database = {
           content_pillars?: Json | null
           country_code?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
@@ -1306,6 +1312,8 @@ export type Database = {
           country_id: string
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           forbidden_terms: string[] | null
           id: string
           is_active: boolean
@@ -1332,6 +1340,8 @@ export type Database = {
           country_id: string
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean
@@ -1358,6 +1368,8 @@ export type Database = {
           country_id?: string
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           forbidden_terms?: string[] | null
           id?: string
           is_active?: boolean

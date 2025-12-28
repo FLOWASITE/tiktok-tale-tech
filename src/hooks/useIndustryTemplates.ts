@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 
 export interface IndustryTemplate {
@@ -404,13 +406,62 @@ export function useIndustryTemplatesAdmin() {
     if (error) throw error;
   };
 
+  // Soft delete - marks template as deleted without removing data
   const deleteTemplate = async (templateId: string) => {
+    const { error } = await supabase
+      .from('industry_templates')
+      .update({ 
+        deleted_at: new Date().toISOString(),
+        deleted_by: (await supabase.auth.getUser()).data.user?.id 
+      })
+      .eq('id', templateId);
+
+    if (error) throw error;
+    toast.success('🗑️ Đã xóa Industry Pack!', {
+      description: 'Pack có thể được khôi phục',
+    });
+  };
+
+  // Restore soft-deleted template
+  const restoreTemplate = async (templateId: string) => {
+    const { error } = await supabase
+      .from('industry_templates')
+      .update({ 
+        deleted_at: null,
+        deleted_by: null 
+      })
+      .eq('id', templateId);
+
+    if (error) throw error;
+    toast.success('✨ Đã khôi phục Industry Pack!');
+  };
+
+  // Permanent delete - actually removes template
+  const permanentDeleteTemplate = async (templateId: string) => {
     const { error } = await supabase
       .from('industry_templates')
       .delete()
       .eq('id', templateId);
 
     if (error) throw error;
+    toast.success('🗑️ Đã xóa vĩnh viễn Industry Pack!');
+  };
+
+  // Fetch deleted templates for restoration
+  const fetchDeletedTemplates = async (): Promise<Array<{
+    id: string;
+    code: string;
+    deleted_at: string;
+    deleted_by: string | null;
+  }>> => {
+    const { data, error } = await supabase
+      .from('industry_templates')
+      .select('id, code, deleted_at, deleted_by')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   };
 
   return {
@@ -418,5 +469,8 @@ export function useIndustryTemplatesAdmin() {
     updateTemplate,
     updateTranslation,
     deleteTemplate,
+    restoreTemplate,
+    permanentDeleteTemplate,
+    fetchDeletedTemplates,
   };
 }
