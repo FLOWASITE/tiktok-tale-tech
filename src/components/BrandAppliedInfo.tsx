@@ -76,7 +76,7 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
     }
     const templateWithIndustry = template as BrandTemplate & { industry_template_id?: string };
     if (!templateWithIndustry.industry_template_id) {
-      issues.push('Chưa liên kết Industry Memory');
+      issues.push('Chưa liên kết Industry Rules');
     }
     return issues;
   }, [template]);
@@ -137,7 +137,7 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <span className="font-medium text-xs text-blue-700 dark:text-blue-300">
-                  Industry Memory: {industryMemory.name}
+                  Industry Rules: {industryMemory.name}
                 </span>
                 <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600">
                   v{industryMemory.version}
@@ -148,7 +148,7 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <div className="space-y-1 text-xs">
-                      <p className="font-medium">🔒 Luật ngành (khóa cứng)</p>
+                      <p className="font-medium">🔒 Industry Rules (Quy tắc ngành)</p>
                       <p className="text-muted-foreground">
                         Target: {industryMemory.target_audience}
                       </p>
