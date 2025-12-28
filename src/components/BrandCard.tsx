@@ -236,7 +236,7 @@ export function BrandCard({
             </div>
             
             {/* Quick Stats Row */}
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
                 <Users className="w-3 h-3" />
                 {brandCounts?.personasCount || 0}
@@ -250,6 +250,21 @@ export function BrandCard({
                   <Settings2 className="w-3 h-3" />
                   {channelOverridesInfo.count}
                 </Badge>
+              )}
+              {brandCounts?.industryMemoryName && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300">
+                        <Scroll className="w-3 h-3" />
+                        {brandCounts.industryMemoryName}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Industry Memory Pack đã áp dụng</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>
@@ -562,6 +577,21 @@ export function BrandCard({
                   <Settings2 className="w-3 h-3" />
                   {channelOverridesInfo.count} Kênh
                 </Badge>
+              )}
+              {brandCounts?.industryMemoryName && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0.5 bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300">
+                        <Scroll className="w-3 h-3" />
+                        {brandCounts.industryMemoryName}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Industry Memory Pack đã áp dụng</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
               {/* Completeness Badge */}
               <Badge 

@@ -51,8 +51,12 @@ export default function Brands() {
   const brandIds = useMemo(() => templates.map(t => t.id), [templates]);
   const { getUsageForBrand } = useBrandAnalytics(brandIds);
   
-  // Brand Counts - fetch personas and products counts
-  const { getCountsForBrand } = useBrandCounts(brandIds);
+  // Brand Counts - fetch personas, products counts, and industry memory names
+  const brandsForCounts = useMemo(() => 
+    templates.map(t => ({ id: t.id, industry_template_id: t.industry_template_id || null })), 
+    [templates]
+  );
+  const { getCountsForBrand } = useBrandCounts(brandsForCounts);
   
   const [editingTemplate, setEditingTemplate] = useState<BrandTemplate | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
