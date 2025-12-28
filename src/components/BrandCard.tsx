@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign, FileText, ExternalLink, Scroll, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -393,12 +394,31 @@ export function BrandCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <p className="text-sm text-muted-foreground italic line-clamp-2 cursor-help">
-                        "{template.brand_guideline}"
-                      </p>
+                      <div className="prose prose-sm dark:prose-invert max-w-none line-clamp-2 cursor-help">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <span className="text-sm text-muted-foreground">{children}</span>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em>{children}</em>,
+                          }}
+                        >
+                          {template.brand_guideline.slice(0, 150) + (template.brand_guideline.length > 150 ? '...' : '')}
+                        </ReactMarkdown>
+                      </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-sm">
-                      <p className="text-xs whitespace-pre-wrap">{template.brand_guideline}</p>
+                    <TooltipContent className="max-w-sm max-h-64 overflow-auto">
+                      <div className="prose prose-xs dark:prose-invert">
+                        <ReactMarkdown
+                          components={{
+                            h2: ({ children }) => <h2 className="text-xs font-semibold mt-2 mb-1">{children}</h2>,
+                            p: ({ children }) => <p className="text-xs mb-1">{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc pl-3 text-xs">{children}</ul>,
+                            li: ({ children }) => <li className="text-xs">{children}</li>,
+                          }}
+                        >
+                          {template.brand_guideline}
+                        </ReactMarkdown>
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

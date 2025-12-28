@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
+import ReactMarkdown from 'react-markdown';
 import { 
   Wand2, 
   Loader2, 
@@ -17,7 +18,9 @@ import {
   Megaphone, 
   Globe,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  Edit3
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -82,6 +85,7 @@ export function BrandFormStepGuideline({
 }: BrandFormStepGuidelineProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   
   const isGuidelineEmpty = !brandGuideline.trim() || brandGuideline === DEFAULT_GUIDELINE;
   const activeChannels = Object.keys(channelOverrides).filter(k => channelOverrides[k]?.enabled);
@@ -294,24 +298,85 @@ export function BrandFormStepGuideline({
           <Label htmlFor="brandGuideline" className="text-base font-medium">
             Brand Guideline
           </Label>
-          {!isGuidelineEmpty && (
-            <Badge variant="outline" className="text-xs">
-              {brandGuideline.length} ký tự
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {!isGuidelineEmpty && (
+              <Badge variant="outline" className="text-xs">
+                {brandGuideline.length} ký tự
+              </Badge>
+            )}
+            {!isGuidelineEmpty && (
+              <div className="flex items-center border rounded-md overflow-hidden">
+                <Button
+                  type="button"
+                  variant={isViewMode ? 'ghost' : 'secondary'}
+                  size="sm"
+                  className="h-7 px-2 rounded-none"
+                  onClick={() => setIsViewMode(false)}
+                >
+                  <Edit3 className="w-3.5 h-3.5 mr-1" />
+                  Sửa
+                </Button>
+                <Button
+                  type="button"
+                  variant={isViewMode ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-2 rounded-none"
+                  onClick={() => setIsViewMode(true)}
+                >
+                  <Eye className="w-3.5 h-3.5 mr-1" />
+                  Xem
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-        <Textarea
-          id="brandGuideline"
-          value={brandGuideline}
-          onChange={(e) => setBrandGuideline(e.target.value)}
-          placeholder="Mô tả phong cách viết, nguyên tắc, và hướng dẫn cụ thể cho việc tạo nội dung..."
-          rows={12}
-          className="resize-none font-mono text-sm leading-relaxed tracking-wide whitespace-pre-wrap"
-          style={{ 
-            fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace",
-            lineHeight: '1.75'
-          }}
-        />
+        
+        {isViewMode && !isGuidelineEmpty ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none p-4 rounded-lg border bg-muted/30 min-h-[200px]">
+            <ReactMarkdown
+              components={{
+                h1: ({ children }) => <h1 className="text-lg font-bold mt-4 mb-2 first:mt-0">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-base font-semibold mt-3 mb-2 text-primary">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-medium mt-2 mb-1">{children}</h3>,
+                p: ({ children }) => <p className="mb-2 text-sm leading-relaxed">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="text-sm">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                em: ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-2 border-primary pl-3 my-2 italic text-muted-foreground">
+                    {children}
+                  </blockquote>
+                ),
+                code: ({ children }) => (
+                  <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{children}</code>
+                ),
+              }}
+            >
+              {brandGuideline}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <Textarea
+            id="brandGuideline"
+            value={brandGuideline}
+            onChange={(e) => setBrandGuideline(e.target.value)}
+            placeholder="Mô tả phong cách viết, nguyên tắc, và hướng dẫn cụ thể cho việc tạo nội dung...
+
+Hỗ trợ Markdown:
+## Tiêu đề
+- Bullet points
+**In đậm** và *in nghiêng*
+> Trích dẫn"
+            rows={12}
+            className="resize-none font-mono text-sm leading-relaxed tracking-wide"
+            style={{ 
+              fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace",
+              lineHeight: '1.75'
+            }}
+          />
+        )}
       </div>
       
       {/* AI Guideline Preview */}
