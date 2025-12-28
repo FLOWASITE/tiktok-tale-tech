@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ProductCatalogEditor } from '@/components/brand/ProductCatalogEditor';
+import { CustomerPersonaEditor } from '@/components/brand/CustomerPersonaEditor';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
@@ -28,9 +29,12 @@ import {
   Upload,
   ImageIcon,
   Trash2,
-  Star
+  Star,
+  Users,
+  Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CustomerPersona } from '@/types/customerPersona';
 
 // Footer info type
 export interface BrandFooterInfo {
@@ -80,8 +84,13 @@ const DISPLAY_FIELD_OPTIONS = [
 
 interface BrandFormStepBusinessProps {
   brandTemplateId?: string | null;
+  brandName?: string;
+  brandPositioning?: string;
   footerInfo: BrandFooterInfo;
   onFooterInfoChange: (info: BrandFooterInfo) => void;
+  // Customer Personas
+  personas: CustomerPersona[];
+  onPersonasChange: (personas: CustomerPersona[]) => void;
   // Visual props
   primaryColor: string;
   setPrimaryColor: (color: string) => void;
@@ -100,8 +109,12 @@ interface BrandFormStepBusinessProps {
 
 export function BrandFormStepBusiness({
   brandTemplateId,
+  brandName,
+  brandPositioning,
   footerInfo,
   onFooterInfoChange,
+  personas,
+  onPersonasChange,
   primaryColor,
   setPrimaryColor,
   logoPreview,
@@ -117,8 +130,19 @@ export function BrandFormStepBusiness({
   setIsDefault,
 }: BrandFormStepBusinessProps) {
   const [isFooterOpen, setIsFooterOpen] = useState(true);
-  const [isProductsOpen, setIsProductsOpen] = useState(true);
+  const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId);
   const [isVisualOpen, setIsVisualOpen] = useState(true);
+  const [isPersonasOpen, setIsPersonasOpen] = useState(true);
+
+  // Auto-fill company_name from brandName if empty
+  const handleUseBrandName = () => {
+    if (brandName) {
+      onFooterInfoChange({
+        ...footerInfo,
+        company_name: brandName,
+      });
+    }
+  };
 
   const updateFooterField = <K extends keyof BrandFooterInfo>(
     field: K,
@@ -280,6 +304,49 @@ export function BrandFormStepBusiness({
         </Card>
       </Collapsible>
 
+      {/* Customer Personas Section */}
+      <Collapsible open={isPersonasOpen} onOpenChange={setIsPersonasOpen}>
+        <Card className="overflow-hidden">
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <CardTitle className="text-base">Khách hàng mục tiêu</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      Customer Personas giúp AI tạo nội dung phù hợp
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {personas.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                      {personas.length} persona
+                    </Badge>
+                  )}
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    isPersonasOpen && "rotate-180"
+                  )} />
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0 pb-4 px-4">
+              <CustomerPersonaEditor
+                personas={personas}
+                onPersonasChange={onPersonasChange}
+                brandPositioning={brandPositioning}
+              />
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       {/* Products Section */}
       <Collapsible open={isProductsOpen} onOpenChange={setIsProductsOpen}>
         <Card className="overflow-hidden">
@@ -378,12 +445,27 @@ export function BrandFormStepBusiness({
                     <Building2 className="w-3.5 h-3.5" />
                     Tên công ty / Pháp nhân
                   </Label>
-                  <Input
-                    id="company_name"
-                    placeholder="Công ty TNHH ABC..."
-                    value={footerInfo.company_name}
-                    onChange={(e) => updateFooterField('company_name', e.target.value)}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="company_name"
+                      placeholder="Công ty TNHH ABC..."
+                      value={footerInfo.company_name}
+                      onChange={(e) => updateFooterField('company_name', e.target.value)}
+                      className="flex-1"
+                    />
+                    {brandName && !footerInfo.company_name && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 h-10 w-10"
+                        onClick={handleUseBrandName}
+                        title="Sử dụng tên thương hiệu"
+                      >
+                        <Wand2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
