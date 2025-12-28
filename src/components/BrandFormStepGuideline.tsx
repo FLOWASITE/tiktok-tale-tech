@@ -333,60 +333,76 @@ export function BrandFormStepGuideline({
         </div>
         
         {isViewMode && !isGuidelineEmpty ? (
-          <div className="relative rounded-xl border bg-gradient-to-br from-background via-muted/20 to-muted/40 shadow-sm overflow-hidden">
+          <div className="relative rounded-xl border bg-gradient-to-br from-background via-muted/10 to-muted/30 shadow-sm overflow-hidden">
             {/* Header decoration */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
             
-            <div className="p-5 sm:p-6 min-h-[280px]">
-              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-p:text-muted-foreground prose-li:text-muted-foreground">
+            <div className="p-6 sm:p-8 min-h-[320px]">
+              <div className="prose prose-sm dark:prose-invert max-w-none">
                 <ReactMarkdown
                   components={{
                     h1: ({ children }) => (
-                      <h1 className="text-xl font-bold mt-6 mb-3 first:mt-0 pb-2 border-b border-border/50 text-foreground flex items-center gap-2">
-                        <span className="w-1.5 h-6 bg-primary rounded-full" />
-                        {children}
+                      <h1 className="text-xl font-bold mt-8 mb-4 first:mt-0 pb-3 border-b-2 border-primary/20 text-foreground flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                        </div>
+                        <span>{children}</span>
                       </h1>
                     ),
                     h2: ({ children }) => (
-                      <h2 className="text-base font-semibold mt-5 mb-2.5 text-primary flex items-center gap-2">
-                        <span className="w-1 h-4 bg-primary/60 rounded-full" />
-                        {children}
+                      <h2 className="text-base font-semibold mt-8 mb-4 text-primary flex items-center gap-2.5">
+                        <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                          <Check className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <span>{children}</span>
                       </h2>
                     ),
                     h3: ({ children }) => (
-                      <h3 className="text-sm font-medium mt-4 mb-2 text-foreground/90">{children}</h3>
+                      <h3 className="text-sm font-semibold mt-6 mb-3 text-foreground/90 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-primary/60" />
+                        <span>{children}</span>
+                      </h3>
                     ),
                     p: ({ children }) => (
-                      <p className="mb-3 text-sm leading-relaxed text-foreground/80">{children}</p>
+                      <p className="mb-4 text-sm leading-7 text-foreground/80 pl-0">{children}</p>
                     ),
                     ul: ({ children }) => (
-                      <ul className="my-3 space-y-2 pl-0">{children}</ul>
+                      <ul className="my-4 space-y-3 pl-1">{children}</ul>
                     ),
                     ol: ({ children }) => (
-                      <ol className="my-3 space-y-2 pl-4 list-decimal marker:text-primary/60">{children}</ol>
+                      <ol className="my-4 space-y-3 pl-1 counter-reset-item">{children}</ol>
                     ),
                     li: ({ children }) => (
-                      <li className="flex items-start gap-2.5 text-sm leading-relaxed">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/50 mt-2 shrink-0" />
-                        <span className="text-foreground/80">{children}</span>
+                      <li className="flex items-start gap-3 text-sm leading-7 pl-0 group">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mt-1 shrink-0 group-hover:bg-primary/20 transition-colors">
+                          <Check className="w-3 h-3 text-primary" />
+                        </div>
+                        <span className="text-foreground/80 flex-1">{children}</span>
                       </li>
                     ),
                     strong: ({ children }) => (
-                      <strong className="font-semibold text-foreground">{children}</strong>
+                      <strong className="font-semibold text-foreground bg-primary/5 px-1 rounded">{children}</strong>
                     ),
                     em: ({ children }) => (
-                      <em className="italic text-muted-foreground">{children}</em>
+                      <em className="italic text-primary/80 not-italic font-medium">{children}</em>
                     ),
                     blockquote: ({ children }) => (
-                      <blockquote className="border-l-3 border-primary/40 bg-primary/5 pl-4 pr-3 py-2.5 my-3 rounded-r-lg italic text-foreground/70">
-                        {children}
+                      <blockquote className="border-l-4 border-primary/40 bg-gradient-to-r from-primary/5 to-transparent pl-5 pr-4 py-4 my-5 rounded-r-xl text-foreground/70 not-italic">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                          <div className="text-sm leading-7">{children}</div>
+                        </div>
                       </blockquote>
                     ),
                     code: ({ children }) => (
-                      <code className="bg-muted/80 px-1.5 py-0.5 rounded text-xs font-mono text-primary">{children}</code>
+                      <code className="bg-primary/10 text-primary px-2 py-1 rounded-md text-xs font-mono font-medium">{children}</code>
                     ),
                     hr: () => (
-                      <hr className="my-4 border-border/50" />
+                      <div className="my-6 flex items-center gap-3">
+                        <div className="flex-1 h-px bg-border/50" />
+                        <div className="w-2 h-2 rounded-full bg-primary/30" />
+                        <div className="flex-1 h-px bg-border/50" />
+                      </div>
                     ),
                   }}
                 >
@@ -396,11 +412,12 @@ export function BrandFormStepGuideline({
             </div>
             
             {/* Footer hint */}
-            <div className="px-5 py-2.5 bg-muted/30 border-t border-border/30 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                Nhấn "Sửa" để chỉnh sửa guideline
-              </span>
-              <Badge variant="secondary" className="text-[10px]">
+            <div className="px-6 py-3 bg-muted/20 border-t border-border/20 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Nhấn "Sửa" để chỉnh sửa nội dung</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] bg-background/50">
                 Markdown
               </Badge>
             </div>
