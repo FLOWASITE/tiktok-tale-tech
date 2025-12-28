@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { BrandUsageStats } from '@/hooks/useBrandAnalytics';
+import { BrandCounts } from '@/hooks/useBrandCounts';
+import { calculateBrandCompleteness, getCompletenessColor } from '@/utils/brandCompleteness';
 import { 
   BRAND_POSITIONING_OPTIONS, 
   TONE_OF_VOICE_OPTIONS, 
@@ -11,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign, FileText, ExternalLink, Scroll, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Edit2, Trash2, Star, Check, Calendar, Volume2, Smile, Ban, Copy, Settings2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, User, Building2, Eye, Music2, AtSign, FileText, ExternalLink, Scroll, AlertTriangle, CheckCircle2, Users, Package } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import {
   AlertDialog,
@@ -88,6 +91,7 @@ interface BrandCardProps {
   selected?: boolean;
   onSelectChange?: (id: string, checked: boolean) => void;
   usageStats?: BrandUsageStats | null;
+  brandCounts?: BrandCounts;
 }
 
 export function BrandCard({ 
@@ -102,11 +106,21 @@ export function BrandCard({
   selected = false,
   onSelectChange,
   usageStats,
+  brandCounts,
 }: BrandCardProps) {
   const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
   
   // Determine ownership
   const isOrganizationBrand = !!template.organization_id;
+  
+  // Calculate brand completeness
+  const completeness = useMemo(() => {
+    return calculateBrandCompleteness(
+      template, 
+      brandCounts?.personasCount || 0, 
+      brandCounts?.productsCount || 0
+    );
+  }, [template, brandCounts]);
   
   // Calculate channel overrides
   const channelOverridesInfo = useMemo(() => {
@@ -114,6 +128,16 @@ export function BrandCard({
     const channels = Object.keys(template.channel_overrides) as Channel[];
     return { count: channels.length, channels };
   }, [template.channel_overrides]);
+
+  // Get completeness bar color
+  const completenessBarColor = useMemo(() => {
+    switch (completeness.level) {
+      case 'complete': return 'bg-emerald-500';
+      case 'high': return 'bg-blue-500';
+      case 'medium': return 'bg-amber-500';
+      case 'low': default: return 'bg-destructive';
+    }
+  }, [completeness.level]);
 
   // Ownership Badge Component
   const OwnershipBadge = () => (
@@ -162,11 +186,19 @@ export function BrandCard({
   if (compact) {
     return (
       <Card className={cn(
-        'relative transition-all duration-200 hover:border-primary/40 hover:shadow-md group',
+        'relative transition-all duration-200 hover:border-primary/40 hover:shadow-md group overflow-hidden',
         template.is_default && 'ring-1 ring-primary/30',
         selected && 'ring-2 ring-primary bg-primary/5'
       )}>
-        <div className="flex items-center gap-4 p-3">
+        {/* Completeness Progress Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-muted/30">
+          <div 
+            className={cn("h-full transition-all", completenessBarColor)}
+            style={{ width: `${completeness.score}%` }}
+          />
+        </div>
+        
+        <div className="flex items-center gap-4 p-3 pt-4">
           {/* Selection Checkbox */}
           {selectable && (
             <Checkbox
@@ -185,6 +217,13 @@ export function BrandCard({
               {template.is_default && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500 shrink-0" />}
               <span className="font-medium truncate">{template.name}</span>
               <OwnershipBadge />
+              {/* Completeness Badge */}
+              <Badge 
+                variant="outline" 
+                className={cn("text-[10px] px-1.5 py-0 shrink-0", getCompletenessColor(completeness.level))}
+              >
+                {completeness.score}%
+              </Badge>
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-muted-foreground truncate">{template.brand_name}</p>
@@ -196,41 +235,25 @@ export function BrandCard({
               )}
             </div>
             
-            {/* Guideline Status Badge */}
-            {!template.brand_guideline?.trim() ? (
-              <Badge variant="outline" className="text-[10px] gap-1 text-amber-600 border-amber-500/50 bg-amber-500/10">
-                <AlertTriangle className="w-3 h-3" />
-                Thiếu guideline
+            {/* Quick Stats Row */}
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+                <Users className="w-3 h-3" />
+                {brandCounts?.personasCount || 0}
               </Badge>
-            ) : (
-              <Badge variant="outline" className="text-[10px] gap-1 text-green-600 border-green-500/50 bg-green-500/10">
-                <CheckCircle2 className="w-3 h-3" />
-                Có guideline
+              <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+                <Package className="w-3 h-3" />
+                {brandCounts?.productsCount || 0}
               </Badge>
-            )}
+              {channelOverridesInfo.count > 0 && (
+                <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
+                  <Settings2 className="w-3 h-3" />
+                  {channelOverridesInfo.count}
+                </Badge>
+              )}
+            </div>
           </div>
           
-          {/* Voice Tags - hidden on small screens */}
-          <div className="hidden md:flex gap-1">
-            {template.tone_of_voice?.slice(0, 2).map(tone => (
-              <Badge key={tone} variant="secondary" className="text-[10px] px-1.5 py-0">
-                {TONE_OF_VOICE_OPTIONS.find(o => o.value === tone)?.label || tone}
-              </Badge>
-            ))}
-            {template.tone_of_voice && template.tone_of_voice.length > 2 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                +{template.tone_of_voice.length - 2}
-              </Badge>
-            )}
-          </div>
-          
-          {/* Channel Overrides indicator */}
-          {channelOverridesInfo.count > 0 && (
-            <Badge variant="outline" className="hidden sm:flex text-[10px] gap-1 border-primary/50">
-              <Settings2 className="w-3 h-3" />
-              {channelOverridesInfo.count}
-            </Badge>
-          )}
           
           {/* Actions */}
           <div className="flex gap-1 shrink-0">
@@ -317,14 +340,29 @@ export function BrandCard({
   return (
     <HoverCard openDelay={400} closeDelay={100}>
       <HoverCardTrigger asChild>
-        <Card className={cn(
-          'relative gradient-card border-border/50 transition-all duration-300 ease-out hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 group overflow-hidden',
-          template.is_default && 'ring-2 ring-primary/50',
-          selected && 'ring-2 ring-primary bg-primary/5'
-        )}>
+        <Card 
+          className={cn(
+            'relative gradient-card border-border/50 transition-all duration-300 ease-out hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 group overflow-hidden',
+            template.is_default && 'ring-2 ring-primary/50',
+            selected && 'ring-2 ring-primary bg-primary/5'
+          )}
+          style={{
+            background: template.primary_color 
+              ? `linear-gradient(135deg, ${template.primary_color}08 0%, transparent 50%, ${template.secondary_colors?.[0] || template.primary_color}05 100%)`
+              : undefined
+          }}
+        >
+          {/* Completeness Progress Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-muted/30">
+            <div 
+              className={cn("h-full transition-all duration-500", completenessBarColor)}
+              style={{ width: `${completeness.score}%` }}
+            />
+          </div>
+          
           {/* Selection Checkbox */}
           {selectable && (
-            <div className="absolute top-3 left-3 z-10">
+            <div className="absolute top-5 left-3 z-10">
               <Checkbox
                 checked={selected}
                 onCheckedChange={(checked) => onSelectChange?.(template.id, !!checked)}
@@ -334,7 +372,7 @@ export function BrandCard({
           
           {/* Glow effect on hover */}
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
-          <CardHeader className={cn('pb-3', selectable && 'pl-10')}>
+          <CardHeader className={cn('pb-3 pt-4', selectable && 'pl-10')}>
             <div className="flex items-start justify-between gap-3">
               {/* Logo - larger */}
               <LogoDisplay />
@@ -491,6 +529,49 @@ export function BrandCard({
               </div>
             )}
             
+            {/* Quick Stats Row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0.5">
+                      <Users className="w-3 h-3" />
+                      {brandCounts?.personasCount || 0} Personas
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Customer Personas</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0.5">
+                      <Package className="w-3 h-3" />
+                      {brandCounts?.productsCount || 0} Sản phẩm
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Sản phẩm/Dịch vụ</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {channelOverridesInfo.count > 0 && (
+                <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0.5 border-primary/50">
+                  <Settings2 className="w-3 h-3" />
+                  {channelOverridesInfo.count} Kênh
+                </Badge>
+              )}
+              {/* Completeness Badge */}
+              <Badge 
+                variant="outline" 
+                className={cn("text-[10px] px-1.5 py-0.5 ml-auto", getCompletenessColor(completeness.level))}
+              >
+                {completeness.score}% hoàn thành
+              </Badge>
+            </div>
+            
             {/* Brand Analytics - Usage Stats */}
             {usageStats && usageStats.multiChannelCount > 0 && (
               <Link 
@@ -502,12 +583,6 @@ export function BrandCard({
                 <ExternalLink className="w-3 h-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
               </Link>
             )}
-
-            <div className="flex items-center gap-2">
-              <Badge variant={template.include_logo ? 'default' : 'outline'} className="text-xs">
-                Logo: {template.include_logo ? 'Có' : 'Không'}
-              </Badge>
-            </div>
 
             <div className="flex items-center gap-2 pt-2 border-t border-border/50">
               {!template.is_default && (
