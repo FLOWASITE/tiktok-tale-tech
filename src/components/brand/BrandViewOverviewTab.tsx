@@ -9,9 +9,12 @@ import {
   Layers,
   Calendar,
   Sparkles,
+  FileText,
+  Globe,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { BrandFooterInfo } from '@/components/BrandFormStepBusiness';
 
 interface ContentPillar {
   name: string;
@@ -28,6 +31,7 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
   const updatedDate = format(new Date(template.updated_at), 'dd/MM/yyyy HH:mm', { locale: vi });
 
   const contentPillars = template.content_pillars as ContentPillar[] | null;
+  const footerInfo = template.footer_info as BrandFooterInfo | null;
 
   return (
     <div className="space-y-4">
@@ -179,6 +183,66 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
         </CardContent>
       </Card>
 
+      {/* Footer Info */}
+      {footerInfo && (footerInfo.company_name || footerInfo.address || footerInfo.phone || footerInfo.email || footerInfo.website || footerInfo.social_links) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              Thông tin Footer
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {footerInfo.company_name && (
+              <div>
+                <span className="text-sm text-muted-foreground">Tên công ty</span>
+                <p className="text-sm font-medium">{footerInfo.company_name}</p>
+              </div>
+            )}
+            {footerInfo.address && (
+              <div>
+                <span className="text-sm text-muted-foreground">Địa chỉ</span>
+                <p className="text-sm">{footerInfo.address}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              {footerInfo.phone && (
+                <div>
+                  <span className="text-sm text-muted-foreground">Điện thoại</span>
+                  <p className="text-sm">{footerInfo.phone}</p>
+                </div>
+              )}
+              {footerInfo.email && (
+                <div>
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <p className="text-sm">{footerInfo.email}</p>
+                </div>
+              )}
+            </div>
+            {footerInfo.website && (
+              <div>
+                <span className="text-sm text-muted-foreground">Website</span>
+                <p className="text-sm">{footerInfo.website}</p>
+              </div>
+            )}
+            {footerInfo.social_links && Object.keys(footerInfo.social_links).length > 0 && (
+              <div>
+                <span className="text-sm text-muted-foreground">Social Links</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {Object.entries(footerInfo.social_links).map(([platform, url]) => (
+                    url && (
+                      <Badge key={platform} variant="outline" className="text-xs">
+                        {platform}: {url}
+                      </Badge>
+                    )
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Industry & Dates */}
       <Card>
         <CardHeader className="pb-3">
@@ -188,18 +252,30 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <span className="text-sm text-muted-foreground">Ngành nghề</span>
-            {template.industry && template.industry.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {template.industry.map((ind) => (
-                  <Badge key={ind} variant="secondary">
-                    {ind}
-                  </Badge>
-                ))}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <span className="text-sm text-muted-foreground">Ngành nghề</span>
+              {template.industry && template.industry.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {template.industry.map((ind) => (
+                    <Badge key={ind} variant="secondary">
+                      {ind}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic mt-1">Chưa chọn ngành</p>
+              )}
+            </div>
+
+            {(template as any).country_code && (
+              <div className="flex items-start gap-3">
+                <Globe className="w-4 h-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <span className="text-sm text-muted-foreground">Quốc gia</span>
+                  <p className="font-medium">{(template as any).country_code}</p>
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground italic mt-1">Chưa chọn ngành</p>
             )}
           </div>
 

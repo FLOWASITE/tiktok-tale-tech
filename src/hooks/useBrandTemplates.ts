@@ -68,6 +68,9 @@ export interface BrandTemplate {
   // Competitor Analysis (new fields)
   main_competitors?: string[] | null;
   competitive_advantages?: string[] | null;
+  
+  // Country/Region
+  country_code?: string | null;
 }
 
 // Helper to transform DB response to BrandTemplate
