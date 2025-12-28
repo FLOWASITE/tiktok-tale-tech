@@ -88,6 +88,30 @@ export function BrandFormStepGuideline({
   const [isViewMode, setIsViewMode] = useState(false);
   
   const isGuidelineEmpty = !brandGuideline.trim() || brandGuideline === DEFAULT_GUIDELINE;
+  
+  // Preprocess guideline text to proper Markdown format
+  const formatGuidelineForDisplay = (text: string): string => {
+    let formatted = text;
+    
+    // Replace ".." or ". ." with proper line breaks
+    formatted = formatted.replace(/\.\.\s*/g, '.\n\n');
+    formatted = formatted.replace(/\.\s*\.\s*/g, '.\n\n');
+    
+    // Replace "• " or "- " at the start or after newlines with proper bullet points
+    formatted = formatted.replace(/•\s*/g, '\n- ');
+    formatted = formatted.replace(/\*\s+/g, '\n- ');
+    
+    // Handle "Tone:", "Xưng hô:", etc. as headers
+    formatted = formatted.replace(/\n*(Tone|Xưng hô|Nguyên tắc|Lưu ý|Cấu trúc|Phong cách|Định vị|Giọng điệu|Từ ngữ|Kênh|Mục tiêu):\s*/gi, '\n\n## $1\n');
+    
+    // Clean up multiple newlines
+    formatted = formatted.replace(/\n{3,}/g, '\n\n');
+    
+    // Ensure bullet points start on new lines
+    formatted = formatted.replace(/([.!?])\s*-\s+/g, '$1\n\n- ');
+    
+    return formatted.trim();
+  };
   const activeChannels = Object.keys(channelOverrides).filter(k => channelOverrides[k]?.enabled);
   
   // Auto-suggest generation when step loads and guideline is empty
@@ -406,7 +430,7 @@ export function BrandFormStepGuideline({
                     ),
                   }}
                 >
-                  {brandGuideline}
+                  {formatGuidelineForDisplay(brandGuideline)}
                 </ReactMarkdown>
               </div>
             </div>
