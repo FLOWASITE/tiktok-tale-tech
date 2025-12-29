@@ -27,7 +27,8 @@ import {
 import { 
   Users, Plus, Trash2, Star, X, 
   Target, Brain, ShoppingCart, Sparkles,
-  Heart, Lightbulb, MessageCircle, Globe, BookOpen, Zap
+  Heart, Lightbulb, MessageCircle, Globe, BookOpen, Zap,
+  Download, Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -40,6 +41,7 @@ import {
   AVATAR_EMOJIS,
   PERSONA_TEMPLATES,
 } from '@/types/customerPersona';
+import { useIndustryPersonasForImport } from '@/hooks/useIndustryPersonas';
 
 // Predefined options
 const PREFERRED_CHANNEL_OPTIONS = [
@@ -70,6 +72,7 @@ interface BrandFormStepPersonasProps {
   brandPositioning?: string;
   brandName?: string;
   disabled?: boolean;
+  industryTemplateId?: string | null;
 }
 
 export function BrandFormStepPersonas({
@@ -78,9 +81,14 @@ export function BrandFormStepPersonas({
   brandPositioning,
   brandName,
   disabled = false,
+  industryTemplateId,
 }: BrandFormStepPersonasProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showIndustryImport, setShowIndustryImport] = useState(false);
+  
+  // Fetch industry personas for import
+  const { personas: industryPersonas, isLoading: loadingIndustry } = useIndustryPersonasForImport(industryTemplateId);
 
   // Get template type based on brand positioning
   const templateType = brandPositioning === 'business' || brandPositioning === 'consultant' ? 'B2B' : 'B2C';
