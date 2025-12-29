@@ -1029,6 +1029,7 @@ export type Database = {
           income_level: string | null
           information_sources: string[] | null
           interests: string[] | null
+          is_customized: boolean | null
           is_primary: boolean | null
           location: string | null
           name: string
@@ -1037,6 +1038,7 @@ export type Database = {
           organization_id: string | null
           pain_points: string[] | null
           preferred_channels: string[] | null
+          source_industry_persona_id: string | null
           typical_funnel_stage: string | null
           updated_at: string | null
           user_id: string | null
@@ -1054,6 +1056,7 @@ export type Database = {
           income_level?: string | null
           information_sources?: string[] | null
           interests?: string[] | null
+          is_customized?: boolean | null
           is_primary?: boolean | null
           location?: string | null
           name: string
@@ -1062,6 +1065,7 @@ export type Database = {
           organization_id?: string | null
           pain_points?: string[] | null
           preferred_channels?: string[] | null
+          source_industry_persona_id?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -1079,6 +1083,7 @@ export type Database = {
           income_level?: string | null
           information_sources?: string[] | null
           interests?: string[] | null
+          is_customized?: boolean | null
           is_primary?: boolean | null
           location?: string | null
           name?: string
@@ -1087,6 +1092,7 @@ export type Database = {
           organization_id?: string | null
           pain_points?: string[] | null
           preferred_channels?: string[] | null
+          source_industry_persona_id?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -1105,6 +1111,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_personas_source_industry_persona_id_fkey"
+            columns: ["source_industry_persona_id"]
+            isOneToOne: false
+            referencedRelation: "industry_personas"
             referencedColumns: ["id"]
           },
         ]
@@ -1391,6 +1404,161 @@ export type Database = {
           },
           {
             foreignKeyName: "industry_memory_versions_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_persona_translations: {
+        Row: {
+          created_at: string | null
+          desires: string[] | null
+          id: string
+          industry_persona_id: string
+          language_code: string
+          name: string
+          objections: string[] | null
+          occupation: string | null
+          pain_points: string[] | null
+          persona_prompt_hints: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          desires?: string[] | null
+          id?: string
+          industry_persona_id: string
+          language_code?: string
+          name: string
+          objections?: string[] | null
+          occupation?: string | null
+          pain_points?: string[] | null
+          persona_prompt_hints?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          desires?: string[] | null
+          id?: string
+          industry_persona_id?: string
+          language_code?: string
+          name?: string
+          objections?: string[] | null
+          occupation?: string | null
+          pain_points?: string[] | null
+          persona_prompt_hints?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_persona_translations_industry_persona_id_fkey"
+            columns: ["industry_persona_id"]
+            isOneToOne: false
+            referencedRelation: "industry_personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_personas: {
+        Row: {
+          age_range: string | null
+          avatar_emoji: string | null
+          buying_triggers: string[] | null
+          communication_style: string | null
+          content_preferences: Json | null
+          created_at: string | null
+          created_by: string | null
+          desires: string[] | null
+          gender: string | null
+          id: string
+          income_level: string | null
+          industry_template_id: string
+          information_sources: string[] | null
+          interests: string[] | null
+          is_active: boolean | null
+          location: string | null
+          name: string
+          objections: string[] | null
+          occupation: string | null
+          pain_points: string[] | null
+          persona_prompt_hints: string | null
+          preferred_channels: string[] | null
+          response_tone_hints: string[] | null
+          sort_order: number | null
+          typical_funnel_stage: string | null
+          updated_at: string | null
+          values: string[] | null
+        }
+        Insert: {
+          age_range?: string | null
+          avatar_emoji?: string | null
+          buying_triggers?: string[] | null
+          communication_style?: string | null
+          content_preferences?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          desires?: string[] | null
+          gender?: string | null
+          id?: string
+          income_level?: string | null
+          industry_template_id: string
+          information_sources?: string[] | null
+          interests?: string[] | null
+          is_active?: boolean | null
+          location?: string | null
+          name: string
+          objections?: string[] | null
+          occupation?: string | null
+          pain_points?: string[] | null
+          persona_prompt_hints?: string | null
+          preferred_channels?: string[] | null
+          response_tone_hints?: string[] | null
+          sort_order?: number | null
+          typical_funnel_stage?: string | null
+          updated_at?: string | null
+          values?: string[] | null
+        }
+        Update: {
+          age_range?: string | null
+          avatar_emoji?: string | null
+          buying_triggers?: string[] | null
+          communication_style?: string | null
+          content_preferences?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          desires?: string[] | null
+          gender?: string | null
+          id?: string
+          income_level?: string | null
+          industry_template_id?: string
+          information_sources?: string[] | null
+          interests?: string[] | null
+          is_active?: boolean | null
+          location?: string | null
+          name?: string
+          objections?: string[] | null
+          occupation?: string | null
+          pain_points?: string[] | null
+          persona_prompt_hints?: string | null
+          preferred_channels?: string[] | null
+          response_tone_hints?: string[] | null
+          sort_order?: number | null
+          typical_funnel_stage?: string | null
+          updated_at?: string | null
+          values?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_personas_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_personas_industry_template_id_fkey"
             columns: ["industry_template_id"]
             isOneToOne: false
             referencedRelation: "industry_templates"
