@@ -797,12 +797,17 @@ const getSystemPrompt = (
 
   // Build Extended Brand Context section
   const extendedBrandSection = extendedBrandContext ? buildExtendedBrandPrompt(extendedBrandContext) : "";
+  const productTargetingSection = extendedBrandContext && (extendedBrandContext as any).productPersonaTargeting 
+    ? (extendedBrandContext as any).productPersonaTargeting 
+    : "";
 
   return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
 
 ${extendedBrandSection}
+
+${productTargetingSection}
 
 ## NGUYÊN TẮC LÕI
 ONE TOPIC → ONE CORE MESSAGE → MULTI-CHANNEL CONTENT
@@ -1000,13 +1005,26 @@ serve(async (req) => {
         };
         
         // Fetch customer personas for this brand
-        const { data: personas } = await supabase
-          .from('customer_personas')
-          .select('*')
-          .eq('brand_template_id', formData.brandTemplateId)
-          .order('is_primary', { ascending: false });
+        const [personasResult, mappingsResult] = await Promise.all([
+          supabase
+            .from('customer_personas')
+            .select('*')
+            .eq('brand_template_id', formData.brandTemplateId)
+            .order('is_primary', { ascending: false }),
+          supabase
+            .from('product_persona_mappings')
+            .select(`
+              product_id, persona_id, relevance_score, is_primary_product,
+              custom_pitch, key_benefits, objection_handlers, preferred_content_angles, avoid_topics,
+              product:brand_products(id, name, category, unique_selling_points),
+              persona:customer_personas(id, name, occupation)
+            `)
+            .eq('brand_template_id', formData.brandTemplateId)
+            .order('relevance_score', { ascending: false })
+            .limit(15)
+        ]);
         
-        if (personas && personas.length > 0) {
+        if (personasResult.data && personasResult.data.length > 0) {
           const mapPersona = (p: any): CustomerPersona => ({
             name: p.name,
             avatarEmoji: p.avatar_emoji,
@@ -1029,9 +1047,42 @@ serve(async (req) => {
             journeyMap: p.journey_map || [],
           });
           
-          extendedBrandContext.primaryPersona = mapPersona(personas.find((p: any) => p.is_primary) || personas[0]);
-          extendedBrandContext.allPersonas = personas.map(mapPersona);
-          console.log("Customer personas loaded:", personas.length, "Primary:", extendedBrandContext.primaryPersona?.name);
+          extendedBrandContext.primaryPersona = mapPersona(personasResult.data.find((p: any) => p.is_primary) || personasResult.data[0]);
+          extendedBrandContext.allPersonas = personasResult.data.map(mapPersona);
+          console.log("Customer personas loaded:", personasResult.data.length, "Primary:", extendedBrandContext.primaryPersona?.name);
+        }
+
+        // Build Product-Persona mapping context for multichannel content
+        if (mappingsResult.data?.length) {
+          // Group by persona for better content targeting
+          const mappingsByPersona: Record<string, any[]> = {};
+          mappingsResult.data.forEach((m: any) => {
+            const personaName = m.persona?.name || 'Unknown';
+            if (!mappingsByPersona[personaName]) mappingsByPersona[personaName] = [];
+            mappingsByPersona[personaName].push(m);
+          });
+
+          let productTargetingContext = `\n## 🎯 PRODUCT-PERSONA TARGETING FOR MULTICHANNEL\n`;
+          productTargetingContext += `Khi tạo content cho từng kênh, SỬ DỤNG product messaging phù hợp với persona:\n\n`;
+
+          Object.entries(mappingsByPersona).forEach(([personaName, mappings]) => {
+            productTargetingContext += `### ${personaName}\n`;
+            mappings.slice(0, 3).forEach((m: any) => {
+              productTargetingContext += `- **${m.product?.name}** (Fit: ${m.relevance_score}%)`;
+              if (m.custom_pitch) productTargetingContext += `\n  Pitch: "${m.custom_pitch}"`;
+              if (m.key_benefits?.length) productTargetingContext += `\n  Benefits: ${m.key_benefits.join(', ')}`;
+              if (m.preferred_content_angles?.length) productTargetingContext += `\n  Góc content: ${m.preferred_content_angles.join(', ')}`;
+              productTargetingContext += '\n';
+            });
+          });
+
+          productTargetingContext += `\n→ Điều chỉnh product messaging theo từng kênh (FB: storytelling, IG: visual-first, LinkedIn: professional)`;
+
+          // Inject into extended brand context prompt
+          if (extendedBrandContext) {
+            (extendedBrandContext as any).productPersonaTargeting = productTargetingContext;
+          }
+          console.log("Product-persona mappings loaded:", mappingsResult.data.length);
         }
         
         // CRITICAL: Fetch Industry Memory from database (Single Source of Truth)

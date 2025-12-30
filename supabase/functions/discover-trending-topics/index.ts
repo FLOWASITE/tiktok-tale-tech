@@ -238,9 +238,11 @@ serve(async (req) => {
     let personasContext = '';
     let productsContext = '';
     
+    let productPersonaMappingContext = '';
+    
     if (brandTemplateId) {
-      // Fetch brand with extended fields + personas + products in parallel
-      const [brandResult, personasResult, productsResult] = await Promise.all([
+      // Fetch brand with extended fields + personas + products + mappings in parallel
+      const [brandResult, personasResult, productsResult, mappingsResult] = await Promise.all([
         supabase
           .from('brand_templates')
           .select(`
@@ -253,7 +255,7 @@ serve(async (req) => {
         supabase
           .from('customer_personas')
           .select(`
-            name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
+            id, name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
             device_usage, tech_savviness, buying_motivation, communication_style, typical_funnel_stage,
             journey_map, priority_score, content_preferences
           `)
@@ -262,11 +264,15 @@ serve(async (req) => {
           .limit(5),
         supabase
           .from('brand_products')
-          .select('name, category, description, unique_selling_points, suggested_content_angles, is_featured')
+          .select('id, name, category, description, unique_selling_points, suggested_content_angles, is_featured')
           .eq('brand_template_id', brandTemplateId)
           .eq('is_active', true)
           .order('is_featured', { ascending: false })
-          .limit(5)
+          .limit(5),
+        supabase
+          .from('product_persona_mappings')
+          .select('product_id, persona_id, relevance_score, is_primary_product, custom_pitch, key_benefits, objection_handlers, preferred_content_angles, avoid_topics')
+          .eq('brand_template_id', brandTemplateId)
       ]);
 
       if (brandResult.data) {
@@ -320,6 +326,28 @@ ${productsResult.data.map((p: any) => `
 → Topics có thể gắn với sản phẩm cụ thể để tăng relevance`;
         console.log('[Phase 2] Loaded', productsResult.data.length, 'products');
       }
+
+      // Build Product-Persona Mapping context
+      if (mappingsResult.data?.length && personasResult.data?.length && productsResult.data?.length) {
+        const enrichedMappings = mappingsResult.data.map((m: any) => ({
+          ...m,
+          product: productsResult.data.find((p: any) => p.id === m.product_id),
+          persona: personasResult.data.find((p: any) => p.id === m.persona_id)
+        })).filter((m: any) => m.product && m.persona);
+
+        if (enrichedMappings.length > 0) {
+          productPersonaMappingContext = `
+## 🔗 PRODUCT-PERSONA TARGETING (Content Strategy)
+Khi gợi ý trending topics, ƯU TIÊN topics có thể gắn với product-persona pairs dưới đây:
+
+${enrichedMappings.slice(0, 10).map((m: any) => 
+  `- ${m.persona.name} ↔ ${m.product.name} (Fit: ${m.relevance_score}%)${m.custom_pitch ? ` | Pitch: "${m.custom_pitch}"` : ''}${m.preferred_content_angles?.length ? ` | Góc: ${m.preferred_content_angles.join(', ')}` : ''}`
+).join('\n')}
+
+→ Topics phù hợp với product-persona mapping có engagement cao hơn`;
+          console.log('[Phase 2] Loaded', enrichedMappings.length, 'product-persona mappings');
+        }
+      }
     }
 
     // Call Perplexity for real-time web search
@@ -328,7 +356,7 @@ ${productsResult.data.map((p: any) => `
 
     // ========== PHASE 3: Build Context for AI ==========
     console.log('[Phase 3] Building AI context with extended brand data...');
-    const brandContext = extendedBrandContext + personasContext + productsContext;
+    const brandContext = extendedBrandContext + personasContext + productsContext + productPersonaMappingContext;
 
     // Build curated context - separate urgent vs upcoming events
     let curatedContext = '';
