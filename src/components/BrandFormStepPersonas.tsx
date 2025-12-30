@@ -44,7 +44,6 @@ import {
   AGE_RANGES,
   GENDER_OPTIONS,
   AVATAR_EMOJIS,
-  PERSONA_TEMPLATES,
   COMMUNICATION_STYLES,
   RESPONSE_TONE_HINTS,
   CONTENT_FORMAT_OPTIONS,
@@ -94,7 +93,6 @@ export function BrandFormStepPersonas({
   industryTemplateId,
 }: BrandFormStepPersonasProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [showIndustryImport, setShowIndustryImport] = useState(false);
   const [selectedIndustryPersonaIds, setSelectedIndustryPersonaIds] = useState<Set<string>>(new Set());
   
@@ -180,9 +178,6 @@ export function BrandFormStepPersonas({
     setShowIndustryImport(false);
   };
 
-  // Get template type based on brand positioning
-  const templateType = brandPositioning === 'business' || brandPositioning === 'consultant' ? 'B2B' : 'B2C';
-
   const addPersona = (template?: Partial<CustomerPersona>) => {
     if (personas.length >= 5) return;
     
@@ -210,7 +205,6 @@ export function BrandFormStepPersonas({
     
     onPersonasChange([...personas, newPersona]);
     setEditingId(newPersona.id);
-    setShowTemplates(false);
   };
 
   const updatePersona = (id: string, updates: Partial<CustomerPersona>) => {
@@ -569,62 +563,17 @@ export function BrandFormStepPersonas({
                   </Dialog>
                 )}
 
-                <div className="flex gap-2">
-                  <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
-                    <DialogTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 h-9"
-                        disabled={disabled}
-                      >
-                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                        Từ Template
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Chọn Template Persona</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-3 mt-2">
-                        <p className="text-xs text-muted-foreground">
-                          Đề xuất phù hợp: <Badge variant="secondary">{templateType}</Badge>
-                        </p>
-                        <div className="grid gap-2">
-                          {PERSONA_TEMPLATES[templateType]?.map((template, idx) => (
-                            <Card 
-                              key={idx}
-                              className="cursor-pointer hover:border-primary/50 transition-colors"
-                              onClick={() => addPersona(template)}
-                            >
-                              <CardContent className="p-3 flex items-center gap-3">
-                                <span className="text-2xl">{template.avatar_emoji}</span>
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm">{template.name}</p>
-                                  <p className="text-xs text-muted-foreground">{template.occupation}</p>
-                                </div>
-                                <Plus className="w-4 h-4 text-muted-foreground" />
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="flex-1 h-9"
-                    onClick={() => addPersona()}
-                    disabled={disabled}
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    Tạo mới
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="w-full h-9"
+                  onClick={() => addPersona()}
+                  disabled={disabled}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />
+                  Tạo mới
+                </Button>
               </div>
             )}
           </CardContent>
