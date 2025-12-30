@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardDescription, CardTitle } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -32,7 +34,8 @@ import {
   Target, Brain, ShoppingCart, Sparkles,
   Heart, Lightbulb, MessageCircle, Globe, BookOpen, Zap,
   Download, Building2, Image, BarChart3, CheckSquare,
-  FileText, ScrollText, Check, CheckCheck
+  FileText, ScrollText, Check, CheckCheck, HelpCircle,
+  User, Settings2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -51,6 +54,7 @@ import {
   getDefaultContentPreferences,
 } from '@/types/customerPersona';
 import { useIndustryPersonasForImport } from '@/hooks/useIndustryPersonas';
+import { PersonaPreviewCard } from '@/components/brand/PersonaPreviewCard';
 
 // Predefined options
 const PREFERRED_CHANNEL_OPTIONS = [
@@ -95,6 +99,7 @@ export function BrandFormStepPersonas({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showIndustryImport, setShowIndustryImport] = useState(false);
   const [selectedIndustryPersonaIds, setSelectedIndustryPersonaIds] = useState<Set<string>>(new Set());
+  const [editorTab, setEditorTab] = useState('basic');
   
   // Fetch industry personas for import
   const { personas: industryPersonas, isLoading: loadingIndustry } = useIndustryPersonasForImport(industryTemplateId);
@@ -118,6 +123,49 @@ export function BrandFormStepPersonas({
     if (persona.content_preferences) score++;
     
     return Math.round((score / maxScore) * 100);
+  };
+
+  // Batch import with immediate use option
+  const handleImportPersona = (industryPersona: any, openEditor: boolean = false) => {
+    if (personas.length >= 5) return;
+    if (personas.some(p => (p as any).source_industry_persona_id === industryPersona.id)) return;
+    
+    const newPersona: CustomerPersona = {
+      id: `temp-${Date.now()}`,
+      brand_template_id: '',
+      name: industryPersona.name,
+      avatar_emoji: industryPersona.avatar_emoji || '👤',
+      is_primary: personas.length === 0,
+      age_range: industryPersona.age_range,
+      gender: industryPersona.gender,
+      location: industryPersona.location,
+      income_level: industryPersona.income_level,
+      occupation: industryPersona.occupation,
+      pain_points: industryPersona.pain_points || [],
+      desires: industryPersona.desires || [],
+      objections: industryPersona.objections || [],
+      values: industryPersona.values || [],
+      interests: industryPersona.interests || [],
+      buying_triggers: industryPersona.buying_triggers || [],
+      information_sources: industryPersona.information_sources || [],
+      preferred_channels: industryPersona.preferred_channels || [],
+      typical_funnel_stage: industryPersona.typical_funnel_stage,
+      communication_style: industryPersona.communication_style,
+      response_tone_hints: industryPersona.response_tone_hints || [],
+      content_preferences: industryPersona.content_preferences,
+      persona_prompt_hints: industryPersona.persona_prompt_hints,
+      source_industry_persona_id: industryPersona.id,
+      is_customized: false,
+    };
+    
+    onPersonasChange([...personas, newPersona]);
+    
+    if (openEditor) {
+      setEditingId(newPersona.id);
+      setEditorTab('basic');
+    }
+    
+    setShowIndustryImport(false);
   };
 
   // Batch import industry personas
@@ -205,6 +253,7 @@ export function BrandFormStepPersonas({
     
     onPersonasChange([...personas, newPersona]);
     setEditingId(newPersona.id);
+    setEditorTab('basic');
   };
 
   const updatePersona = (id: string, updates: Partial<CustomerPersona>) => {
@@ -251,817 +300,844 @@ export function BrandFormStepPersonas({
   const editingPersona = editingId ? personas.find(p => p.id === editingId) : null;
 
   return (
-    <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-          <Users className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold">Chân dung khách hàng</h2>
-          <p className="text-sm text-muted-foreground">
-            Định nghĩa Customer Personas giúp AI tạo nội dung phù hợp với đối tượng mục tiêu
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Personas List */}
-        <Card className="h-fit">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Danh sách Personas</CardTitle>
-                <CardDescription className="text-xs">
-                  Tối đa 5 personas. Persona chính sẽ được ưu tiên khi AI tạo nội dung
-                </CardDescription>
-              </div>
-              <Badge variant="outline" className="text-xs">
-                {personas.length}/5
-              </Badge>
+    <TooltipProvider>
+      <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Users className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">Chân dung khách hàng</h2>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs">
+                  <p className="text-xs">
+                    Personas giúp AI tạo nội dung phù hợp với đối tượng mục tiêu. 
+                    Pain points và desires sẽ được đề cập trong content để thu hút sự chú ý.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Persona Cards */}
-            {personas.length > 0 ? (
-              <div className="space-y-2">
-                {personas.map((persona) => {
-                  const completeness = getPersonaCompleteness(persona);
-                  return (
-                  <Card 
-                    key={persona.id} 
-                    className={cn(
-                      "cursor-pointer transition-all hover:border-primary/50",
-                      editingId === persona.id && "ring-2 ring-primary/30 border-primary",
-                      persona.is_primary && "bg-primary/5"
-                    )}
-                    onClick={() => setEditingId(editingId === persona.id ? null : persona.id)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {/* Avatar with completeness ring */}
-                          <div className="relative">
-                            <span className="text-2xl">{persona.avatar_emoji}</span>
-                            <svg className="absolute -inset-1 w-10 h-10" viewBox="0 0 36 36">
-                              <circle
-                                cx="18"
-                                cy="18"
-                                r="16"
-                                fill="none"
-                                className="stroke-muted"
-                                strokeWidth="2"
-                              />
-                              <circle
-                                cx="18"
-                                cy="18"
-                                r="16"
-                                fill="none"
-                                className={cn(
-                                  completeness >= 75 ? "stroke-emerald-500" :
-                                  completeness >= 50 ? "stroke-amber-500" : "stroke-destructive"
-                                )}
-                                strokeWidth="2"
-                                strokeDasharray={`${completeness} ${100 - completeness}`}
-                                strokeLinecap="round"
-                                transform="rotate(-90 18 18)"
-                              />
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-sm">{persona.name}</span>
-                              {persona.is_primary && (
-                                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                              )}
-                              {(persona as any).source_industry_persona_id && (
-                                <Badge 
-                                  variant="outline" 
-                                  className="text-[9px] h-4 px-1 border-primary/30 text-primary"
-                                >
-                                  <Building2 className="w-2.5 h-2.5 mr-0.5" />
-                                  Industry
-                                </Badge>
-                              )}
-                              <span className={cn(
-                                "text-[9px] font-medium",
-                                completeness >= 75 ? "text-emerald-600" :
-                                completeness >= 50 ? "text-amber-600" : "text-destructive"
-                              )}>
-                                {completeness}%
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                              {persona.occupation && <span>{persona.occupation}</span>}
-                              {persona.age_range && (
-                                <Badge variant="secondary" className="text-[9px] h-4 px-1">
-                                  {persona.age_range}
-                                </Badge>
-                              )}
-                              {persona.typical_funnel_stage && (
-                                <Badge variant="outline" className="text-[9px] h-4 px-1">
-                                  {FUNNEL_STAGES.find(f => f.value === persona.typical_funnel_stage)?.label}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removePersona(persona.id);
-                            }}
-                            disabled={disabled}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {/* Quick stats */}
-                      {(persona.pain_points.length > 0 || persona.desires.length > 0) && (
-                        <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t">
-                          {persona.pain_points.slice(0, 2).map((point, idx) => (
-                            <Badge key={`p-${idx}`} variant="secondary" className="text-[9px] bg-destructive/10 text-destructive">
-                              {point}
-                            </Badge>
-                          ))}
-                          {persona.desires.slice(0, 2).map((desire, idx) => (
-                            <Badge key={`d-${idx}`} variant="secondary" className="text-[9px] bg-emerald-500/10 text-emerald-600">
-                              {desire}
-                            </Badge>
-                          ))}
-                          {(persona.pain_points.length + persona.desires.length) > 4 && (
-                            <Badge variant="secondary" className="text-[9px]">
-                              +{persona.pain_points.length + persona.desires.length - 4}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Chưa có persona nào</p>
-                <p className="text-xs">Thêm persona để AI hiểu rõ đối tượng mục tiêu</p>
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">
+              Định nghĩa Customer Personas để AI hiểu rõ đối tượng mục tiêu
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {personas.length}/5
+          </Badge>
+        </div>
 
-            {/* Add Buttons */}
-            {personas.length < 5 && (
-              <div className="space-y-2 pt-2">
-                {/* Import from Industry - Only show if brand has industry template */}
-                {industryTemplateId && industryPersonas.length > 0 && (
-                  <Dialog open={showIndustryImport} onOpenChange={setShowIndustryImport}>
-                    <DialogTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full h-9 border-primary/30 text-primary hover:bg-primary/5"
-                        disabled={disabled || loadingIndustry}
-                      >
-                        <Building2 className="w-3.5 h-3.5 mr-1.5" />
-                        Import từ Industry ({industryPersonas.length})
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          <Building2 className="w-5 h-5 text-primary" />
-                          Import Persona từ Industry
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-3 mt-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-muted-foreground">
-                            Chọn personas để import. Còn {5 - personas.length} slot.
-                          </p>
-                          {industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).length > 0 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs gap-1"
-                              onClick={() => {
-                                const availableIds = industryPersonas
-                                  .filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id))
-                                  .slice(0, 5 - personas.length)
-                                  .map(ip => ip.id);
-                                setSelectedIndustryPersonaIds(new Set(availableIds));
-                              }}
-                            >
-                              <CheckCheck className="w-3.5 h-3.5" />
-                              Chọn tất cả
-                            </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Left: Personas List + Preview */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Persona Cards List */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Danh sách Personas</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {personas.length > 0 ? (
+                  <div className="space-y-2">
+                    {personas.map((persona) => {
+                      const completeness = getPersonaCompleteness(persona);
+                      const isSelected = editingId === persona.id;
+                      return (
+                        <Card 
+                          key={persona.id} 
+                          className={cn(
+                            "cursor-pointer transition-all hover:border-primary/50",
+                            isSelected && "ring-2 ring-primary border-primary bg-primary/5",
+                            persona.is_primary && !isSelected && "bg-amber-500/5"
                           )}
-                        </div>
-                        <div className="grid gap-2 max-h-[300px] overflow-y-auto">
-                          {industryPersonas.map((industryPersona) => {
-                            const alreadyImported = personas.some(
-                              p => (p as any).source_industry_persona_id === industryPersona.id
-                            );
-                            const isSelected = selectedIndustryPersonaIds.has(industryPersona.id);
-                            const canSelect = !alreadyImported && (isSelected || selectedIndustryPersonaIds.size < (5 - personas.length));
-                            
-                            return (
-                              <Card 
-                                key={industryPersona.id}
-                                className={cn(
-                                  "transition-colors",
-                                  alreadyImported 
-                                    ? "opacity-50 cursor-not-allowed" 
-                                    : isSelected
-                                    ? "border-primary bg-primary/5 cursor-pointer"
-                                    : canSelect
-                                    ? "cursor-pointer hover:border-primary/50"
-                                    : "opacity-50 cursor-not-allowed"
-                                )}
-                                onClick={() => {
-                                  if (alreadyImported || !canSelect) return;
-                                  
-                                  setSelectedIndustryPersonaIds(prev => {
-                                    const newSet = new Set(prev);
-                                    if (isSelected) {
-                                      newSet.delete(industryPersona.id);
-                                    } else {
-                                      newSet.add(industryPersona.id);
-                                    }
-                                    return newSet;
-                                  });
-                                }}
-                              >
-                                <CardContent className="p-3 flex items-center gap-3">
-                                  <Checkbox
-                                    checked={isSelected}
-                                    disabled={alreadyImported || (!isSelected && !canSelect)}
-                                    className="shrink-0"
-                                  />
-                                  <span className="text-2xl">{industryPersona.avatar_emoji || '👤'}</span>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">{industryPersona.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">
-                                      {industryPersona.occupation || 'N/A'}
-                                      {industryPersona.age_range && ` • ${industryPersona.age_range}`}
-                                    </p>
-                                    {industryPersona.pain_points && industryPersona.pain_points.length > 0 && (
-                                      <div className="flex gap-1 mt-1">
-                                        <Badge variant="secondary" className="text-[9px] truncate max-w-[120px]">
-                                          {industryPersona.pain_points[0]}
-                                        </Badge>
-                                        {industryPersona.pain_points.length > 1 && (
-                                          <Badge variant="secondary" className="text-[9px]">
-                                            +{industryPersona.pain_points.length - 1}
-                                          </Badge>
+                          onClick={() => setEditingId(isSelected ? null : persona.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {/* Avatar with completeness ring */}
+                                <div className="relative flex-shrink-0">
+                                  <span className="text-2xl">{persona.avatar_emoji}</span>
+                                  <svg className="absolute -inset-1 w-10 h-10" viewBox="0 0 36 36">
+                                    <circle
+                                      cx="18"
+                                      cy="18"
+                                      r="16"
+                                      fill="none"
+                                      className="stroke-muted"
+                                      strokeWidth="2"
+                                    />
+                                    <circle
+                                      cx="18"
+                                      cy="18"
+                                      r="16"
+                                      fill="none"
+                                      className={cn(
+                                        completeness >= 75 ? "stroke-emerald-500" :
+                                        completeness >= 50 ? "stroke-amber-500" : "stroke-destructive"
+                                      )}
+                                      strokeWidth="2"
+                                      strokeDasharray={`${completeness} ${100 - completeness}`}
+                                      strokeLinecap="round"
+                                      transform="rotate(-90 18 18)"
+                                    />
+                                  </svg>
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-medium text-sm truncate">{persona.name}</span>
+                                    {persona.is_primary && (
+                                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                    )}
+                                    {(persona as any).source_industry_persona_id && (
+                                      <Badge 
+                                        variant="outline" 
+                                        className={cn(
+                                          "text-[9px] h-4 px-1 flex-shrink-0",
+                                          persona.is_customized 
+                                            ? "border-amber-500/30 text-amber-600"
+                                            : "border-primary/30 text-primary"
                                         )}
-                                      </div>
+                                      >
+                                        <Building2 className="w-2.5 h-2.5 mr-0.5" />
+                                        {persona.is_customized ? 'Custom' : 'Industry'}
+                                      </Badge>
                                     )}
                                   </div>
-                                  {alreadyImported && (
-                                    <Badge variant="secondary" className="text-[9px] shrink-0">
-                                      Đã import
-                                    </Badge>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedIndustryPersonaIds(new Set());
-                            setShowIndustryImport(false);
-                          }}
-                        >
-                          Hủy
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={handleBatchImport}
-                          disabled={selectedIndustryPersonaIds.size === 0}
-                          className="gap-1.5"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          Import {selectedIndustryPersonaIds.size > 0 ? `(${selectedIndustryPersonaIds.size})` : ''}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                    {persona.occupation && <span className="truncate">{persona.occupation}</span>}
+                                    {persona.age_range && (
+                                      <Badge variant="secondary" className="text-[9px] h-4 px-1">
+                                        {persona.age_range}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <span className={cn(
+                                  "text-[10px] font-medium",
+                                  completeness >= 75 ? "text-emerald-600" :
+                                  completeness >= 50 ? "text-amber-600" : "text-destructive"
+                                )}>
+                                  {completeness}%
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removePersona(persona.id);
+                                  }}
+                                  disabled={disabled}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Chưa có persona nào</p>
+                    <p className="text-xs">Import từ Industry hoặc tạo mới</p>
+                  </div>
                 )}
 
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  className="w-full h-9"
-                  onClick={() => addPersona()}
-                  disabled={disabled}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  Tạo mới
-                </Button>
+                {/* Add Buttons */}
+                {personas.length < 5 && (
+                  <div className="space-y-2 pt-2 border-t">
+                    {industryTemplateId && industryPersonas.length > 0 && (
+                      <Dialog open={showIndustryImport} onOpenChange={setShowIndustryImport}>
+                        <DialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-9 border-primary/30 text-primary hover:bg-primary/5"
+                            disabled={disabled || loadingIndustry}
+                          >
+                            <Building2 className="w-3.5 h-3.5 mr-1.5" />
+                            Import từ Industry ({industryPersonas.length})
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <Building2 className="w-5 h-5 text-primary" />
+                              Chọn Persona từ Industry Pack
+                            </DialogTitle>
+                          </DialogHeader>
+                          
+                          <div className="flex-1 overflow-y-auto space-y-3 py-2">
+                            <p className="text-xs text-muted-foreground">
+                              Còn {5 - personas.length} slot. Chọn persona và click "Sử dụng ngay" hoặc "Customize".
+                            </p>
+                            
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {industryPersonas.map((ip) => {
+                                const alreadyImported = personas.some(
+                                  p => (p as any).source_industry_persona_id === ip.id
+                                );
+                                
+                                return (
+                                  <Card 
+                                    key={ip.id}
+                                    className={cn(
+                                      "transition-all overflow-hidden",
+                                      alreadyImported && "opacity-50"
+                                    )}
+                                  >
+                                    {/* Gradient Header */}
+                                    <div className="h-2 bg-gradient-to-r from-primary/30 via-primary/20 to-transparent" />
+                                    
+                                    <CardContent className="p-4 space-y-3">
+                                      {/* Avatar + Info */}
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center text-2xl border">
+                                          {ip.avatar_emoji || '👤'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className="font-semibold text-sm truncate">{ip.name}</h4>
+                                          <p className="text-xs text-muted-foreground truncate">
+                                            {ip.occupation || 'N/A'} {ip.age_range && `• ${ip.age_range}`}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Quote / Hints */}
+                                      {ip.persona_prompt_hints && (
+                                        <p className="text-xs text-muted-foreground italic line-clamp-2 bg-muted/30 rounded p-2 border-l-2 border-primary/30">
+                                          "{ip.persona_prompt_hints}"
+                                        </p>
+                                      )}
+                                      
+                                      {/* Pain Points Preview */}
+                                      {ip.pain_points && ip.pain_points.length > 0 && (
+                                        <div className="flex flex-wrap gap-1">
+                                          {ip.pain_points.slice(0, 3).map((point, idx) => (
+                                            <Badge key={idx} variant="secondary" className="text-[9px] bg-destructive/10 text-destructive">
+                                              {point}
+                                            </Badge>
+                                          ))}
+                                          {ip.pain_points.length > 3 && (
+                                            <Badge variant="secondary" className="text-[9px]">
+                                              +{ip.pain_points.length - 3}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Communication Style */}
+                                      {ip.communication_style && (
+                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                          <MessageCircle className="w-3 h-3" />
+                                          <span>
+                                            {COMMUNICATION_STYLES.find(c => c.value === ip.communication_style)?.label || ip.communication_style}
+                                          </span>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Actions */}
+                                      <div className="flex gap-2 pt-2 border-t">
+                                        {alreadyImported ? (
+                                          <Badge variant="secondary" className="w-full justify-center text-xs py-1">
+                                            <Check className="w-3 h-3 mr-1" />
+                                            Đã import
+                                          </Badge>
+                                        ) : (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              className="flex-1 h-8 text-xs"
+                                              onClick={() => handleImportPersona(ip, false)}
+                                            >
+                                              <Zap className="w-3 h-3 mr-1" />
+                                              Sử dụng ngay
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="default"
+                                              size="sm"
+                                              className="flex-1 h-8 text-xs"
+                                              onClick={() => handleImportPersona(ip, true)}
+                                            >
+                                              <Settings2 className="w-3 h-3 mr-1" />
+                                              Customize
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          
+                          <DialogFooter className="border-t pt-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowIndustryImport(false)}
+                            >
+                              Đóng
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="w-full h-9"
+                      onClick={() => addPersona()}
+                      disabled={disabled}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1.5" />
+                      Tạo mới
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Preview Card - Shows selected persona */}
+            {editingPersona && (
+              <div className="hidden lg:block">
+                <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Preview (cập nhật realtime)
+                </div>
+                <PersonaPreviewCard persona={editingPersona} />
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Edit Panel */}
-        <Card className={cn(
-          "h-fit transition-opacity",
-          !editingPersona && "opacity-50 pointer-events-none"
-        )}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              {editingPersona ? (
-                <>
-                  <span className="text-xl">{editingPersona.avatar_emoji}</span>
-                  {editingPersona.name}
-                </>
-              ) : (
-                'Chọn persona để chỉnh sửa'
-              )}
-            </CardTitle>
-          </CardHeader>
-          
-          {editingPersona && (
-            <CardContent className="space-y-4">
-              <ScrollArea className="h-[calc(100vh-400px)] min-h-[400px] pr-4">
-                <div className="space-y-4">
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Tên persona</Label>
-                      <Input
-                        value={editingPersona.name}
-                        onChange={(e) => updatePersona(editingPersona.id, { name: e.target.value })}
-                        className="h-9"
-                        disabled={disabled}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Avatar</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="h-9 w-full justify-start gap-2">
-                            <span className="text-lg">{editingPersona.avatar_emoji}</span>
-                            <span className="text-xs text-muted-foreground">Chọn emoji</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-2">
-                          <div className="grid grid-cols-5 gap-1">
-                            {AVATAR_EMOJIS.map((emoji) => (
-                              <Button
-                                key={emoji}
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-lg"
-                                onClick={() => updatePersona(editingPersona.id, { avatar_emoji: emoji })}
-                              >
-                                {emoji}
-                              </Button>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* Demographics */}
-                  <div className="space-y-2">
-                    <Label className="text-xs flex items-center gap-1.5 font-medium">
-                      <Target className="w-3.5 h-3.5" />
-                      Nhân khẩu học
-                    </Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Select 
-                        value={editingPersona.age_range || ''} 
-                        onValueChange={(v) => updatePersona(editingPersona.id, { age_range: v })}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Độ tuổi" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {AGE_RANGES.map((age) => (
-                            <SelectItem key={age} value={age}>{age}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select 
-                        value={editingPersona.gender || ''} 
-                        onValueChange={(v) => updatePersona(editingPersona.id, { gender: v as any })}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Giới tính" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {GENDER_OPTIONS.map((g) => (
-                            <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select 
-                        value={editingPersona.income_level || ''} 
-                        onValueChange={(v) => updatePersona(editingPersona.id, { income_level: v as any })}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Thu nhập" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {INCOME_LEVELS.map((i) => (
-                            <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="Nghề nghiệp..."
-                        value={editingPersona.occupation || ''}
-                        onChange={(e) => updatePersona(editingPersona.id, { occupation: e.target.value })}
-                        className="h-9 text-sm"
-                        disabled={disabled}
-                      />
-                      <Input
-                        placeholder="Khu vực..."
-                        value={editingPersona.location || ''}
-                        onChange={(e) => updatePersona(editingPersona.id, { location: e.target.value })}
-                        className="h-9 text-sm"
-                        disabled={disabled}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Pain Points */}
-                  <TagInputSection
-                    label="Pain Points (Nỗi đau)"
-                    icon={<Brain className="w-3.5 h-3.5" />}
-                    tags={editingPersona.pain_points}
-                    onAdd={(v) => handleAddTag(editingPersona.id, 'pain_points', v)}
-                    onRemove={(v) => handleRemoveTag(editingPersona.id, 'pain_points', v)}
-                    placeholder="VD: Thiếu thời gian, Không biết bắt đầu từ đâu..."
-                    badgeClassName="bg-destructive/10 text-destructive"
-                    disabled={disabled}
-                  />
-
-                  {/* Desires */}
-                  <TagInputSection
-                    label="Desires (Mong muốn)"
-                    icon={<Sparkles className="w-3.5 h-3.5" />}
-                    tags={editingPersona.desires}
-                    onAdd={(v) => handleAddTag(editingPersona.id, 'desires', v)}
-                    onRemove={(v) => handleRemoveTag(editingPersona.id, 'desires', v)}
-                    placeholder="VD: Tăng doanh thu, Tiết kiệm thời gian..."
-                    badgeClassName="bg-emerald-500/10 text-emerald-600"
-                    disabled={disabled}
-                  />
-
-                  {/* Objections */}
-                  <TagInputSection
-                    label="Objections (Lý do từ chối)"
-                    icon={<ShoppingCart className="w-3.5 h-3.5" />}
-                    tags={editingPersona.objections}
-                    onAdd={(v) => handleAddTag(editingPersona.id, 'objections', v)}
-                    onRemove={(v) => handleRemoveTag(editingPersona.id, 'objections', v)}
-                    placeholder="VD: Giá cao, Không tin tưởng..."
-                    badgeClassName="bg-amber-500/10 text-amber-600"
-                    disabled={disabled}
-                  />
-
-                  {/* Values */}
-                  <TagInputSection
-                    label="Values (Giá trị)"
-                    icon={<Heart className="w-3.5 h-3.5" />}
-                    tags={editingPersona.values}
-                    onAdd={(v) => handleAddTag(editingPersona.id, 'values', v)}
-                    onRemove={(v) => handleRemoveTag(editingPersona.id, 'values', v)}
-                    placeholder="VD: Chất lượng, Tiện lợi, Uy tín..."
-                    badgeClassName="bg-pink-500/10 text-pink-600"
-                    disabled={disabled}
-                  />
-
-                  {/* Interests */}
-                  <TagInputSection
-                    label="Interests (Sở thích)"
-                    icon={<Lightbulb className="w-3.5 h-3.5" />}
-                    tags={editingPersona.interests}
-                    onAdd={(v) => handleAddTag(editingPersona.id, 'interests', v)}
-                    onRemove={(v) => handleRemoveTag(editingPersona.id, 'interests', v)}
-                    placeholder="VD: Du lịch, Công nghệ, Fitness..."
-                    badgeClassName="bg-blue-500/10 text-blue-600"
-                    disabled={disabled}
-                  />
-
-                  {/* Buying Triggers */}
-                  <TagInputSection
-                    label="Buying Triggers (Kích hoạt mua)"
-                    icon={<Zap className="w-3.5 h-3.5" />}
-                    tags={editingPersona.buying_triggers}
-                    onAdd={(v) => handleAddTag(editingPersona.id, 'buying_triggers', v)}
-                    onRemove={(v) => handleRemoveTag(editingPersona.id, 'buying_triggers', v)}
-                    placeholder="VD: Khuyến mãi, Review tốt, Bạn bè giới thiệu..."
-                    badgeClassName="bg-orange-500/10 text-orange-600"
-                    disabled={disabled}
-                  />
-
-                  {/* Information Sources */}
-                  <div className="space-y-2">
-                    <Label className="text-xs flex items-center gap-1.5 font-medium">
-                      <BookOpen className="w-3.5 h-3.5" />
-                      Nguồn thông tin
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {INFORMATION_SOURCE_OPTIONS.map((source) => {
-                        const isSelected = editingPersona.information_sources.includes(source);
-                        return (
-                          <Badge
-                            key={source}
-                            variant={isSelected ? "default" : "outline"}
-                            className={cn(
-                              "cursor-pointer text-xs transition-colors",
-                              isSelected && "bg-primary"
-                            )}
-                            onClick={() => {
-                              if (isSelected) {
-                                handleRemoveTag(editingPersona.id, 'information_sources', source);
-                              } else {
-                                handleAddTag(editingPersona.id, 'information_sources', source);
-                              }
-                            }}
-                          >
-                            {source}
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Preferred Channels */}
-                  <div className="space-y-2">
-                    <Label className="text-xs flex items-center gap-1.5 font-medium">
-                      <Globe className="w-3.5 h-3.5" />
-                      Kênh ưa thích
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PREFERRED_CHANNEL_OPTIONS.map((channel) => {
-                        const isSelected = editingPersona.preferred_channels.includes(channel.value);
-                        return (
-                          <Badge
-                            key={channel.value}
-                            variant={isSelected ? "default" : "outline"}
-                            className={cn(
-                              "cursor-pointer text-xs transition-colors",
-                              isSelected && "bg-primary"
-                            )}
-                            onClick={() => {
-                              if (isSelected) {
-                                handleRemoveTag(editingPersona.id, 'preferred_channels', channel.value);
-                              } else {
-                                handleAddTag(editingPersona.id, 'preferred_channels', channel.value);
-                              }
-                            }}
-                          >
-                            {channel.label}
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Funnel Stage */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Giai đoạn Funnel điển hình</Label>
-                    <div className="flex gap-2">
-                      {FUNNEL_STAGES.map((stage) => (
-                        <Button
-                          key={stage.value}
-                          type="button"
-                          variant={editingPersona.typical_funnel_stage === stage.value ? 'default' : 'outline'}
-                          size="sm"
-                          className="flex-1 h-9"
-                          onClick={() => updatePersona(editingPersona.id, { typical_funnel_stage: stage.value })}
-                          disabled={disabled}
-                        >
-                          <div className="text-center">
-                            <div className="text-xs font-medium">{stage.label}</div>
-                            <div className="text-[10px] opacity-70">{stage.description}</div>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* AI Enhancement Section */}
-                  <div className="border-t pt-4 mt-4 space-y-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                      <Brain className="w-3.5 h-3.5" />
-                      AI Enhancement
-                    </div>
-
-                    {/* Communication Style */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium">Phong cách giao tiếp</Label>
-                      <Select
-                        value={editingPersona.communication_style || ''}
-                        onValueChange={(value) => updatePersona(editingPersona.id, { 
-                          communication_style: value,
-                          is_customized: true 
-                        })}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="h-9 text-sm">
-                          <SelectValue placeholder="Chọn phong cách..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COMMUNICATION_STYLES.map((style) => (
-                            <SelectItem key={style.value} value={style.value}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{style.label}</span>
-                                <span className="text-xs text-muted-foreground">{style.description}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Response Tone Hints */}
-                    <div className="space-y-2">
-                      <Label className="text-xs flex items-center gap-1.5 font-medium">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        Tone gợi ý
-                      </Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {RESPONSE_TONE_HINTS.map((tone) => {
-                          const tones = editingPersona.response_tone_hints || [];
-                          const isSelected = tones.includes(tone.value);
-                          return (
-                            <Badge
-                              key={tone.value}
-                              variant={isSelected ? "default" : "outline"}
-                              className={cn(
-                                "cursor-pointer text-xs transition-colors",
-                                isSelected && "bg-primary"
-                              )}
-                              onClick={() => {
-                                if (disabled) return;
-                                const currentTones = editingPersona.response_tone_hints || [];
-                                if (isSelected) {
-                                  updatePersona(editingPersona.id, { 
-                                    response_tone_hints: currentTones.filter(t => t !== tone.value),
-                                    is_customized: true
-                                  });
-                                } else {
-                                  updatePersona(editingPersona.id, { 
-                                    response_tone_hints: [...currentTones, tone.value],
-                                    is_customized: true
-                                  });
-                                }
-                              }}
-                            >
-                              {tone.label}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Persona Prompt Hints */}
-                    <div className="space-y-2">
-                      <Label className="text-xs flex items-center gap-1.5 font-medium">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Gợi ý cho AI
-                      </Label>
-                      <Input
-                        value={editingPersona.persona_prompt_hints || ''}
-                        onChange={(e) => updatePersona(editingPersona.id, { 
-                          persona_prompt_hints: e.target.value,
-                          is_customized: true
-                        })}
-                        placeholder="VD: Tập trung vào ROI và tiết kiệm thời gian..."
-                        className="h-9 text-sm"
-                        disabled={disabled}
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Hướng dẫn cụ thể cho AI khi tạo nội dung cho persona này
-                      </p>
-                    </div>
-
-                    {/* Content Preferences */}
-                    <div className="space-y-3 border-t pt-4">
-                      <Label className="text-xs flex items-center gap-1.5 font-medium">
-                        <FileText className="w-3.5 h-3.5" />
-                        Sở thích nội dung
-                      </Label>
-                      
-                      {/* Format preference */}
-                      <div className="space-y-2">
-                        <Label className="text-[10px] text-muted-foreground">Độ dài nội dung ưa thích</Label>
-                        <div className="flex gap-2">
-                          {CONTENT_FORMAT_OPTIONS.map((format) => {
-                            const currentPrefs = editingPersona.content_preferences || getDefaultContentPreferences();
-                            const isSelected = currentPrefs.format === format.value;
-                            return (
-                              <Button
-                                key={format.value}
-                                type="button"
-                                variant={isSelected ? 'default' : 'outline'}
-                                size="sm"
-                                className="flex-1 h-9"
-                                onClick={() => updatePersona(editingPersona.id, { 
-                                  content_preferences: { ...currentPrefs, format: format.value as 'short' | 'medium' | 'long' },
-                                  is_customized: true
-                                })}
-                                disabled={disabled}
-                              >
-                                <div className="text-center">
-                                  <div className="text-xs font-medium">{format.label}</div>
-                                  <div className="text-[9px] opacity-70">{format.description}</div>
-                                </div>
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Content preference toggles */}
-                      <div className="grid grid-cols-1 gap-2">
-                        {CONTENT_PREFERENCE_OPTIONS.map((pref) => {
-                          const currentPrefs = editingPersona.content_preferences || getDefaultContentPreferences();
-                          const isEnabled = currentPrefs[pref.key as keyof ContentPreferences] === true;
-                          
-                          const IconComponent = {
-                            'Image': Image,
-                            'BookOpen': BookOpen,
-                            'BarChart3': BarChart3,
-                            'Heart': Heart,
-                            'CheckSquare': CheckSquare,
-                          }[pref.icon] || FileText;
-                          
-                          return (
-                            <div 
-                              key={pref.key}
-                              className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
-                            >
-                              <div className="flex items-center gap-2">
-                                <IconComponent className="w-4 h-4 text-muted-foreground" />
-                                <div>
-                                  <p className="text-xs font-medium">{pref.label}</p>
-                                  <p className="text-[10px] text-muted-foreground">{pref.description}</p>
-                                </div>
-                              </div>
-                              <Switch
-                                checked={isEnabled}
-                                onCheckedChange={(checked) => {
-                                  updatePersona(editingPersona.id, {
-                                    content_preferences: { ...currentPrefs, [pref.key]: checked },
-                                    is_customized: true
-                                  });
-                                }}
-                                disabled={disabled}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                  {!editingPersona.is_primary && (
+          {/* Right: Editor Panel with Tabs */}
+          <div className="lg:col-span-7">
+            <Card className={cn(
+              "h-fit transition-opacity",
+              !editingPersona && "opacity-50 pointer-events-none"
+            )}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {editingPersona ? (
+                      <>
+                        <span className="text-xl">{editingPersona.avatar_emoji}</span>
+                        <span className="truncate">{editingPersona.name}</span>
+                        {editingPersona.is_primary && (
+                          <Star className="w-4 h-4 fill-amber-400 text-amber-400 flex-shrink-0" />
+                        )}
+                      </>
+                    ) : (
+                      'Chọn persona để chỉnh sửa'
+                    )}
+                  </CardTitle>
+                  {editingPersona && !editingPersona.is_primary && (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="w-full h-9"
+                      className="h-7 text-xs gap-1"
                       onClick={() => updatePersona(editingPersona.id, { is_primary: true })}
                       disabled={disabled}
                     >
-                      <Star className="w-3.5 h-3.5 mr-1.5" />
-                      Đặt làm Persona chính
+                      <Star className="w-3 h-3" />
+                      Đặt làm chính
                     </Button>
                   )}
                 </div>
-              </ScrollArea>
-            </CardContent>
-          )}
-        </Card>
+              </CardHeader>
+              
+              {editingPersona && (
+                <CardContent className="pt-0">
+                  <Tabs value={editorTab} onValueChange={setEditorTab} className="w-full">
+                    <TabsList className="w-full h-9 grid grid-cols-4">
+                      <TabsTrigger value="basic" className="text-xs gap-1">
+                        <User className="w-3 h-3" />
+                        <span className="hidden sm:inline">Cơ bản</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="psycho" className="text-xs gap-1">
+                        <Brain className="w-3 h-3" />
+                        <span className="hidden sm:inline">Tâm lý</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="behavior" className="text-xs gap-1">
+                        <ShoppingCart className="w-3 h-3" />
+                        <span className="hidden sm:inline">Hành vi</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="ai" className="text-xs gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        <span className="hidden sm:inline">AI</span>
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <ScrollArea className="h-[calc(100vh-450px)] min-h-[350px] mt-4">
+                      {/* Basic Tab */}
+                      <TabsContent value="basic" className="mt-0 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Tên persona *</Label>
+                            <Input
+                              value={editingPersona.name}
+                              onChange={(e) => updatePersona(editingPersona.id, { name: e.target.value })}
+                              className="h-9"
+                              disabled={disabled}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Avatar</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="h-9 w-full justify-start gap-2">
+                                  <span className="text-lg">{editingPersona.avatar_emoji}</span>
+                                  <span className="text-xs text-muted-foreground">Chọn emoji</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-2">
+                                <div className="grid grid-cols-5 gap-1">
+                                  {AVATAR_EMOJIS.map((emoji) => (
+                                    <Button
+                                      key={emoji}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-lg"
+                                      onClick={() => updatePersona(editingPersona.id, { avatar_emoji: emoji })}
+                                    >
+                                      {emoji}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+
+                        {/* Demographics */}
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <Target className="w-3.5 h-3.5" />
+                            Nhân khẩu học
+                          </Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Select 
+                              value={editingPersona.age_range || ''} 
+                              onValueChange={(v) => updatePersona(editingPersona.id, { age_range: v })}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Độ tuổi" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {AGE_RANGES.map((age) => (
+                                  <SelectItem key={age} value={age}>{age}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select 
+                              value={editingPersona.gender || ''} 
+                              onValueChange={(v) => updatePersona(editingPersona.id, { gender: v as any })}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Giới tính" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {GENDER_OPTIONS.map((g) => (
+                                  <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select 
+                              value={editingPersona.income_level || ''} 
+                              onValueChange={(v) => updatePersona(editingPersona.id, { income_level: v as any })}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Thu nhập" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {INCOME_LEVELS.map((i) => (
+                                  <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              placeholder="Nghề nghiệp..."
+                              value={editingPersona.occupation || ''}
+                              onChange={(e) => updatePersona(editingPersona.id, { occupation: e.target.value })}
+                              className="h-9 text-sm"
+                              disabled={disabled}
+                            />
+                            <Input
+                              placeholder="Khu vực..."
+                              value={editingPersona.location || ''}
+                              onChange={(e) => updatePersona(editingPersona.id, { location: e.target.value })}
+                              className="h-9 text-sm"
+                              disabled={disabled}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Funnel Stage */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Giai đoạn Funnel điển hình</Label>
+                          <div className="flex gap-2">
+                            {FUNNEL_STAGES.map((stage) => (
+                              <Button
+                                key={stage.value}
+                                type="button"
+                                variant={editingPersona.typical_funnel_stage === stage.value ? 'default' : 'outline'}
+                                size="sm"
+                                className="flex-1 h-9"
+                                onClick={() => updatePersona(editingPersona.id, { typical_funnel_stage: stage.value })}
+                                disabled={disabled}
+                              >
+                                <div className="text-center">
+                                  <div className="text-xs font-medium">{stage.label}</div>
+                                  <div className="text-[10px] opacity-70">{stage.description}</div>
+                                </div>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* Psychographics Tab */}
+                      <TabsContent value="psycho" className="mt-0 space-y-4">
+                        <TagInputSection
+                          label="Pain Points (Nỗi đau)"
+                          icon={<Brain className="w-3.5 h-3.5" />}
+                          tags={editingPersona.pain_points}
+                          onAdd={(v) => handleAddTag(editingPersona.id, 'pain_points', v)}
+                          onRemove={(v) => handleRemoveTag(editingPersona.id, 'pain_points', v)}
+                          placeholder="VD: Thiếu thời gian..."
+                          badgeClassName="bg-destructive/10 text-destructive"
+                          disabled={disabled}
+                          hint="AI sẽ đề cập đến pain points này để thu hút sự chú ý"
+                        />
+
+                        <TagInputSection
+                          label="Desires (Mong muốn)"
+                          icon={<Sparkles className="w-3.5 h-3.5" />}
+                          tags={editingPersona.desires}
+                          onAdd={(v) => handleAddTag(editingPersona.id, 'desires', v)}
+                          onRemove={(v) => handleRemoveTag(editingPersona.id, 'desires', v)}
+                          placeholder="VD: Tăng doanh thu..."
+                          badgeClassName="bg-emerald-500/10 text-emerald-600"
+                          disabled={disabled}
+                        />
+
+                        <TagInputSection
+                          label="Objections (Lý do từ chối)"
+                          icon={<ShoppingCart className="w-3.5 h-3.5" />}
+                          tags={editingPersona.objections}
+                          onAdd={(v) => handleAddTag(editingPersona.id, 'objections', v)}
+                          onRemove={(v) => handleRemoveTag(editingPersona.id, 'objections', v)}
+                          placeholder="VD: Giá cao..."
+                          badgeClassName="bg-amber-500/10 text-amber-600"
+                          disabled={disabled}
+                          hint="AI sẽ chuẩn bị cách xử lý các objection này trong content"
+                        />
+
+                        <TagInputSection
+                          label="Values (Giá trị)"
+                          icon={<Heart className="w-3.5 h-3.5" />}
+                          tags={editingPersona.values}
+                          onAdd={(v) => handleAddTag(editingPersona.id, 'values', v)}
+                          onRemove={(v) => handleRemoveTag(editingPersona.id, 'values', v)}
+                          placeholder="VD: Chất lượng, Uy tín..."
+                          badgeClassName="bg-pink-500/10 text-pink-600"
+                          disabled={disabled}
+                        />
+
+                        <TagInputSection
+                          label="Interests (Sở thích)"
+                          icon={<Lightbulb className="w-3.5 h-3.5" />}
+                          tags={editingPersona.interests}
+                          onAdd={(v) => handleAddTag(editingPersona.id, 'interests', v)}
+                          onRemove={(v) => handleRemoveTag(editingPersona.id, 'interests', v)}
+                          placeholder="VD: Du lịch, Công nghệ..."
+                          badgeClassName="bg-blue-500/10 text-blue-600"
+                          disabled={disabled}
+                        />
+                      </TabsContent>
+
+                      {/* Behavior Tab */}
+                      <TabsContent value="behavior" className="mt-0 space-y-4">
+                        <TagInputSection
+                          label="Buying Triggers (Kích hoạt mua)"
+                          icon={<Zap className="w-3.5 h-3.5" />}
+                          tags={editingPersona.buying_triggers}
+                          onAdd={(v) => handleAddTag(editingPersona.id, 'buying_triggers', v)}
+                          onRemove={(v) => handleRemoveTag(editingPersona.id, 'buying_triggers', v)}
+                          placeholder="VD: Khuyến mãi, Review tốt..."
+                          badgeClassName="bg-orange-500/10 text-orange-600"
+                          disabled={disabled}
+                        />
+
+                        {/* Information Sources */}
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <BookOpen className="w-3.5 h-3.5" />
+                            Nguồn thông tin
+                          </Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {INFORMATION_SOURCE_OPTIONS.map((source) => {
+                              const isSelected = editingPersona.information_sources.includes(source);
+                              return (
+                                <Badge
+                                  key={source}
+                                  variant={isSelected ? "default" : "outline"}
+                                  className={cn(
+                                    "cursor-pointer text-xs transition-colors",
+                                    isSelected && "bg-primary"
+                                  )}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      handleRemoveTag(editingPersona.id, 'information_sources', source);
+                                    } else {
+                                      handleAddTag(editingPersona.id, 'information_sources', source);
+                                    }
+                                  }}
+                                >
+                                  {source}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Preferred Channels */}
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <Globe className="w-3.5 h-3.5" />
+                            Kênh ưa thích
+                          </Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {PREFERRED_CHANNEL_OPTIONS.map((channel) => {
+                              const isSelected = editingPersona.preferred_channels.includes(channel.value);
+                              return (
+                                <Badge
+                                  key={channel.value}
+                                  variant={isSelected ? "default" : "outline"}
+                                  className={cn(
+                                    "cursor-pointer text-xs transition-colors",
+                                    isSelected && "bg-primary"
+                                  )}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      handleRemoveTag(editingPersona.id, 'preferred_channels', channel.value);
+                                    } else {
+                                      handleAddTag(editingPersona.id, 'preferred_channels', channel.value);
+                                    }
+                                  }}
+                                >
+                                  {channel.label}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* AI Enhancement Tab */}
+                      <TabsContent value="ai" className="mt-0 space-y-4">
+                        {/* Communication Style */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Phong cách giao tiếp</Label>
+                          <Select
+                            value={editingPersona.communication_style || ''}
+                            onValueChange={(value) => updatePersona(editingPersona.id, { 
+                              communication_style: value,
+                              is_customized: true 
+                            })}
+                            disabled={disabled}
+                          >
+                            <SelectTrigger className="h-9 text-sm">
+                              <SelectValue placeholder="Chọn phong cách..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {COMMUNICATION_STYLES.map((style) => (
+                                <SelectItem key={style.value} value={style.value}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{style.label}</span>
+                                    <span className="text-xs text-muted-foreground">{style.description}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Response Tone Hints */}
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Tone gợi ý
+                          </Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {RESPONSE_TONE_HINTS.map((tone) => {
+                              const tones = editingPersona.response_tone_hints || [];
+                              const isSelected = tones.includes(tone.value);
+                              return (
+                                <Badge
+                                  key={tone.value}
+                                  variant={isSelected ? "default" : "outline"}
+                                  className={cn(
+                                    "cursor-pointer text-xs transition-colors",
+                                    isSelected && "bg-primary"
+                                  )}
+                                  onClick={() => {
+                                    if (disabled) return;
+                                    const currentTones = editingPersona.response_tone_hints || [];
+                                    if (isSelected) {
+                                      updatePersona(editingPersona.id, { 
+                                        response_tone_hints: currentTones.filter(t => t !== tone.value),
+                                        is_customized: true
+                                      });
+                                    } else {
+                                      updatePersona(editingPersona.id, { 
+                                        response_tone_hints: [...currentTones, tone.value],
+                                        is_customized: true
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {tone.label}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Persona Prompt Hints */}
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Gợi ý cho AI (Quote)
+                          </Label>
+                          <Input
+                            value={editingPersona.persona_prompt_hints || ''}
+                            onChange={(e) => updatePersona(editingPersona.id, { 
+                              persona_prompt_hints: e.target.value,
+                              is_customized: true
+                            })}
+                            placeholder="VD: Tập trung vào ROI và tiết kiệm thời gian..."
+                            className="h-9 text-sm"
+                            disabled={disabled}
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Quote hoặc hướng dẫn cụ thể cho AI khi tạo nội dung cho persona này
+                          </p>
+                        </div>
+
+                        {/* Content Preferences */}
+                        <div className="space-y-3 border-t pt-4">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <FileText className="w-3.5 h-3.5" />
+                            Sở thích nội dung
+                          </Label>
+                          
+                          {/* Format preference */}
+                          <div className="space-y-2">
+                            <Label className="text-[10px] text-muted-foreground">Độ dài nội dung ưa thích</Label>
+                            <div className="flex gap-2">
+                              {CONTENT_FORMAT_OPTIONS.map((format) => {
+                                const currentPrefs = editingPersona.content_preferences || getDefaultContentPreferences();
+                                const isSelected = currentPrefs.format === format.value;
+                                return (
+                                  <Button
+                                    key={format.value}
+                                    type="button"
+                                    variant={isSelected ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="flex-1 h-9"
+                                    onClick={() => updatePersona(editingPersona.id, { 
+                                      content_preferences: { ...currentPrefs, format: format.value as 'short' | 'medium' | 'long' },
+                                      is_customized: true
+                                    })}
+                                    disabled={disabled}
+                                  >
+                                    <div className="text-center">
+                                      <div className="text-xs font-medium">{format.label}</div>
+                                      <div className="text-[9px] opacity-70">{format.description}</div>
+                                    </div>
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Content preference toggles */}
+                          <div className="grid grid-cols-1 gap-2">
+                            {CONTENT_PREFERENCE_OPTIONS.map((pref) => {
+                              const currentPrefs = editingPersona.content_preferences || getDefaultContentPreferences();
+                              const isEnabled = currentPrefs[pref.key as keyof ContentPreferences] === true;
+                              
+                              const IconComponent = {
+                                'Image': Image,
+                                'BookOpen': BookOpen,
+                                'BarChart3': BarChart3,
+                                'Heart': Heart,
+                                'CheckSquare': CheckSquare,
+                              }[pref.icon] || FileText;
+                              
+                              return (
+                                <div 
+                                  key={pref.key}
+                                  className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <IconComponent className="w-4 h-4 text-muted-foreground" />
+                                    <div>
+                                      <p className="text-xs font-medium">{pref.label}</p>
+                                      <p className="text-[10px] text-muted-foreground">{pref.description}</p>
+                                    </div>
+                                  </div>
+                                  <Switch
+                                    checked={isEnabled}
+                                    onCheckedChange={(checked) => {
+                                      updatePersona(editingPersona.id, {
+                                        content_preferences: { ...currentPrefs, [pref.key]: checked },
+                                        is_customized: true
+                                      });
+                                    }}
+                                    disabled={disabled}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </ScrollArea>
+                  </Tabs>
+                </CardContent>
+              )}
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -1075,6 +1151,7 @@ interface TagInputSectionProps {
   placeholder: string;
   badgeClassName?: string;
   disabled?: boolean;
+  hint?: string;
 }
 
 function TagInputSection({
@@ -1086,6 +1163,7 @@ function TagInputSection({
   placeholder,
   badgeClassName,
   disabled,
+  hint,
 }: TagInputSectionProps) {
   const [inputValue, setInputValue] = useState('');
 
@@ -1098,10 +1176,22 @@ function TagInputSection({
 
   return (
     <div className="space-y-2">
-      <Label className="text-xs flex items-center gap-1.5 font-medium">
-        {icon}
-        {label}
-      </Label>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs flex items-center gap-1.5 font-medium">
+          {icon}
+          {label}
+        </Label>
+        {hint && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-xs">
+              <p className="text-xs">{hint}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
       <div className="flex gap-2">
         <Input
           value={inputValue}
