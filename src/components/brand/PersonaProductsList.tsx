@@ -1,5 +1,6 @@
-import { Package, Star } from 'lucide-react';
+import { Package, Sparkles, Percent, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useProductPersonaMappings } from '@/hooks/useProductPersonaMappings';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { cn } from '@/lib/utils';
@@ -19,20 +20,17 @@ export function PersonaProductsList({
   className,
   compact = false,
 }: PersonaProductsListProps) {
-  const { products } = useProductCatalog(brandTemplateId);
-  const { getProductsForPersona } = useProductPersonaMappings({
+  const { products, isLoading: productsLoading } = useProductCatalog(brandTemplateId);
+  const { mappings, isLoading: mappingsLoading, getProductsForPersona } = useProductPersonaMappings({
     brandTemplateId,
     personaId,
     organizationId,
     enabled: !!brandTemplateId && !!personaId,
   });
 
+  const isLoading = productsLoading || mappingsLoading;
   const personaMappings = getProductsForPersona(personaId);
   
-  if (personaMappings.length === 0) {
-    return null;
-  }
-
   // Sort by relevance and primary status
   const sortedMappings = [...personaMappings].sort((a, b) => {
     if (a.is_primary_product && !b.is_primary_product) return -1;
@@ -40,83 +38,173 @@ export function PersonaProductsList({
     return b.relevance_score - a.relevance_score;
   });
 
+  // Get product details for each mapping
+  const linkedProducts = sortedMappings.map(mapping => {
+    const product = products.find(p => p.id === mapping.product_id);
+    return { ...mapping, product };
+  }).filter(m => m.product);
+
+  if (isLoading) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        {compact ? (
+          <div className="flex gap-1">
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-5 w-24 rounded-full" />
+          </div>
+        ) : (
+          <>
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (linkedProducts.length === 0) {
+    return (
+      <div className={cn(
+        "text-xs text-muted-foreground italic",
+        !compact && "p-3 rounded-lg border border-dashed text-center",
+        className
+      )}>
+        {compact ? (
+          <span>Chưa liên kết sản phẩm</span>
+        ) : (
+          <>
+            <Package className="w-4 h-4 inline-block mr-1.5 opacity-50" />
+            Chưa có sản phẩm nào được liên kết với persona này
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Compact mode: Just show badges
   if (compact) {
     return (
       <div className={cn("flex flex-wrap gap-1", className)}>
-        {sortedMappings.slice(0, 3).map(mapping => {
-          const product = products.find(p => p.id === mapping.product_id);
-          if (!product) return null;
-          
-          return (
-            <Badge 
-              key={mapping.id}
-              variant={mapping.is_primary_product ? "default" : "secondary"}
-              className="text-xs"
-            >
-              {mapping.is_primary_product && <Star className="h-2.5 w-2.5 mr-0.5 fill-current" />}
-              {product.name}
-            </Badge>
-          );
-        })}
-        {sortedMappings.length > 3 && (
-          <Badge variant="outline" className="text-xs">
-            +{sortedMappings.length - 3}
+        {linkedProducts.slice(0, 4).map(item => (
+          <Badge
+            key={item.id}
+            variant="outline"
+            className={cn(
+              "text-[10px] h-5 gap-1 transition-all duration-200",
+              item.is_primary_product 
+                ? "border-purple-500/50 bg-purple-500/10 text-purple-600 hover:bg-purple-500/20" 
+                : "border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-accent"
+            )}
+          >
+            {item.is_primary_product && <Sparkles className="w-2.5 h-2.5" />}
+            <Package className="w-2.5 h-2.5" />
+            <span className="max-w-[80px] truncate">{item.product?.name}</span>
+            <span className={cn(
+              "font-mono text-[9px] font-medium",
+              item.relevance_score >= 80 && "text-emerald-600",
+              item.relevance_score >= 60 && item.relevance_score < 80 && "text-amber-600",
+              item.relevance_score < 60 && "text-muted-foreground",
+            )}>
+              {item.relevance_score}%
+            </span>
+          </Badge>
+        ))}
+        {linkedProducts.length > 4 && (
+          <Badge variant="secondary" className="text-[10px] h-5">
+            +{linkedProducts.length - 4} more
           </Badge>
         )}
       </div>
     );
   }
 
+  // Full mode: Show detailed cards
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Package className="h-4 w-4 text-primary" />
-        <span>Sản phẩm phù hợp</span>
-        <Badge variant="secondary" className="text-xs">{personaMappings.length}</Badge>
-      </div>
-      
-      <div className="space-y-1.5">
-        {sortedMappings.map(mapping => {
-          const product = products.find(p => p.id === mapping.product_id);
-          if (!product) return null;
-          
-          return (
-            <div 
-              key={mapping.id}
-              className={cn(
-                "flex items-center justify-between p-2 rounded-md border bg-card/50",
-                mapping.is_primary_product && "border-primary/30 bg-primary/5"
-              )}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                {mapping.is_primary_product && (
-                  <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500 shrink-0" />
-                )}
-                <span className="text-sm truncate">{product.name}</span>
-              </div>
-              <Badge 
-                variant={mapping.relevance_score >= 80 ? "default" : "secondary"}
-                className="text-xs shrink-0"
-              >
-                {mapping.relevance_score}%
-              </Badge>
-            </div>
-          );
-        })}
-      </div>
+      {linkedProducts.map((item, idx) => (
+        <div
+          key={item.id}
+          className={cn(
+            "flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-200 animate-in fade-in-50",
+            item.is_primary_product 
+              ? "border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10" 
+              : "border-border bg-card hover:bg-accent/5 hover:border-muted-foreground/30"
+          )}
+          style={{ animationDelay: `${idx * 50}ms` }}
+        >
+          {/* Product Icon */}
+          <div className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+            item.is_primary_product 
+              ? "bg-purple-500/15" 
+              : "bg-muted"
+          )}>
+            <Package className={cn(
+              "w-4 h-4",
+              item.is_primary_product ? "text-purple-500" : "text-muted-foreground"
+            )} />
+          </div>
 
-      {sortedMappings.some(m => m.custom_pitch) && (
-        <div className="pt-2 border-t">
-          {sortedMappings.filter(m => m.custom_pitch).map(mapping => {
-            const product = products.find(p => p.id === mapping.product_id);
-            return (
-              <div key={mapping.id} className="text-xs text-muted-foreground italic">
-                <span className="font-medium">{product?.name}:</span> "{mapping.custom_pitch}"
+          {/* Product Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-sm truncate">
+                {item.product?.name}
+              </span>
+              {item.is_primary_product && (
+                <Badge className="text-[9px] h-4 px-1.5 bg-purple-500 hover:bg-purple-600 shrink-0">
+                  <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                  Main
+                </Badge>
+              )}
+            </div>
+            
+            {/* Custom Pitch */}
+            {item.custom_pitch && (
+              <div className="flex items-start gap-1 mt-1">
+                <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-[11px] text-muted-foreground line-clamp-1 italic">
+                  "{item.custom_pitch}"
+                </p>
               </div>
-            );
-          })}
+            )}
+            
+            {/* Key Benefits */}
+            {item.key_benefits && item.key_benefits.length > 0 && (
+              <div className="flex flex-wrap gap-0.5 mt-1.5">
+                {item.key_benefits.slice(0, 2).map((benefit, idx) => (
+                  <Badge 
+                    key={idx} 
+                    variant="secondary" 
+                    className="text-[9px] h-4 bg-emerald-500/10 text-emerald-600 border-0"
+                  >
+                    {benefit}
+                  </Badge>
+                ))}
+                {item.key_benefits.length > 2 && (
+                  <Badge variant="secondary" className="text-[9px] h-4">
+                    +{item.key_benefits.length - 2}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Relevance Score */}
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs gap-1 shrink-0 font-mono",
+              item.relevance_score >= 80 && "border-emerald-500/50 text-emerald-600 bg-emerald-500/5",
+              item.relevance_score >= 60 && item.relevance_score < 80 && "border-amber-500/50 text-amber-600 bg-amber-500/5",
+              item.relevance_score < 60 && "border-muted-foreground/50 text-muted-foreground",
+            )}
+          >
+            <Percent className="w-3 h-3" />
+            {item.relevance_score}
+          </Badge>
         </div>
-      )}
+      ))}
     </div>
   );
 }
