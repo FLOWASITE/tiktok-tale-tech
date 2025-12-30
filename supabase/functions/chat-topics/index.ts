@@ -51,14 +51,15 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch brand context with extended fields + personas + products in parallel
+    // Fetch brand context with extended fields + personas + products + mappings in parallel
     let brandContext: BrandContext | null = null;
     let personasContext: string[] = [];
     let productsContext: string[] = [];
+    let productPersonaContext: string[] = [];
     let recentTopics: string[] = [];
     
     if (brandTemplateId) {
-      const [brandResult, personasResult, productsResult, historyResult] = await Promise.all([
+      const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
         supabase
           .from('brand_templates')
           .select(`
@@ -71,7 +72,7 @@ serve(async (req) => {
         supabase
           .from('customer_personas')
           .select(`
-            name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
+            id, name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
             device_usage, tech_savviness, buying_motivation, communication_style, 
             typical_funnel_stage, objections, journey_map, priority_score
           `)
@@ -81,11 +82,17 @@ serve(async (req) => {
           .limit(5),
         supabase
           .from('brand_products')
-          .select('name, category, description, unique_selling_points, suggested_content_angles, is_featured')
+          .select('id, name, category, description, unique_selling_points, suggested_content_angles, is_featured')
           .eq('brand_template_id', brandTemplateId)
           .eq('is_active', true)
           .order('is_featured', { ascending: false })
           .limit(5),
+        supabase
+          .from('product_persona_mappings')
+          .select('product_id, persona_id, relevance_score, is_primary_product, custom_pitch, key_benefits, preferred_content_angles')
+          .eq('brand_template_id', brandTemplateId)
+          .order('relevance_score', { ascending: false })
+          .limit(20),
         supabase
           .from('topic_history')
           .select('topic')
@@ -146,13 +153,32 @@ serve(async (req) => {
         console.log('Loaded', productsResult.data.length, 'products for chat context');
       }
 
+      // Build product-persona mappings context
+      if (mappingsResult.data?.length && personasResult.data?.length && productsResult.data?.length) {
+        const personaMap = new Map(personasResult.data.map((p: any) => [p.id, p.name]));
+        const productMap = new Map(productsResult.data.map((p: any) => [p.id, p.name]));
+        
+        productPersonaContext = mappingsResult.data
+          .filter((m: any) => personaMap.has(m.persona_id) && productMap.has(m.product_id))
+          .map((m: any) => {
+            const parts = [
+              `${productMap.get(m.product_id)} → ${personaMap.get(m.persona_id)} (${m.relevance_score}%)`
+            ];
+            if (m.is_primary_product) parts[0] = '⭐ ' + parts[0];
+            if (m.custom_pitch) parts.push(`Pitch: "${m.custom_pitch}"`);
+            if (m.key_benefits?.length) parts.push(`Benefits: ${m.key_benefits.slice(0, 2).join(', ')}`);
+            return parts.join(' | ');
+          });
+        console.log('Loaded', productPersonaContext.length, 'product-persona mappings');
+      }
+
       if (historyResult.data) {
         recentTopics = historyResult.data.map(h => h.topic);
       }
     }
 
     // Build system prompt with extended context
-    const systemPrompt = buildSystemPrompt(brandContext, contentGoal, recentTopics, personasContext, productsContext);
+    const systemPrompt = buildSystemPrompt(brandContext, contentGoal, recentTopics, personasContext, productsContext, productPersonaContext);
 
     // Prepare messages for AI
     const aiMessages: ChatMessage[] = [
@@ -224,7 +250,8 @@ function buildSystemPrompt(
   contentGoal?: string, 
   recentTopics?: string[],
   personasContext?: string[],
-  productsContext?: string[]
+  productsContext?: string[],
+  productPersonaContext?: string[]
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -341,6 +368,20 @@ ${personasContext.map(p => `- ${p}`).join('\n')}
 ## Products/Services (SẢN PHẨM/DỊCH VỤ):
 ${productsContext.map(p => `- ${p}`).join('\n')}
 → Có thể gợi ý topics về use cases, benefits, testimonials của sản phẩm`;
+  }
+
+  // Add product-persona mappings
+  if (productPersonaContext?.length) {
+    prompt += `
+
+## PRODUCT-PERSONA MAPPING (Sản phẩm phù hợp với từng Persona):
+${productPersonaContext.map(m => `- ${m}`).join('\n')}
+
+### Hướng dẫn sử dụng mappings:
+- Khi gợi ý topic cho 1 persona, ưu tiên sản phẩm có relevance cao (>80%)
+- Sử dụng custom pitch làm góc nhìn content khi có
+- Kết hợp key_benefits với pain_points của persona để tạo topic hấp dẫn
+- Topic có thể là: product use case + persona pain point giải quyết`;
   }
 
   // Add content goal
