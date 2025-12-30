@@ -29,6 +29,10 @@ export interface CustomerPersona {
   preferred_channels: string[];
   typical_funnel_stage?: FunnelStage | null;
   
+  // Industry Persona Link
+  source_industry_persona_id?: string | null;
+  is_customized?: boolean | null;
+  
   created_at?: string;
   updated_at?: string;
 }

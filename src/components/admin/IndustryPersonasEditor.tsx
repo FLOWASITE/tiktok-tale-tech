@@ -22,6 +22,13 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -61,16 +68,23 @@ interface IndustryPersonasEditorProps {
   industryTemplateId: string;
   industryName?: string;
   targetAudience?: 'B2B' | 'B2C';
+  // Dialog mode props
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  packName?: string;
 }
 
 export function IndustryPersonasEditor({
   industryTemplateId,
   industryName = 'Industry',
   targetAudience = 'B2B',
+  open,
+  onOpenChange,
+  packName,
 }: IndustryPersonasEditorProps) {
   const { personas, isLoading, createPersona, updatePersona, deletePersona, refresh } = useIndustryPersonas({
     industryTemplateId,
-    enabled: true,
+    enabled: open !== undefined ? open : true,
   });
   
   const [editingPersona, setEditingPersona] = useState<IndustryPersona | null>(null);
@@ -138,7 +152,7 @@ export function IndustryPersonasEditor({
 
   const templates = INDUSTRY_PERSONA_TEMPLATES[targetAudience] || [];
 
-  return (
+  const content = (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -612,6 +626,31 @@ export function IndustryPersonasEditor({
       </Sheet>
     </div>
   );
+
+  // If dialog mode (open prop provided), wrap content in Dialog
+  if (open !== undefined && onOpenChange) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Personas: {packName || industryName}
+            </DialogTitle>
+            <DialogDescription>
+              Quản lý Customer Personas mẫu cho Industry Pack này
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            {content}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Standalone mode
+  return content;
 }
 
 // Helper component for tag input
