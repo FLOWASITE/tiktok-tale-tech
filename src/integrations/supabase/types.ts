@@ -2128,6 +2128,89 @@ export type Database = {
         }
         Relationships: []
       }
+      product_persona_mappings: {
+        Row: {
+          avoid_topics: string[] | null
+          brand_template_id: string
+          created_at: string | null
+          custom_pitch: string | null
+          id: string
+          is_primary_product: boolean | null
+          key_benefits: string[] | null
+          objection_handlers: string[] | null
+          organization_id: string | null
+          persona_id: string
+          preferred_content_angles: string[] | null
+          product_id: string
+          relevance_score: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avoid_topics?: string[] | null
+          brand_template_id: string
+          created_at?: string | null
+          custom_pitch?: string | null
+          id?: string
+          is_primary_product?: boolean | null
+          key_benefits?: string[] | null
+          objection_handlers?: string[] | null
+          organization_id?: string | null
+          persona_id: string
+          preferred_content_angles?: string[] | null
+          product_id: string
+          relevance_score?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avoid_topics?: string[] | null
+          brand_template_id?: string
+          created_at?: string | null
+          custom_pitch?: string | null
+          id?: string
+          is_primary_product?: boolean | null
+          key_benefits?: string[] | null
+          objection_handlers?: string[] | null
+          organization_id?: string | null
+          persona_id?: string
+          preferred_content_angles?: string[] | null
+          product_id?: string
+          relevance_score?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_persona_mappings_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_persona_mappings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_persona_mappings_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "customer_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_persona_mappings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "brand_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
