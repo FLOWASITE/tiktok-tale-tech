@@ -109,6 +109,13 @@ export interface CustomerPersonaContext {
   buyingTriggers?: string[];
   preferredChannels?: string[];
   funnelStage?: 'tofu' | 'mofu' | 'bofu';
+  // Enhanced fields
+  deviceUsage?: string;
+  techSavviness?: string;
+  buyingMotivation?: string[];
+  communicationStyle?: string;
+  journeyMap?: { stage: string; content_type: string }[];
+  priorityScore?: number;
 }
 
 // ============================================
@@ -288,7 +295,7 @@ export function getFrameworksForGoal(contentGoal: string): MarketingFramework[] 
   );
 }
 
-// Build persona-aware prompt section
+// Build persona-aware prompt section with enhanced fields
 export function buildPersonaSection(personas: CustomerPersonaContext[]): string {
   if (!personas || personas.length === 0) return '';
   
@@ -297,11 +304,32 @@ export function buildPersonaSection(personas: CustomerPersonaContext[]): string 
   const allDesires = personas.flatMap(p => p.desires).slice(0, 10);
   const allObjections = personas.flatMap(p => p.objections).slice(0, 5);
   
+  // Build enhanced section with device and tech preferences
+  const deviceInfo = primaryPersona.deviceUsage 
+    ? `\n- Device Usage: ${primaryPersona.deviceUsage} → ${primaryPersona.deviceUsage === 'mobile-first' ? 'Ưu tiên content ngắn, scannable' : 'Có thể dùng content dài hơn'}`
+    : '';
+    
+  const techInfo = primaryPersona.techSavviness
+    ? `\n- Tech Level: ${primaryPersona.techSavviness} → ${primaryPersona.techSavviness === 'low' ? 'Dùng ngôn ngữ đơn giản, tránh thuật ngữ' : 'Có thể dùng thuật ngữ chuyên môn'}`
+    : '';
+    
+  const motivationInfo = primaryPersona.buyingMotivation?.length
+    ? `\n- Buying Motivation: ${primaryPersona.buyingMotivation.slice(0, 3).join(', ')}`
+    : '';
+    
+  const communicationInfo = primaryPersona.communicationStyle
+    ? `\n- Communication Style: ${primaryPersona.communicationStyle}`
+    : '';
+    
+  const journeyInfo = primaryPersona.journeyMap?.length
+    ? `\n- Journey Map: ${primaryPersona.journeyMap.map(j => j.stage + ' → ' + j.content_type).join(', ')}`
+    : '';
+  
   return `
 ## CUSTOMER PERSONAS:
 
 ### Primary Persona: ${primaryPersona.name}${primaryPersona.occupation ? ` (${primaryPersona.occupation})` : ''}
-- Giai đoạn funnel: ${primaryPersona.funnelStage?.toUpperCase() || 'TOFU'}
+- Giai đoạn funnel: ${primaryPersona.funnelStage?.toUpperCase() || 'TOFU'}${deviceInfo}${techInfo}${motivationInfo}${communicationInfo}${journeyInfo}
 
 ### Pain Points (Vấn đề khách hàng đang gặp):
 ${allPainPoints.map(p => `- ${p}`).join('\n')}
@@ -312,8 +340,10 @@ ${allDesires.map(d => `- ${d}`).join('\n')}
 ### Objections (Lý do từ chối/nghi ngờ):
 ${allObjections.map(o => `- ${o}`).join('\n')}
 
-**Quan trọng:** Mỗi topic PHẢI address ít nhất 1 pain point hoặc desire của persona.
-Topics nên preemptively handle objections trong reasoning.`;
+**Quan trọng:** 
+- Mỗi topic PHẢI address ít nhất 1 pain point hoặc desire của persona
+- Topics nên preemptively handle objections trong reasoning
+- Adapt content format theo device usage và tech level của persona`;
 }
 
 // Build marketing framework guidance section
@@ -340,7 +370,7 @@ ${f.patterns.slice(0, 2).map(p => `  • "${p}"`).join('\n')}
 Không bắt buộc dùng chính xác pattern, nhưng nên học cách cấu trúc từ đó.`;
 }
 
-// Enhanced scoring guidance based on personas
+// Enhanced scoring guidance based on personas with extended fields
 export function buildEnhancedScoringGuidance(personas: CustomerPersonaContext[]): string {
   if (!personas || personas.length === 0) return '';
   
@@ -348,13 +378,28 @@ export function buildEnhancedScoringGuidance(personas: CustomerPersonaContext[])
   const painPoints = primaryPersona.painPoints.slice(0, 3);
   const desires = primaryPersona.desires.slice(0, 3);
   
+  // Device and tech-aware scoring
+  const deviceAwareScoring = primaryPersona.deviceUsage === 'mobile-first'
+    ? `\n- +10 điểm nếu topic có format ngắn gọn, dễ scan trên mobile`
+    : `\n- +5 điểm nếu topic có depth phù hợp desktop/tablet`;
+    
+  const techAwareScoring = primaryPersona.techSavviness === 'low'
+    ? `\n- +10 điểm nếu topic dùng ngôn ngữ đơn giản, không thuật ngữ phức tạp`
+    : primaryPersona.techSavviness === 'high'
+    ? `\n- +5 điểm nếu topic có insights chuyên sâu, technical`
+    : '';
+    
+  const motivationScoring = primaryPersona.buyingMotivation?.length
+    ? `\n- +10 điểm nếu topic match với buying motivation: ${primaryPersona.buyingMotivation.slice(0, 2).join(', ')}`
+    : '';
+  
   return `
 ## ENHANCED SCORING RULES (Persona-aware):
 
 **brandFit scoring enhancements:**
 - +15 điểm nếu topic trực tiếp address pain point: ${painPoints.join(', ')}
 - +10 điểm nếu topic hướng đến desire: ${desires.join(', ')}
-- +5 điểm nếu topic có góc nhìn độc đáo (contrarian, data-backed, insider)
+- +5 điểm nếu topic có góc nhìn độc đáo (contrarian, data-backed, insider)${deviceAwareScoring}${techAwareScoring}${motivationScoring}
 
 **competition scoring enhancements:**
 - +15 điểm nếu topic có specific number/data (VD: "3 cách", "giảm 50%")

@@ -64,7 +64,11 @@ serve(async (req) => {
           .single(),
         supabase
           .from('customer_personas')
-          .select('name, occupation, age_range, pain_points, desires, buying_triggers, objections, is_primary')
+          .select(`
+            name, occupation, age_range, pain_points, desires, buying_triggers, objections, is_primary,
+            device_usage, tech_savviness, buying_motivation, communication_style, typical_funnel_stage,
+            journey_map, priority_score, content_preferences
+          `)
           .eq('brand_template_id', brandTemplateId)
           .order('is_primary', { ascending: false })
           .limit(5),
@@ -96,8 +100,9 @@ Evergreen Themes: ${(brand.evergreen_themes || []).join(', ')}`;
         }
       }
 
-      // Build personas context
+      // Build personas context with enhanced fields
       if (personasResult.data?.length) {
+        const primary = personasResult.data.find((p: any) => p.is_primary) || personasResult.data[0];
         personasContext = `
 
 ## CUSTOMER PERSONAS:
@@ -106,9 +111,20 @@ ${personasResult.data.map((p: any) => `
   Pain Points: ${(p.pain_points || []).slice(0, 3).join(', ')}
   Desires: ${(p.desires || []).slice(0, 3).join(', ')}
   Objections: ${(p.objections || []).slice(0, 2).join(', ')}
-  Buying Triggers: ${(p.buying_triggers || []).slice(0, 3).join(', ')}`).join('\n')}
-→ Topics PHẢI giải quyết pain points hoặc khơi gợi desires của personas`;
-        console.log('Loaded', personasResult.data.length, 'personas');
+  Buying Triggers: ${(p.buying_triggers || []).slice(0, 3).join(', ')}
+  Device: ${p.device_usage || 'mobile-first'} | Tech: ${p.tech_savviness || 'medium'}
+  Motivation: ${(p.buying_motivation || []).slice(0, 2).join(', ')}
+  Stage: ${p.typical_funnel_stage || 'awareness'}`).join('\n')}
+
+### PRIMARY PERSONA FOCUS: ${primary?.name || 'N/A'}
+- Communication Style: ${primary?.communication_style || 'balanced'}
+- Device Usage: ${primary?.device_usage || 'mobile-first'} → ${primary?.device_usage === 'mobile-first' ? 'Keep content scannable' : 'Can include longer form'}
+- Tech Level: ${primary?.tech_savviness || 'medium'} → ${primary?.tech_savviness === 'low' ? 'Use simple language' : 'Can use technical terms'}
+- Journey Stage: ${primary?.typical_funnel_stage || 'awareness'}
+${primary?.journey_map?.length ? `- Journey Map: ${primary.journey_map.map((j: any) => j.stage + ' → ' + j.content_type).join(', ')}` : ''}
+
+→ Topics PHẢI giải quyết pain points hoặc khơi gợi desires của personas, phù hợp với device usage và tech level`;
+        console.log('Loaded', personasResult.data.length, 'personas with enhanced fields');
       }
 
       // Build products context
