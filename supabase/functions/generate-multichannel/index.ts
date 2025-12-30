@@ -1020,6 +1020,13 @@ serve(async (req) => {
             preferredChannels: p.preferred_channels || [],
             typicalFunnelStage: p.typical_funnel_stage,
             isPrimary: p.is_primary,
+            // Enhanced fields
+            deviceUsage: p.device_usage,
+            techSavviness: p.tech_savviness,
+            buyingMotivation: p.buying_motivation || [],
+            communicationStyle: p.communication_style,
+            priorityScore: p.priority_score,
+            journeyMap: p.journey_map || [],
           });
           
           extendedBrandContext.primaryPersona = mapPersona(personas.find((p: any) => p.is_primary) || personas[0]);
