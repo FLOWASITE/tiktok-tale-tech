@@ -1,3 +1,13 @@
+// Content preferences for AI-enhanced content generation
+export interface ContentPreferences {
+  format?: 'short' | 'medium' | 'long';
+  visual?: boolean;
+  storytelling?: boolean;
+  data_driven?: boolean;
+  emotional?: boolean;
+  practical?: boolean;
+}
+
 export interface CustomerPersona {
   id: string;
   brand_template_id: string;
@@ -28,6 +38,12 @@ export interface CustomerPersona {
   information_sources: string[];
   preferred_channels: string[];
   typical_funnel_stage?: FunnelStage | null;
+  
+  // AI Enhancement fields (matches industry_personas)
+  communication_style?: string | null;
+  response_tone_hints?: string[] | null;
+  content_preferences?: ContentPreferences | null;
+  persona_prompt_hints?: string | null;
   
   // Industry Persona Link
   source_industry_persona_id?: string | null;
@@ -61,6 +77,41 @@ export const GENDER_OPTIONS = [
 ];
 
 export const AVATAR_EMOJIS = ['👤', '👩‍💼', '👨‍💼', '👩‍💻', '👨‍💻', '👩‍🔧', '👨‍🏫', '👩‍⚕️', '🧑‍🍳', '👩‍🎨', '👨‍🔬', '👩‍🌾', '🧑‍💼', '👷', '💼'];
+
+// Communication styles for AI-enhanced personas
+export const COMMUNICATION_STYLES = [
+  { value: 'direct', label: 'Trực tiếp', description: 'Đi thẳng vào vấn đề, không vòng vo' },
+  { value: 'emotional', label: 'Cảm xúc', description: 'Kết nối qua câu chuyện và cảm xúc' },
+  { value: 'analytical', label: 'Phân tích', description: 'Dựa trên data, logic và bằng chứng' },
+  { value: 'consultative', label: 'Tư vấn', description: 'Hỏi đáp, tìm hiểu nhu cầu trước' },
+  { value: 'storytelling', label: 'Kể chuyện', description: 'Dùng narrative và case study' },
+] as const;
+
+export const RESPONSE_TONE_HINTS = [
+  { value: 'empathetic', label: 'Đồng cảm' },
+  { value: 'solution-oriented', label: 'Hướng giải pháp' },
+  { value: 'authoritative', label: 'Chuyên gia' },
+  { value: 'friendly', label: 'Thân thiện' },
+  { value: 'urgent', label: 'Khẩn cấp' },
+  { value: 'reassuring', label: 'Trấn an' },
+  { value: 'motivating', label: 'Động viên' },
+  { value: 'educational', label: 'Giáo dục' },
+] as const;
+
+export const CONTENT_FORMAT_OPTIONS = [
+  { value: 'short', label: 'Ngắn gọn', description: 'Dưới 100 từ' },
+  { value: 'medium', label: 'Vừa phải', description: '100-300 từ' },
+  { value: 'long', label: 'Chi tiết', description: 'Trên 300 từ' },
+] as const;
+
+export const getDefaultContentPreferences = (): ContentPreferences => ({
+  format: 'medium',
+  visual: true,
+  storytelling: false,
+  data_driven: false,
+  emotional: false,
+  practical: true,
+});
 
 // Templates for quick-start persona creation
 export const PERSONA_TEMPLATES: Record<string, Partial<CustomerPersona>[]> = {

@@ -1,6 +1,6 @@
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
-import { CustomerPersona, FUNNEL_STAGES, INCOME_LEVELS, GENDER_OPTIONS } from '@/types/customerPersona';
+import { CustomerPersona, FUNNEL_STAGES, INCOME_LEVELS, GENDER_OPTIONS, COMMUNICATION_STYLES, RESPONSE_TONE_HINTS } from '@/types/customerPersona';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,9 @@ import {
   TrendingUp,
   MessageCircle,
   UserPlus,
+  Building2,
+  Brain,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,9 +58,30 @@ const PersonaCard = ({ persona }: { persona: CustomerPersona }) => {
           </div>
 
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base font-semibold truncate">
-              {persona.name}
-            </CardTitle>
+            <div className="flex items-center gap-1.5">
+              <CardTitle className="text-base font-semibold truncate">
+                {persona.name}
+              </CardTitle>
+              {/* Origin Badges */}
+              {persona.source_industry_persona_id && (
+                <Badge 
+                  variant="outline" 
+                  className="text-[9px] h-4 px-1 border-primary/30 text-primary shrink-0"
+                >
+                  <Building2 className="w-2.5 h-2.5 mr-0.5" />
+                  Industry
+                </Badge>
+              )}
+              {persona.is_customized && (
+                <Badge 
+                  variant="outline" 
+                  className="text-[9px] h-4 px-1 border-amber-400/50 text-amber-600 shrink-0"
+                >
+                  <Pencil className="w-2.5 h-2.5 mr-0.5" />
+                  Tùy chỉnh
+                </Badge>
+              )}
+            </div>
             
             {/* Demographics Row */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-sm text-muted-foreground">
@@ -228,6 +252,40 @@ const PersonaCard = ({ persona }: { persona: CustomerPersona }) => {
                 </Badge>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* AI Enhancement Section */}
+        {(persona.communication_style || (persona.response_tone_hints && persona.response_tone_hints.length > 0) || persona.persona_prompt_hints) && (
+          <div className="border-t pt-3 mt-3 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-purple-600 dark:text-purple-400">
+              <Brain className="w-3.5 h-3.5" />
+              AI Enhancement
+            </div>
+            
+            <div className="flex flex-wrap gap-1">
+              {persona.communication_style && (
+                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                  {COMMUNICATION_STYLES.find(s => s.value === persona.communication_style)?.label || persona.communication_style}
+                </Badge>
+              )}
+              {persona.response_tone_hints?.slice(0, 3).map((tone, idx) => (
+                <Badge key={idx} variant="outline" className="text-xs border-purple-300 text-purple-600 dark:border-purple-700 dark:text-purple-400">
+                  {RESPONSE_TONE_HINTS.find(t => t.value === tone)?.label || tone}
+                </Badge>
+              ))}
+              {persona.response_tone_hints && persona.response_tone_hints.length > 3 && (
+                <Badge variant="outline" className="text-xs">
+                  +{persona.response_tone_hints.length - 3}
+                </Badge>
+              )}
+            </div>
+
+            {persona.persona_prompt_hints && (
+              <p className="text-xs text-muted-foreground italic line-clamp-2">
+                "{persona.persona_prompt_hints}"
+              </p>
+            )}
           </div>
         )}
       </CardContent>

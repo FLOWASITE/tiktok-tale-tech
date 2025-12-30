@@ -1022,6 +1022,8 @@ export type Database = {
           avatar_emoji: string | null
           brand_template_id: string | null
           buying_triggers: string[] | null
+          communication_style: string | null
+          content_preferences: Json | null
           created_at: string | null
           desires: string[] | null
           gender: string | null
@@ -1037,7 +1039,9 @@ export type Database = {
           occupation: string | null
           organization_id: string | null
           pain_points: string[] | null
+          persona_prompt_hints: string | null
           preferred_channels: string[] | null
+          response_tone_hints: string[] | null
           source_industry_persona_id: string | null
           typical_funnel_stage: string | null
           updated_at: string | null
@@ -1049,6 +1053,8 @@ export type Database = {
           avatar_emoji?: string | null
           brand_template_id?: string | null
           buying_triggers?: string[] | null
+          communication_style?: string | null
+          content_preferences?: Json | null
           created_at?: string | null
           desires?: string[] | null
           gender?: string | null
@@ -1064,7 +1070,9 @@ export type Database = {
           occupation?: string | null
           organization_id?: string | null
           pain_points?: string[] | null
+          persona_prompt_hints?: string | null
           preferred_channels?: string[] | null
+          response_tone_hints?: string[] | null
           source_industry_persona_id?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
@@ -1076,6 +1084,8 @@ export type Database = {
           avatar_emoji?: string | null
           brand_template_id?: string | null
           buying_triggers?: string[] | null
+          communication_style?: string | null
+          content_preferences?: Json | null
           created_at?: string | null
           desires?: string[] | null
           gender?: string | null
@@ -1091,7 +1101,9 @@ export type Database = {
           occupation?: string | null
           organization_id?: string | null
           pain_points?: string[] | null
+          persona_prompt_hints?: string | null
           preferred_channels?: string[] | null
+          response_tone_hints?: string[] | null
           source_industry_persona_id?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
