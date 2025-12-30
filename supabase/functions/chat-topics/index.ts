@@ -70,8 +70,13 @@ serve(async (req) => {
           .single(),
         supabase
           .from('customer_personas')
-          .select('name, occupation, age_range, pain_points, desires, buying_triggers, is_primary')
+          .select(`
+            name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
+            device_usage, tech_savviness, buying_motivation, communication_style, 
+            typical_funnel_stage, objections, journey_map, priority_score
+          `)
           .eq('brand_template_id', brandTemplateId)
+          .order('priority_score', { ascending: false, nullsFirst: false })
           .order('is_primary', { ascending: false })
           .limit(5),
         supabase
@@ -106,12 +111,31 @@ serve(async (req) => {
         };
       }
 
-      // Build personas context
+      // Build enhanced personas context
       if (personasResult.data?.length) {
-        personasContext = personasResult.data.map((p: any) => 
-          `${p.name}${p.is_primary ? ' ⭐' : ''} (${p.occupation || 'N/A'}, ${p.age_range || 'N/A'}): Pain Points: ${(p.pain_points || []).slice(0, 3).join(', ')}; Desires: ${(p.desires || []).slice(0, 3).join(', ')}`
-        );
-        console.log('Loaded', personasResult.data.length, 'personas for chat context');
+        personasContext = personasResult.data.map((p: any) => {
+          const parts = [
+            `${p.name}${p.is_primary ? ' ⭐' : ''} (${p.occupation || 'N/A'}, ${p.age_range || 'N/A'})`,
+          ];
+          
+          if (p.device_usage) parts.push(`📱 ${p.device_usage}`);
+          if (p.tech_savviness) parts.push(`🔧 Tech: ${p.tech_savviness}`);
+          if (p.typical_funnel_stage) parts.push(`📊 Stage: ${p.typical_funnel_stage.toUpperCase()}`);
+          if (p.communication_style) parts.push(`💬 Style: ${p.communication_style}`);
+          
+          parts.push(`Pain Points: ${(p.pain_points || []).slice(0, 3).join(', ')}`);
+          parts.push(`Desires: ${(p.desires || []).slice(0, 3).join(', ')}`);
+          
+          if (p.buying_motivation?.length) {
+            parts.push(`Động lực mua: ${p.buying_motivation.slice(0, 2).join(', ')}`);
+          }
+          if (p.objections?.length) {
+            parts.push(`Objections: ${p.objections.slice(0, 2).join(', ')}`);
+          }
+          
+          return parts.join(' | ');
+        });
+        console.log('Loaded', personasResult.data.length, 'enhanced personas for chat context');
       }
 
       // Build products context
@@ -295,13 +319,19 @@ ${brandContext.contentPillars.map(p => `  • ${p.name}: ${p.keywords?.slice(0, 
     }
   }
 
-  // Add personas context
+  // Add enhanced personas context
   if (personasContext?.length) {
     prompt += `
 
-## Customer Personas (ĐỐI TƯỢNG KHÁCH HÀNG):
+## Customer Personas (ĐỐI TƯỢNG KHÁCH HÀNG - ENHANCED):
 ${personasContext.map(p => `- ${p}`).join('\n')}
-→ Gợi ý topics GIẢI QUYẾT pain points hoặc khơi gợi desires của personas!`;
+
+### Hướng dẫn tạo content theo Persona:
+- 📱 **Device Usage**: Nếu mobile-first → content ngắn, dễ scan, có emoji
+- 🔧 **Tech Savviness**: Nếu low → giải thích đơn giản, tránh jargon
+- 📊 **Funnel Stage**: TOFU → educational, MOFU → so sánh/case study, BOFU → CTA mạnh
+- 💬 **Communication Style**: Adapt tone theo style (consultative = tư vấn sâu, direct = thẳng thắn)
+→ Gợi ý topics GIẢI QUYẾT pain points, xử lý objections, hoặc khơi gợi desires của personas!`;
   }
 
   // Add products context

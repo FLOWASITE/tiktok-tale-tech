@@ -679,7 +679,7 @@ export function BrandFormStepPersonas({
               {editingPersona && (
                 <CardContent className="pt-0">
                   <Tabs value={editorTab} onValueChange={setEditorTab} className="w-full">
-                    <TabsList className="w-full h-9 grid grid-cols-4">
+                    <TabsList className="w-full h-9 grid grid-cols-5">
                       <TabsTrigger value="basic" className="text-xs gap-1">
                         <User className="w-3 h-3" />
                         <span className="hidden sm:inline">Cơ bản</span>
@@ -695,6 +695,10 @@ export function BrandFormStepPersonas({
                       <TabsTrigger value="ai" className="text-xs gap-1">
                         <Sparkles className="w-3 h-3" />
                         <span className="hidden sm:inline">AI</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="advanced" className="text-xs gap-1">
+                        <Settings2 className="w-3 h-3" />
+                        <span className="hidden sm:inline">Nâng cao</span>
                       </TabsTrigger>
                     </TabsList>
 
@@ -801,9 +805,89 @@ export function BrandFormStepPersonas({
                               placeholder="Khu vực..."
                               value={editingPersona.location || ''}
                               onChange={(e) => updatePersona(editingPersona.id, { location: e.target.value })}
-                              className="h-9 text-sm"
+                            className="h-9 text-sm"
+                            disabled={disabled}
+                          />
+                        </div>
+
+                        {/* Extended Demographics */}
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <GraduationCap className="w-3.5 h-3.5" />
+                            Thông tin mở rộng
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select 
+                              value={editingPersona.education_level || ''} 
+                              onValueChange={(v) => updatePersona(editingPersona.id, { education_level: v as any, is_customized: true })}
                               disabled={disabled}
-                            />
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Học vấn" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {EDUCATION_LEVELS.map((level) => (
+                                  <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select 
+                              value={editingPersona.family_status || ''} 
+                              onValueChange={(v) => updatePersona(editingPersona.id, { family_status: v as any, is_customized: true })}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Tình trạng GĐ" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {FAMILY_STATUSES.map((status) => (
+                                  <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select 
+                              value={editingPersona.device_usage || ''} 
+                              onValueChange={(v) => updatePersona(editingPersona.id, { device_usage: v as any, is_customized: true })}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Thiết bị" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {DEVICE_USAGES.map((device) => (
+                                  <SelectItem key={device.value} value={device.value}>
+                                    <div className="flex items-center gap-1.5">
+                                      {device.value === 'mobile-first' && <Smartphone className="w-3 h-3" />}
+                                      {device.value === 'desktop-first' && <Monitor className="w-3 h-3" />}
+                                      {device.value === 'balanced' && <Laptop className="w-3 h-3" />}
+                                      {device.label}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select 
+                              value={editingPersona.tech_savviness || ''} 
+                              onValueChange={(v) => updatePersona(editingPersona.id, { tech_savviness: v as any, is_customized: true })}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Mức độ tech" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TECH_SAVVINESS_LEVELS.map((level) => (
+                                  <SelectItem key={level.value} value={level.value}>
+                                    <div className="flex flex-col">
+                                      <span>{level.label}</span>
+                                      <span className="text-[10px] text-muted-foreground">{level.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                           </div>
                         </div>
 
@@ -903,6 +987,47 @@ export function BrandFormStepPersonas({
                           badgeClassName="bg-orange-500/10 text-orange-600"
                           disabled={disabled}
                         />
+
+                        {/* Buying Motivations */}
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            Động lực mua hàng
+                          </Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {BUYING_MOTIVATIONS.map((motivation) => {
+                              const motivations = editingPersona.buying_motivation || [];
+                              const isSelected = motivations.includes(motivation.value);
+                              return (
+                                <Badge
+                                  key={motivation.value}
+                                  variant={isSelected ? "default" : "outline"}
+                                  className={cn(
+                                    "cursor-pointer text-xs transition-colors",
+                                    isSelected && "bg-primary"
+                                  )}
+                                  onClick={() => {
+                                    if (disabled) return;
+                                    const current = editingPersona.buying_motivation || [];
+                                    if (isSelected) {
+                                      updatePersona(editingPersona.id, { 
+                                        buying_motivation: current.filter(m => m !== motivation.value),
+                                        is_customized: true
+                                      });
+                                    } else {
+                                      updatePersona(editingPersona.id, { 
+                                        buying_motivation: [...current, motivation.value],
+                                        is_customized: true
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {motivation.label}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
 
                         {/* Information Sources */}
                         <div className="space-y-2">
@@ -1136,6 +1261,166 @@ export function BrandFormStepPersonas({
                                 </div>
                               );
                             })}
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* Advanced Tab (NEW) */}
+                      <TabsContent value="advanced" className="mt-0 space-y-4">
+                        {/* Priority & Segment */}
+                        <div className="space-y-3">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <Star className="w-3.5 h-3.5" />
+                            Độ ưu tiên & Segment
+                          </Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Độ ưu tiên (1-5)</Label>
+                              <div className="flex gap-1">
+                                {[1, 2, 3, 4, 5].map((score) => (
+                                  <Button
+                                    key={score}
+                                    type="button"
+                                    variant={(editingPersona.priority_score || 3) >= score ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="flex-1 h-8 p-0"
+                                    onClick={() => updatePersona(editingPersona.id, { priority_score: score, is_customized: true })}
+                                    disabled={disabled}
+                                  >
+                                    <Star className={cn(
+                                      "w-3 h-3",
+                                      (editingPersona.priority_score || 3) >= score && "fill-current"
+                                    )} />
+                                  </Button>
+                                ))}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground text-center">
+                                {PRIORITY_LABELS.find(p => p.value === (editingPersona.priority_score || 3))?.label || 'Trung bình'}
+                              </p>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Segment size (%)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={5}
+                                value={editingPersona.segment_size || ''}
+                                onChange={(e) => updatePersona(editingPersona.id, { 
+                                  segment_size: e.target.value ? Number(e.target.value) : undefined,
+                                  is_customized: true 
+                                })}
+                                placeholder="VD: 35"
+                                className="h-8 text-sm"
+                                disabled={disabled}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Journey Map */}
+                        <div className="space-y-2 border-t pt-4">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <Map className="w-3.5 h-3.5" />
+                            Customer Journey Map
+                          </Label>
+                          <JourneyMapEditor
+                            value={editingPersona.journey_map || []}
+                            onChange={(map) => updatePersona(editingPersona.id, { journey_map: map, is_customized: true })}
+                          />
+                        </div>
+
+                        {/* Data Source & Confidence */}
+                        <div className="space-y-3 border-t pt-4">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            Nguồn dữ liệu & Độ tin cậy
+                          </Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Mức độ tin cậy</Label>
+                              <Select 
+                                value={editingPersona.confidence_level || ''} 
+                                onValueChange={(v) => updatePersona(editingPersona.id, { confidence_level: v as any, is_customized: true })}
+                                disabled={disabled}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Chọn..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {CONFIDENCE_LEVELS.map((level) => (
+                                    <SelectItem key={level.value} value={level.value}>
+                                      <div className="flex flex-col">
+                                        <span>{level.label}</span>
+                                        <span className="text-[10px] text-muted-foreground">{level.description}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Ngày nghiên cứu</Label>
+                              <Input
+                                type="date"
+                                value={editingPersona.last_researched_date || ''}
+                                onChange={(e) => updatePersona(editingPersona.id, { 
+                                  last_researched_date: e.target.value || undefined,
+                                  is_customized: true 
+                                })}
+                                className="h-8 text-xs"
+                                disabled={disabled}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] text-muted-foreground">Nguồn dữ liệu</Label>
+                            <Input
+                              value={editingPersona.data_source || ''}
+                              onChange={(e) => updatePersona(editingPersona.id, { data_source: e.target.value, is_customized: true })}
+                              placeholder="VD: Survey 100 KH, Google Analytics, Phỏng vấn..."
+                              className="h-8 text-sm"
+                              disabled={disabled}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Visual Customization */}
+                        <div className="space-y-3 border-t pt-4">
+                          <Label className="text-xs flex items-center gap-1.5 font-medium">
+                            <Image className="w-3.5 h-3.5" />
+                            Tùy chỉnh giao diện
+                          </Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Avatar URL (tùy chọn)</Label>
+                              <Input
+                                value={editingPersona.avatar_url || ''}
+                                onChange={(e) => updatePersona(editingPersona.id, { avatar_url: e.target.value || undefined, is_customized: true })}
+                                placeholder="https://..."
+                                className="h-8 text-xs"
+                                disabled={disabled}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Màu theme</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  type="color"
+                                  value={editingPersona.color_theme || '#6366f1'}
+                                  onChange={(e) => updatePersona(editingPersona.id, { color_theme: e.target.value, is_customized: true })}
+                                  className="h-8 w-12 p-1 cursor-pointer"
+                                  disabled={disabled}
+                                />
+                                <Input
+                                  value={editingPersona.color_theme || ''}
+                                  onChange={(e) => updatePersona(editingPersona.id, { color_theme: e.target.value || undefined, is_customized: true })}
+                                  placeholder="#6366f1"
+                                  className="h-8 text-xs flex-1"
+                                  disabled={disabled}
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </TabsContent>

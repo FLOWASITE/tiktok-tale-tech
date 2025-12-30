@@ -71,6 +71,17 @@ export interface CustomerPersona {
   preferredChannels?: string[];
   typicalFunnelStage?: string;
   isPrimary?: boolean;
+  // Enhanced fields
+  deviceUsage?: string;
+  techSavviness?: string;
+  buyingMotivation?: string[];
+  communicationStyle?: string;
+  priorityScore?: number;
+  journeyMap?: {
+    stage: string;
+    touchpoints: string[];
+    content_type: string;
+  }[];
 }
 
 export interface ContentPillar {
@@ -759,18 +770,45 @@ export function buildAllPersonasSection(personas: CustomerPersona[]): string {
     if (persona.gender) profile.push(persona.gender);
     if (profile.length) parts.push(`Profile: ${profile.join(' | ')}`);
     
+    // Enhanced demographic info
+    const enhancedInfo: string[] = [];
+    if (persona.deviceUsage) enhancedInfo.push(`📱 ${persona.deviceUsage}`);
+    if (persona.techSavviness) enhancedInfo.push(`🔧 Tech: ${persona.techSavviness}`);
+    if (persona.communicationStyle) enhancedInfo.push(`💬 ${persona.communicationStyle}`);
+    if (persona.typicalFunnelStage) enhancedInfo.push(`📊 ${persona.typicalFunnelStage.toUpperCase()}`);
+    if (enhancedInfo.length) parts.push(`Context: ${enhancedInfo.join(' | ')}`);
+    
     if (persona.painPoints?.length) {
       parts.push(`Pain Points: ${persona.painPoints.slice(0, 3).join(', ')}`);
     }
     if (persona.desires?.length) {
       parts.push(`Desires: ${persona.desires.slice(0, 3).join(', ')}`);
     }
+    if (persona.objections?.length) {
+      parts.push(`Objections (cần xử lý): ${persona.objections.slice(0, 3).join(', ')}`);
+    }
+    if (persona.buyingMotivation?.length) {
+      parts.push(`Động lực mua: ${persona.buyingMotivation.slice(0, 3).join(', ')}`);
+    }
     if (persona.buyingTriggers?.length) {
       parts.push(`Buying Triggers: ${persona.buyingTriggers.slice(0, 3).join(', ')}`);
     }
+    
+    // Journey Map hints
+    if (persona.journeyMap?.length) {
+      const journeyHint = persona.journeyMap
+        .map(j => `${j.stage}: ${j.content_type}`)
+        .join(' → ');
+      parts.push(`Journey: ${journeyHint}`);
+    }
   });
 
-  parts.push(`\n→ Khi gợi ý topic, cân nhắc pain points và desires của TẤT CẢ personas`);
+  parts.push(`\n### HƯỚNG DẪN TẠO CONTENT THEO PERSONA:`);
+  parts.push(`- 📱 **Device Usage**: mobile-first → content ngắn gọn, easy to scan, emoji OK`);
+  parts.push(`- 🔧 **Tech Savviness**: low → giải thích đơn giản, tránh jargon kỹ thuật`);
+  parts.push(`- 📊 **Funnel Stage**: TOFU → educational, MOFU → comparison/case study, BOFU → strong CTA`);
+  parts.push(`- 💬 **Communication Style**: consultative → tư vấn sâu, direct → thẳng thắn`);
+  parts.push(`→ Khi gợi ý topic, GIẢI QUYẾT pain points, XỬ LÝ objections, KHƠI GỢI desires của personas`);
   
   return parts.join('\n');
 }
