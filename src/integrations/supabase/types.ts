@@ -1020,12 +1020,21 @@ export type Database = {
         Row: {
           age_range: string | null
           avatar_emoji: string | null
+          avatar_url: string | null
           brand_template_id: string | null
+          buying_motivation: string[] | null
           buying_triggers: string[] | null
+          color_theme: string | null
           communication_style: string | null
+          confidence_level: string | null
           content_preferences: Json | null
+          country_variants: Json | null
           created_at: string | null
+          data_source: string | null
           desires: string[] | null
+          device_usage: string | null
+          education_level: string | null
+          family_status: string | null
           gender: string | null
           id: string
           income_level: string | null
@@ -1033,6 +1042,8 @@ export type Database = {
           interests: string[] | null
           is_customized: boolean | null
           is_primary: boolean | null
+          journey_map: Json | null
+          last_researched_date: string | null
           location: string | null
           name: string
           objections: string[] | null
@@ -1041,8 +1052,11 @@ export type Database = {
           pain_points: string[] | null
           persona_prompt_hints: string | null
           preferred_channels: string[] | null
+          priority_score: number | null
           response_tone_hints: string[] | null
+          segment_size: number | null
           source_industry_persona_id: string | null
+          tech_savviness: string | null
           typical_funnel_stage: string | null
           updated_at: string | null
           user_id: string | null
@@ -1051,12 +1065,21 @@ export type Database = {
         Insert: {
           age_range?: string | null
           avatar_emoji?: string | null
+          avatar_url?: string | null
           brand_template_id?: string | null
+          buying_motivation?: string[] | null
           buying_triggers?: string[] | null
+          color_theme?: string | null
           communication_style?: string | null
+          confidence_level?: string | null
           content_preferences?: Json | null
+          country_variants?: Json | null
           created_at?: string | null
+          data_source?: string | null
           desires?: string[] | null
+          device_usage?: string | null
+          education_level?: string | null
+          family_status?: string | null
           gender?: string | null
           id?: string
           income_level?: string | null
@@ -1064,6 +1087,8 @@ export type Database = {
           interests?: string[] | null
           is_customized?: boolean | null
           is_primary?: boolean | null
+          journey_map?: Json | null
+          last_researched_date?: string | null
           location?: string | null
           name: string
           objections?: string[] | null
@@ -1072,8 +1097,11 @@ export type Database = {
           pain_points?: string[] | null
           persona_prompt_hints?: string | null
           preferred_channels?: string[] | null
+          priority_score?: number | null
           response_tone_hints?: string[] | null
+          segment_size?: number | null
           source_industry_persona_id?: string | null
+          tech_savviness?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -1082,12 +1110,21 @@ export type Database = {
         Update: {
           age_range?: string | null
           avatar_emoji?: string | null
+          avatar_url?: string | null
           brand_template_id?: string | null
+          buying_motivation?: string[] | null
           buying_triggers?: string[] | null
+          color_theme?: string | null
           communication_style?: string | null
+          confidence_level?: string | null
           content_preferences?: Json | null
+          country_variants?: Json | null
           created_at?: string | null
+          data_source?: string | null
           desires?: string[] | null
+          device_usage?: string | null
+          education_level?: string | null
+          family_status?: string | null
           gender?: string | null
           id?: string
           income_level?: string | null
@@ -1095,6 +1132,8 @@ export type Database = {
           interests?: string[] | null
           is_customized?: boolean | null
           is_primary?: boolean | null
+          journey_map?: Json | null
+          last_researched_date?: string | null
           location?: string | null
           name?: string
           objections?: string[] | null
@@ -1103,8 +1142,11 @@ export type Database = {
           pain_points?: string[] | null
           persona_prompt_hints?: string | null
           preferred_channels?: string[] | null
+          priority_score?: number | null
           response_tone_hints?: string[] | null
+          segment_size?: number | null
           source_industry_persona_id?: string | null
+          tech_savviness?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -1477,12 +1519,21 @@ export type Database = {
         Row: {
           age_range: string | null
           avatar_emoji: string | null
+          avatar_url: string | null
+          buying_motivation: string[] | null
           buying_triggers: string[] | null
+          color_theme: string | null
           communication_style: string | null
+          confidence_level: string | null
           content_preferences: Json | null
+          country_variants: Json | null
           created_at: string | null
           created_by: string | null
+          data_source: string | null
           desires: string[] | null
+          device_usage: string | null
+          education_level: string | null
+          family_status: string | null
           gender: string | null
           id: string
           income_level: string | null
@@ -1490,6 +1541,8 @@ export type Database = {
           information_sources: string[] | null
           interests: string[] | null
           is_active: boolean | null
+          journey_map: Json | null
+          last_researched_date: string | null
           location: string | null
           name: string
           objections: string[] | null
@@ -1497,8 +1550,11 @@ export type Database = {
           pain_points: string[] | null
           persona_prompt_hints: string | null
           preferred_channels: string[] | null
+          priority_score: number | null
           response_tone_hints: string[] | null
+          segment_size: number | null
           sort_order: number | null
+          tech_savviness: string | null
           typical_funnel_stage: string | null
           updated_at: string | null
           values: string[] | null
@@ -1506,12 +1562,21 @@ export type Database = {
         Insert: {
           age_range?: string | null
           avatar_emoji?: string | null
+          avatar_url?: string | null
+          buying_motivation?: string[] | null
           buying_triggers?: string[] | null
+          color_theme?: string | null
           communication_style?: string | null
+          confidence_level?: string | null
           content_preferences?: Json | null
+          country_variants?: Json | null
           created_at?: string | null
           created_by?: string | null
+          data_source?: string | null
           desires?: string[] | null
+          device_usage?: string | null
+          education_level?: string | null
+          family_status?: string | null
           gender?: string | null
           id?: string
           income_level?: string | null
@@ -1519,6 +1584,8 @@ export type Database = {
           information_sources?: string[] | null
           interests?: string[] | null
           is_active?: boolean | null
+          journey_map?: Json | null
+          last_researched_date?: string | null
           location?: string | null
           name: string
           objections?: string[] | null
@@ -1526,8 +1593,11 @@ export type Database = {
           pain_points?: string[] | null
           persona_prompt_hints?: string | null
           preferred_channels?: string[] | null
+          priority_score?: number | null
           response_tone_hints?: string[] | null
+          segment_size?: number | null
           sort_order?: number | null
+          tech_savviness?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
           values?: string[] | null
@@ -1535,12 +1605,21 @@ export type Database = {
         Update: {
           age_range?: string | null
           avatar_emoji?: string | null
+          avatar_url?: string | null
+          buying_motivation?: string[] | null
           buying_triggers?: string[] | null
+          color_theme?: string | null
           communication_style?: string | null
+          confidence_level?: string | null
           content_preferences?: Json | null
+          country_variants?: Json | null
           created_at?: string | null
           created_by?: string | null
+          data_source?: string | null
           desires?: string[] | null
+          device_usage?: string | null
+          education_level?: string | null
+          family_status?: string | null
           gender?: string | null
           id?: string
           income_level?: string | null
@@ -1548,6 +1627,8 @@ export type Database = {
           information_sources?: string[] | null
           interests?: string[] | null
           is_active?: boolean | null
+          journey_map?: Json | null
+          last_researched_date?: string | null
           location?: string | null
           name?: string
           objections?: string[] | null
@@ -1555,8 +1636,11 @@ export type Database = {
           pain_points?: string[] | null
           persona_prompt_hints?: string | null
           preferred_channels?: string[] | null
+          priority_score?: number | null
           response_tone_hints?: string[] | null
+          segment_size?: number | null
           sort_order?: number | null
+          tech_savviness?: string | null
           typical_funnel_stage?: string | null
           updated_at?: string | null
           values?: string[] | null

@@ -35,13 +35,15 @@ import {
   Heart, Lightbulb, MessageCircle, Globe, BookOpen, Zap,
   Download, Building2, Image, BarChart3, CheckSquare,
   FileText, ScrollText, Check, CheckCheck, HelpCircle,
-  User, Settings2
+  User, Settings2, Smartphone, Monitor, Laptop, GraduationCap,
+  Users2, TrendingUp, ShieldCheck, Calendar, Map
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   CustomerPersona,
   ContentPreferences,
   FunnelStage,
+  JourneyStep,
   FUNNEL_STAGES,
   INCOME_LEVELS,
   AGE_RANGES,
@@ -52,7 +54,15 @@ import {
   CONTENT_FORMAT_OPTIONS,
   CONTENT_PREFERENCE_OPTIONS,
   getDefaultContentPreferences,
+  EDUCATION_LEVELS,
+  FAMILY_STATUSES,
+  DEVICE_USAGES,
+  TECH_SAVVINESS_LEVELS,
+  BUYING_MOTIVATIONS,
+  CONFIDENCE_LEVELS,
+  PRIORITY_LABELS,
 } from '@/types/customerPersona';
+import { JourneyMapEditor } from '@/components/brand/JourneyMapEditor';
 import { useIndustryPersonasForImport } from '@/hooks/useIndustryPersonas';
 import { PersonaPreviewCard } from '@/components/brand/PersonaPreviewCard';
 
