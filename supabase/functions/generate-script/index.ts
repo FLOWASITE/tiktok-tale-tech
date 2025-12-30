@@ -1414,8 +1414,8 @@ serve(async (req) => {
     let mergedRules: MergedRules | undefined;
     
     if (brandTemplateId) {
-      // Fetch brand template and personas in parallel
-      const [templateResult, personasResult] = await Promise.all([
+      // Fetch brand template, personas, and product-persona mappings in parallel
+      const [templateResult, personasResult, mappingsResult] = await Promise.all([
         supabase
           .from("brand_templates")
           .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id")
@@ -1424,13 +1424,24 @@ serve(async (req) => {
         supabase
           .from("customer_personas")
           .select(`
-            name, occupation, age_range, pain_points, desires, is_primary,
+            id, name, occupation, age_range, pain_points, desires, is_primary,
             device_usage, tech_savviness, buying_motivation, communication_style,
             typical_funnel_stage, journey_map, priority_score
           `)
           .eq("brand_template_id", brandTemplateId)
           .order("is_primary", { ascending: false })
-          .limit(3)
+          .limit(3),
+        supabase
+          .from("product_persona_mappings")
+          .select(`
+            product_id, persona_id, relevance_score, is_primary_product,
+            custom_pitch, key_benefits, objection_handlers, preferred_content_angles, avoid_topics,
+            product:brand_products(id, name, category, unique_selling_points),
+            persona:customer_personas(id, name, occupation)
+          `)
+          .eq("brand_template_id", brandTemplateId)
+          .order("relevance_score", { ascending: false })
+          .limit(10)
       ]);
 
       if (templateResult.data) {
@@ -1486,9 +1497,37 @@ ${primary.journey_map?.length ? `- Journey Map: ${primary.journey_map.map((j: an
         console.log("Persona context loaded for script:", primary.name);
       }
 
-      // Inject persona context into topic if available
-      if (personaContext) {
-        topic = `${topic}\n${personaContext}`;
+      // Build Product-Persona mapping context for script
+      let productMappingContext = '';
+      if (mappingsResult.data?.length) {
+        const primaryPersona = personasResult.data?.find((p: any) => p.is_primary) || personasResult.data?.[0];
+        const relevantMappings = primaryPersona 
+          ? mappingsResult.data.filter((m: any) => m.persona?.id === primaryPersona.id)
+          : mappingsResult.data.slice(0, 5);
+
+        if (relevantMappings.length > 0) {
+          productMappingContext = `
+
+## PRODUCT RECOMMENDATIONS FOR SCRIPT
+Khi viết kịch bản cho persona này, có thể NHẮC ĐẾN các sản phẩm sau một cách TỰ NHIÊN:
+
+${relevantMappings.map((m: any) => 
+  `### ${m.product?.name}${m.is_primary_product ? ' ⭐ (Primary)' : ''} (Fit: ${m.relevance_score}%)
+${m.custom_pitch ? `- Pitch gợi ý: "${m.custom_pitch}"` : ''}
+${m.key_benefits?.length ? `- Benefits: ${m.key_benefits.join(', ')}` : ''}
+${m.objection_handlers?.length ? `- Xử lý objections: ${m.objection_handlers.join('; ')}` : ''}
+${m.preferred_content_angles?.length ? `- Góc content: ${m.preferred_content_angles.join(', ')}` : ''}
+${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}`
+).join('\n\n')}
+
+→ Sử dụng pitch và benefits đã chuẩn bị, KHÔNG tự nghĩ ra claims mới`;
+          console.log("Product-persona mappings loaded for script:", relevantMappings.length);
+        }
+      }
+
+      // Inject both persona and product mapping context into topic
+      if (personaContext || productMappingContext) {
+        topic = `${topic}${personaContext}${productMappingContext}`;
       }
     }
 
