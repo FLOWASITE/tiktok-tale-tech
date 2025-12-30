@@ -40,6 +40,9 @@ import {
   GENDER_OPTIONS,
   AVATAR_EMOJIS,
   PERSONA_TEMPLATES,
+  COMMUNICATION_STYLES,
+  RESPONSE_TONE_HINTS,
+  getDefaultContentPreferences,
 } from '@/types/customerPersona';
 import { useIndustryPersonasForImport } from '@/hooks/useIndustryPersonas';
 
@@ -360,6 +363,12 @@ export function BrandFormStepPersonas({
                                     information_sources: industryPersona.information_sources || [],
                                     preferred_channels: industryPersona.preferred_channels || [],
                                     typical_funnel_stage: industryPersona.typical_funnel_stage,
+                                    // AI Enhancement fields from industry persona
+                                    communication_style: industryPersona.communication_style,
+                                    response_tone_hints: industryPersona.response_tone_hints || [],
+                                    content_preferences: industryPersona.content_preferences,
+                                    persona_prompt_hints: industryPersona.persona_prompt_hints,
+                                    // Link to industry persona
                                     source_industry_persona_id: industryPersona.id,
                                     is_customized: false,
                                   };
@@ -756,7 +765,102 @@ export function BrandFormStepPersonas({
                     </div>
                   </div>
 
-                  {/* Set as Primary */}
+                  {/* AI Enhancement Section */}
+                  <div className="border-t pt-4 mt-4 space-y-4">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                      <Brain className="w-3.5 h-3.5" />
+                      AI Enhancement
+                    </div>
+
+                    {/* Communication Style */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Phong cách giao tiếp</Label>
+                      <Select
+                        value={editingPersona.communication_style || ''}
+                        onValueChange={(value) => updatePersona(editingPersona.id, { 
+                          communication_style: value,
+                          is_customized: true 
+                        })}
+                        disabled={disabled}
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Chọn phong cách..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COMMUNICATION_STYLES.map((style) => (
+                            <SelectItem key={style.value} value={style.value}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{style.label}</span>
+                                <span className="text-xs text-muted-foreground">{style.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Response Tone Hints */}
+                    <div className="space-y-2">
+                      <Label className="text-xs flex items-center gap-1.5 font-medium">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        Tone gợi ý
+                      </Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {RESPONSE_TONE_HINTS.map((tone) => {
+                          const tones = editingPersona.response_tone_hints || [];
+                          const isSelected = tones.includes(tone.value);
+                          return (
+                            <Badge
+                              key={tone.value}
+                              variant={isSelected ? "default" : "outline"}
+                              className={cn(
+                                "cursor-pointer text-xs transition-colors",
+                                isSelected && "bg-primary"
+                              )}
+                              onClick={() => {
+                                if (disabled) return;
+                                const currentTones = editingPersona.response_tone_hints || [];
+                                if (isSelected) {
+                                  updatePersona(editingPersona.id, { 
+                                    response_tone_hints: currentTones.filter(t => t !== tone.value),
+                                    is_customized: true
+                                  });
+                                } else {
+                                  updatePersona(editingPersona.id, { 
+                                    response_tone_hints: [...currentTones, tone.value],
+                                    is_customized: true
+                                  });
+                                }
+                              }}
+                            >
+                              {tone.label}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Persona Prompt Hints */}
+                    <div className="space-y-2">
+                      <Label className="text-xs flex items-center gap-1.5 font-medium">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Gợi ý cho AI
+                      </Label>
+                      <Input
+                        value={editingPersona.persona_prompt_hints || ''}
+                        onChange={(e) => updatePersona(editingPersona.id, { 
+                          persona_prompt_hints: e.target.value,
+                          is_customized: true
+                        })}
+                        placeholder="VD: Tập trung vào ROI và tiết kiệm thời gian..."
+                        className="h-9 text-sm"
+                        disabled={disabled}
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Hướng dẫn cụ thể cho AI khi tạo nội dung cho persona này
+                      </p>
+                    </div>
+                  </div>
                   {!editingPersona.is_primary && (
                     <Button
                       type="button"
