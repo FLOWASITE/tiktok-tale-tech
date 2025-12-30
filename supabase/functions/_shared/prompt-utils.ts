@@ -1036,3 +1036,124 @@ export const FEATURED_PRODUCTS_SELECT = `
   suggested_content_angles,
   is_featured
 `;
+
+/**
+ * Product-Persona Mapping SELECT query for Supabase
+ */
+export const PRODUCT_PERSONA_MAPPING_SELECT = `
+  id,
+  product_id,
+  persona_id,
+  relevance_score,
+  is_primary_product,
+  custom_pitch,
+  key_benefits,
+  objection_handlers,
+  preferred_content_angles,
+  avoid_topics
+`;
+
+// ============================================
+// PRODUCT-PERSONA MAPPING CONTEXT BUILDERS
+// ============================================
+
+export interface ProductPersonaMapping {
+  product_id: string;
+  persona_id: string;
+  relevance_score: number;
+  is_primary_product?: boolean;
+  custom_pitch?: string;
+  key_benefits?: string[];
+  objection_handlers?: string[];
+  preferred_content_angles?: string[];
+  avoid_topics?: string[];
+  // Joined data
+  product?: {
+    name: string;
+    category?: string;
+    unique_selling_points?: string[];
+  };
+  persona?: {
+    name: string;
+    occupation?: string;
+    pain_points?: string[];
+  };
+}
+
+/**
+ * Build Product-Persona Mapping context for AI prompts
+ * Groups mappings by persona and generates actionable content guidance
+ */
+export function buildProductPersonaMappingContext(
+  mappings: ProductPersonaMapping[],
+  products: BrandProduct[],
+  personas: CustomerPersona[]
+): string {
+  if (!mappings || mappings.length === 0) {
+    return '';
+  }
+
+  const parts: string[] = [];
+  parts.push(`\n## 🔗 PRODUCT-PERSONA RELATIONSHIPS (Content Targeting Matrix)`);
+  parts.push(`Mỗi sản phẩm đã được mapping với personas cụ thể. SỬ DỤNG thông tin này để tạo content phù hợp:\n`);
+
+  // Group mappings by persona
+  const byPersona: Record<string, ProductPersonaMapping[]> = {};
+  mappings.forEach(m => {
+    if (!byPersona[m.persona_id]) byPersona[m.persona_id] = [];
+    byPersona[m.persona_id].push(m);
+  });
+
+  // Build context for each persona
+  Object.entries(byPersona).forEach(([personaId, personaMappings]) => {
+    const persona = personas.find(p => p.name === personaMappings[0]?.persona?.name) || personaMappings[0]?.persona;
+    if (!persona) return;
+
+    parts.push(`### 👤 ${persona.name}${persona.occupation ? ` (${persona.occupation})` : ''}`);
+    
+    // Sort by relevance and primary flag
+    const sorted = personaMappings.sort((a, b) => {
+      if (a.is_primary_product && !b.is_primary_product) return -1;
+      if (!a.is_primary_product && b.is_primary_product) return 1;
+      return (b.relevance_score || 0) - (a.relevance_score || 0);
+    });
+
+    sorted.forEach(m => {
+      const product = products.find(p => p.name === m.product?.name) || m.product;
+      if (!product) return;
+
+      const relevanceLabel = m.relevance_score >= 80 ? '⭐ Cao' : m.relevance_score >= 50 ? '✓ Trung bình' : '○ Thấp';
+      parts.push(`\n**${product.name}** (Phù hợp: ${relevanceLabel}${m.is_primary_product ? ' | Sản phẩm chính' : ''})`);
+      
+      if (m.custom_pitch) {
+        parts.push(`  → Pitch: "${m.custom_pitch}"`);
+      }
+      
+      if (m.key_benefits && m.key_benefits.length > 0) {
+        parts.push(`  → Benefits nổi bật: ${m.key_benefits.slice(0, 3).join(', ')}`);
+      }
+      
+      if (m.objection_handlers && m.objection_handlers.length > 0) {
+        parts.push(`  → Xử lý objections: ${m.objection_handlers.slice(0, 2).join('; ')}`);
+      }
+      
+      if (m.preferred_content_angles && m.preferred_content_angles.length > 0) {
+        parts.push(`  → Góc content hay: ${m.preferred_content_angles.join(', ')}`);
+      }
+      
+      if (m.avoid_topics && m.avoid_topics.length > 0) {
+        parts.push(`  → ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}`);
+      }
+    });
+    
+    parts.push('');
+  });
+
+  parts.push(`\n💡 **Cách sử dụng mapping:**`);
+  parts.push(`- Khi tạo content cho persona cụ thể, ưu tiên sản phẩm có relevance cao`);
+  parts.push(`- Sử dụng custom_pitch khi có, không tự nghĩ ra`);
+  parts.push(`- Tránh các topics trong avoid_topics cho từng mapping`);
+  parts.push(`- Preferred content angles là gợi ý đã được brand approve`);
+
+  return parts.join('\n');
+}

@@ -6,10 +6,12 @@ import {
   buildLearningSection,
   buildSelfCorrectionRules,
   buildExtendedBrandPrompt,
+  buildProductPersonaMappingContext,
   type LearningContext,
   type MergedRules,
   type BrandContext as ExtendedBrandContext,
   type CustomerPersona,
+  type ProductPersonaMapping,
 } from "../_shared/prompt-utils.ts";
 import { fetchLearningContext, logPromptAnalytics } from "../_shared/learning-context.ts";
 import {
@@ -521,7 +523,7 @@ serve(async (req) => {
         // Fetch products for this brand template
         const { data: products } = await supabase
           .from('brand_products')
-          .select('name, category, description, unique_selling_points, target_audience, pain_points_solved, benefits, suggested_content_angles, is_featured')
+          .select('id, name, category, description, unique_selling_points, target_audience, pain_points_solved, benefits, suggested_content_angles, is_featured')
           .eq('brand_template_id', brandTemplateId)
           .eq('is_active', true)
           .order('is_featured', { ascending: false })
@@ -531,6 +533,48 @@ serve(async (req) => {
           brandContext.products = products as BrandProduct[];
           console.log('Products loaded:', products.length);
         }
+
+        // Fetch customer personas for this brand
+        const { data: personas } = await supabase
+          .from('customer_personas')
+          .select('id, name, occupation, pain_points, desires, objections, buying_triggers, is_primary')
+          .eq('brand_template_id', brandTemplateId)
+          .order('is_primary', { ascending: false });
+
+        // Fetch product-persona mappings
+        const { data: mappingsData } = await supabase
+          .from('product_persona_mappings')
+          .select(`
+            product_id,
+            persona_id,
+            relevance_score,
+            is_primary_product,
+            custom_pitch,
+            key_benefits,
+            objection_handlers,
+            preferred_content_angles,
+            avoid_topics
+          `)
+          .eq('brand_template_id', brandTemplateId);
+
+        // Enrich mappings with product and persona names
+        let productPersonaMappings: ProductPersonaMapping[] = [];
+        if (mappingsData && mappingsData.length > 0 && products && personas) {
+          productPersonaMappings = mappingsData.map((m: any) => {
+            const product = products.find((p: any) => p.id === m.product_id);
+            const persona = personas.find((p: any) => p.id === m.persona_id);
+            return {
+              ...m,
+              product: product ? { name: product.name, category: product.category, unique_selling_points: product.unique_selling_points } : undefined,
+              persona: persona ? { name: persona.name, occupation: persona.occupation, pain_points: persona.pain_points } : undefined,
+            };
+          });
+          console.log('Product-persona mappings loaded:', productPersonaMappings.length);
+        }
+
+        // Store mappings for later use in prompt building
+        (brandContext as any).productPersonaMappings = productPersonaMappings;
+        (brandContext as any).personas = personas || [];
 
         // PARALLEL: Fetch industry context and learning context simultaneously
         const learningPromise = fetchLearningContext(supabase, brandTemplateId, null);
@@ -1061,6 +1105,17 @@ ${p.suggested_content_angles?.length ? `- Góc content gợi ý: ${p.suggested_c
 Khi content goal là "conversion", ƯU TIÊN gợi ý topic về sản phẩm cụ thể sử dụng USP và benefits trong reasoning.`;
   }
 
+  // Build product-persona mapping section
+  let productPersonaMappingSection = '';
+  const extendedBrandContext = brandContext as any;
+  if (extendedBrandContext?.productPersonaMappings?.length && extendedBrandContext?.products?.length && extendedBrandContext?.personas?.length) {
+    productPersonaMappingSection = buildProductPersonaMappingContext(
+      extendedBrandContext.productPersonaMappings,
+      extendedBrandContext.products,
+      extendedBrandContext.personas
+    );
+  }
+
   // Build industry section
   let industrySection = '';
   if (industryContext) {
@@ -1199,6 +1254,8 @@ ${pillarsSection}
 ${industrySection}
 ${realDataSection}
 ${audienceQASection}
+${productsSection}
+${productPersonaMappingSection}
 ${constraintsSection}
 ${seasonalityHint}
 ${seasonalCalendarSection}

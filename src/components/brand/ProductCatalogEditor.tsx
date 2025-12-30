@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Package, Star, Pencil, Trash2, ChevronDown, ChevronUp, X, Tag, Users, Zap, MessageSquare } from 'lucide-react';
+import { Plus, Package, Star, Pencil, Trash2, ChevronDown, ChevronUp, X, Tag, Users, Zap, MessageSquare, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,6 +19,7 @@ import {
   BEST_CHANNELS 
 } from '@/types/product';
 import { cn } from '@/lib/utils';
+import { ProductPersonaSelector } from './ProductPersonaSelector';
 
 // Local product type for temp products (no db fields)
 export interface LocalProduct extends ProductFormData {
@@ -27,6 +28,7 @@ export interface LocalProduct extends ProductFormData {
 
 interface ProductCatalogEditorProps {
   brandTemplateId?: string;
+  organizationId?: string;
   className?: string;
   // For local mode (new brand, not yet saved)
   localProducts?: LocalProduct[];
@@ -53,6 +55,7 @@ const defaultFormData: ProductFormData = {
 
 export function ProductCatalogEditor({ 
   brandTemplateId, 
+  organizationId,
   className,
   localProducts,
   onLocalProductsChange,
@@ -552,6 +555,22 @@ export function ProductCatalogEditor({
                   ))}
                 </div>
               </div>
+
+              {/* Personas phù hợp - only show for existing products in DB mode */}
+              {brandTemplateId && editingProduct && 'brand_template_id' in editingProduct && (
+                <div className="pt-4 border-t">
+                  <div className="flex items-center gap-2 mb-3">
+                    <UserCheck className="h-4 w-4 text-primary" />
+                    <Label>Personas phù hợp</Label>
+                  </div>
+                  <ProductPersonaSelector
+                    brandTemplateId={brandTemplateId}
+                    productId={editingProduct.id}
+                    productName={editingProduct.name}
+                    organizationId={organizationId}
+                  />
+                </div>
+              )}
 
               {/* Featured Switch */}
               <div className="flex items-center justify-between pt-2 border-t">

@@ -65,7 +65,7 @@ serve(async (req) => {
         supabase
           .from('customer_personas')
           .select(`
-            name, occupation, age_range, pain_points, desires, buying_triggers, objections, is_primary,
+            id, name, occupation, age_range, pain_points, desires, buying_triggers, objections, is_primary,
             device_usage, tech_savviness, buying_motivation, communication_style, typical_funnel_stage,
             journey_map, priority_score, content_preferences
           `)
@@ -74,7 +74,7 @@ serve(async (req) => {
           .limit(5),
         supabase
           .from('brand_products')
-          .select('name, category, description, unique_selling_points, pain_points_solved, suggested_content_angles, is_featured')
+          .select('id, name, category, description, unique_selling_points, pain_points_solved, suggested_content_angles, is_featured')
           .eq('brand_template_id', brandTemplateId)
           .eq('is_active', true)
           .order('is_featured', { ascending: false })
@@ -139,6 +139,48 @@ ${productsResult.data.map((p: any) => `
   Content Angles: ${(p.suggested_content_angles || []).slice(0, 2).join(', ')}`).join('\n')}
 → Có thể tạo topics về use cases, benefits, testimonials của sản phẩm`;
         console.log('Loaded', productsResult.data.length, 'products');
+      }
+
+      // Fetch product-persona mappings for conversion-focused recommendations
+      if (personasResult.data?.length && productsResult.data?.length) {
+        const { data: mappingsData } = await supabase
+          .from('product_persona_mappings')
+          .select(`
+            product_id, persona_id, relevance_score, is_primary_product,
+            custom_pitch, key_benefits, objection_handlers, preferred_content_angles, avoid_topics
+          `)
+          .eq('brand_template_id', brandTemplateId);
+
+        if (mappingsData && mappingsData.length > 0) {
+          // Group by persona and build context
+          const mappingsByPersona: Record<string, any[]> = {};
+          mappingsData.forEach((m: any) => {
+            if (!mappingsByPersona[m.persona_id]) mappingsByPersona[m.persona_id] = [];
+            mappingsByPersona[m.persona_id].push(m);
+          });
+
+          let mappingContext = '\n\n## PRODUCT-PERSONA TARGETING MATRIX:\n';
+          Object.entries(mappingsByPersona).forEach(([personaId, mappings]) => {
+            const persona = personasResult.data.find((p: any) => p.id === personaId);
+            if (!persona) return;
+            
+            mappingContext += `\n### ${persona.name} (${persona.occupation || 'N/A'}):\n`;
+            mappings.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0)).forEach((m: any) => {
+              const product = productsResult.data.find((p: any) => p.id === m.product_id);
+              if (!product) return;
+              mappingContext += `- ${product.name} (Relevance: ${m.relevance_score || 80}%)`;
+              if (m.custom_pitch) mappingContext += `\n  Pitch: "${m.custom_pitch}"`;
+              if (m.key_benefits?.length) mappingContext += `\n  Benefits: ${m.key_benefits.slice(0, 2).join(', ')}`;
+              if (m.preferred_content_angles?.length) mappingContext += `\n  Góc content: ${m.preferred_content_angles.join(', ')}`;
+              if (m.avoid_topics?.length) mappingContext += `\n  ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}`;
+              mappingContext += '\n';
+            });
+          });
+          mappingContext += '\n→ Sử dụng mapping này để tạo topics targeting cụ thể persona + product\n';
+          
+          productsContext += mappingContext;
+          console.log('Loaded', mappingsData.length, 'product-persona mappings');
+        }
       }
 
       // Combine all contexts

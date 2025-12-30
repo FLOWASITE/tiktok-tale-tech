@@ -3,9 +3,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { 
   Building2, Edit3, Star, Target, Brain, Heart, 
   MessageCircle, Zap, Globe, Smartphone, Monitor, Laptop,
-  GraduationCap, Users2, ShieldCheck, TrendingUp, Calendar
+  GraduationCap, Users2, ShieldCheck, TrendingUp, Calendar, Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PersonaProductsList } from './PersonaProductsList';
 import { 
   CustomerPersona, 
   FUNNEL_STAGES, 
@@ -24,12 +25,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface PersonaPreviewCardProps {
   persona: CustomerPersona;
+  brandTemplateId?: string;
+  organizationId?: string;
   className?: string;
   showFullDetails?: boolean;
 }
 
 export function PersonaPreviewCard({ 
   persona, 
+  brandTemplateId,
+  organizationId,
   className,
   showFullDetails = true 
 }: PersonaPreviewCardProps) {
@@ -301,6 +306,21 @@ export function PersonaPreviewCard({
                     </Badge>
                   )}
                 </div>
+              </div>
+            )}
+            {/* Related Products */}
+            {brandTemplateId && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Package className="w-3.5 h-3.5" />
+                  Sản phẩm liên quan
+                </div>
+                <PersonaProductsList 
+                  brandTemplateId={brandTemplateId}
+                  personaId={persona.id}
+                  organizationId={organizationId}
+                  compact
+                />
               </div>
             )}
           </>
