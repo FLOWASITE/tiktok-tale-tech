@@ -595,12 +595,13 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
           {/* Step 3: Customer Personas */}
           {currentStep === 3 && (
-            <BrandFormStepPersonas
-              personas={personas}
-              onPersonasChange={setPersonas}
-              brandPositioning={brandPositioning}
-              brandName={brandName}
-            />
+              <BrandFormStepPersonas
+                personas={personas}
+                onPersonasChange={setPersonas}
+                brandPositioning={brandPositioning}
+                brandName={brandName}
+                industryTemplateId={industryTemplateId}
+              />
           )}
 
           {/* Step 4: Strategy */}
