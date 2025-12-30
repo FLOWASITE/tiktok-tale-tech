@@ -404,7 +404,7 @@ function inferMediaOwnership(
   return 'owned';
 }
 
-// Persona context for fetching
+// Persona context for fetching with enhanced fields
 interface PersonaData {
   name: string;
   occupation?: string;
@@ -415,6 +415,14 @@ interface PersonaData {
   preferred_channels?: string[];
   typical_funnel_stage?: string;
   is_primary?: boolean;
+  // Enhanced fields
+  device_usage?: string;
+  tech_savviness?: string;
+  buying_motivation?: string[];
+  communication_style?: string;
+  journey_map?: { stage: string; content_type: string }[];
+  priority_score?: number;
+  content_preferences?: Record<string, any>;
 }
 
 serve(async (req) => {

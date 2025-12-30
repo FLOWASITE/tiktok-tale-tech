@@ -1380,7 +1380,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
+    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -1414,13 +1414,27 @@ serve(async (req) => {
     let mergedRules: MergedRules | undefined;
     
     if (brandTemplateId) {
-      const { data: template } = await supabase
-        .from("brand_templates")
-        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id")
-        .eq("id", brandTemplateId)
-        .single();
+      // Fetch brand template and personas in parallel
+      const [templateResult, personasResult] = await Promise.all([
+        supabase
+          .from("brand_templates")
+          .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id")
+          .eq("id", brandTemplateId)
+          .single(),
+        supabase
+          .from("customer_personas")
+          .select(`
+            name, occupation, age_range, pain_points, desires, is_primary,
+            device_usage, tech_savviness, buying_motivation, communication_style,
+            typical_funnel_stage, journey_map, priority_score
+          `)
+          .eq("brand_template_id", brandTemplateId)
+          .order("is_primary", { ascending: false })
+          .limit(3)
+      ]);
 
-      if (template) {
+      if (templateResult.data) {
+        const template = templateResult.data;
         brandVoice = {
           brand_positioning: template.brand_positioning,
           tone_of_voice: template.tone_of_voice,
@@ -1441,6 +1455,40 @@ serve(async (req) => {
             console.log("Industry Memory loaded:", industryMemory.name, "version:", industryMemory.version);
           }
         }
+      }
+
+      // Build persona context for script generation
+      let personaContext = '';
+      if (personasResult.data?.length) {
+        const primary = personasResult.data.find((p: any) => p.is_primary) || personasResult.data[0];
+        personaContext = `
+
+## TARGET PERSONA CONTEXT
+### Primary Persona: ${primary.name}
+- Occupation: ${primary.occupation || 'N/A'}
+- Age Range: ${primary.age_range || 'N/A'}
+
+### Device & Tech Preferences
+- Device Usage: ${primary.device_usage || 'mobile-first'} → ${primary.device_usage === 'mobile-first' ? 'Keep visuals simple, text large' : 'Can include more details'}
+- Tech Savviness: ${primary.tech_savviness || 'medium'} → ${primary.tech_savviness === 'low' ? 'Use simple explanations, avoid jargon' : 'Can use technical terms'}
+
+### Buying Psychology
+- Motivations: ${(primary.buying_motivation || []).join(', ') || 'N/A'}
+- Pain Points: ${(primary.pain_points || []).slice(0, 3).join(', ') || 'N/A'}
+- Desires: ${(primary.desires || []).slice(0, 3).join(', ') || 'N/A'}
+
+### Communication Preferences
+- Style: ${primary.communication_style || 'balanced'}
+- Journey Stage: ${primary.typical_funnel_stage || 'awareness'}
+${primary.journey_map?.length ? `- Journey Map: ${primary.journey_map.map((j: any) => j.stage + ' → ' + j.content_type).join(', ')}` : ''}
+
+→ Script PHẢI phù hợp với device usage, tech level và pain points của persona này`;
+        console.log("Persona context loaded for script:", primary.name);
+      }
+
+      // Inject persona context into topic if available
+      if (personaContext) {
+        topic = `${topic}\n${personaContext}`;
       }
     }
 

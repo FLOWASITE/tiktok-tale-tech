@@ -252,7 +252,11 @@ serve(async (req) => {
           .single(),
         supabase
           .from('customer_personas')
-          .select('name, occupation, age_range, pain_points, desires, buying_triggers, is_primary')
+          .select(`
+            name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
+            device_usage, tech_savviness, buying_motivation, communication_style, typical_funnel_stage,
+            journey_map, priority_score, content_preferences
+          `)
           .eq('brand_template_id', brandTemplateId)
           .order('is_primary', { ascending: false })
           .limit(5),
@@ -282,18 +286,26 @@ Competitors: ${(brand.main_competitors || []).join(', ')}
 `;
       }
 
-      // Build personas context
+      // Build personas context with enhanced fields
       if (personasResult.data?.length) {
-        const primaryPersona = personasResult.data.find((p: any) => p.is_primary);
+        const primary = personasResult.data.find((p: any) => p.is_primary) || personasResult.data[0];
         personasContext = `
 ## CUSTOMER PERSONAS:
 ${personasResult.data.map((p: any) => `
 - ${p.name}${p.is_primary ? ' ⭐' : ''} (${p.occupation || 'N/A'}, ${p.age_range || 'N/A'})
   Pain Points: ${(p.pain_points || []).slice(0, 3).join(', ')}
   Desires: ${(p.desires || []).slice(0, 3).join(', ')}
-  Buying Triggers: ${(p.buying_triggers || []).slice(0, 3).join(', ')}`).join('\n')}
-→ Trending topics phải GIẢI QUYẾT pain points hoặc khơi gợi desires của personas này`;
-        console.log('[Phase 2] Loaded', personasResult.data.length, 'personas');
+  Buying Triggers: ${(p.buying_triggers || []).slice(0, 3).join(', ')}
+  Device: ${p.device_usage || 'mobile-first'} | Tech: ${p.tech_savviness || 'medium'}
+  Motivation: ${(p.buying_motivation || []).slice(0, 2).join(', ')}`).join('\n')}
+
+### PRIMARY PERSONA INSIGHTS:
+- Communication: ${primary?.communication_style || 'balanced'}
+- Device: ${primary?.device_usage || 'mobile-first'} → ${primary?.device_usage === 'mobile-first' ? 'Optimize for mobile consumption' : 'Can include longer content'}
+- Tech Level: ${primary?.tech_savviness || 'medium'} → Adjust complexity accordingly
+- Journey Stage: ${primary?.typical_funnel_stage || 'awareness'}
+→ Trending topics phải GIẢI QUYẾT pain points hoặc khơi gợi desires, phù hợp device và tech level`;
+        console.log('[Phase 2] Loaded', personasResult.data.length, 'personas with enhanced fields');
       }
 
       // Build products context
