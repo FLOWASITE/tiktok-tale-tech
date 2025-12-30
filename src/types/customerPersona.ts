@@ -99,9 +99,18 @@ export const RESPONSE_TONE_HINTS = [
 ] as const;
 
 export const CONTENT_FORMAT_OPTIONS = [
-  { value: 'short', label: 'Ngắn gọn', description: 'Dưới 100 từ' },
-  { value: 'medium', label: 'Vừa phải', description: '100-300 từ' },
-  { value: 'long', label: 'Chi tiết', description: 'Trên 300 từ' },
+  { value: 'short', label: 'Ngắn gọn', description: 'Dưới 100 từ', icon: 'Zap' },
+  { value: 'medium', label: 'Vừa phải', description: '100-300 từ', icon: 'FileText' },
+  { value: 'long', label: 'Chi tiết', description: 'Trên 300 từ', icon: 'ScrollText' },
+] as const;
+
+// Content preference options for personas
+export const CONTENT_PREFERENCE_OPTIONS = [
+  { key: 'visual', label: 'Hình ảnh', description: 'Ưa thích nội dung có hình ảnh minh họa', icon: 'Image' },
+  { key: 'storytelling', label: 'Kể chuyện', description: 'Thích nội dung dạng câu chuyện, narrative', icon: 'BookOpen' },
+  { key: 'data_driven', label: 'Dữ liệu', description: 'Thích nội dung có số liệu, thống kê', icon: 'BarChart3' },
+  { key: 'emotional', label: 'Cảm xúc', description: 'Phản hồi tốt với nội dung tạo cảm xúc', icon: 'Heart' },
+  { key: 'practical', label: 'Thực tế', description: 'Ưa thích hướng dẫn cụ thể, áp dụng được ngay', icon: 'CheckSquare' },
 ] as const;
 
 export const getDefaultContentPreferences = (): ContentPreferences => ({

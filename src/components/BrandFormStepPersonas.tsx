@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardDescription, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -18,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Popover,
@@ -28,11 +31,13 @@ import {
   Users, Plus, Trash2, Star, X, 
   Target, Brain, ShoppingCart, Sparkles,
   Heart, Lightbulb, MessageCircle, Globe, BookOpen, Zap,
-  Download, Building2
+  Download, Building2, Image, BarChart3, CheckSquare,
+  FileText, ScrollText, Check, CheckCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   CustomerPersona,
+  ContentPreferences,
   FunnelStage,
   FUNNEL_STAGES,
   INCOME_LEVELS,
@@ -42,6 +47,8 @@ import {
   PERSONA_TEMPLATES,
   COMMUNICATION_STYLES,
   RESPONSE_TONE_HINTS,
+  CONTENT_FORMAT_OPTIONS,
+  CONTENT_PREFERENCE_OPTIONS,
   getDefaultContentPreferences,
 } from '@/types/customerPersona';
 import { useIndustryPersonasForImport } from '@/hooks/useIndustryPersonas';
@@ -89,9 +96,89 @@ export function BrandFormStepPersonas({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showIndustryImport, setShowIndustryImport] = useState(false);
+  const [selectedIndustryPersonaIds, setSelectedIndustryPersonaIds] = useState<Set<string>>(new Set());
   
   // Fetch industry personas for import
   const { personas: industryPersonas, isLoading: loadingIndustry } = useIndustryPersonasForImport(industryTemplateId);
+
+  // Helper to calculate persona completeness
+  const getPersonaCompleteness = (persona: CustomerPersona): number => {
+    let score = 0;
+    const maxScore = 12;
+    
+    if (persona.name) score++;
+    if (persona.age_range) score++;
+    if (persona.gender) score++;
+    if (persona.occupation) score++;
+    if (persona.pain_points.length > 0) score++;
+    if (persona.desires.length > 0) score++;
+    if (persona.objections.length > 0) score++;
+    if (persona.buying_triggers.length > 0) score++;
+    if (persona.preferred_channels.length > 0) score++;
+    if (persona.typical_funnel_stage) score++;
+    if (persona.communication_style) score++;
+    if (persona.content_preferences) score++;
+    
+    return Math.round((score / maxScore) * 100);
+  };
+
+  // Batch import industry personas
+  const handleBatchImport = () => {
+    if (selectedIndustryPersonaIds.size === 0) return;
+    
+    const newPersonas: CustomerPersona[] = [];
+    const remainingSlots = 5 - personas.length;
+    let importCount = 0;
+    
+    for (const id of selectedIndustryPersonaIds) {
+      if (importCount >= remainingSlots) break;
+      
+      const industryPersona = industryPersonas.find(p => p.id === id);
+      if (!industryPersona) continue;
+      
+      // Check if already imported
+      if (personas.some(p => (p as any).source_industry_persona_id === id)) continue;
+      
+      const newPersona: CustomerPersona = {
+        id: `temp-${Date.now()}-${importCount}`,
+        brand_template_id: '',
+        name: industryPersona.name,
+        avatar_emoji: industryPersona.avatar_emoji || '👤',
+        is_primary: personas.length === 0 && importCount === 0,
+        age_range: industryPersona.age_range,
+        gender: industryPersona.gender,
+        location: industryPersona.location,
+        income_level: industryPersona.income_level,
+        occupation: industryPersona.occupation,
+        pain_points: industryPersona.pain_points || [],
+        desires: industryPersona.desires || [],
+        objections: industryPersona.objections || [],
+        values: industryPersona.values || [],
+        interests: industryPersona.interests || [],
+        buying_triggers: industryPersona.buying_triggers || [],
+        information_sources: industryPersona.information_sources || [],
+        preferred_channels: industryPersona.preferred_channels || [],
+        typical_funnel_stage: industryPersona.typical_funnel_stage,
+        communication_style: industryPersona.communication_style,
+        response_tone_hints: industryPersona.response_tone_hints || [],
+        content_preferences: industryPersona.content_preferences,
+        persona_prompt_hints: industryPersona.persona_prompt_hints,
+        source_industry_persona_id: industryPersona.id,
+        is_customized: false,
+      };
+      
+      newPersonas.push(newPersona);
+      importCount++;
+    }
+    
+    if (newPersonas.length > 0) {
+      onPersonasChange([...personas, ...newPersonas]);
+      setEditingId(newPersonas[0].id);
+    }
+    
+    setSelectedIndustryPersonaIds(new Set());
+    setShowIndustryImport(false);
+  };
 
   // Get template type based on brand positioning
   const templateType = brandPositioning === 'business' || brandPositioning === 'consultant' ? 'B2B' : 'B2C';
@@ -204,7 +291,9 @@ export function BrandFormStepPersonas({
             {/* Persona Cards */}
             {personas.length > 0 ? (
               <div className="space-y-2">
-                {personas.map((persona) => (
+                {personas.map((persona) => {
+                  const completeness = getPersonaCompleteness(persona);
+                  return (
                   <Card 
                     key={persona.id} 
                     className={cn(
@@ -217,7 +306,34 @@ export function BrandFormStepPersonas({
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{persona.avatar_emoji}</span>
+                          {/* Avatar with completeness ring */}
+                          <div className="relative">
+                            <span className="text-2xl">{persona.avatar_emoji}</span>
+                            <svg className="absolute -inset-1 w-10 h-10" viewBox="0 0 36 36">
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="16"
+                                fill="none"
+                                className="stroke-muted"
+                                strokeWidth="2"
+                              />
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="16"
+                                fill="none"
+                                className={cn(
+                                  completeness >= 75 ? "stroke-emerald-500" :
+                                  completeness >= 50 ? "stroke-amber-500" : "stroke-destructive"
+                                )}
+                                strokeWidth="2"
+                                strokeDasharray={`${completeness} ${100 - completeness}`}
+                                strokeLinecap="round"
+                                transform="rotate(-90 18 18)"
+                              />
+                            </svg>
+                          </div>
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className="font-medium text-sm">{persona.name}</span>
@@ -233,6 +349,13 @@ export function BrandFormStepPersonas({
                                   Industry
                                 </Badge>
                               )}
+                              <span className={cn(
+                                "text-[9px] font-medium",
+                                completeness >= 75 ? "text-emerald-600" :
+                                completeness >= 50 ? "text-amber-600" : "text-destructive"
+                              )}>
+                                {completeness}%
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                               {persona.occupation && <span>{persona.occupation}</span>}
@@ -287,7 +410,8 @@ export function BrandFormStepPersonas({
                       )}
                     </CardContent>
                   </Card>
-                ))}
+                );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
@@ -323,14 +447,37 @@ export function BrandFormStepPersonas({
                         </DialogTitle>
                       </DialogHeader>
                       <div className="space-y-3 mt-2">
-                        <p className="text-xs text-muted-foreground">
-                          Các persona được định nghĩa sẵn cho ngành. Bạn có thể tùy chỉnh sau khi import.
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            Chọn personas để import. Còn {5 - personas.length} slot.
+                          </p>
+                          {industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).length > 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => {
+                                const availableIds = industryPersonas
+                                  .filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id))
+                                  .slice(0, 5 - personas.length)
+                                  .map(ip => ip.id);
+                                setSelectedIndustryPersonaIds(new Set(availableIds));
+                              }}
+                            >
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              Chọn tất cả
+                            </Button>
+                          )}
+                        </div>
                         <div className="grid gap-2 max-h-[300px] overflow-y-auto">
                           {industryPersonas.map((industryPersona) => {
                             const alreadyImported = personas.some(
                               p => (p as any).source_industry_persona_id === industryPersona.id
                             );
+                            const isSelected = selectedIndustryPersonaIds.has(industryPersona.id);
+                            const canSelect = !alreadyImported && (isSelected || selectedIndustryPersonaIds.size < (5 - personas.length));
+                            
                             return (
                               <Card 
                                 key={industryPersona.id}
@@ -338,47 +485,32 @@ export function BrandFormStepPersonas({
                                   "transition-colors",
                                   alreadyImported 
                                     ? "opacity-50 cursor-not-allowed" 
-                                    : "cursor-pointer hover:border-primary/50"
+                                    : isSelected
+                                    ? "border-primary bg-primary/5 cursor-pointer"
+                                    : canSelect
+                                    ? "cursor-pointer hover:border-primary/50"
+                                    : "opacity-50 cursor-not-allowed"
                                 )}
                                 onClick={() => {
-                                  if (alreadyImported || personas.length >= 5) return;
+                                  if (alreadyImported || !canSelect) return;
                                   
-                                  const newPersona: CustomerPersona = {
-                                    id: `temp-${Date.now()}`,
-                                    brand_template_id: '',
-                                    name: industryPersona.name,
-                                    avatar_emoji: industryPersona.avatar_emoji || '👤',
-                                    is_primary: personas.length === 0,
-                                    age_range: industryPersona.age_range,
-                                    gender: industryPersona.gender,
-                                    location: industryPersona.location,
-                                    income_level: industryPersona.income_level,
-                                    occupation: industryPersona.occupation,
-                                    pain_points: industryPersona.pain_points || [],
-                                    desires: industryPersona.desires || [],
-                                    objections: industryPersona.objections || [],
-                                    values: industryPersona.values || [],
-                                    interests: industryPersona.interests || [],
-                                    buying_triggers: industryPersona.buying_triggers || [],
-                                    information_sources: industryPersona.information_sources || [],
-                                    preferred_channels: industryPersona.preferred_channels || [],
-                                    typical_funnel_stage: industryPersona.typical_funnel_stage,
-                                    // AI Enhancement fields from industry persona
-                                    communication_style: industryPersona.communication_style,
-                                    response_tone_hints: industryPersona.response_tone_hints || [],
-                                    content_preferences: industryPersona.content_preferences,
-                                    persona_prompt_hints: industryPersona.persona_prompt_hints,
-                                    // Link to industry persona
-                                    source_industry_persona_id: industryPersona.id,
-                                    is_customized: false,
-                                  };
-                                  
-                                  onPersonasChange([...personas, newPersona]);
-                                  setEditingId(newPersona.id);
-                                  setShowIndustryImport(false);
+                                  setSelectedIndustryPersonaIds(prev => {
+                                    const newSet = new Set(prev);
+                                    if (isSelected) {
+                                      newSet.delete(industryPersona.id);
+                                    } else {
+                                      newSet.add(industryPersona.id);
+                                    }
+                                    return newSet;
+                                  });
                                 }}
                               >
                                 <CardContent className="p-3 flex items-center gap-3">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    disabled={alreadyImported || (!isSelected && !canSelect)}
+                                    className="shrink-0"
+                                  />
                                   <span className="text-2xl">{industryPersona.avatar_emoji || '👤'}</span>
                                   <div className="flex-1 min-w-0">
                                     <p className="font-medium text-sm truncate">{industryPersona.name}</p>
@@ -399,12 +531,10 @@ export function BrandFormStepPersonas({
                                       </div>
                                     )}
                                   </div>
-                                  {alreadyImported ? (
+                                  {alreadyImported && (
                                     <Badge variant="secondary" className="text-[9px] shrink-0">
                                       Đã import
                                     </Badge>
-                                  ) : (
-                                    <Download className="w-4 h-4 text-muted-foreground shrink-0" />
                                   )}
                                 </CardContent>
                               </Card>
@@ -412,6 +542,29 @@ export function BrandFormStepPersonas({
                           })}
                         </div>
                       </div>
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedIndustryPersonaIds(new Set());
+                            setShowIndustryImport(false);
+                          }}
+                        >
+                          Hủy
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleBatchImport}
+                          disabled={selectedIndustryPersonaIds.size === 0}
+                          className="gap-1.5"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Import {selectedIndustryPersonaIds.size > 0 ? `(${selectedIndustryPersonaIds.size})` : ''}
+                        </Button>
+                      </DialogFooter>
                     </DialogContent>
                   </Dialog>
                 )}
@@ -859,6 +1012,85 @@ export function BrandFormStepPersonas({
                       <p className="text-[10px] text-muted-foreground">
                         Hướng dẫn cụ thể cho AI khi tạo nội dung cho persona này
                       </p>
+                    </div>
+
+                    {/* Content Preferences */}
+                    <div className="space-y-3 border-t pt-4">
+                      <Label className="text-xs flex items-center gap-1.5 font-medium">
+                        <FileText className="w-3.5 h-3.5" />
+                        Sở thích nội dung
+                      </Label>
+                      
+                      {/* Format preference */}
+                      <div className="space-y-2">
+                        <Label className="text-[10px] text-muted-foreground">Độ dài nội dung ưa thích</Label>
+                        <div className="flex gap-2">
+                          {CONTENT_FORMAT_OPTIONS.map((format) => {
+                            const currentPrefs = editingPersona.content_preferences || getDefaultContentPreferences();
+                            const isSelected = currentPrefs.format === format.value;
+                            return (
+                              <Button
+                                key={format.value}
+                                type="button"
+                                variant={isSelected ? 'default' : 'outline'}
+                                size="sm"
+                                className="flex-1 h-9"
+                                onClick={() => updatePersona(editingPersona.id, { 
+                                  content_preferences: { ...currentPrefs, format: format.value as 'short' | 'medium' | 'long' },
+                                  is_customized: true
+                                })}
+                                disabled={disabled}
+                              >
+                                <div className="text-center">
+                                  <div className="text-xs font-medium">{format.label}</div>
+                                  <div className="text-[9px] opacity-70">{format.description}</div>
+                                </div>
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Content preference toggles */}
+                      <div className="grid grid-cols-1 gap-2">
+                        {CONTENT_PREFERENCE_OPTIONS.map((pref) => {
+                          const currentPrefs = editingPersona.content_preferences || getDefaultContentPreferences();
+                          const isEnabled = currentPrefs[pref.key as keyof ContentPreferences] === true;
+                          
+                          const IconComponent = {
+                            'Image': Image,
+                            'BookOpen': BookOpen,
+                            'BarChart3': BarChart3,
+                            'Heart': Heart,
+                            'CheckSquare': CheckSquare,
+                          }[pref.icon] || FileText;
+                          
+                          return (
+                            <div 
+                              key={pref.key}
+                              className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
+                            >
+                              <div className="flex items-center gap-2">
+                                <IconComponent className="w-4 h-4 text-muted-foreground" />
+                                <div>
+                                  <p className="text-xs font-medium">{pref.label}</p>
+                                  <p className="text-[10px] text-muted-foreground">{pref.description}</p>
+                                </div>
+                              </div>
+                              <Switch
+                                checked={isEnabled}
+                                onCheckedChange={(checked) => {
+                                  updatePersona(editingPersona.id, {
+                                    content_preferences: { ...currentPrefs, [pref.key]: checked },
+                                    is_customized: true
+                                  });
+                                }}
+                                disabled={disabled}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                   {!editingPersona.is_primary && (
