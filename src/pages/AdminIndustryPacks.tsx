@@ -19,6 +19,7 @@ import {
   Plus,
   Pencil,
   Book,
+  Users,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,7 @@ import { useIndustryPackDetails } from '@/hooks/useIndustryPackDetails';
 import { IndustryMemoryPack, IndustryPackStatus } from '@/types/industryMemoryPack';
 import { IndustryPackRulesEditor } from '@/components/admin/IndustryPackRulesEditor';
 import { IndustryGlossaryEditor } from '@/components/admin/IndustryGlossaryEditor';
+import { IndustryPersonasEditor } from '@/components/admin/IndustryPersonasEditor';
 
 const statusConfig: Record<IndustryPackStatus, {
   label: string;
@@ -93,6 +95,7 @@ function PackCard({
   onReactivate,
   onEditRules,
   onEditGlossary,
+  onEditPersonas,
   onEdit,
   isUpdating,
 }: { 
@@ -102,6 +105,7 @@ function PackCard({
   onReactivate: () => void;
   onEditRules: () => void;
   onEditGlossary: () => void;
+  onEditPersonas: () => void;
   onEdit: () => void;
   isUpdating: boolean;
 }) {
@@ -239,6 +243,22 @@ function PackCard({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Từ điển ngành</TooltipContent>
+            </Tooltip>
+
+            {/* Personas Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-8"
+                  onClick={onEditPersonas}
+                  disabled={isUpdating}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Personas ngành</TooltipContent>
             </Tooltip>
 
             {pack.status === 'draft' && (
@@ -384,6 +404,7 @@ export default function AdminIndustryPacks() {
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [editingPackId, setEditingPackId] = useState<string | null>(null);
   const [glossaryPackId, setGlossaryPackId] = useState<string | null>(null);
+  const [personasPackId, setPersonasPackId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editPackId, setEditPackId] = useState<string | null>(null);
   
@@ -425,6 +446,7 @@ export default function AdminIndustryPacks() {
   // Derived state (not hooks)
   const editingPack = packs.find(p => p.id === editingPackId);
   const glossaryPack = packs.find(p => p.id === glossaryPackId);
+  const personasPack = packs.find(p => p.id === personasPackId);
   const packToEdit = packs.find(p => p.id === editPackId);
 
   // Reset create form
@@ -659,6 +681,7 @@ export default function AdminIndustryPacks() {
                         onReactivate={() => reactivatePack(pack.id)}
                         onEditRules={() => setEditingPackId(pack.id)}
                         onEditGlossary={() => setGlossaryPackId(pack.id)}
+                        onEditPersonas={() => setPersonasPackId(pack.id)}
                         onEdit={() => handleOpenEditDialog(pack.id)}
                         isUpdating={isUpdating}
                       />
@@ -686,6 +709,7 @@ export default function AdminIndustryPacks() {
                         onReactivate={() => reactivatePack(pack.id)}
                         onEditRules={() => setEditingPackId(pack.id)}
                         onEditGlossary={() => setGlossaryPackId(pack.id)}
+                        onEditPersonas={() => setPersonasPackId(pack.id)}
                         onEdit={() => handleOpenEditDialog(pack.id)}
                         isUpdating={isUpdating}
                       />
@@ -928,6 +952,16 @@ export default function AdminIndustryPacks() {
           onOpenChange={(open) => !open && setGlossaryPackId(null)}
           packId={glossaryPackId}
           packName={glossaryPack.name || glossaryPack.code || 'Pack'}
+        />
+      )}
+
+      {/* Personas Editor Dialog */}
+      {personasPackId && personasPack && (
+        <IndustryPersonasEditor
+          open={!!personasPackId}
+          onOpenChange={(open) => !open && setPersonasPackId(null)}
+          industryTemplateId={personasPackId}
+          packName={personasPack.name || personasPack.code || 'Pack'}
         />
       )}
     </div>

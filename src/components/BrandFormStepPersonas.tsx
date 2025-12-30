@@ -221,6 +221,15 @@ export function BrandFormStepPersonas({
                               {persona.is_primary && (
                                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                               )}
+                              {(persona as any).source_industry_persona_id && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-[9px] h-4 px-1 border-primary/30 text-primary"
+                                >
+                                  <Building2 className="w-2.5 h-2.5 mr-0.5" />
+                                  Industry
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                               {persona.occupation && <span>{persona.occupation}</span>}
@@ -287,61 +296,173 @@ export function BrandFormStepPersonas({
 
             {/* Add Buttons */}
             {personas.length < 5 && (
-              <div className="flex gap-2 pt-2">
-                <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
-                  <DialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 h-9"
-                      disabled={disabled}
-                    >
-                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                      Từ Template
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Chọn Template Persona</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-3 mt-2">
-                      <p className="text-xs text-muted-foreground">
-                        Đề xuất phù hợp: <Badge variant="secondary">{templateType}</Badge>
-                      </p>
-                      <div className="grid gap-2">
-                        {PERSONA_TEMPLATES[templateType]?.map((template, idx) => (
-                          <Card 
-                            key={idx}
-                            className="cursor-pointer hover:border-primary/50 transition-colors"
-                            onClick={() => addPersona(template)}
-                          >
-                            <CardContent className="p-3 flex items-center gap-3">
-                              <span className="text-2xl">{template.avatar_emoji}</span>
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{template.name}</p>
-                                <p className="text-xs text-muted-foreground">{template.occupation}</p>
-                              </div>
-                              <Plus className="w-4 h-4 text-muted-foreground" />
-                            </CardContent>
-                          </Card>
-                        ))}
+              <div className="space-y-2 pt-2">
+                {/* Import from Industry - Only show if brand has industry template */}
+                {industryTemplateId && industryPersonas.length > 0 && (
+                  <Dialog open={showIndustryImport} onOpenChange={setShowIndustryImport}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-9 border-primary/30 text-primary hover:bg-primary/5"
+                        disabled={disabled || loadingIndustry}
+                      >
+                        <Building2 className="w-3.5 h-3.5 mr-1.5" />
+                        Import từ Industry ({industryPersonas.length})
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Building2 className="w-5 h-5 text-primary" />
+                          Import Persona từ Industry
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3 mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Các persona được định nghĩa sẵn cho ngành. Bạn có thể tùy chỉnh sau khi import.
+                        </p>
+                        <div className="grid gap-2 max-h-[300px] overflow-y-auto">
+                          {industryPersonas.map((industryPersona) => {
+                            const alreadyImported = personas.some(
+                              p => (p as any).source_industry_persona_id === industryPersona.id
+                            );
+                            return (
+                              <Card 
+                                key={industryPersona.id}
+                                className={cn(
+                                  "transition-colors",
+                                  alreadyImported 
+                                    ? "opacity-50 cursor-not-allowed" 
+                                    : "cursor-pointer hover:border-primary/50"
+                                )}
+                                onClick={() => {
+                                  if (alreadyImported || personas.length >= 5) return;
+                                  
+                                  const newPersona: CustomerPersona = {
+                                    id: `temp-${Date.now()}`,
+                                    brand_template_id: '',
+                                    name: industryPersona.name,
+                                    avatar_emoji: industryPersona.avatar_emoji || '👤',
+                                    is_primary: personas.length === 0,
+                                    age_range: industryPersona.age_range,
+                                    gender: industryPersona.gender,
+                                    location: industryPersona.location,
+                                    income_level: industryPersona.income_level,
+                                    occupation: industryPersona.occupation,
+                                    pain_points: industryPersona.pain_points || [],
+                                    desires: industryPersona.desires || [],
+                                    objections: industryPersona.objections || [],
+                                    values: industryPersona.values || [],
+                                    interests: industryPersona.interests || [],
+                                    buying_triggers: industryPersona.buying_triggers || [],
+                                    information_sources: industryPersona.information_sources || [],
+                                    preferred_channels: industryPersona.preferred_channels || [],
+                                    typical_funnel_stage: industryPersona.typical_funnel_stage,
+                                    source_industry_persona_id: industryPersona.id,
+                                    is_customized: false,
+                                  };
+                                  
+                                  onPersonasChange([...personas, newPersona]);
+                                  setEditingId(newPersona.id);
+                                  setShowIndustryImport(false);
+                                }}
+                              >
+                                <CardContent className="p-3 flex items-center gap-3">
+                                  <span className="text-2xl">{industryPersona.avatar_emoji || '👤'}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{industryPersona.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {industryPersona.occupation || 'N/A'}
+                                      {industryPersona.age_range && ` • ${industryPersona.age_range}`}
+                                    </p>
+                                    {industryPersona.pain_points && industryPersona.pain_points.length > 0 && (
+                                      <div className="flex gap-1 mt-1">
+                                        <Badge variant="secondary" className="text-[9px] truncate max-w-[120px]">
+                                          {industryPersona.pain_points[0]}
+                                        </Badge>
+                                        {industryPersona.pain_points.length > 1 && (
+                                          <Badge variant="secondary" className="text-[9px]">
+                                            +{industryPersona.pain_points.length - 1}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {alreadyImported ? (
+                                    <Badge variant="secondary" className="text-[9px] shrink-0">
+                                      Đã import
+                                    </Badge>
+                                  ) : (
+                                    <Download className="w-4 h-4 text-muted-foreground shrink-0" />
+                                  )}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  className="flex-1 h-9"
-                  onClick={() => addPersona()}
-                  disabled={disabled}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  Tạo mới
-                </Button>
+                    </DialogContent>
+                  </Dialog>
+                )}
+
+                <div className="flex gap-2">
+                  <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-9"
+                        disabled={disabled}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                        Từ Template
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Chọn Template Persona</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3 mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Đề xuất phù hợp: <Badge variant="secondary">{templateType}</Badge>
+                        </p>
+                        <div className="grid gap-2">
+                          {PERSONA_TEMPLATES[templateType]?.map((template, idx) => (
+                            <Card 
+                              key={idx}
+                              className="cursor-pointer hover:border-primary/50 transition-colors"
+                              onClick={() => addPersona(template)}
+                            >
+                              <CardContent className="p-3 flex items-center gap-3">
+                                <span className="text-2xl">{template.avatar_emoji}</span>
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{template.name}</p>
+                                  <p className="text-xs text-muted-foreground">{template.occupation}</p>
+                                </div>
+                                <Plus className="w-4 h-4 text-muted-foreground" />
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="flex-1 h-9"
+                    onClick={() => addPersona()}
+                    disabled={disabled}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Tạo mới
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
