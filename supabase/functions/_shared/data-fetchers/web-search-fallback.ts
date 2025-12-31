@@ -1,13 +1,15 @@
 // ============================================
 // Enhanced Web Search with Fallback Strategies
-// v2: Persistent Cache + Analytics
+// v3: Persistent Cache + Analytics + Social Trends
 // ============================================
 
 import { withRetry, withFallback, withTimeout, createCircuitBreaker, isRetryableError } from "../error-utils.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getSocialTrends, type NormalizedTrend, type MergedTrendResults } from "./social-trend-scraper.ts";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -49,10 +51,11 @@ const lovableAICircuit = createCircuitBreaker('lovable-ai-search', {
 
 // TTL by search type (in hours)
 const CACHE_TTL_HOURS: Record<string, number> = {
-  trending: 2,    // Changes fast
-  news: 6,        // Semi-fresh
-  competitor: 24, // Stable
-  general: 12,    // Default
+  trending: 2,        // Changes fast
+  social_trends: 4,   // Social platform trends
+  news: 6,            // Semi-fresh
+  competitor: 24,     // Stable
+  general: 12,        // Default
 };
 
 // In-memory cache as L1 (fast), Supabase as L2 (persistent)
@@ -489,6 +492,9 @@ export interface WebSearchOptions {
   timeoutMs?: number;
   userId?: string;
   organizationId?: string;
+  // New: Social trend options
+  platforms?: ('tiktok' | 'facebook' | 'youtube' | 'instagram')[];
+  includeSocialTrends?: boolean;
 }
 
 export async function enhancedWebSearch(options: WebSearchOptions): Promise<WebSearchResponse> {
@@ -501,7 +507,13 @@ export async function enhancedWebSearch(options: WebSearchOptions): Promise<WebS
     timeoutMs = 15000,
     userId,
     organizationId,
+    platforms,
+    includeSocialTrends,
   } = options;
+  
+  // Auto-enable social trends for trending searches
+  const shouldIncludeSocialTrends = includeSocialTrends ?? 
+    (searchType === 'trending' && FIRECRAWL_API_KEY);
   
   const startTime = Date.now();
   const cacheKey = getCacheKey(query, searchType, industry);
@@ -584,6 +596,53 @@ export async function enhancedWebSearch(options: WebSearchOptions): Promise<WebS
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
       console.warn('[WebSearchFallback] Perplexity failed:', error);
+    }
+  }
+
+  // 3.5. Enrich with Social Trends from Firecrawl (for trending searches)
+  let socialTrendsData: MergedTrendResults | null = null;
+  if (shouldIncludeSocialTrends && FIRECRAWL_API_KEY) {
+    try {
+      const targetPlatforms = platforms || ['tiktok', 'youtube'];
+      console.log(`[WebSearchFallback] Fetching social trends for: ${targetPlatforms.join(', ')}`);
+      
+      // Get trends for first platform (most common case)
+      const primaryPlatform = targetPlatforms[0] as 'tiktok' | 'facebook' | 'youtube' | 'instagram';
+      socialTrendsData = await getSocialTrends(primaryPlatform, { industry });
+      
+      if (socialTrendsData && socialTrendsData.trends.length > 0) {
+        console.log(`[WebSearchFallback] Got ${socialTrendsData.trends.length} social trends from ${socialTrendsData.sources.join(', ')}`);
+        
+        // Merge social trends into search results
+        const socialResults: WebSearchResult[] = socialTrendsData.trends.slice(0, 5).map(trend => ({
+          title: trend.name,
+          snippet: trend.description || `${trend.type} đang trending trên ${trend.platform}`,
+          relevance: 'high',
+          content_angle: `Trending ${trend.type} on ${trend.platform}`,
+          source: trend.source,
+        }));
+        
+        if (result) {
+          // Merge with existing results
+          result.results = [...socialResults, ...result.results];
+          result.message = `${result.message} + ${socialTrendsData.trends.length} social trends`;
+        } else {
+          // Use social trends as primary result
+          result = {
+            success: true,
+            source: 'cached', // Social trends are cached
+            query,
+            search_type: searchType,
+            results: socialResults,
+            citations: socialTrendsData.sources,
+            total_results: socialResults.length,
+            message: `Tìm thấy ${socialResults.length} xu hướng từ ${socialTrendsData.sources.join(', ')}`,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('[WebSearchFallback] Social trends fetch failed:', err);
+      // Non-blocking - continue with other sources
     }
   }
 
