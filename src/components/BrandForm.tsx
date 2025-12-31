@@ -618,18 +618,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 4: DNA (Strategy + Brand Voice) */}
+          {/* Step 4: Voice & Content */}
           {currentStep === 4 && (
             <BrandFormStepDNA
-              // Strategy
-              mission={mission}
-              setMission={setMission}
-              vision={vision}
-              setVision={setVision}
-              uniqueValueProposition={uniqueValueProposition}
-              setUniqueValueProposition={setUniqueValueProposition}
-              tagline={tagline}
-              setTagline={setTagline}
+              // Content
               brandHashtags={brandHashtags}
               setBrandHashtags={setBrandHashtags}
               signaturePhrases={signaturePhrases}
