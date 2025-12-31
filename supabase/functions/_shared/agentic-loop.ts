@@ -3,6 +3,7 @@
 
 import { CHAT_TOOLS, ToolCall, ToolCallResult, AgentTurn, AgentLoopResult } from "./tool-definitions.ts";
 import { executeToolCall } from "./tool-executor.ts";
+import { withRetry, isRetryableError, RetryableError } from "./error-utils.ts";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
@@ -233,24 +234,50 @@ export async function executeAgenticLoop(
       });
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
+    // Call AI with retry logic
+    const response = await withRetry(
+      async () => {
+        const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: aiMessages,
+            tools: CHAT_TOOLS,
+            tool_choice: 'auto',
+            temperature: 0.7,
+            stream: true,
+          }),
+        });
+
+        if (!res.ok) {
+          const status = res.status;
+          // Throw retryable error for 429, 500+
+          if (status === 429 || (status >= 500 && status !== 501)) {
+            throw new RetryableError(`AI API error: ${status}`, { statusCode: status });
+          }
+          throw new Error(`AI API error: ${status}`);
+        }
+        return res;
       },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: aiMessages,
-        tools: CHAT_TOOLS,
-        tool_choice: 'auto',
-        temperature: 0.7,
-        stream: true,
-      }),
+      {
+        maxRetries: 3,
+        baseDelayMs: 1000,
+        maxDelayMs: 10000,
+        retryOn: isRetryableError,
+        onRetry: (err, attempt, delay) => {
+          console.log(`[AgenticLoop] AI call retry ${attempt}, waiting ${delay}ms:`, err.message);
+        },
+      }
+    ).catch(err => {
+      console.error('[AgenticLoop] AI call failed after retries:', err.message);
+      return null;
     });
 
-    if (!response.ok) {
-      console.error('[AgenticLoop] AI error:', response.status);
+    if (!response) {
       exitReason = 'error';
       break;
     }

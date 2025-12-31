@@ -24,6 +24,9 @@ import { searchRelevantContent, fetchIndustryMemory, fetchIndustryGlossary } fro
 // Import shared system prompt builder
 import { buildSystemPrompt } from "../_shared/system-prompt-builder.ts";
 
+// Import error handling utilities
+import { withFallback, withRetry, withTimeout, isRetryableError } from "../_shared/error-utils.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -159,10 +162,19 @@ serve(async (req) => {
         }
 
         // Fetch Industry Memory and Glossary if brand has industry_template_id
+        // Using graceful degradation - continue even if these fail
         if (brand.industry_template_id) {
           const [memoryResult, glossaryResult] = await Promise.all([
-            fetchIndustryMemory(supabase, brand.industry_template_id, 'vi'),
-            fetchIndustryGlossary(supabase, brand.industry_template_id, 'vi', 30)
+            withFallback(
+              () => fetchIndustryMemory(supabase, brand.industry_template_id, 'vi'),
+              null,
+              { logError: true, errorContext: 'industryMemory' }
+            ),
+            withFallback(
+              () => fetchIndustryGlossary(supabase, brand.industry_template_id, 'vi', 30),
+              [],
+              { logError: true, errorContext: 'glossary' }
+            )
           ]);
           industryMemory = memoryResult;
           industryGlossary = glossaryResult;
@@ -171,8 +183,12 @@ serve(async (req) => {
           }
         }
 
-        // Fetch Learning Context
-        learningContext = await fetchLearningContext(supabase, brandTemplateId, organizationId || null, 50);
+        // Fetch Learning Context with graceful degradation
+        learningContext = await withFallback(
+          () => fetchLearningContext(supabase, brandTemplateId, organizationId || null, 50),
+          null,
+          { logError: true, errorContext: 'learningContext' }
+        );
         console.log('Learning context:', learningContext ? {
           topPerformers: learningContext.topPerformers?.length || 0,
           avgPerformance: learningContext.averagePerformance,
@@ -269,16 +285,21 @@ serve(async (req) => {
     }
 
     // RAG: Search for relevant past content based on user's latest message
+    // Using graceful degradation - continue even if RAG fails
     let ragResults: RAGResult[] = [];
     if (organizationId && messages.length > 0) {
       const lastUserMessage = messages.filter(m => m.role === 'user').pop();
       if (lastUserMessage) {
-        ragResults = await searchRelevantContent(
-          supabase,
-          lastUserMessage.content,
-          organizationId,
-          brandTemplateId,
-          5
+        ragResults = await withFallback(
+          () => searchRelevantContent(
+            supabase,
+            lastUserMessage.content,
+            organizationId,
+            brandTemplateId,
+            5
+          ),
+          [],
+          { logError: true, errorContext: 'RAG' }
         );
         console.log('RAG search results:', ragResults.length, 'relevant items found');
       }
@@ -418,33 +439,58 @@ serve(async (req) => {
       requestBody.tool_choice = 'auto';
     }
 
-    // Call Lovable AI with streaming
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
+    // Call Lovable AI with streaming and retry logic
+    const response = await withRetry(
+      async () => {
+        const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!res.ok) {
+          const status = res.status;
+          // Non-retryable errors - return specific responses
+          if (status === 402) {
+            throw { status: 402, message: 'Payment required' };
+          }
+          // Retryable errors
+          if (status === 429 || (status >= 500 && status !== 501)) {
+            const retryAfter = res.headers.get('Retry-After');
+            throw { status, message: `AI gateway error: ${status}`, retryable: true, retryAfter };
+          }
+          throw { status, message: `AI gateway error: ${status}` };
+        }
+        return res;
       },
-      body: JSON.stringify(requestBody),
+      {
+        maxRetries: 3,
+        baseDelayMs: 1000,
+        maxDelayMs: 10000,
+        retryOn: (err: any) => err?.retryable === true,
+        onRetry: (err: any, attempt, delay) => {
+          console.log(`[chat-topics] AI call retry ${attempt}, waiting ${delay}ms:`, err?.message);
+        },
+      }
+    ).catch((err: any) => {
+      // Return error response for non-retryable or exhausted retries
+      if (err?.status === 429) {
+        return { error: true, status: 429, message: 'Rate limits exceeded, please try again later.' };
+      }
+      if (err?.status === 402) {
+        return { error: true, status: 402, message: 'Payment required, please add funds to your Lovable AI workspace.' };
+      }
+      console.error('AI gateway error after retries:', err?.message || err);
+      return { error: true, status: 500, message: 'AI gateway error' };
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Payment required, please add funds to your Lovable AI workspace.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      return new Response(JSON.stringify({ error: 'AI gateway error' }), {
-        status: 500,
+    // Handle error responses
+    if (response && 'error' in response) {
+      return new Response(JSON.stringify({ error: response.message }), {
+        status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
