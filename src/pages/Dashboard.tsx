@@ -6,6 +6,7 @@ import { MyAssignments } from '@/components/MyAssignments';
 import { TodaySchedules } from '@/components/TodaySchedules';
 import { PendingReviews } from '@/components/PendingReviews';
 import { TopicQuickAccess } from '@/components/TopicQuickAccess';
+import { PerformanceReminderWidget } from '@/components/PerformanceReminderWidget';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useScripts } from '@/hooks/useScripts';
@@ -231,6 +232,7 @@ const Dashboard = () => {
           {/* Column 2: Topics, My Assignments & Today Schedules */}
           <div className="space-y-4 sm:space-y-5 lg:space-y-6">
             <TopicQuickAccess />
+            <PerformanceReminderWidget />
             <MyAssignments />
             <TodaySchedules />
           </div>
