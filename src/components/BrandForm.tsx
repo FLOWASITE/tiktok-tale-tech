@@ -6,14 +6,11 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
-import { BrandFormStepBusiness, BrandFooterInfo, DEFAULT_FOOTER_INFO } from '@/components/BrandFormStepBusiness';
 import { BrandFormStepPersonas } from '@/components/BrandFormStepPersonas';
 import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
-import { BrandFormStepStrategy } from '@/components/BrandFormStepStrategy';
+import { BrandFormStepDNA } from '@/components/BrandFormStepDNA';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
-import { BrandVoiceSection } from '@/components/BrandVoiceSection';
-import { AIBrandVoiceGenerator } from '@/components/AIBrandVoiceGenerator';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { QuickSampleGenerator } from '@/components/QuickSampleGenerator';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
@@ -28,6 +25,23 @@ import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { ChevronLeft, ChevronRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+
+// Footer info type (moved from BrandFormStepBusiness)
+export interface BrandFooterInfo {
+  company_name?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+}
+
+export const DEFAULT_FOOTER_INFO: BrandFooterInfo = {
+  company_name: '',
+  phone: '',
+  email: '',
+  website: '',
+  address: '',
+};
 
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
 
@@ -73,7 +87,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [personas, setPersonas] = useState<CustomerPersona[]>([]);
   const [localProducts, setLocalProducts] = useState<Array<{ id: string; name: string; sku: string; category: string; description: string; price_display: string; image_url: string; unique_selling_points: string[]; target_audience: string; pain_points_solved: string[]; benefits: string[]; keywords: string[]; suggested_content_angles: string[]; best_channels: string[]; is_featured: boolean; is_active: boolean; }>>([]);
   
-  // Strategy fields (new)
+  // Strategy fields
   const [mission, setMission] = useState('');
   const [vision, setVision] = useState('');
   const [uniqueValueProposition, setUniqueValueProposition] = useState('');
@@ -101,7 +115,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [showCompareDialog, setShowCompareDialog] = useState(false);
   const [compareVariants, setCompareVariants] = useState<any[]>([]);
 
-  // Brand voice variants hook (for saved samples)
+  // Brand voice variants hook
   const {
     variants,
     loading: variantsLoading,
@@ -110,7 +124,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     refetch: refetchVariants,
   } = useBrandVoiceVariants(template?.id);
 
-  // Customer personas hook - for loading/saving personas
+  // Customer personas hook
   const {
     personas: dbPersonas,
     createPersona,
@@ -150,7 +164,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setIndustryTemplateId(template.industry_template_id || null);
       setSampleTexts(template.sample_texts || null);
       setFooterInfo(template.footer_info || DEFAULT_FOOTER_INFO);
-      // New strategy fields
       setMission(template.mission || '');
       setVision(template.vision || '');
       setUniqueValueProposition(template.unique_value_proposition || '');
@@ -198,11 +211,14 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     return Object.keys(newErrors).length === 0;
   };
 
+  // Total steps is now 6
+  const TOTAL_STEPS = 6;
+
   const handleNext = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 8));
+      setCurrentStep(prev => Math.min(prev + 1, TOTAL_STEPS));
     }
   };
 
@@ -315,7 +331,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       allow_emoji: allowEmoji,
     };
 
-    // If template already exists, save to database immediately
     if (template?.id) {
       const result = await createVariant({
         name: customName,
@@ -336,7 +351,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         refetchVariants();
       }
     } else {
-      // Template not saved yet, store in pending list
       setPendingSamples(prev => [...prev, sampleData]);
       setSampleTexts(null);
       toast.success(`Đã lưu tạm "${customName}". Mẫu sẽ được lưu khi bạn hoàn tất tạo Brand Template.`);
@@ -356,7 +370,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     refetchVariants,
   ]);
 
-  // Open compare dialog
   const handleCompareVariants = useCallback((variantsToCompare: any[]) => {
     setCompareVariants(variantsToCompare);
     setShowCompareDialog(true);
@@ -364,7 +377,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep !== 8) return;
+    if (currentStep !== TOTAL_STEPS) return;
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
@@ -392,7 +405,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       content_pillars: contentPillars.length > 0 ? contentPillars : [],
       sample_texts: sampleTexts,
       footer_info: footerInfo.company_name || footerInfo.phone || footerInfo.email ? footerInfo : null,
-      // New strategy fields
       mission: mission || null,
       vision: vision || null,
       unique_value_proposition: uniqueValueProposition || null,
@@ -411,33 +423,25 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       competitive_advantages: competitiveAdvantages.length > 0 ? competitiveAdvantages : null,
     };
 
-    // Call onSubmit and get the result (for new templates)
     const result = await onSubmit(formData, scope, logoFile, deleteLogo);
-    
-    // Get the template ID (either from result for new templates, or from existing template)
     const templateId = result && typeof result === 'object' && 'id' in result ? result.id : template?.id;
     
     // Save/sync customer personas
     if (templateId && personas.length > 0) {
       try {
-        // Get existing personas from DB to compare
         const existingPersonaIds = new Set(dbPersonas.map(p => p.id));
         const currentPersonaIds = new Set(personas.filter(p => p.id).map(p => p.id));
         
-        // Delete personas that were removed
         for (const dbPersona of dbPersonas) {
           if (!currentPersonaIds.has(dbPersona.id)) {
             await deleteDbPersona(dbPersona.id);
           }
         }
         
-        // Create or update personas
         for (const persona of personas) {
           if (persona.id && existingPersonaIds.has(persona.id)) {
-            // Update existing persona
             await updatePersona(persona.id, persona);
           } else {
-            // Create new persona
             await createPersona({
               ...persona,
               brand_template_id: templateId,
@@ -470,18 +474,17 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       }
     }
     
-    // If this is a new template and we have pending samples, save them
+    // Save pending samples
     if (!template && result && typeof result === 'object' && 'id' in result && pendingSamples.length > 0) {
       const newTemplateId = result.id;
       
-      // Save all pending samples to the database
       for (let i = 0; i < pendingSamples.length; i++) {
         const sample = pendingSamples[i];
         try {
           await createVariant({
             brand_template_id: newTemplateId,
             name: sample.name,
-            is_control: i === 0, // First sample becomes control
+            is_control: i === 0,
             brand_positioning: sample.brand_positioning,
             tone_of_voice: sample.tone_of_voice,
             formality_level: sample.formality_level,
@@ -568,41 +571,19 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 2: Business & Visual (NO PRODUCTS) */}
+          {/* Step 2: Customer Personas */}
           {currentStep === 2 && (
-            <BrandFormStepBusiness
+            <BrandFormStepPersonas
+              personas={personas}
+              onPersonasChange={setPersonas}
+              brandPositioning={brandPositioning}
               brandName={brandName}
-              footerInfo={footerInfo}
-              onFooterInfoChange={setFooterInfo}
-              primaryColor={primaryColor}
-              setPrimaryColor={setPrimaryColor}
-              logoPreview={logoPreview}
-              setLogoPreview={setLogoPreview}
-              logoFile={logoFile}
-              setLogoFile={setLogoFile}
-              deleteLogo={deleteLogo}
-              setDeleteLogo={setDeleteLogo}
-              existingLogoUrl={template?.logo_url}
-              includeLogo={includeLogo}
-              setIncludeLogo={setIncludeLogo}
-              isDefault={isDefault}
-              setIsDefault={setIsDefault}
+              industryTemplateId={industryTemplateId}
             />
           )}
 
-          {/* Step 3: Customer Personas */}
+          {/* Step 3: Products */}
           {currentStep === 3 && (
-              <BrandFormStepPersonas
-                personas={personas}
-                onPersonasChange={setPersonas}
-                brandPositioning={brandPositioning}
-                brandName={brandName}
-                industryTemplateId={industryTemplateId}
-              />
-          )}
-
-          {/* Step 4: Products */}
-          {currentStep === 4 && (
             <BrandFormStepProducts
               brandTemplateId={template?.id}
               localProducts={localProducts}
@@ -612,9 +593,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 5: Strategy */}
-          {currentStep === 5 && (
-            <BrandFormStepStrategy
+          {/* Step 4: DNA (Strategy + Brand Voice) */}
+          {currentStep === 4 && (
+            <BrandFormStepDNA
+              // Strategy
               mission={mission}
               setMission={setMission}
               vision={vision}
@@ -631,76 +613,58 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               setCtaTemplates={setCtaTemplates}
               evergreenThemes={evergreenThemes}
               setEvergreenThemes={setEvergreenThemes}
-              secondaryColors={secondaryColors}
-              setSecondaryColors={setSecondaryColors}
-              imageStyle={imageStyle}
-              setImageStyle={setImageStyle}
-              mainCompetitors={mainCompetitors}
-              setMainCompetitors={setMainCompetitors}
-              competitiveAdvantages={competitiveAdvantages}
-              setCompetitiveAdvantages={setCompetitiveAdvantages}
+              // Brand Voice
+              brandPositioning={brandPositioning}
+              setBrandPositioning={setBrandPositioning}
+              toneOfVoice={toneOfVoice}
+              setToneOfVoice={setToneOfVoice}
+              formalityLevel={formalityLevel}
+              setFormalityLevel={setFormalityLevel}
+              languageStyle={languageStyle}
+              setLanguageStyle={setLanguageStyle}
+              allowEmoji={allowEmoji}
+              setAllowEmoji={setAllowEmoji}
+              preferredWords={preferredWords}
+              setPreferredWords={setPreferredWords}
+              forbiddenWords={forbiddenWords}
+              setForbiddenWords={setForbiddenWords}
+              complianceRules={complianceRules}
+              setComplianceRules={setComplianceRules}
             />
           )}
 
-          {/* Step 6: Brand Voice */}
-          {currentStep === 6 && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-medium">Brand Voice Profile</span>
-                <AIBrandVoiceGenerator
-                  brandName={brandName}
-                  brandGuideline={brandGuideline}
-                  currentIndustry={industries}
-                  primaryColor={primaryColor}
-                  brandPositioning={brandPositioning}
-                  toneOfVoice={toneOfVoice}
-                  formalityLevel={formalityLevel}
-                  languageStyle={languageStyle}
-                  preferredWords={preferredWords}
-                  forbiddenWords={forbiddenWords}
-                  hasLogo={!!logoFile || !!logoPreview || !!template?.logo_url}
-                  onGuidelineGenerated={(result) => {
-                    setBrandGuideline(result.guideline);
-                    if (result.example_good) setGuidelineExampleGood(result.example_good);
-                    if (result.example_bad) setGuidelineExampleBad(result.example_bad);
-                    if (result.key_principles) setGuidelineKeyPrinciples(result.key_principles);
-                  }}
-                  onApply={(suggestions) => {
-                    if (suggestions.brand_positioning) setBrandPositioning(suggestions.brand_positioning);
-                    if (suggestions.tone_of_voice) setToneOfVoice(suggestions.tone_of_voice);
-                    if (suggestions.formality_level) setFormalityLevel(suggestions.formality_level);
-                    if (suggestions.language_style) setLanguageStyle(suggestions.language_style);
-                    if (suggestions.preferred_words) setPreferredWords(suggestions.preferred_words);
-                    if (suggestions.forbidden_words) setForbiddenWords(suggestions.forbidden_words);
-                    if (suggestions.allow_emoji !== undefined) setAllowEmoji(suggestions.allow_emoji);
-                  }}
-                />
-              </div>
-              <BrandVoiceSection
-                brandPositioning={brandPositioning}
-                onBrandPositioningChange={setBrandPositioning}
-                toneOfVoice={toneOfVoice}
-                onToneOfVoiceChange={setToneOfVoice}
-                formalityLevel={formalityLevel}
-                onFormalityLevelChange={setFormalityLevel}
-                languageStyle={languageStyle}
-                onLanguageStyleChange={setLanguageStyle}
-                preferredWords={preferredWords}
-                onPreferredWordsChange={setPreferredWords}
-                forbiddenWords={forbiddenWords}
-                onForbiddenWordsChange={setForbiddenWords}
-                allowEmoji={allowEmoji}
-                onAllowEmojiChange={setAllowEmoji}
-                complianceRules={complianceRules}
-                onComplianceRulesChange={setComplianceRules}
+          {/* Step 5: Channel Settings */}
+          {currentStep === 5 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+              <ChannelSettingsEditor
+                value={channelOverrides}
+                onChange={setChannelOverrides}
+                defaultExpanded={true}
+                showWrapper={true}
               />
-
+              
               {/* Content Pillars Editor */}
               <ContentPillarsEditor
                 pillars={contentPillars}
                 onChange={setContentPillars}
               />
-              {/* Sample generation and management */}
+              
+              {/* Quick Sample Generator with Rules */}
+              <QuickSampleGenerator
+                brandName={brandName}
+                brandPositioning={brandPositioning}
+                toneOfVoice={toneOfVoice}
+                formalityLevel={formalityLevel}
+                allowEmoji={allowEmoji}
+                preferredWords={preferredWords}
+                forbiddenWords={forbiddenWords}
+                channelOverrides={channelOverrides}
+                onSampleGenerated={(samples) => {
+                  setSampleTexts(samples);
+                }}
+              />
+
+              {/* Sample management */}
               <SavedSamplesManager
                 variants={variants}
                 pendingSamples={pendingSamples}
@@ -729,35 +693,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 7: Channel Settings */}
-          {currentStep === 7 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
-              <ChannelSettingsEditor
-                value={channelOverrides}
-                onChange={setChannelOverrides}
-                defaultExpanded={true}
-                showWrapper={true}
-              />
-              
-              {/* Quick Sample Generator with Rules */}
-              <QuickSampleGenerator
-                brandName={brandName}
-                brandPositioning={brandPositioning}
-                toneOfVoice={toneOfVoice}
-                formalityLevel={formalityLevel}
-                allowEmoji={allowEmoji}
-                preferredWords={preferredWords}
-                forbiddenWords={forbiddenWords}
-                channelOverrides={channelOverrides}
-                onSampleGenerated={(samples) => {
-                  setSampleTexts(samples);
-                }}
-              />
-            </div>
-          )}
-
-          {/* Step 8: Brand Guideline */}
-          {currentStep === 8 && (
+          {/* Step 6: Brand Guideline (Final step) */}
+          {currentStep === 6 && (
             <BrandFormStepGuideline
               brandName={brandName}
               industries={industries}
@@ -823,7 +760,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 8 ? (
+          {currentStep < TOTAL_STEPS ? (
             <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />
