@@ -95,14 +95,16 @@ interface TopicAIChatbotProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-topics`;
 
-const WELCOME_MESSAGE = `Xin chào! 👋 Tôi là AI trợ lý gợi ý ý tưởng content.
+const WELCOME_MESSAGE = `Xin chào! 👋 Tôi là **AI Content Strategist** của Flowa.
 
-Bạn muốn tạo content về chủ đề gì? Hãy cho tôi biết về:
-- Sản phẩm/dịch vụ bạn muốn quảng bá
-- Đối tượng khách hàng mục tiêu
-- Hoặc bất kỳ ý tưởng nào bạn đang nghĩ đến
+Tôi có thể giúp bạn tạo:
+🎬 **TikTok Script** - Kịch bản video với movement và dialogue chi tiết
+📸 **Carousel** - Prompt hình ảnh cho Facebook/TikTok slides  
+📱 **Multi-Channel** - Nội dung Website, Facebook, Instagram, X, Google Maps
 
-Tôi sẽ giúp bạn tìm những topic phù hợp nhất! ✨`;
+💡 **Tip:** Chọn Brand Template ở trên để tôi hiểu rõ tone of voice, personas mục tiêu và sản phẩm đã liên kết của bạn.
+
+Bạn muốn tạo content gì hôm nay? ✨`;
 
 // Skeleton loading component - simulates text about to appear
 function MessageSkeleton() {
