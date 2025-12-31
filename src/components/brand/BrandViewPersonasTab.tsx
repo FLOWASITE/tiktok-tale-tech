@@ -40,14 +40,17 @@ import {
   BarChart3,
   CheckSquare,
   FileText,
+  Package,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PersonaProductsList } from './PersonaProductsList';
+import { useOrganization } from '@/hooks/useOrganization';
 
 interface BrandViewPersonasTabProps {
   template: BrandTemplate;
 }
 
-const PersonaCard = ({ persona }: { persona: CustomerPersona }) => {
+const PersonaCard = ({ persona, brandTemplateId, organizationId }: { persona: CustomerPersona; brandTemplateId: string; organizationId?: string }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
   const funnelStage = FUNNEL_STAGES.find((f) => f.value === persona.typical_funnel_stage);
@@ -356,6 +359,20 @@ const PersonaCard = ({ persona }: { persona: CustomerPersona }) => {
                 </div>
               </div>
             )}
+
+            {/* Linked Products Section */}
+            <div className="border-t pt-3 mt-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+                <Package className="w-3.5 h-3.5" />
+                Sản phẩm phù hợp
+              </div>
+              <PersonaProductsList
+                brandTemplateId={brandTemplateId}
+                personaId={persona.id}
+                organizationId={organizationId}
+                compact={false}
+              />
+            </div>
           </CollapsibleContent>
 
           {/* Expand/Collapse Toggle */}
@@ -435,6 +452,7 @@ const EmptyState = () => (
 );
 
 export function BrandViewPersonasTab({ template }: BrandViewPersonasTabProps) {
+  const { currentOrganization } = useOrganization();
   const { personas, isLoading } = useCustomerPersonas({
     brandTemplateId: template.id,
     enabled: true,
@@ -472,7 +490,12 @@ export function BrandViewPersonasTab({ template }: BrandViewPersonasTabProps) {
       {/* Personas Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {personas.map((persona) => (
-          <PersonaCard key={persona.id} persona={persona} />
+          <PersonaCard 
+            key={persona.id} 
+            persona={persona} 
+            brandTemplateId={template.id}
+            organizationId={currentOrganization?.id}
+          />
         ))}
       </div>
     </div>

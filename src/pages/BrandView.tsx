@@ -11,6 +11,7 @@ import { BrandViewStrategyTab } from '@/components/brand/BrandViewStrategyTab';
 import { BrandViewChannelsTab } from '@/components/brand/BrandViewChannelsTab';
 import { BrandViewSamplesTab } from '@/components/brand/BrandViewSamplesTab';
 import { BrandViewPersonasTab } from '@/components/brand/BrandViewPersonasTab';
+import { BrandViewProductsTab } from '@/components/brand/BrandViewProductsTab';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -29,6 +30,7 @@ import {
   Settings2,
   FileText,
   Users,
+  Package,
 } from 'lucide-react';
 import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
 import { toast } from 'sonner';
@@ -205,6 +207,16 @@ export default function BrandView() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="products" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
+            <Package className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sản phẩm</span>
+            <span className="sm:hidden">SP</span>
+            {products.length > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded-full">
+                {products.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="strategy" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <Target className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Chiến lược</span>
@@ -230,6 +242,10 @@ export default function BrandView() {
 
         <TabsContent value="personas" className="mt-4 animate-in fade-in duration-200">
           <BrandViewPersonasTab template={template} />
+        </TabsContent>
+
+        <TabsContent value="products" className="mt-4 animate-in fade-in duration-200">
+          <BrandViewProductsTab template={template} />
         </TabsContent>
 
         <TabsContent value="strategy" className="mt-4 animate-in fade-in duration-200">

@@ -1298,4 +1298,125 @@ All colors MUST be HSL.
   .animate-glow-pulse {
     animation: glow-pulse 2s ease-in-out infinite;
   }
+
+  /* Card hover lift animation */
+  @keyframes card-lift {
+    0% {
+      transform: translateY(0);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    100% {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  .hover-lift {
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Staggered fade in animation */
+  @keyframes stagger-fade-in {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-stagger-fade-in {
+    animation: stagger-fade-in 0.3s ease-out forwards;
+    opacity: 0;
+  }
+
+  /* Badge pop animation */
+  @keyframes badge-pop {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-badge-pop {
+    animation: badge-pop 0.3s ease-out forwards;
+  }
+
+  /* Product/Persona card expand animation */
+  @keyframes expand-content {
+    0% {
+      opacity: 0;
+      max-height: 0;
+    }
+    100% {
+      opacity: 1;
+      max-height: 1000px;
+    }
+  }
+
+  .animate-expand {
+    animation: expand-content 0.3s ease-out forwards;
+    overflow: hidden;
+  }
+
+  /* Star fill animation for featured items */
+  @keyframes star-fill {
+    0% {
+      transform: scale(0) rotate(-45deg);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.2) rotate(0deg);
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  .animate-star-fill {
+    animation: star-fill 0.4s ease-out forwards;
+  }
+
+  /* Persona avatar bounce */
+  @keyframes avatar-bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-3px);
+    }
+  }
+
+  .hover-avatar-bounce:hover {
+    animation: avatar-bounce 0.4s ease-in-out;
+  }
+
+  /* Connection line animation for product-persona links */
+  @keyframes connection-pulse {
+    0%, 100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  .animate-connection-pulse {
+    animation: connection-pulse 1.5s ease-in-out infinite;
+  }
 }

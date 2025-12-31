@@ -15,7 +15,6 @@ import {
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { BrandFooterInfo } from '@/components/BrandFormStepBusiness';
-import { BrandViewProductsSection } from './BrandViewProductsSection';
 
 interface ContentPillar {
   name: string;
@@ -36,8 +35,6 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
 
   return (
     <div className="space-y-4">
-      {/* Products/Services Section */}
-      <BrandViewProductsSection brandTemplateId={template.id} />
 
       {/* Mission & Vision */}
       {(template.mission || template.vision) && (
