@@ -15,6 +15,7 @@ import { MessageFeedback } from './chatbot/MessageFeedback';
 import { ArtifactsPanel, type ArtifactTopic } from './chatbot/ArtifactsPanel';
 import { DiscoveryTab } from './chatbot/DiscoveryTab';
 import { DiscoveryChips } from './chatbot/DiscoveryChips';
+import { ContextBadges, parseContextBadges, removeContextLine } from './chatbot/ContextBadges';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1679,33 +1680,51 @@ export function TopicAIChatbot({
                   )}>
                     {message.content ? (
                       message.role === 'assistant' ? (
-                        <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
-                          {searchQuery && searchResults.includes(message.id) ? (
-                            <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(message.content) }} />
-                          ) : (
-                            <ReactMarkdown
-                              components={{
-                                code({ node, inline, className, children, ...props }: any) {
-                                  const match = /language-(\w+)/.exec(className || '');
-                                  const codeString = String(children).replace(/\n$/, '');
-                                  
-                                  if (!inline && (match || codeString.includes('\n'))) {
-                                    return <CodeBlock language={match?.[1]}>{codeString}</CodeBlock>;
-                                  }
-                                  
-                                  // Inline code
-                                  return (
-                                    <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono" {...props}>
-                                      {children}
-                                    </code>
-                                  );
-                                }
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
-                          )}
-                        </div>
+                        (() => {
+                          // Parse context badges from AI response
+                          const contextBadges = parseContextBadges(message.content);
+                          const cleanContent = contextBadges.length > 0 
+                            ? removeContextLine(message.content) 
+                            : message.content;
+                          
+                          return (
+                            <>
+                              {/* Context Badges - displayed at top of message */}
+                              {contextBadges.length > 0 && message.id !== 'welcome' && (
+                                <div className="mb-2 pb-2 border-b border-border/30">
+                                  <ContextBadges badges={contextBadges} />
+                                </div>
+                              )}
+                              <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
+                                {searchQuery && searchResults.includes(message.id) ? (
+                                  <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(cleanContent) }} />
+                                ) : (
+                                  <ReactMarkdown
+                                    components={{
+                                      code({ node, inline, className, children, ...props }: any) {
+                                        const match = /language-(\w+)/.exec(className || '');
+                                        const codeString = String(children).replace(/\n$/, '');
+                                        
+                                        if (!inline && (match || codeString.includes('\n'))) {
+                                          return <CodeBlock language={match?.[1]}>{codeString}</CodeBlock>;
+                                        }
+                                        
+                                        // Inline code
+                                        return (
+                                          <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono" {...props}>
+                                            {children}
+                                          </code>
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    {cleanContent}
+                                  </ReactMarkdown>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()
                       ) : (
                         <p 
                           className="text-sm whitespace-pre-wrap leading-relaxed"
