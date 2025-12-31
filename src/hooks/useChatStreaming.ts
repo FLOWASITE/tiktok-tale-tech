@@ -196,13 +196,13 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               continue;
             }
             
-            // Agentic events
+            // Agentic events - parse from data object
             if (parsed.type === 'turn_start') {
               setState(prev => ({
                 ...prev,
                 agentTurnInfo: {
-                  currentTurn: parsed.turn_number || 1,
-                  maxTurns: parsed.max_turns || 5,
+                  currentTurn: parsed.data?.turn || parsed.turn_number || 1,
+                  maxTurns: parsed.data?.max_turns || parsed.max_turns || 5,
                   toolsExecuted: [],
                   isComplete: false,
                 },
@@ -211,19 +211,81 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             }
             
             if (parsed.type === 'tool_executing') {
+              const toolName = parsed.data?.tool || parsed.tool_name;
               setState(prev => ({
                 ...prev,
-                currentExecutingTool: parsed.tool_name,
+                currentExecutingTool: toolName,
                 thinkingStatus: 'executing_tools',
                 agentTurnInfo: prev.agentTurnInfo ? {
                   ...prev.agentTurnInfo,
-                  toolsExecuted: [...prev.agentTurnInfo.toolsExecuted, parsed.tool_name],
+                  toolsExecuted: [...prev.agentTurnInfo.toolsExecuted, toolName],
                 } : null,
               }));
               continue;
             }
             
-            // Regular content streaming
+            // Agentic content_chunk event (from agentic-loop.ts)
+            if (parsed.type === 'content_chunk' && parsed.data?.chunk) {
+              assistantContent += parsed.data.chunk;
+              
+              if (!messageCreated) {
+                messageCreated = true;
+                const newMessage: ChatMessage = {
+                  id: assistantId,
+                  role: 'assistant',
+                  content: assistantContent,
+                  timestamp: new Date(),
+                  extractedTopics: extractTopicsFromMessage(assistantContent),
+                  toolResults: receivedToolResults || undefined,
+                  contextBadges: pendingContextBadges || undefined,
+                  contextRichness,
+                };
+                onMessageCreate(newMessage);
+              } else {
+                onMessageUpdate(assistantId, {
+                  content: assistantContent,
+                  extractedTopics: extractTopicsFromMessage(assistantContent),
+                  toolResults: receivedToolResults || undefined,
+                  contextBadges: pendingContextBadges || undefined,
+                  contextRichness,
+                });
+              }
+              continue;
+            }
+            
+            // Agentic final_response event
+            if (parsed.type === 'final_response') {
+              // Extract final content if available
+              if (parsed.data?.content && !assistantContent) {
+                assistantContent = parsed.data.content;
+              }
+              continue;
+            }
+            
+            // Agentic tool_result event
+            if (parsed.type === 'tool_result' && parsed.data) {
+              receivedToolResults = receivedToolResults || [];
+              receivedToolResults.push({
+                tool_name: parsed.data.tool || 'unknown',
+                success: parsed.data.success !== false,
+                result: parsed.data.result,
+              });
+              continue;
+            }
+            
+            // Agentic loop_complete event
+            if (parsed.type === 'loop_complete') {
+              setState(prev => ({
+                ...prev,
+                agentTurnInfo: prev.agentTurnInfo ? {
+                  ...prev.agentTurnInfo,
+                  isComplete: true,
+                } : null,
+              }));
+              continue;
+            }
+            
+            // Regular content streaming (OpenAI format)
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               assistantContent += content;
