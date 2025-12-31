@@ -622,9 +622,11 @@ export type Database = {
           message_count: number | null
           metadata: Json | null
           organization_id: string | null
+          session_learnings: Json | null
           summary: string | null
           title: string | null
           updated_at: string | null
+          user_corrections: Json | null
           user_id: string
         }
         Insert: {
@@ -637,9 +639,11 @@ export type Database = {
           message_count?: number | null
           metadata?: Json | null
           organization_id?: string | null
+          session_learnings?: Json | null
           summary?: string | null
           title?: string | null
           updated_at?: string | null
+          user_corrections?: Json | null
           user_id: string
         }
         Update: {
@@ -652,9 +656,11 @@ export type Database = {
           message_count?: number | null
           metadata?: Json | null
           organization_id?: string | null
+          session_learnings?: Json | null
           summary?: string | null
           title?: string | null
           updated_at?: string | null
+          user_corrections?: Json | null
           user_id?: string
         }
         Relationships: [
@@ -1004,6 +1010,75 @@ export type Database = {
           },
           {
             foreignKeyName: "content_schedules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_style_patterns: {
+        Row: {
+          brand_template_id: string | null
+          confidence_score: number | null
+          content_type: string
+          created_at: string | null
+          edit_type: string | null
+          examples: Json | null
+          id: string
+          last_seen_at: string | null
+          occurrence_count: number | null
+          organization_id: string | null
+          original_pattern: string | null
+          pattern_category: string
+          updated_at: string | null
+          user_id: string
+          user_pattern: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          confidence_score?: number | null
+          content_type: string
+          created_at?: string | null
+          edit_type?: string | null
+          examples?: Json | null
+          id?: string
+          last_seen_at?: string | null
+          occurrence_count?: number | null
+          organization_id?: string | null
+          original_pattern?: string | null
+          pattern_category: string
+          updated_at?: string | null
+          user_id: string
+          user_pattern?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          confidence_score?: number | null
+          content_type?: string
+          created_at?: string | null
+          edit_type?: string | null
+          examples?: Json | null
+          id?: string
+          last_seen_at?: string | null
+          occurrence_count?: number | null
+          organization_id?: string | null
+          original_pattern?: string | null
+          pattern_category?: string
+          updated_at?: string | null
+          user_id?: string
+          user_pattern?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_style_patterns_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_style_patterns_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2969,6 +3044,7 @@ export type Database = {
           content_type: string | null
           created_at: string | null
           feedback: string | null
+          feedback_details: Json | null
           feedback_note: string | null
           format: string
           id: string
@@ -2995,6 +3071,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string | null
           feedback?: string | null
+          feedback_details?: Json | null
           feedback_note?: string | null
           format: string
           id?: string
@@ -3021,6 +3098,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string | null
           feedback?: string | null
+          feedback_details?: Json | null
           feedback_note?: string | null
           format?: string
           id?: string
@@ -3156,6 +3234,89 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          auto_save_drafts: boolean | null
+          avg_edit_percentage: number | null
+          concepts_mastered: string[] | null
+          content_length_preference: string | null
+          created_at: string | null
+          disliked_categories: string[] | null
+          emoji_frequency: string | null
+          explanation_depth: string | null
+          id: string
+          inferred_preferences: Json | null
+          last_active_at: string | null
+          organization_id: string | null
+          peak_activity_hours: number[] | null
+          preferred_categories: string[] | null
+          preferred_formats: string[] | null
+          preferred_tone: string | null
+          skill_level: string | null
+          suggestion_count_preference: number | null
+          topics_generated_count: number | null
+          topics_used_count: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          auto_save_drafts?: boolean | null
+          avg_edit_percentage?: number | null
+          concepts_mastered?: string[] | null
+          content_length_preference?: string | null
+          created_at?: string | null
+          disliked_categories?: string[] | null
+          emoji_frequency?: string | null
+          explanation_depth?: string | null
+          id?: string
+          inferred_preferences?: Json | null
+          last_active_at?: string | null
+          organization_id?: string | null
+          peak_activity_hours?: number[] | null
+          preferred_categories?: string[] | null
+          preferred_formats?: string[] | null
+          preferred_tone?: string | null
+          skill_level?: string | null
+          suggestion_count_preference?: number | null
+          topics_generated_count?: number | null
+          topics_used_count?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          auto_save_drafts?: boolean | null
+          avg_edit_percentage?: number | null
+          concepts_mastered?: string[] | null
+          content_length_preference?: string | null
+          created_at?: string | null
+          disliked_categories?: string[] | null
+          emoji_frequency?: string | null
+          explanation_depth?: string | null
+          id?: string
+          inferred_preferences?: Json | null
+          last_active_at?: string | null
+          organization_id?: string | null
+          peak_activity_hours?: number[] | null
+          preferred_categories?: string[] | null
+          preferred_formats?: string[] | null
+          preferred_tone?: string | null
+          skill_level?: string | null
+          suggestion_count_preference?: number | null
+          topics_generated_count?: number | null
+          topics_used_count?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
