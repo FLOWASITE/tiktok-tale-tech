@@ -14,6 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_metrics: {
+        Row: {
+          ai_call_duration_ms: number | null
+          brand_template_id: string | null
+          context_fetch_duration_ms: number | null
+          context_richness_score: number | null
+          context_sources: string[] | null
+          created_at: string
+          error_message: string | null
+          error_type: string | null
+          exit_reason: string | null
+          function_name: string
+          had_error: boolean | null
+          id: string
+          input_tokens_estimated: number | null
+          organization_id: string | null
+          output_tokens_estimated: number | null
+          tools_executed: string[] | null
+          total_duration_ms: number
+          total_turns: number | null
+          trace_id: string
+          user_id: string | null
+        }
+        Insert: {
+          ai_call_duration_ms?: number | null
+          brand_template_id?: string | null
+          context_fetch_duration_ms?: number | null
+          context_richness_score?: number | null
+          context_sources?: string[] | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          exit_reason?: string | null
+          function_name: string
+          had_error?: boolean | null
+          id?: string
+          input_tokens_estimated?: number | null
+          organization_id?: string | null
+          output_tokens_estimated?: number | null
+          tools_executed?: string[] | null
+          total_duration_ms: number
+          total_turns?: number | null
+          trace_id: string
+          user_id?: string | null
+        }
+        Update: {
+          ai_call_duration_ms?: number | null
+          brand_template_id?: string | null
+          context_fetch_duration_ms?: number | null
+          context_richness_score?: number | null
+          context_sources?: string[] | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          exit_reason?: string | null
+          function_name?: string
+          had_error?: boolean | null
+          id?: string
+          input_tokens_estimated?: number | null
+          organization_id?: string | null
+          output_tokens_estimated?: number | null
+          tools_executed?: string[] | null
+          total_duration_ms?: number
+          total_turns?: number | null
+          trace_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_metrics_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_response_cache: {
         Row: {
           brand_template_id: string | null
