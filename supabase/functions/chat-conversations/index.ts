@@ -6,8 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface SessionLearning {
+  type: 'insight' | 'correction' | 'preference' | 'pattern' | 'warning';
+  content: string;
+  confidence: number;
+  learnedAt: string;
+  source?: string;
+}
+
+interface UserCorrection {
+  original: string;
+  corrected: string;
+  correctionType: 'style' | 'fact' | 'tone' | 'length' | 'format';
+  appliedAt: string;
+}
+
 interface ConversationRequest {
-  action: 'create' | 'get' | 'list' | 'update' | 'delete' | 'add_message' | 'get_messages';
+  action: 'create' | 'get' | 'list' | 'update' | 'delete' | 'add_message' | 'get_messages' | 'save_learnings' | 'extract_learnings';
   conversationId?: string;
   brandTemplateId?: string;
   organizationId?: string;
@@ -20,9 +35,13 @@ interface ConversationRequest {
     content: string;
     metadata?: Record<string, any>;
   };
+  learnings?: SessionLearning[];
+  correction?: UserCorrection;
   limit?: number;
   offset?: number;
 }
+
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -275,6 +294,221 @@ serve(async (req) => {
         }
 
         return new Response(JSON.stringify({ messages: data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'save_learnings': {
+        // Save learnings to conversation
+        const { conversationId, learnings, correction } = body;
+        if (!conversationId) {
+          return new Response(JSON.stringify({ error: 'conversationId required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Fetch existing data
+        const { data: conv, error: fetchError } = await supabase
+          .from('chat_conversations')
+          .select('session_learnings, user_corrections')
+          .eq('id', conversationId)
+          .single();
+
+        if (fetchError) {
+          return new Response(JSON.stringify({ error: fetchError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const updates: Record<string, any> = {};
+
+        // Merge learnings
+        if (learnings && learnings.length > 0) {
+          const existing = Array.isArray(conv?.session_learnings) ? conv.session_learnings : [];
+          const merged = [...existing, ...learnings];
+          // Deduplicate by content
+          const seen = new Map<string, SessionLearning>();
+          for (const l of merged) {
+            const key = l.content?.toLowerCase().slice(0, 100) || '';
+            const existing = seen.get(key);
+            if (!existing || (l.confidence || 0) > (existing.confidence || 0)) {
+              seen.set(key, l);
+            }
+          }
+          updates.session_learnings = Array.from(seen.values()).slice(-30); // Keep last 30
+        }
+
+        // Add correction
+        if (correction) {
+          const existing = Array.isArray(conv?.user_corrections) ? conv.user_corrections : [];
+          updates.user_corrections = [...existing, correction].slice(-20); // Keep last 20
+        }
+
+        const { data, error: updateError } = await supabase
+          .from('chat_conversations')
+          .update(updates)
+          .eq('id', conversationId)
+          .select()
+          .single();
+
+        if (updateError) {
+          return new Response(JSON.stringify({ error: updateError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        console.log('Saved learnings to conversation:', conversationId, {
+          learningsCount: learnings?.length || 0,
+          hasCorrection: !!correction,
+        });
+
+        return new Response(JSON.stringify({ 
+          success: true,
+          learningsSaved: learnings?.length || 0,
+          correctionSaved: !!correction,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'extract_learnings': {
+        // AI-powered extraction of learnings from conversation
+        const { conversationId } = body;
+        if (!conversationId) {
+          return new Response(JSON.stringify({ error: 'conversationId required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (!LOVABLE_API_KEY) {
+          return new Response(JSON.stringify({ error: 'AI not configured' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Get messages
+        const { data: messages, error: msgError } = await supabase
+          .from('chat_conversation_messages')
+          .select('role, content, metadata')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true });
+
+        if (msgError || !messages?.length || messages.length < 4) {
+          return new Response(JSON.stringify({ 
+            learnings: [],
+            skipped: true,
+            reason: 'Not enough messages',
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Build conversation text
+        const conversationText = messages
+          .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+          .join('\n\n')
+          .slice(0, 6000);
+
+        // Extract learnings using AI
+        const extractionPrompt = `Analyze this content marketing conversation and extract learnings for future sessions.
+
+Conversation:
+${conversationText}
+
+Extract learnings in these categories:
+1. **correction** - User corrections to AI output (e.g., "don't use emoji", "too formal")
+2. **preference** - User preferences discovered (e.g., prefers short content, likes casual tone)
+3. **pattern** - Content patterns that worked (e.g., user likes listicles, carousel format)
+4. **insight** - General insights about user's brand/style
+5. **warning** - Things to avoid (e.g., avoid certain topics, don't mention competitors)
+
+Return JSON array of learnings:
+[
+  {
+    "type": "preference|correction|pattern|insight|warning",
+    "content": "Clear, actionable statement",
+    "confidence": 0.5-1.0 (how confident based on evidence)
+  }
+]
+
+Rules:
+- Only include learnings with clear evidence in conversation
+- Be specific and actionable
+- Max 5 learnings
+- Return empty array [] if no significant learnings found
+- Return ONLY valid JSON array, no markdown`;
+
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-lite',
+            messages: [{ role: 'user', content: extractionPrompt }],
+            max_tokens: 500,
+            temperature: 0.3,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('AI extraction error:', response.status);
+          return new Response(JSON.stringify({ learnings: [], error: 'AI error' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const aiResult = await response.json();
+        const rawContent = aiResult.choices?.[0]?.message?.content?.trim() || '[]';
+        
+        let learnings: SessionLearning[] = [];
+        try {
+          // Clean markdown if present
+          const cleaned = rawContent.replace(/```json\n?|\n?```/g, '').trim();
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed)) {
+            learnings = parsed.map((l: any) => ({
+              type: l.type || 'insight',
+              content: l.content || '',
+              confidence: l.confidence || 0.5,
+              learnedAt: new Date().toISOString(),
+              source: 'ai_extraction',
+            })).filter((l: SessionLearning) => l.content);
+          }
+        } catch (e) {
+          console.warn('Failed to parse learnings:', e);
+        }
+
+        // Auto-save if learnings found
+        if (learnings.length > 0) {
+          const { data: conv } = await supabase
+            .from('chat_conversations')
+            .select('session_learnings')
+            .eq('id', conversationId)
+            .single();
+
+          const existing = Array.isArray(conv?.session_learnings) ? conv.session_learnings : [];
+          const merged = [...existing, ...learnings];
+          
+          await supabase
+            .from('chat_conversations')
+            .update({ session_learnings: merged.slice(-30) })
+            .eq('id', conversationId);
+
+          console.log('Auto-saved extracted learnings:', learnings.length);
+        }
+
+        return new Response(JSON.stringify({ 
+          learnings,
+          extracted: learnings.length,
+          autoSaved: learnings.length > 0,
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
