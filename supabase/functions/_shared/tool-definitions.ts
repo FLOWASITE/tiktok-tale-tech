@@ -15,6 +15,44 @@ export interface ToolDefinition {
 }
 
 export const CHAT_TOOLS: ToolDefinition[] = [
+  // ============ WEB SEARCH TOOL ============
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Tìm kiếm real-time từ internet: trending topics, tin tức ngành, competitor analysis. Gọi khi user hỏi về trends mới nhất, tin tức, đối thủ, hoặc cần thông tin cập nhật từ web.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { 
+            type: "string", 
+            description: "Từ khóa tìm kiếm" 
+          },
+          search_type: { 
+            type: "string", 
+            enum: ["trending", "news", "competitor", "general"],
+            description: "Loại tìm kiếm: trending (xu hướng viral), news (tin tức ngành), competitor (phân tích đối thủ), general (tìm chung)" 
+          },
+          industry: { 
+            type: "string", 
+            description: "Ngành nghề để lọc kết quả (optional)" 
+          },
+          recency: { 
+            type: "string", 
+            enum: ["day", "week", "month"],
+            description: "Độ mới: day (24h qua), week (7 ngày), month (30 ngày)" 
+          },
+          max_results: { 
+            type: "number", 
+            description: "Số kết quả tối đa (3-10, mặc định 5)" 
+          }
+        },
+        required: ["query", "search_type"],
+        additionalProperties: false,
+      },
+    },
+  },
+  // ============ TOPIC MANAGEMENT TOOLS ============
   {
     type: "function",
     function: {

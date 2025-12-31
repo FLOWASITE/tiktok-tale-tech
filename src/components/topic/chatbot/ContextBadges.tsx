@@ -1,6 +1,6 @@
 import { 
   Shield, TrendingUp, Users, Package, Map, Sparkles, BookOpen,
-  Info, User, Brain, Flame, TreeDeciduous, Search
+  Info, User, Brain, Flame, TreeDeciduous, Search, Globe
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -24,7 +24,8 @@ export type ContextBadgeType =
   | 'memory'
   | 'trending'
   | 'evergreen'
-  | 'rag-enhanced';
+  | 'rag-enhanced'
+  | 'web-search';
 
 interface ParsedContextBadge {
   type: ContextBadgeType;
@@ -124,6 +125,13 @@ const BADGE_CONFIG: Record<ContextBadgeType, {
     label: 'RAG-enhanced',
     description: 'Tham khảo content đã publish',
   },
+  'web-search': {
+    icon: Globe,
+    color: 'text-cyan-600 dark:text-cyan-400',
+    bgColor: 'bg-cyan-500/10 hover:bg-cyan-500/15 border-cyan-500/20',
+    label: 'Web Search',
+    description: 'Kết quả real-time từ Perplexity',
+  },
 };
 
 // Parse context badges from AI response content
@@ -182,6 +190,9 @@ export function parseContextBadges(content: string): ParsedContextBadge[] {
   }
   if (/🔍\s*RAG-enhanced/i.test(contextString)) {
     badges.push({ type: 'rag-enhanced', label: 'RAG-enhanced' });
+  }
+  if (/🌐\s*Web\s*Search/i.test(contextString)) {
+    badges.push({ type: 'web-search', label: 'Web Search' });
   }
   
   return badges;

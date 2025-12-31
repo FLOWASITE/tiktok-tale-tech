@@ -1,7 +1,7 @@
 import { 
   CheckCircle, XCircle, Save, FileText, Images, Share2, Search,
   ExternalLink, ArrowRight, Loader2, Calendar, Play, ListChecks,
-  Settings, Eye
+  Settings, Eye, Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,6 +22,7 @@ interface ToolResultCardProps {
 }
 
 const TOOL_ICONS: Record<string, React.ElementType> = {
+  web_search: Globe,
   save_topic: Save,
   generate_script: FileText,
   generate_carousel: Images,
@@ -35,6 +36,7 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
 };
 
 const TOOL_LABELS: Record<string, string> = {
+  web_search: 'Tìm kiếm Web',
   save_topic: 'Lưu Topic',
   generate_script: 'Tạo Script',
   generate_carousel: 'Tạo Carousel',
@@ -102,6 +104,10 @@ export function ToolResultCard({ toolResult, onNavigate, className }: ToolResult
             
             {toolResult.tool_name === 'search_topics' && (
               <SearchTopicsResult result={toolResult.result} />
+            )}
+
+            {toolResult.tool_name === 'web_search' && (
+              <WebSearchResult result={toolResult.result} />
             )}
 
             {/* Planning tools */}
@@ -250,7 +256,94 @@ function SearchTopicsResult({ result }: { result: any }) {
   );
 }
 
+// ============ WEB SEARCH RESULT ============
+
+function WebSearchResult({ result }: { result: any }) {
+  const searchTypeBadges: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+    trending: { label: '🔥 Trending', variant: 'default' },
+    news: { label: '📰 Tin tức', variant: 'secondary' },
+    competitor: { label: '🎯 Competitor', variant: 'outline' },
+    general: { label: '🔍 Chung', variant: 'outline' },
+  };
+
+  const badge = searchTypeBadges[result.search_type] || searchTypeBadges.general;
+  const results = result.results || [];
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
+        <span className="text-[10px] text-muted-foreground">
+          {result.total_results} kết quả cho "{result.query}"
+        </span>
+      </div>
+
+      {results.length > 0 && (
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {results.slice(0, 5).map((item: any, index: number) => (
+            <div 
+              key={index}
+              className="p-2 bg-muted/50 rounded-md border border-border/50 space-y-1"
+            >
+              <div className="flex items-start gap-2">
+                <span className="text-[10px] font-bold text-primary shrink-0">{index + 1}.</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium line-clamp-1">{item.title}</p>
+                  <p className="text-[10px] text-muted-foreground line-clamp-2">{item.snippet}</p>
+                  {item.content_angle && (
+                    <p className="text-[10px] text-primary/80 mt-1 italic">
+                      💡 {item.content_angle}
+                    </p>
+                  )}
+                  {item.source && (
+                    <a 
+                      href={item.source} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-blue-500 hover:underline flex items-center gap-1 mt-1"
+                    >
+                      <ExternalLink className="w-2.5 h-2.5" />
+                      Nguồn
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {result.citations?.length > 0 && (
+        <div className="pt-1 border-t border-border/50">
+          <p className="text-[9px] text-muted-foreground mb-1">Nguồn tham khảo:</p>
+          <div className="flex flex-wrap gap-1">
+            {result.citations.slice(0, 3).map((citation: string, i: number) => {
+              try {
+                const hostname = new URL(citation).hostname;
+                return (
+                  <a
+                    key={i}
+                    href={citation}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[9px] text-blue-500 hover:underline"
+                  >
+                    [{i + 1}] {hostname}
+                  </a>
+                );
+              } catch {
+                return null;
+              }
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ============ PLANNING RESULT COMPONENTS ============
+
 
 function PlanningSessionResult({ result }: { result: any }) {
   return (
