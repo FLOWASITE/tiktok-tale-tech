@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon } from 'lucide-react';
+import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp } from 'lucide-react';
+import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
@@ -274,6 +275,23 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
               />
             </div>
             <div className="flex gap-1.5 xs:gap-2 shrink-0">
+              {/* Performance Tracking - only when published */}
+              {carousel.status === 'published' && (
+                <TopicPerformanceUpdater
+                  contentId={carousel.id}
+                  onUpdate={() => {}}
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-border hover:border-emerald-500 hover:bg-emerald-500/10 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
+                    >
+                      <TrendingUp className="w-3 h-3 xs:w-4 xs:h-4" />
+                      <span className="hidden xs:inline ml-1.5">Hiệu suất</span>
+                    </Button>
+                  }
+                />
+              )}
               <Button
                 variant="outline"
                 size="sm"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp } from 'lucide-react';
+import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -687,6 +688,24 @@ export function MultiChannelViewer({
                 >
                   <CalendarClock className="w-4 h-4" />
                 </Button>
+                
+                {/* Performance Tracking - only when status is published */}
+                {content.status === 'published' && (
+                  <TopicPerformanceUpdater
+                    contentId={content.id}
+                    onUpdate={() => {}}
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 border-border hover:border-emerald-500 hover:bg-emerald-500/10"
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                        <span className="hidden sm:inline">Hiệu suất</span>
+                      </Button>
+                    }
+                  />
+                )}
                 
                 {/* Export Menu */}
                 <EnhancedExportMenu content={content} channelConfig={channelConfig} currentChannel={selectedChannel} />
