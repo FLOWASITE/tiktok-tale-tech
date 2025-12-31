@@ -1,5 +1,6 @@
 // ============================================
 // TopicAIChatbot Types
+// Updated: Phase 5 - Rate Limiting & Quotas
 // ============================================
 
 import { ContentGoal } from '@/types/multichannel';
@@ -47,6 +48,10 @@ export interface ChatMessage {
   timestamp: Date;
   extractedTopics?: ExtractedTopic[];
   isError?: boolean;
+  /** Error code for rate limit or quota errors */
+  errorCode?: string;
+  /** Seconds until retry is allowed (for rate limit errors) */
+  retryAfter?: number;
   reactions?: string[];
   feedback?: 'up' | 'down';
   toolResults?: import('./ToolResultCard').ToolResult[];

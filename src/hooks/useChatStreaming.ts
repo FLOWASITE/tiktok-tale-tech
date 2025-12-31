@@ -107,23 +107,33 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         signal: abortControllerRef.current.signal,
       });
       
-      // Handle rate limit and payment errors
+      // Handle rate limit and payment/quota errors
       if (response.status === 429) {
+        const errorData = await response.json().catch(() => ({}));
+        const retryAfter = errorData.retryAfter || 60;
         toast({
           variant: 'destructive',
-          title: 'Quá giới hạn',
-          description: 'Đã vượt quá giới hạn request. Vui lòng thử lại sau ít phút.',
+          title: 'Quá giới hạn request',
+          description: `Vui lòng thử lại sau ${retryAfter} giây.`,
         });
-        throw new Error('RATE_LIMIT');
+        const error = new Error('RATE_LIMIT');
+        (error as any).retryAfter = retryAfter;
+        throw error;
       }
       
       if (response.status === 402) {
+        const errorData = await response.json().catch(() => ({}));
+        const isQuota = errorData.error === 'QUOTA_EXCEEDED';
         toast({
           variant: 'destructive',
-          title: 'Hết credits',
-          description: 'Vui lòng nạp thêm credits để tiếp tục sử dụng.',
+          title: isQuota ? 'Hết lượt sử dụng' : 'Hết credits',
+          description: isQuota 
+            ? `Bạn đã dùng hết ${errorData.limit || ''} lượt ${errorData.usageType || 'AI'} tháng này. Nâng cấp gói để tiếp tục.`
+            : 'Vui lòng nạp thêm credits để tiếp tục sử dụng.',
         });
-        throw new Error('PAYMENT_REQUIRED');
+        const error = new Error(isQuota ? 'QUOTA_EXCEEDED' : 'PAYMENT_REQUIRED');
+        (error as any).quotaInfo = errorData;
+        throw error;
       }
       
       if (!response.ok) {
@@ -344,14 +354,25 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         return null;
       }
       
-      if (error instanceof Error && (error.message === 'RATE_LIMIT' || error.message === 'PAYMENT_REQUIRED')) {
+      if (error instanceof Error && (error.message === 'RATE_LIMIT' || error.message === 'PAYMENT_REQUIRED' || error.message === 'QUOTA_EXCEEDED')) {
+        const isRateLimit = error.message === 'RATE_LIMIT';
+        const isQuota = error.message === 'QUOTA_EXCEEDED';
+        const retryAfter = (error as any).retryAfter;
+        
         const errorMessage: ChatMessage = {
           id: createMessageId('error'),
           role: 'assistant',
-          content: '❌ Không thể tạo phản hồi. Vui lòng thử lại sau.',
+          content: isRateLimit 
+            ? `⏱️ Quá nhiều request. Thử lại sau ${retryAfter || 60} giây.`
+            : isQuota
+            ? '🚫 Bạn đã hết lượt sử dụng tháng này. Vui lòng nâng cấp gói.'
+            : '💳 Hết credits. Vui lòng nạp thêm để tiếp tục.',
           timestamp: new Date(),
           isError: true,
         };
+        // @ts-ignore - errorCode and retryAfter are added in Phase 5
+        errorMessage.errorCode = error.message;
+        if (isRateLimit) errorMessage.retryAfter = retryAfter;
         onMessageCreate(errorMessage);
         return null;
       }

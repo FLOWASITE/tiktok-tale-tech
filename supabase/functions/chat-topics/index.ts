@@ -40,6 +40,17 @@ import {
   ContextSegment
 } from "../_shared/token-manager.ts";
 
+// Import rate limiting utilities
+import { 
+  checkRateLimit, 
+  getRateLimitConfig, 
+  checkUserQuota,
+  createRateLimitErrorResponse,
+  createQuotaExceededResponse,
+  getUserPlanType,
+  logUsage
+} from "../_shared/rate-limiter.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -71,6 +82,45 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // ============ RATE LIMITING & QUOTA CHECK ============
+    if (userId) {
+      // Get user's plan type
+      const planType = await getUserPlanType(supabase, userId);
+      
+      // Check rate limit (chat-specific limits)
+      const rateLimitConfig = getRateLimitConfig(planType, 'chat');
+      const rateLimitResult = checkRateLimit(userId, rateLimitConfig);
+      
+      if (!rateLimitResult.allowed) {
+        logger.warn('Rate limit exceeded', { 
+          userId, 
+          remaining: rateLimitResult.remaining,
+          resetAt: rateLimitResult.resetAt,
+          retryAfterMs: rateLimitResult.retryAfterMs,
+        });
+        return createRateLimitErrorResponse(rateLimitResult, corsHeaders);
+      }
+      
+      // Check quota for AI edits (chat counts as ai_edit)
+      const quotaResult = await checkUserQuota(supabase, userId, 'ai_edit');
+      
+      if (!quotaResult.allowed) {
+        logger.warn('Quota exceeded', {
+          userId,
+          usageType: quotaResult.usageType,
+          currentUsage: quotaResult.currentUsage,
+          limit: quotaResult.limit,
+        });
+        return createQuotaExceededResponse(quotaResult, corsHeaders);
+      }
+      
+      logger.info('Rate limit and quota check passed', {
+        planType,
+        rateLimitRemaining: rateLimitResult.remaining,
+        quotaRemaining: quotaResult.remaining,
+      });
+    }
 
     // Start context fetch timer
     const contextFetchStart = performance.now();
@@ -544,6 +594,15 @@ serve(async (req) => {
           await writer.write(encoder.encode(errorEvent));
         } finally {
           await writer.close();
+          
+          // Log usage for quota tracking (only if no error)
+          if (!hadError && userId) {
+            logUsage(supabase, userId, 'ai_edit', undefined, {
+              mode: 'agentic',
+              turns: totalTurns,
+              brandTemplateId,
+            }).catch(err => logger.warn('Failed to log usage', { error: err.message }));
+          }
           
           // Save metrics asynchronously
           const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
