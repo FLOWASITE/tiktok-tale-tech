@@ -549,7 +549,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         {/* Main form content */}
         <div className={showPreview ? 'flex-1 min-w-0' : 'w-full'}>
           {/* Step 1: Identity */}
-          {currentStep === 1 && (
+{currentStep === 1 && (
             <BrandFormStepIdentity
               brandName={brandName}
               setBrandName={setBrandName}
@@ -569,6 +569,21 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               errors={errors}
               setErrors={setErrors}
               isEditing={!!template}
+              // Logo props
+              logoPreview={logoPreview}
+              logoFile={logoFile}
+              setLogoFile={setLogoFile}
+              setLogoPreview={setLogoPreview}
+              deleteLogo={deleteLogo}
+              setDeleteLogo={setDeleteLogo}
+              // Visual props
+              primaryColor={primaryColor}
+              setPrimaryColor={setPrimaryColor}
+              includeLogo={includeLogo}
+              setIncludeLogo={setIncludeLogo}
+              // Footer props
+              footerInfo={footerInfo}
+              setFooterInfo={setFooterInfo}
             />
           )}
 

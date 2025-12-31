@@ -7,8 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, Building2, Search, ShieldCheck, X, ChevronDown } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Separator } from '@/components/ui/separator';
+import { BrandColorPicker } from '@/components/BrandColorPicker';
+import { BrandFooterInfo } from '@/components/BrandForm';
+import { User, Building2, Search, ShieldCheck, X, ChevronDown, Upload, Trash2, Phone, Mail, Globe, MapPin, Building, ImageIcon } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Collapsible,
@@ -79,6 +82,21 @@ interface BrandFormStepIdentityProps {
   errors: Record<string, string>;
   setErrors: (errors: Record<string, string>) => void;
   isEditing?: boolean;
+  // Logo props
+  logoPreview: string | null;
+  logoFile: File | null;
+  setLogoFile: (file: File | null) => void;
+  setLogoPreview: (url: string | null) => void;
+  deleteLogo: boolean;
+  setDeleteLogo: (value: boolean) => void;
+  // Visual props
+  primaryColor: string;
+  setPrimaryColor: (color: string) => void;
+  includeLogo: boolean;
+  setIncludeLogo: (value: boolean) => void;
+  // Footer props
+  footerInfo: BrandFooterInfo;
+  setFooterInfo: (info: BrandFooterInfo) => void;
 }
 
 export function BrandFormStepIdentity({
@@ -100,10 +118,27 @@ export function BrandFormStepIdentity({
   errors,
   setErrors,
   isEditing = false,
+  // Logo props
+  logoPreview,
+  logoFile,
+  setLogoFile,
+  setLogoPreview,
+  deleteLogo,
+  setDeleteLogo,
+  // Visual props
+  primaryColor,
+  setPrimaryColor,
+  includeLogo,
+  setIncludeLogo,
+  // Footer props
+  footerInfo,
+  setFooterInfo,
 }: BrandFormStepIdentityProps) {
   const { currentOrganization } = useOrganizationContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [showIndustrySelector, setShowIndustrySelector] = useState(!industryTemplateId);
+  const [showFooterInfo, setShowFooterInfo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { templates, isLoading } = useIndustryTemplates({
     countryCode: 'VN',
@@ -141,6 +176,32 @@ export function BrandFormStepIdentity({
     setIndustryTemplateId(null);
     setIndustries([]);
     setShowIndustrySelector(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      setDeleteLogo(false);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setLogoPreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setDeleteLogo(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const updateFooterField = (field: keyof BrandFooterInfo, value: string) => {
+    setFooterInfo({ ...footerInfo, [field]: value });
   };
 
   return (
@@ -346,6 +407,179 @@ export function BrandFormStepIdentity({
           💡 Ngành được chọn sẽ tự động áp dụng bộ quy tắc tuân thủ & Brand Voice nền
         </p>
       </div>
+
+      <Separator />
+
+      {/* Visual Identity Section */}
+      <div className="space-y-4">
+        <Label className="text-sm font-medium flex items-center gap-2">
+          <Palette className="w-4 h-4" />
+          Nhận diện Thương hiệu
+        </Label>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg border bg-muted/20">
+          {/* Logo Upload */}
+          <div className="space-y-3">
+            <Label className="text-xs text-muted-foreground">Logo</Label>
+            <div className="flex flex-col items-center gap-3">
+              {logoPreview && !deleteLogo ? (
+                <div className="relative group">
+                  <img
+                    src={logoPreview}
+                    alt="Logo preview"
+                    className="w-24 h-24 object-contain rounded-lg border bg-background"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={handleRemoveLogo}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                >
+                  <Upload className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Tải lên</span>
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+          </div>
+
+          {/* Color & Options */}
+          <div className="space-y-4">
+            <BrandColorPicker
+              value={primaryColor}
+              onChange={setPrimaryColor}
+            />
+            
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="includeLogo"
+                checked={includeLogo}
+                onCheckedChange={(checked) => setIncludeLogo(!!checked)}
+              />
+              <label
+                htmlFor="includeLogo"
+                className="text-sm cursor-pointer flex items-center gap-2"
+              >
+                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                Hiển thị logo trong content
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Footer Info Section (Collapsible) */}
+      <Collapsible open={showFooterInfo} onOpenChange={setShowFooterInfo}>
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-between h-10 px-3"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Phone className="w-4 h-4" />
+              Thông tin liên hệ (tuỳ chọn)
+            </span>
+            <ChevronDown className={cn(
+              "w-4 h-4 transition-transform",
+              showFooterInfo && "rotate-180"
+            )} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <div className="space-y-3 p-4 rounded-lg border bg-muted/20">
+            <div className="grid gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Building className="w-3.5 h-3.5" />
+                  Tên công ty
+                </Label>
+                <Input
+                  value={footerInfo.company_name || ''}
+                  onChange={(e) => updateFooterField('company_name', e.target.value)}
+                  placeholder="VD: Công ty TNHH ABC"
+                  className="h-9"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5" />
+                    Số điện thoại
+                  </Label>
+                  <Input
+                    value={footerInfo.phone || ''}
+                    onChange={(e) => updateFooterField('phone', e.target.value)}
+                    placeholder="VD: 0901234567"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5" />
+                    Email
+                  </Label>
+                  <Input
+                    value={footerInfo.email || ''}
+                    onChange={(e) => updateFooterField('email', e.target.value)}
+                    placeholder="VD: info@company.vn"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" />
+                  Website
+                </Label>
+                <Input
+                  value={footerInfo.website || ''}
+                  onChange={(e) => updateFooterField('website', e.target.value)}
+                  placeholder="VD: https://company.vn"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Địa chỉ
+                </Label>
+                <Input
+                  value={footerInfo.address || ''}
+                  onChange={(e) => updateFooterField('address', e.target.value)}
+                  placeholder="VD: 123 Nguyễn Văn A, Q.1, TP.HCM"
+                  className="h-9"
+                />
+              </div>
+            </div>
+            
+            <p className="text-xs text-muted-foreground pt-2 border-t">
+              💡 Thông tin này sẽ hiển thị ở cuối nội dung khi cần
+            </p>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
