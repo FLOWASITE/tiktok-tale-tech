@@ -26,13 +26,234 @@ interface BrandContext {
   toneOfVoice?: string[];
   industry?: string[];
   contentPillars?: Array<{ name: string; keywords: string[] }>;
-  // Extended fields
   uniqueValueProposition?: string;
   targetAgeRange?: string;
   targetGender?: string;
   evergreenThemes?: string[];
   brandHashtags?: string[];
   mainCompetitors?: string[];
+  industryTemplateId?: string;
+}
+
+interface IndustryMemory {
+  id: string;
+  code: string;
+  name: string;
+  version: string;
+  target_audience: string;
+  compliance_rules: Array<string | { rule: string; level?: string }>;
+  claim_restrictions: Array<string | { claim: string; reason?: string }>;
+  forbidden_terms: string[];
+  brand_voice: {
+    tone_of_voice?: string[];
+    formality_level?: string;
+    language_style?: string[];
+    allow_emoji?: boolean;
+    cta_policy?: string;
+  };
+  channel_settings?: Record<string, { risk_level: string; notes?: string }>;
+  metadata?: { applies_to?: string[]; legal_basis?: string[] };
+  argument_patterns?: { valid_patterns?: string[]; forbidden_patterns?: string[] };
+  system_rules?: string[];
+  preferred_words?: string[];
+  forbidden_words?: string[];
+}
+
+// Fetch industry memory from database
+async function fetchIndustryMemory(
+  supabase: any,
+  industryTemplateId: string,
+  languageCode: string = 'vi'
+): Promise<IndustryMemory | null> {
+  try {
+    // First try with requested language
+    const { data: template, error } = await supabase
+      .from('industry_templates')
+      .select(`
+        id, code, version, target_audience, is_active,
+        compliance_rules, claim_restrictions, forbidden_terms,
+        brand_voice, channel_settings, metadata,
+        argument_patterns, system_rules, preferred_words, forbidden_words,
+        industry_template_translations!inner (
+          name, language_code
+        )
+      `)
+      .eq('id', industryTemplateId)
+      .eq('is_active', true)
+      .eq('industry_template_translations.language_code', languageCode)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching industry memory:', error);
+      return null;
+    }
+
+    // If no result with requested language, try fallback to English
+    if (!template) {
+      const { data: fallbackTemplate, error: fallbackError } = await supabase
+        .from('industry_templates')
+        .select(`
+          id, code, version, target_audience, is_active,
+          compliance_rules, claim_restrictions, forbidden_terms,
+          brand_voice, channel_settings, metadata,
+          argument_patterns, system_rules, preferred_words, forbidden_words,
+          industry_template_translations!inner (
+            name, language_code
+          )
+        `)
+        .eq('id', industryTemplateId)
+        .eq('is_active', true)
+        .eq('industry_template_translations.language_code', 'en')
+        .maybeSingle();
+
+      if (fallbackError || !fallbackTemplate) {
+        console.log('No industry template found for:', industryTemplateId);
+        return null;
+      }
+
+      return {
+        id: fallbackTemplate.id,
+        code: fallbackTemplate.code,
+        name: fallbackTemplate.industry_template_translations?.[0]?.name || fallbackTemplate.code,
+        version: fallbackTemplate.version,
+        target_audience: fallbackTemplate.target_audience || 'both',
+        compliance_rules: fallbackTemplate.compliance_rules || [],
+        claim_restrictions: fallbackTemplate.claim_restrictions || [],
+        forbidden_terms: fallbackTemplate.forbidden_terms || [],
+        brand_voice: fallbackTemplate.brand_voice || {},
+        channel_settings: fallbackTemplate.channel_settings,
+        metadata: fallbackTemplate.metadata,
+        argument_patterns: fallbackTemplate.argument_patterns,
+        system_rules: fallbackTemplate.system_rules || [],
+        preferred_words: fallbackTemplate.preferred_words || [],
+        forbidden_words: fallbackTemplate.forbidden_words || [],
+      };
+    }
+
+    return {
+      id: template.id,
+      code: template.code,
+      name: template.industry_template_translations?.[0]?.name || template.code,
+      version: template.version,
+      target_audience: template.target_audience || 'both',
+      compliance_rules: template.compliance_rules || [],
+      claim_restrictions: template.claim_restrictions || [],
+      forbidden_terms: template.forbidden_terms || [],
+      brand_voice: template.brand_voice || {},
+      channel_settings: template.channel_settings,
+      metadata: template.metadata,
+      argument_patterns: template.argument_patterns,
+      system_rules: template.system_rules || [],
+      preferred_words: template.preferred_words || [],
+      forbidden_words: template.forbidden_words || [],
+    };
+  } catch (error) {
+    console.error('Error in fetchIndustryMemory:', error);
+    return null;
+  }
+}
+
+// Build industry context section for system prompt
+function buildIndustryContextSection(industryMemory: IndustryMemory | null): string {
+  if (!industryMemory) return '';
+
+  let section = `
+
+## 🔒 INDUSTRY MEMORY (ƯU TIÊN CAO NHẤT - KHÔNG ĐƯỢC VI PHẠM)
+
+### Ngành: ${industryMemory.name} (v${industryMemory.version})
+- Target Audience: ${industryMemory.target_audience === 'B2B' ? 'Doanh nghiệp' : industryMemory.target_audience === 'B2C' ? 'Cá nhân' : 'Cả hai'}`;
+
+  // Forbidden terms - highest priority
+  if (industryMemory.forbidden_terms?.length) {
+    section += `
+
+### ⛔ TỪ CẤM NGÀNH (TUYỆT ĐỐI KHÔNG DÙNG):
+${industryMemory.forbidden_terms.map(t => `- "${t}"`).join('\n')}
+→ KHÔNG được gợi ý topic chứa các từ này, KHÔNG viết lại, KHÔNG paraphrase!`;
+  }
+
+  // Compliance rules
+  if (industryMemory.compliance_rules?.length) {
+    section += `
+
+### ✅ QUY TẮC TUÂN THỦ:
+${industryMemory.compliance_rules.map(r => {
+      if (typeof r === 'string') return `- ${r}`;
+      return `- ${r.rule}${r.level ? ` (${r.level})` : ''}`;
+    }).join('\n')}`;
+  }
+
+  // Claim restrictions
+  if (industryMemory.claim_restrictions?.length) {
+    section += `
+
+### ⚠️ CLAIM BỊ HẠN CHẾ (KHÔNG ĐƯỢC HỨA HẸN):
+${industryMemory.claim_restrictions.map(c => {
+      if (typeof c === 'string') return `- ${c}`;
+      return `- ${c.claim}${c.reason ? ` (Lý do: ${c.reason})` : ''}`;
+    }).join('\n')}`;
+  }
+
+  // Argument patterns
+  if (industryMemory.argument_patterns) {
+    const { valid_patterns, forbidden_patterns } = industryMemory.argument_patterns;
+    if (valid_patterns?.length || forbidden_patterns?.length) {
+      section += `
+
+### 💬 ARGUMENT PATTERNS:`;
+      if (valid_patterns?.length) {
+        section += `
+✅ Patterns được phép:
+${valid_patterns.map(p => `- ${p}`).join('\n')}`;
+      }
+      if (forbidden_patterns?.length) {
+        section += `
+❌ Patterns KHÔNG được phép:
+${forbidden_patterns.map(p => `- ${p}`).join('\n')}`;
+      }
+    }
+  }
+
+  // System rules
+  if (industryMemory.system_rules?.length) {
+    section += `
+
+### 📋 SYSTEM RULES (Quy tắc hệ thống):
+${industryMemory.system_rules.map(r => `- ${r}`).join('\n')}`;
+  }
+
+  // Preferred words
+  if (industryMemory.preferred_words?.length) {
+    section += `
+
+### 👍 TỪ NÊN DÙNG:
+${industryMemory.preferred_words.map(w => `- "${w}"`).join('\n')}`;
+  }
+
+  // Industry brand voice baseline
+  if (industryMemory.brand_voice) {
+    const bv = industryMemory.brand_voice;
+    const voiceParts: string[] = [];
+    if (bv.tone_of_voice?.length) voiceParts.push(`Tone: ${bv.tone_of_voice.join(', ')}`);
+    if (bv.formality_level) voiceParts.push(`Formality: ${bv.formality_level}`);
+    if (bv.language_style?.length) voiceParts.push(`Style: ${bv.language_style.join(', ')}`);
+    if (bv.cta_policy) voiceParts.push(`CTA: ${bv.cta_policy}`);
+    if (typeof bv.allow_emoji === 'boolean') voiceParts.push(`Emoji: ${bv.allow_emoji ? 'có' : 'không'}`);
+    
+    if (voiceParts.length) {
+      section += `
+
+### 🎯 BASELINE BRAND VOICE (từ ngành):
+${voiceParts.map(p => `- ${p}`).join('\n')}`;
+    }
+  }
+
+  section += `
+
+⚠️ **QUAN TRỌNG**: Industry Memory OVERRIDE mọi yêu cầu khác nếu mâu thuẫn. Nếu user yêu cầu topic vi phạm các quy tắc trên, từ chối nhẹ nhàng và đề xuất alternative.`;
+
+  return section;
 }
 
 serve(async (req) => {
@@ -57,6 +278,7 @@ serve(async (req) => {
     let productsContext: string[] = [];
     let productPersonaContext: string[] = [];
     let recentTopics: string[] = [];
+    let industryMemory: IndustryMemory | null = null;
     
     if (brandTemplateId) {
       const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
@@ -65,7 +287,7 @@ serve(async (req) => {
           .select(`
             brand_name, brand_positioning, tone_of_voice, industry, content_pillars,
             unique_value_proposition, target_age_range, target_gender, evergreen_themes,
-            brand_hashtags, main_competitors
+            brand_hashtags, main_competitors, industry_template_id
           `)
           .eq('id', brandTemplateId)
           .single(),
@@ -115,7 +337,13 @@ serve(async (req) => {
           evergreenThemes: brand.evergreen_themes,
           brandHashtags: brand.brand_hashtags,
           mainCompetitors: brand.main_competitors,
+          industryTemplateId: brand.industry_template_id,
         };
+
+        // Fetch Industry Memory if brand has industry_template_id
+        if (brand.industry_template_id) {
+          industryMemory = await fetchIndustryMemory(supabase, brand.industry_template_id, 'vi');
+        }
       }
 
       // Build enhanced personas context
@@ -177,8 +405,16 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with extended context
-    const systemPrompt = buildSystemPrompt(brandContext, contentGoal, recentTopics, personasContext, productsContext, productPersonaContext);
+    // Build system prompt with extended context including Industry Memory
+    const systemPrompt = buildSystemPrompt(
+      brandContext, 
+      contentGoal, 
+      recentTopics, 
+      personasContext, 
+      productsContext, 
+      productPersonaContext,
+      industryMemory
+    );
 
     // Prepare messages for AI
     const aiMessages: ChatMessage[] = [
@@ -191,6 +427,11 @@ serve(async (req) => {
       contentGoal,
       messageCount: messages.length,
       hasBrandContext: !!brandContext,
+      hasIndustryMemory: !!industryMemory,
+      industryVersion: industryMemory?.version,
+      industryName: industryMemory?.name,
+      forbiddenTermsCount: industryMemory?.forbidden_terms?.length || 0,
+      complianceRulesCount: industryMemory?.compliance_rules?.length || 0,
     });
 
     // Call Lovable AI with streaming
@@ -251,7 +492,8 @@ function buildSystemPrompt(
   recentTopics?: string[],
   personasContext?: string[],
   productsContext?: string[],
-  productPersonaContext?: string[]
+  productPersonaContext?: string[],
+  industryMemory?: IndustryMemory | null
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -261,13 +503,23 @@ function buildSystemPrompt(
     expertise: 'Thể hiện chuyên môn',
   };
 
+  const safeIndustryMemory = industryMemory ?? null;
+  
   let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
 
 ## Vai trò của bạn:
 - Giúp người dùng tìm ý tưởng content phù hợp với brand và mục tiêu của họ
 - Đưa ra gợi ý cụ thể, có thể hành động được ngay
 - Giải thích ngắn gọn tại sao mỗi ý tưởng phù hợp
-- Sử dụng emoji phù hợp để tạo sự thân thiện
+- Sử dụng emoji phù hợp để tạo sự thân thiện`;
+
+  // INJECT INDUSTRY MEMORY FIRST (Highest Priority)
+  const industrySection = buildIndustryContextSection(safeIndustryMemory);
+  if (industrySection) {
+    prompt += industrySection;
+  }
+
+  prompt += `
 
 ## Nguyên tắc gợi ý topic:
 1. Mỗi topic phải cụ thể, có góc nhìn rõ ràng (không chung chung)
@@ -275,6 +527,8 @@ function buildSystemPrompt(
 3. Đề xuất format phù hợp: Multi-channel post, Video Script, hoặc Carousel
 4. Tránh các topic đã được sử dụng gần đây
 5. Cân bằng giữa evergreen content và trending topics
+6. ${industryMemory ? 'TUÂN THỦ Industry Memory: Không gợi ý topic vi phạm từ cấm, compliance rules, hoặc claim restrictions' : 'Đảm bảo content phù hợp với ngành'}
+7. ${industryMemory?.argument_patterns ? 'Áp dụng argument patterns: Sử dụng valid patterns, tránh forbidden patterns' : 'Sử dụng lập luận logic và thuyết phục'}
 
 ## Format trả lời khi gợi ý topic:
 Khi gợi ý topic, format như sau:
@@ -398,6 +652,22 @@ Hãy tập trung gợi ý các topic phục vụ mục tiêu này.`;
 
 ## Topics đã sử dụng gần đây (tránh lặp lại):
 ${recentTopics.slice(0, 5).map(t => `- ${t}`).join('\n')}`;
+  }
+
+  // Self-correction for compliance (if Industry Memory exists)
+  if (industryMemory) {
+    prompt += `
+
+## 🔍 SELF-CORRECTION (Kiểm tra trước khi output):
+
+Trước khi gợi ý BẤT KỲ topic nào, BẮT BUỘC kiểm tra:
+[ ] Topic KHÔNG chứa từ cấm ngành? (${industryMemory.forbidden_terms?.slice(0, 3).join(', ')}...)
+[ ] Topic KHÔNG vi phạm claim restrictions?
+[ ] Góc viết phù hợp với compliance rules?
+[ ] Argument pattern hợp lệ (không dùng forbidden patterns)?
+
+Nếu FAIL bất kỳ mục nào → KHÔNG gợi ý topic đó, thay bằng alternative phù hợp.
+Nếu user yêu cầu topic vi phạm → Từ chối nhẹ nhàng, giải thích lý do, đề xuất alternative.`;
   }
 
   prompt += `
