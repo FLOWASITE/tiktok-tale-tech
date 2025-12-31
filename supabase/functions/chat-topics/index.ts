@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchLearningContext, PerformanceInsight } from "../_shared/learning-context.ts";
 import { LearningContext, JourneyStageMessagingData, buildJourneyStageMessagingSection, JourneyStage } from "../_shared/prompt-utils.ts";
-import { CHAT_TOOLS, ToolCall, ToolCallResult } from "../_shared/tool-definitions.ts";
+import { CHAT_TOOLS, ToolCall, ToolCallResult, AgentTurn } from "../_shared/tool-definitions.ts";
 import { executeToolCall } from "../_shared/tool-executor.ts";
 import { 
   executeToolChain, 
@@ -13,6 +13,7 @@ import {
 } from "../_shared/tool-chain-executor.ts";
 import { fetchUserPreferences, buildUserPreferencesSection, UserPreferencesContext } from "../_shared/user-preferences.ts";
 import { fetchCrossSessionMemory, buildCrossSessionMemorySection, CrossSessionMemory } from "../_shared/session-memory.ts";
+import { executeAgenticLoop, createSSEWriter, buildReActPromptSection, AgentSSEEvent } from "../_shared/agentic-loop.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,8 @@ interface ChatRequest {
   organizationId?: string;
   userId?: string;
   enableTools?: boolean;
+  enableAgenticLoop?: boolean; // Enable multi-turn agentic loop
+  maxAgentTurns?: number; // Max turns for agentic loop (default 5)
 }
 
 interface RAGResult {
@@ -671,7 +674,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools }: ChatRequest = await req.json();
+    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, enableAgenticLoop, maxAgentTurns }: ChatRequest = await req.json();
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -976,8 +979,82 @@ serve(async (req) => {
       enableTools: enableTools ?? true,
     });
 
-    // Determine if we should use tool calling
+    // Determine if we should use tool calling and agentic loop
     const useTools = enableTools !== false;
+    const useAgenticLoop = enableAgenticLoop !== false && useTools; // Agentic loop requires tools
+    const maxTurns = maxAgentTurns || 5;
+
+    // Add ReAct prompt section if using agentic loop
+    const finalSystemPrompt = useAgenticLoop 
+      ? systemPrompt + buildReActPromptSection()
+      : systemPrompt;
+
+    // ============ AGENTIC LOOP MODE ============
+    if (useAgenticLoop) {
+      console.log('[chat-topics] Using Agentic Loop mode, max turns:', maxTurns);
+      
+      const executionContext = {
+        supabase,
+        userId: userId || undefined,
+        organizationId: organizationId || undefined,
+        brandTemplateId: brandTemplateId || undefined,
+      };
+
+      // Create streaming response
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      const sseWriter = createSSEWriter(writer);
+
+      // Start async agentic loop execution
+      (async () => {
+        try {
+          const agentResult = await executeAgenticLoop(
+            messages,
+            finalSystemPrompt,
+            {
+              maxTurns,
+              executionContext,
+              onTurnStart: (turn) => {
+                console.log(`[chat-topics] Turn ${turn} started`);
+              },
+              onTurnComplete: (turn) => {
+                console.log(`[chat-topics] Turn ${turn.turn_number} complete:`, turn.observation_summary);
+              },
+              onToolExecuting: (toolName) => {
+                console.log(`[chat-topics] Executing tool: ${toolName}`);
+              },
+            },
+            sseWriter
+          );
+
+          // Send done signal
+          await writer.write(encoder.encode('data: [DONE]\n\n'));
+          
+          console.log('[chat-topics] Agentic loop complete:', {
+            turns: agentResult.total_turns,
+            exitReason: agentResult.exit_reason,
+            durationMs: agentResult.total_duration_ms,
+          });
+        } catch (err) {
+          console.error('[chat-topics] Agentic loop error:', err);
+          const errorEvent = `data: ${JSON.stringify({
+            type: 'error',
+            data: { message: err instanceof Error ? err.message : 'Unknown error' },
+          })}\n\n`;
+          await writer.write(encoder.encode(errorEvent));
+        } finally {
+          await writer.close();
+        }
+      })();
+
+      return new Response(readable, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+      });
+    }
+
+    // ============ LEGACY SINGLE-TURN MODE ============
+    console.log('[chat-topics] Using legacy single-turn mode');
     
     // Build request body - ALWAYS stream first response
     const requestBody: any = {

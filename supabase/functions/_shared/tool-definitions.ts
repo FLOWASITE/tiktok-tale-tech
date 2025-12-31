@@ -361,6 +361,35 @@ export const CHAT_TOOLS: ToolDefinition[] = [
       },
     },
   },
+  // ============ AGENTIC CONTROL TOOLS ============
+  {
+    type: "function",
+    function: {
+      name: "task_complete",
+      description: "Gọi khi đã hoàn thành TẤT CẢ các bước cần thiết cho yêu cầu của user. AI sẽ dừng tool calling và tạo response tổng kết. QUAN TRỌNG: Chỉ gọi khi thực sự đã xong mọi việc.",
+      parameters: {
+        type: "object",
+        properties: {
+          summary: { 
+            type: "string", 
+            description: "Tóm tắt ngắn gọn những gì đã hoàn thành" 
+          },
+          outputs: {
+            type: "array",
+            items: { type: "string" },
+            description: "Danh sách các outputs đã tạo (VD: 'Saved topic: XYZ', 'Generated script: ABC')"
+          },
+          next_suggestions: {
+            type: "array",
+            items: { type: "string" },
+            description: "2-3 gợi ý hành động tiếp theo cho user (optional)"
+          }
+        },
+        required: ["summary"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 export interface ToolCallResult {
@@ -377,4 +406,28 @@ export interface ToolCall {
     name: string;
     arguments: string;
   };
+}
+
+// Agentic loop types
+export interface AgentTurn {
+  turn_number: number;
+  tool_calls: ToolCall[];
+  tool_results: ToolCallResult[];
+  thinking?: string;
+  observation_summary: string;
+  duration_ms: number;
+}
+
+export interface AgentLoopResult {
+  turns: AgentTurn[];
+  total_turns: number;
+  final_response: string;
+  total_duration_ms: number;
+  exit_reason: 'task_complete' | 'no_more_tools' | 'max_turns' | 'error' | 'content_only';
+  task_complete_summary?: {
+    summary: string;
+    outputs: string[];
+    next_suggestions?: string[];
+  };
+  accumulated_context: Record<string, any>;
 }

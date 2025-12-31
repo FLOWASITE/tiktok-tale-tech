@@ -18,7 +18,7 @@ import { DiscoveryChips } from './chatbot/DiscoveryChips';
 import { ContextBadges, parseContextBadges, removeContextLine } from './chatbot/ContextBadges';
 import { ConversationHistorySidebar } from './chatbot/ConversationHistorySidebar';
 import { ToolResultCard, ToolExecutionLoading, type ToolResult } from './chatbot/ToolResultCard';
-import { ChatThinkingIndicator, type ThinkingStatus } from './chatbot/ChatThinkingIndicator';
+import { ChatThinkingIndicator, type ThinkingStatus, type AgentTurnInfo } from './chatbot/ChatThinkingIndicator';
 import { AnimatePresence } from 'framer-motion';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
