@@ -30,6 +30,16 @@ import { withFallback, withRetry, withTimeout, isRetryableError } from "../_shar
 // Import observability utilities
 import { createLogger, saveMetrics, getContextSources, estimateTokens, AIMetrics } from "../_shared/logger.ts";
 
+// Import token management utilities
+import { 
+  createTokenManager, 
+  estimateTokenCount, 
+  estimateConversationTokens,
+  summarizeConversationHistory,
+  TokenBudgetAllocator,
+  ContextSegment
+} from "../_shared/token-manager.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -330,6 +340,35 @@ serve(async (req) => {
       products: productsContext.length,
     });
 
+    // ============ TOKEN MANAGEMENT ============
+    // Initialize token manager for context window control
+    const tokenManager = createTokenManager('google/gemini-2.5-flash');
+    const conversationTokens = estimateConversationTokens(messages);
+    
+    // Check if conversation history needs summarization
+    let processedMessages = messages;
+    let conversationSummarized = false;
+    const maxConversationTokens = Math.floor(tokenManager.getAvailableBudget() * 0.4); // Reserve 40% for conversation
+    
+    if (conversationTokens > maxConversationTokens && messages.length > 6) {
+      const summarized = summarizeConversationHistory(
+        messages,
+        maxConversationTokens,
+        6 // Keep last 6 messages
+      );
+      
+      if (summarized.summarized) {
+        processedMessages = summarized.messages;
+        conversationSummarized = true;
+        logger.info('Conversation history summarized', {
+          originalMessages: messages.length,
+          summarizedMessages: processedMessages.length,
+          originalTokens: conversationTokens,
+          newTokens: estimateConversationTokens(processedMessages),
+        });
+      }
+    }
+
     // Build system prompt with all context using shared builder
     const systemPrompt = buildSystemPrompt(
       brandContext, 
@@ -353,11 +392,42 @@ serve(async (req) => {
     const useAgenticLoop = enableAgenticLoop === true;
     const maxTurns = maxAgentTurns || 5;
 
+    // Add ReAct prompt section if using agentic loop
+    const finalSystemPrompt = useAgenticLoop 
+      ? systemPrompt + buildReActPromptSection()
+      : systemPrompt;
+
+    // Token budget validation
+    const systemPromptTokens = estimateTokenCount(finalSystemPrompt);
+    const totalInputTokens = systemPromptTokens + estimateConversationTokens(processedMessages);
+    const budgetStatus = tokenManager.getBudgetStatus(totalInputTokens);
+    
+    logger.info('Token budget status', {
+      systemPromptTokens,
+      conversationTokens: estimateConversationTokens(processedMessages),
+      totalInputTokens,
+      available: budgetStatus.available,
+      utilizationPercent: budgetStatus.utilizationPercent,
+      status: budgetStatus.status,
+      conversationSummarized,
+    });
+
+    // Warn if approaching limits
+    if (budgetStatus.status === 'critical') {
+      logger.warn('Token budget critical', {
+        utilization: budgetStatus.utilizationPercent,
+        remaining: budgetStatus.remaining,
+      });
+    }
+
     // Prepare messages for AI
     const aiMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages,
+      { role: 'system', content: finalSystemPrompt },
+      ...processedMessages,
     ];
+
+    // Legacy estimate for metrics (keeping backward compatibility)
+    const inputTokensEstimated = totalInputTokens;
 
     // Build context metadata for transparency
     const contextMetadata = buildContextMetadata({
@@ -394,15 +464,6 @@ serve(async (req) => {
       badgeCount: contextMetadata.badges.length,
       richnessScore: contextMetadata.context_richness_score,
     });
-
-    // Add ReAct prompt section if using agentic loop
-    const finalSystemPrompt = useAgenticLoop 
-      ? systemPrompt + buildReActPromptSection()
-      : systemPrompt;
-
-    // Estimate input tokens
-    const inputTokensEstimated = estimateTokens(finalSystemPrompt) + 
-      messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
 
     // ============ AGENTIC LOOP MODE ============
     if (useAgenticLoop) {

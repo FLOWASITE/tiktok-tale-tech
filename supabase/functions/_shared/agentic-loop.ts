@@ -4,6 +4,7 @@
 import { CHAT_TOOLS, ToolCall, ToolCallResult, AgentTurn, AgentLoopResult } from "./tool-definitions.ts";
 import { executeToolCall } from "./tool-executor.ts";
 import { withRetry, isRetryableError, RetryableError } from "./error-utils.ts";
+import { estimateTokenCount, MODEL_LIMITS } from "./token-manager.ts";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
@@ -208,7 +209,12 @@ export async function executeAgenticLoop(
   let taskCompleteSummary: AgentLoopResult['task_complete_summary'] | undefined;
   let finalContent = '';
 
-  console.log('[AgenticLoop] Starting with max', options.maxTurns, 'turns');
+  // Token tracking for context window management
+  const modelLimit = MODEL_LIMITS['google/gemini-2.5-flash'];
+  const maxContextTokens = Math.floor(modelLimit.contextWindow * 0.85); // 85% safety margin
+  const systemPromptTokens = estimateTokenCount(systemPrompt);
+
+  console.log('[AgenticLoop] Starting with max', options.maxTurns, 'turns, context budget:', maxContextTokens);
 
   for (let turnNumber = 1; turnNumber <= options.maxTurns; turnNumber++) {
     const turnStart = Date.now();
@@ -219,6 +225,15 @@ export async function executeAgenticLoop(
       type: 'turn_start', 
       data: { turn: turnNumber, max_turns: options.maxTurns } 
     });
+
+    // Calculate current token usage
+    const messageTokens = currentMessages.reduce((sum, m) => sum + estimateTokenCount(m.content || ''), 0);
+    const totalTokens = systemPromptTokens + messageTokens;
+    
+    // Warn if approaching limit
+    if (totalTokens > maxContextTokens * 0.9) {
+      console.warn(`[AgenticLoop] Token usage high: ${totalTokens}/${maxContextTokens} (${Math.round(totalTokens/maxContextTokens*100)}%)`);
+    }
 
     // Call AI
     const aiMessages: ChatMessage[] = [
