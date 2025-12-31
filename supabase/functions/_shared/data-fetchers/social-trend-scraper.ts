@@ -1,5 +1,5 @@
 // Social Trend Scraper - Uses Firecrawl to scrape trend aggregator sites
-// for TikTok/Facebook/YouTube data indirectly
+// for TikTok/Facebook/YouTube/Instagram data
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -72,6 +72,39 @@ export const TREND_SOURCES: Record<string, TrendSource> = {
     platform: 'tiktok',
     type: 'creators'
   },
+  tiktok_exolyt: {
+    url: 'https://exolyt.com/trending',
+    name: 'Exolyt Trending',
+    platform: 'tiktok',
+    type: 'general',
+    scrapeOptions: { waitFor: 2000 }
+  },
+  ritetag_tiktok: {
+    url: 'https://ritetag.com/best-hashtags-for/tiktok',
+    name: 'RiteTag TikTok',
+    platform: 'tiktok',
+    type: 'hashtags'
+  },
+  
+  // Facebook Sources
+  socialblade_facebook: {
+    url: 'https://socialblade.com/facebook/top/100/likes',
+    name: 'SocialBlade Facebook',
+    platform: 'facebook',
+    type: 'creators'
+  },
+  facebook_trends_tagembed: {
+    url: 'https://tagembed.com/blog/facebook-trends/',
+    name: 'Facebook Trends Guide',
+    platform: 'facebook',
+    type: 'general'
+  },
+  facebook_trends_hootsuite: {
+    url: 'https://blog.hootsuite.com/facebook-trends/',
+    name: 'Hootsuite Facebook Trends',
+    platform: 'facebook',
+    type: 'general'
+  },
   
   // YouTube Sources
   socialblade_youtube: {
@@ -79,6 +112,32 @@ export const TREND_SOURCES: Record<string, TrendSource> = {
     name: 'SocialBlade YouTube',
     platform: 'youtube',
     type: 'videos'
+  },
+  youtube_trending_channels: {
+    url: 'https://us.youtubers.me/global/all/top-1000-most-subscribed-youtube-channels',
+    name: 'YouTubers.me Top',
+    platform: 'youtube',
+    type: 'creators'
+  },
+  
+  // Instagram Sources
+  socialblade_instagram: {
+    url: 'https://socialblade.com/instagram/top/100/followers',
+    name: 'SocialBlade Instagram',
+    platform: 'instagram',
+    type: 'creators'
+  },
+  instagram_trends_hootsuite: {
+    url: 'https://blog.hootsuite.com/instagram-trends/',
+    name: 'Hootsuite Instagram Trends',
+    platform: 'instagram',
+    type: 'general'
+  },
+  instagram_trends_later: {
+    url: 'https://later.com/blog/instagram-trends/',
+    name: 'Later Instagram Trends',
+    platform: 'instagram',
+    type: 'general'
   },
   
   // Multi-platform trend sites
@@ -89,6 +148,9 @@ export const TREND_SOURCES: Record<string, TrendSource> = {
     type: 'general'
   }
 };
+
+// Available platforms
+export const AVAILABLE_PLATFORMS = ['tiktok', 'facebook', 'youtube', 'instagram'] as const;
 
 // ============================================================================
 // Firecrawl Client
@@ -146,107 +208,314 @@ async function callFirecrawl(
 // Trend Parsers
 // ============================================================================
 
-function parseHashtagsFromMarkdown(markdown: string, source: string, platform: string): NormalizedTrend[] {
+function parseViewCount(countStr: string): number {
+  const num = parseFloat(countStr.replace(/[,\s]/g, ''));
+  if (countStr.toUpperCase().includes('B')) return num * 1_000_000_000;
+  if (countStr.toUpperCase().includes('M')) return num * 1_000_000;
+  if (countStr.toUpperCase().includes('K')) return num * 1_000;
+  return num;
+}
+
+// Parser for SocialBlade table format
+function parseSocialBladeTable(markdown: string, source: string, platform: string): NormalizedTrend[] {
   const trends: NormalizedTrend[] = [];
   const lines = markdown.split('\n');
   
-  // Look for hashtag patterns like #skincare, #trending
-  const hashtagRegex = /#[\w\u00C0-\u024F]+/g;
-  const foundHashtags = new Set<string>();
+  console.log(`[Parser:SocialBlade] Processing ${lines.length} lines from ${source}`);
   
-  for (const line of lines) {
-    const matches = line.match(hashtagRegex);
-    if (matches) {
-      for (const hashtag of matches) {
-        if (!foundHashtags.has(hashtag.toLowerCase())) {
-          foundHashtags.add(hashtag.toLowerCase());
-          
-          // Try to extract view counts from context
-          const viewMatch = line.match(/(\d+(?:\.\d+)?[KMB]?)\s*(?:views?|lượt xem)/i);
-          
-          trends.push({
-            name: hashtag,
-            type: 'hashtag',
-            platform,
-            metrics: viewMatch ? { views: parseViewCount(viewMatch[1]) } : undefined,
-            description: line.substring(0, 200),
-            source,
-            scraped_at: new Date().toISOString()
-          });
-        }
+  // Pattern 1: Table rows with | separator
+  // | Rank | Username | Followers | Growth |
+  const tableRowRegex = /\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/;
+  
+  // Pattern 2: Lines with rank and username
+  // 1 @username 100M followers
+  const linePatternRegex = /^#?(\d+)[.\s]+[@]?([\w._-]+)\s+(\d+(?:\.\d+)?[KMB]?)/i;
+  
+  // Pattern 3: Markdown link with numbers
+  // [username](url) 100M followers
+  const linkPatternRegex = /\[([^\]]+)\]\([^)]+\)\s*(\d+(?:\.\d+)?[KMB]?)/i;
+
+  const foundCreators = new Set<string>();
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    let match: RegExpMatchArray | null = null;
+    let rank = 0;
+    let username = '';
+    let metricValue = '';
+    
+    // Try table row pattern
+    match = line.match(tableRowRegex);
+    if (match) {
+      rank = parseInt(match[1]);
+      username = match[2].replace(/[@\[\]]/g, '').trim();
+      metricValue = match[3];
+    }
+    
+    // Try line pattern
+    if (!username) {
+      match = line.match(linePatternRegex);
+      if (match) {
+        rank = parseInt(match[1]);
+        username = match[2];
+        metricValue = match[3];
       }
     }
+    
+    // Try link pattern
+    if (!username) {
+      match = line.match(linkPatternRegex);
+      if (match) {
+        username = match[1].replace(/[@]/g, '').trim();
+        metricValue = match[2];
+        rank = trends.length + 1;
+      }
+    }
+    
+    // Skip header rows and invalid entries
+    if (!username || username.toLowerCase() === 'username' || username.toLowerCase() === 'name') {
+      continue;
+    }
+    
+    const key = username.toLowerCase();
+    if (foundCreators.has(key)) continue;
+    foundCreators.add(key);
+    
+    trends.push({
+      name: username.startsWith('@') ? username : `@${username}`,
+      type: 'creator',
+      platform,
+      metrics: {
+        followers: metricValue ? parseViewCount(metricValue) : undefined,
+        rank: rank || undefined
+      },
+      source,
+      scraped_at: new Date().toISOString()
+    });
+    
+    if (trends.length >= 50) break; // Limit to top 50
   }
   
+  console.log(`[Parser:SocialBlade] Found ${trends.length} creators`);
   return trends;
 }
 
+// Parser for blog/article format
+function parseBlogTrends(markdown: string, source: string, platform: string): NormalizedTrend[] {
+  const trends: NormalizedTrend[] = [];
+  const lines = markdown.split('\n');
+  const foundTrends = new Set<string>();
+  
+  console.log(`[Parser:Blog] Processing ${lines.length} lines from ${source}`);
+  
+  // Patterns for blog content
+  const patterns = [
+    // ## 1. Trend Name
+    /^#{1,3}\s*\d+[.)]\s*(.+)/,
+    // 1. **Trend Name**
+    /^\d+[.)]\s*\*\*(.+?)\*\*/,
+    // - **Trend Name**
+    /^[-*]\s*\*\*(.+?)\*\*/,
+    // ## Trend Name (heading without number)
+    /^#{2,3}\s+([A-Z][^#\n]{10,60})$/,
+    // Bold text: **Trend Name** - description
+    /\*\*([^*]{5,50})\*\*\s*[-–:]/
+  ];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length < 5) continue;
+    
+    for (const pattern of patterns) {
+      const match = trimmed.match(pattern);
+      if (match && match[1]) {
+        const trendName = match[1].trim()
+          .replace(/\*\*/g, '')
+          .replace(/\[|\]/g, '')
+          .substring(0, 80);
+        
+        // Skip generic words
+        if (trendName.length < 5 || 
+            /^(the|and|for|how|why|what|when|this|that|with|your|more)/i.test(trendName)) {
+          continue;
+        }
+        
+        const key = trendName.toLowerCase();
+        if (foundTrends.has(key)) continue;
+        foundTrends.add(key);
+        
+        trends.push({
+          name: trendName,
+          type: 'topic',
+          platform,
+          description: trimmed.substring(0, 200),
+          source,
+          scraped_at: new Date().toISOString()
+        });
+        
+        break; // Only match first pattern per line
+      }
+    }
+    
+    if (trends.length >= 25) break;
+  }
+  
+  console.log(`[Parser:Blog] Found ${trends.length} trends`);
+  return trends;
+}
+
+// Enhanced hashtag parser
+function parseHashtagsFromMarkdown(markdown: string, source: string, platform: string): NormalizedTrend[] {
+  const trends: NormalizedTrend[] = [];
+  const lines = markdown.split('\n');
+  const foundHashtags = new Set<string>();
+  
+  console.log(`[Parser:Hashtags] Processing ${lines.length} lines from ${source}`);
+  
+  // Multiple patterns to catch hashtags
+  const patterns = [
+    // #hashtag
+    /#([\w\u00C0-\u024F]{3,30})/g,
+    // hashtag (5B views)
+    /(\w{4,25})\s*\(\s*(\d+(?:\.\d+)?[KMB]?)\s*(?:views?|posts?)\)/gi,
+    // "hashtag" - description
+    /"([\w\u00C0-\u024F]{4,25})"\s*[-–]/g,
+    // 1. hashtag: description
+    /\d+[.)]\s*([\w\u00C0-\u024F]{4,25}):/g
+  ];
+  
+  for (const line of lines) {
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0; // Reset regex
+      let match;
+      
+      while ((match = pattern.exec(line)) !== null) {
+        const hashtag = match[1].toLowerCase();
+        
+        // Skip common words
+        if (/^(the|and|for|this|that|with|from|have|been)$/i.test(hashtag)) continue;
+        if (foundHashtags.has(hashtag)) continue;
+        
+        foundHashtags.add(hashtag);
+        
+        // Try to extract view count from context
+        const viewMatch = line.match(/(\d+(?:\.\d+)?[KMB]?)\s*(?:views?|lượt xem|posts?)/i);
+        
+        trends.push({
+          name: `#${hashtag}`,
+          type: 'hashtag',
+          platform,
+          metrics: viewMatch ? { views: parseViewCount(viewMatch[1]) } : undefined,
+          description: line.substring(0, 200),
+          source,
+          scraped_at: new Date().toISOString()
+        });
+        
+        if (trends.length >= 30) break;
+      }
+    }
+    if (trends.length >= 30) break;
+  }
+  
+  console.log(`[Parser:Hashtags] Found ${trends.length} hashtags`);
+  return trends;
+}
+
+// Enhanced creators parser
 function parseCreatorsFromMarkdown(markdown: string, source: string, platform: string): NormalizedTrend[] {
   const trends: NormalizedTrend[] = [];
   const lines = markdown.split('\n');
-  
-  // Look for patterns like "@username" or "username - followers"
-  const usernameRegex = /@[\w._]+/g;
   const foundCreators = new Set<string>();
+  
+  console.log(`[Parser:Creators] Processing ${lines.length} lines from ${source}`);
   
   let currentRank = 0;
   
   for (const line of lines) {
-    // Check for rank patterns (1., 2., #1, #2)
+    // Check for rank patterns
     const rankMatch = line.match(/^[#]?(\d+)[.\s]/);
     if (rankMatch) {
       currentRank = parseInt(rankMatch[1]);
     }
     
-    const matches = line.match(usernameRegex);
-    if (matches) {
-      for (const username of matches) {
-        if (!foundCreators.has(username.toLowerCase())) {
-          foundCreators.add(username.toLowerCase());
-          
-          // Try to extract follower counts
-          const followerMatch = line.match(/(\d+(?:\.\d+)?[KMB]?)\s*(?:followers?|người theo dõi)/i);
-          
-          trends.push({
-            name: username,
-            type: 'creator',
-            platform,
-            metrics: {
-              followers: followerMatch ? parseViewCount(followerMatch[1]) : undefined,
-              rank: currentRank || undefined
-            },
-            description: line.substring(0, 200),
-            source,
-            scraped_at: new Date().toISOString()
-          });
-        }
+    // Multiple username patterns
+    const usernamePatterns = [
+      /@([\w._]{2,30})/g,  // @username
+      /\[([\w._]{2,30})\]\(/g,  // [username](url)
+      /(?:^|\s)([\w._]{3,25})\s+(\d+(?:\.\d+)?[KMB])\s*(?:followers?|subs?)/gi  // username 100M followers
+    ];
+    
+    for (const pattern of usernamePatterns) {
+      pattern.lastIndex = 0;
+      let match;
+      
+      while ((match = pattern.exec(line)) !== null) {
+        const username = match[1];
+        
+        // Skip invalid usernames
+        if (username.toLowerCase() === 'username' || username.length < 2) continue;
+        
+        const key = username.toLowerCase();
+        if (foundCreators.has(key)) continue;
+        foundCreators.add(key);
+        
+        // Extract follower count
+        const followerMatch = line.match(/(\d+(?:\.\d+)?[KMB]?)\s*(?:followers?|người theo dõi|subs?)/i);
+        
+        trends.push({
+          name: username.startsWith('@') ? username : `@${username}`,
+          type: 'creator',
+          platform,
+          metrics: {
+            followers: followerMatch ? parseViewCount(followerMatch[1]) : undefined,
+            rank: currentRank || undefined
+          },
+          description: line.substring(0, 200),
+          source,
+          scraped_at: new Date().toISOString()
+        });
+        
+        if (trends.length >= 50) break;
       }
     }
+    if (trends.length >= 50) break;
   }
   
+  console.log(`[Parser:Creators] Found ${trends.length} creators`);
   return trends;
 }
 
+// General trends parser
 function parseGeneralTrendsFromMarkdown(markdown: string, source: string, platform: string): NormalizedTrend[] {
   const trends: NormalizedTrend[] = [];
   const lines = markdown.split('\n');
+  const foundTrends = new Set<string>();
   
-  // Look for trend-like headings and list items
+  console.log(`[Parser:General] Processing ${lines.length} lines from ${source}`);
+  
   for (const line of lines) {
-    // Skip empty or very short lines
     if (line.trim().length < 10) continue;
     
-    // Look for list items or headings that might be trends
     const isListItem = /^[-*•]\s+/.test(line);
     const isHeading = /^#{1,3}\s+/.test(line);
+    const isNumbered = /^\d+[.)]\s+/.test(line);
     const hasNumbers = /\d+[KMB]?\s*(views?|followers?|likes?)/i.test(line);
     
-    if ((isListItem || isHeading || hasNumbers) && line.length > 15 && line.length < 300) {
-      const cleanedText = line.replace(/^[-*•#\s]+/, '').trim();
+    if ((isListItem || isHeading || isNumbered || hasNumbers) && line.length > 15 && line.length < 300) {
+      const cleanedText = line
+        .replace(/^[-*•#\s\d.)+]+/, '')
+        .replace(/\*\*/g, '')
+        .trim();
       
-      if (cleanedText.length > 10) {
+      if (cleanedText.length > 10 && cleanedText.length < 100) {
+        const key = cleanedText.toLowerCase().substring(0, 50);
+        if (foundTrends.has(key)) continue;
+        foundTrends.add(key);
+        
         trends.push({
-          name: cleanedText.substring(0, 100),
+          name: cleanedText.substring(0, 80),
           type: 'topic',
           platform,
           description: cleanedText,
@@ -255,18 +524,56 @@ function parseGeneralTrendsFromMarkdown(markdown: string, source: string, platfo
         });
       }
     }
+    
+    if (trends.length >= 20) break;
   }
   
-  // Limit to top trends to avoid noise
+  console.log(`[Parser:General] Found ${trends.length} trends`);
   return trends.slice(0, 20);
 }
 
-function parseViewCount(countStr: string): number {
-  const num = parseFloat(countStr.replace(/[,\s]/g, ''));
-  if (countStr.toUpperCase().includes('B')) return num * 1_000_000_000;
-  if (countStr.toUpperCase().includes('M')) return num * 1_000_000;
-  if (countStr.toUpperCase().includes('K')) return num * 1_000;
-  return num;
+// Intelligent parser selection with fallback
+function parseTrendsWithFallback(
+  markdown: string, 
+  source: TrendSource
+): NormalizedTrend[] {
+  const { name, platform, type } = source;
+  let trends: NormalizedTrend[] = [];
+  
+  // Log sample content for debugging
+  console.log(`[Parser] Content sample (first 500 chars): ${markdown.substring(0, 500)}`);
+  
+  // Detect if it's a SocialBlade table
+  const isSocialBladeFormat = markdown.includes('| Rank') || 
+                              markdown.includes('|---|') ||
+                              source.name.includes('SocialBlade');
+  
+  // Try specialized parser first
+  if (isSocialBladeFormat && type === 'creators') {
+    console.log(`[Parser] Using SocialBlade table parser for ${name}`);
+    trends = parseSocialBladeTable(markdown, name, platform);
+  } else if (type === 'hashtags') {
+    console.log(`[Parser] Using hashtag parser for ${name}`);
+    trends = parseHashtagsFromMarkdown(markdown, name, platform);
+  } else if (type === 'creators') {
+    console.log(`[Parser] Using creators parser for ${name}`);
+    trends = parseCreatorsFromMarkdown(markdown, name, platform);
+  }
+  
+  // Fallback to blog parser if no results
+  if (trends.length === 0) {
+    console.log(`[Parser] Primary parser found 0 results, trying blog parser for ${name}`);
+    trends = parseBlogTrends(markdown, name, platform);
+  }
+  
+  // Final fallback to general parser
+  if (trends.length === 0) {
+    console.log(`[Parser] Blog parser found 0 results, trying general parser for ${name}`);
+    trends = parseGeneralTrendsFromMarkdown(markdown, name, platform);
+  }
+  
+  console.log(`[Parser] Final result: ${trends.length} trends from ${name}`);
+  return trends;
 }
 
 // ============================================================================
@@ -287,9 +594,12 @@ export async function scrapeTrendSource(sourceKey: string): Promise<ScrapedTrend
     };
   }
   
+  console.log(`[SocialTrendScraper] Starting scrape: ${source.name} (${source.platform}/${source.type})`);
+  
   const scrapeResult = await callFirecrawl(source.url, source.scrapeOptions);
   
   if (!scrapeResult.success || !scrapeResult.markdown) {
+    console.error(`[SocialTrendScraper] Scrape failed for ${source.name}: ${scrapeResult.error}`);
     return {
       success: false,
       source: source.name,
@@ -300,28 +610,17 @@ export async function scrapeTrendSource(sourceKey: string): Promise<ScrapedTrend
     };
   }
   
-  // Parse based on source type
-  let trends: NormalizedTrend[];
+  // Use intelligent parser with fallback
+  const trends = parseTrendsWithFallback(scrapeResult.markdown, source);
   
-  switch (source.type) {
-    case 'hashtags':
-      trends = parseHashtagsFromMarkdown(scrapeResult.markdown, source.name, source.platform);
-      break;
-    case 'creators':
-      trends = parseCreatorsFromMarkdown(scrapeResult.markdown, source.name, source.platform);
-      break;
-    default:
-      trends = parseGeneralTrendsFromMarkdown(scrapeResult.markdown, source.name, source.platform);
-  }
-  
-  console.log(`[SocialTrendScraper] Parsed ${trends.length} trends from ${source.name}`);
+  console.log(`[SocialTrendScraper] Completed ${source.name}: ${trends.length} trends`);
   
   return {
     success: true,
     source: source.name,
     platform: source.platform,
     trends,
-    raw_content: scrapeResult.markdown.substring(0, 5000), // Keep first 5KB for reference
+    raw_content: scrapeResult.markdown.substring(0, 5000),
     scraped_at: new Date().toISOString()
   };
 }
@@ -333,18 +632,15 @@ export async function scrapeMultipleSources(
   const { parallel = true, maxConcurrent = 2 } = options || {};
   
   if (!parallel) {
-    // Sequential scraping
     const results: ScrapedTrendResult[] = [];
     for (const key of sourceKeys) {
       const result = await scrapeTrendSource(key);
       results.push(result);
-      // Small delay between requests
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     return results;
   }
   
-  // Parallel with concurrency limit
   const results: ScrapedTrendResult[] = [];
   
   for (let i = 0; i < sourceKeys.length; i += maxConcurrent) {
@@ -352,7 +648,6 @@ export async function scrapeMultipleSources(
     const batchResults = await Promise.all(batch.map(key => scrapeTrendSource(key)));
     results.push(...batchResults);
     
-    // Delay between batches
     if (i + maxConcurrent < sourceKeys.length) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
@@ -368,6 +663,8 @@ export async function scrapeTrendsForPlatform(
   const platformSources = Object.entries(TREND_SOURCES)
     .filter(([_, source]) => source.platform === platform || source.platform === 'multi')
     .map(([key]) => key);
+  
+  console.log(`[SocialTrendScraper] Found ${platformSources.length} sources for ${platform}: ${platformSources.join(', ')}`);
   
   if (platformSources.length === 0) {
     return {
@@ -387,7 +684,7 @@ export async function scrapeTrendsForPlatform(
   const seenNames = new Set<string>();
   
   for (const result of results) {
-    if (result.success) {
+    if (result.success && result.trends.length > 0) {
       sources.push(result.source);
       
       for (const trend of result.trends) {
@@ -399,6 +696,8 @@ export async function scrapeTrendsForPlatform(
       }
     }
   }
+  
+  console.log(`[SocialTrendScraper] Merged ${allTrends.length} unique trends from ${sources.length} sources for ${platform}`);
   
   return {
     platform,
@@ -415,7 +714,7 @@ export async function scrapeTrendsForPlatform(
 
 export async function getCachedTrends(
   platform: string,
-  maxAgeMinutes: number = 240 // 4 hours default
+  maxAgeMinutes: number = 240
 ): Promise<MergedTrendResults | null> {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -436,7 +735,6 @@ export async function getCachedTrends(
     
     if (error || !data) return null;
     
-    // Update hit count
     await supabase
       .from('web_search_cache')
       .update({ hit_count: (data.hit_count || 0) + 1 })
@@ -461,7 +759,7 @@ export async function cacheTrends(platform: string, results: MergedTrendResults)
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     const cacheKey = `social_trends:${platform}`;
-    const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4 hours
+    const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
     
     await supabase
       .from('web_search_cache')
@@ -499,7 +797,7 @@ export async function getSocialTrends(
   // Scrape fresh data
   const results = await scrapeTrendsForPlatform(platform);
   
-  // Cache results
+  // Cache results if we got any
   if (results.trends.length > 0) {
     await cacheTrends(platform, results);
   }
@@ -507,6 +805,6 @@ export async function getSocialTrends(
   return results;
 }
 
-// Export available platforms and sources
-export const AVAILABLE_PLATFORMS = ['tiktok', 'youtube'] as const;
-export const getAvailableSources = () => Object.keys(TREND_SOURCES);
+export function getAvailableSources(): string[] {
+  return Object.keys(TREND_SOURCES);
+}
