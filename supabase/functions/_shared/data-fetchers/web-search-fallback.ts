@@ -1,11 +1,15 @@
 // ============================================
 // Enhanced Web Search with Fallback Strategies
+// v2: Persistent Cache + Analytics
 // ============================================
 
 import { withRetry, withFallback, withTimeout, createCircuitBreaker, isRetryableError } from "../error-utils.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 export interface WebSearchResult {
   title: string;
@@ -26,6 +30,8 @@ export interface WebSearchResponse {
   message: string;
   fallback_used?: boolean;
   error?: string;
+  cache_hit?: boolean;
+  latency_ms?: number;
 }
 
 // Circuit breakers for each search provider
@@ -41,33 +47,187 @@ const lovableAICircuit = createCircuitBreaker('lovable-ai-search', {
   halfOpenMaxCalls: 3,
 });
 
-// In-memory cache for recent searches (simple TTL cache)
-const searchCache = new Map<string, { data: WebSearchResponse; expires: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+// TTL by search type (in hours)
+const CACHE_TTL_HOURS: Record<string, number> = {
+  trending: 2,    // Changes fast
+  news: 6,        // Semi-fresh
+  competitor: 24, // Stable
+  general: 12,    // Default
+};
 
-function getCacheKey(query: string, searchType: string, industry?: string): string {
-  return `${searchType}:${industry || 'all'}:${query.toLowerCase().trim()}`;
+// In-memory cache as L1 (fast), Supabase as L2 (persistent)
+const memoryCache = new Map<string, { data: WebSearchResponse; expires: number }>();
+const MEMORY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes for memory cache
+
+// ============================================
+// Supabase Client for Cache & Analytics
+// ============================================
+
+function createSupabaseClient() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
-function getFromCache(key: string): WebSearchResponse | null {
-  const cached = searchCache.get(key);
+// ============================================
+// Cache Key Generation
+// ============================================
+
+function getCacheKey(query: string, searchType: string, industry?: string): string {
+  const normalized = query.toLowerCase().trim().replace(/\s+/g, ' ');
+  return `${searchType}:${industry || 'all'}:${normalized}`;
+}
+
+// ============================================
+// L1 Memory Cache (fast, ephemeral)
+// ============================================
+
+function getFromMemoryCache(key: string): WebSearchResponse | null {
+  const cached = memoryCache.get(key);
   if (cached && cached.expires > Date.now()) {
-    console.log(`[WebSearchFallback] Cache hit for key: ${key}`);
-    return { ...cached.data, source: 'cached' };
+    console.log(`[WebSearchFallback] L1 memory cache hit: ${key}`);
+    return { ...cached.data, source: 'cached', cache_hit: true };
   }
   if (cached) {
-    searchCache.delete(key);
+    memoryCache.delete(key);
   }
   return null;
 }
 
-function setCache(key: string, data: WebSearchResponse): void {
-  // Limit cache size
-  if (searchCache.size > 100) {
-    const oldestKey = searchCache.keys().next().value;
-    if (oldestKey) searchCache.delete(oldestKey);
+function setMemoryCache(key: string, data: WebSearchResponse): void {
+  // Limit memory cache size
+  if (memoryCache.size > 50) {
+    const oldestKey = memoryCache.keys().next().value;
+    if (oldestKey) memoryCache.delete(oldestKey);
   }
-  searchCache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
+  memoryCache.set(key, { data, expires: Date.now() + MEMORY_CACHE_TTL_MS });
+}
+
+// ============================================
+// L2 Persistent Cache (Supabase)
+// ============================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getFromPersistentCache(
+  supabase: any,
+  cacheKey: string
+): Promise<WebSearchResponse | null> {
+  try {
+    const { data, error } = await supabase
+      .from('web_search_cache')
+      .select('*')
+      .eq('cache_key', cacheKey)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    // Increment hit count asynchronously (fire and forget)
+    supabase
+      .from('web_search_cache')
+      .update({ hit_count: (data.hit_count || 0) + 1, updated_at: new Date().toISOString() })
+      .eq('id', data.id)
+      .then(() => {});
+
+    console.log(`[WebSearchFallback] L2 persistent cache hit: ${cacheKey}`);
+    
+    return {
+      success: true,
+      source: 'cached',
+      query: data.query,
+      search_type: data.search_type,
+      results: data.results as WebSearchResult[],
+      citations: data.citations || [],
+      total_results: (data.results as WebSearchResult[]).length,
+      message: `Từ cache (${(data.hit_count || 0) + 1} hits)`,
+      cache_hit: true,
+    };
+  } catch (err) {
+    console.warn('[WebSearchFallback] Persistent cache lookup failed:', err);
+    return null;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function setPersistentCache(
+  supabase: any,
+  cacheKey: string,
+  data: WebSearchResponse,
+  searchType: string,
+  industry?: string
+): Promise<void> {
+  try {
+    const ttlHours = CACHE_TTL_HOURS[searchType] || CACHE_TTL_HOURS.general;
+    const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+
+    await supabase
+      .from('web_search_cache')
+      .upsert({
+        cache_key: cacheKey,
+        query: data.query,
+        search_type: searchType,
+        industry: industry || null,
+        results: data.results,
+        citations: data.citations,
+        source: data.source,
+        expires_at: expiresAt.toISOString(),
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'cache_key',
+      });
+
+    console.log(`[WebSearchFallback] Cached to persistent storage: ${cacheKey}, expires: ${ttlHours}h`);
+  } catch (err) {
+    console.warn('[WebSearchFallback] Failed to set persistent cache:', err);
+  }
+}
+
+// ============================================
+// Analytics Tracking
+// ============================================
+
+interface AnalyticsData {
+  query: string;
+  searchType: string;
+  industry?: string;
+  source: string;
+  resultCount: number;
+  latencyMs: number;
+  cacheHit: boolean;
+  fallbackUsed: boolean;
+  error?: string;
+  userId?: string;
+  organizationId?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function trackSearchAnalytics(
+  supabase: any | null,
+  data: AnalyticsData
+): Promise<void> {
+  if (!supabase) return;
+
+  try {
+    await supabase.from('web_search_analytics').insert({
+      query: data.query,
+      search_type: data.searchType,
+      industry: data.industry || null,
+      source: data.source,
+      result_count: data.resultCount,
+      latency_ms: data.latencyMs,
+      cache_hit: data.cacheHit,
+      fallback_used: data.fallbackUsed,
+      error: data.error || null,
+      user_id: data.userId || null,
+      organization_id: data.organizationId || null,
+    });
+  } catch (err) {
+    // Non-blocking, log and continue
+    console.warn('[WebSearchFallback] Failed to track analytics:', err);
+  }
 }
 
 // ============================================
@@ -327,26 +487,81 @@ export interface WebSearchOptions {
   maxResults?: number;
   skipCache?: boolean;
   timeoutMs?: number;
+  userId?: string;
+  organizationId?: string;
 }
 
 export async function enhancedWebSearch(options: WebSearchOptions): Promise<WebSearchResponse> {
-  const { query, searchType, industry, recency, skipCache = false, timeoutMs = 15000 } = options;
+  const { 
+    query, 
+    searchType, 
+    industry, 
+    recency, 
+    skipCache = false, 
+    timeoutMs = 15000,
+    userId,
+    organizationId,
+  } = options;
+  
+  const startTime = Date.now();
   const cacheKey = getCacheKey(query, searchType, industry);
+  const supabase = createSupabaseClient();
 
-  // 1. Check cache first (unless skipped)
+  // 1. Check L1 memory cache first (fastest)
   if (!skipCache) {
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      return cached;
+    const memoryCached = getFromMemoryCache(cacheKey);
+    if (memoryCached) {
+      const latencyMs = Date.now() - startTime;
+      // Track cache hit (non-blocking)
+      trackSearchAnalytics(supabase, {
+        query,
+        searchType,
+        industry,
+        source: 'cached',
+        resultCount: memoryCached.total_results,
+        latencyMs,
+        cacheHit: true,
+        fallbackUsed: false,
+        userId,
+        organizationId,
+      });
+      return { ...memoryCached, latency_ms: latencyMs };
+    }
+  }
+
+  // 2. Check L2 persistent cache (Supabase)
+  if (!skipCache && supabase) {
+    const persistentCached = await getFromPersistentCache(supabase, cacheKey);
+    if (persistentCached) {
+      const latencyMs = Date.now() - startTime;
+      // Also store in memory cache for faster access
+      setMemoryCache(cacheKey, persistentCached);
+      // Track cache hit
+      trackSearchAnalytics(supabase, {
+        query,
+        searchType,
+        industry,
+        source: 'cached',
+        resultCount: persistentCached.total_results,
+        latencyMs,
+        cacheHit: true,
+        fallbackUsed: false,
+        userId,
+        organizationId,
+      });
+      return { ...persistentCached, latency_ms: latencyMs };
     }
   }
 
   console.log(`[WebSearchFallback] Starting search: ${searchType} "${query}"`);
 
-  // 2. Try Perplexity with retry and circuit breaker
+  let result: WebSearchResponse | null = null;
+  let error: string | undefined;
+
+  // 3. Try Perplexity with retry and circuit breaker
   if (PERPLEXITY_API_KEY) {
     try {
-      const result = await perplexityCircuit.execute(() =>
+      result = await perplexityCircuit.execute(() =>
         withTimeout(
           () => withRetry(
             () => searchWithPerplexity(query, searchType, industry, recency),
@@ -365,19 +580,17 @@ export async function enhancedWebSearch(options: WebSearchOptions): Promise<WebS
         )
       );
       
-      // Cache successful result
-      setCache(cacheKey, result);
       console.log(`[WebSearchFallback] Perplexity success: ${result.total_results} results`);
-      return result;
-    } catch (error) {
-      console.warn('[WebSearchFallback] Perplexity failed:', error instanceof Error ? error.message : error);
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      console.warn('[WebSearchFallback] Perplexity failed:', error);
     }
   }
 
-  // 3. Fallback to Lovable AI
-  if (LOVABLE_API_KEY) {
+  // 4. Fallback to Lovable AI
+  if (!result && LOVABLE_API_KEY) {
     try {
-      const result = await lovableAICircuit.execute(() =>
+      result = await lovableAICircuit.execute(() =>
         withTimeout(
           () => withRetry(
             () => searchWithLovableAI(query, searchType, industry),
@@ -393,18 +606,47 @@ export async function enhancedWebSearch(options: WebSearchOptions): Promise<WebS
         )
       );
       
-      // Cache with shorter TTL for AI fallback
-      searchCache.set(cacheKey, { data: result, expires: Date.now() + (CACHE_TTL_MS / 2) });
       console.log(`[WebSearchFallback] Lovable AI fallback success: ${result.total_results} results`);
-      return result;
-    } catch (error) {
-      console.warn('[WebSearchFallback] Lovable AI fallback failed:', error instanceof Error ? error.message : error);
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      console.warn('[WebSearchFallback] Lovable AI fallback failed:', error);
     }
   }
 
-  // 4. Static fallback (never fails)
-  console.log('[WebSearchFallback] Using static fallback');
-  return getStaticFallback(query, searchType, industry);
+  // 5. Static fallback (never fails)
+  if (!result) {
+    console.log('[WebSearchFallback] Using static fallback');
+    result = getStaticFallback(query, searchType, industry);
+  }
+
+  const latencyMs = Date.now() - startTime;
+  result.latency_ms = latencyMs;
+
+  // 6. Cache successful results (both L1 and L2)
+  if (result.source !== 'fallback') {
+    setMemoryCache(cacheKey, result);
+    if (supabase) {
+      // Async cache to persistent storage
+      setPersistentCache(supabase, cacheKey, result, searchType, industry);
+    }
+  }
+
+  // 7. Track analytics
+  trackSearchAnalytics(supabase, {
+    query,
+    searchType,
+    industry,
+    source: result.source,
+    resultCount: result.total_results,
+    latencyMs,
+    cacheHit: false,
+    fallbackUsed: result.fallback_used || false,
+    error,
+    userId,
+    organizationId,
+  });
+
+  return result;
 }
 
 // ============================================
@@ -422,4 +664,42 @@ export function resetCircuits(): void {
   perplexityCircuit.reset();
   lovableAICircuit.reset();
   console.log('[WebSearchFallback] All circuits reset');
+}
+
+// ============================================
+// Cache Management Functions
+// ============================================
+
+export async function getSearchCacheStats(): Promise<any> {
+  const supabase = createSupabaseClient();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase.rpc('get_web_search_cache_stats');
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('[WebSearchFallback] Failed to get cache stats:', err);
+    return null;
+  }
+}
+
+export async function cleanupExpiredSearchCache(): Promise<number> {
+  const supabase = createSupabaseClient();
+  if (!supabase) return 0;
+
+  try {
+    const { data, error } = await supabase.rpc('cleanup_web_search_cache');
+    if (error) throw error;
+    console.log(`[WebSearchFallback] Cleaned up ${data} expired cache entries`);
+    return data || 0;
+  } catch (err) {
+    console.error('[WebSearchFallback] Failed to cleanup cache:', err);
+    return 0;
+  }
+}
+
+export function clearMemoryCache(): void {
+  memoryCache.clear();
+  console.log('[WebSearchFallback] Memory cache cleared');
 }
