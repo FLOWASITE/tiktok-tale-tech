@@ -1,6 +1,6 @@
 import { 
   Shield, TrendingUp, Users, Package, Map, Sparkles, BookOpen,
-  Info
+  Info, User, Brain, Flame, TreeDeciduous, Search
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -19,7 +19,12 @@ export type ContextBadgeType =
   | 'product-linked' 
   | 'journey' 
   | 'brand-voice' 
-  | 'glossary';
+  | 'glossary'
+  | 'personalized'
+  | 'memory'
+  | 'trending'
+  | 'evergreen'
+  | 'rag-enhanced';
 
 interface ParsedContextBadge {
   type: ContextBadgeType;
@@ -84,6 +89,41 @@ const BADGE_CONFIG: Record<ContextBadgeType, {
     label: 'Glossary',
     description: 'Sử dụng thuật ngữ chuyên ngành',
   },
+  personalized: {
+    icon: User,
+    color: 'text-teal-600 dark:text-teal-400',
+    bgColor: 'bg-teal-500/10 hover:bg-teal-500/15 border-teal-500/20',
+    label: 'Personalized',
+    description: 'Điều chỉnh theo preferences của user',
+  },
+  memory: {
+    icon: Brain,
+    color: 'text-purple-600 dark:text-purple-400',
+    bgColor: 'bg-purple-500/10 hover:bg-purple-500/15 border-purple-500/20',
+    label: 'Memory',
+    description: 'Nhớ từ các cuộc trò chuyện trước',
+  },
+  trending: {
+    icon: Flame,
+    color: 'text-orange-600 dark:text-orange-400',
+    bgColor: 'bg-orange-500/10 hover:bg-orange-500/15 border-orange-500/20',
+    label: 'Trending',
+    description: 'Topic trending hoặc theo mùa',
+  },
+  evergreen: {
+    icon: TreeDeciduous,
+    color: 'text-green-600 dark:text-green-400',
+    bgColor: 'bg-green-500/10 hover:bg-green-500/15 border-green-500/20',
+    label: 'Evergreen',
+    description: 'Topic có giá trị lâu dài',
+  },
+  'rag-enhanced': {
+    icon: Search,
+    color: 'text-slate-600 dark:text-slate-400',
+    bgColor: 'bg-slate-500/10 hover:bg-slate-500/15 border-slate-500/20',
+    label: 'RAG-enhanced',
+    description: 'Tham khảo content đã publish',
+  },
 };
 
 // Parse context badges from AI response content
@@ -113,7 +153,7 @@ export function parseContextBadges(content: string): ParsedContextBadge[] {
   }
   
   // Journey badge with optional stage
-  const journeyMatch = /🗺️\s*Journey(?::([^,\n]+))?/i.exec(contextString);
+  const journeyMatch = /🗺️\s*Journey(?::([^,\n`]+))?/i.exec(contextString);
   if (journeyMatch) {
     badges.push({ 
       type: 'journey', 
@@ -127,6 +167,21 @@ export function parseContextBadges(content: string): ParsedContextBadge[] {
   }
   if (/📖\s*Glossary/i.test(contextString)) {
     badges.push({ type: 'glossary', label: 'Glossary' });
+  }
+  if (/👤\s*Personalized/i.test(contextString)) {
+    badges.push({ type: 'personalized', label: 'Personalized' });
+  }
+  if (/🧠\s*Memory/i.test(contextString)) {
+    badges.push({ type: 'memory', label: 'Memory' });
+  }
+  if (/🔥\s*Trending/i.test(contextString)) {
+    badges.push({ type: 'trending', label: 'Trending' });
+  }
+  if (/🌲\s*Evergreen/i.test(contextString)) {
+    badges.push({ type: 'evergreen', label: 'Evergreen' });
+  }
+  if (/🔍\s*RAG-enhanced/i.test(contextString)) {
+    badges.push({ type: 'rag-enhanced', label: 'RAG-enhanced' });
   }
   
   return badges;
