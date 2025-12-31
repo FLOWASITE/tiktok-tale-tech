@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Star, Trash2, ChevronDown, ChevronUp, Sparkles, Percent, Plus, X, MessageSquare, CheckCircle2, Target, Ban } from 'lucide-react';
+import { Users, Star, Trash2, ChevronDown, ChevronUp, Sparkles, Percent, Plus, X, MessageSquare, CheckCircle2, Target, Ban, Route } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,8 +12,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProductPersonaMappings } from '@/hooks/useProductPersonaMappings';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
+import { useJourneyStageMessaging } from '@/hooks/useJourneyStageMessaging';
 import { cn } from '@/lib/utils';
 import { ProductPersonaMappingFormData, DEFAULT_MAPPING_FORM } from '@/types/productPersonaMapping';
+import { JOURNEY_STAGES } from '@/types/journeyStageMessaging';
+import { JourneyStageMessagingEditor } from './JourneyStageMessagingEditor';
+import { JourneyStageIndicator } from './JourneyStageIndicator';
 
 interface ProductPersonaSelectorProps {
   brandTemplateId: string;
@@ -54,12 +58,22 @@ export function ProductPersonaSelector({
   const [editingForm, setEditingForm] = useState<ProductPersonaMappingFormData | null>(null);
   const [newItem, setNewItem] = useState('');
   const [activeField, setActiveField] = useState<keyof ProductPersonaMappingFormData | null>(null);
+  const [journeyEditorOpen, setJourneyEditorOpen] = useState(false);
+  const [journeyEditorMappingId, setJourneyEditorMappingId] = useState<string | null>(null);
+  const [journeyEditorPersonaName, setJourneyEditorPersonaName] = useState<string>('');
 
   const productMappings = getPersonasForProduct(productId);
   const mappedPersonaIds = productMappings.map(m => m.persona_id);
   const linkedPersonaIds = mappings.map(m => m.persona_id);
 
   const isLoading = personasLoading || mappingsLoading;
+
+  const openJourneyEditor = (mappingId: string, personaName: string) => {
+    setJourneyEditorMappingId(mappingId);
+    setJourneyEditorPersonaName(personaName);
+    setJourneyEditorOpen(true);
+  };
+
 
   const handleTogglePersona = async (personaId: string, isLinked: boolean) => {
     if (isLinked) {
@@ -423,6 +437,26 @@ export function ProductPersonaSelector({
                               )}
                             </div>
 
+                            {/* Journey Stage Messaging Button */}
+                            <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-blue-500/5 via-amber-500/5 to-emerald-500/5 border border-dashed border-muted-foreground/20">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full gap-2"
+                                onClick={() => openJourneyEditor(mapping?.id || '', persona.name)}
+                              >
+                                <Route className="w-4 h-4 text-primary" />
+                                Journey Stage Messaging
+                                <Badge variant="secondary" className="ml-auto text-[10px]">
+                                  Cấu hình theo giai đoạn
+                                </Badge>
+                              </Button>
+                              <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
+                                Tùy chỉnh messaging cho từng giai đoạn hành trình khách hàng
+                              </p>
+                            </div>
+
                             {/* Save Button */}
                             <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
                               <Button
@@ -456,6 +490,21 @@ export function ProductPersonaSelector({
           )}
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Journey Stage Messaging Editor */}
+      {journeyEditorMappingId && (
+        <JourneyStageMessagingEditor
+          open={journeyEditorOpen}
+          onOpenChange={setJourneyEditorOpen}
+          mappingId={journeyEditorMappingId}
+          productName={productName}
+          personaName={journeyEditorPersonaName}
+          organizationId={organizationId}
+          onSave={() => {
+            // Optionally refresh data
+          }}
+        />
+      )}
     </div>
   );
 }
