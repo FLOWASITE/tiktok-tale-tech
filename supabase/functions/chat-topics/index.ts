@@ -27,6 +27,9 @@ import { buildSystemPrompt } from "../_shared/system-prompt-builder.ts";
 // Import error handling utilities
 import { withFallback, withRetry, withTimeout, isRetryableError } from "../_shared/error-utils.ts";
 
+// Import observability utilities
+import { createLogger, saveMetrics, getContextSources, estimateTokens, AIMetrics } from "../_shared/logger.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -39,8 +42,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Initialize logger with trace ID
+  const logger = createLogger({
+    functionName: 'chat-topics',
+  });
+  const requestStartTime = performance.now();
+
   try {
     const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, enableAgenticLoop, maxAgentTurns }: ChatRequest = await req.json();
+
+    // Extend logger context
+    if (userId) logger.info('Request received', { userId, organizationId, brandTemplateId });
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -49,6 +61,9 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Start context fetch timer
+    const contextFetchStart = performance.now();
 
     // Fetch all context data in parallel
     let brandContext: BrandContext | null = null;
@@ -305,6 +320,16 @@ serve(async (req) => {
       }
     }
 
+    // Calculate context fetch duration
+    const contextFetchDurationMs = Math.round(performance.now() - contextFetchStart);
+    logger.timed('context_fetch', 'Context fetching complete', contextFetchDurationMs, {
+      brandContext: !!brandContext,
+      industryMemory: !!industryMemory,
+      ragResults: ragResults.length,
+      personas: personasContext.length,
+      products: productsContext.length,
+    });
+
     // Build system prompt with all context using shared builder
     const systemPrompt = buildSystemPrompt(
       brandContext, 
@@ -349,16 +374,39 @@ serve(async (req) => {
       sampleTexts: sampleTexts || undefined,
     });
     
-    console.log('[chat-topics]', summarizeContext(contextMetadata));
+    // Get context sources for metrics
+    const contextSources = getContextSources({
+      industryMemory,
+      brandContext,
+      learningContext,
+      ragResults,
+      glossary: industryGlossary,
+      personas: personasContext.length > 0 ? personasContext : undefined,
+      products: productsContext.length > 0 ? productsContext : undefined,
+      journeyMessaging,
+      sampleTexts,
+      userPreferences,
+      sessionMemory,
+    });
+
+    logger.info('Context summary', { 
+      sources: contextSources.join(', '),
+      badgeCount: contextMetadata.badges.length,
+      richnessScore: contextMetadata.context_richness_score,
+    });
 
     // Add ReAct prompt section if using agentic loop
     const finalSystemPrompt = useAgenticLoop 
       ? systemPrompt + buildReActPromptSection()
       : systemPrompt;
 
+    // Estimate input tokens
+    const inputTokensEstimated = estimateTokens(finalSystemPrompt) + 
+      messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+
     // ============ AGENTIC LOOP MODE ============
     if (useAgenticLoop) {
-      console.log('[chat-topics] Using Agentic Loop mode, max turns:', maxTurns);
+      logger.info('Starting agentic loop', { maxTurns, inputTokensEstimated });
       
       const executionContext = {
         supabase,
@@ -378,7 +426,15 @@ serve(async (req) => {
       writer.write(encoder.encode(metadataEvent));
 
       // Start async agentic loop execution
+      const aiCallStart = performance.now();
       (async () => {
+        let hadError = false;
+        let errorType: string | undefined;
+        let errorMessage: string | undefined;
+        let totalTurns = 0;
+        let exitReason: string | undefined;
+        let toolsExecuted: string[] = [];
+
         try {
           const agentResult = await executeAgenticLoop(
             messages,
@@ -387,13 +443,16 @@ serve(async (req) => {
               maxTurns,
               executionContext,
               onTurnStart: (turn) => {
-                console.log(`[chat-topics] Turn ${turn} started`);
+                logger.debug(`Turn ${turn} started`);
               },
               onTurnComplete: (turn) => {
-                console.log(`[chat-topics] Turn ${turn.turn_number} complete:`, turn.observation_summary);
+                logger.debug(`Turn ${turn.turn_number} complete`, { observation: turn.observation_summary });
+                if (turn.tool_calls && turn.tool_calls.length > 0) {
+                  toolsExecuted.push(...turn.tool_calls.map((t: { function: { name: string } }) => t.function.name));
+                }
               },
               onToolExecuting: (toolName) => {
-                console.log(`[chat-topics] Executing tool: ${toolName}`);
+                logger.debug(`Executing tool: ${toolName}`);
               },
             },
             sseWriter
@@ -402,20 +461,52 @@ serve(async (req) => {
           // Send done signal
           await writer.write(encoder.encode('data: [DONE]\n\n'));
           
-          console.log('[chat-topics] Agentic loop complete:', {
-            turns: agentResult.total_turns,
-            exitReason: agentResult.exit_reason,
+          totalTurns = agentResult.total_turns;
+          exitReason = agentResult.exit_reason;
+          
+          logger.info('Agentic loop complete', {
+            turns: totalTurns,
+            exitReason,
             durationMs: agentResult.total_duration_ms,
+            toolsExecuted: [...new Set(toolsExecuted)],
           });
         } catch (err) {
-          console.error('[chat-topics] Agentic loop error:', err);
+          hadError = true;
+          errorType = err instanceof Error ? err.name : 'UnknownError';
+          errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          logger.error('Agentic loop error', err instanceof Error ? err : undefined);
+          
           const errorEvent = `data: ${JSON.stringify({
             type: 'error',
-            data: { message: err instanceof Error ? err.message : 'Unknown error' },
+            data: { message: errorMessage },
           })}\n\n`;
           await writer.write(encoder.encode(errorEvent));
         } finally {
           await writer.close();
+          
+          // Save metrics asynchronously
+          const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
+          const totalDurationMs = Math.round(performance.now() - requestStartTime);
+          
+          saveMetrics(supabase, {
+            traceId: logger.getTraceId(),
+            functionName: 'chat-topics',
+            organizationId: organizationId || undefined,
+            userId: userId || undefined,
+            brandTemplateId: brandTemplateId || undefined,
+            totalDurationMs,
+            aiCallDurationMs,
+            contextFetchDurationMs,
+            inputTokensEstimated,
+            contextSources,
+            contextRichnessScore: contextMetadata.context_richness_score,
+            totalTurns,
+            toolsExecuted: [...new Set(toolsExecuted)],
+            exitReason,
+            hadError,
+            errorType,
+            errorMessage,
+          }).catch(err => logger.warn('Failed to save metrics', { error: err.message }));
         }
       })();
 
