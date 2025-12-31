@@ -1100,4 +1100,202 @@ All colors MUST be HSL.
       transform: translateY(-10px) rotate(2deg);
     }
   }
+
+  /* ===== MICRO-INTERACTIONS ===== */
+
+  /* Skeleton shimmer effect */
+  @keyframes skeleton-shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted) / 0.5) 20%,
+      hsl(var(--muted) / 0.3) 40%,
+      hsl(var(--muted) / 0.5) 60%,
+      hsl(var(--muted)) 80%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Ripple effect for buttons */
+  @keyframes ripple-effect {
+    0% {
+      transform: scale(0);
+      opacity: 0.3;
+    }
+    100% {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  .ripple-button {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Success bounce animation */
+  @keyframes success-bounce {
+    0%, 100% {
+      transform: scale(1);
+    }
+    25% {
+      transform: scale(1.2);
+    }
+    50% {
+      transform: scale(0.9);
+    }
+    75% {
+      transform: scale(1.1);
+    }
+  }
+
+  .animate-success-bounce {
+    animation: success-bounce 0.5s ease-out;
+  }
+
+  /* Shake animation for errors */
+  @keyframes shake {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+      transform: translateX(-2px);
+    }
+    20%, 40%, 60%, 80% {
+      transform: translateX(2px);
+    }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-out;
+  }
+
+  /* Celebration animation */
+  @keyframes celebration {
+    0%, 100% {
+      transform: scale(1) rotate(0deg);
+    }
+    25% {
+      transform: scale(1.1) rotate(-5deg);
+    }
+    50% {
+      transform: scale(1.2) rotate(5deg);
+    }
+    75% {
+      transform: scale(1.1) rotate(-3deg);
+    }
+  }
+
+  .animate-celebration {
+    animation: celebration 0.6s ease-out;
+  }
+
+  /* Toast slide in animation */
+  @keyframes toast-in {
+    0% {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-toast-in {
+    animation: toast-in 0.3s ease-out;
+  }
+
+  /* Pulse glow for complete state */
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.6;
+      transform: scale(1.05);
+    }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  /* Button press effect */
+  .press-effect {
+    transition: transform 0.1s ease;
+  }
+
+  .press-effect:active {
+    transform: scale(0.97);
+  }
+
+  /* Icon spin on action */
+  @keyframes icon-spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-icon-spin {
+    animation: icon-spin 0.5s ease-out;
+  }
+
+  /* Checkmark draw animation */
+  @keyframes draw-check {
+    0% {
+      stroke-dashoffset: 100;
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .animate-draw-check {
+    stroke-dasharray: 100;
+    animation: draw-check 0.4s ease-out forwards;
+  }
+
+  /* Floating animation for FAB */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Glow pulse for active items */
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 5px hsl(var(--primary) / 0.3);
+    }
+    50% {
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
 }

@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 relative overflow-hidden active:scale-[0.98]",
   {
     variants: {
       variant: {
@@ -34,12 +34,54 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  ripple?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, ripple = true, onClick, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    
+    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (ripple && !asChild) {
+        const button = e.currentTarget;
+        const rect = button.getBoundingClientRect();
+        const rippleEl = document.createElement('span');
+        const rippleSize = Math.max(rect.width, rect.height);
+        const x = e.clientX - rect.left - rippleSize / 2;
+        const y = e.clientY - rect.top - rippleSize / 2;
+
+        rippleEl.style.cssText = `
+          position: absolute;
+          width: ${rippleSize}px;
+          height: ${rippleSize}px;
+          left: ${x}px;
+          top: ${y}px;
+          background: currentColor;
+          opacity: 0.15;
+          border-radius: 50%;
+          transform: scale(0);
+          animation: ripple-effect 0.6s linear;
+          pointer-events: none;
+        `;
+
+        button.appendChild(rippleEl);
+
+        rippleEl.addEventListener('animationend', () => {
+          rippleEl.remove();
+        });
+      }
+      
+      onClick?.(e);
+    };
+    
+    return (
+      <Comp 
+        className={cn(buttonVariants({ variant, size, className }))} 
+        ref={ref} 
+        onClick={handleClick}
+        {...props} 
+      />
+    );
   },
 );
 Button.displayName = "Button";
