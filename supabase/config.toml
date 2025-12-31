@@ -83,3 +83,9 @@ verify_jwt = false
 
 [functions.generate-journey-messaging]
 verify_jwt = false
+
+[functions.chat-conversations]
+verify_jwt = false
+
+[functions.summarize-conversation]
+verify_jwt = false

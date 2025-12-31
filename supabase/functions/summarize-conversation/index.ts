@@ -1,0 +1,204 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
+interface SummarizeRequest {
+  conversationId: string;
+  force?: boolean; // Force re-summarize even if summary exists
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: {
+        headers: { Authorization: authHeader }
+      }
+    });
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body: SummarizeRequest = await req.json();
+    const { conversationId, force = false } = body;
+
+    if (!conversationId) {
+      return new Response(JSON.stringify({ error: 'conversationId required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get conversation
+    const { data: conversation, error: convError } = await supabase
+      .from('chat_conversations')
+      .select('id, title, summary, message_count, content_goal')
+      .eq('id', conversationId)
+      .single();
+
+    if (convError || !conversation) {
+      return new Response(JSON.stringify({ error: 'Conversation not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Skip if already summarized and not forced
+    if (conversation.summary && !force) {
+      return new Response(JSON.stringify({ 
+        summary: conversation.summary,
+        skipped: true,
+        reason: 'Already summarized' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Only summarize if conversation has enough messages
+    if (conversation.message_count < 6) {
+      return new Response(JSON.stringify({ 
+        summary: null,
+        skipped: true,
+        reason: 'Not enough messages to summarize' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get all messages
+    const { data: messages, error: msgError } = await supabase
+      .from('chat_conversation_messages')
+      .select('role, content')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+
+    if (msgError || !messages?.length) {
+      return new Response(JSON.stringify({ error: 'No messages found' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Build conversation text for summarization
+    const conversationText = messages
+      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n\n');
+
+    // Generate summary using AI
+    const summaryPrompt = `Summarize this content marketing conversation in 2-3 concise sentences. Focus on:
+1. Main topic/themes discussed
+2. Key decisions or topics suggested
+3. Format preferences if any
+
+Conversation:
+${conversationText.slice(0, 4000)} // Limit to ~4k chars
+
+Provide summary in Vietnamese. Be brief and factual.`;
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-lite',
+        messages: [
+          { role: 'user', content: summaryPrompt }
+        ],
+        max_tokens: 200,
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI summarization error:', response.status, errorText);
+      throw new Error('Failed to generate summary');
+    }
+
+    const aiResult = await response.json();
+    const summary = aiResult.choices?.[0]?.message?.content?.trim() || '';
+
+    if (!summary) {
+      throw new Error('Empty summary generated');
+    }
+
+    // Generate title if not set
+    let title = conversation.title;
+    if (!title || title.length > 100) {
+      // Use first user message as title, truncated
+      const firstUserMessage = messages.find(m => m.role === 'user');
+      if (firstUserMessage) {
+        title = firstUserMessage.content.slice(0, 80);
+        if (firstUserMessage.content.length > 80) {
+          title += '...';
+        }
+      }
+    }
+
+    // Update conversation with summary
+    const { error: updateError } = await supabase
+      .from('chat_conversations')
+      .update({ 
+        summary,
+        title: title || conversation.title,
+      })
+      .eq('id', conversationId);
+
+    if (updateError) {
+      console.error('Error updating conversation summary:', updateError);
+    }
+
+    console.log('Generated summary for conversation:', conversationId, {
+      messageCount: messages.length,
+      summaryLength: summary.length,
+    });
+
+    return new Response(JSON.stringify({ 
+      summary,
+      title,
+      messageCount: messages.length,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Summarize-conversation error:', error);
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});

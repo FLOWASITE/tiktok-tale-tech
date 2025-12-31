@@ -10,3 +10,4 @@ export {
   removeContextLine,
   type ContextBadgeType 
 } from './ContextBadges';
+export { ConversationHistorySidebar } from './ConversationHistorySidebar';

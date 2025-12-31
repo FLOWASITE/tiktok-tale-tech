@@ -4,7 +4,7 @@ import {
   Sparkles, RefreshCw, Square, Plus, Shuffle, Search as SearchIcon,
   ArrowDown, Copy, Check, AlertCircle, RotateCcw, Volume2, VolumeX,
   X, Loader2, HelpCircle, Eye, EyeOff, Keyboard, Mic, MicOff, User,
-  PanelRightOpen, PanelRightClose, Compass
+  PanelRightOpen, PanelRightClose, Compass, History, PanelLeftOpen, PanelLeftClose
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,7 @@ import { ArtifactsPanel, type ArtifactTopic } from './chatbot/ArtifactsPanel';
 import { DiscoveryTab } from './chatbot/DiscoveryTab';
 import { DiscoveryChips } from './chatbot/DiscoveryChips';
 import { ContextBadges, parseContextBadges, removeContextLine } from './chatbot/ContextBadges';
+import { ConversationHistorySidebar } from './chatbot/ConversationHistorySidebar';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,12 +25,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { ContentGoal } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useProfile } from '@/hooks/useProfile';
+import { useChatConversations } from '@/hooks/useChatConversations';
 
 // Web Speech API types
 interface SpeechRecognitionEvent extends Event {
@@ -355,6 +358,28 @@ export function TopicAIChatbot({
   
   // Active view state for tabs: chat, discovery, artifacts
   const [activeView, setActiveView] = useState<'chat' | 'discovery'>('chat');
+  
+  // Conversation history sidebar state
+  const [showHistorySidebar, setShowHistorySidebar] = useState(false);
+  
+  // Conversation persistence hook
+  const {
+    conversations,
+    currentConversation,
+    isLoading: isLoadingConversations,
+    isSaving: isSavingConversation,
+    createConversation,
+    loadConversation,
+    addMessage: persistMessage,
+    deleteConversation,
+    archiveConversation,
+    clearCurrentConversation,
+    summarizeConversation,
+  } = useChatConversations({
+    brandTemplateId,
+    organizationId: currentOrganization?.id,
+    autoLoad: true,
+  });
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1416,6 +1441,42 @@ export function TopicAIChatbot({
             </div>
           </div>
           <div className="flex items-center gap-0.5">
+            {/* History sidebar toggle */}
+            <Sheet open={showHistorySidebar} onOpenChange={setShowHistorySidebar}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-6 w-6 sm:h-7 sm:w-7", showHistorySidebar && "bg-primary/10")}
+                    >
+                      <History className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </Button>
+                  </SheetTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">Lịch sử chat</TooltipContent>
+              </Tooltip>
+              <SheetContent side="left" className="p-0 w-72">
+                <ConversationHistorySidebar
+                  conversations={conversations}
+                  currentConversationId={currentConversation?.id}
+                  isLoading={isLoadingConversations}
+                  onSelectConversation={(id) => {
+                    loadConversation(id);
+                    setShowHistorySidebar(false);
+                  }}
+                  onNewConversation={() => {
+                    handleReset();
+                    setShowHistorySidebar(false);
+                  }}
+                  onDeleteConversation={deleteConversation}
+                  onArchiveConversation={archiveConversation}
+                  onClose={() => setShowHistorySidebar(false)}
+                />
+              </SheetContent>
+            </Sheet>
+            
             {/* Search toggle */}
             <Tooltip>
               <TooltipTrigger asChild>
