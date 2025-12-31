@@ -36,6 +36,7 @@ import { QuickActionsPanel } from './QuickActionsPanel';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useProfile } from '@/hooks/useProfile';
 import { useChatConversations } from '@/hooks/useChatConversations';
+import { useAutoSaveLearnings } from '@/hooks/useAutoSaveLearnings';
 
 // Web Speech API types
 interface SpeechRecognitionEvent extends Event {
@@ -401,6 +402,9 @@ export function TopicAIChatbot({
   // User profile for avatar
   const { profile } = useProfile();
   
+  // Auto-save learnings hook
+  const { autoExtractOnIdle, learnFromToolUsage, saveCorrection } = useAutoSaveLearnings();
+  
   // Check voice input support
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -695,12 +699,28 @@ export function TopicAIChatbot({
     }
   }, [messages]);
 
-  // Cleanup abort controller on unmount
+  // Cleanup abort controller on unmount and auto-extract learnings
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+      
+      // Auto-extract learnings when component unmounts (user navigates away)
+      if (currentConversation?.id && messages.length >= 6) {
+        autoExtractOnIdle(currentConversation.id, messages.length);
+      }
     };
-  }, []);
+  }, [currentConversation?.id, messages.length, autoExtractOnIdle]);
+  
+  // Auto-extract learnings periodically when conversation reaches milestones
+  useEffect(() => {
+    // Extract at message milestones: 8, 16, 24 messages
+    const messageCount = messages.filter(m => !m.isError && m.id !== 'welcome').length;
+    const milestones = [8, 16, 24];
+    
+    if (currentConversation?.id && milestones.includes(messageCount)) {
+      autoExtractOnIdle(currentConversation.id, messageCount);
+    }
+  }, [messages.length, currentConversation?.id, autoExtractOnIdle]);
 
   // Auto scroll to bottom when near bottom
   useEffect(() => {
@@ -1075,6 +1095,19 @@ export function TopicAIChatbot({
       }
     }
     
+    // Auto-learn from negative feedback
+    if (feedback === 'down' && currentConversation?.id && message?.toolResults?.length) {
+      // Learn that tool usage wasn't satisfactory
+      for (const toolResult of message.toolResults) {
+        learnFromToolUsage(
+          currentConversation.id,
+          toolResult.tool_name,
+          false,
+          'negative'
+        );
+      }
+    }
+    
     // Show toast
     toast({
       title: feedback === 'up' ? '👍 Cảm ơn phản hồi!' : '👎 Cảm ơn phản hồi!',
@@ -1082,7 +1115,7 @@ export function TopicAIChatbot({
         ? 'Phản hồi của bạn giúp AI cải thiện.' 
         : 'Chúng tôi sẽ cố gắng cải thiện.',
     });
-  }, [messages, user, currentOrganization, brandTemplateId]);
+  }, [messages, user, currentOrganization, brandTemplateId, currentConversation?.id, learnFromToolUsage]);
 
   // Handle regenerate response
   const handleRegenerate = useCallback(async (assistantMessage: ChatMessage) => {
