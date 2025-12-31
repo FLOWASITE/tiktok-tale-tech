@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Check, User, Megaphone, Globe, FileText, ChevronLeft, ChevronRight, Briefcase, Target, Users, Package } from 'lucide-react';
+import { User, Users, Package, Dna, Globe, FileText, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 
 export interface Step {
@@ -9,15 +9,14 @@ export interface Step {
   icon: React.ReactNode;
 }
 
+// 6-step structure: Identity → Personas → Products → DNA (Strategy+Voice) → Channels → Guideline
 export const BRAND_FORM_STEPS: Step[] = [
   { id: 1, title: 'Nhận dạng', shortTitle: 'Identity', icon: <User className="w-4 h-4" /> },
-  { id: 2, title: 'Doanh nghiệp', shortTitle: 'Business', icon: <Briefcase className="w-4 h-4" /> },
-  { id: 3, title: 'Khách hàng', shortTitle: 'Personas', icon: <Users className="w-4 h-4" /> },
-  { id: 4, title: 'Sản phẩm', shortTitle: 'Products', icon: <Package className="w-4 h-4" /> },
-  { id: 5, title: 'Chiến lược', shortTitle: 'Strategy', icon: <Target className="w-4 h-4" /> },
-  { id: 6, title: 'Brand Voice', shortTitle: 'Voice', icon: <Megaphone className="w-4 h-4" /> },
-  { id: 7, title: 'Kênh', shortTitle: 'Channels', icon: <Globe className="w-4 h-4" /> },
-  { id: 8, title: 'Guideline', shortTitle: 'Guideline', icon: <FileText className="w-4 h-4" /> },
+  { id: 2, title: 'Khách hàng', shortTitle: 'Personas', icon: <Users className="w-4 h-4" /> },
+  { id: 3, title: 'Sản phẩm', shortTitle: 'Products', icon: <Package className="w-4 h-4" /> },
+  { id: 4, title: 'Chiến lược & Giọng nói', shortTitle: 'DNA', icon: <Dna className="w-4 h-4" /> },
+  { id: 5, title: 'Kênh', shortTitle: 'Channels', icon: <Globe className="w-4 h-4" /> },
+  { id: 6, title: 'Hoàn tất', shortTitle: 'Complete', icon: <FileText className="w-4 h-4" /> },
 ];
 
 interface BrandFormStepperProps {
