@@ -36,7 +36,8 @@ export function buildSystemPrompt(
   industryGlossary?: GlossaryTerm[],
   ragResults?: RAGResult[],
   userPreferences?: UserPreferencesContext | null,
-  sessionMemory?: CrossSessionMemory | null
+  sessionMemory?: CrossSessionMemory | null,
+  conversationRagSection?: string
 ): string {
   // Safe null handling for all optional parameters
   const safeRagResults = ragResults ?? [];
@@ -45,6 +46,7 @@ export function buildSystemPrompt(
   const safeGlossary = industryGlossary ?? [];
   const safeUserPrefs = userPreferences ?? null;
   const safeSessionMemory = sessionMemory ?? null;
+  const safeConversationRag = conversationRagSection ?? '';
   
   // Get current date in Vietnam timezone (UTC+7)
   const now = new Date();
@@ -77,6 +79,11 @@ export function buildSystemPrompt(
   const sessionMemorySection = buildCrossSessionMemorySection(safeSessionMemory);
   if (sessionMemorySection) {
     prompt += sessionMemorySection;
+  }
+
+  // INJECT CONVERSATION RAG (Semantic search over past conversations)
+  if (safeConversationRag) {
+    prompt += '\n\n' + safeConversationRag;
   }
 
   // INJECT USER PREFERENCES (Personalization - High Priority after Industry Memory)

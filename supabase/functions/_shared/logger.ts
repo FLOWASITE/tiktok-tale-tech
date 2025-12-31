@@ -294,6 +294,7 @@ export function getContextSources(options: {
   sampleTexts?: any;
   userPreferences?: any;
   sessionMemory?: any;
+  conversationRag?: any[];
 }): string[] {
   const sources: string[] = [];
   
@@ -308,6 +309,7 @@ export function getContextSources(options: {
   if (options.sampleTexts) sources.push('sampleTexts');
   if (options.userPreferences) sources.push('userPreferences');
   if (options.sessionMemory) sources.push('sessionMemory');
+  if (options.conversationRag?.length) sources.push('conversationRag');
   
   return sources;
 }

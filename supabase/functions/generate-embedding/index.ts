@@ -17,12 +17,14 @@ const MAX_CHUNK_LENGTH = 2000; // Characters per chunk
 const MAX_BATCH_SIZE = 100;
 
 interface EmbeddingRequest {
-  action: 'embed_single' | 'embed_batch' | 'index_content' | 'index_all';
+  action: 'embed_single' | 'embed_batch' | 'index_content' | 'index_all' | 'index_conversation';
   texts?: string[];
   contentType?: 'topic' | 'script' | 'carousel' | 'multichannel';
   contentId?: string;
+  conversationId?: string;
   organizationId: string;
   brandTemplateId?: string;
+  userId?: string;
   metadata?: Record<string, any>;
 }
 
@@ -261,9 +263,9 @@ serve(async (req) => {
 
   try {
     const body: EmbeddingRequest = await req.json();
-    const { action, texts, contentType, contentId, organizationId, brandTemplateId, metadata } = body;
+    const { action, texts, contentType, contentId, conversationId, organizationId, brandTemplateId, userId, metadata } = body;
 
-    if (!organizationId) {
+    if (!organizationId && action !== 'index_conversation') {
       return new Response(
         JSON.stringify({ error: 'organizationId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -330,6 +332,52 @@ serve(async (req) => {
         const result = await indexAllContent(supabase, organizationId, brandTemplateId);
         return new Response(
           JSON.stringify({ success: true, ...result }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'index_conversation': {
+        if (!conversationId || !userId) {
+          return new Response(
+            JSON.stringify({ error: 'conversationId and userId are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Import conversation embedder
+        const conversationEmbedder = await import('../_shared/conversation-embedder.ts');
+        const { indexConversation } = conversationEmbedder;
+        
+        // Fetch conversation with messages
+        const { data: conversation, error: convError } = await supabase
+          .from('chat_conversations')
+          .select('id, user_id, organization_id, brand_template_id, title, summary, session_learnings')
+          .eq('id', conversationId)
+          .single();
+        
+        if (convError || !conversation) {
+          return new Response(
+            JSON.stringify({ error: 'Conversation not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Fetch messages
+        const { data: messages } = await supabase
+          .from('chat_conversation_messages')
+          .select('id, role, content, metadata, created_at')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true });
+        
+        const conversationData = {
+          ...conversation,
+          messages: messages || [],
+        };
+        
+        const result = await indexConversation(supabase, conversationData);
+        
+        return new Response(
+          JSON.stringify(result),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

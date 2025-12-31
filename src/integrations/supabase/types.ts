@@ -700,6 +700,7 @@ export type Database = {
           brand_template_id: string | null
           content_goal: string | null
           created_at: string | null
+          embeddings_indexed_at: string | null
           id: string
           is_archived: boolean | null
           last_message_at: string | null
@@ -717,6 +718,7 @@ export type Database = {
           brand_template_id?: string | null
           content_goal?: string | null
           created_at?: string | null
+          embeddings_indexed_at?: string | null
           id?: string
           is_archived?: boolean | null
           last_message_at?: string | null
@@ -734,6 +736,7 @@ export type Database = {
           brand_template_id?: string | null
           content_goal?: string | null
           created_at?: string | null
+          embeddings_indexed_at?: string | null
           id?: string
           is_archived?: boolean | null
           last_message_at?: string | null
@@ -1163,6 +1166,80 @@ export type Database = {
           },
           {
             foreignKeyName: "content_style_patterns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_embeddings: {
+        Row: {
+          brand_template_id: string | null
+          content_text: string
+          conversation_id: string
+          created_at: string | null
+          embedding: string | null
+          embedding_type: string
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          organization_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          brand_template_id?: string | null
+          content_text: string
+          conversation_id: string
+          created_at?: string | null
+          embedding?: string | null
+          embedding_type: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          brand_template_id?: string | null
+          content_text?: string
+          conversation_id?: string
+          created_at?: string | null
+          embedding?: string | null
+          embedding_type?: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_embeddings_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_embeddings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_embeddings_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversation_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_embeddings_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -3583,6 +3660,28 @@ export type Database = {
       is_org_member: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
+      }
+      search_conversation_embeddings: {
+        Args: {
+          exclude_conversation_id?: string
+          match_brand_template_id?: string
+          match_count?: number
+          match_organization_id?: string
+          match_threshold?: number
+          match_types?: string[]
+          match_user_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content_text: string
+          conversation_id: string
+          created_at: string
+          embedding_type: string
+          id: string
+          message_id: string
+          metadata: Json
+          similarity: number
+        }[]
       }
       search_embeddings: {
         Args: {

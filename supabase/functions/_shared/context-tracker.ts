@@ -14,7 +14,8 @@ export type ContextBadgeType =
   | 'trending'
   | 'evergreen'
   | 'rag-enhanced'
-  | 'web-search';
+  | 'web-search'
+  | 'conversation-memory';
 
 export interface ContextBadge {
   type: ContextBadgeType;
@@ -38,6 +39,7 @@ export interface ContextMetadata {
     userPreferences: boolean;
     sessionMemory: boolean;
     webSearch: boolean;
+    conversationRag: boolean;
   };
   prompt_tokens_estimate?: number;
   context_richness_score?: number; // 0-100 score based on available context
@@ -56,6 +58,7 @@ interface ContextTrackerOptions {
   userPreferences?: any;
   sessionMemory?: any;
   webSearchResults?: any[];
+  conversationRagResults?: any[];
 }
 
 /**
@@ -76,6 +79,7 @@ export function buildContextMetadata(options: ContextTrackerOptions): ContextMet
     userPreferences: false,
     sessionMemory: false,
     webSearch: false,
+    conversationRag: false,
   };
 
   // Track industry memory / compliance
@@ -234,6 +238,17 @@ export function buildContextMetadata(options: ContextTrackerOptions): ContextMet
       label: 'Web Search',
       detail: `${options.webSearchResults.length} results`,
       confidence: 0.95,
+    });
+  }
+
+  // Track conversation RAG results
+  if (options.conversationRagResults && options.conversationRagResults.length > 0) {
+    sources.conversationRag = true;
+    badges.push({
+      type: 'conversation-memory',
+      label: 'Conversation Memory',
+      detail: `${options.conversationRagResults.length} past conversations`,
+      confidence: 0.9,
     });
   }
 
