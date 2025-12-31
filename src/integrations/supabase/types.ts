@@ -824,6 +824,63 @@ export type Database = {
         }
         Relationships: []
       }
+      content_embeddings: {
+        Row: {
+          brand_template_id: string | null
+          chunk_index: number | null
+          content_id: string
+          content_text: string
+          content_type: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          chunk_index?: number | null
+          content_id: string
+          content_text: string
+          content_type: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          chunk_index?: number | null
+          content_id?: string
+          content_text?: string
+          content_type?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_embeddings_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_embeddings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_publishing_logs: {
         Row: {
           action: string
@@ -3107,6 +3164,24 @@ export type Database = {
       is_org_member: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
+      }
+      search_embeddings: {
+        Args: {
+          match_brand_template_id?: string
+          match_content_types?: string[]
+          match_count?: number
+          match_organization_id: string
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content_id: string
+          content_text: string
+          content_type: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
       }
     }
     Enums: {

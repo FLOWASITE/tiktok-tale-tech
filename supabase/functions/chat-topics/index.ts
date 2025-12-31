@@ -9,6 +9,8 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const EMBEDDING_MODEL = 'text-embedding-004';
+const EMBEDDING_DIMENSIONS = 768;
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -20,6 +22,14 @@ interface ChatRequest {
   brandTemplateId?: string;
   contentGoal?: string;
   organizationId?: string;
+}
+
+interface RAGResult {
+  content_type: string;
+  content_id: string;
+  content_text: string;
+  similarity: number;
+  metadata: Record<string, any>;
 }
 
 interface BrandContext {
@@ -69,6 +79,132 @@ interface GlossaryTerm {
   example_usage: string | null;
   is_preferred: boolean;
   related_terms: string[];
+}
+
+// Generate embedding for RAG query
+async function generateQueryEmbedding(query: string): Promise<number[] | null> {
+  if (!LOVABLE_API_KEY) return null;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: EMBEDDING_MODEL,
+        input: [query],
+        dimensions: EMBEDDING_DIMENSIONS,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Embedding API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch (error) {
+    console.error('Error generating query embedding:', error);
+    return null;
+  }
+}
+
+// Search for relevant past content using RAG
+async function searchRelevantContent(
+  supabase: any,
+  query: string,
+  organizationId: string,
+  brandTemplateId?: string,
+  limit: number = 5
+): Promise<RAGResult[]> {
+  try {
+    const embedding = await generateQueryEmbedding(query);
+    if (!embedding) return [];
+
+    const embeddingStr = `[${embedding.join(',')}]`;
+
+    const { data, error } = await supabase.rpc('search_embeddings', {
+      query_embedding: embeddingStr,
+      match_organization_id: organizationId,
+      match_brand_template_id: brandTemplateId || null,
+      match_content_types: ['topic', 'script'],
+      match_threshold: 0.7,
+      match_count: limit,
+    });
+
+    if (error) {
+      console.error('RAG search error:', error);
+      return [];
+    }
+
+    // Deduplicate by content_id
+    const deduped = new Map<string, RAGResult>();
+    for (const r of (data || [])) {
+      const key = `${r.content_type}:${r.content_id}`;
+      if (!deduped.has(key) || deduped.get(key)!.similarity < r.similarity) {
+        deduped.set(key, r);
+      }
+    }
+
+    return Array.from(deduped.values())
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+  } catch (error) {
+    console.error('Error in RAG search:', error);
+    return [];
+  }
+}
+
+// Build RAG context section for system prompt
+function buildRAGContextSection(ragResults: RAGResult[]): string {
+  if (!ragResults?.length) return '';
+
+  let section = `
+
+## 🔍 RELATED PAST CONTENT (RAG Context)
+
+Đây là các content đã tạo trước đó có liên quan đến cuộc hội thoại. Tham khảo để:
+- Tránh gợi ý topics trùng lặp hoặc quá tương tự
+- Học từ patterns thành công
+- Maintain consistency với content đã publish`;
+
+  const topicResults = ragResults.filter(r => r.content_type === 'topic');
+  const scriptResults = ragResults.filter(r => r.content_type === 'script');
+
+  if (topicResults.length > 0) {
+    section += `
+
+### 📌 Related Topics:`;
+    topicResults.forEach((r, i) => {
+      const score = r.metadata?.performance_score;
+      const category = r.metadata?.category;
+      let line = `${i + 1}. "${r.content_text.slice(0, 80)}${r.content_text.length > 80 ? '...' : ''}" (similarity: ${Math.round(r.similarity * 100)}%`;
+      if (score) line += `, score: ${score}`;
+      if (category) line += `, ${category}`;
+      line += ')';
+      section += `
+${line}`;
+    });
+  }
+
+  if (scriptResults.length > 0) {
+    section += `
+
+### 🎬 Related Scripts:`;
+    scriptResults.forEach((r, i) => {
+      section += `
+${i + 1}. "${r.content_text.slice(0, 80)}${r.content_text.length > 80 ? '...' : ''}" (similarity: ${Math.round(r.similarity * 100)}%)`;
+    });
+  }
+
+  section += `
+
+⚠️ **QUAN TRỌNG**: Tham khảo content đã có để tránh trùng lặp. Nếu gợi ý topic tương tự content đã có, hãy đề xuất góc nhìn MỚI hoặc cải tiến.`;
+
+  return section;
 }
 
 // Fetch industry memory from database
@@ -724,7 +860,23 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging + Glossary
+    // RAG: Search for relevant past content based on user's latest message
+    let ragResults: RAGResult[] = [];
+    if (organizationId && messages.length > 0) {
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+      if (lastUserMessage) {
+        ragResults = await searchRelevantContent(
+          supabase,
+          lastUserMessage.content,
+          organizationId,
+          brandTemplateId,
+          5
+        );
+        console.log('RAG search results:', ragResults.length, 'relevant items found');
+      }
+    }
+
+    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging + Glossary + RAG
     const systemPrompt = buildSystemPrompt(
       brandContext, 
       contentGoal, 
@@ -736,7 +888,8 @@ serve(async (req) => {
       learningContext,
       journeyMessaging,
       sampleTexts,
-      industryGlossary
+      industryGlossary,
+      ragResults
     );
 
     // Prepare messages for AI
@@ -764,6 +917,8 @@ serve(async (req) => {
       sampleTextsChannels: sampleTexts ? Object.keys(sampleTexts).length : 0,
       hasIndustryGlossary: industryGlossary.length > 0,
       industryGlossaryCount: industryGlossary.length,
+      hasRAGContext: ragResults.length > 0,
+      ragResultsCount: ragResults.length,
     });
 
     // Call Lovable AI with streaming
@@ -829,7 +984,8 @@ function buildSystemPrompt(
   learningContext?: LearningContext | null,
   journeyMessaging?: JourneyStageMessagingData[],
   sampleTexts?: Record<string, string> | null,
-  industryGlossary?: GlossaryTerm[]
+  industryGlossary?: GlossaryTerm[],
+  ragResults?: RAGResult[]
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -842,6 +998,7 @@ function buildSystemPrompt(
   const safeIndustryMemory = industryMemory ?? null;
   const safeLearningContext = learningContext ?? null;
   const safeGlossary = industryGlossary ?? [];
+  const safeRagResults = ragResults ?? [];
   
   let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
 
@@ -850,6 +1007,12 @@ function buildSystemPrompt(
 - Đưa ra gợi ý cụ thể, có thể hành động được ngay
 - Giải thích ngắn gọn tại sao mỗi ý tưởng phù hợp
 - Sử dụng emoji phù hợp để tạo sự thân thiện`;
+
+  // INJECT RAG CONTEXT (Semantic Search Results)
+  const ragSection = buildRAGContextSection(safeRagResults);
+  if (ragSection) {
+    prompt += ragSection;
+  }
 
   // INJECT INDUSTRY MEMORY FIRST (Highest Priority)
   const industrySection = buildIndustryContextSection(safeIndustryMemory);
@@ -902,6 +1065,7 @@ Khi gợi ý topic, format như sau:
 - \`📖 Glossary\` - Sử dụng thuật ngữ ngành chuẩn từ glossary
 - \`🔥 Trending\` - Topic trending hoặc seasonal
 - \`🌲 Evergreen\` - Topic evergreen, value lâu dài
+- \`🔍 RAG-enhanced\` - Tham khảo content đã publish để tránh trùng lặp
 
 Ví dụ:
 
