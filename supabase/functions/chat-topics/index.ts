@@ -5,6 +5,7 @@ import { LearningContext, JourneyStageMessagingData, buildJourneyStageMessagingS
 import { CHAT_TOOLS, ToolCall, ToolCallResult } from "../_shared/tool-definitions.ts";
 import { executeToolCall } from "../_shared/tool-executor.ts";
 import { fetchUserPreferences, buildUserPreferencesSection, UserPreferencesContext } from "../_shared/user-preferences.ts";
+import { fetchCrossSessionMemory, buildCrossSessionMemorySection, CrossSessionMemory } from "../_shared/session-memory.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -685,10 +686,18 @@ serve(async (req) => {
     let sampleTexts: Record<string, string> | null = null;
     let industryGlossary: GlossaryTerm[] = [];
     let userPreferences: UserPreferencesContext | null = null;
+    let sessionMemory: CrossSessionMemory | null = null;
     
-    // Fetch user preferences if userId is provided
+    // Fetch user preferences and cross-session memory if userId is provided
     if (userId) {
-      userPreferences = await fetchUserPreferences(supabase, userId, brandTemplateId);
+      const [userPrefsResult, sessionMemoryResult] = await Promise.all([
+        fetchUserPreferences(supabase, userId, brandTemplateId),
+        fetchCrossSessionMemory(supabase, userId, brandTemplateId, organizationId, 10),
+      ]);
+      
+      userPreferences = userPrefsResult;
+      sessionMemory = sessionMemoryResult;
+      
       if (userPreferences) {
         console.log('Loaded user preferences:', {
           tone: userPreferences.preferredTone,
@@ -696,6 +705,16 @@ serve(async (req) => {
           emojiFrequency: userPreferences.emojiFrequency,
           stylePatterns: userPreferences.stylePatterns.length,
           avgEditPercentage: userPreferences.avgEditPercentage,
+        });
+      }
+      
+      if (sessionMemory) {
+        console.log('Loaded cross-session memory:', {
+          insights: sessionMemory.insights.length,
+          corrections: sessionMemory.corrections.length,
+          summaries: sessionMemory.conversationSummaries.length,
+          totalConversations: sessionMemory.totalConversations,
+          avgMessagesPerSession: sessionMemory.avgMessagesPerSession,
         });
       }
     }
@@ -896,7 +915,7 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging + Glossary + RAG + User Preferences
+    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging + Glossary + RAG + User Preferences + Session Memory
     const systemPrompt = buildSystemPrompt(
       brandContext, 
       contentGoal, 
@@ -910,7 +929,8 @@ serve(async (req) => {
       sampleTexts,
       industryGlossary,
       ragResults,
-      userPreferences
+      userPreferences,
+      sessionMemory
     );
 
     // Prepare messages for AI
@@ -943,6 +963,9 @@ serve(async (req) => {
       hasUserPreferences: !!userPreferences,
       userPrefsSkillLevel: userPreferences?.skillLevel,
       userPrefsTone: userPreferences?.preferredTone,
+      hasSessionMemory: !!sessionMemory,
+      sessionMemoryInsights: sessionMemory?.insights.length || 0,
+      sessionMemoryCorrections: sessionMemory?.corrections.length || 0,
       enableTools: enableTools ?? true,
     });
 
@@ -1275,7 +1298,8 @@ function buildSystemPrompt(
   sampleTexts?: Record<string, string> | null,
   industryGlossary?: GlossaryTerm[],
   ragResults?: RAGResult[],
-  userPreferences?: UserPreferencesContext | null
+  userPreferences?: UserPreferencesContext | null,
+  sessionMemory?: CrossSessionMemory | null
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -1290,6 +1314,7 @@ function buildSystemPrompt(
   const safeGlossary = industryGlossary ?? [];
   const safeRagResults = ragResults ?? [];
   const safeUserPrefs = userPreferences ?? null;
+  const safeSessionMemory = sessionMemory ?? null;
   
   let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
 
@@ -1298,6 +1323,12 @@ function buildSystemPrompt(
 - Đưa ra gợi ý cụ thể, có thể hành động được ngay
 - Giải thích ngắn gọn tại sao mỗi ý tưởng phù hợp
 - Sử dụng emoji phù hợp để tạo sự thân thiện`;
+
+  // INJECT CROSS-SESSION MEMORY (High Priority - Remembers past conversations)
+  const sessionMemorySection = buildCrossSessionMemorySection(safeSessionMemory);
+  if (sessionMemorySection) {
+    prompt += sessionMemorySection;
+  }
 
   // INJECT USER PREFERENCES (Personalization - High Priority after Industry Memory)
   const userPrefsSection = buildUserPreferencesSection(safeUserPrefs);
@@ -1364,6 +1395,7 @@ Khi gợi ý topic, format như sau:
 - \`🌲 Evergreen\` - Topic evergreen, value lâu dài
 - \`🔍 RAG-enhanced\` - Tham khảo content đã publish để tránh trùng lặp
 - \`👤 Personalized\` - Điều chỉnh theo user preferences (tone, emoji, style đã học)
+- \`🧠 Memory\` - Nhớ từ các cuộc trò chuyện trước (corrections, insights, patterns)
 
 Ví dụ:
 
@@ -1377,7 +1409,7 @@ Ví dụ:
 📌 **Topic:** Behind-the-scenes: Một Ngày Của Team Marketing
 💡 **Lý do:** Tạo kết nối cảm xúc, tăng tương tác cao
 🎯 **Format đề xuất:** Script
-🏷️ **Context:** \`✨ Brand Voice\` \`🌲 Evergreen\`
+🏷️ **Context:** \`✨ Brand Voice\` \`🌲 Evergreen\` \`🧠 Memory\`
 
 ---
 
@@ -1391,7 +1423,8 @@ Ví dụ:
 7. \`✨ Brand Voice\` - Dùng khi dựa trên sample texts
 8. \`📖 Glossary\` - Dùng khi topic sử dụng thuật ngữ chuyên ngành từ glossary
 9. \`👤 Personalized\` - Dùng khi đã áp dụng user preferences (tone, emoji, style)
-10. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
+10. \`🧠 Memory\` - Dùng khi áp dụng learnings từ các conversation trước
+11. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
 
 Gợi ý 2-4 topics, phân cách bằng dấu --- giữa mỗi topic.`;
 
