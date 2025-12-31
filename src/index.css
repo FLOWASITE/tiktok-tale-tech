@@ -692,6 +692,98 @@ All colors MUST be HSL.
     }
   }
 
+  /* ========== PHASE 5: VISUAL ENHANCEMENTS ========== */
+
+  /* Filter Pill Styles */
+  .filter-pill {
+    @apply relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300;
+    @apply border border-border/50 bg-background hover:bg-muted;
+  }
+
+  .filter-pill-active {
+    @apply border-transparent text-primary-foreground;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+    box-shadow: 0 2px 12px hsl(var(--primary) / 0.35);
+  }
+
+  .filter-pill-active:hover {
+    box-shadow: 0 4px 16px hsl(var(--primary) / 0.45);
+  }
+
+  /* Enhanced Search Input */
+  .search-enhanced {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .search-enhanced:focus-within {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+    border-color: hsl(var(--primary) / 0.5);
+  }
+
+  .search-enhanced:focus-within .search-icon {
+    @apply text-primary;
+  }
+
+  /* FAB Pulse Animation */
+  @keyframes fab-pulse {
+    0%, 100% { 
+      box-shadow: 0 4px 12px hsl(var(--primary) / 0.3), 0 0 0 0 hsl(var(--primary) / 0.4); 
+    }
+    50% { 
+      box-shadow: 0 6px 20px hsl(var(--primary) / 0.4), 0 0 0 8px hsl(var(--primary) / 0); 
+    }
+  }
+
+  .fab-animate {
+    animation: fab-pulse 2s ease-in-out infinite;
+  }
+
+  /* View Toggle with Sliding Indicator */
+  .view-toggle-container {
+    @apply relative flex p-0.5 rounded-lg bg-muted/50 border;
+  }
+
+  .view-toggle-btn {
+    @apply relative z-10 flex items-center justify-center w-9 h-8 rounded-md transition-colors duration-200;
+  }
+
+  .view-toggle-btn.active {
+    @apply text-primary-foreground;
+  }
+
+  .view-toggle-indicator {
+    @apply absolute top-0.5 left-0.5 h-8 rounded-md transition-transform duration-200 ease-out;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9));
+    width: calc(50% - 2px);
+  }
+
+  .view-toggle-indicator.list {
+    transform: translateX(100%);
+  }
+
+  /* Sort Dropdown Enhanced */
+  .sort-option-icon {
+    @apply w-4 h-4 mr-2 text-muted-foreground;
+  }
+
+  /* No Results Animation */
+  @keyframes search-bounce {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-8px) rotate(-5deg); }
+    75% { transform: translateY(-4px) rotate(5deg); }
+  }
+
+  .search-icon-animated {
+    animation: search-bounce 2s ease-in-out infinite;
+  }
+
+  /* Suggestion Chip */
+  .suggestion-chip {
+    @apply px-3 py-1.5 text-xs rounded-full border border-border/50 bg-muted/30;
+    @apply hover:bg-primary/10 hover:border-primary/30 hover:text-primary;
+    @apply transition-all duration-200 cursor-pointer;
+  }
+
   /* Particle dots */
   .particle {
     position: absolute;

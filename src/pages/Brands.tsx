@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useBrandAnalytics } from '@/hooks/useBrandAnalytics';
 import { useBrandCounts } from '@/hooks/useBrandCounts';
@@ -10,7 +10,6 @@ import { BrandHeroSection } from '@/components/brand/BrandHeroSection';
 import { BrandEmptyState } from '@/components/brand/BrandEmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -19,12 +18,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SlidePanel } from '@/components/ui/slide-panel';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Loader2, User, Building2, LayoutGrid, List, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  Search, 
+  Loader2, 
+  User, 
+  Building2, 
+  LayoutGrid, 
+  List, 
+  CheckSquare, 
+  ChevronLeft, 
+  ChevronRight,
+  X,
+  Plus,
+  Star,
+  SortAsc,
+  Calendar,
+  Sparkles
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
+import { motion, AnimatePresence } from 'framer-motion';
 type SortOption = 'name' | 'created_at' | 'is_default';
 type FilterScope = 'all' | 'personal' | 'organization';
 type ViewMode = 'grid' | 'list';
@@ -69,10 +84,24 @@ export default function Brands() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showFab, setShowFab] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+
+  // Track scroll to show/hide FAB
+  useEffect(() => {
+    const handleScroll = () => {
+      if (heroRef.current) {
+        const heroBottom = heroRef.current.getBoundingClientRect().bottom;
+        setShowFab(heroBottom < 0);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleCreate = () => {
     setEditingTemplate(null);
@@ -339,61 +368,107 @@ export default function Brands() {
       />
 
       {/* Hero Section */}
-      <BrandHeroSection
-        totalBrands={templates.length}
-        personalCount={personalCount}
-        orgCount={orgCount}
-        averageCompleteness={averageCompleteness}
-        onCreateNew={handleCreate}
-        onImport={() => document.getElementById('import-input')?.click()}
-        onExport={handleExport}
-        isExportDisabled={templates.length === 0}
-      />
+      <div ref={heroRef}>
+        <BrandHeroSection
+          totalBrands={templates.length}
+          personalCount={personalCount}
+          orgCount={orgCount}
+          averageCompleteness={averageCompleteness}
+          onCreateNew={handleCreate}
+          onImport={() => document.getElementById('import-input')?.click()}
+          onExport={handleExport}
+          isExportDisabled={templates.length === 0}
+        />
+      </div>
 
-      {/* Tabs for scope filtering */}
-      <Tabs value={filterScope} onValueChange={(v) => setFilterScope(v as FilterScope)}>
-        <TabsList className="w-full sm:w-auto overflow-x-auto">
-          <TabsTrigger value="all" className="gap-1 text-xs sm:text-sm flex-1 sm:flex-none">
-            <span className="hidden sm:inline">Tất cả</span>
-            <span className="sm:hidden">All</span>
-            <span className="text-[10px] sm:text-xs text-muted-foreground">({templates.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="personal" className="gap-1 text-xs sm:text-sm flex-1 sm:flex-none">
-            <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            <span className="hidden sm:inline">Cá nhân</span>
-            <span className="text-[10px] sm:text-xs text-muted-foreground">({personalCount})</span>
-          </TabsTrigger>
-          {currentOrganization && (
-            <TabsTrigger value="organization" className="gap-1 text-xs sm:text-sm flex-1 sm:flex-none">
-              <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="hidden sm:inline">{currentOrganization.name}</span>
-              <span className="sm:hidden">Org</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground">({orgCount})</span>
-            </TabsTrigger>
-          )}
-        </TabsList>
-      </Tabs>
+      {/* Animated Filter Pills */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { value: 'all' as FilterScope, label: 'Tất cả', count: templates.length, icon: Sparkles },
+          { value: 'personal' as FilterScope, label: 'Cá nhân', count: personalCount, icon: User },
+          ...(currentOrganization ? [{ 
+            value: 'organization' as FilterScope, 
+            label: currentOrganization.name, 
+            count: orgCount, 
+            icon: Building2 
+          }] : [])
+        ].map((filter) => (
+          <motion.button
+            key={filter.value}
+            onClick={() => setFilterScope(filter.value)}
+            className={cn(
+              'filter-pill flex items-center gap-2',
+              filterScope === filter.value && 'filter-pill-active'
+            )}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <filter.icon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{filter.label}</span>
+            <span className={cn(
+              'text-xs px-1.5 py-0.5 rounded-full',
+              filterScope === filter.value 
+                ? 'bg-primary-foreground/20' 
+                : 'bg-muted text-muted-foreground'
+            )}>
+              {filter.count}
+            </span>
+          </motion.button>
+        ))}
+      </div>
 
-      {/* Search & Filter */}
-      <div className="flex flex-col gap-2 sm:gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Enhanced Search & Filter Controls */}
+      <div className="flex flex-col gap-3">
+        {/* Enhanced Search Input */}
+        <div className="relative flex-1 search-enhanced rounded-lg border">
+          <Search className="search-icon absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors" />
           <Input
-            placeholder="Tìm kiếm theo tên..."
+            placeholder="Tìm kiếm theo tên brand..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 sm:h-10 text-sm"
+            className="pl-9 pr-9 h-10 text-sm border-0 focus-visible:ring-0"
           />
+          <AnimatePresence>
+            {searchQuery && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
+
+        {/* Controls Row */}
         <div className="flex gap-2 overflow-x-auto pb-1">
+          {/* Enhanced Sort Dropdown */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[130px] sm:w-[160px] h-8 sm:h-10 text-xs sm:text-sm shrink-0">
+            <SelectTrigger className="w-[140px] sm:w-[160px] h-9 text-xs sm:text-sm shrink-0">
               <SelectValue placeholder="Sắp xếp theo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="is_default">Mặc định trước</SelectItem>
-              <SelectItem value="name">Tên A-Z</SelectItem>
-              <SelectItem value="created_at">Mới nhất</SelectItem>
+              <SelectItem value="is_default">
+                <div className="flex items-center">
+                  <Star className="sort-option-icon" />
+                  Mặc định trước
+                </div>
+              </SelectItem>
+              <SelectItem value="name">
+                <div className="flex items-center">
+                  <SortAsc className="sort-option-icon" />
+                  Tên A-Z
+                </div>
+              </SelectItem>
+              <SelectItem value="created_at">
+                <div className="flex items-center">
+                  <Calendar className="sort-option-icon" />
+                  Mới nhất
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
           
@@ -403,29 +478,29 @@ export default function Brands() {
             size="icon"
             onClick={toggleSelectionMode}
             disabled={filteredTemplates.length === 0}
-            className="h-8 w-8 sm:h-10 sm:w-10 shrink-0"
+            className="h-9 w-9 shrink-0"
           >
-            <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <CheckSquare className="w-4 h-4" />
           </Button>
           
-          {/* View mode toggle */}
-          <div className="flex border rounded-md shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn('rounded-r-none h-8 w-8 sm:h-10 sm:w-10', viewMode === 'grid' && 'bg-muted')}
+          {/* Enhanced View Mode Toggle with Sliding Indicator */}
+          <div className="view-toggle-container shrink-0">
+            <div 
+              className={cn('view-toggle-indicator', viewMode === 'list' && 'list')}
+              style={{ width: 'calc(50% - 2px)' }}
+            />
+            <button
+              className={cn('view-toggle-btn', viewMode === 'grid' && 'active')}
               onClick={() => setViewMode('grid')}
             >
-              <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn('rounded-l-none h-8 w-8 sm:h-10 sm:w-10', viewMode === 'list' && 'bg-muted')}
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              className={cn('view-toggle-btn', viewMode === 'list' && 'active')}
               onClick={() => setViewMode('list')}
             >
-              <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </Button>
+              <List className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -437,17 +512,47 @@ export default function Brands() {
         </div>
       ) : filteredTemplates.length === 0 ? (
         searchQuery || filterScope !== 'all' ? (
-          <div className="text-center py-16 space-y-4 animate-fade-in">
+          <motion.div 
+            className="text-center py-16 space-y-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-              <Search className="w-10 h-10 text-muted-foreground" />
+              <Search className="w-10 h-10 text-muted-foreground search-icon-animated" />
             </div>
-            <div>
-              <h3 className="text-lg font-semibold">Không tìm thấy</h3>
-              <p className="text-muted-foreground text-sm">
-                Không có template nào phù hợp với bộ lọc hiện tại
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Không tìm thấy kết quả</h3>
+              <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+                Không có brand nào phù hợp với "{searchQuery || filterScope}"
               </p>
             </div>
-          </div>
+            {/* Suggestion Chips */}
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="suggestion-chip"
+                >
+                  Xóa tìm kiếm
+                </button>
+              )}
+              {filterScope !== 'all' && (
+                <button 
+                  onClick={() => setFilterScope('all')}
+                  className="suggestion-chip"
+                >
+                  Xem tất cả
+                </button>
+              )}
+              <button 
+                onClick={handleCreate}
+                className="suggestion-chip hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              >
+                <Plus className="w-3 h-3 inline mr-1" />
+                Tạo brand mới
+              </button>
+            </div>
+          </motion.div>
         ) : (
           <BrandEmptyState onCreateNew={handleCreate} />
         )
@@ -605,6 +710,21 @@ export default function Brands() {
           isLoading={saving}
         />
       </SlidePanel>
+
+      {/* Mobile FAB - Only visible on mobile when hero is scrolled out */}
+      <AnimatePresence>
+        {showFab && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            onClick={handleCreate}
+            className="fixed bottom-6 right-6 z-50 md:hidden w-14 h-14 rounded-full gradient-primary text-primary-foreground shadow-lg fab-animate flex items-center justify-center"
+          >
+            <Plus className="w-6 h-6" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
