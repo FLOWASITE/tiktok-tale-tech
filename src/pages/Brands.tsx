@@ -7,6 +7,7 @@ import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
 import { BrandBulkActionsBar } from '@/components/BrandBulkActionsBar';
 import { BrandHeroSection } from '@/components/brand/BrandHeroSection';
+import { BrandEmptyState } from '@/components/brand/BrandEmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -435,35 +436,21 @@ export default function Brands() {
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
       ) : filteredTemplates.length === 0 ? (
-        <div className="text-center py-16 space-y-4 animate-fade-in">
-          <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center animate-float">
-            <svg className="w-12 h-12 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
-          </div>
-          {searchQuery || filterScope !== 'all' ? (
+        searchQuery || filterScope !== 'all' ? (
+          <div className="text-center py-16 space-y-4 animate-fade-in">
+            <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+              <Search className="w-10 h-10 text-muted-foreground" />
+            </div>
             <div>
               <h3 className="text-lg font-semibold">Không tìm thấy</h3>
               <p className="text-muted-foreground text-sm">
                 Không có template nào phù hợp với bộ lọc hiện tại
               </p>
             </div>
-          ) : (
-            <>
-              <h3 className="text-xl font-semibold">Chưa có Brand nào</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Brand giúp tạo nội dung nhất quán với phong cách thương hiệu của bạn. Bắt đầu bằng cách tạo brand đầu tiên.
-              </p>
-              <div className="flex justify-center gap-3 pt-2">
-                <Button onClick={handleCreate} className="shimmer-btn">
-                  Tạo Brand đầu tiên
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
+          </div>
+        ) : (
+          <BrandEmptyState onCreateNew={handleCreate} />
+        )
       ) : (
         <div className={cn(
           viewMode === 'grid' 
