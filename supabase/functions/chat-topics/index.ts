@@ -1491,7 +1491,26 @@ function buildSystemPrompt(
   const safeUserPrefs = userPreferences ?? null;
   const safeSessionMemory = sessionMemory ?? null;
   
+  // Get current date in Vietnam timezone (UTC+7)
+  const now = new Date();
+  const vnTimeOffset = 7 * 60 * 60 * 1000; // UTC+7
+  const vnTime = new Date(now.getTime() + vnTimeOffset);
+  const currentDateISO = vnTime.toISOString().split('T')[0]; // YYYY-MM-DD
+  const dayOfWeekNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+  const dayOfWeek = dayOfWeekNames[vnTime.getUTCDay()];
+  const monthNames = ['tháng 1', 'tháng 2', 'tháng 3', 'tháng 4', 'tháng 5', 'tháng 6', 'tháng 7', 'tháng 8', 'tháng 9', 'tháng 10', 'tháng 11', 'tháng 12'];
+  const currentMonth = monthNames[vnTime.getUTCMonth()];
+  const currentYear = vnTime.getUTCFullYear();
+  const currentDay = vnTime.getUTCDate();
+
   let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
+
+## 📅 THÔNG TIN THỜI GIAN HIỆN TẠI:
+- **Ngày hiện tại:** ${dayOfWeek}, ngày ${currentDay} ${currentMonth} năm ${currentYear} (${currentDateISO})
+- **Múi giờ:** Vietnam (UTC+7)
+
+→ Sử dụng thông tin này khi trả lời về trends "tuần này", "tháng này", seasonal content, sự kiện sắp tới.
+→ Khi user hỏi "hôm nay là ngày mấy" hoặc thời gian hiện tại, trả lời dựa trên ngày ở trên.
 
 ## Vai trò của bạn:
 - Giúp người dùng tìm ý tưởng content phù hợp với brand và mục tiêu của họ
