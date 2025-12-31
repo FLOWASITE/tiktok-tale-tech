@@ -36,7 +36,7 @@ import {
   Download, Building2, Image, BarChart3, CheckSquare,
   FileText, ScrollText, Check, CheckCheck, HelpCircle,
   User, Settings2, Smartphone, Monitor, Laptop, GraduationCap,
-  Users2, TrendingUp, ShieldCheck, Calendar, Map
+  Users2, TrendingUp, ShieldCheck, Calendar, Map, Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -65,6 +65,8 @@ import {
 import { JourneyMapEditor } from '@/components/brand/JourneyMapEditor';
 import { useIndustryPersonasForImport } from '@/hooks/useIndustryPersonas';
 import { PersonaPreviewCard } from '@/components/brand/PersonaPreviewCard';
+import { LocalProductPersonaLinker, LocalProductPersonaMapping } from '@/components/brand/LocalProductPersonaLinker';
+import { LocalProduct } from '@/components/brand/ProductCatalogEditor';
 
 // Predefined options
 const PREFERRED_CHANNEL_OPTIONS = [
@@ -96,6 +98,9 @@ interface BrandFormStepPersonasProps {
   brandName?: string;
   disabled?: boolean;
   industryTemplateId?: string | null;
+  localProducts?: LocalProduct[];
+  localMappings?: LocalProductPersonaMapping[];
+  onLocalMappingsChange?: (mappings: LocalProductPersonaMapping[]) => void;
 }
 
 export function BrandFormStepPersonas({
@@ -105,6 +110,9 @@ export function BrandFormStepPersonas({
   brandName,
   disabled = false,
   industryTemplateId,
+  localProducts = [],
+  localMappings = [],
+  onLocalMappingsChange,
 }: BrandFormStepPersonasProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showIndustryImport, setShowIndustryImport] = useState(false);
@@ -427,6 +435,15 @@ export function BrandFormStepPersonas({
                                       </Badge>
                                     )}
                                   </div>
+                                  {/* Linked Products Count */}
+                                  {localMappings.filter(m => m.persona_id === persona.id).length > 0 && (
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1">
+                                        <Package className="w-2.5 h-2.5" />
+                                        {localMappings.filter(m => m.persona_id === persona.id).length} sản phẩm
+                                      </Badge>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
@@ -451,6 +468,18 @@ export function BrandFormStepPersonas({
                                 </Button>
                               </div>
                             </div>
+                            
+                            {/* Product Linker - visible when selected */}
+                            {isSelected && localProducts.length > 0 && onLocalMappingsChange && (
+                              <LocalProductPersonaLinker
+                                mode="persona"
+                                personaId={persona.id}
+                                products={localProducts}
+                                personas={personas}
+                                mappings={localMappings}
+                                onMappingsChange={onLocalMappingsChange}
+                              />
+                            )}
                           </CardContent>
                         </Card>
                       );

@@ -25,6 +25,7 @@ import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { ChevronLeft, ChevronRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { LocalProductPersonaMapping } from '@/components/brand/LocalProductPersonaLinker';
 
 // Footer info type (moved from BrandFormStepBusiness)
 export interface BrandFooterInfo {
@@ -87,6 +88,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [footerInfo, setFooterInfo] = useState<BrandFooterInfo>(DEFAULT_FOOTER_INFO);
   const [personas, setPersonas] = useState<CustomerPersona[]>([]);
   const [localProducts, setLocalProducts] = useState<Array<{ id: string; name: string; sku: string; category: string; description: string; price_display: string; image_url: string; unique_selling_points: string[]; target_audience: string; pain_points_solved: string[]; benefits: string[]; keywords: string[]; suggested_content_angles: string[]; best_channels: string[]; is_featured: boolean; is_active: boolean; }>>([]);
+  const [localMappings, setLocalMappings] = useState<LocalProductPersonaMapping[]>([]);
   
   // Strategy fields
   const [mission, setMission] = useState('');
@@ -604,6 +606,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               brandPositioning={brandPositioning}
               brandName={brandName}
               industryTemplateId={industryTemplateId}
+              localProducts={localProducts}
+              localMappings={localMappings}
+              onLocalMappingsChange={setLocalMappings}
             />
           )}
 
@@ -615,6 +620,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               onLocalProductsChange={setLocalProducts}
               personas={personas}
               brandName={brandName}
+              localMappings={localMappings}
+              onLocalMappingsChange={setLocalMappings}
             />
           )}
 
