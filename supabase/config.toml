@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.learn-from-edits]
 verify_jwt = false
+
+[functions.firecrawl-trends]
+verify_jwt = false
