@@ -1825,6 +1825,74 @@ export type Database = {
           },
         ]
       }
+      journey_stage_messaging: {
+        Row: {
+          avoid_messages: string[] | null
+          benefits_highlight: string[] | null
+          content_types: string[] | null
+          created_at: string | null
+          cta_template: string | null
+          emotional_tone: string | null
+          headline: string | null
+          hook: string | null
+          id: string
+          journey_stage: string
+          key_message: string | null
+          mapping_id: string
+          objection_response: string | null
+          organization_id: string | null
+          pain_points_focus: string[] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avoid_messages?: string[] | null
+          benefits_highlight?: string[] | null
+          content_types?: string[] | null
+          created_at?: string | null
+          cta_template?: string | null
+          emotional_tone?: string | null
+          headline?: string | null
+          hook?: string | null
+          id?: string
+          journey_stage: string
+          key_message?: string | null
+          mapping_id: string
+          objection_response?: string | null
+          organization_id?: string | null
+          pain_points_focus?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avoid_messages?: string[] | null
+          benefits_highlight?: string[] | null
+          content_types?: string[] | null
+          created_at?: string | null
+          cta_template?: string | null
+          emotional_tone?: string | null
+          headline?: string | null
+          hook?: string | null
+          id?: string
+          journey_stage?: string
+          key_message?: string | null
+          mapping_id?: string
+          objection_response?: string | null
+          organization_id?: string | null
+          pain_points_focus?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journey_stage_messaging_mapping_id_fkey"
+            columns: ["mapping_id"]
+            isOneToOne: false
+            referencedRelation: "product_persona_mappings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       multi_channel_contents: {
         Row: {
           brand_guideline: string | null
