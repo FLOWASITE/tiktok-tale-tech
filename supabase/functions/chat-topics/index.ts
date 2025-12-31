@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchLearningContext, PerformanceInsight } from "../_shared/learning-context.ts";
-import { LearningContext } from "../_shared/prompt-utils.ts";
+import { LearningContext, JourneyStageMessagingData, buildJourneyStageMessagingSection, JourneyStage } from "../_shared/prompt-utils.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -390,6 +390,7 @@ serve(async (req) => {
     let recentTopics: string[] = [];
     let industryMemory: IndustryMemory | null = null;
     let learningContext: LearningContext | null = null;
+    let journeyMessaging: JourneyStageMessagingData[] = [];
     
     if (brandTemplateId) {
       const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
@@ -519,6 +520,37 @@ serve(async (req) => {
             return parts.join(' | ');
           });
         console.log('Loaded', productPersonaContext.length, 'product-persona mappings');
+
+        // Fetch journey stage messaging for all mappings
+        if (mappingsResult.data?.length > 0) {
+          const mappingIds = mappingsResult.data.map((m: any) => m.id).filter(Boolean);
+          if (mappingIds.length > 0) {
+            const { data: journeyData, error: journeyError } = await supabase
+              .from('journey_stage_messaging')
+              .select('mapping_id, journey_stage, headline, hook, key_message, pain_points_focus, benefits_highlight, cta_template, emotional_tone, objection_response, content_types, avoid_messages')
+              .in('mapping_id', mappingIds);
+
+            if (journeyError) {
+              console.error('Error fetching journey messaging:', journeyError);
+            } else if (journeyData?.length) {
+              journeyMessaging = journeyData.map((j: any) => ({
+                mapping_id: j.mapping_id,
+                journey_stage: j.journey_stage as JourneyStage,
+                headline: j.headline,
+                hook: j.hook,
+                key_message: j.key_message,
+                pain_points_focus: j.pain_points_focus || [],
+                benefits_highlight: j.benefits_highlight || [],
+                cta_template: j.cta_template,
+                emotional_tone: j.emotional_tone,
+                objection_response: j.objection_response,
+                content_types: j.content_types || [],
+                avoid_messages: j.avoid_messages || [],
+              }));
+              console.log('Loaded', journeyMessaging.length, 'journey stage messaging records');
+            }
+          }
+        }
       }
 
       if (historyResult.data) {
@@ -526,7 +558,7 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with extended context including Industry Memory + Learning Context
+    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging
     const systemPrompt = buildSystemPrompt(
       brandContext, 
       contentGoal, 
@@ -535,7 +567,8 @@ serve(async (req) => {
       productsContext, 
       productPersonaContext,
       industryMemory,
-      learningContext
+      learningContext,
+      journeyMessaging
     );
 
     // Prepare messages for AI
@@ -557,6 +590,8 @@ serve(async (req) => {
       hasLearningContext: !!learningContext,
       learningTopPerformers: learningContext?.topPerformers?.length || 0,
       learningAvgPerformance: learningContext?.averagePerformance || 0,
+      hasJourneyMessaging: journeyMessaging.length > 0,
+      journeyMessagingCount: journeyMessaging.length,
     });
 
     // Call Lovable AI with streaming
@@ -619,7 +654,8 @@ function buildSystemPrompt(
   productsContext?: string[],
   productPersonaContext?: string[],
   industryMemory?: IndustryMemory | null,
-  learningContext?: LearningContext | null
+  learningContext?: LearningContext | null,
+  journeyMessaging?: JourneyStageMessagingData[]
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -771,6 +807,23 @@ ${productPersonaContext.map(m => `- ${m}`).join('\n')}
 - Sử dụng custom pitch làm góc nhìn content khi có
 - Kết hợp key_benefits với pain_points của persona để tạo topic hấp dẫn
 - Topic có thể là: product use case + persona pain point giải quyết`;
+  }
+
+  // Add Journey Stage Messaging (Third Priority - after Industry + Learning)
+  if (journeyMessaging && journeyMessaging.length > 0) {
+    const journeySection = buildJourneyStageMessagingSection(journeyMessaging);
+    if (journeySection) {
+      prompt += journeySection;
+      prompt += `
+
+### Hướng dẫn sử dụng Journey Messaging trong chat:
+- Khi gợi ý topic, CÓ THỂ gợi ý theo journey stage phù hợp
+- AWARENESS topics: Educational, problem-focused, curiosity-driven
+- CONSIDERATION topics: Comparison, case study, proof-based
+- DECISION topics: Strong CTA, objection handling, urgency
+- LOYALTY topics: Exclusive, community, retention-focused
+- Sử dụng hooks, CTAs, và emotional tones đã định nghĩa cho từng stage`;
+    }
   }
 
   // Add content goal
