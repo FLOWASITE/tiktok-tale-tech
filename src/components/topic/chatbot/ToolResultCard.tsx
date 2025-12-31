@@ -1,6 +1,7 @@
 import { 
   CheckCircle, XCircle, Save, FileText, Images, Share2, Search,
-  ExternalLink, ArrowRight, Loader2
+  ExternalLink, ArrowRight, Loader2, Calendar, Play, ListChecks,
+  Settings, Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +27,11 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   generate_carousel: Images,
   generate_multichannel: Share2,
   search_topics: Search,
+  start_planning_session: Calendar,
+  generate_plan_draft: ListChecks,
+  refine_plan: Settings,
+  finalize_plan: CheckCircle,
+  get_active_session: Eye,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -34,6 +40,11 @@ const TOOL_LABELS: Record<string, string> = {
   generate_carousel: 'Tạo Carousel',
   generate_multichannel: 'Tạo Multi-Channel',
   search_topics: 'Tìm Topics',
+  start_planning_session: 'Bắt đầu Planning',
+  generate_plan_draft: 'Tạo Kế hoạch',
+  refine_plan: 'Chỉnh sửa Plan',
+  finalize_plan: 'Hoàn thành Plan',
+  get_active_session: 'Xem Session',
 };
 
 export function ToolResultCard({ toolResult, onNavigate, className }: ToolResultCardProps) {
@@ -91,6 +102,27 @@ export function ToolResultCard({ toolResult, onNavigate, className }: ToolResult
             
             {toolResult.tool_name === 'search_topics' && (
               <SearchTopicsResult result={toolResult.result} />
+            )}
+
+            {/* Planning tools */}
+            {toolResult.tool_name === 'start_planning_session' && (
+              <PlanningSessionResult result={toolResult.result} />
+            )}
+
+            {toolResult.tool_name === 'generate_plan_draft' && (
+              <PlanDraftResult result={toolResult.result} onNavigate={onNavigate} />
+            )}
+
+            {toolResult.tool_name === 'refine_plan' && (
+              <RefinePlanResult result={toolResult.result} />
+            )}
+
+            {toolResult.tool_name === 'finalize_plan' && (
+              <FinalizePlanResult result={toolResult.result} onNavigate={onNavigate} />
+            )}
+
+            {toolResult.tool_name === 'get_active_session' && (
+              <ActiveSessionResult result={toolResult.result} />
             )}
           </div>
         </div>
@@ -212,6 +244,127 @@ function SearchTopicsResult({ result }: { result: any }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ PLANNING RESULT COMPONENTS ============
+
+function PlanningSessionResult({ result }: { result: any }) {
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-muted-foreground">{result.message}</p>
+      <div className="flex flex-wrap gap-1">
+        <Badge variant="outline" className="text-[10px] capitalize">{result.session_type}</Badge>
+        <Badge variant="secondary" className="text-[10px]">{result.status}</Badge>
+      </div>
+      <div className="text-[10px] text-muted-foreground">
+        {result.timeframe_start} → {result.timeframe_end}
+      </div>
+    </div>
+  );
+}
+
+function PlanDraftResult({ result, onNavigate }: { result: any; onNavigate?: (path: string, state?: any) => void }) {
+  const items = result.items || [];
+  
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-muted-foreground">{result.message}</p>
+      <div className="text-[10px] text-muted-foreground">{result.timeframe}</div>
+      
+      {items.length > 0 && (
+        <div className="space-y-1 max-h-40 overflow-y-auto">
+          {items.slice(0, 7).map((item: any, index: number) => (
+            <div key={index} className="text-xs p-2 bg-muted/50 rounded flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-[10px] text-muted-foreground shrink-0 w-16">{item.date}</span>
+                <span className="line-clamp-1">{item.topic}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Badge variant="outline" className="text-[9px] h-4 px-1 capitalize">{item.format}</Badge>
+                <Badge 
+                  variant={item.priority === 'high' ? 'destructive' : 'secondary'} 
+                  className="text-[9px] h-4 px-1"
+                >
+                  {item.priority}
+                </Badge>
+              </div>
+            </div>
+          ))}
+          {items.length > 7 && (
+            <p className="text-[10px] text-muted-foreground text-center">
+              +{items.length - 7} more items...
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RefinePlanResult({ result }: { result: any }) {
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-muted-foreground">{result.message}</p>
+      <Badge variant="outline" className="text-[10px] capitalize">{result.action}</Badge>
+      {result.updated_items && (
+        <p className="text-[10px] text-muted-foreground">
+          {result.updated_items.length} items trong plan
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FinalizePlanResult({ result, onNavigate }: { result: any; onNavigate?: (path: string, state?: any) => void }) {
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-muted-foreground">{result.message}</p>
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="secondary" className="text-[10px]">
+          <Save className="w-3 h-3 mr-1" />
+          {result.saved_topics} topics saved
+        </Badge>
+        {result.calendar_entries > 0 && (
+          <Badge variant="secondary" className="text-[10px]">
+            <Calendar className="w-3 h-3 mr-1" />
+            {result.calendar_entries} calendar entries
+          </Badge>
+        )}
+      </div>
+      {onNavigate && (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-7 text-xs gap-1.5"
+          onClick={() => onNavigate('/topics')}
+        >
+          Xem Topic Bank
+          <ArrowRight className="w-3 h-3" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ActiveSessionResult({ result }: { result: any }) {
+  const session = result.session || {};
+  const items = result.items || [];
+  
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-muted-foreground">{result.message}</p>
+      <div className="flex flex-wrap gap-1">
+        <Badge variant="outline" className="text-[10px] capitalize">{session.session_type}</Badge>
+        <Badge variant="secondary" className="text-[10px]">{session.status}</Badge>
+        <Badge variant="secondary" className="text-[10px]">{session.total_topics} topics</Badge>
+      </div>
+      {items.length > 0 && (
+        <div className="text-[10px] text-muted-foreground">
+          {items.length} planned items từ {session.timeframe_start} đến {session.timeframe_end}
         </div>
       )}
     </div>

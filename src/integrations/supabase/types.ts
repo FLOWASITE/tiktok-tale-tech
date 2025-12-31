@@ -2351,6 +2351,180 @@ export type Database = {
         }
         Relationships: []
       }
+      planned_content_items: {
+        Row: {
+          ai_confidence: number | null
+          category: string | null
+          channels: string[] | null
+          content_id: string | null
+          content_type: string | null
+          created_at: string | null
+          format: string
+          id: string
+          is_user_modified: boolean | null
+          original_suggestion: Json | null
+          pillar: string | null
+          priority: string | null
+          reasoning: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          session_id: string
+          sort_order: number | null
+          status: string | null
+          topic: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_confidence?: number | null
+          category?: string | null
+          channels?: string[] | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          format: string
+          id?: string
+          is_user_modified?: boolean | null
+          original_suggestion?: Json | null
+          pillar?: string | null
+          priority?: string | null
+          reasoning?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          session_id: string
+          sort_order?: number | null
+          status?: string | null
+          topic: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_confidence?: number | null
+          category?: string | null
+          channels?: string[] | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          format?: string
+          id?: string
+          is_user_modified?: boolean | null
+          original_suggestion?: Json | null
+          pillar?: string | null
+          priority?: string | null
+          reasoning?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          session_id?: string
+          sort_order?: number | null
+          status?: string | null
+          topic?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planned_content_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "planning_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_sessions: {
+        Row: {
+          ai_suggestions: Json | null
+          brand_template_id: string | null
+          constraints: Json | null
+          conversation_id: string | null
+          created_at: string | null
+          current_plan: Json | null
+          finalized_at: string | null
+          goal: string | null
+          id: string
+          organization_id: string | null
+          plan_versions: Json | null
+          session_type: string
+          status: string
+          target_channels: string[] | null
+          timeframe_end: string | null
+          timeframe_start: string | null
+          title: string | null
+          total_content_pieces: number | null
+          total_topics: number | null
+          updated_at: string | null
+          user_feedback_history: Json | null
+          user_id: string
+        }
+        Insert: {
+          ai_suggestions?: Json | null
+          brand_template_id?: string | null
+          constraints?: Json | null
+          conversation_id?: string | null
+          created_at?: string | null
+          current_plan?: Json | null
+          finalized_at?: string | null
+          goal?: string | null
+          id?: string
+          organization_id?: string | null
+          plan_versions?: Json | null
+          session_type?: string
+          status?: string
+          target_channels?: string[] | null
+          timeframe_end?: string | null
+          timeframe_start?: string | null
+          title?: string | null
+          total_content_pieces?: number | null
+          total_topics?: number | null
+          updated_at?: string | null
+          user_feedback_history?: Json | null
+          user_id: string
+        }
+        Update: {
+          ai_suggestions?: Json | null
+          brand_template_id?: string | null
+          constraints?: Json | null
+          conversation_id?: string | null
+          created_at?: string | null
+          current_plan?: Json | null
+          finalized_at?: string | null
+          goal?: string | null
+          id?: string
+          organization_id?: string | null
+          plan_versions?: Json | null
+          session_type?: string
+          status?: string
+          target_channels?: string[] | null
+          timeframe_end?: string | null
+          timeframe_start?: string | null
+          title?: string | null
+          total_content_pieces?: number | null
+          total_topics?: number | null
+          updated_at?: string | null
+          user_feedback_history?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_sessions_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_sessions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_persona_mappings: {
         Row: {
           avoid_topics: string[] | null
