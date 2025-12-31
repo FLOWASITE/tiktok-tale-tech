@@ -18,6 +18,8 @@ import { DiscoveryChips } from './chatbot/DiscoveryChips';
 import { ContextBadges, parseContextBadges, removeContextLine } from './chatbot/ContextBadges';
 import { ConversationHistorySidebar } from './chatbot/ConversationHistorySidebar';
 import { ToolResultCard, ToolExecutionLoading, type ToolResult } from './chatbot/ToolResultCard';
+import { ChatThinkingIndicator, type ThinkingStatus } from './chatbot/ChatThinkingIndicator';
+import { AnimatePresence } from 'framer-motion';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -322,6 +324,8 @@ export function TopicAIChatbot({
   const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
+  const [thinkingStatus, setThinkingStatus] = useState<ThinkingStatus>('thinking');
+  const [currentExecutingTool, setCurrentExecutingTool] = useState<string | null>(null);
   
   // Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -791,6 +795,8 @@ export function TopicAIChatbot({
     setTimeout(() => setAnimatingMessageId(null), 500);
     setInput('');
     setIsLoading(true);
+    setThinkingStatus('thinking');
+    setCurrentExecutingTool(null);
     
     // Auto scroll when sending message
     isNearBottomRef.current = true;
@@ -857,6 +863,15 @@ export function TopicAIChatbot({
         if (data.type === 'tool_results' && data.tool_results) {
           const toolResults: ToolResult[] = data.tool_results;
           
+          // Update thinking status to show tool execution
+          if (toolResults.length > 0) {
+            setThinkingStatus('executing_tools');
+            const firstTool = toolResults[0]?.tool_name;
+            if (firstTool) {
+              setCurrentExecutingTool(firstTool);
+            }
+          }
+          
           // Create assistant message with tool results
           setMessages(prev => [...prev, {
             id: assistantId,
@@ -896,6 +911,9 @@ export function TopicAIChatbot({
         let textBuffer = '';
         let assistantContent = '';
 
+        // Update status to generating when streaming starts
+        setThinkingStatus('generating');
+        
         // Create assistant message placeholder
         setMessages(prev => [...prev, {
           id: assistantId,
@@ -987,6 +1005,8 @@ export function TopicAIChatbot({
       }]);
     } finally {
       setIsLoading(false);
+      setThinkingStatus('thinking');
+      setCurrentExecutingTool(null);
       abortControllerRef.current = null;
     }
   }, [messages, isLoading, brandTemplateId, contentGoal, currentOrganization, user, scrollToBottom, playSend, playReceive, playNotification]);
@@ -1989,6 +2009,16 @@ export function TopicAIChatbot({
               )}
             </div>
           ))}
+          
+          {/* Thinking Indicator - Shows when AI is processing */}
+          <AnimatePresence>
+            {isLoading && (
+              <ChatThinkingIndicator 
+                status={thinkingStatus}
+                currentTool={currentExecutingTool || undefined}
+              />
+            )}
+          </AnimatePresence>
           </div>
         </div>
         
