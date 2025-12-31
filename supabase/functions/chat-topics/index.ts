@@ -949,24 +949,20 @@ serve(async (req) => {
     // Determine if we should use tool calling
     const useTools = enableTools !== false;
     
-    // Build request body
+    // Build request body - ALWAYS stream first response
     const requestBody: any = {
       model: 'google/gemini-2.5-flash',
       messages: aiMessages,
       temperature: 0.8,
+      stream: true, // Always stream for faster initial response
     };
 
     if (useTools) {
-      // Non-streaming mode with tools
       requestBody.tools = CHAT_TOOLS;
       requestBody.tool_choice = 'auto';
-      requestBody.stream = false;
-    } else {
-      // Streaming mode without tools
-      requestBody.stream = true;
     }
 
-    // Call Lovable AI
+    // Call Lovable AI with streaming
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -997,106 +993,258 @@ serve(async (req) => {
       });
     }
 
-    // Handle tool calling response (non-streaming)
-    if (useTools) {
-      const data = await response.json();
-      const choice = data.choices?.[0];
-      const message = choice?.message;
+    // Parse streaming response to check for tool calls
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return new Response(JSON.stringify({ error: 'No response body' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      // Check if AI wants to call tools
-      if (message?.tool_calls?.length > 0) {
-        console.log('AI requested tool calls:', message.tool_calls.length);
-        
-        const toolResults: ToolCallResult[] = [];
-        const executionContext = {
-          supabase,
-          userId: userId || undefined,
-          organizationId: organizationId || undefined,
-          brandTemplateId: brandTemplateId || undefined,
-        };
+    const decoder = new TextDecoder();
+    let textBuffer = '';
+    let contentChunks: string[] = [];
+    let toolCalls: any[] = [];
+    let toolCallArgBuffers: Map<number, string> = new Map();
+    let finishReason: string | null = null;
 
-        // Execute each tool call
-        for (const toolCall of message.tool_calls) {
-          try {
-            const args = JSON.parse(toolCall.function.arguments);
-            const result = await executeToolCall(toolCall.function.name, args, executionContext);
-            toolResults.push(result);
-            console.log(`Tool ${toolCall.function.name} result:`, result.success);
-          } catch (err) {
-            console.error(`Tool ${toolCall.function.name} parse error:`, err);
-            toolResults.push({
-              success: false,
-              tool_name: toolCall.function.name,
-              result: null,
-              error: 'Failed to parse tool arguments',
-            });
+    // Collect all streaming data first
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      textBuffer += decoder.decode(value, { stream: true });
+
+      // Process line by line
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line.startsWith(':') || line.trim() === '') continue;
+        if (!line.startsWith('data: ')) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const delta = parsed.choices?.[0]?.delta;
+          const reason = parsed.choices?.[0]?.finish_reason;
+          
+          if (reason) {
+            finishReason = reason;
           }
+
+          // Collect content tokens
+          if (delta?.content) {
+            contentChunks.push(delta.content);
+          }
+
+          // Collect tool calls (streamed in chunks)
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const index = tc.index ?? 0;
+              
+              // Initialize tool call on first chunk
+              if (tc.id) {
+                toolCalls[index] = {
+                  id: tc.id,
+                  type: tc.type || 'function',
+                  function: {
+                    name: tc.function?.name || '',
+                    arguments: '',
+                  },
+                };
+                toolCallArgBuffers.set(index, '');
+              }
+              
+              // Append function name if present
+              if (tc.function?.name && toolCalls[index]) {
+                toolCalls[index].function.name = tc.function.name;
+              }
+              
+              // Append argument chunks
+              if (tc.function?.arguments) {
+                const currentArgs = toolCallArgBuffers.get(index) || '';
+                toolCallArgBuffers.set(index, currentArgs + tc.function.arguments);
+              }
+            }
+          }
+        } catch {
+          // Incomplete JSON, skip
         }
+      }
+    }
 
-        // Build tool results message for AI
-        const toolResultsMessage = {
-          role: 'tool' as const,
-          content: JSON.stringify(toolResults),
-          tool_call_id: message.tool_calls[0].id,
-        };
+    // Finalize tool call arguments
+    for (const [index, args] of toolCallArgBuffers.entries()) {
+      if (toolCalls[index]) {
+        toolCalls[index].function.arguments = args;
+      }
+    }
 
-        // Call AI again with tool results to get final response
-        const followUpMessages = [
-          ...aiMessages,
-          message,
-          toolResultsMessage,
-        ];
+    // Filter out empty/invalid tool calls
+    toolCalls = toolCalls.filter(tc => tc && tc.id && tc.function?.name);
 
-        const followUpResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: followUpMessages,
-            temperature: 0.8,
-            stream: false,
-          }),
-        });
+    const fullContent = contentChunks.join('');
 
-        if (!followUpResponse.ok) {
-          console.error('Follow-up AI error:', followUpResponse.status);
-          // Return tool results anyway
-          return new Response(JSON.stringify({
-            type: 'tool_results',
-            content: message.content || '',
-            tool_calls: message.tool_calls,
-            tool_results: toolResults,
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.log('Streaming complete:', {
+      contentLength: fullContent.length,
+      toolCallsCount: toolCalls.length,
+      finishReason,
+    });
+
+    // Check if AI wants to call tools
+    if (toolCalls.length > 0 && useTools) {
+      console.log('AI requested tool calls:', toolCalls.length, toolCalls.map(tc => tc.function.name));
+      
+      const toolResults: ToolCallResult[] = [];
+      const executionContext = {
+        supabase,
+        userId: userId || undefined,
+        organizationId: organizationId || undefined,
+        brandTemplateId: brandTemplateId || undefined,
+      };
+
+      // Execute each tool call
+      for (const toolCall of toolCalls) {
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = await executeToolCall(toolCall.function.name, args, executionContext);
+          toolResults.push(result);
+          console.log(`Tool ${toolCall.function.name} result:`, result.success);
+        } catch (err) {
+          console.error(`Tool ${toolCall.function.name} parse error:`, err);
+          toolResults.push({
+            success: false,
+            tool_name: toolCall.function.name,
+            result: null,
+            error: 'Failed to parse tool arguments',
           });
         }
+      }
 
-        const followUpData = await followUpResponse.json();
-        const finalContent = followUpData.choices?.[0]?.message?.content || '';
+      // Build tool results messages for AI (one per tool call for proper OpenAI format)
+      const toolResultsMessages = toolCalls.map((tc, idx) => ({
+        role: 'tool' as const,
+        content: JSON.stringify(toolResults[idx] || { error: 'No result' }),
+        tool_call_id: tc.id,
+      }));
 
+      // Build the assistant message that triggered tool calls
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: fullContent || null,
+        tool_calls: toolCalls,
+      };
+
+      // Call AI again with tool results - STREAM the follow-up response!
+      const followUpMessages = [
+        ...aiMessages,
+        assistantMessage,
+        ...toolResultsMessages,
+      ];
+
+      console.log('Calling follow-up with tool results, streaming response...');
+
+      const followUpResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: followUpMessages,
+          temperature: 0.8,
+          stream: true, // Stream the follow-up too!
+        }),
+      });
+
+      if (!followUpResponse.ok) {
+        console.error('Follow-up AI error:', followUpResponse.status);
+        // Return tool results with whatever content we have
         return new Response(JSON.stringify({
           type: 'tool_results',
-          content: finalContent,
-          tool_calls: message.tool_calls,
+          content: fullContent,
+          tool_calls: toolCalls,
           tool_results: toolResults,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // No tool calls - just return the content
-      return new Response(JSON.stringify({
-        type: 'message',
-        content: message?.content || '',
-        tool_calls: null,
-        tool_results: null,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      // Create a TransformStream to inject tool_results header then stream content
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+
+      // Start async processing
+      (async () => {
+        try {
+          // First, send tool results as a special SSE event
+          const toolResultsEvent = `data: ${JSON.stringify({
+            type: 'tool_results',
+            tool_calls: toolCalls,
+            tool_results: toolResults,
+          })}\n\n`;
+          await writer.write(encoder.encode(toolResultsEvent));
+
+          // Then stream the follow-up response
+          const followUpReader = followUpResponse.body?.getReader();
+          if (followUpReader) {
+            while (true) {
+              const { done, value } = await followUpReader.read();
+              if (done) break;
+              await writer.write(value);
+            }
+          }
+        } catch (err) {
+          console.error('Streaming error:', err);
+        } finally {
+          await writer.close();
+        }
+      })();
+
+      return new Response(readable, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
       });
     }
+
+    // No tool calls - return streamed content as regular message
+    // Re-stream the content we collected for consistent frontend handling
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    (async () => {
+      try {
+        // Send content as SSE chunks
+        const chunkSize = 20; // characters per chunk for smooth streaming effect
+        for (let i = 0; i < fullContent.length; i += chunkSize) {
+          const chunk = fullContent.slice(i, i + chunkSize);
+          const sseEvent = `data: ${JSON.stringify({
+            choices: [{
+              delta: { content: chunk },
+              index: 0,
+            }],
+          })}\n\n`;
+          await writer.write(encoder.encode(sseEvent));
+        }
+        await writer.write(encoder.encode('data: [DONE]\n\n'));
+      } catch (err) {
+        console.error('Re-streaming error:', err);
+      } finally {
+        await writer.close();
+      }
+    })();
+
+    return new Response(readable, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+    });
 
     // Return streaming response (legacy mode)
     return new Response(response.body, {
