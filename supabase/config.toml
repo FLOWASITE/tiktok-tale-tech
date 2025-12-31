@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.semantic-search]
 verify_jwt = false
+
+[functions.learn-from-edits]
+verify_jwt = false
