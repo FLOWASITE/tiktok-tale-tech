@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2 } from 'lucide-react';
+import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ThinkingStatus = 
@@ -13,11 +13,21 @@ export type ThinkingStatus =
   | 'generate_multichannel'
   | 'start_planning_session'
   | 'generate_plan_draft'
-  | 'refine_plan';
+  | 'refine_plan'
+  | 'web_search'
+  | 'task_complete';
+
+export interface AgentTurnInfo {
+  currentTurn: number;
+  maxTurns: number;
+  toolsExecuted: string[];
+  isComplete: boolean;
+}
 
 interface ChatThinkingIndicatorProps {
   status?: ThinkingStatus;
   currentTool?: string;
+  agentTurn?: AgentTurnInfo;
   className?: string;
 }
 
@@ -33,11 +43,14 @@ const STATUS_CONFIG: Record<ThinkingStatus, { message: string; icon: typeof Brai
   start_planning_session: { message: 'Đang khởi tạo phiên lập kế hoạch...', icon: Calendar },
   generate_plan_draft: { message: 'Đang tạo bản kế hoạch...', icon: Calendar },
   refine_plan: { message: 'Đang tinh chỉnh kế hoạch...', icon: Wand2 },
+  web_search: { message: 'Đang tìm kiếm web...', icon: Search },
+  task_complete: { message: 'Đã hoàn thành!', icon: CheckCircle2 },
 };
 
 export function ChatThinkingIndicator({ 
   status = 'thinking',
   currentTool,
+  agentTurn,
   className 
 }: ChatThinkingIndicatorProps) {
   // Determine the effective status based on currentTool if provided
@@ -93,53 +106,83 @@ export function ChatThinkingIndicator({
             <StatusIcon className="w-3.5 h-3.5 text-primary" />
           </motion.div>
           
-          {/* Status text */}
+          {/* Status text with turn info */}
           <span className="text-xs text-muted-foreground font-medium">
+            {agentTurn && agentTurn.currentTurn > 0 && !agentTurn.isComplete && (
+              <span className="text-primary mr-1">
+                Turn {agentTurn.currentTurn}/{agentTurn.maxTurns}:
+              </span>
+            )}
             {config.message}
           </span>
           
-          {/* Animated dots */}
-          <div className="flex items-center gap-1">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className="w-1.5 h-1.5 rounded-full bg-primary/60"
-                animate={{
-                  scale: [1, 1.3, 1],
-                  opacity: [0.5, 1, 0.5],
-                }}
-                transition={{
-                  duration: 0.8,
-                  repeat: Infinity,
-                  delay: i * 0.15,
-                  ease: 'easeInOut',
-                }}
-              />
+          {/* Animated dots (hide when complete) */}
+          {effectiveStatus !== 'task_complete' && (
+            <div className="flex items-center gap-1">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full bg-primary/60"
+                  animate={{
+                    scale: [1, 1.3, 1],
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    delay: i * 0.15,
+                    ease: 'easeInOut',
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Multi-turn progress indicator */}
+        {agentTurn && agentTurn.currentTurn > 0 && agentTurn.toolsExecuted.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {agentTurn.toolsExecuted.map((tool, idx) => (
+              <div
+                key={idx}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-[10px] text-primary"
+              >
+                <CheckCircle2 className="w-2.5 h-2.5" />
+                {tool.replace(/_/g, ' ')}
+              </div>
             ))}
+            {!agentTurn.isComplete && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                ...
+              </div>
+            )}
           </div>
-        </div>
+        )}
         
-        {/* Skeleton lines for content preview */}
-        <div className="mt-2 space-y-1.5 max-w-[200px]">
-          <motion.div
-            className="h-2 rounded-full bg-muted/60"
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            style={{ width: '85%' }}
-          />
-          <motion.div
-            className="h-2 rounded-full bg-muted/60"
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
-            style={{ width: '65%' }}
-          />
-          <motion.div
-            className="h-2 rounded-full bg-muted/60"
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
-            style={{ width: '45%' }}
-          />
-        </div>
+        {/* Skeleton lines for content preview (only when not showing turn info) */}
+        {(!agentTurn || agentTurn.currentTurn === 0) && effectiveStatus !== 'task_complete' && (
+          <div className="mt-2 space-y-1.5 max-w-[200px]">
+            <motion.div
+              className="h-2 rounded-full bg-muted/60"
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              style={{ width: '85%' }}
+            />
+            <motion.div
+              className="h-2 rounded-full bg-muted/60"
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+              style={{ width: '65%' }}
+            />
+            <motion.div
+              className="h-2 rounded-full bg-muted/60"
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+              style={{ width: '45%' }}
+            />
+          </div>
+        )}
       </div>
     </motion.div>
   );
