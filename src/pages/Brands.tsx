@@ -6,9 +6,9 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
 import { BrandBulkActionsBar } from '@/components/BrandBulkActionsBar';
+import { BrandHeroSection } from '@/components/brand/BrandHeroSection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -19,11 +19,11 @@ import {
 } from '@/components/ui/select';
 import { SlidePanel } from '@/components/ui/slide-panel';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Plus, Search, Download, Upload, Loader2, User, Building2, LayoutGrid, List, Wand2, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Loader2, User, Building2, LayoutGrid, List, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
-
+import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
 type SortOption = 'name' | 'created_at' | 'is_default';
 type FilterScope = 'all' | 'personal' | 'organization';
 type ViewMode = 'grid' | 'list';
@@ -315,63 +315,39 @@ export default function Brands() {
   const personalCount = templates.filter(t => !!t.user_id && !t.organization_id).length;
   const orgCount = templates.filter(t => !!t.organization_id).length;
 
+  // Calculate average completeness
+  const averageCompleteness = useMemo(() => {
+    if (templates.length === 0) return 0;
+    const total = templates.reduce((sum, t) => {
+      const counts = getCountsForBrand(t.id);
+      const { score } = calculateBrandCompleteness(t, counts.personasCount, counts.productsCount);
+      return sum + score;
+    }, 0);
+    return Math.round(total / templates.length);
+  }, [templates, getCountsForBrand]);
+
   return (
     <div className="container mx-auto py-4 sm:py-6 px-4 sm:px-6 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-            <Palette className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-            Quản lý Brand
-          </h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-            Quản lý thương hiệu và phong cách nội dung
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="hidden"
-            id="import-input"
-          />
-          <Button variant="outline" size="sm" onClick={() => document.getElementById('import-input')?.click()} className="h-8 sm:h-9 text-xs sm:text-sm">
-            <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-            <span className="hidden sm:inline">Import</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={templates.length === 0} className="h-8 sm:h-9 text-xs sm:text-sm">
-            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-            <span className="hidden sm:inline">Export</span>
-          </Button>
-          <Button onClick={handleCreate} size="sm" className="h-8 sm:h-9 text-xs sm:text-sm ml-auto">
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-            Tạo mới
-          </Button>
-        </div>
-      </div>
+      {/* Hidden file input for import */}
+      <input
+        type="file"
+        accept=".json"
+        onChange={handleImport}
+        className="hidden"
+        id="import-input"
+      />
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <Card className="p-3 sm:p-4">
-          <p className="text-lg sm:text-2xl font-bold text-primary">{templates.length}</p>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">Tổng brands</p>
-        </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-            <p className="text-lg sm:text-2xl font-bold">{personalCount}</p>
-          </div>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">Cá nhân</p>
-        </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-            <p className="text-lg sm:text-2xl font-bold">{orgCount}</p>
-          </div>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">Tổ chức</p>
-        </Card>
-      </div>
+      {/* Hero Section */}
+      <BrandHeroSection
+        totalBrands={templates.length}
+        personalCount={personalCount}
+        orgCount={orgCount}
+        averageCompleteness={averageCompleteness}
+        onCreateNew={handleCreate}
+        onImport={() => document.getElementById('import-input')?.click()}
+        onExport={handleExport}
+        isExportDisabled={templates.length === 0}
+      />
 
       {/* Tabs for scope filtering */}
       <Tabs value={filterScope} onValueChange={(v) => setFilterScope(v as FilterScope)}>
@@ -459,9 +435,13 @@ export default function Brands() {
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
       ) : filteredTemplates.length === 0 ? (
-        <div className="text-center py-16 space-y-4">
-          <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-            <Palette className="w-12 h-12 text-primary" />
+        <div className="text-center py-16 space-y-4 animate-fade-in">
+          <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center animate-float">
+            <svg className="w-12 h-12 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
           </div>
           {searchQuery || filterScope !== 'all' ? (
             <div>
@@ -474,16 +454,11 @@ export default function Brands() {
             <>
               <h3 className="text-xl font-semibold">Chưa có Brand nào</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Brand giúp tạo nội dung nhất quán với phong cách thương hiệu của bạn. Bắt đầu bằng cách tạo brand đầu tiên hoặc để AI gợi ý cho bạn.
+                Brand giúp tạo nội dung nhất quán với phong cách thương hiệu của bạn. Bắt đầu bằng cách tạo brand đầu tiên.
               </p>
               <div className="flex justify-center gap-3 pt-2">
-                <Button onClick={handleCreate}>
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button onClick={handleCreate} className="shimmer-btn">
                   Tạo Brand đầu tiên
-                </Button>
-                <Button variant="outline" onClick={handleCreate}>
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  Dùng AI tạo nhanh
                 </Button>
               </div>
             </>
@@ -617,7 +592,11 @@ export default function Brands() {
         onOpenChange={setDialogOpen}
         title={
           <>
-            <Palette className="w-5 h-5 text-primary" />
+            <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
             {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
           </>
         }
