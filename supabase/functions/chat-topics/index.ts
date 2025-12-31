@@ -4,6 +4,13 @@ import { fetchLearningContext, PerformanceInsight } from "../_shared/learning-co
 import { LearningContext, JourneyStageMessagingData, buildJourneyStageMessagingSection, JourneyStage } from "../_shared/prompt-utils.ts";
 import { CHAT_TOOLS, ToolCall, ToolCallResult } from "../_shared/tool-definitions.ts";
 import { executeToolCall } from "../_shared/tool-executor.ts";
+import { 
+  executeToolChain, 
+  detectToolChainDependencies, 
+  summarizeToolChain,
+  buildToolChainMessages,
+  ToolChainResult 
+} from "../_shared/tool-chain-executor.ts";
 import { fetchUserPreferences, buildUserPreferencesSection, UserPreferencesContext } from "../_shared/user-preferences.ts";
 import { fetchCrossSessionMemory, buildCrossSessionMemorySection, CrossSessionMemory } from "../_shared/session-memory.ts";
 
@@ -1124,7 +1131,6 @@ serve(async (req) => {
     if (toolCalls.length > 0 && useTools) {
       console.log('AI requested tool calls:', toolCalls.length, toolCalls.map(tc => tc.function.name));
       
-      const toolResults: ToolCallResult[] = [];
       const executionContext = {
         supabase,
         userId: userId || undefined,
@@ -1132,30 +1138,74 @@ serve(async (req) => {
         brandTemplateId: brandTemplateId || undefined,
       };
 
-      // Execute each tool call
-      for (const toolCall of toolCalls) {
-        try {
-          const args = JSON.parse(toolCall.function.arguments);
-          const result = await executeToolCall(toolCall.function.name, args, executionContext);
-          toolResults.push(result);
-          console.log(`Tool ${toolCall.function.name} result:`, result.success);
-        } catch (err) {
-          console.error(`Tool ${toolCall.function.name} parse error:`, err);
-          toolResults.push({
-            success: false,
-            tool_name: toolCall.function.name,
-            result: null,
-            error: 'Failed to parse tool arguments',
-          });
-        }
+      // Detect if this is a multi-step chain (tools depend on each other)
+      const { isChain, dependencyGraph } = detectToolChainDependencies(toolCalls);
+      
+      let toolResults: ToolCallResult[] = [];
+      let chainResult: ToolChainResult | null = null;
+      let chainSummary: { summary: string; outputs: Record<string, any> } | null = null;
+
+      if (isChain) {
+        // Execute as a chain - tools run in sequence, outputs feed into subsequent tools
+        console.log('Detected tool chain with dependencies:', 
+          Array.from(dependencyGraph.entries()).map(([to, from]) => 
+            `${toolCalls[to].function.name} depends on ${from.map(i => toolCalls[i].function.name).join(', ')}`
+          )
+        );
+
+        chainResult = await executeToolChain(toolCalls, executionContext, {
+          stopOnError: false, // Continue even if a step fails
+          maxRetries: 1,
+        });
+
+        toolResults = chainResult.final_results;
+        chainSummary = summarizeToolChain(chainResult);
+        
+        console.log('Chain execution complete:', chainSummary.summary);
+      } else {
+        // Execute tools in parallel (no dependencies)
+        console.log('Executing tools in parallel (no dependencies detected)');
+        
+        const toolPromises = toolCalls.map(async (toolCall) => {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            return await executeToolCall(toolCall.function.name, args, executionContext);
+          } catch (err) {
+            console.error(`Tool ${toolCall.function.name} parse error:`, err);
+            return {
+              success: false,
+              tool_name: toolCall.function.name,
+              result: null,
+              error: 'Failed to parse tool arguments',
+            };
+          }
+        });
+
+        toolResults = await Promise.all(toolPromises);
       }
 
+      // Log results
+      toolResults.forEach((result, idx) => {
+        console.log(`Tool ${toolCalls[idx].function.name} result:`, result.success);
+      });
+
       // Build tool results messages for AI (one per tool call for proper OpenAI format)
-      const toolResultsMessages = toolCalls.map((tc, idx) => ({
-        role: 'tool' as const,
-        content: JSON.stringify(toolResults[idx] || { error: 'No result' }),
-        tool_call_id: tc.id,
-      }));
+      const toolResultsMessages = toolCalls.map((tc, idx) => {
+        const baseResult = toolResults[idx] || { error: 'No result' };
+        // Add chain context if available
+        const enrichedResult = chainResult ? {
+          ...baseResult,
+          chain_step: idx + 1,
+          total_steps: toolCalls.length,
+          chain_context: chainResult.chain_context,
+        } : baseResult;
+        
+        return {
+          role: 'tool' as const,
+          content: JSON.stringify(enrichedResult),
+          tool_call_id: tc.id,
+        };
+      });
 
       // Build the assistant message that triggered tool calls
       const assistantMessage = {
@@ -1170,6 +1220,16 @@ serve(async (req) => {
         assistantMessage,
         ...toolResultsMessages,
       ];
+
+      // Add chain context as system message for AI awareness
+      if (chainResult && chainSummary) {
+        followUpMessages.push({
+          role: 'system' as const,
+          content: `Multi-step tool chain completed. ${chainSummary.summary}. 
+Available outputs from chain: ${Object.keys(chainSummary.outputs).join(', ')}.
+Summarize results for user and suggest next actions.`,
+        });
+      }
 
       console.log('Calling follow-up with tool results, streaming response...');
 
@@ -1195,6 +1255,11 @@ serve(async (req) => {
           content: fullContent,
           tool_calls: toolCalls,
           tool_results: toolResults,
+          chain_result: chainResult ? {
+            total_duration_ms: chainResult.total_duration_ms,
+            has_errors: chainResult.has_errors,
+            chain_context: chainResult.chain_context,
+          } : undefined,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -1213,6 +1278,13 @@ serve(async (req) => {
             type: 'tool_results',
             tool_calls: toolCalls,
             tool_results: toolResults,
+            is_chain: isChain,
+            chain_result: chainResult ? {
+              total_duration_ms: chainResult.total_duration_ms,
+              has_errors: chainResult.has_errors,
+              chain_context: chainResult.chain_context,
+              summary: chainSummary?.summary,
+            } : undefined,
           })}\n\n`;
           await writer.write(encoder.encode(toolResultsEvent));
 

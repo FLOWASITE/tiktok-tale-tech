@@ -894,6 +894,10 @@ export function TopicAIChatbot({
             if (parsed.type === 'tool_results' && parsed.tool_results) {
               receivedToolResults = parsed.tool_results as ToolResult[];
               
+              // Check if this was a multi-step chain
+              const isChain = parsed.is_chain === true;
+              const chainResult = parsed.chain_result;
+              
               // Update thinking status to show tool execution completed
               setThinkingStatus('executing_tools');
               const firstTool = receivedToolResults[0]?.tool_name;
@@ -901,12 +905,13 @@ export function TopicAIChatbot({
                 setCurrentExecutingTool(firstTool);
               }
               
-              // Show toast for successful tool executions
+              // Show toast for tool executions
               const successTools = receivedToolResults.filter(t => t.success);
               if (successTools.length > 0) {
+                const chainInfo = isChain ? ` (chain: ${chainResult?.total_duration_ms}ms)` : '';
                 toast({
-                  title: `✅ ${successTools.length} hành động hoàn thành`,
-                  description: successTools.map(t => t.result?.message || t.tool_name).join(', '),
+                  title: `✅ ${successTools.length} hành động hoàn thành${chainInfo}`,
+                  description: chainResult?.summary || successTools.map(t => t.result?.message || t.tool_name).join(' → '),
                 });
               }
               
