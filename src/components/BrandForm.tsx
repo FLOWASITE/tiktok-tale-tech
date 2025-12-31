@@ -8,6 +8,7 @@ import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepBusiness, BrandFooterInfo, DEFAULT_FOOTER_INFO } from '@/components/BrandFormStepBusiness';
 import { BrandFormStepPersonas } from '@/components/BrandFormStepPersonas';
+import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
 import { BrandFormStepStrategy } from '@/components/BrandFormStepStrategy';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
@@ -201,7 +202,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     e.preventDefault();
     e.stopPropagation();
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 7));
+      setCurrentStep(prev => Math.min(prev + 1, 8));
     }
   };
 
@@ -363,7 +364,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep !== 7) return;
+    if (currentStep !== 8) return;
     if (!validateStep(1)) {
       setCurrentStep(1);
       return;
@@ -567,16 +568,12 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 2: Business & Visual */}
+          {/* Step 2: Business & Visual (NO PRODUCTS) */}
           {currentStep === 2 && (
             <BrandFormStepBusiness
-              brandTemplateId={template?.id}
               brandName={brandName}
-              brandPositioning={brandPositioning}
               footerInfo={footerInfo}
               onFooterInfoChange={setFooterInfo}
-              localProducts={localProducts}
-              onLocalProductsChange={setLocalProducts}
               primaryColor={primaryColor}
               setPrimaryColor={setPrimaryColor}
               logoPreview={logoPreview}
@@ -604,8 +601,19 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               />
           )}
 
-          {/* Step 4: Strategy */}
+          {/* Step 4: Products */}
           {currentStep === 4 && (
+            <BrandFormStepProducts
+              brandTemplateId={template?.id}
+              localProducts={localProducts}
+              onLocalProductsChange={setLocalProducts}
+              personas={personas}
+              brandName={brandName}
+            />
+          )}
+
+          {/* Step 5: Strategy */}
+          {currentStep === 5 && (
             <BrandFormStepStrategy
               mission={mission}
               setMission={setMission}
@@ -634,8 +642,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 5: Brand Voice */}
-          {currentStep === 5 && (
+          {/* Step 6: Brand Voice */}
+          {currentStep === 6 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-2 duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-base font-medium">Brand Voice Profile</span>
@@ -721,8 +729,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 6: Channel Settings */}
-          {currentStep === 6 && (
+          {/* Step 7: Channel Settings */}
+          {currentStep === 7 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
               <ChannelSettingsEditor
                 value={channelOverrides}
@@ -748,8 +756,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             </div>
           )}
 
-          {/* Step 7: Brand Guideline */}
-          {currentStep === 7 && (
+          {/* Step 8: Brand Guideline */}
+          {currentStep === 8 && (
             <BrandFormStepGuideline
               brandName={brandName}
               industries={industries}
@@ -815,7 +823,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 7 ? (
+          {currentStep < 8 ? (
             <Button type="button" onClick={handleNext} className="gap-1 text-sm sm:text-base h-9 sm:h-10 px-3 sm:px-4">
               Tiếp tục
               <ChevronRight className="w-4 h-4" />
