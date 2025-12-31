@@ -161,6 +161,7 @@ export interface ScriptFormData {
   voice_region: VoiceRegion;
   dialogue_style: DialogueStyle;
   brandTemplateId?: string;
+  brandVoiceVariantId?: string;
   hook?: HookDetails;
   angle?: TopicAngle;
   topicHistoryId?: string;

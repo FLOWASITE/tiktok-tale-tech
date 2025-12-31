@@ -47,7 +47,8 @@ export function useScripts() {
         body: { 
           ...formData, 
           user_id: user.id,
-          organization_id: currentOrganization?.id 
+          organization_id: currentOrganization?.id,
+          brandVoiceVariantId: formData.brandVoiceVariantId,
         },
       });
 

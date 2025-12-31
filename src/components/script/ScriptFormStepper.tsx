@@ -42,6 +42,7 @@ import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector
 import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
+import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
@@ -98,6 +99,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     voice_region: 'northern',
     dialogue_style: 'monologue',
     brandTemplateId: undefined,
+    brandVoiceVariantId: undefined,
     hook: undefined,
     angle: undefined,
   });
@@ -352,6 +354,14 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               {selectedTemplate && (
                 <BrandPreviewCard template={selectedTemplate} defaultOpen={false} />
               )}
+              
+              {/* A/B Testing Voice Variant Selector */}
+              <BrandVoiceVariantSelector
+                brandTemplateId={formData.brandTemplateId}
+                value={formData.brandVoiceVariantId}
+                onValueChange={(variantId) => setFormData(prev => ({ ...prev, brandVoiceVariantId: variantId }))}
+                disabled={isLoading}
+              />
             </div>
 
             {/* Topic Input - Second */}
