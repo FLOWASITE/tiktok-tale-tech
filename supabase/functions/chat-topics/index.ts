@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { fetchLearningContext, PerformanceInsight } from "../_shared/learning-context.ts";
+import { LearningContext } from "../_shared/prompt-utils.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -256,6 +258,114 @@ ${voiceParts.map(p => `- ${p}`).join('\n')}`;
   return section;
 }
 
+// Build learning context section for system prompt
+function buildLearningContextSection(learningContext: LearningContext | null): string {
+  if (!learningContext) return '';
+
+  let section = `
+
+## 📊 AI LEARNING (Học từ lịch sử performance thực tế)
+
+### Tổng quan:
+- Đã phân tích **${learningContext.totalTopicsUsed}** topics, điểm TB: **${learningContext.averagePerformance}/100**
+- Đã xuất bản: **${learningContext.publishedCount || 0}** contents`;
+
+  // Add total engagement if available
+  if (learningContext.totalEngagement) {
+    const te = learningContext.totalEngagement;
+    if (te.views || te.likes || te.comments || te.shares) {
+      section += `
+- Tổng engagement: ${te.views ? `👀 ${te.views} views` : ''} ${te.likes ? `❤️ ${te.likes} likes` : ''} ${te.comments ? `💬 ${te.comments} comments` : ''} ${te.shares ? `🔄 ${te.shares} shares` : ''}`;
+    }
+  }
+
+  // Top performers - PRIORITIZE these patterns
+  if (learningContext.topPerformers?.length) {
+    section += `
+
+### ⭐ TOP PERFORMERS (Ưu tiên gợi ý patterns tương tự):`;
+    learningContext.topPerformers.slice(0, 5).forEach((t, i) => {
+      let line = `${i + 1}. "${t.topic}" (${t.score}pts, ${t.category}`;
+      if (t.pillar) line += `, ${t.pillar}`;
+      line += ')';
+      if (t.engagement) {
+        const e = t.engagement;
+        const engParts: string[] = [];
+        if (e.views) engParts.push(`${e.views} views`);
+        if (e.likes) engParts.push(`${e.likes} likes`);
+        if (e.comments) engParts.push(`${e.comments} cmt`);
+        if (engParts.length) line += ` - ${engParts.join(', ')}`;
+      }
+      section += `
+   ${line}`;
+    });
+    section += `
+→ Tham khảo patterns thành công để gợi ý topics tương tự!`;
+  }
+
+  // Performance insights by category
+  if (learningContext.performanceInsights?.length) {
+    section += `
+
+### 📈 PERFORMANCE BY CATEGORY:`;
+    learningContext.performanceInsights.slice(0, 4).forEach(p => {
+      section += `
+- **${p.topicPattern}**: Score TB ${p.avgScore}, ${p.count} topics`;
+      if (p.avgEngagement.views > 0 || p.avgEngagement.likes > 0) {
+        section += ` (avg: ${p.avgEngagement.views} views, ${p.avgEngagement.likes} likes)`;
+      }
+      if (p.sampleTopics?.length) {
+        section += `
+  VD: "${p.sampleTopics[0]}"`;
+      }
+    });
+  }
+
+  // Preferred categories and pillars
+  if (learningContext.preferredCategories?.length) {
+    section += `
+
+### ✅ CATEGORIES ƯA THÍCH (performance cao):
+${learningContext.preferredCategories.map(c => `- ${c}`).join('\n')}`;
+  }
+
+  if (learningContext.preferredPillars?.length) {
+    section += `
+
+### ✅ PILLARS ƯA THÍCH:
+${learningContext.preferredPillars.map(p => `- ${p}`).join('\n')}`;
+  }
+
+  // Negative feedback - AVOID these patterns
+  if (learningContext.negativeFeedback?.length) {
+    section += `
+
+### ❌ PATTERNS CẦN TRÁNH (feedback tiêu cực):`;
+    learningContext.negativeFeedback.slice(0, 5).forEach(nf => {
+      let line = `- "${nf.topic}"`;
+      if (nf.reason) line += ` - Lý do: ${nf.reason}`;
+      section += `
+${line}`;
+    });
+    section += `
+→ KHÔNG gợi ý topics có pattern tương tự!`;
+  }
+
+  // Recent topics - avoid repetition (already handled in main prompt but reinforce here)
+  if (learningContext.recentTopics?.length) {
+    section += `
+
+### 🔄 TOPICS GẦN ĐÂY (7 ngày - tránh lặp):
+${learningContext.recentTopics.slice(0, 5).map(t => `- ${t}`).join('\n')}`;
+  }
+
+  section += `
+
+⚠️ **QUAN TRỌNG**: Ưu tiên gợi ý topics theo patterns thành công (top performers), tránh patterns có feedback tiêu cực.`;
+
+  return section;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -272,13 +382,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch brand context with extended fields + personas + products + mappings in parallel
+    // Fetch brand context with extended fields + personas + products + mappings + learning context in parallel
     let brandContext: BrandContext | null = null;
     let personasContext: string[] = [];
     let productsContext: string[] = [];
     let productPersonaContext: string[] = [];
     let recentTopics: string[] = [];
     let industryMemory: IndustryMemory | null = null;
+    let learningContext: LearningContext | null = null;
     
     if (brandTemplateId) {
       const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
@@ -344,6 +455,16 @@ serve(async (req) => {
         if (brand.industry_template_id) {
           industryMemory = await fetchIndustryMemory(supabase, brand.industry_template_id, 'vi');
         }
+
+        // Fetch Learning Context in parallel
+        learningContext = await fetchLearningContext(supabase, brandTemplateId, organizationId || null, 50);
+        console.log('Learning context:', learningContext ? {
+          topPerformers: learningContext.topPerformers?.length || 0,
+          avgPerformance: learningContext.averagePerformance,
+          negativeFeedback: learningContext.negativeFeedback?.length || 0,
+          preferredCategories: learningContext.preferredCategories?.length || 0,
+          publishedCount: learningContext.publishedCount || 0,
+        } : 'No learning context');
       }
 
       // Build enhanced personas context
@@ -405,7 +526,7 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with extended context including Industry Memory
+    // Build system prompt with extended context including Industry Memory + Learning Context
     const systemPrompt = buildSystemPrompt(
       brandContext, 
       contentGoal, 
@@ -413,7 +534,8 @@ serve(async (req) => {
       personasContext, 
       productsContext, 
       productPersonaContext,
-      industryMemory
+      industryMemory,
+      learningContext
     );
 
     // Prepare messages for AI
@@ -432,6 +554,9 @@ serve(async (req) => {
       industryName: industryMemory?.name,
       forbiddenTermsCount: industryMemory?.forbidden_terms?.length || 0,
       complianceRulesCount: industryMemory?.compliance_rules?.length || 0,
+      hasLearningContext: !!learningContext,
+      learningTopPerformers: learningContext?.topPerformers?.length || 0,
+      learningAvgPerformance: learningContext?.averagePerformance || 0,
     });
 
     // Call Lovable AI with streaming
@@ -493,7 +618,8 @@ function buildSystemPrompt(
   personasContext?: string[],
   productsContext?: string[],
   productPersonaContext?: string[],
-  industryMemory?: IndustryMemory | null
+  industryMemory?: IndustryMemory | null,
+  learningContext?: LearningContext | null
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -504,6 +630,7 @@ function buildSystemPrompt(
   };
 
   const safeIndustryMemory = industryMemory ?? null;
+  const safeLearningContext = learningContext ?? null;
   
   let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
 
@@ -519,6 +646,12 @@ function buildSystemPrompt(
     prompt += industrySection;
   }
 
+  // INJECT LEARNING CONTEXT (Second Priority - Data-driven optimization)
+  const learningSection = buildLearningContextSection(safeLearningContext);
+  if (learningSection) {
+    prompt += learningSection;
+  }
+
   prompt += `
 
 ## Nguyên tắc gợi ý topic:
@@ -529,6 +662,8 @@ function buildSystemPrompt(
 5. Cân bằng giữa evergreen content và trending topics
 6. ${industryMemory ? 'TUÂN THỦ Industry Memory: Không gợi ý topic vi phạm từ cấm, compliance rules, hoặc claim restrictions' : 'Đảm bảo content phù hợp với ngành'}
 7. ${industryMemory?.argument_patterns ? 'Áp dụng argument patterns: Sử dụng valid patterns, tránh forbidden patterns' : 'Sử dụng lập luận logic và thuyết phục'}
+8. ${safeLearningContext?.topPerformers?.length ? 'ƯU TIÊN patterns từ top performers: Tham khảo topics thành công để gợi ý tương tự' : 'Học từ dữ liệu thực tế khi có'}
+9. ${safeLearningContext?.negativeFeedback?.length ? 'TRÁNH patterns bị feedback tiêu cực: Không gợi ý topics tương tự những topics đã bị reject' : 'Lắng nghe feedback để cải thiện'}
 
 ## Format trả lời khi gợi ý topic:
 Khi gợi ý topic, format như sau:
