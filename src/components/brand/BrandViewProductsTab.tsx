@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { useProductPersonaMappings } from '@/hooks/useProductPersonaMappings';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
+import { useOrganization } from '@/hooks/useOrganization';
 import { PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS } from '@/types/product';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { cn } from '@/lib/utils';
+import { ProductQuickAddDialog } from './ProductQuickAddDialog';
 
 interface BrandViewProductsTabProps {
   template: BrandTemplate;
@@ -341,7 +344,7 @@ const ProductCardSkeleton = () => (
 );
 
 // Empty state with animation
-const EmptyState = () => (
+const EmptyState = ({ onAddClick }: { onAddClick: () => void }) => (
   <Card className="border-dashed">
     <CardContent className="flex flex-col items-center justify-center py-12 text-center">
       <div className="relative mb-4">
@@ -356,16 +359,22 @@ const EmptyState = () => (
       <p className="text-sm text-muted-foreground max-w-sm mb-4">
         Thêm sản phẩm để AI có thể tạo nội dung chính xác hơn, với USP và messaging phù hợp.
       </p>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <Button 
+        onClick={onAddClick}
+        className="gap-2 animate-bounce"
+        style={{ animationDuration: '2s' }}
+      >
         <Plus className="w-4 h-4" />
-        <span>Chỉnh sửa Brand để thêm Sản phẩm</span>
-      </div>
+        Thêm sản phẩm đầu tiên
+      </Button>
     </CardContent>
   </Card>
 );
 
 export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
-  const { products, isLoading: productsLoading } = useProductCatalog(template.id);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const { currentOrganization } = useOrganization();
+  const { products, isLoading: productsLoading, refetch } = useProductCatalog(template.id);
   const { mappings, isLoading: mappingsLoading } = useProductPersonaMappings({
     brandTemplateId: template.id,
     enabled: true,
@@ -411,7 +420,18 @@ export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
   }
 
   if (!products || products.length === 0) {
-    return <EmptyState />;
+    return (
+      <>
+        <EmptyState onAddClick={() => setShowAddDialog(true)} />
+        <ProductQuickAddDialog
+          brandTemplateId={template.id}
+          organizationId={currentOrganization?.id}
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onSuccess={() => refetch()}
+        />
+      </>
+    );
   }
 
   const featuredProducts = products.filter(p => p.is_featured);
@@ -419,18 +439,34 @@ export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
 
   return (
     <div className="space-y-4">
-      {/* Summary Header */}
+      {/* Summary Header with Quick Add */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Package className="w-5 h-5 text-primary" />
           <span className="font-medium">{products.length} Sản phẩm/Dịch vụ</span>
         </div>
-        {featuredProducts.length > 0 && (
-          <Badge variant="secondary" className="gap-1">
-            <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-            {featuredProducts.length} nổi bật
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {featuredProducts.length > 0 && (
+            <Badge variant="secondary" className="gap-1">
+              <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+              {featuredProducts.length} nổi bật
+            </Badge>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setShowAddDialog(true)}
+                className="gap-1 hover:scale-105 transition-transform"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Thêm</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Thêm sản phẩm mới</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Featured Products */}
@@ -473,6 +509,15 @@ export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
           </div>
         </div>
       )}
+
+      {/* Quick Add Dialog */}
+      <ProductQuickAddDialog
+        brandTemplateId={template.id}
+        organizationId={currentOrganization?.id}
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

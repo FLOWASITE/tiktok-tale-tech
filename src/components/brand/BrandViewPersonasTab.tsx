@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Users,
   Star,
@@ -41,9 +42,11 @@ import {
   CheckSquare,
   FileText,
   Package,
+  Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PersonaProductsList } from './PersonaProductsList';
+import { PersonaQuickAddDialog } from './PersonaQuickAddDialog';
 import { useOrganization } from '@/hooks/useOrganization';
 
 interface BrandViewPersonasTabProps {
@@ -433,27 +436,37 @@ const PersonaCardSkeleton = () => (
   </Card>
 );
 
-const EmptyState = () => (
+const EmptyState = ({ onAddClick }: { onAddClick: () => void }) => (
   <Card className="border-dashed">
     <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-        <Users className="w-8 h-8 text-muted-foreground" />
+      <div className="relative mb-4">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center animate-pulse">
+          <Users className="w-8 h-8 text-primary" />
+        </div>
+        <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center animate-bounce" style={{ animationDelay: '0.1s' }}>
+          <Sparkles className="w-3 h-3 text-purple-600" />
+        </div>
       </div>
       <h3 className="text-lg font-medium mb-2">Chưa có Customer Persona</h3>
       <p className="text-sm text-muted-foreground max-w-sm mb-4">
         Customer Personas giúp bạn hiểu rõ đối tượng khách hàng mục tiêu và tạo nội dung phù hợp hơn.
       </p>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <UserPlus className="w-4 h-4" />
-        <span>Chỉnh sửa Brand để thêm Personas</span>
-      </div>
+      <Button 
+        onClick={onAddClick}
+        className="gap-2 animate-bounce"
+        style={{ animationDuration: '2s' }}
+      >
+        <Plus className="w-4 h-4" />
+        Thêm persona đầu tiên
+      </Button>
     </CardContent>
   </Card>
 );
 
 export function BrandViewPersonasTab({ template }: BrandViewPersonasTabProps) {
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const { currentOrganization } = useOrganization();
-  const { personas, isLoading } = useCustomerPersonas({
+  const { personas, isLoading, refresh } = useCustomerPersonas({
     brandTemplateId: template.id,
     enabled: true,
   });
@@ -468,23 +481,50 @@ export function BrandViewPersonasTab({ template }: BrandViewPersonasTabProps) {
   }
 
   if (personas.length === 0) {
-    return <EmptyState />;
+    return (
+      <>
+        <EmptyState onAddClick={() => setShowAddDialog(true)} />
+        <PersonaQuickAddDialog
+          brandTemplateId={template.id}
+          organizationId={currentOrganization?.id}
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onSuccess={() => refresh()}
+        />
+      </>
+    );
   }
 
   return (
     <div className="space-y-4">
-      {/* Summary Header */}
+      {/* Summary Header with Quick Add */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-primary" />
           <span className="font-medium">{personas.length} Customer Personas</span>
         </div>
-        {personas.some(p => p.is_primary) && (
-          <Badge variant="secondary" className="gap-1">
-            <Star className="w-3 h-3" />
-            Có persona chính
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {personas.some(p => p.is_primary) && (
+            <Badge variant="secondary" className="gap-1">
+              <Star className="w-3 h-3" />
+              Có persona chính
+            </Badge>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setShowAddDialog(true)}
+                className="gap-1 hover:scale-105 transition-transform"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Thêm</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Thêm persona mới</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Personas Grid */}
@@ -498,6 +538,15 @@ export function BrandViewPersonasTab({ template }: BrandViewPersonasTabProps) {
           />
         ))}
       </div>
+
+      {/* Quick Add Dialog */}
+      <PersonaQuickAddDialog
+        brandTemplateId={template.id}
+        organizationId={currentOrganization?.id}
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onSuccess={() => refresh()}
+      />
     </div>
   );
 }
