@@ -4,8 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { 
   buildExtendedBrandPrompt,
+  buildJourneyStageMessagingSection,
   type BrandContext as ExtendedBrandContext,
-  type CustomerPersona 
+  type CustomerPersona,
+  type JourneyStageMessagingData,
+  type JourneyStage,
 } from "../_shared/prompt-utils.ts";
 
 const corsHeaders = {
@@ -28,6 +31,9 @@ interface FormData {
   editedPreviews?: Record<string, EditedPreview>;
   contentPurpose?: string;
   marketingFramework?: string;
+  targetJourneyStage?: JourneyStage;
+  targetPersonaId?: string;
+  targetProductId?: string;
 }
 
 // Brand Voice label mappings
@@ -1054,6 +1060,22 @@ serve(async (req) => {
 
         // Build Product-Persona mapping context for multichannel content
         if (mappingsResult.data?.length) {
+          // Fetch journey stage messaging for all mappings
+          const mappingIds = mappingsResult.data.map((m: any) => m.id).filter(Boolean);
+          let journeyMessagingData: JourneyStageMessagingData[] = [];
+          
+          if (mappingIds.length > 0) {
+            const { data: journeyData } = await supabase
+              .from('journey_stage_messaging')
+              .select('*')
+              .in('mapping_id', mappingIds);
+            
+            if (journeyData?.length) {
+              journeyMessagingData = journeyData as JourneyStageMessagingData[];
+              console.log("Journey stage messaging loaded:", journeyData.length, "entries");
+            }
+          }
+
           // Group by persona for better content targeting
           const mappingsByPersona: Record<string, any[]> = {};
           mappingsResult.data.forEach((m: any) => {
@@ -1083,6 +1105,19 @@ serve(async (req) => {
             (extendedBrandContext as any).productPersonaTargeting = productTargetingContext;
           }
           console.log("Product-persona mappings loaded:", mappingsResult.data.length);
+
+          // Build and inject Journey Stage Messaging context
+          if (journeyMessagingData.length > 0) {
+            const journeyContext = buildJourneyStageMessagingSection(
+              journeyMessagingData,
+              formData.targetJourneyStage
+            );
+            if (journeyContext && extendedBrandContext) {
+              (extendedBrandContext as any).journeyStageMessaging = journeyContext;
+              console.log("Journey stage messaging context built for", 
+                formData.targetJourneyStage ? `target stage: ${formData.targetJourneyStage}` : "all stages");
+            }
+          }
         }
         
         // CRITICAL: Fetch Industry Memory from database (Single Source of Truth)
