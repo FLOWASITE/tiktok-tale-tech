@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useBrandAnalytics } from '@/hooks/useBrandAnalytics';
 import { useBrandCounts } from '@/hooks/useBrandCounts';
@@ -8,6 +8,9 @@ import { BrandForm } from '@/components/BrandForm';
 import { BrandBulkActionsBar } from '@/components/BrandBulkActionsBar';
 import { BrandHeroSection } from '@/components/brand/BrandHeroSection';
 import { BrandEmptyState } from '@/components/brand/BrandEmptyState';
+import { BrandMobileFilters } from '@/components/brand/BrandMobileFilters';
+import { SwipeableBrandCard } from '@/components/brand/SwipeableBrandCard';
+import { PullToRefresh } from '@/components/brand/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -60,8 +63,15 @@ export default function Brands() {
     duplicateTemplate,
     setDefaultTemplate, 
     uploadLogo, 
-    deleteLogo 
+    deleteLogo,
+    refetch
   } = useBrandTemplates();
+
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+    toast.success('Đã cập nhật danh sách!');
+  }, [refetch]);
   
   // Brand Analytics - fetch usage stats for all templates
   const brandIds = useMemo(() => templates.map(t => t.id), [templates]);
@@ -447,9 +457,24 @@ export default function Brands() {
 
         {/* Controls Row */}
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {/* Enhanced Sort Dropdown */}
+          {/* Mobile Filter Button (Bottom Sheet trigger) */}
+          <BrandMobileFilters
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            filterScope={filterScope}
+            onFilterScopeChange={setFilterScope}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            personalCount={personalCount}
+            orgCount={orgCount}
+            totalCount={templates.length}
+            hasOrganization={!!currentOrganization}
+            organizationName={currentOrganization?.name}
+          />
+
+          {/* Enhanced Sort Dropdown - Hidden on mobile */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[140px] sm:w-[160px] h-9 text-xs sm:text-sm shrink-0">
+            <SelectTrigger className="hidden md:flex w-[160px] h-9 text-sm shrink-0">
               <SelectValue placeholder="Sắp xếp theo" />
             </SelectTrigger>
             <SelectContent>
@@ -560,34 +585,44 @@ export default function Brands() {
           <BrandEmptyState onCreateNew={handleCreate} />
         )
       ) : (
-        <div className={cn(
-          viewMode === 'grid' 
-            ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3' 
-            : 'flex flex-col gap-3'
-        )}>
-          {paginatedTemplates.map((template, index) => (
-            <div 
-              key={template.id}
-              className="animate-fade-in"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <BrandCard
-                template={template}
-                organizationName={currentOrganization?.name}
-                onEdit={handleEdit}
-                onDelete={deleteTemplate}
-                onSetDefault={setDefaultTemplate}
-                onDuplicate={duplicateTemplate}
-                compact={viewMode === 'list'}
-                selectable={isSelectionMode}
-                selected={selectedIds.has(template.id)}
-                onSelectChange={handleSelectChange}
-                usageStats={getUsageForBrand(template.id)}
-                brandCounts={getCountsForBrand(template.id)}
-              />
-            </div>
-          ))}
-        </div>
+        <PullToRefresh onRefresh={handleRefresh} disabled={loading}>
+          <div className={cn(
+            viewMode === 'grid' 
+              ? 'grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+              : 'flex flex-col gap-2 sm:gap-3'
+          )}>
+            {paginatedTemplates.map((template, index) => (
+              <motion.div 
+                key={template.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05, duration: 0.3 }}
+              >
+                <SwipeableBrandCard
+                  onDelete={() => deleteTemplate(template.id)}
+                  onSetDefault={() => setDefaultTemplate(template.id)}
+                  isDefault={template.is_default}
+                  disabled={isSelectionMode}
+                >
+                  <BrandCard
+                    template={template}
+                    organizationName={currentOrganization?.name}
+                    onEdit={handleEdit}
+                    onDelete={deleteTemplate}
+                    onSetDefault={setDefaultTemplate}
+                    onDuplicate={duplicateTemplate}
+                    compact={viewMode === 'list'}
+                    selectable={isSelectionMode}
+                    selected={selectedIds.has(template.id)}
+                    onSelectChange={handleSelectChange}
+                    usageStats={getUsageForBrand(template.id)}
+                    brandCounts={getCountsForBrand(template.id)}
+                  />
+                </SwipeableBrandCard>
+              </motion.div>
+            ))}
+          </div>
+        </PullToRefresh>
       )}
 
       {/* Pagination Controls */}
