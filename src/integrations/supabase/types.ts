@@ -2378,6 +2378,7 @@ export type Database = {
       scripts: {
         Row: {
           brand_template_id: string | null
+          brand_voice_variant_id: string | null
           character_type: string
           content: string
           created_at: string
@@ -2398,6 +2399,7 @@ export type Database = {
         }
         Insert: {
           brand_template_id?: string | null
+          brand_voice_variant_id?: string | null
           character_type?: string
           content: string
           created_at?: string
@@ -2418,6 +2420,7 @@ export type Database = {
         }
         Update: {
           brand_template_id?: string | null
+          brand_voice_variant_id?: string | null
           character_type?: string
           content?: string
           created_at?: string
@@ -2442,6 +2445,13 @@ export type Database = {
             columns: ["brand_template_id"]
             isOneToOne: false
             referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scripts_brand_voice_variant_id_fkey"
+            columns: ["brand_voice_variant_id"]
+            isOneToOne: false
+            referencedRelation: "brand_voice_variants"
             referencedColumns: ["id"]
           },
           {
