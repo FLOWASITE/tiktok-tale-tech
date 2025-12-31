@@ -321,11 +321,11 @@ serve(async (req) => {
       userPreferences: userPreferences || undefined,
       sessionMemory: sessionMemory || undefined,
       ragResults: ragResults.length > 0 ? ragResults : undefined,
-      glossaryTerms: industryGlossary.length > 0 ? industryGlossary.length : undefined,
-      personasCount: personasContext.length > 0 ? personasContext.length : undefined,
-      productsCount: productsContext.length > 0 ? productsContext.length : undefined,
-      journeyMessagingCount: journeyMessaging.length > 0 ? journeyMessaging.length : undefined,
-      sampleTextsChannels: sampleTexts ? Object.keys(sampleTexts) : undefined,
+      industryGlossary: industryGlossary.length > 0 ? industryGlossary : undefined,
+      personasContext: personasContext.length > 0 ? personasContext : undefined,
+      productsContext: productsContext.length > 0 ? productsContext : undefined,
+      journeyMessaging: journeyMessaging.length > 0 ? journeyMessaging : undefined,
+      sampleTexts: sampleTexts || undefined,
     });
     
     console.log('[chat-topics]', summarizeContext(contextMetadata));
