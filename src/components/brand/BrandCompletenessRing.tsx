@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { BrandCompleteness, getCompletenessRingColor, getCompletenessColor } from '@/utils/brandCompleteness';
 import { AlertTriangle, TrendingUp, CheckCircle, Sparkles } from 'lucide-react';
@@ -8,6 +8,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useConfetti } from '@/hooks/useConfetti';
+import { useToast } from '@/hooks/use-toast';
 
 interface BrandCompletenessRingProps {
   completeness: BrandCompleteness;
@@ -62,6 +64,29 @@ export function BrandCompletenessRing({
 }: BrandCompletenessRingProps) {
   const { score, level, items } = completeness;
   const [animatedScore, setAnimatedScore] = useState(animated ? 0 : score);
+  const prevScoreRef = useRef<number | null>(null);
+  const hasCelebratedRef = useRef(false);
+  const { fireConfetti } = useConfetti();
+  const { toast } = useToast();
+  
+  // Celebrate when reaching 100%
+  useEffect(() => {
+    if (
+      score === 100 && 
+      prevScoreRef.current !== null && 
+      prevScoreRef.current < 100 &&
+      !hasCelebratedRef.current
+    ) {
+      hasCelebratedRef.current = true;
+      fireConfetti();
+      toast({
+        title: "🎉 Hoàn thiện 100%!",
+        description: "Brand của bạn đã hoàn thiện đầy đủ thông tin!",
+        className: "border-emerald-500/50 bg-emerald-500/5",
+      });
+    }
+    prevScoreRef.current = score;
+  }, [score, fireConfetti, toast]);
   
   // Animate score on mount
   useEffect(() => {
