@@ -247,7 +247,12 @@ export function BrandViewHero({
           {/* Completeness Ring - Desktop */}
           {completeness && (
             <div className="hidden md:block shrink-0">
-              <BrandCompletenessRing completeness={completeness} size="lg" />
+              <BrandCompletenessRing 
+                completeness={completeness} 
+                size="xl" 
+                showIcon 
+                showLabel 
+              />
             </div>
           )}
         </div>
@@ -257,7 +262,12 @@ export function BrandViewHero({
           {/* Completeness Ring - Mobile */}
           {completeness && (
             <div className="md:hidden">
-              <BrandCompletenessRing completeness={completeness} size="sm" showLabel={false} />
+              <BrandCompletenessRing 
+                completeness={completeness} 
+                size="md" 
+                showLabel={false} 
+                showIcon={false}
+              />
             </div>
           )}
 
