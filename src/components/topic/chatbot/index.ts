@@ -11,3 +11,4 @@ export {
   type ContextBadgeType 
 } from './ContextBadges';
 export { ConversationHistorySidebar } from './ConversationHistorySidebar';
+export { ToolResultCard, ToolExecutionLoading, type ToolResult } from './ToolResultCard';

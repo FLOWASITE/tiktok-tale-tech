@@ -17,6 +17,7 @@ import { DiscoveryTab } from './chatbot/DiscoveryTab';
 import { DiscoveryChips } from './chatbot/DiscoveryChips';
 import { ContextBadges, parseContextBadges, removeContextLine } from './chatbot/ContextBadges';
 import { ConversationHistorySidebar } from './chatbot/ConversationHistorySidebar';
+import { ToolResultCard, ToolExecutionLoading, type ToolResult } from './chatbot/ToolResultCard';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -80,6 +81,8 @@ interface ChatMessage {
   isError?: boolean;
   reactions?: string[];
   feedback?: 'up' | 'down';
+  toolResults?: ToolResult[];
+  isToolExecuting?: boolean;
 }
 
 interface ExtractedTopic {
@@ -801,7 +804,7 @@ export function TopicAIChatbot({
       .filter(m => m.id !== 'welcome' && !m.isError)
       .map(m => ({ role: m.role, content: m.content }));
 
-    let assistantContent = '';
+    const assistantId = `assistant-${Date.now()}`;
 
     try {
       const response = await fetch(CHAT_URL, {
@@ -814,6 +817,9 @@ export function TopicAIChatbot({
           messages: apiMessages,
           brandTemplateId,
           contentGoal,
+          organizationId: currentOrganization?.id,
+          userId: user?.id,
+          enableTools: true,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -841,68 +847,109 @@ export function TopicAIChatbot({
         throw new Error(`Error: ${response.status}`);
       }
 
-      if (!response.body) {
-        throw new Error('No response body');
-      }
+      const contentType = response.headers.get('content-type') || '';
+      
+      // Check if it's a tool-calling JSON response
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        
+        // Handle tool results response
+        if (data.type === 'tool_results' && data.tool_results) {
+          const toolResults: ToolResult[] = data.tool_results;
+          
+          // Create assistant message with tool results
+          setMessages(prev => [...prev, {
+            id: assistantId,
+            role: 'assistant',
+            content: data.content || '',
+            timestamp: new Date(),
+            extractedTopics: extractTopicsFromMessage(data.content || ''),
+            toolResults: toolResults,
+          }]);
+          
+          // Show toast for successful tool executions
+          const successTools = toolResults.filter(t => t.success);
+          if (successTools.length > 0) {
+            toast({
+              title: `✅ ${successTools.length} hành động hoàn thành`,
+              description: successTools.map(t => t.result?.message || t.tool_name).join(', '),
+            });
+          }
+        } else {
+          // Regular message response (no tool calls)
+          setMessages(prev => [...prev, {
+            id: assistantId,
+            role: 'assistant',
+            content: data.content || '',
+            timestamp: new Date(),
+            extractedTopics: extractTopicsFromMessage(data.content || ''),
+          }]);
+        }
+      } else {
+        // Streaming response (fallback/legacy mode)
+        if (!response.body) {
+          throw new Error('No response body');
+        }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = '';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let textBuffer = '';
+        let assistantContent = '';
 
-      // Create assistant message placeholder
-      const assistantId = `assistant-${Date.now()}`;
-      setMessages(prev => [...prev, {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-      }]);
+        // Create assistant message placeholder
+        setMessages(prev => [...prev, {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+        }]);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        textBuffer += decoder.decode(value, { stream: true });
+          textBuffer += decoder.decode(value, { stream: true });
 
-        // Process line by line
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
+          // Process line by line
+          let newlineIndex: number;
+          while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+            let line = textBuffer.slice(0, newlineIndex);
+            textBuffer = textBuffer.slice(newlineIndex + 1);
 
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
+            if (line.endsWith('\r')) line = line.slice(0, -1);
+            if (line.startsWith(':') || line.trim() === '') continue;
+            if (!line.startsWith('data: ')) continue;
 
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === '[DONE]') break;
 
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantContent += content;
-              // Update message with new content
-              setMessages(prev => prev.map(m => 
-                m.id === assistantId 
-                  ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
-                  : m
-              ));
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                assistantContent += content;
+                // Update message with new content
+                setMessages(prev => prev.map(m => 
+                  m.id === assistantId 
+                    ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
+                    : m
+                ));
+              }
+            } catch {
+              // Incomplete JSON, put back and wait
+              textBuffer = line + '\n' + textBuffer;
+              break;
             }
-          } catch {
-            // Incomplete JSON, put back and wait
-            textBuffer = line + '\n' + textBuffer;
-            break;
           }
         }
-      }
 
-      // Final update with extracted topics
-      setMessages(prev => prev.map(m => 
-        m.id === assistantId 
-          ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
-          : m
-      ));
+        // Final update with extracted topics
+        setMessages(prev => prev.map(m => 
+          m.id === assistantId 
+            ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
+            : m
+        ));
+      }
       
       // Haptic feedback and sound when receiving complete message
       triggerHaptic('light');
@@ -942,7 +989,7 @@ export function TopicAIChatbot({
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [messages, isLoading, brandTemplateId, contentGoal, scrollToBottom, playSend, playReceive, playNotification]);
+  }, [messages, isLoading, brandTemplateId, contentGoal, currentOrganization, user, scrollToBottom, playSend, playReceive, playNotification]);
 
   // Handle emoji reaction
   const handleReaction = useCallback((messageId: string, emoji: string) => {
@@ -1828,6 +1875,19 @@ export function TopicAIChatbot({
                         isRegenerating={regeneratingMessageId === message.id}
                       />
                     )}
+                  </div>
+                )}
+
+                {/* Tool Results Cards */}
+                {message.toolResults && message.toolResults.length > 0 && (
+                  <div className="space-y-2 pl-1 mt-2">
+                    {message.toolResults.map((toolResult, index) => (
+                      <ToolResultCard 
+                        key={index}
+                        toolResult={toolResult}
+                        onNavigate={onNavigate}
+                      />
+                    ))}
                   </div>
                 )}
 
