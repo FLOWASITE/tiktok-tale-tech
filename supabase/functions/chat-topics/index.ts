@@ -718,22 +718,45 @@ Khi gợi ý topic, format như sau:
 📌 **Topic:** [Tên topic cụ thể - viết rõ ràng, cô đọng]
 💡 **Lý do:** [Tại sao phù hợp - 1 câu ngắn]
 🎯 **Format đề xuất:** [Multi-channel / Script / Carousel]
+🏷️ **Context:** [Badges cho biết nguồn dữ liệu ảnh hưởng đến gợi ý này]
 
 ---
+
+### Context Badges (LUÔN sử dụng khi phù hợp):
+- \`🛡️ Compliance\` - Topic tuân thủ industry compliance rules
+- \`📊 Top Performer\` - Lấy cảm hứng từ topics có performance cao
+- \`🎭 Persona-fit\` - Phù hợp với customer persona cụ thể
+- \`📦 Product-linked\` - Liên kết với sản phẩm/dịch vụ của brand
+- \`🗺️ Journey:[Stage]\` - Phù hợp với giai đoạn customer journey (Awareness/Consideration/Decision/Loyalty)
+- \`✨ Brand Voice\` - Dựa trên sample texts và brand voice guidelines
+- \`🔥 Trending\` - Topic trending hoặc seasonal
+- \`🌲 Evergreen\` - Topic evergreen, value lâu dài
 
 Ví dụ:
 
 📌 **Topic:** 5 Bước Xây Dựng Thương Hiệu Cá Nhân Trên LinkedIn
 💡 **Lý do:** Phù hợp với audience chuyên nghiệp, giúp tăng uy tín
 🎯 **Format đề xuất:** Carousel
+🏷️ **Context:** \`📊 Top Performer\` \`🎭 Persona-fit\` \`🗺️ Journey:Awareness\`
 
 ---
 
 📌 **Topic:** Behind-the-scenes: Một Ngày Của Team Marketing
 💡 **Lý do:** Tạo kết nối cảm xúc, tăng tương tác cao
 🎯 **Format đề xuất:** Script
+🏷️ **Context:** \`✨ Brand Voice\` \`🌲 Evergreen\`
 
 ---
+
+### Quy tắc sử dụng Context Badges:
+1. LUÔN thêm ít nhất 1-3 badges phù hợp cho mỗi topic
+2. \`🛡️ Compliance\` - Dùng khi topic được kiểm tra qua industry rules
+3. \`📊 Top Performer\` - Dùng khi topic lấy cảm hứng từ learning context
+4. \`🎭 Persona-fit\` - Dùng khi target specific persona
+5. \`📦 Product-linked\` - Dùng khi liên kết với product/service
+6. \`🗺️ Journey:[Stage]\` - Dùng khi phù hợp với journey stage messaging
+7. \`✨ Brand Voice\` - Dùng khi dựa trên sample texts
+8. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
 
 Gợi ý 2-4 topics, phân cách bằng dấu --- giữa mỗi topic.`;
 
@@ -909,13 +932,34 @@ Nếu FAIL bất kỳ mục nào → KHÔNG gợi ý topic đó, thay bằng alt
 Nếu user yêu cầu topic vi phạm → Từ chối nhẹ nhàng, giải thích lý do, đề xuất alternative.`;
   }
 
+  // Add Context Sources Summary (for AI awareness)
+  const contextSources: string[] = [];
+  if (industryMemory) contextSources.push('🛡️ Industry Compliance');
+  if (safeLearningContext?.topPerformers?.length) contextSources.push('📊 Performance History');
+  if (personasContext?.length) contextSources.push('🎭 Customer Personas');
+  if (productsContext?.length) contextSources.push('📦 Products/Services');
+  if (journeyMessaging?.length) contextSources.push('🗺️ Journey Messaging');
+  if (sampleTexts && Object.keys(sampleTexts).length > 0) contextSources.push('✨ Sample Texts');
+  if (brandContext) contextSources.push('🏢 Brand Context');
+
+  if (contextSources.length > 0) {
+    prompt += `
+
+## 📍 CONTEXT SOURCES AVAILABLE (Nguồn dữ liệu hiện có):
+
+${contextSources.join(' | ')}
+
+Bạn có quyền truy cập các nguồn dữ liệu trên. Khi gợi ý topic, LUÔN sử dụng Context Badges để cho user biết bạn đã tham khảo nguồn nào.`;
+  }
+
   prompt += `
 
 ## Cách tương tác:
 - Nếu người dùng chưa có ý tưởng: Hỏi về sản phẩm/dịch vụ chính hoặc đối tượng khách hàng
-- Nếu người dùng đã có hướng: Gợi ý 2-4 topics cụ thể với giải thích
+- Nếu người dùng đã có hướng: Gợi ý 2-4 topics cụ thể với giải thích VÀ context badges
 - Nếu người dùng muốn refine: Giúp làm sắc nét góc nhìn của topic
 - Luôn sẵn sàng gợi ý thêm nếu người dùng muốn
+- **QUAN TRỌNG**: Mỗi topic PHẢI có Context badges để tăng transparency
 
 Hãy bắt đầu cuộc trò chuyện một cách thân thiện và hữu ích!`;
 
