@@ -853,120 +853,128 @@ export function TopicAIChatbot({
         throw new Error(`Error: ${response.status}`);
       }
 
-      const contentType = response.headers.get('content-type') || '';
-      
-      // Check if it's a tool-calling JSON response
-      if (contentType.includes('application/json')) {
-        const data = await response.json();
-        
-        // Handle tool results response
-        if (data.type === 'tool_results' && data.tool_results) {
-          const toolResults: ToolResult[] = data.tool_results;
-          
-          // Update thinking status to show tool execution
-          if (toolResults.length > 0) {
-            setThinkingStatus('executing_tools');
-            const firstTool = toolResults[0]?.tool_name;
-            if (firstTool) {
-              setCurrentExecutingTool(firstTool);
+      // All responses are now streaming (SSE)
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = '';
+      let assistantContent = '';
+      let receivedToolResults: ToolResult[] | null = null;
+      let messageCreated = false;
+
+      // Update status to generating when streaming starts
+      setThinkingStatus('generating');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        textBuffer += decoder.decode(value, { stream: true });
+
+        // Process line by line
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            
+            // Check for tool_results special event
+            if (parsed.type === 'tool_results' && parsed.tool_results) {
+              receivedToolResults = parsed.tool_results as ToolResult[];
+              
+              // Update thinking status to show tool execution completed
+              setThinkingStatus('executing_tools');
+              const firstTool = receivedToolResults[0]?.tool_name;
+              if (firstTool) {
+                setCurrentExecutingTool(firstTool);
+              }
+              
+              // Show toast for successful tool executions
+              const successTools = receivedToolResults.filter(t => t.success);
+              if (successTools.length > 0) {
+                toast({
+                  title: `✅ ${successTools.length} hành động hoàn thành`,
+                  description: successTools.map(t => t.result?.message || t.tool_name).join(', '),
+                });
+              }
+              
+              // Now switch to generating for the follow-up response
+              setThinkingStatus('generating');
+              continue;
             }
-          }
-          
-          // Create assistant message with tool results
-          setMessages(prev => [...prev, {
-            id: assistantId,
-            role: 'assistant',
-            content: data.content || '',
-            timestamp: new Date(),
-            extractedTopics: extractTopicsFromMessage(data.content || ''),
-            toolResults: toolResults,
-          }]);
-          
-          // Show toast for successful tool executions
-          const successTools = toolResults.filter(t => t.success);
-          if (successTools.length > 0) {
-            toast({
-              title: `✅ ${successTools.length} hành động hoàn thành`,
-              description: successTools.map(t => t.result?.message || t.tool_name).join(', '),
-            });
-          }
-        } else {
-          // Regular message response (no tool calls)
-          setMessages(prev => [...prev, {
-            id: assistantId,
-            role: 'assistant',
-            content: data.content || '',
-            timestamp: new Date(),
-            extractedTopics: extractTopicsFromMessage(data.content || ''),
-          }]);
-        }
-      } else {
-        // Streaming response (fallback/legacy mode)
-        if (!response.body) {
-          throw new Error('No response body');
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let textBuffer = '';
-        let assistantContent = '';
-
-        // Update status to generating when streaming starts
-        setThinkingStatus('generating');
-        
-        // Create assistant message placeholder
-        setMessages(prev => [...prev, {
-          id: assistantId,
-          role: 'assistant',
-          content: '',
-          timestamp: new Date(),
-        }]);
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          textBuffer += decoder.decode(value, { stream: true });
-
-          // Process line by line
-          let newlineIndex: number;
-          while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-            let line = textBuffer.slice(0, newlineIndex);
-            textBuffer = textBuffer.slice(newlineIndex + 1);
-
-            if (line.endsWith('\r')) line = line.slice(0, -1);
-            if (line.startsWith(':') || line.trim() === '') continue;
-            if (!line.startsWith('data: ')) continue;
-
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === '[DONE]') break;
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantContent += content;
+            
+            // Regular content streaming
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantContent += content;
+              
+              // Create message placeholder on first content
+              if (!messageCreated) {
+                messageCreated = true;
+                setMessages(prev => [...prev, {
+                  id: assistantId,
+                  role: 'assistant',
+                  content: assistantContent,
+                  timestamp: new Date(),
+                  extractedTopics: extractTopicsFromMessage(assistantContent),
+                  toolResults: receivedToolResults || undefined,
+                }]);
+              } else {
                 // Update message with new content
                 setMessages(prev => prev.map(m => 
                   m.id === assistantId 
-                    ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
+                    ? { 
+                        ...m, 
+                        content: assistantContent, 
+                        extractedTopics: extractTopicsFromMessage(assistantContent),
+                        toolResults: receivedToolResults || m.toolResults,
+                      }
                     : m
                 ));
               }
-            } catch {
-              // Incomplete JSON, put back and wait
-              textBuffer = line + '\n' + textBuffer;
-              break;
             }
+          } catch {
+            // Incomplete JSON, put back and wait
+            textBuffer = line + '\n' + textBuffer;
+            break;
           }
         }
+      }
 
-        // Final update with extracted topics
+      // Final update with extracted topics and tool results
+      if (messageCreated) {
         setMessages(prev => prev.map(m => 
           m.id === assistantId 
-            ? { ...m, content: assistantContent, extractedTopics: extractTopicsFromMessage(assistantContent) }
+            ? { 
+                ...m, 
+                content: assistantContent, 
+                extractedTopics: extractTopicsFromMessage(assistantContent),
+                toolResults: receivedToolResults || m.toolResults,
+              }
             : m
         ));
+      } else if (assistantContent || receivedToolResults) {
+        // Create message if we have content but never created placeholder
+        setMessages(prev => [...prev, {
+          id: assistantId,
+          role: 'assistant',
+          content: assistantContent,
+          timestamp: new Date(),
+          extractedTopics: extractTopicsFromMessage(assistantContent),
+          toolResults: receivedToolResults || undefined,
+        }]);
       }
       
       // Haptic feedback and sound when receiving complete message
