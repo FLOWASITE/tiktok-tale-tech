@@ -514,13 +514,46 @@ export function BrandFormStepPersonas({
                           <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
                               <Building2 className="w-5 h-5 text-primary" />
-                              Chọn Persona từ Industry Pack
+                              Import Personas từ Industry Pack
                             </DialogTitle>
                           </DialogHeader>
                           
                           <div className="flex-1 overflow-y-auto space-y-3 py-2">
+                            {/* Selection header */}
+                            <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-lg border border-primary/20">
+                              <div className="flex items-center gap-2">
+                                <CheckCheck className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-medium">
+                                  Đã chọn: <span className="text-primary">{selectedIndustryPersonaIds.size}</span> / {Math.min(5 - personas.length, industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).length)} có thể import
+                                </span>
+                              </div>
+                              {industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).length > 0 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => {
+                                    const available = industryPersonas
+                                      .filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id))
+                                      .slice(0, 5 - personas.length)
+                                      .map(ip => ip.id);
+                                    if (selectedIndustryPersonaIds.size === available.length) {
+                                      setSelectedIndustryPersonaIds(new Set());
+                                    } else {
+                                      setSelectedIndustryPersonaIds(new Set(available));
+                                    }
+                                  }}
+                                >
+                                  {selectedIndustryPersonaIds.size === industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).slice(0, 5 - personas.length).length 
+                                    ? 'Bỏ chọn tất cả' 
+                                    : 'Chọn tất cả'}
+                                </Button>
+                              )}
+                            </div>
+                            
                             <p className="text-xs text-muted-foreground">
-                              Còn {5 - personas.length} slot. Chọn persona và click "Sử dụng ngay" hoặc "Customize".
+                              Còn <span className="font-semibold text-primary">{5 - personas.length}</span> slot. Chọn nhiều personas rồi import cùng lúc.
                             </p>
                             
                             <div className="grid gap-3 sm:grid-cols-2">
@@ -528,29 +561,66 @@ export function BrandFormStepPersonas({
                                 const alreadyImported = personas.some(
                                   p => (p as any).source_industry_persona_id === ip.id
                                 );
+                                const isSelected = selectedIndustryPersonaIds.has(ip.id);
+                                const canSelect = !alreadyImported && (isSelected || selectedIndustryPersonaIds.size < (5 - personas.length));
                                 
                                 return (
                                   <Card 
                                     key={ip.id}
                                     className={cn(
-                                      "transition-all overflow-hidden",
-                                      alreadyImported && "opacity-50"
+                                      "transition-all overflow-hidden cursor-pointer",
+                                      alreadyImported && "opacity-50 cursor-not-allowed",
+                                      isSelected && "ring-2 ring-primary border-primary bg-primary/5",
+                                      !alreadyImported && !isSelected && "hover:border-primary/50"
                                     )}
+                                    onClick={() => {
+                                      if (alreadyImported || !canSelect) return;
+                                      const newSet = new Set(selectedIndustryPersonaIds);
+                                      if (isSelected) {
+                                        newSet.delete(ip.id);
+                                      } else {
+                                        newSet.add(ip.id);
+                                      }
+                                      setSelectedIndustryPersonaIds(newSet);
+                                    }}
                                   >
-                                    {/* Gradient Header */}
-                                    <div className="h-2 bg-gradient-to-r from-primary/30 via-primary/20 to-transparent" />
+                                    {/* Gradient Header with checkbox */}
+                                    <div className={cn(
+                                      "h-2 bg-gradient-to-r",
+                                      isSelected 
+                                        ? "from-primary via-primary/70 to-primary/30" 
+                                        : "from-primary/30 via-primary/20 to-transparent"
+                                    )} />
                                     
                                     <CardContent className="p-4 space-y-3">
-                                      {/* Avatar + Info */}
+                                      {/* Avatar + Info + Checkbox */}
                                       <div className="flex items-start gap-3">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center text-2xl border">
-                                          {ip.avatar_emoji || '👤'}
+                                        <div className="relative">
+                                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center text-2xl border">
+                                            {ip.avatar_emoji || '👤'}
+                                          </div>
+                                          {!alreadyImported && (
+                                            <div className={cn(
+                                              "absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                                              isSelected 
+                                                ? "bg-primary border-primary text-primary-foreground" 
+                                                : "bg-background border-muted-foreground/30"
+                                            )}>
+                                              {isSelected && <Check className="w-3 h-3" />}
+                                            </div>
+                                          )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                           <h4 className="font-semibold text-sm truncate">{ip.name}</h4>
                                           <p className="text-xs text-muted-foreground truncate">
                                             {ip.occupation || 'N/A'} {ip.age_range && `• ${ip.age_range}`}
                                           </p>
+                                          {alreadyImported && (
+                                            <Badge variant="secondary" className="text-[9px] mt-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                              <Check className="w-2.5 h-2.5 mr-0.5" />
+                                              Đã import
+                                            </Badge>
+                                          )}
                                         </div>
                                       </div>
                                       
@@ -586,39 +656,6 @@ export function BrandFormStepPersonas({
                                           </span>
                                         </div>
                                       )}
-                                      
-                                      {/* Actions */}
-                                      <div className="flex gap-2 pt-2 border-t">
-                                        {alreadyImported ? (
-                                          <Badge variant="secondary" className="w-full justify-center text-xs py-1">
-                                            <Check className="w-3 h-3 mr-1" />
-                                            Đã import
-                                          </Badge>
-                                        ) : (
-                                          <>
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              className="flex-1 h-8 text-xs"
-                                              onClick={() => handleImportPersona(ip, false)}
-                                            >
-                                              <Zap className="w-3 h-3 mr-1" />
-                                              Sử dụng ngay
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="default"
-                                              size="sm"
-                                              className="flex-1 h-8 text-xs"
-                                              onClick={() => handleImportPersona(ip, true)}
-                                            >
-                                              <Settings2 className="w-3 h-3 mr-1" />
-                                              Customize
-                                            </Button>
-                                          </>
-                                        )}
-                                      </div>
                                     </CardContent>
                                   </Card>
                                 );
@@ -626,14 +663,28 @@ export function BrandFormStepPersonas({
                             </div>
                           </div>
                           
-                          <DialogFooter className="border-t pt-3">
+                          <DialogFooter className="border-t pt-3 flex-wrap gap-2">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => setShowIndustryImport(false)}
+                              onClick={() => {
+                                setSelectedIndustryPersonaIds(new Set());
+                                setShowIndustryImport(false);
+                              }}
                             >
                               Đóng
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              className="gap-1.5"
+                              disabled={selectedIndustryPersonaIds.size === 0}
+                              onClick={handleBatchImport}
+                            >
+                              <Download className="w-4 h-4" />
+                              Import {selectedIndustryPersonaIds.size > 0 ? `(${selectedIndustryPersonaIds.size})` : ''} Personas
                             </Button>
                           </DialogFooter>
                         </DialogContent>
