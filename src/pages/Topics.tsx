@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lightbulb, Bookmark, BarChart3, Brain, MessageSquare, Compass, Sparkles, Menu } from 'lucide-react';
+import { Lightbulb, Bookmark, BarChart3, Brain, MessageSquare, Compass, Sparkles, Menu, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,6 +17,7 @@ import { DiscoveryFeedPanel } from '@/components/topic/DiscoveryFeedPanel';
 import { TopicComparisonMode } from '@/components/topic/TopicComparisonMode';
 import { TopicComparisonBar } from '@/components/topic/TopicComparisonBar';
 import { AILearningDashboard } from '@/components/topic/AILearningDashboard';
+import { TopicPerformanceDashboard } from '@/components/topic/TopicPerformanceDashboard';
 import { MobileTopicBankSheet } from '@/components/topic/MobileTopicBankSheet';
 import { MobileDiscoverySheet } from '@/components/topic/MobileDiscoverySheet';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
@@ -58,7 +59,7 @@ const Topics = () => {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   
   // Mobile states
-  const [mobileTab, setMobileTab] = useState<'chat' | 'bank' | 'discovery' | 'analytics' | 'learning'>('chat');
+  const [mobileTab, setMobileTab] = useState<'chat' | 'bank' | 'discovery' | 'analytics' | 'performance' | 'learning'>('chat');
   const [mobileBankOpen, setMobileBankOpen] = useState(false);
   const [mobileDiscoveryOpen, setMobileDiscoveryOpen] = useState(false);
 
@@ -331,6 +332,11 @@ const Topics = () => {
                       className="flex-1 min-h-0 h-full rounded-none border-0"
                     />
                   )}
+                  {mobileTab === 'performance' && (
+                    <div className="flex-1 overflow-auto p-4">
+                      <TopicPerformanceDashboard brandTemplateId={selectedBrandId} />
+                    </div>
+                  )}
                   {mobileTab === 'analytics' && (
                     <div className="flex-1 overflow-auto p-4">
                       <TopicAnalyticsDashboard brandTemplateId={selectedBrandId} />
@@ -368,6 +374,10 @@ const Topics = () => {
                           Ngân hàng
                           <Badge variant="secondary" className="h-4 px-1 text-[10px]">{combinedStats.totalTopics}</Badge>
                         </TabsTrigger>
+                        <TabsTrigger value="performance" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
+                          <TrendingUp className="w-3.5 h-3.5" />
+                          Hiệu suất
+                        </TabsTrigger>
                         <TabsTrigger value="analytics" className="h-8 text-xs gap-1.5 data-[state=active]:bg-background px-3">
                           <BarChart3 className="w-3.5 h-3.5" />
                           Phân tích
@@ -385,6 +395,9 @@ const Topics = () => {
                             contentGoal={selectedGoal}
                             onSelectTopic={(topic) => navigate('/multichannel', { state: { prefillTopic: topic, prefillGoal: selectedGoal, fromTopics: true } })}
                           />
+                        </TabsContent>
+                        <TabsContent value="performance" className="m-0 p-4">
+                          <TopicPerformanceDashboard brandTemplateId={selectedBrandId} />
                         </TabsContent>
                         <TabsContent value="analytics" className="m-0 p-4">
                           <TopicAnalyticsDashboard brandTemplateId={selectedBrandId} />
@@ -478,6 +491,17 @@ const Topics = () => {
             >
               <BarChart3 className="h-5 w-5" />
               <span className="text-[10px]">Phân tích</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn(
+                'flex-1 h-full flex-col gap-0.5 rounded-none px-1',
+                mobileTab === 'performance' && 'text-primary bg-primary/5'
+              )}
+              onClick={() => setMobileTab('performance')}
+            >
+              <TrendingUp className="h-5 w-5" />
+              <span className="text-[10px]">Hiệu suất</span>
             </Button>
             <Button
               variant="ghost"
