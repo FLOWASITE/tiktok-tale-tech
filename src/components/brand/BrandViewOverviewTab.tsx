@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { BrandFooterInfo } from '@/components/BrandFormStepBusiness';
+import { BrandFooterInfo } from '@/components/BrandForm';
 
 interface ContentPillar {
   name: string;
@@ -233,7 +233,7 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
                   {Object.entries(footerInfo.social_links).map(([platform, url]) => (
                     url && (
                       <Badge key={platform} variant="outline" className="text-xs">
-                        {platform}: {url}
+                        {platform}: {url as string}
                       </Badge>
                     )
                   ))}
