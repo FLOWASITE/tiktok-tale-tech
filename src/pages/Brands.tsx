@@ -381,44 +381,46 @@ export default function Brands() {
         />
       </div>
 
-      {/* Animated Filter Pills */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { value: 'all' as FilterScope, label: 'Tất cả', count: templates.length, icon: Sparkles },
-          { value: 'personal' as FilterScope, label: 'Cá nhân', count: personalCount, icon: User },
-          ...(currentOrganization ? [{ 
-            value: 'organization' as FilterScope, 
-            label: currentOrganization.name, 
-            count: orgCount, 
-            icon: Building2 
-          }] : [])
-        ].map((filter) => (
-          <motion.button
-            key={filter.value}
-            onClick={() => setFilterScope(filter.value)}
-            className={cn(
-              'filter-pill flex items-center gap-2',
-              filterScope === filter.value && 'filter-pill-active'
-            )}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <filter.icon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{filter.label}</span>
-            <span className={cn(
-              'text-xs px-1.5 py-0.5 rounded-full',
-              filterScope === filter.value 
-                ? 'bg-primary-foreground/20' 
-                : 'bg-muted text-muted-foreground'
-            )}>
-              {filter.count}
-            </span>
-          </motion.button>
-        ))}
-      </div>
+      {/* Glassmorphism Filter Section */}
+      <div className="glass-card rounded-xl p-4 space-y-4">
+        {/* Animated Filter Pills */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: 'all' as FilterScope, label: 'Tất cả', count: templates.length, icon: Sparkles },
+            { value: 'personal' as FilterScope, label: 'Cá nhân', count: personalCount, icon: User },
+            ...(currentOrganization ? [{ 
+              value: 'organization' as FilterScope, 
+              label: currentOrganization.name, 
+              count: orgCount, 
+              icon: Building2 
+            }] : [])
+          ].map((filter) => (
+            <motion.button
+              key={filter.value}
+              onClick={() => setFilterScope(filter.value)}
+              className={cn(
+                'filter-pill flex items-center gap-2',
+                filterScope === filter.value && 'filter-pill-active'
+              )}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <filter.icon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{filter.label}</span>
+              <span className={cn(
+                'text-xs px-1.5 py-0.5 rounded-full',
+                filterScope === filter.value 
+                  ? 'bg-primary-foreground/20' 
+                  : 'bg-muted text-muted-foreground'
+              )}>
+                {filter.count}
+              </span>
+            </motion.button>
+          ))}
+        </div>
 
-      {/* Enhanced Search & Filter Controls */}
-      <div className="flex flex-col gap-3">
+        {/* Enhanced Search & Filter Controls */}
+        <div className="flex flex-col sm:flex-row gap-3">
         {/* Enhanced Search Input */}
         <div className="relative flex-1 search-enhanced rounded-lg border">
           <Search className="search-icon absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors" />
@@ -502,6 +504,7 @@ export default function Brands() {
               <List className="w-4 h-4" />
             </button>
           </div>
+        </div>
         </div>
       </div>
 
