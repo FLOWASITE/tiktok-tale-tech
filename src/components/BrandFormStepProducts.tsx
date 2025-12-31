@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { LocalProduct } from '@/components/brand/ProductCatalogEditor';
 import { CustomerPersona } from '@/types/customerPersona';
 import { PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS } from '@/types/product';
+import { LocalProductPersonaLinker, LocalProductPersonaMapping } from '@/components/brand/LocalProductPersonaLinker';
 
 interface BrandFormStepProductsProps {
   brandTemplateId?: string | null;
@@ -45,6 +46,8 @@ interface BrandFormStepProductsProps {
   onLocalProductsChange: (products: LocalProduct[]) => void;
   personas: CustomerPersona[];
   brandName?: string;
+  localMappings: LocalProductPersonaMapping[];
+  onLocalMappingsChange: (mappings: LocalProductPersonaMapping[]) => void;
 }
 
 const defaultProductData: Omit<LocalProduct, 'id'> = {
@@ -71,6 +74,8 @@ export function BrandFormStepProducts({
   onLocalProductsChange,
   personas,
   brandName,
+  localMappings,
+  onLocalMappingsChange,
 }: BrandFormStepProductsProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState<LocalProduct | null>(null);
@@ -528,6 +533,16 @@ export function BrandFormStepProducts({
                         ))}
                       </div>
                     )}
+                    
+                    {/* Product-Persona Linker */}
+                    <LocalProductPersonaLinker
+                      mode="product"
+                      productId={product.id}
+                      products={localProducts}
+                      personas={personas}
+                      mappings={localMappings}
+                      onMappingsChange={onLocalMappingsChange}
+                    />
                   </div>
                 )}
               </CardContent>
