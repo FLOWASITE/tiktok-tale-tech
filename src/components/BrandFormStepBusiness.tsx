@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,8 +7,6 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ProductCatalogEditor, LocalProduct } from '@/components/brand/ProductCatalogEditor';
-import { CustomerPersonaEditor } from '@/components/brand/CustomerPersonaEditor';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
@@ -24,19 +22,17 @@ import {
   Instagram,
   Youtube,
   Sparkles,
-  Info,
   Palette,
   Upload,
   ImageIcon,
   Trash2,
   Star,
-  Users,
+  Check,
   Wand2,
   Eye,
-  Check
+  Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CustomerPersona } from '@/types/customerPersona';
 
 // Footer info type
 export interface BrandFooterInfo {
@@ -135,14 +131,9 @@ const formatWebsiteUrl = (url: string): string => {
 };
 
 interface BrandFormStepBusinessProps {
-  brandTemplateId?: string | null;
   brandName?: string;
-  brandPositioning?: string;
   footerInfo: BrandFooterInfo;
   onFooterInfoChange: (info: BrandFooterInfo) => void;
-  // Products (local mode for new brands)
-  localProducts: LocalProduct[];
-  onLocalProductsChange: (products: LocalProduct[]) => void;
   // Visual props
   primaryColor: string;
   setPrimaryColor: (color: string) => void;
@@ -160,13 +151,9 @@ interface BrandFormStepBusinessProps {
 }
 
 export function BrandFormStepBusiness({
-  brandTemplateId,
   brandName,
-  brandPositioning,
   footerInfo,
   onFooterInfoChange,
-  localProducts,
-  onLocalProductsChange,
   primaryColor,
   setPrimaryColor,
   logoPreview,
@@ -183,11 +170,9 @@ export function BrandFormStepBusiness({
 }: BrandFormStepBusinessProps) {
   // When editing, open sections that have data; when creating, only Visual is open
   const hasVisualData = !!logoPreview || primaryColor !== '#000000';
-  const hasProductsData = localProducts.length > 0;
   const hasFooterData = !!(footerInfo.company_name || footerInfo.phone || footerInfo.email || footerInfo.website);
   
   const [isVisualOpen, setIsVisualOpen] = useState(true);
-  const [isProductsOpen, setIsProductsOpen] = useState(!!brandTemplateId || hasProductsData);
   const [isFooterOpen, setIsFooterOpen] = useState(hasFooterData);
 
   // Completion calculations
@@ -383,49 +368,6 @@ export function BrandFormStepBusiness({
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      {/* Products Section */}
-      <Collapsible open={isProductsOpen} onOpenChange={setIsProductsOpen}>
-        <Card className="overflow-hidden">
-          <CollapsibleTrigger className="w-full">
-            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="text-left">
-                    <CardTitle className="text-base">Sản phẩm & Dịch vụ</CardTitle>
-                    <CardDescription className="text-xs mt-0.5">
-                      Danh sách sản phẩm, dịch vụ chính của thương hiệu
-                    </CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {!brandTemplateId && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 text-muted-foreground">
-                      Sau khi lưu
-                    </Badge>
-                  )}
-                  <ChevronDown className={cn(
-                    "w-4 h-4 text-muted-foreground transition-transform",
-                    isProductsOpen && "rotate-180"
-                  )} />
-                </div>
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="pt-0 pb-4 px-4">
-              <ProductCatalogEditor 
-                brandTemplateId={brandTemplateId || undefined}
-                localProducts={localProducts}
-                onLocalProductsChange={onLocalProductsChange}
-              />
             </CardContent>
           </CollapsibleContent>
         </Card>
