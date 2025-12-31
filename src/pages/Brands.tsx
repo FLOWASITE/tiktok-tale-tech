@@ -470,22 +470,27 @@ export default function Brands() {
             ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3' 
             : 'flex flex-col gap-3'
         )}>
-          {paginatedTemplates.map((template) => (
-            <BrandCard
+          {paginatedTemplates.map((template, index) => (
+            <div 
               key={template.id}
-              template={template}
-              organizationName={currentOrganization?.name}
-              onEdit={handleEdit}
-              onDelete={deleteTemplate}
-              onSetDefault={setDefaultTemplate}
-              onDuplicate={duplicateTemplate}
-              compact={viewMode === 'list'}
-              selectable={isSelectionMode}
-              selected={selectedIds.has(template.id)}
-              onSelectChange={handleSelectChange}
-              usageStats={getUsageForBrand(template.id)}
-              brandCounts={getCountsForBrand(template.id)}
-            />
+              className="animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <BrandCard
+                template={template}
+                organizationName={currentOrganization?.name}
+                onEdit={handleEdit}
+                onDelete={deleteTemplate}
+                onSetDefault={setDefaultTemplate}
+                onDuplicate={duplicateTemplate}
+                compact={viewMode === 'list'}
+                selectable={isSelectionMode}
+                selected={selectedIds.has(template.id)}
+                onSelectChange={handleSelectChange}
+                usageStats={getUsageForBrand(template.id)}
+                brandCounts={getCountsForBrand(template.id)}
+              />
+            </div>
           ))}
         </div>
       )}
