@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchLearningContext, PerformanceInsight } from "../_shared/learning-context.ts";
 import { LearningContext, JourneyStageMessagingData, buildJourneyStageMessagingSection, JourneyStage } from "../_shared/prompt-utils.ts";
+import { CHAT_TOOLS, ToolCall, ToolCallResult } from "../_shared/tool-definitions.ts";
+import { executeToolCall } from "../_shared/tool-executor.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,6 +24,8 @@ interface ChatRequest {
   brandTemplateId?: string;
   contentGoal?: string;
   organizationId?: string;
+  userId?: string;
+  enableTools?: boolean;
 }
 
 interface RAGResult {
@@ -658,7 +662,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, brandTemplateId, contentGoal, organizationId }: ChatRequest = await req.json();
+    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools }: ChatRequest = await req.json();
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -919,21 +923,37 @@ serve(async (req) => {
       industryGlossaryCount: industryGlossary.length,
       hasRAGContext: ragResults.length > 0,
       ragResultsCount: ragResults.length,
+      enableTools: enableTools ?? true,
     });
 
-    // Call Lovable AI with streaming
+    // Determine if we should use tool calling
+    const useTools = enableTools !== false;
+    
+    // Build request body
+    const requestBody: any = {
+      model: 'google/gemini-2.5-flash',
+      messages: aiMessages,
+      temperature: 0.8,
+    };
+
+    if (useTools) {
+      // Non-streaming mode with tools
+      requestBody.tools = CHAT_TOOLS;
+      requestBody.tool_choice = 'auto';
+      requestBody.stream = false;
+    } else {
+      // Streaming mode without tools
+      requestBody.stream = true;
+    }
+
+    // Call Lovable AI
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: aiMessages,
-        stream: true,
-        temperature: 0.8,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -957,7 +977,108 @@ serve(async (req) => {
       });
     }
 
-    // Return streaming response
+    // Handle tool calling response (non-streaming)
+    if (useTools) {
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      const message = choice?.message;
+
+      // Check if AI wants to call tools
+      if (message?.tool_calls?.length > 0) {
+        console.log('AI requested tool calls:', message.tool_calls.length);
+        
+        const toolResults: ToolCallResult[] = [];
+        const executionContext = {
+          supabase,
+          userId: userId || undefined,
+          organizationId: organizationId || undefined,
+          brandTemplateId: brandTemplateId || undefined,
+        };
+
+        // Execute each tool call
+        for (const toolCall of message.tool_calls) {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await executeToolCall(toolCall.function.name, args, executionContext);
+            toolResults.push(result);
+            console.log(`Tool ${toolCall.function.name} result:`, result.success);
+          } catch (err) {
+            console.error(`Tool ${toolCall.function.name} parse error:`, err);
+            toolResults.push({
+              success: false,
+              tool_name: toolCall.function.name,
+              result: null,
+              error: 'Failed to parse tool arguments',
+            });
+          }
+        }
+
+        // Build tool results message for AI
+        const toolResultsMessage = {
+          role: 'tool' as const,
+          content: JSON.stringify(toolResults),
+          tool_call_id: message.tool_calls[0].id,
+        };
+
+        // Call AI again with tool results to get final response
+        const followUpMessages = [
+          ...aiMessages,
+          message,
+          toolResultsMessage,
+        ];
+
+        const followUpResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: followUpMessages,
+            temperature: 0.8,
+            stream: false,
+          }),
+        });
+
+        if (!followUpResponse.ok) {
+          console.error('Follow-up AI error:', followUpResponse.status);
+          // Return tool results anyway
+          return new Response(JSON.stringify({
+            type: 'tool_results',
+            content: message.content || '',
+            tool_calls: message.tool_calls,
+            tool_results: toolResults,
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const followUpData = await followUpResponse.json();
+        const finalContent = followUpData.choices?.[0]?.message?.content || '';
+
+        return new Response(JSON.stringify({
+          type: 'tool_results',
+          content: finalContent,
+          tool_calls: message.tool_calls,
+          tool_results: toolResults,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // No tool calls - just return the content
+      return new Response(JSON.stringify({
+        type: 'message',
+        content: message?.content || '',
+        tool_calls: null,
+        tool_results: null,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Return streaming response (legacy mode)
     return new Response(response.body, {
       headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
     });
