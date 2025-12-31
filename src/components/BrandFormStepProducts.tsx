@@ -22,6 +22,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Package,
   Plus,
   Trash2,
@@ -462,6 +467,43 @@ export function BrandFormStepProducts({
                   </div>
                   
                   <div className="flex items-center gap-1 shrink-0">
+                    {/* Quick Link Personas Button */}
+                    {(() => {
+                      const linkedPersonasCount = localMappings.filter(m => m.product_id === product.id).length;
+                      return (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                "h-7 w-7 relative",
+                                linkedPersonasCount > 0 && "text-primary"
+                              )}
+                              title="Liên kết Personas"
+                            >
+                              <Users className="w-3.5 h-3.5" />
+                              {linkedPersonasCount > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center font-bold">
+                                  {linkedPersonasCount}
+                                </span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-3" align="end">
+                            <LocalProductPersonaLinker
+                              mode="product"
+                              productId={product.id}
+                              products={localProducts}
+                              personas={personas}
+                              mappings={localMappings}
+                              onMappingsChange={onLocalMappingsChange}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    })()}
                     <Button
                       type="button"
                       variant="ghost"
