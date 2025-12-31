@@ -581,9 +581,18 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               setPrimaryColor={setPrimaryColor}
               includeLogo={includeLogo}
               setIncludeLogo={setIncludeLogo}
-              // Footer props
+// Footer props
               footerInfo={footerInfo}
               setFooterInfo={setFooterInfo}
+              // Strategy props
+              mission={mission}
+              setMission={setMission}
+              vision={vision}
+              setVision={setVision}
+              uniqueValueProposition={uniqueValueProposition}
+              setUniqueValueProposition={setUniqueValueProposition}
+              tagline={tagline}
+              setTagline={setTagline}
             />
           )}
 

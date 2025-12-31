@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { BrandFooterInfo } from '@/components/BrandForm';
-import { User, Building2, Search, ShieldCheck, X, ChevronDown, Upload, Trash2, Phone, Mail, Globe, MapPin, Building, ImageIcon } from 'lucide-react';
+import { User, Building2, Search, ShieldCheck, X, ChevronDown, Upload, Trash2, Phone, Mail, Globe, MapPin, Building, ImageIcon, Target, Lightbulb, Quote, Eye } from 'lucide-react';
 import { useState, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import {
@@ -97,6 +97,15 @@ interface BrandFormStepIdentityProps {
   // Footer props
   footerInfo: BrandFooterInfo;
   setFooterInfo: (info: BrandFooterInfo) => void;
+  // Strategy props
+  mission: string;
+  setMission: (value: string) => void;
+  vision: string;
+  setVision: (value: string) => void;
+  uniqueValueProposition: string;
+  setUniqueValueProposition: (value: string) => void;
+  tagline: string;
+  setTagline: (value: string) => void;
 }
 
 export function BrandFormStepIdentity({
@@ -133,13 +142,22 @@ export function BrandFormStepIdentity({
   // Footer props
   footerInfo,
   setFooterInfo,
+  // Strategy props
+  mission,
+  setMission,
+  vision,
+  setVision,
+  uniqueValueProposition,
+  setUniqueValueProposition,
+  tagline,
+  setTagline,
 }: BrandFormStepIdentityProps) {
   const { currentOrganization } = useOrganizationContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [showIndustrySelector, setShowIndustrySelector] = useState(!industryTemplateId);
   const [showFooterInfo, setShowFooterInfo] = useState(false);
+  const [showStrategy, setShowStrategy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
   const { templates, isLoading } = useIndustryTemplates({
     countryCode: 'VN',
     languageCode: 'vi',
@@ -576,6 +594,87 @@ export function BrandFormStepIdentity({
             
             <p className="text-xs text-muted-foreground pt-2 border-t">
               💡 Thông tin này sẽ hiển thị ở cuối nội dung khi cần
+            </p>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Strategy Section (Collapsible) */}
+      <Collapsible open={showStrategy} onOpenChange={setShowStrategy}>
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-between h-10 px-3"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Target className="w-4 h-4" />
+              Chiến lược Thương hiệu (tuỳ chọn)
+            </span>
+            <ChevronDown className={cn(
+              "w-4 h-4 transition-transform",
+              showStrategy && "rotate-180"
+            )} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <div className="space-y-3 p-4 rounded-lg border bg-muted/20">
+            <div className="grid gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  Sứ mệnh (Mission)
+                </Label>
+                <Input
+                  value={mission}
+                  onChange={(e) => setMission(e.target.value)}
+                  placeholder="VD: Giúp doanh nghiệp nhỏ quản lý tài chính hiệu quả"
+                  className="h-9"
+                />
+              </div>
+              
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" />
+                  Tầm nhìn (Vision)
+                </Label>
+                <Input
+                  value={vision}
+                  onChange={(e) => setVision(e.target.value)}
+                  placeholder="VD: Trở thành nền tảng kế toán số 1 Việt Nam"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" />
+                  Giá trị cốt lõi (UVP)
+                </Label>
+                <Input
+                  value={uniqueValueProposition}
+                  onChange={(e) => setUniqueValueProposition(e.target.value)}
+                  placeholder="VD: Tiết kiệm 80% thời gian với tự động hóa thông minh"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Quote className="w-3.5 h-3.5" />
+                  Slogan / Tagline
+                </Label>
+                <Input
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  placeholder="VD: Kế toán đơn giản, kinh doanh thăng hoa"
+                  className="h-9"
+                />
+              </div>
+            </div>
+            
+            <p className="text-xs text-muted-foreground pt-2 border-t">
+              💡 Thông tin chiến lược giúp AI tạo nội dung nhất quán với định hướng thương hiệu
             </p>
           </div>
         </CollapsibleContent>
