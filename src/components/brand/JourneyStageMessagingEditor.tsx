@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, Scale, CheckCircle, Heart, Route, Sparkles, Loader2, Save } from 'lucide-react';
+import { Eye, Scale, CheckCircle, Heart, Route, Sparkles, Loader2, Save, Wand2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useJourneyStageMessaging } from '@/hooks/useJourneyStageMessaging';
+import { useAIJourneyMessaging } from '@/hooks/useAIJourneyMessaging';
 import { 
   JourneyStage,
   JourneyStageMessagingFormData,
@@ -17,13 +18,17 @@ import {
   getDefaultMessagingForStage,
 } from '@/types/journeyStageMessaging';
 import { JourneyStageTab } from './JourneyStageTab';
+import { AIJourneyMessagingPreview } from './AIJourneyMessagingPreview';
 
 interface JourneyStageMessagingEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mappingId: string;
+  productId?: string;
+  personaId?: string;
   productName?: string;
   personaName?: string;
+  brandTemplateId?: string;
   organizationId?: string | null;
   onSave?: () => void;
 }
@@ -39,8 +44,11 @@ export function JourneyStageMessagingEditor({
   open,
   onOpenChange,
   mappingId,
+  productId,
+  personaId,
   productName,
   personaName,
+  brandTemplateId,
   organizationId,
   onSave,
 }: JourneyStageMessagingEditorProps) {
@@ -53,6 +61,7 @@ export function JourneyStageMessagingEditor({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showAIPreview, setShowAIPreview] = useState(false);
 
   const {
     messaging,
@@ -65,6 +74,20 @@ export function JourneyStageMessagingEditor({
   } = useJourneyStageMessaging({ 
     mappingId,
     enabled: open && !!mappingId,
+  });
+
+  const {
+    suggestions: aiSuggestions,
+    isGenerating,
+    error: aiError,
+    generateMessaging,
+    clearSuggestions,
+  } = useAIJourneyMessaging({
+    mappingId,
+    productId: productId || '',
+    personaId: personaId || '',
+    brandTemplateId,
+    organizationId,
   });
 
   // Load existing data into local forms
@@ -91,6 +114,13 @@ export function JourneyStageMessagingEditor({
       setLocalForms(newForms);
     }
   }, [messaging]);
+
+  // Show error toast if AI generation fails
+  useEffect(() => {
+    if (aiError) {
+      toast.error(aiError);
+    }
+  }, [aiError]);
 
   const handleFormChange = (stage: JourneyStage, data: Partial<JourneyStageMessagingFormData>) => {
     setLocalForms(prev => ({
@@ -129,6 +159,56 @@ export function JourneyStageMessagingEditor({
     }
   };
 
+  const handleAIGenerate = async () => {
+    if (!productId || !personaId) {
+      toast.error('Thiếu thông tin sản phẩm hoặc persona');
+      return;
+    }
+    await generateMessaging();
+    if (!aiError) {
+      setShowAIPreview(true);
+    }
+  };
+
+  const handleApplyStage = async (stage: JourneyStage, data: JourneyStageMessagingFormData) => {
+    setLocalForms(prev => ({
+      ...prev,
+      [stage]: data,
+    }));
+    setHasChanges(true);
+    
+    // Save immediately
+    if (mappingId) {
+      try {
+        await upsertMessaging(mappingId, stage, data, organizationId || undefined);
+        toast.success(`Đã áp dụng và lưu ${JOURNEY_STAGE_CONFIG[stage].label}`);
+      } catch (error) {
+        toast.error('Không thể lưu. Vui lòng thử lại.');
+      }
+    }
+  };
+
+  const handleApplyAll = async () => {
+    if (!aiSuggestions || !mappingId) return;
+
+    setIsSaving(true);
+    try {
+      for (const stage of JOURNEY_STAGES) {
+        if (aiSuggestions[stage]) {
+          await upsertMessaging(mappingId, stage, aiSuggestions[stage], organizationId || undefined);
+        }
+      }
+      setLocalForms(aiSuggestions);
+      setShowAIPreview(false);
+      clearSuggestions();
+      toast.success('Đã áp dụng và lưu tất cả giai đoạn');
+    } catch (error) {
+      toast.error('Không thể lưu. Vui lòng thử lại.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleClose = () => {
     if (hasChanges) {
       // Could add confirmation dialog here
@@ -143,113 +223,149 @@ export function JourneyStageMessagingEditor({
     Object.values(completionStatus).reduce((sum, pct) => sum + pct, 0) / JOURNEY_STAGES.length
   );
 
+  const canUseAI = !!productId && !!personaId;
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[640px] p-0 flex flex-col">
-        <SheetHeader className="px-6 py-4 border-b shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 via-amber-500 to-emerald-500 flex items-center justify-center">
-              <Route className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1">
-              <SheetTitle className="text-base">Journey Stage Messaging</SheetTitle>
-              <SheetDescription className="text-xs">
-                {productName && personaName 
-                  ? `${productName} → ${personaName}`
-                  : 'Cấu hình messaging cho từng giai đoạn'
-                }
-              </SheetDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleCreateDefaults}
-              disabled={isSaving || stagesWithContent.length === JOURNEY_STAGES.length}
-              className="gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Tạo mẫu
-            </Button>
-          </div>
-          
-          {/* Overall Progress */}
-          <div className="flex items-center gap-3 mt-3">
-            <Progress value={overallProgress} className="h-1.5 flex-1" />
-            <span className="text-xs text-muted-foreground font-medium">
-              {overallProgress}%
-            </span>
-          </div>
-        </SheetHeader>
-
-        {/* Tabs Content */}
-        <Tabs 
-          value={activeStage} 
-          onValueChange={(v) => setActiveStage(v as JourneyStage)}
-          className="flex-1 flex flex-col overflow-hidden"
-        >
-          <TabsList className="grid grid-cols-4 mx-6 mt-4 shrink-0">
-            {JOURNEY_STAGES.map(stage => {
-              const config = JOURNEY_STAGE_CONFIG[stage];
-              const Icon = STAGE_ICONS[stage];
-              const completion = completionStatus[stage] || 0;
-              const hasContent = stagesWithContent.includes(stage);
-              
-              return (
-                <TabsTrigger 
-                  key={stage} 
-                  value={stage}
-                  className="relative flex flex-col gap-0.5 py-2 px-1 data-[state=active]:bg-muted"
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-full sm:max-w-[640px] p-0 flex flex-col">
+          <SheetHeader className="px-6 py-4 border-b shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 via-amber-500 to-emerald-500 flex items-center justify-center">
+                <Route className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <SheetTitle className="text-base">Journey Stage Messaging</SheetTitle>
+                <SheetDescription className="text-xs">
+                  {productName && personaName 
+                    ? `${productName} → ${personaName}`
+                    : 'Cấu hình messaging cho từng giai đoạn'
+                  }
+                </SheetDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                {canUseAI && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAIGenerate}
+                    disabled={isGenerating || isSaving}
+                    className="gap-1.5 border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Wand2 className="w-3.5 h-3.5" />
+                    )}
+                    AI Gợi ý
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCreateDefaults}
+                  disabled={isSaving || stagesWithContent.length === JOURNEY_STAGES.length}
+                  className="gap-1.5"
                 >
-                  <div className="flex items-center gap-1">
-                    <Icon className={cn("w-3.5 h-3.5", hasContent && "text-primary")} />
-                    <span className="text-[11px] font-medium hidden sm:inline">{config.label}</span>
-                    <span className="text-[11px] font-medium sm:hidden">{config.icon}</span>
-                  </div>
-                  {hasContent && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />
-                  )}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Tạo mẫu
+                </Button>
+              </div>
+            </div>
+            
+            {/* Overall Progress */}
+            <div className="flex items-center gap-3 mt-3">
+              <Progress value={overallProgress} className="h-1.5 flex-1" />
+              <span className="text-xs text-muted-foreground font-medium">
+                {overallProgress}%
+              </span>
+            </div>
+          </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto">
-            {JOURNEY_STAGES.map(stage => (
-              <TabsContent key={stage} value={stage} className="m-0 h-full">
-                <JourneyStageTab
-                  stage={stage}
-                  formData={localForms[stage]}
-                  onChange={(data) => handleFormChange(stage, data)}
-                  isLoading={isLoading}
-                />
-              </TabsContent>
-            ))}
-          </div>
-        </Tabs>
+          {/* Tabs Content */}
+          <Tabs 
+            value={activeStage} 
+            onValueChange={(v) => setActiveStage(v as JourneyStage)}
+            className="flex-1 flex flex-col overflow-hidden"
+          >
+            <TabsList className="grid grid-cols-4 mx-6 mt-4 shrink-0">
+              {JOURNEY_STAGES.map(stage => {
+                const config = JOURNEY_STAGE_CONFIG[stage];
+                const Icon = STAGE_ICONS[stage];
+                const completion = completionStatus[stage] || 0;
+                const hasContent = stagesWithContent.includes(stage);
+                
+                return (
+                  <TabsTrigger 
+                    key={stage} 
+                    value={stage}
+                    className="relative flex flex-col gap-0.5 py-2 px-1 data-[state=active]:bg-muted"
+                  >
+                    <div className="flex items-center gap-1">
+                      <Icon className={cn("w-3.5 h-3.5", hasContent && "text-primary")} />
+                      <span className="text-[11px] font-medium hidden sm:inline">{config.label}</span>
+                      <span className="text-[11px] font-medium sm:hidden">{config.icon}</span>
+                    </div>
+                    {hasContent && (
+                      <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />
+                    )}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
 
-        {/* Footer */}
-        <SheetFooter className="px-6 py-4 border-t shrink-0">
-          <div className="flex items-center justify-between w-full gap-3">
-            <Button type="button" variant="ghost" onClick={handleClose}>
-              Đóng
-            </Button>
-            <Button
-              type="button"
-              onClick={() => handleSaveStage(activeStage)}
-              disabled={isSaving}
-              className="gap-2"
-            >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Lưu {JOURNEY_STAGE_CONFIG[activeStage].label}
-            </Button>
-          </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+            <div className="flex-1 overflow-y-auto">
+              {JOURNEY_STAGES.map(stage => (
+                <TabsContent key={stage} value={stage} className="m-0 h-full">
+                  <JourneyStageTab
+                    stage={stage}
+                    formData={localForms[stage]}
+                    onChange={(data) => handleFormChange(stage, data)}
+                    isLoading={isLoading}
+                  />
+                </TabsContent>
+              ))}
+            </div>
+          </Tabs>
+
+          {/* Footer */}
+          <SheetFooter className="px-6 py-4 border-t shrink-0">
+            <div className="flex items-center justify-between w-full gap-3">
+              <Button type="button" variant="ghost" onClick={handleClose}>
+                Đóng
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleSaveStage(activeStage)}
+                disabled={isSaving}
+                className="gap-2"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Lưu {JOURNEY_STAGE_CONFIG[activeStage].label}
+              </Button>
+            </div>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* AI Preview Dialog */}
+      {aiSuggestions && (
+        <AIJourneyMessagingPreview
+          open={showAIPreview}
+          onOpenChange={setShowAIPreview}
+          suggestions={aiSuggestions}
+          productName={productName}
+          personaName={personaName}
+          onApplyStage={handleApplyStage}
+          onApplyAll={handleApplyAll}
+        />
+      )}
+    </>
   );
 }
