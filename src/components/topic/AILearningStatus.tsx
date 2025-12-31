@@ -1,4 +1,4 @@
-import { Brain, ThumbsUp, ThumbsDown, TrendingUp, Sparkles, Info } from 'lucide-react';
+import { Brain, ThumbsUp, ThumbsDown, TrendingUp, Sparkles, Info, BarChart3, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -14,6 +14,15 @@ interface AILearningStatusProps {
   personalizationLevel: number; // 0-100
   isLearning?: boolean;
   isLoading?: boolean;
+  // Enhanced performance data
+  publishedCount?: number;
+  averagePerformance?: number;
+  totalEngagement?: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+  };
 }
 
 export function AILearningStatus({
@@ -24,10 +33,15 @@ export function AILearningStatus({
   personalizationLevel,
   isLearning,
   isLoading,
+  publishedCount = 0,
+  averagePerformance = 0,
+  totalEngagement,
 }: AILearningStatusProps) {
   const positiveRate = totalFeedback > 0 
     ? Math.round((positiveFeedback / totalFeedback) * 100) 
     : 0;
+
+  const hasPerformanceData = publishedCount > 0 && averagePerformance > 0;
 
   const getLevelLabel = (level: number) => {
     if (level >= 80) return { label: 'Rất cao', color: 'text-emerald-500' };
@@ -120,6 +134,40 @@ export function AILearningStatus({
           </p>
         </div>
 
+        {/* Performance Data - NEW */}
+        {hasPerformanceData && (
+          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <BarChart3 className="w-3.5 h-3.5" />
+              Dữ liệu thực tế
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-muted-foreground">Đã publish:</span>
+                <span className="font-medium ml-1">{publishedCount}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Score TB:</span>
+                <span className={cn('font-medium ml-1', averagePerformance >= 70 ? 'text-emerald-500' : averagePerformance >= 50 ? 'text-amber-500' : 'text-red-500')}>
+                  {averagePerformance}
+                </span>
+              </div>
+            </div>
+            {totalEngagement && (totalEngagement.views > 0 || totalEngagement.likes > 0) && (
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1 border-t border-emerald-500/10">
+                <div className="flex items-center gap-1">
+                  <Eye className="w-3 h-3" />
+                  {totalEngagement.views.toLocaleString()}
+                </div>
+                <div className="flex items-center gap-1">
+                  <ThumbsUp className="w-3 h-3" />
+                  {totalEngagement.likes.toLocaleString()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Feedback Summary */}
         {totalFeedback > 0 && (
           <div className="p-3 rounded-lg bg-muted/50 space-y-2">
@@ -161,7 +209,7 @@ export function AILearningStatus({
         )}
 
         {/* Empty State */}
-        {totalFeedback === 0 && (
+        {totalFeedback === 0 && !hasPerformanceData && (
           <div className="text-center py-4">
             <Sparkles className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
             <p className="text-xs text-muted-foreground">
