@@ -1,0 +1,88 @@
+// ============================================
+// TopicAIChatbot Types
+// ============================================
+
+import { ContentGoal } from '@/types/multichannel';
+
+// Web Speech API types
+export interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+export interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+export interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
+// Context badge from backend metadata
+export interface RealtimeContextBadge {
+  type: string;
+  label: string;
+  detail?: string;
+  confidence?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  extractedTopics?: ExtractedTopic[];
+  isError?: boolean;
+  reactions?: string[];
+  feedback?: 'up' | 'down';
+  toolResults?: import('./ToolResultCard').ToolResult[];
+  isToolExecuting?: boolean;
+  contextBadges?: RealtimeContextBadge[];
+  contextRichness?: number;
+}
+
+export interface ExtractedTopic {
+  topic: string;
+  reason?: string;
+  format?: string;
+}
+
+export interface TopicAIChatbotProps {
+  brandTemplateId?: string;
+  contentGoal?: ContentGoal;
+  onNavigate: (path: string, state?: any) => void;
+  onInjectPrompt?: (prompt: string) => void;
+  className?: string;
+  isExpanded?: boolean;
+}
+
+// Agent turn events for multi-turn agentic loop
+export interface AgentTurnEvent {
+  type: 'turn_start' | 'tool_executing' | 'tool_result' | 'turn_complete' | 'loop_complete';
+  turn_number?: number;
+  max_turns?: number;
+  tool_name?: string;
+  tool_result?: any;
+  exit_reason?: string;
+  total_turns?: number;
+}
+
+// Dynamic width type
+export type DynamicWidth = 'compact' | 'normal' | 'wide' | 'full';
+
+// Active view type
+export type ActiveView = 'chat' | 'discovery';
