@@ -3572,6 +3572,102 @@ export type Database = {
           },
         ]
       }
+      web_search_analytics: {
+        Row: {
+          cache_hit: boolean | null
+          created_at: string | null
+          error: string | null
+          fallback_used: boolean | null
+          id: string
+          industry: string | null
+          latency_ms: number | null
+          organization_id: string | null
+          query: string
+          result_count: number | null
+          results_used: number | null
+          search_type: string
+          source: string | null
+          user_id: string | null
+        }
+        Insert: {
+          cache_hit?: boolean | null
+          created_at?: string | null
+          error?: string | null
+          fallback_used?: boolean | null
+          id?: string
+          industry?: string | null
+          latency_ms?: number | null
+          organization_id?: string | null
+          query: string
+          result_count?: number | null
+          results_used?: number | null
+          search_type?: string
+          source?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          cache_hit?: boolean | null
+          created_at?: string | null
+          error?: string | null
+          fallback_used?: boolean | null
+          id?: string
+          industry?: string | null
+          latency_ms?: number | null
+          organization_id?: string | null
+          query?: string
+          result_count?: number | null
+          results_used?: number | null
+          search_type?: string
+          source?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      web_search_cache: {
+        Row: {
+          cache_key: string
+          citations: string[] | null
+          created_at: string | null
+          expires_at: string
+          hit_count: number | null
+          id: string
+          industry: string | null
+          query: string
+          results: Json
+          search_type: string
+          source: string
+          updated_at: string | null
+        }
+        Insert: {
+          cache_key: string
+          citations?: string[] | null
+          created_at?: string | null
+          expires_at: string
+          hit_count?: number | null
+          id?: string
+          industry?: string | null
+          query: string
+          results?: Json
+          search_type?: string
+          source: string
+          updated_at?: string | null
+        }
+        Update: {
+          cache_key?: string
+          citations?: string[] | null
+          created_at?: string | null
+          expires_at?: string
+          hit_count?: number | null
+          id?: string
+          industry?: string | null
+          query?: string
+          results?: Json
+          search_type?: string
+          source?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       industry_memory_packs: {
@@ -3613,6 +3709,7 @@ export type Database = {
         Returns: boolean
       }
       cleanup_expired_cache: { Args: never; Returns: number }
+      cleanup_web_search_cache: { Args: never; Returns: number }
       get_cache_stats: {
         Args: { p_organization_id?: string }
         Returns: {
@@ -3632,6 +3729,16 @@ export type Database = {
           _user_id: string
         }
         Returns: number
+      }
+      get_web_search_cache_stats: {
+        Args: never
+        Returns: {
+          avg_hit_count: number
+          cache_size_estimate: number
+          search_type: string
+          total_entries: number
+          total_hits: number
+        }[]
       }
       has_org_role: {
         Args: {
