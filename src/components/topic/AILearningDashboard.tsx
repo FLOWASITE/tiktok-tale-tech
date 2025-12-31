@@ -12,18 +12,20 @@ import {
   PieChart,
   Star,
   Zap,
+  Eye,
+  MessageSquare,
+  Share2,
+  Award,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet';
 import {
   PieChart as RechartsPieChart,
@@ -35,6 +37,8 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  LineChart,
+  Line,
 } from 'recharts';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { cn } from '@/lib/utils';
@@ -88,6 +92,40 @@ export function AILearningDashboard({
     };
   }, [history]);
 
+  // Performance metrics from actual data
+  const performanceData = useMemo(() => {
+    const published = history.filter((h) => h.usageStatus === 'published');
+    const withScore = published.filter((h) => h.performanceScore !== null && h.performanceScore !== undefined);
+    const avgScore = withScore.length > 0
+      ? Math.round(withScore.reduce((sum, h) => sum + (h.performanceScore || 0), 0) / withScore.length)
+      : 0;
+
+    // Total engagement
+    const totalEngagement = {
+      likes: published.reduce((sum, h) => sum + (h.actualEngagement?.likes || 0), 0),
+      comments: published.reduce((sum, h) => sum + (h.actualEngagement?.comments || 0), 0),
+      shares: published.reduce((sum, h) => sum + (h.actualEngagement?.shares || 0), 0),
+      views: published.reduce((sum, h) => sum + (h.actualEngagement?.views || 0), 0),
+    };
+
+    // Performance trend (last 10 published)
+    const trendData = withScore
+      .sort((a, b) => new Date(a.publishedAt || a.createdAt).getTime() - new Date(b.publishedAt || b.createdAt).getTime())
+      .slice(-10)
+      .map((h, idx) => ({
+        name: `#${idx + 1}`,
+        score: h.performanceScore || 0,
+      }));
+
+    return {
+      publishedCount: published.length,
+      scoredCount: withScore.length,
+      avgScore,
+      totalEngagement,
+      trendData,
+    };
+  }, [history]);
+
   // Pillar distribution
   const pillarData = useMemo(() => {
     const pillarCounts: Record<string, number> = {};
@@ -135,8 +173,11 @@ export function AILearningDashboard({
       { label: 'Có 5+ feedback', done: feedbackData.total >= 5, icon: Zap },
       { label: 'Có top performers', done: topPerformers.length > 0, icon: TrendingUp },
       { label: 'Đủ dữ liệu học', done: history.length >= 10, icon: Brain },
+      // Enhanced milestones for actual performance
+      { label: 'Đã publish content', done: performanceData.publishedCount > 0, icon: Award },
+      { label: 'Có dữ liệu hiệu suất', done: performanceData.scoredCount >= 3, icon: BarChart3 },
     ];
-  }, [brandTemplateId, favorites.length, feedbackData.total, topPerformers.length, history.length, getLearningContext]);
+  }, [brandTemplateId, favorites.length, feedbackData.total, topPerformers.length, history.length, performanceData]);
 
   const completedMilestones = milestones.filter((m) => m.done).length;
   const personalizationLevel = Math.round((completedMilestones / milestones.length) * 100);
@@ -197,6 +238,93 @@ export function AILearningDashboard({
               </div>
             </CardContent>
           </Card>
+
+          {/* Actual Performance Metrics - NEW */}
+          {performanceData.publishedCount > 0 && (
+            <Card className="border-emerald-500/20 bg-emerald-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Award className="w-4 h-4 text-emerald-500" />
+                  Hiệu suất thực tế
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-center p-2 bg-background/50 rounded-lg">
+                    <div className="text-2xl font-bold text-emerald-600">{performanceData.publishedCount}</div>
+                    <div className="text-xs text-muted-foreground">Đã publish</div>
+                  </div>
+                  <div className="text-center p-2 bg-background/50 rounded-lg">
+                    <div className={cn(
+                      'text-2xl font-bold',
+                      performanceData.avgScore >= 70 ? 'text-emerald-600' : performanceData.avgScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                    )}>
+                      {performanceData.avgScore}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Score TB</div>
+                  </div>
+                </div>
+
+                {/* Engagement Summary */}
+                {(performanceData.totalEngagement.views > 0 || performanceData.totalEngagement.likes > 0) && (
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="p-2 bg-background/50 rounded">
+                      <Eye className="w-3.5 h-3.5 mx-auto mb-1 text-blue-500" />
+                      <div className="text-sm font-medium">{performanceData.totalEngagement.views.toLocaleString()}</div>
+                      <div className="text-[10px] text-muted-foreground">Views</div>
+                    </div>
+                    <div className="p-2 bg-background/50 rounded">
+                      <ThumbsUp className="w-3.5 h-3.5 mx-auto mb-1 text-emerald-500" />
+                      <div className="text-sm font-medium">{performanceData.totalEngagement.likes.toLocaleString()}</div>
+                      <div className="text-[10px] text-muted-foreground">Likes</div>
+                    </div>
+                    <div className="p-2 bg-background/50 rounded">
+                      <MessageSquare className="w-3.5 h-3.5 mx-auto mb-1 text-violet-500" />
+                      <div className="text-sm font-medium">{performanceData.totalEngagement.comments.toLocaleString()}</div>
+                      <div className="text-[10px] text-muted-foreground">Comments</div>
+                    </div>
+                    <div className="p-2 bg-background/50 rounded">
+                      <Share2 className="w-3.5 h-3.5 mx-auto mb-1 text-orange-500" />
+                      <div className="text-sm font-medium">{performanceData.totalEngagement.shares.toLocaleString()}</div>
+                      <div className="text-[10px] text-muted-foreground">Shares</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Performance Trend */}
+                {performanceData.trendData.length >= 3 && (
+                  <div className="h-[100px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={performanceData.trendData}>
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={30} />
+                        <Tooltip 
+                          content={({ payload }) => {
+                            if (payload && payload[0]) {
+                              return (
+                                <div className="bg-popover border rounded p-2 text-xs">
+                                  Score: {payload[0].value}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="score" 
+                          stroke="hsl(var(--primary))" 
+                          strokeWidth={2}
+                          dot={{ fill: 'hsl(var(--primary))', strokeWidth: 0, r: 3 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Feedback Overview */}
           <Card>

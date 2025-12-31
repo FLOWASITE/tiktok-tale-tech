@@ -116,6 +116,28 @@ export interface LearningContext {
   preferredPillars: string[];
   averagePerformance: number;
   totalTopicsUsed: number;
+  // Enhanced performance data from actual tracking
+  performanceInsights?: PerformanceInsight[];
+  totalEngagement?: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+  };
+  publishedCount?: number;
+}
+
+export interface PerformanceInsight {
+  topicPattern: string;
+  avgScore: number;
+  avgEngagement: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+  };
+  sampleTopics: string[];
+  count: number;
 }
 
 export interface TopPerformerTopic {
@@ -124,6 +146,13 @@ export interface TopPerformerTopic {
   category?: string;
   pillar?: string;
   format?: string;
+  // Include actual engagement when available
+  engagement?: {
+    likes?: number;
+    comments?: number;
+    shares?: number;
+    views?: number;
+  };
 }
 
 export interface NegativeFeedbackItem {
@@ -338,7 +367,33 @@ export function buildLearningSection(learningContext: LearningContext | null): s
   const parts: string[] = [];
 
   parts.push(`## 🧠 HỌC TỪ LỊCH SỬ PERFORMANCE\n`);
-  parts.push(`Dựa trên ${learningContext.totalTopicsUsed} topics đã sử dụng, average performance: ${learningContext.averagePerformance}/100\n`);
+  parts.push(`Dựa trên ${learningContext.totalTopicsUsed} topics đã sử dụng, average performance: ${learningContext.averagePerformance}/100`);
+  
+  // Show published content stats if available
+  if (learningContext.publishedCount && learningContext.publishedCount > 0) {
+    parts.push(`\n📊 Đã publish: ${learningContext.publishedCount} contents`);
+    if (learningContext.totalEngagement) {
+      const eng = learningContext.totalEngagement;
+      if (eng.views > 0 || eng.likes > 0) {
+        parts.push(`   Tổng engagement: ${eng.views.toLocaleString()} views, ${eng.likes.toLocaleString()} likes, ${eng.comments.toLocaleString()} comments, ${eng.shares.toLocaleString()} shares`);
+      }
+    }
+  }
+
+  // Enhanced: Performance insights by category with actual engagement data
+  if (learningContext.performanceInsights && learningContext.performanceInsights.length > 0) {
+    parts.push(`\n### 🏆 TOP PERFORMING PATTERNS (từ dữ liệu thực tế):`);
+    learningContext.performanceInsights.slice(0, 3).forEach(insight => {
+      parts.push(`- **${insight.topicPattern}**: Score TB ${insight.avgScore}/100 (${insight.count} topics)`);
+      if (insight.avgEngagement.views > 0 || insight.avgEngagement.likes > 0) {
+        parts.push(`  → Engagement TB: ${insight.avgEngagement.views} views, ${insight.avgEngagement.likes} likes, ${insight.avgEngagement.comments} comments`);
+      }
+      if (insight.sampleTopics.length > 0) {
+        parts.push(`  → Ví dụ: "${insight.sampleTopics[0]}"`);
+      }
+    });
+    parts.push(`\n⚡ ƯU TIÊN: Tạo topics theo patterns đã chứng minh hiệu quả thực tế!`);
+  }
 
   // Preferred categories
   if (learningContext.preferredCategories.length > 0) {

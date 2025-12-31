@@ -20,6 +20,29 @@ interface TopicHistoryRecord {
   scores: Record<string, number> | null;
   created_at: string;
   is_favorite: boolean;
+  // Actual engagement metrics
+  actual_engagement: {
+    likes?: number;
+    comments?: number;
+    shares?: number;
+    views?: number;
+  } | null;
+  usage_status: string | null;
+  published_at: string | null;
+}
+
+// Enhanced learning context with actual performance insights
+export interface PerformanceInsight {
+  topicPattern: string;
+  avgScore: number;
+  avgEngagement: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+  };
+  sampleTopics: string[];
+  count: number;
 }
 
 /**
@@ -58,7 +81,7 @@ export async function fetchLearningContext(
 
     const records = data as TopicHistoryRecord[];
 
-    // Extract top performers (used topics with high performance)
+    // Extract top performers (used topics with high performance) - include actual engagement
     const topPerformers: TopPerformerTopic[] = records
       .filter(r => r.was_used && r.performance_score !== null && r.performance_score >= 60)
       .sort((a, b) => (b.performance_score || 0) - (a.performance_score || 0))
@@ -69,7 +92,48 @@ export async function fetchLearningContext(
         category: r.category,
         pillar: r.pillar || undefined,
         format: r.format,
+        // Include actual engagement data for richer context
+        engagement: r.actual_engagement || undefined,
       }));
+
+    // Analyze performance patterns by category
+    const performanceByCategory: Record<string, { scores: number[]; engagement: typeof records[0]['actual_engagement'][] }> = {};
+    records.filter(r => r.usage_status === 'published' && r.performance_score !== null).forEach(r => {
+      if (!performanceByCategory[r.category]) {
+        performanceByCategory[r.category] = { scores: [], engagement: [] };
+      }
+      performanceByCategory[r.category].scores.push(r.performance_score!);
+      if (r.actual_engagement) {
+        performanceByCategory[r.category].engagement.push(r.actual_engagement);
+      }
+    });
+
+    // Calculate engagement averages for top performing categories
+    const performanceInsights: PerformanceInsight[] = Object.entries(performanceByCategory)
+      .filter(([_, data]) => data.scores.length >= 2)
+      .map(([category, data]) => {
+        const avgScore = Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length);
+        const avgEngagement = {
+          likes: Math.round(data.engagement.reduce((sum, e) => sum + (e?.likes || 0), 0) / Math.max(data.engagement.length, 1)),
+          comments: Math.round(data.engagement.reduce((sum, e) => sum + (e?.comments || 0), 0) / Math.max(data.engagement.length, 1)),
+          shares: Math.round(data.engagement.reduce((sum, e) => sum + (e?.shares || 0), 0) / Math.max(data.engagement.length, 1)),
+          views: Math.round(data.engagement.reduce((sum, e) => sum + (e?.views || 0), 0) / Math.max(data.engagement.length, 1)),
+        };
+        const sampleTopics = records
+          .filter(r => r.category === category && r.performance_score !== null && r.performance_score >= 70)
+          .slice(0, 3)
+          .map(r => r.topic);
+        return {
+          topicPattern: category,
+          avgScore,
+          avgEngagement,
+          sampleTopics,
+          count: data.scores.length,
+        };
+      })
+      .filter(p => p.avgScore >= 60)
+      .sort((a, b) => b.avgScore - a.avgScore)
+      .slice(0, 5);
 
     // Extract recent topics (last 7 days) to avoid repetition
     const sevenDaysAgo = new Date();
@@ -140,7 +204,16 @@ export async function fetchLearningContext(
 
     const totalTopicsUsed = records.filter(r => r.was_used).length;
 
-    console.log(`Learning context built: ${topPerformers.length} top performers, ${recentTopics.length} recent topics, ${negativeFeedback.length} negative feedback items`);
+    // Calculate total engagement from published content
+    const publishedRecords = records.filter(r => r.usage_status === 'published' && r.actual_engagement);
+    const totalEngagement = {
+      likes: publishedRecords.reduce((sum, r) => sum + (r.actual_engagement?.likes || 0), 0),
+      comments: publishedRecords.reduce((sum, r) => sum + (r.actual_engagement?.comments || 0), 0),
+      shares: publishedRecords.reduce((sum, r) => sum + (r.actual_engagement?.shares || 0), 0),
+      views: publishedRecords.reduce((sum, r) => sum + (r.actual_engagement?.views || 0), 0),
+    };
+
+    console.log(`Learning context built: ${topPerformers.length} top performers, ${recentTopics.length} recent topics, ${negativeFeedback.length} negative feedback, ${performanceInsights.length} performance insights`);
 
     return {
       topPerformers,
@@ -150,6 +223,10 @@ export async function fetchLearningContext(
       preferredPillars,
       averagePerformance,
       totalTopicsUsed,
+      // Enhanced performance data
+      performanceInsights,
+      totalEngagement,
+      publishedCount: publishedRecords.length,
     };
   } catch (err) {
     console.error('Error fetching learning context:', err);
