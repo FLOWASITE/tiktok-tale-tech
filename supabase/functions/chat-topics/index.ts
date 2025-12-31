@@ -391,6 +391,7 @@ serve(async (req) => {
     let industryMemory: IndustryMemory | null = null;
     let learningContext: LearningContext | null = null;
     let journeyMessaging: JourneyStageMessagingData[] = [];
+    let sampleTexts: Record<string, string> | null = null;
     
     if (brandTemplateId) {
       const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
@@ -399,7 +400,7 @@ serve(async (req) => {
           .select(`
             brand_name, brand_positioning, tone_of_voice, industry, content_pillars,
             unique_value_proposition, target_age_range, target_gender, evergreen_themes,
-            brand_hashtags, main_competitors, industry_template_id
+            brand_hashtags, main_competitors, industry_template_id, sample_texts
           `)
           .eq('id', brandTemplateId)
           .single(),
@@ -451,6 +452,12 @@ serve(async (req) => {
           mainCompetitors: brand.main_competitors,
           industryTemplateId: brand.industry_template_id,
         };
+
+        // Parse sample_texts if available
+        if (brand.sample_texts && typeof brand.sample_texts === 'object') {
+          sampleTexts = brand.sample_texts as Record<string, string>;
+          console.log('Loaded sample_texts channels:', Object.keys(sampleTexts).join(', '));
+        }
 
         // Fetch Industry Memory if brand has industry_template_id
         if (brand.industry_template_id) {
@@ -568,7 +575,8 @@ serve(async (req) => {
       productPersonaContext,
       industryMemory,
       learningContext,
-      journeyMessaging
+      journeyMessaging,
+      sampleTexts
     );
 
     // Prepare messages for AI
@@ -592,6 +600,8 @@ serve(async (req) => {
       learningAvgPerformance: learningContext?.averagePerformance || 0,
       hasJourneyMessaging: journeyMessaging.length > 0,
       journeyMessagingCount: journeyMessaging.length,
+      hasSampleTexts: !!sampleTexts,
+      sampleTextsChannels: sampleTexts ? Object.keys(sampleTexts).length : 0,
     });
 
     // Call Lovable AI with streaming
@@ -655,7 +665,8 @@ function buildSystemPrompt(
   productPersonaContext?: string[],
   industryMemory?: IndustryMemory | null,
   learningContext?: LearningContext | null,
-  journeyMessaging?: JourneyStageMessagingData[]
+  journeyMessaging?: JourneyStageMessagingData[],
+  sampleTexts?: Record<string, string> | null
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -769,6 +780,46 @@ ${brandContext.contentPillars.map(p => `  • ${p.name}: ${p.keywords?.slice(0, 
       prompt += `
 - **Target Audience:** ${brandContext.targetAgeRange || ''} ${brandContext.targetGender || ''}`;
     }
+  }
+
+  // Add Sample Texts (Few-Shot Learning for Brand Voice)
+  if (sampleTexts && Object.keys(sampleTexts).length > 0) {
+    prompt += `
+
+## 📝 SAMPLE TEXTS (Few-Shot Learning - HỌC GIỌNG VĂN TỪ MẪU)
+
+Các mẫu văn phong thực tế của brand. SỬ DỤNG như reference để hiểu style viết:`;
+    
+    const channelLabels: Record<string, string> = {
+      facebook: 'Facebook',
+      linkedin: 'LinkedIn', 
+      tiktok: 'TikTok',
+      youtube: 'YouTube',
+      instagram: 'Instagram',
+      email: 'Email',
+      blog: 'Blog',
+      twitter: 'Twitter/X',
+    };
+
+    Object.entries(sampleTexts).forEach(([channel, text]) => {
+      if (text && text.trim()) {
+        const label = channelLabels[channel] || channel;
+        // Truncate long samples to keep prompt reasonable
+        const truncatedText = text.length > 300 ? text.slice(0, 300) + '...' : text;
+        prompt += `
+
+### ${label}:
+"${truncatedText}"`;
+      }
+    });
+
+    prompt += `
+
+### Hướng dẫn sử dụng Sample Texts:
+- **Style Match**: Gợi ý topic phù hợp với phong cách viết trong samples
+- **Tone Consistency**: Đảm bảo topic có thể viết theo tone đã thể hiện
+- **Format Hints**: Nếu sample ngắn gọn → topic cũng nên dễ viết ngắn
+- **Vocabulary**: Dùng từ ngữ, cách diễn đạt tương tự khi gợi ý góc viết`;
   }
 
   // Add enhanced personas context
