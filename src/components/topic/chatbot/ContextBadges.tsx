@@ -27,10 +27,11 @@ export type ContextBadgeType =
   | 'rag-enhanced'
   | 'web-search';
 
-interface ParsedContextBadge {
+export interface ParsedContextBadge {
   type: ContextBadgeType;
   label: string;
   detail?: string; // e.g., journey stage name
+  confidence?: number; // 0-1 confidence score from AI
 }
 
 // Badge configuration

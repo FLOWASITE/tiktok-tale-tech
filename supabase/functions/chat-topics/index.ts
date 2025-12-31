@@ -14,6 +14,7 @@ import {
 import { fetchUserPreferences, buildUserPreferencesSection, UserPreferencesContext } from "../_shared/user-preferences.ts";
 import { fetchCrossSessionMemory, buildCrossSessionMemorySection, CrossSessionMemory } from "../_shared/session-memory.ts";
 import { executeAgenticLoop, createSSEWriter, buildReActPromptSection, AgentSSEEvent } from "../_shared/agentic-loop.ts";
+import { buildContextMetadata, serializeContextMetadata, summarizeContext, ContextMetadata } from "../_shared/context-tracker.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -984,6 +985,23 @@ serve(async (req) => {
     const useAgenticLoop = enableAgenticLoop !== false && useTools; // Agentic loop requires tools
     const maxTurns = maxAgentTurns || 5;
 
+    // Build context metadata for realtime badges
+    const contextMetadata = buildContextMetadata({
+      industryMemory,
+      learningContext,
+      brandContext,
+      personasContext,
+      productsContext,
+      journeyMessaging,
+      sampleTexts,
+      industryGlossary,
+      ragResults,
+      userPreferences,
+      sessionMemory,
+    });
+    
+    console.log('[chat-topics]', summarizeContext(contextMetadata));
+
     // Add ReAct prompt section if using agentic loop
     const finalSystemPrompt = useAgenticLoop 
       ? systemPrompt + buildReActPromptSection()
@@ -1005,6 +1023,10 @@ serve(async (req) => {
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
       const sseWriter = createSSEWriter(writer);
+      
+      // Send context metadata first
+      const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
+      writer.write(encoder.encode(metadataEvent));
 
       // Start async agentic loop execution
       (async () => {
@@ -1394,6 +1416,10 @@ Summarize results for user and suggest next actions.`,
 
     (async () => {
       try {
+        // Send context metadata first
+        const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
+        await writer.write(encoder.encode(metadataEvent));
+        
         // Send content as SSE chunks
         const chunkSize = 20; // characters per chunk for smooth streaming effect
         for (let i = 0; i < fullContent.length; i += chunkSize) {

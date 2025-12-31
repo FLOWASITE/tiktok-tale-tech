@@ -8,7 +8,8 @@ export {
   ContextSummary, 
   parseContextBadges, 
   removeContextLine,
-  type ContextBadgeType 
+  type ContextBadgeType,
+  type ParsedContextBadge
 } from './ContextBadges';
 export { ConversationHistorySidebar } from './ConversationHistorySidebar';
 export { ToolResultCard, ToolExecutionLoading, type ToolResult } from './ToolResultCard';

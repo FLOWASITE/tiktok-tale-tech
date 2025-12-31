@@ -15,7 +15,7 @@ import { MessageFeedback } from './chatbot/MessageFeedback';
 import { ArtifactsPanel, type ArtifactTopic } from './chatbot/ArtifactsPanel';
 import { DiscoveryTab } from './chatbot/DiscoveryTab';
 import { DiscoveryChips } from './chatbot/DiscoveryChips';
-import { ContextBadges, parseContextBadges, removeContextLine } from './chatbot/ContextBadges';
+import { ContextBadges, parseContextBadges, removeContextLine, type ParsedContextBadge } from './chatbot/ContextBadges';
 import { ConversationHistorySidebar } from './chatbot/ConversationHistorySidebar';
 import { ToolResultCard, ToolExecutionLoading, type ToolResult } from './chatbot/ToolResultCard';
 import { ChatThinkingIndicator, type ThinkingStatus, type AgentTurnInfo } from './chatbot/ChatThinkingIndicator';
@@ -75,6 +75,14 @@ const PULL_THRESHOLD = 80;
 // Onboarding storage key
 const getOnboardingKey = () => 'topic-chat-onboarding-seen';
 
+// Context badge from backend metadata
+interface RealtimeContextBadge {
+  type: string;
+  label: string;
+  detail?: string;
+  confidence?: number;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -86,6 +94,8 @@ interface ChatMessage {
   feedback?: 'up' | 'down';
   toolResults?: ToolResult[];
   isToolExecuting?: boolean;
+  contextBadges?: RealtimeContextBadge[]; // Realtime context badges from AI
+  contextRichness?: number; // 0-100 context richness score
 }
 
 interface ExtractedTopic {
@@ -894,8 +904,11 @@ export function TopicAIChatbot({
 
         textBuffer += decoder.decode(value, { stream: true });
 
-        // Process line by line
+      // Process line by line
         let newlineIndex: number;
+        let pendingContextBadges: RealtimeContextBadge[] | null = null;
+        let contextRichness: number | undefined = undefined;
+        
         while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
@@ -909,6 +922,14 @@ export function TopicAIChatbot({
 
           try {
             const parsed = JSON.parse(jsonStr);
+            
+            // Check for context_metadata event (realtime badges)
+            if (parsed.type === 'context_metadata' && parsed.badges) {
+              pendingContextBadges = parsed.badges as RealtimeContextBadge[];
+              contextRichness = parsed.context_richness_score;
+              console.log('[chat] Received context metadata:', pendingContextBadges.length, 'badges, richness:', contextRichness);
+              continue;
+            }
             
             // Check for tool_results special event
             if (parsed.type === 'tool_results' && parsed.tool_results) {
@@ -955,6 +976,8 @@ export function TopicAIChatbot({
                   timestamp: new Date(),
                   extractedTopics: extractTopicsFromMessage(assistantContent),
                   toolResults: receivedToolResults || undefined,
+                  contextBadges: pendingContextBadges || undefined,
+                  contextRichness,
                 }]);
               } else {
                 // Update message with new content
@@ -965,6 +988,8 @@ export function TopicAIChatbot({
                         content: assistantContent, 
                         extractedTopics: extractTopicsFromMessage(assistantContent),
                         toolResults: receivedToolResults || m.toolResults,
+                        contextBadges: pendingContextBadges || m.contextBadges,
+                        contextRichness: contextRichness ?? m.contextRichness,
                       }
                     : m
                 ));
@@ -1855,9 +1880,20 @@ export function TopicAIChatbot({
                     {message.content ? (
                       message.role === 'assistant' ? (
                         (() => {
-                          // Parse context badges from AI response
-                          const contextBadges = parseContextBadges(message.content);
-                          const cleanContent = contextBadges.length > 0 
+                          // Use realtime context badges if available, fallback to parsing from text
+                          const realtimeBadges = message.contextBadges?.map(b => ({
+                            type: b.type as any,
+                            label: b.label,
+                            detail: b.detail,
+                          })) || [];
+                          
+                          // Fallback: Parse context badges from AI response text
+                          const parsedBadges = realtimeBadges.length === 0 
+                            ? parseContextBadges(message.content) 
+                            : [];
+                          
+                          const contextBadges = realtimeBadges.length > 0 ? realtimeBadges : parsedBadges;
+                          const cleanContent = parsedBadges.length > 0 
                             ? removeContextLine(message.content) 
                             : message.content;
                           
@@ -1866,7 +1902,14 @@ export function TopicAIChatbot({
                               {/* Context Badges - displayed at top of message */}
                               {contextBadges.length > 0 && message.id !== 'welcome' && (
                                 <div className="mb-2 pb-2 border-b border-border/30">
-                                  <ContextBadges badges={contextBadges} />
+                                  <div className="flex items-center gap-2">
+                                    <ContextBadges badges={contextBadges as ParsedContextBadge[]} />
+                                    {message.contextRichness !== undefined && message.contextRichness >= 50 && (
+                                      <span className="text-[9px] text-muted-foreground/60 ml-auto">
+                                        {message.contextRichness}% context
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                               <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
