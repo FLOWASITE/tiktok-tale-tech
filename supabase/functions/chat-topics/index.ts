@@ -20,6 +20,7 @@ import { ChatMessage, ChatRequest, BrandContext, IndustryMemory, GlossaryTerm, R
 
 // Import shared data fetchers
 import { searchRelevantContent, fetchIndustryMemory, fetchIndustryGlossary } from "../_shared/data-fetchers/index.ts";
+import { getConversationRAGContext, ConversationRAGResult } from "../_shared/data-fetchers/conversation-rag.ts";
 
 // Import shared system prompt builder
 import { buildSystemPrompt } from "../_shared/system-prompt-builder.ts";
@@ -362,21 +363,46 @@ serve(async (req) => {
     // RAG: Search for relevant past content based on user's latest message
     // Using graceful degradation - continue even if RAG fails
     let ragResults: RAGResult[] = [];
-    if (organizationId && messages.length > 0) {
+    let conversationRagResults: ConversationRAGResult[] = [];
+    let conversationRagSection = '';
+    
+    if (messages.length > 0) {
       const lastUserMessage = messages.filter(m => m.role === 'user').pop();
       if (lastUserMessage) {
-        ragResults = await withFallback(
-          () => searchRelevantContent(
-            supabase,
-            lastUserMessage.content,
-            organizationId,
-            brandTemplateId,
-            5
-          ),
-          [],
-          { logError: true, errorContext: 'RAG' }
-        );
-        console.log('RAG search results:', ragResults.length, 'relevant items found');
+        // Content RAG (existing)
+        if (organizationId) {
+          ragResults = await withFallback(
+            () => searchRelevantContent(
+              supabase,
+              lastUserMessage.content,
+              organizationId,
+              brandTemplateId,
+              5
+            ),
+            [],
+            { logError: true, errorContext: 'RAG' }
+          );
+          console.log('Content RAG search results:', ragResults.length, 'relevant items found');
+        }
+        
+        // Conversation RAG (new) - search past conversations for relevant context
+        if (userId) {
+          const convRagResult = await withFallback(
+            () => getConversationRAGContext(
+              supabase,
+              lastUserMessage.content,
+              userId,
+              organizationId,
+              brandTemplateId,
+              undefined // current conversation ID not available here
+            ),
+            { results: [], promptSection: '' },
+            { logError: true, errorContext: 'ConversationRAG' }
+          );
+          conversationRagResults = convRagResult.results;
+          conversationRagSection = convRagResult.promptSection;
+          console.log('Conversation RAG search results:', conversationRagResults.length, 'relevant past conversations found');
+        }
       }
     }
 
@@ -434,7 +460,8 @@ serve(async (req) => {
       industryGlossary,
       ragResults,
       userPreferences,
-      sessionMemory
+      sessionMemory,
+      conversationRagSection // NEW: Conversation RAG context
     );
 
     // Determine mode and settings
@@ -492,6 +519,7 @@ serve(async (req) => {
       productsContext: productsContext.length > 0 ? productsContext : undefined,
       journeyMessaging: journeyMessaging.length > 0 ? journeyMessaging : undefined,
       sampleTexts: sampleTexts || undefined,
+      conversationRagResults: conversationRagResults.length > 0 ? conversationRagResults : undefined,
     });
     
     // Get context sources for metrics
@@ -507,6 +535,7 @@ serve(async (req) => {
       sampleTexts,
       userPreferences,
       sessionMemory,
+      conversationRag: conversationRagResults.length > 0 ? conversationRagResults : undefined,
     });
 
     logger.info('Context summary', { 

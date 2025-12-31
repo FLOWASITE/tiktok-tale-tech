@@ -35,7 +35,7 @@ declare global {
 
 // Context badge from backend metadata
 export interface RealtimeContextBadge {
-  type: string;
+  type: string; // includes 'conversation-memory' for conversation RAG
   label: string;
   detail?: string;
   confidence?: number;
