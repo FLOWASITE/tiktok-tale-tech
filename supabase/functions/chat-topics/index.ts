@@ -61,6 +61,16 @@ interface IndustryMemory {
   forbidden_words?: string[];
 }
 
+interface GlossaryTerm {
+  term: string;
+  abbreviation: string | null;
+  category: string;
+  definition: string;
+  example_usage: string | null;
+  is_preferred: boolean;
+  related_terms: string[];
+}
+
 // Fetch industry memory from database
 async function fetchIndustryMemory(
   supabase: any,
@@ -258,6 +268,146 @@ ${voiceParts.map(p => `- ${p}`).join('\n')}`;
   return section;
 }
 
+// Fetch industry glossary terms from database
+async function fetchIndustryGlossary(
+  supabase: any,
+  industryTemplateId: string,
+  languageCode: string = 'vi',
+  limit: number = 30
+): Promise<GlossaryTerm[]> {
+  try {
+    const { data, error } = await supabase
+      .from('industry_glossary')
+      .select(`
+        term, abbreviation, category, is_preferred, related_terms,
+        industry_glossary_translations!inner (
+          definition, example_usage, language_code
+        )
+      `)
+      .eq('industry_template_id', industryTemplateId)
+      .eq('is_active', true)
+      .eq('industry_glossary_translations.language_code', languageCode)
+      .order('is_preferred', { ascending: false })
+      .order('sort_order', { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching industry glossary:', error);
+      return [];
+    }
+
+    if (!data?.length) {
+      // Fallback to English if no results
+      const { data: fallbackData } = await supabase
+        .from('industry_glossary')
+        .select(`
+          term, abbreviation, category, is_preferred, related_terms,
+          industry_glossary_translations!inner (
+            definition, example_usage, language_code
+          )
+        `)
+        .eq('industry_template_id', industryTemplateId)
+        .eq('is_active', true)
+        .eq('industry_glossary_translations.language_code', 'en')
+        .order('is_preferred', { ascending: false })
+        .order('sort_order', { ascending: true })
+        .limit(limit);
+
+      if (fallbackData?.length) {
+        return fallbackData.map((g: any) => ({
+          term: g.term,
+          abbreviation: g.abbreviation,
+          category: g.category,
+          definition: g.industry_glossary_translations?.[0]?.definition || '',
+          example_usage: g.industry_glossary_translations?.[0]?.example_usage,
+          is_preferred: g.is_preferred,
+          related_terms: g.related_terms || [],
+        }));
+      }
+      return [];
+    }
+
+    return data.map((g: any) => ({
+      term: g.term,
+      abbreviation: g.abbreviation,
+      category: g.category,
+      definition: g.industry_glossary_translations?.[0]?.definition || '',
+      example_usage: g.industry_glossary_translations?.[0]?.example_usage,
+      is_preferred: g.is_preferred,
+      related_terms: g.related_terms || [],
+    }));
+  } catch (error) {
+    console.error('Error in fetchIndustryGlossary:', error);
+    return [];
+  }
+}
+
+// Build glossary section for system prompt
+function buildGlossarySection(glossary: GlossaryTerm[]): string {
+  if (!glossary?.length) return '';
+
+  // Group by category
+  const byCategory = glossary.reduce((acc, term) => {
+    const cat = term.category || 'general';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(term);
+    return acc;
+  }, {} as Record<string, GlossaryTerm[]>);
+
+  const categoryLabels: Record<string, string> = {
+    general: '📚 Chung',
+    technical: '⚙️ Kỹ thuật',
+    legal: '⚖️ Pháp lý',
+    marketing: '📢 Marketing',
+    compliance: '✅ Tuân thủ',
+  };
+
+  let section = `
+
+## 📖 INDUSTRY GLOSSARY (Thuật ngữ ngành - ƯU TIÊN sử dụng)
+
+Sử dụng thuật ngữ chuyên ngành chính xác để tăng credibility và compliance:`;
+
+  // Preferred terms first (across all categories)
+  const preferredTerms = glossary.filter(t => t.is_preferred);
+  if (preferredTerms.length > 0) {
+    section += `
+
+### ⭐ Thuật ngữ ưu tiên (LUÔN dùng):`;
+    preferredTerms.slice(0, 10).forEach(term => {
+      section += `
+- **${term.term}**${term.abbreviation ? ` (${term.abbreviation})` : ''}: ${term.definition.slice(0, 100)}${term.definition.length > 100 ? '...' : ''}`;
+    });
+  }
+
+  // Then by category
+  Object.entries(byCategory).forEach(([category, terms]) => {
+    const nonPreferred = terms.filter(t => !t.is_preferred).slice(0, 5);
+    if (nonPreferred.length === 0) return;
+
+    section += `
+
+### ${categoryLabels[category] || category}:`;
+    nonPreferred.forEach(term => {
+      let line = `- **${term.term}**`;
+      if (term.abbreviation) line += ` (${term.abbreviation})`;
+      line += `: ${term.definition.slice(0, 80)}${term.definition.length > 80 ? '...' : ''}`;
+      section += `
+${line}`;
+    });
+  });
+
+  section += `
+
+### Cách sử dụng glossary trong topic:
+1. **Ưu tiên dùng thuật ngữ chuẩn** thay vì từ thông dụng để tăng chuyên nghiệp
+2. **Viết đúng chính tả** các thuật ngữ chuyên ngành
+3. Nếu có **abbreviation**, có thể dùng sau khi đã giải thích đầy đủ 1 lần
+4. Context badge: Dùng \`📖 Glossary\` khi topic sử dụng thuật ngữ ngành`;
+
+  return section;
+}
+
 // Build learning context section for system prompt
 function buildLearningContextSection(learningContext: LearningContext | null): string {
   if (!learningContext) return '';
@@ -392,6 +542,7 @@ serve(async (req) => {
     let learningContext: LearningContext | null = null;
     let journeyMessaging: JourneyStageMessagingData[] = [];
     let sampleTexts: Record<string, string> | null = null;
+    let industryGlossary: GlossaryTerm[] = [];
     
     if (brandTemplateId) {
       const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
@@ -459,9 +610,17 @@ serve(async (req) => {
           console.log('Loaded sample_texts channels:', Object.keys(sampleTexts).join(', '));
         }
 
-        // Fetch Industry Memory if brand has industry_template_id
+        // Fetch Industry Memory and Glossary if brand has industry_template_id
         if (brand.industry_template_id) {
-          industryMemory = await fetchIndustryMemory(supabase, brand.industry_template_id, 'vi');
+          const [memoryResult, glossaryResult] = await Promise.all([
+            fetchIndustryMemory(supabase, brand.industry_template_id, 'vi'),
+            fetchIndustryGlossary(supabase, brand.industry_template_id, 'vi', 30)
+          ]);
+          industryMemory = memoryResult;
+          industryGlossary = glossaryResult;
+          if (industryGlossary.length > 0) {
+            console.log('Loaded', industryGlossary.length, 'industry glossary terms');
+          }
         }
 
         // Fetch Learning Context in parallel
@@ -565,7 +724,7 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging
+    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging + Glossary
     const systemPrompt = buildSystemPrompt(
       brandContext, 
       contentGoal, 
@@ -576,7 +735,8 @@ serve(async (req) => {
       industryMemory,
       learningContext,
       journeyMessaging,
-      sampleTexts
+      sampleTexts,
+      industryGlossary
     );
 
     // Prepare messages for AI
@@ -602,6 +762,8 @@ serve(async (req) => {
       journeyMessagingCount: journeyMessaging.length,
       hasSampleTexts: !!sampleTexts,
       sampleTextsChannels: sampleTexts ? Object.keys(sampleTexts).length : 0,
+      hasIndustryGlossary: industryGlossary.length > 0,
+      industryGlossaryCount: industryGlossary.length,
     });
 
     // Call Lovable AI with streaming
@@ -666,7 +828,8 @@ function buildSystemPrompt(
   industryMemory?: IndustryMemory | null,
   learningContext?: LearningContext | null,
   journeyMessaging?: JourneyStageMessagingData[],
-  sampleTexts?: Record<string, string> | null
+  sampleTexts?: Record<string, string> | null,
+  industryGlossary?: GlossaryTerm[]
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -678,6 +841,7 @@ function buildSystemPrompt(
 
   const safeIndustryMemory = industryMemory ?? null;
   const safeLearningContext = learningContext ?? null;
+  const safeGlossary = industryGlossary ?? [];
   
   let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
 
@@ -697,6 +861,12 @@ function buildSystemPrompt(
   const learningSection = buildLearningContextSection(safeLearningContext);
   if (learningSection) {
     prompt += learningSection;
+  }
+
+  // INJECT INDUSTRY GLOSSARY (Terminology consistency)
+  const glossarySection = buildGlossarySection(safeGlossary);
+  if (glossarySection) {
+    prompt += glossarySection;
   }
 
   prompt += `
@@ -729,6 +899,7 @@ Khi gợi ý topic, format như sau:
 - \`📦 Product-linked\` - Liên kết với sản phẩm/dịch vụ của brand
 - \`🗺️ Journey:[Stage]\` - Phù hợp với giai đoạn customer journey (Awareness/Consideration/Decision/Loyalty)
 - \`✨ Brand Voice\` - Dựa trên sample texts và brand voice guidelines
+- \`📖 Glossary\` - Sử dụng thuật ngữ ngành chuẩn từ glossary
 - \`🔥 Trending\` - Topic trending hoặc seasonal
 - \`🌲 Evergreen\` - Topic evergreen, value lâu dài
 
@@ -737,7 +908,7 @@ Ví dụ:
 📌 **Topic:** 5 Bước Xây Dựng Thương Hiệu Cá Nhân Trên LinkedIn
 💡 **Lý do:** Phù hợp với audience chuyên nghiệp, giúp tăng uy tín
 🎯 **Format đề xuất:** Carousel
-🏷️ **Context:** \`📊 Top Performer\` \`🎭 Persona-fit\` \`🗺️ Journey:Awareness\`
+🏷️ **Context:** \`📊 Top Performer\` \`🎭 Persona-fit\` \`🗺️ Journey:Awareness\` \`📖 Glossary\`
 
 ---
 
@@ -756,7 +927,8 @@ Ví dụ:
 5. \`📦 Product-linked\` - Dùng khi liên kết với product/service
 6. \`🗺️ Journey:[Stage]\` - Dùng khi phù hợp với journey stage messaging
 7. \`✨ Brand Voice\` - Dùng khi dựa trên sample texts
-8. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
+8. \`📖 Glossary\` - Dùng khi topic sử dụng thuật ngữ chuyên ngành từ glossary
+9. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
 
 Gợi ý 2-4 topics, phân cách bằng dấu --- giữa mỗi topic.`;
 
@@ -940,6 +1112,7 @@ Nếu user yêu cầu topic vi phạm → Từ chối nhẹ nhàng, giải thíc
   if (productsContext?.length) contextSources.push('📦 Products/Services');
   if (journeyMessaging?.length) contextSources.push('🗺️ Journey Messaging');
   if (sampleTexts && Object.keys(sampleTexts).length > 0) contextSources.push('✨ Sample Texts');
+  if (safeGlossary?.length) contextSources.push('📖 Industry Glossary');
   if (brandContext) contextSources.push('🏢 Brand Context');
 
   if (contextSources.length > 0) {
