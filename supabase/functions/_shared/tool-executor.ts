@@ -19,6 +19,8 @@ export async function executeToolCall(
 
   try {
     switch (toolName) {
+      case "web_search":
+        return await executeWebSearch(parameters, context);
       case "save_topic":
         return await executeSaveTopic(parameters, context);
       case "generate_script":
@@ -55,6 +57,172 @@ export async function executeToolCall(
       tool_name: toolName,
       result: null,
       error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// ============ WEB SEARCH TOOL - Perplexity API ============
+
+function buildWebSearchSystemPrompt(searchType: string, industry?: string): string {
+  const industryContext = industry ? ` trong ngành ${industry}` : "";
+  
+  switch (searchType) {
+    case "trending":
+      return `Bạn là chuyên gia phân tích xu hướng content${industryContext}. Tìm trending topics, viral content, xu hướng mới nhất trên social media Việt Nam. Trả về JSON array:
+[{"title": "Tên trend", "snippet": "Mô tả ngắn", "relevance": "Tại sao trending", "content_angle": "Gợi ý góc content"}]
+Tối đa 5-7 kết quả, ưu tiên real-time.`;
+
+    case "news":
+      return `Bạn là chuyên gia tin tức ngành${industryContext}. Tìm tin tức mới nhất, sự kiện quan trọng. Trả về JSON array:
+[{"title": "Tiêu đề tin", "snippet": "Tóm tắt", "relevance": "Tác động đến ngành", "content_angle": "Cơ hội content"}]
+Tối đa 5-7 kết quả, ưu tiên nguồn uy tín.`;
+
+    case "competitor":
+      return `Bạn là chuyên gia phân tích competitor${industryContext}. Phân tích chiến lược content đối thủ. Trả về JSON array:
+[{"title": "Insight", "snippet": "Chi tiết", "relevance": "Điểm mạnh/yếu", "content_angle": "Cơ hội differentiate"}]
+Tối đa 5-7 insights actionable.`;
+
+    default:
+      return `Bạn là chuyên gia nghiên cứu content${industryContext}. Tìm thông tin hữu ích cho content marketing. Trả về JSON array có cấu trúc rõ ràng.`;
+  }
+}
+
+async function executeWebSearch(
+  params: Record<string, any>,
+  context: ExecutionContext
+): Promise<ToolCallResult> {
+  const { query, search_type, industry, recency, max_results } = params;
+  
+  const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!perplexityApiKey) {
+    console.error("[web_search] PERPLEXITY_API_KEY not configured");
+    return {
+      success: false,
+      tool_name: "web_search",
+      result: null,
+      error: "Web search chưa được cấu hình. Vui lòng liên hệ admin.",
+    };
+  }
+
+  // Build enhanced query based on search type
+  const today = new Date().toISOString().split('T')[0];
+  let enhancedQuery = query;
+  
+  switch (search_type) {
+    case 'trending':
+      enhancedQuery = `Trending topics viral "${query}" social media content Việt Nam ${today}`;
+      break;
+    case 'news':
+      enhancedQuery = `Tin tức mới nhất ${query} ${industry || ''} Việt Nam ${today}`;
+      break;
+    case 'competitor':
+      enhancedQuery = `Content marketing ${query} competitor strategy chiến lược nội dung`;
+      break;
+  }
+
+  console.log(`[web_search] Query: ${enhancedQuery}, type: ${search_type}`);
+
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { role: 'system', content: buildWebSearchSystemPrompt(search_type, industry) },
+          { role: 'user', content: enhancedQuery }
+        ],
+        search_recency_filter: recency || 'week',
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[web_search] Perplexity error:", response.status, errorText);
+      return {
+        success: false,
+        tool_name: "web_search",
+        result: null,
+        error: `Lỗi tìm kiếm web: ${response.status}`,
+      };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const citations = data.citations || [];
+
+    console.log("[web_search] Response length:", content.length);
+
+    // Parse JSON results
+    interface WebSearchItem {
+      title: string;
+      snippet: string;
+      relevance: string;
+      content_angle?: string;
+      source?: string;
+    }
+    
+    let results: WebSearchItem[] = [];
+    try {
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        results = JSON.parse(jsonMatch[0]);
+      } else {
+        results = [{
+          title: query,
+          snippet: content.substring(0, 400),
+          relevance: "Kết quả tìm kiếm",
+          content_angle: "Phân tích để tìm cơ hội content"
+        }];
+      }
+    } catch {
+      results = [{
+        title: `Kết quả: ${query}`,
+        snippet: content.substring(0, 400),
+        relevance: search_type === 'trending' ? 'Xu hướng mới' : 'Thông tin liên quan',
+        content_angle: "Xem chi tiết để tìm góc content"
+      }];
+    }
+
+    // Add citations
+    results = results.slice(0, max_results || 5).map((r, i) => ({
+      ...r,
+      source: citations[i] || undefined
+    }));
+
+    const searchTypeLabels: Record<string, string> = {
+      trending: "xu hướng",
+      news: "tin tức", 
+      competitor: "đối thủ",
+      general: "chung"
+    };
+
+    return {
+      success: true,
+      tool_name: "web_search",
+      result: {
+        query,
+        search_type,
+        search_type_label: searchTypeLabels[search_type] || search_type,
+        industry,
+        recency,
+        results,
+        citations,
+        total_results: results.length,
+        message: `Tìm thấy ${results.length} kết quả ${searchTypeLabels[search_type]} cho "${query}"`,
+      },
+    };
+  } catch (error) {
+    console.error("[web_search] Error:", error);
+    return {
+      success: false,
+      tool_name: "web_search",
+      result: null,
+      error: error instanceof Error ? error.message : "Lỗi tìm kiếm web",
     };
   }
 }

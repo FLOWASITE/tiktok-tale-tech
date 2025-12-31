@@ -82,6 +82,15 @@ export class ChainContext {
             this.context.multichannel_content = result.result.full_content;
           }
           break;
+        case 'web_search':
+          if (result.result.results?.length) {
+            this.context.web_search_results = result.result.results;
+            this.context.first_web_result = result.result.results[0];
+            this.context.web_citations = result.result.citations;
+            this.context.web_query = result.result.query;
+            this.context.web_search_type = result.result.search_type;
+          }
+          break;
       }
     }
   }
@@ -286,15 +295,17 @@ export function detectToolChainDependencies(toolCalls: ToolCall[]): {
     'search_topics': ['found_topics', 'first_topic'],
     'start_planning_session': ['active_session_id', 'session_goal'],
     'generate_plan_draft': ['planned_items', 'plan_summary'],
+    'web_search': ['web_search_results', 'first_web_result', 'web_query'],
   };
 
   const inputPatterns: Record<string, string[]> = {
-    'generate_script': ['topic', 'saved_topic'],
-    'generate_carousel': ['topic', 'saved_topic'],
-    'generate_multichannel': ['topic', 'saved_topic'],
+    'generate_script': ['topic', 'saved_topic', 'first_web_result'],
+    'generate_carousel': ['topic', 'saved_topic', 'first_web_result'],
+    'generate_multichannel': ['topic', 'saved_topic', 'first_web_result'],
     'generate_plan_draft': ['session_id', 'active_session_id'],
     'refine_plan': ['session_id', 'active_session_id'],
     'finalize_plan': ['session_id', 'active_session_id'],
+    'save_topic': ['topic', 'first_web_result'],
   };
 
   for (let i = 0; i < toolCalls.length; i++) {
@@ -341,6 +352,15 @@ export const COMMON_CHAINS = {
   
   // Topic to Multi-format: Generate both script and carousel
   TOPIC_TO_MULTIFORMAT: ['save_topic', 'generate_script', 'generate_carousel'],
+  
+  // Web Search -> Save: Find trending, save interesting one
+  WEB_SEARCH_TO_SAVE: ['web_search', 'save_topic'],
+  
+  // Web Search -> Generate: Find trends, create content directly
+  WEB_SEARCH_TO_CONTENT: ['web_search', 'generate_multichannel'],
+  
+  // Full Discovery: Search web -> Save topic -> Generate content
+  FULL_DISCOVERY: ['web_search', 'save_topic', 'generate_script'],
 };
 
 // Build tool results messages for AI follow-up
