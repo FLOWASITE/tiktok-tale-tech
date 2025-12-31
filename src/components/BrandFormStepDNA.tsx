@@ -21,19 +21,15 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { 
-  Dna, 
-  Target, 
-  Lightbulb, 
-  Sparkles, 
-  Hash, 
-  MessageSquareQuote, 
-  Megaphone,
   Mic2,
   Plus,
   X,
   Info,
   Smile,
-  Settings2
+  Settings2,
+  Megaphone,
+  Hash,
+  MessageSquareQuote
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -79,15 +75,7 @@ export const FORMALITY_LEVEL_OPTIONS = [
 ];
 
 interface BrandFormStepDNAProps {
-  // Strategy
-  mission: string;
-  setMission: (value: string) => void;
-  vision: string;
-  setVision: (value: string) => void;
-  uniqueValueProposition: string;
-  setUniqueValueProposition: (value: string) => void;
-  tagline: string;
-  setTagline: (value: string) => void;
+  // Content
   brandHashtags: string[];
   setBrandHashtags: (value: string[]) => void;
   signaturePhrases: string[];
@@ -117,11 +105,7 @@ interface BrandFormStepDNAProps {
 }
 
 export function BrandFormStepDNA({
-  // Strategy
-  mission, setMission,
-  vision, setVision,
-  uniqueValueProposition, setUniqueValueProposition,
-  tagline, setTagline,
+  // Content
   brandHashtags, setBrandHashtags,
   signaturePhrases, setSignaturePhrases,
   ctaTemplates, setCtaTemplates,
@@ -136,7 +120,7 @@ export function BrandFormStepDNA({
   forbiddenWords, setForbiddenWords,
   complianceRules, setComplianceRules,
 }: BrandFormStepDNAProps) {
-  const [activeTab, setActiveTab] = useState('strategy');
+  const [activeTab, setActiveTab] = useState('voice');
   
   // Temp inputs
   const [newHashtag, setNewHashtag] = useState('');
@@ -220,7 +204,6 @@ export function BrandFormStepDNA({
   const currentFormalityHint = FORMALITY_LEVEL_OPTIONS.find(o => o.value === formalityLevel)?.hint;
 
   // Count items for badges
-  const strategyCount = [mission, vision, uniqueValueProposition, tagline].filter(Boolean).length;
   const contentCount = brandHashtags.length + signaturePhrases.length + ctaTemplates.length + evergreenThemes.length;
   const voiceCount = toneOfVoice.length + (brandPositioning ? 1 : 0) + (formalityLevel ? 1 : 0);
   const advancedCount = preferredWords.length + forbiddenWords.length + complianceRules.length;
@@ -230,24 +213,16 @@ export function BrandFormStepDNA({
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-          <Dna className="w-5 h-5 text-primary" />
+          <Mic2 className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h3 className="font-semibold">Brand DNA</h3>
-          <p className="text-sm text-muted-foreground">Chiến lược và giọng nói thương hiệu</p>
+          <h3 className="font-semibold">Giọng nói & Content</h3>
+          <p className="text-sm text-muted-foreground">Định hình cách thương hiệu giao tiếp</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-10">
-          <TabsTrigger value="strategy" className="gap-1.5 text-xs sm:text-sm">
-            <Lightbulb className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Chiến lược</span>
-            <span className="sm:hidden">CL</span>
-            {strategyCount > 0 && (
-              <Badge variant="secondary" className="h-4 px-1 text-[10px]">{strategyCount}</Badge>
-            )}
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 h-10">
           <TabsTrigger value="voice" className="gap-1.5 text-xs sm:text-sm">
             <Mic2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Giọng nói</span>
@@ -265,65 +240,6 @@ export function BrandFormStepDNA({
             )}
           </TabsTrigger>
         </TabsList>
-
-        {/* Strategy Tab */}
-        <TabsContent value="strategy" className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="mission" className="text-sm flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-primary" />
-                Mission (Sứ mệnh)
-              </Label>
-              <Textarea
-                id="mission"
-                value={mission}
-                onChange={(e) => setMission(e.target.value)}
-                placeholder="Chúng tôi tồn tại để..."
-                className="min-h-[80px] text-sm resize-none"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="vision" className="text-sm flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                Vision (Tầm nhìn)
-              </Label>
-              <Textarea
-                id="vision"
-                value={vision}
-                onChange={(e) => setVision(e.target.value)}
-                placeholder="Trong 5-10 năm tới, chúng tôi sẽ..."
-                className="min-h-[80px] text-sm resize-none"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="uvp" className="text-sm">
-              Unique Value Proposition (UVP)
-            </Label>
-            <Textarea
-              id="uvp"
-              value={uniqueValueProposition}
-              onChange={(e) => setUniqueValueProposition(e.target.value)}
-              placeholder="Điều gì khiến bạn khác biệt? Tại sao khách hàng nên chọn bạn?"
-              className="min-h-[60px] text-sm resize-none"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tagline" className="text-sm">
-              Tagline / Slogan
-            </Label>
-            <Input
-              id="tagline"
-              value={tagline}
-              onChange={(e) => setTagline(e.target.value)}
-              placeholder="Just Do It, Think Different, ..."
-              className="text-sm"
-            />
-          </div>
-        </TabsContent>
 
         {/* Voice Tab */}
         <TabsContent value="voice" className="mt-4 space-y-4">
