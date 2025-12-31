@@ -4,6 +4,7 @@ import { fetchLearningContext, PerformanceInsight } from "../_shared/learning-co
 import { LearningContext, JourneyStageMessagingData, buildJourneyStageMessagingSection, JourneyStage } from "../_shared/prompt-utils.ts";
 import { CHAT_TOOLS, ToolCall, ToolCallResult } from "../_shared/tool-definitions.ts";
 import { executeToolCall } from "../_shared/tool-executor.ts";
+import { fetchUserPreferences, buildUserPreferencesSection, UserPreferencesContext } from "../_shared/user-preferences.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -683,6 +684,21 @@ serve(async (req) => {
     let journeyMessaging: JourneyStageMessagingData[] = [];
     let sampleTexts: Record<string, string> | null = null;
     let industryGlossary: GlossaryTerm[] = [];
+    let userPreferences: UserPreferencesContext | null = null;
+    
+    // Fetch user preferences if userId is provided
+    if (userId) {
+      userPreferences = await fetchUserPreferences(supabase, userId, brandTemplateId);
+      if (userPreferences) {
+        console.log('Loaded user preferences:', {
+          tone: userPreferences.preferredTone,
+          skillLevel: userPreferences.skillLevel,
+          emojiFrequency: userPreferences.emojiFrequency,
+          stylePatterns: userPreferences.stylePatterns.length,
+          avgEditPercentage: userPreferences.avgEditPercentage,
+        });
+      }
+    }
     
     if (brandTemplateId) {
       const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
@@ -880,7 +896,7 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging + Glossary + RAG
+    // Build system prompt with extended context including Industry Memory + Learning Context + Journey Messaging + Glossary + RAG + User Preferences
     const systemPrompt = buildSystemPrompt(
       brandContext, 
       contentGoal, 
@@ -893,7 +909,8 @@ serve(async (req) => {
       journeyMessaging,
       sampleTexts,
       industryGlossary,
-      ragResults
+      ragResults,
+      userPreferences
     );
 
     // Prepare messages for AI
@@ -923,6 +940,9 @@ serve(async (req) => {
       industryGlossaryCount: industryGlossary.length,
       hasRAGContext: ragResults.length > 0,
       ragResultsCount: ragResults.length,
+      hasUserPreferences: !!userPreferences,
+      userPrefsSkillLevel: userPreferences?.skillLevel,
+      userPrefsTone: userPreferences?.preferredTone,
       enableTools: enableTools ?? true,
     });
 
@@ -1106,7 +1126,8 @@ function buildSystemPrompt(
   journeyMessaging?: JourneyStageMessagingData[],
   sampleTexts?: Record<string, string> | null,
   industryGlossary?: GlossaryTerm[],
-  ragResults?: RAGResult[]
+  ragResults?: RAGResult[],
+  userPreferences?: UserPreferencesContext | null
 ): string {
   const goalLabels: Record<string, string> = {
     engagement: 'Tăng tương tác',
@@ -1120,6 +1141,7 @@ function buildSystemPrompt(
   const safeLearningContext = learningContext ?? null;
   const safeGlossary = industryGlossary ?? [];
   const safeRagResults = ragResults ?? [];
+  const safeUserPrefs = userPreferences ?? null;
   
   let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
 
@@ -1128,6 +1150,12 @@ function buildSystemPrompt(
 - Đưa ra gợi ý cụ thể, có thể hành động được ngay
 - Giải thích ngắn gọn tại sao mỗi ý tưởng phù hợp
 - Sử dụng emoji phù hợp để tạo sự thân thiện`;
+
+  // INJECT USER PREFERENCES (Personalization - High Priority after Industry Memory)
+  const userPrefsSection = buildUserPreferencesSection(safeUserPrefs);
+  if (userPrefsSection) {
+    prompt += userPrefsSection;
+  }
 
   // INJECT RAG CONTEXT (Semantic Search Results)
   const ragSection = buildRAGContextSection(safeRagResults);
@@ -1187,6 +1215,7 @@ Khi gợi ý topic, format như sau:
 - \`🔥 Trending\` - Topic trending hoặc seasonal
 - \`🌲 Evergreen\` - Topic evergreen, value lâu dài
 - \`🔍 RAG-enhanced\` - Tham khảo content đã publish để tránh trùng lặp
+- \`👤 Personalized\` - Điều chỉnh theo user preferences (tone, emoji, style đã học)
 
 Ví dụ:
 
@@ -1213,7 +1242,8 @@ Ví dụ:
 6. \`🗺️ Journey:[Stage]\` - Dùng khi phù hợp với journey stage messaging
 7. \`✨ Brand Voice\` - Dùng khi dựa trên sample texts
 8. \`📖 Glossary\` - Dùng khi topic sử dụng thuật ngữ chuyên ngành từ glossary
-9. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
+9. \`👤 Personalized\` - Dùng khi đã áp dụng user preferences (tone, emoji, style)
+10. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
 
 Gợi ý 2-4 topics, phân cách bằng dấu --- giữa mỗi topic.`;
 
