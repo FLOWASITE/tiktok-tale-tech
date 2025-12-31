@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 import { ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { ContentPillar } from '@/types/topicDiscovery';
-import { BrandFooterInfo } from '@/components/BrandFormStepBusiness';
+import { BrandFooterInfo } from '@/components/BrandForm';
 
 export interface BrandTemplate {
   id: string;

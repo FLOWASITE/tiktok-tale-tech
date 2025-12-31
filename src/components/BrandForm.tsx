@@ -33,6 +33,7 @@ export interface BrandFooterInfo {
   email?: string;
   website?: string;
   address?: string;
+  social_links?: Record<string, string>;
 }
 
 export const DEFAULT_FOOTER_INFO: BrandFooterInfo = {
