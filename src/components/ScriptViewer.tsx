@@ -21,8 +21,10 @@ import {
   PanelRightClose, 
   Clapperboard, 
   Sparkles,
-  Target
+  Target,
+  TrendingUp
 } from 'lucide-react';
+import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -318,6 +320,23 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                       <span className="hidden xs:inline">{copied ? 'Đã copy' : 'Copy'}</span>
                     </Button>
                     <ScriptExportMenu script={script} />
+                    {/* Performance Tracking - only when published */}
+                    {script.status === 'published' && (
+                      <TopicPerformanceUpdater
+                        contentId={script.id}
+                        onUpdate={() => {}}
+                        trigger={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-border hover:border-emerald-500 hover:bg-emerald-500/10 h-7 xs:h-8 text-xs xs:text-sm gap-1"
+                          >
+                            <TrendingUp className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                            <span className="hidden xs:inline">Hiệu suất</span>
+                          </Button>
+                        }
+                      />
+                    )}
                     {/* Mobile: AI Analyze button */}
                     <Button
                       variant="outline"
