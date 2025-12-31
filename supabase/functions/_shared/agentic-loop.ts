@@ -1,8 +1,10 @@
 // Multi-Turn Agentic Loop with ReAct Pattern
 // Reason → Act → Observe → Repeat
+// Now with Parallel Tool Execution for independent tools
 
 import { CHAT_TOOLS, ToolCall, ToolCallResult, AgentTurn, AgentLoopResult } from "./tool-definitions.ts";
 import { executeToolCall } from "./tool-executor.ts";
+import { executeToolsParallel, estimateSpeedup } from "./parallel-tool-executor.ts";
 import { withRetry, isRetryableError, RetryableError } from "./error-utils.ts";
 import { estimateTokenCount, MODEL_LIMITS } from "./token-manager.ts";
 
@@ -147,40 +149,22 @@ async function parseStreamingResponse(
   };
 }
 
-// Execute all tool calls (parallel when possible)
+// Execute all tool calls with parallel execution for independent tools
 async function executeTools(
   toolCalls: ToolCall[],
   context: ExecutionContext,
   onToolExecuting?: (toolName: string) => void
 ): Promise<ToolCallResult[]> {
-  const results: ToolCallResult[] = [];
+  if (toolCalls.length === 0) return [];
 
-  for (const toolCall of toolCalls) {
-    const toolName = toolCall.function.name;
-    onToolExecuting?.(toolName);
-
-    try {
-      const args = JSON.parse(toolCall.function.arguments);
-      
-      // Special handling for task_complete
-      if (toolName === 'task_complete') {
-        results.push(executeTaskComplete(args));
-      } else {
-        const result = await executeToolCall(toolName, args, context);
-        results.push(result);
-      }
-    } catch (err) {
-      console.error(`Tool ${toolName} error:`, err);
-      results.push({
-        success: false,
-        tool_name: toolName,
-        result: null,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
-    }
+  // Log parallelization estimate
+  const speedupEstimate = estimateSpeedup(toolCalls);
+  if (speedupEstimate.estimatedSpeedup > 1) {
+    console.log(`[executeTools] Parallelizing: ${speedupEstimate.sequentialBatches} tools → ${speedupEstimate.parallelBatches} batches (${speedupEstimate.estimatedSpeedup.toFixed(1)}x speedup)`);
   }
 
-  return results;
+  // Use parallel executor
+  return executeToolsParallel(toolCalls, context, onToolExecuting);
 }
 
 // Build observation summary from tool results

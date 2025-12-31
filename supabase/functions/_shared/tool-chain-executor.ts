@@ -1,8 +1,10 @@
 // Multi-step tool chain executor for AI chatbot
 // Enables the AI to execute sequences of tools where outputs feed into subsequent tools
+// Now with parallel execution for independent tools within chains
 
 import { ToolCallResult, ToolCall } from "./tool-definitions.ts";
 import { executeToolCall } from "./tool-executor.ts";
+import { createExecutionPlan, executeToolsParallel } from "./parallel-tool-executor.ts";
 
 export interface ExecutionContext {
   supabase: any;
@@ -169,7 +171,7 @@ function injectChainContext(
   return injectedParams;
 }
 
-// Execute a chain of tool calls in sequence
+// Execute a chain of tool calls with parallel execution where possible
 // Each tool can access outputs from previous tools via chain context
 export async function executeToolChain(
   toolCalls: ToolCall[],
@@ -178,6 +180,7 @@ export async function executeToolChain(
     stopOnError?: boolean;
     maxRetries?: number;
     retryDelayMs?: number;
+    useParallel?: boolean; // Enable parallel execution for independent tools
   }
 ): Promise<ToolChainResult> {
   const startTime = Date.now();
