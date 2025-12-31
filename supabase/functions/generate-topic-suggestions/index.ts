@@ -350,6 +350,13 @@ interface EnhancedTopicSuggestion {
   contentTier?: 'hero' | 'hub' | 'hygiene';
   // Media Ownership (Owned/Earned/Paid)
   mediaOwnership?: 'owned' | 'earned' | 'paid';
+  // Journey Stage Mapping (Phase 4.5)
+  journeyStage?: 'awareness' | 'consideration' | 'decision' | 'loyalty';
+  journeyMessagingHints?: {
+    suggestedHook?: string;
+    suggestedCta?: string;
+    emotionalTone?: string;
+  };
 }
 
 // Helper to infer search intent from funnel stage and topic type
@@ -404,6 +411,29 @@ function inferMediaOwnership(
   }
   // Default: Most content is owned media (blog, newsletter, fanpage posts)
   return 'owned';
+}
+
+// Helper to infer journey stage from funnel stage and topic characteristics
+function inferJourneyStage(
+  funnelStage?: string,
+  category?: string,
+  topicType?: string
+): 'awareness' | 'consideration' | 'decision' | 'loyalty' {
+  // Map funnel stages to journey stages
+  if (funnelStage === 'tofu') return 'awareness';
+  if (funnelStage === 'mofu') return 'consideration';
+  if (funnelStage === 'bofu') return 'decision';
+  
+  // Infer from category
+  if (category === 'reactive' || category === 'seasonal') return 'awareness';
+  if (category === 'trending') return 'consideration';
+  
+  // Infer from topic type
+  if (topicType === 'story') return 'awareness';
+  if (topicType === 'solution' || topicType === 'how') return 'consideration';
+  if (topicType === 'case_study') return 'decision';
+  
+  return 'awareness';
 }
 
 // Persona context for fetching with enhanced fields
@@ -804,6 +834,9 @@ serve(async (req) => {
               item.category,
               item.topicType
             ),
+            // Journey Stage Mapping
+            journeyStage: item.journeyStage || inferJourneyStage(item.funnelStage, item.category, item.topicType),
+            journeyMessagingHints: item.journeyMessagingHints || undefined,
           };
         });
       }

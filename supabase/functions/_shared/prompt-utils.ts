@@ -1053,6 +1053,214 @@ export const PRODUCT_PERSONA_MAPPING_SELECT = `
   avoid_topics
 `;
 
+/**
+ * Journey Stage Messaging SELECT query for Supabase
+ */
+export const JOURNEY_STAGE_MESSAGING_SELECT = `
+  id,
+  mapping_id,
+  journey_stage,
+  headline,
+  hook,
+  key_message,
+  pain_points_focus,
+  benefits_highlight,
+  cta_template,
+  emotional_tone,
+  objection_response,
+  content_types,
+  avoid_messages
+`;
+
+// ============================================
+// JOURNEY STAGE MESSAGING TYPES & BUILDERS
+// ============================================
+
+export type JourneyStage = 'awareness' | 'consideration' | 'decision' | 'loyalty';
+export type EmotionalToneType = 'curiosity' | 'urgency' | 'trust' | 'delight' | 'empathy' | 'authority';
+
+export interface JourneyStageMessagingData {
+  id?: string;
+  mapping_id: string;
+  journey_stage: JourneyStage;
+  headline?: string | null;
+  hook?: string | null;
+  key_message?: string | null;
+  pain_points_focus: string[];
+  benefits_highlight: string[];
+  cta_template?: string | null;
+  emotional_tone?: EmotionalToneType | null;
+  objection_response?: string | null;
+  content_types: string[];
+  avoid_messages: string[];
+}
+
+export interface ProductPersonaMappingWithJourney {
+  mapping_id: string;
+  product_name: string;
+  persona_name: string;
+  relevance_score: number;
+  custom_pitch?: string;
+  key_benefits?: string[];
+  objection_handlers?: string[];
+  preferred_content_angles?: string[];
+  avoid_topics?: string[];
+  journey_messaging: JourneyStageMessagingData[];
+}
+
+const JOURNEY_STAGE_LABELS: Record<JourneyStage, { vi: string; en: string; emoji: string }> = {
+  awareness: { vi: 'Nhận biết', en: 'Awareness', emoji: '👁' },
+  consideration: { vi: 'Cân nhắc', en: 'Consideration', emoji: '⚖️' },
+  decision: { vi: 'Quyết định', en: 'Decision', emoji: '✓' },
+  loyalty: { vi: 'Trung thành', en: 'Loyalty', emoji: '♥️' },
+};
+
+const EMOTIONAL_TONE_LABELS: Record<EmotionalToneType, { vi: string; description: string }> = {
+  curiosity: { vi: 'Tò mò', description: 'Kích thích sự tò mò' },
+  urgency: { vi: 'Khẩn cấp', description: 'Tạo cảm giác cấp bách' },
+  trust: { vi: 'Tin tưởng', description: 'Xây dựng niềm tin' },
+  delight: { vi: 'Vui vẻ', description: 'Tạo cảm giác hài lòng' },
+  empathy: { vi: 'Đồng cảm', description: 'Thể hiện sự thấu hiểu' },
+  authority: { vi: 'Uy quyền', description: 'Thể hiện chuyên môn' },
+};
+
+/**
+ * Build Journey Stage Messaging section for AI prompts
+ * @param journeyMessaging - Array of journey messaging data
+ * @param targetStage - Optional: highlight specific target stage
+ */
+export function buildJourneyStageMessagingSection(
+  journeyMessaging: JourneyStageMessagingData[],
+  targetStage?: JourneyStage
+): string {
+  if (!journeyMessaging || journeyMessaging.length === 0) {
+    return '';
+  }
+
+  const parts: string[] = [];
+  parts.push(`\n## 🗺️ JOURNEY STAGE MESSAGING (Content theo hành trình khách hàng)`);
+  
+  if (targetStage) {
+    const stageLabel = JOURNEY_STAGE_LABELS[targetStage];
+    parts.push(`\n⭐ **TARGET STAGE: ${stageLabel.emoji} ${stageLabel.vi} (${stageLabel.en})**`);
+    parts.push(`→ Content PHẢI tập trung vào giai đoạn này\n`);
+  }
+
+  // Group by stage
+  const byStage: Partial<Record<JourneyStage, JourneyStageMessagingData[]>> = {};
+  journeyMessaging.forEach(jm => {
+    if (!byStage[jm.journey_stage]) byStage[jm.journey_stage] = [];
+    byStage[jm.journey_stage]!.push(jm);
+  });
+
+  // Build context for each stage
+  const stageOrder: JourneyStage[] = ['awareness', 'consideration', 'decision', 'loyalty'];
+  stageOrder.forEach(stage => {
+    const items = byStage[stage];
+    if (!items || items.length === 0) return;
+
+    const stageLabel = JOURNEY_STAGE_LABELS[stage];
+    const isTarget = targetStage === stage;
+    parts.push(`\n### ${isTarget ? '⭐ ' : ''}${stageLabel.emoji} ${stageLabel.vi.toUpperCase()} (${stageLabel.en})`);
+
+    items.forEach(jm => {
+      if (jm.headline) {
+        parts.push(`  → Headline: "${jm.headline}"`);
+      }
+      if (jm.hook) {
+        parts.push(`  → Hook mở đầu: "${jm.hook}"`);
+      }
+      if (jm.key_message) {
+        parts.push(`  → Key Message: "${jm.key_message}"`);
+      }
+      if (jm.emotional_tone) {
+        const toneLabel = EMOTIONAL_TONE_LABELS[jm.emotional_tone];
+        parts.push(`  → Emotional Tone: ${toneLabel.vi} - ${toneLabel.description}`);
+      }
+      if (jm.cta_template) {
+        parts.push(`  → CTA Template: "${jm.cta_template}"`);
+      }
+      if (jm.pain_points_focus?.length) {
+        parts.push(`  → Pain Points ưu tiên: ${jm.pain_points_focus.join(', ')}`);
+      }
+      if (jm.benefits_highlight?.length) {
+        parts.push(`  → Benefits nhấn mạnh: ${jm.benefits_highlight.join(', ')}`);
+      }
+      if (jm.content_types?.length) {
+        parts.push(`  → Loại content phù hợp: ${jm.content_types.join(', ')}`);
+      }
+      if (jm.objection_response) {
+        parts.push(`  → Xử lý objection: "${jm.objection_response}"`);
+      }
+      if (jm.avoid_messages?.length) {
+        parts.push(`  → ⚠️ TRÁNH nhắc đến: ${jm.avoid_messages.join(', ')}`);
+      }
+    });
+  });
+
+  parts.push(`\n💡 **Hướng dẫn sử dụng Journey Messaging:**`);
+  parts.push(`- Mỗi stage có tone và mục tiêu khác nhau`);
+  parts.push(`- AWARENESS: Educate, build curiosity, focus on problem`);
+  parts.push(`- CONSIDERATION: Compare, build trust, show proof`);
+  parts.push(`- DECISION: Create urgency, strong CTA, handle objections`);
+  parts.push(`- LOYALTY: Delight, exclusive content, community`);
+  if (targetStage) {
+    parts.push(`- Vì target stage là ${JOURNEY_STAGE_LABELS[targetStage].vi}, ưu tiên messaging của stage này`);
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Build combined Product-Persona-Journey context for AI prompts
+ */
+export function buildProductPersonaJourneyContext(
+  mappingsWithJourney: ProductPersonaMappingWithJourney[],
+  targetStage?: JourneyStage
+): string {
+  if (!mappingsWithJourney || mappingsWithJourney.length === 0) {
+    return '';
+  }
+
+  const parts: string[] = [];
+  parts.push(`\n## 🎯 PRODUCT-PERSONA-JOURNEY TARGETING`);
+  parts.push(`Content matrix kết hợp Product + Persona + Journey Stage:\n`);
+
+  mappingsWithJourney.forEach(mapping => {
+    parts.push(`### ${mapping.product_name} → ${mapping.persona_name} (Relevance: ${mapping.relevance_score}%)`);
+    
+    if (mapping.custom_pitch) {
+      parts.push(`  Pitch: "${mapping.custom_pitch}"`);
+    }
+    if (mapping.key_benefits?.length) {
+      parts.push(`  Key Benefits: ${mapping.key_benefits.join(', ')}`);
+    }
+
+    // Journey messaging for this mapping
+    if (mapping.journey_messaging?.length) {
+      const stages = mapping.journey_messaging.map(jm => {
+        const label = JOURNEY_STAGE_LABELS[jm.journey_stage];
+        const hasContent = jm.headline || jm.hook || jm.key_message;
+        return hasContent ? `${label.emoji}` : `○`;
+      }).join(' ');
+      parts.push(`  Journey Status: [${stages}]`);
+
+      // If target stage specified, show that stage's details
+      if (targetStage) {
+        const targetMessaging = mapping.journey_messaging.find(jm => jm.journey_stage === targetStage);
+        if (targetMessaging) {
+          if (targetMessaging.hook) parts.push(`  → Hook cho ${targetStage}: "${targetMessaging.hook}"`);
+          if (targetMessaging.cta_template) parts.push(`  → CTA: "${targetMessaging.cta_template}"`);
+          if (targetMessaging.emotional_tone) parts.push(`  → Tone: ${targetMessaging.emotional_tone}`);
+        }
+      }
+    }
+    parts.push('');
+  });
+
+  return parts.join('\n');
+}
+
 // ============================================
 // PRODUCT-PERSONA MAPPING CONTEXT BUILDERS
 // ============================================

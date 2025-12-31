@@ -3,8 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { 
   buildExtendedBrandPrompt,
+  buildJourneyStageMessagingSection,
   type BrandContext as ExtendedBrandContext,
-  type CustomerPersona 
+  type CustomerPersona,
+  type JourneyStageMessagingData,
+  type JourneyStage,
 } from "../_shared/prompt-utils.ts";
 
 const corsHeaders = {
@@ -1380,7 +1383,7 @@ serve(async (req) => {
   }
 
   try {
-    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, hook, angle, organization_id: requestOrgId } = await req.json();
+    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -1522,6 +1525,40 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
 
 → Sử dụng pitch và benefits đã chuẩn bị, KHÔNG tự nghĩ ra claims mới`;
           console.log("Product-persona mappings loaded for script:", relevantMappings.length);
+
+          // Fetch Journey Stage Messaging if targetJourneyStage is provided
+          if (targetJourneyStage || targetPersonaId || targetProductId) {
+            // Get mapping IDs for the target persona/product
+            const targetMappingIds = relevantMappings
+              .filter((m: any) => {
+                if (targetPersonaId && targetProductId) {
+                  return m.persona?.id === targetPersonaId && m.product?.id === targetProductId;
+                }
+                if (targetPersonaId) return m.persona?.id === targetPersonaId;
+                if (targetProductId) return m.product?.id === targetProductId;
+                return true;
+              })
+              .map((m: any) => m.id)
+              .filter(Boolean);
+
+            if (targetMappingIds.length > 0) {
+              const { data: journeyData } = await supabase
+                .from('journey_stage_messaging')
+                .select('*')
+                .in('mapping_id', targetMappingIds);
+
+              if (journeyData?.length) {
+                const journeyMessagingContext = buildJourneyStageMessagingSection(
+                  journeyData as JourneyStageMessagingData[],
+                  targetJourneyStage as JourneyStage
+                );
+                if (journeyMessagingContext) {
+                  productMappingContext += journeyMessagingContext;
+                  console.log("Journey stage messaging loaded for script:", journeyData.length, "entries, target stage:", targetJourneyStage || "all");
+                }
+              }
+            }
+          }
         }
       }
 
