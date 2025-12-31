@@ -28,6 +28,8 @@ import { QuickStartSection } from '@/components/QuickStartSection';
 import { QuickStartTemplate } from '@/types/quickStartTemplates';
 import { getTopicSuggestionsForTemplate } from '@/utils/topicTemplateUtils';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
+import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
+import { BrandVoiceVariant } from '@/hooks/useBrandVoiceVariants';
 
 interface MultiChannelFormProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -107,6 +109,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
   }, [initialContentPurpose, initialMarketingFramework]);
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(['facebook', 'instagram']);
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
+  const [brandVoiceVariantId, setBrandVoiceVariantId] = useState<string | undefined>(undefined);
   const [hasSetDefault, setHasSetDefault] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [pendingEditedPreviews, setPendingEditedPreviews] = useState<EditedPreviews | undefined>(undefined);
@@ -249,6 +252,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
       contentGoal,
       channels: selectedChannels,
       brandTemplateId: brandTemplateId || undefined,
+      brandVoiceVariantId: brandVoiceVariantId || undefined,
       editedPreviews: previews,
       topicHistoryId,
       contentPurpose,
@@ -324,6 +328,14 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                   industry={industry}
                 />
               )}
+              
+              {/* A/B Testing Voice Variant Selector */}
+              <BrandVoiceVariantSelector
+                brandTemplateId={brandTemplateId || undefined}
+                value={brandVoiceVariantId}
+                onValueChange={(variantId) => setBrandVoiceVariantId(variantId)}
+                disabled={isLoading}
+              />
             </div>
 
             {/* Topic */}

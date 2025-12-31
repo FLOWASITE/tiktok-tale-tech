@@ -27,6 +27,7 @@ interface FormData {
   contentGoal: string;
   channels: string[];
   brandTemplateId?: string;
+  brandVoiceVariantId?: string;
   organization_id?: string;
   editedPreviews?: Record<string, EditedPreview>;
   contentPurpose?: string;
@@ -1378,6 +1379,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         content_goal: formData.contentGoal,
         selected_channels: formData.channels,
         brand_template_id: formData.brandTemplateId || null,
+        brand_voice_variant_id: formData.brandVoiceVariantId || null,
         brand_name: brandName,
         brand_guideline: brandGuideline,
         primary_color: primaryColor,

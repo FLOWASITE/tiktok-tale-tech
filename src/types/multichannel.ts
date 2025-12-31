@@ -94,6 +94,7 @@ export interface MultiChannelFormData {
   contentGoal: ContentGoal;
   channels: Channel[];
   brandTemplateId?: string;
+  brandVoiceVariantId?: string;
   editedPreviews?: EditedPreviews;
   topicHistoryId?: string;
   contentPurpose?: ContentPurpose;
