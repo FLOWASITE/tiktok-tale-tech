@@ -163,16 +163,24 @@ export function VirtualizedMessageList({
 
   // Track previous message count for auto-scroll
   const prevMessageCountRef = useRef(messages.length);
-  
-  // Auto-scroll to bottom on new messages
+
+  // Auto-scroll to bottom on new messages (avoid calling virtualizer APIs inside effects)
   useEffect(() => {
+    const el = scrollElRef.current;
+    if (!el) return;
+
     if (messages.length > prevMessageCountRef.current) {
-      requestAnimationFrame(() => {
-        virtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
-      });
+      // Only auto-scroll if user is already near the bottom
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceFromBottom < 200) {
+        requestAnimationFrame(() => {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        });
+      }
     }
+
     prevMessageCountRef.current = messages.length;
-  }, [messages.length]);
+  }, [messages.length, scrollElRef]);
 
   const virtualItems = virtualizer.getVirtualItems();
 
