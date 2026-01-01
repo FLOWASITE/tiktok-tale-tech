@@ -9,6 +9,7 @@ import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { TopicErrorBoundary } from "@/components/topic/TopicErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Topics from "./pages/Topics";
 import Index from "./pages/Index";
@@ -66,7 +67,12 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <AppLayout>
-                      <Topics />
+                      <TopicErrorBoundary
+                        fallbackTitle="Không thể tải Kho Ý Tưởng"
+                        fallbackDescription="Đã xảy ra lỗi khi hiển thị trang. Vui lòng thử lại."
+                      >
+                        <Topics />
+                      </TopicErrorBoundary>
                     </AppLayout>
                   </ProtectedRoute>
                 }
