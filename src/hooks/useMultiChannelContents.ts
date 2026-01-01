@@ -98,6 +98,10 @@ export function useMultiChannelContents() {
           user_id: user.id,
           organization_id: currentOrganization?.id,
           brandVoiceVariantId: formData.brandVoiceVariantId,
+          // Map journeyStage to backend's targetJourneyStage
+          targetJourneyStage: formData.journeyStage,
+          targetProductId: formData.productId,
+          targetPersonaId: formData.personaId,
         },
       });
 
