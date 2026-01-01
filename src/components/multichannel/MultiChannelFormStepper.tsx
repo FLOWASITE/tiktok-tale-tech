@@ -1,0 +1,648 @@
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { 
+  Sparkles, 
+  Loader2, 
+  Wand2, 
+  ArrowRight, 
+  ArrowLeft,
+  FileText,
+  Target,
+  Layers,
+  CheckCircle2,
+  Timer,
+  Globe,
+  Facebook,
+  Instagram,
+  Twitter,
+  MapPin,
+  Linkedin,
+  Mail,
+  Youtube,
+  MessageCircle,
+  Send,
+  Music2,
+  AtSign,
+  CheckSquare,
+  Square,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useTopicRefinement } from '@/hooks/useTopicRefinement';
+import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
+import { StepIndicator, Step } from '@/components/script/StepIndicator';
+import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
+import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
+import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
+import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
+import { cn } from '@/lib/utils';
+import { 
+  MultiChannelFormData, 
+  ContentGoal, 
+  ContentAngle,
+  Channel, 
+  CHANNELS,
+  CONTENT_GOALS,
+} from '@/types/multichannel';
+
+interface MultiChannelFormStepperProps {
+  onSubmit: (data: MultiChannelFormData) => Promise<void>;
+  isLoading: boolean;
+  initialTopic?: string;
+  initialGoal?: ContentGoal;
+  topicHistoryId?: string;
+}
+
+const STEPS: Step[] = [
+  { id: 1, title: 'Thương hiệu', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 2, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
+  { id: 3, title: 'Mục tiêu', icon: <Target className="w-4 h-4" /> },
+  { id: 4, title: 'Kênh', icon: <Layers className="w-4 h-4" /> },
+  { id: 5, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
+];
+
+const LOADING_PHASES = [
+  'Đang phân tích chủ đề...',
+  'Đang tải ngữ cảnh thương hiệu...',
+  'Đang tạo nội dung...',
+  'Đang tối ưu hashtags...',
+  'Hoàn thiện nội dung...',
+];
+
+const channelIcons: Record<Channel, React.ReactNode> = {
+  website: <Globe className="w-4 h-4" />,
+  facebook: <Facebook className="w-4 h-4" />,
+  instagram: <Instagram className="w-4 h-4" />,
+  twitter: <Twitter className="w-4 h-4" />,
+  google_maps: <MapPin className="w-4 h-4" />,
+  linkedin: <Linkedin className="w-4 h-4" />,
+  email: <Mail className="w-4 h-4" />,
+  youtube: <Youtube className="w-4 h-4" />,
+  zalo_oa: <MessageCircle className="w-4 h-4" />,
+  telegram: <Send className="w-4 h-4" />,
+  tiktok: <Music2 className="w-4 h-4" />,
+  threads: <AtSign className="w-4 h-4" />,
+};
+
+const MAX_TOPIC_LENGTH = 500;
+
+export function MultiChannelFormStepper({ 
+  onSubmit, 
+  isLoading, 
+  initialTopic, 
+  initialGoal,
+  topicHistoryId 
+}: MultiChannelFormStepperProps) {
+  const { templates, loading: templatesLoading } = useBrandTemplates();
+  const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [loadingPhase, setLoadingPhase] = useState(0);
+
+  const [formData, setFormData] = useState<MultiChannelFormData>({
+    topic: initialTopic || '',
+    contentGoal: initialGoal || 'education',
+    contentAngle: undefined,
+    channels: ['facebook', 'instagram'],
+    brandTemplateId: undefined,
+    brandVoiceVariantId: undefined,
+  });
+
+  // Handle initialTopic prop changes
+  useEffect(() => {
+    if (initialTopic) {
+      setFormData(prev => ({ ...prev, topic: initialTopic }));
+    }
+  }, [initialTopic]);
+
+  useEffect(() => {
+    if (initialGoal) {
+      setFormData(prev => ({ ...prev, contentGoal: initialGoal }));
+    }
+  }, [initialGoal]);
+
+  const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
+
+  // Set default template
+  useEffect(() => {
+    if (templatesLoading || templates.length === 0 || formData.brandTemplateId) return;
+    const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0];
+    if (defaultTemplate) {
+      setFormData(prev => ({ ...prev, brandTemplateId: defaultTemplate.id }));
+    }
+  }, [templatesLoading, templates, formData.brandTemplateId]);
+
+  // Topic Refinement
+  const {
+    refinedTopics,
+    isLoading: isLoadingRefinement,
+    isTyping: isTypingTopic,
+    refresh: refreshRefinement,
+  } = useTopicRefinement({
+    rawTopic: formData.topic,
+    brandTemplateId: formData.brandTemplateId,
+    enabled: currentStep === 2 && formData.topic.trim().length >= 10,
+  });
+
+  // Loading phases
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingPhase(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingPhase((prev) => (prev + 1) % LOADING_PHASES.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  // Estimated time
+  const estimatedTime = useMemo(() => {
+    const baseTime = 10;
+    const perChannelTime = 5;
+    return baseTime + (formData.channels.length * perChannelTime);
+  }, [formData.channels.length]);
+
+  const canProceed = useMemo(() => {
+    switch (currentStep) {
+      case 1:
+        return !!formData.brandTemplateId;
+      case 2:
+        return formData.topic.trim().length >= 10;
+      case 3:
+        return true; // Goal always has default
+      case 4:
+        return formData.channels.length > 0;
+      case 5:
+        return true;
+      default:
+        return false;
+    }
+  }, [currentStep, formData]);
+
+  const handleNext = () => {
+    if (currentStep < 5 && canProceed) {
+      setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
+      setCurrentStep(prev => prev + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const handleStepClick = (step: number) => {
+    if (step <= currentStep || completedSteps.includes(step - 1)) {
+      setCurrentStep(step);
+    }
+  };
+
+  const handleChannelToggle = (channel: Channel) => {
+    setFormData(prev => ({
+      ...prev,
+      channels: prev.channels.includes(channel)
+        ? prev.channels.filter(c => c !== channel)
+        : [...prev.channels, channel],
+    }));
+  };
+
+  const handleSelectAll = () => {
+    setFormData(prev => ({ ...prev, channels: CHANNELS.map(c => c.value) }));
+  };
+
+  const handleDeselectAll = () => {
+    setFormData(prev => ({ ...prev, channels: [] }));
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.topic.trim() || formData.channels.length === 0) {
+      toast.error('Vui lòng nhập chủ đề và chọn ít nhất 1 kênh');
+      return;
+    }
+    await onSubmit({ ...formData, topicHistoryId });
+  };
+
+  // Group channels by category
+  const channelCategories = [
+    { name: 'Nền tảng nội dung', key: 'content', channels: CHANNELS.filter(c => c.category === 'content') },
+    { name: 'Mạng xã hội', key: 'social', channels: CHANNELS.filter(c => c.category === 'social') },
+    { name: 'Kênh trực tiếp', key: 'direct', channels: CHANNELS.filter(c => c.category === 'direct') },
+    { name: 'Địa phương', key: 'local', channels: CHANNELS.filter(c => c.category === 'local') },
+  ];
+
+  return (
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-primary shadow-lg glow-primary animate-pulse-glow">
+            <Wand2 className="w-7 h-7 text-primary-foreground" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Tạo nội dung đa kênh</h2>
+            <p className="text-sm text-muted-foreground">
+              Làm theo các bước để tạo nội dung chuyên nghiệp
+            </p>
+          </div>
+        </div>
+
+        {/* Step Indicator */}
+        <StepIndicator
+          steps={STEPS}
+          currentStep={currentStep}
+          completedSteps={completedSteps}
+          onStepClick={handleStepClick}
+        />
+
+        {/* Step Content */}
+        <div className="min-h-[300px]">
+          {/* Step 1: Brand Selection */}
+          {currentStep === 1 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="space-y-3">
+                <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                  Chọn thương hiệu
+                  <span className="text-primary">*</span>
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Brand Voice sẽ ảnh hưởng đến tone và style nội dung
+                </p>
+
+                {templatesLoading ? (
+                  <div className="h-10 bg-muted/50 border border-border rounded-lg flex items-center px-3 animate-pulse">
+                    <span className="text-sm text-muted-foreground">Đang tải templates...</span>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.brandTemplateId || 'none'}
+                    onValueChange={(value) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        brandTemplateId: value === 'none' ? undefined : value,
+                      }));
+                    }}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="bg-muted/30 border-2 border-border focus:border-primary text-sm h-11">
+                      <SelectValue placeholder="Chọn Brand Template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id} className="text-sm">
+                          <span className="flex items-center gap-2">
+                            {template.primary_color && (
+                              <span
+                                className="w-3 h-3 rounded-full inline-block ring-2 ring-offset-1 ring-offset-background"
+                                style={{ backgroundColor: template.primary_color }}
+                              />
+                            )}
+                            <span className="truncate">{template.name}</span>
+                            {template.is_default && (
+                              <Badge variant="secondary" className="text-[10px] h-4 px-1">Mặc định</Badge>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Brand Voice Variant */}
+                {formData.brandTemplateId && (
+                  <BrandVoiceVariantSelector
+                    brandTemplateId={formData.brandTemplateId}
+                    value={formData.brandVoiceVariantId}
+                    onValueChange={(variantId) => setFormData(prev => ({ ...prev, brandVoiceVariantId: variantId }))}
+                    disabled={isLoading}
+                  />
+                )}
+
+                {/* Preview selected template */}
+                {selectedTemplate && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-3 space-y-1">
+                      <p className="text-sm font-medium">{selectedTemplate.brand_name}</p>
+                      {selectedTemplate.tone_of_voice && (
+                        <p className="text-xs text-muted-foreground">
+                          Tone: {selectedTemplate.tone_of_voice.join(', ')}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Topic */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                    Chủ đề / Ý tưởng
+                    <span className="text-primary">*</span>
+                  </Label>
+                  <span className={cn(
+                    "text-xs",
+                    formData.topic.length < 10 ? 'text-amber-500' : 'text-muted-foreground'
+                  )}>
+                    {formData.topic.length}/{MAX_TOPIC_LENGTH}
+                  </span>
+                </div>
+
+                <Textarea
+                  ref={topicTextareaRef}
+                  value={formData.topic}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                  }))}
+                  placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024"
+                  className="min-h-[120px] resize-y text-sm"
+                  disabled={isLoading}
+                />
+
+                {formData.topic.length > 0 && formData.topic.length < 10 && (
+                  <p className="text-xs text-amber-500">
+                    Chủ đề nên có ít nhất 10 ký tự
+                  </p>
+                )}
+
+                {/* Topic Refinement */}
+                {formData.topic.trim().length >= 10 && (
+                  <TopicRefinementSuggestions
+                    refinedTopics={refinedTopics}
+                    isLoading={isLoadingRefinement}
+                    isTyping={isTypingTopic}
+                    onSelect={(refined) => setFormData(prev => ({ ...prev, topic: refined }))}
+                    onRefresh={refreshRefinement}
+                    disabled={isLoading}
+                  />
+                )}
+
+                {/* Hook Generator */}
+                {formData.topic.trim().length >= 10 && formData.channels.length > 0 && (
+                  <MultiChannelHookGenerator
+                    topic={formData.topic}
+                    channels={formData.channels}
+                    brandVoice={selectedTemplate ? {
+                      brand_name: selectedTemplate.brand_name,
+                      tone_of_voice: selectedTemplate.tone_of_voice || [],
+                      formality_level: selectedTemplate.formality_level || undefined,
+                    } : undefined}
+                    disabled={isLoading}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Goal & Angle */}
+          {currentStep === 3 && (
+            <div className="space-y-5 animate-fade-in">
+              <div className="space-y-3">
+                <Label className="text-foreground font-semibold text-sm">
+                  Mục tiêu nội dung
+                </Label>
+                <ContentGoalCombobox
+                  value={formData.contentGoal}
+                  onValueChange={(goal) => setFormData(prev => ({ ...prev, contentGoal: goal }))}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <ContentAngleSelector
+                value={formData.contentAngle}
+                onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
+                disabled={isLoading}
+              />
+            </div>
+          )}
+
+          {/* Step 4: Channel Selection */}
+          {currentStep === 4 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <Label className="text-foreground font-semibold text-sm">Kênh xuất bản</Label>
+                <Badge variant="secondary" className="text-xs">
+                  {formData.channels.length}/{CHANNELS.length} kênh
+                </Badge>
+              </div>
+
+              {/* Quick Select */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  disabled={isLoading}
+                  className="text-xs h-7"
+                >
+                  <CheckSquare className="w-3 h-3 mr-1" />
+                  Tất cả
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeselectAll}
+                  disabled={isLoading}
+                  className="text-xs h-7"
+                >
+                  <Square className="w-3 h-3 mr-1" />
+                  Bỏ chọn
+                </Button>
+              </div>
+
+              {/* Channel Grid by Category */}
+              {channelCategories.map((category) => (
+                <div key={category.key} className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">{category.name}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {category.channels.map((channel) => (
+                      <Tooltip key={channel.value}>
+                        <TooltipTrigger asChild>
+                          <label
+                            className={cn(
+                              "flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all",
+                              formData.channels.includes(channel.value)
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border/50 hover:border-border',
+                              isLoading && 'opacity-50 cursor-not-allowed'
+                            )}
+                          >
+                            <Checkbox
+                              checked={formData.channels.includes(channel.value)}
+                              onCheckedChange={() => handleChannelToggle(channel.value)}
+                              disabled={isLoading}
+                              className="w-4 h-4"
+                            />
+                            <span className="text-primary">
+                              {channelIcons[channel.value]}
+                            </span>
+                            <span className="text-sm truncate">{channel.label}</span>
+                          </label>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p className="text-xs">{channel.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Estimated Time */}
+              {formData.channels.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Timer className="w-3.5 h-3.5" />
+                  <span>Ước tính: ~{estimatedTime} giây</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 5: Review & Generate */}
+          {currentStep === 5 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="text-center py-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo nội dung!</h3>
+                <p className="text-sm text-muted-foreground">Xem lại thông tin trước khi tạo</p>
+              </div>
+
+              {/* Summary */}
+              <Card className="border-border">
+                <CardContent className="p-4 space-y-3">
+                  {selectedTemplate && (
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="w-4 h-4 text-primary mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Thương hiệu</p>
+                        <p className="text-sm font-medium">{selectedTemplate.name}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-3">
+                    <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Chủ đề</p>
+                      <p className="text-sm font-medium">{formData.topic}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <Target className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Mục tiêu</p>
+                      <p className="text-sm">
+                        {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}
+                        {formData.contentAngle && (
+                          <span className="text-muted-foreground"> • {formData.contentAngle}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <Layers className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Kênh ({formData.channels.length})</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {formData.channels.slice(0, 5).map(ch => (
+                          <Badge key={ch} variant="outline" className="text-[10px] px-1.5">
+                            {CHANNELS.find(c => c.value === ch)?.label}
+                          </Badge>
+                        ))}
+                        {formData.channels.length > 5 && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5">
+                            +{formData.channels.length - 5}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between pt-4 border-t border-border">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={handleBack}
+            disabled={currentStep === 1 || isLoading}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
+          </Button>
+
+          {currentStep < 5 ? (
+            <Button
+              type="button"
+              onClick={handleNext}
+              disabled={!canProceed || isLoading}
+              className="gap-2 gradient-primary glow-primary"
+            >
+              Tiếp tục
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isLoading || !formData.topic.trim() || formData.channels.length === 0}
+              className={cn(
+                "gap-2 gradient-primary min-w-[180px]",
+                !isLoading && "glow-primary"
+              )}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="animate-pulse">{LOADING_PHASES[loadingPhase]}</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Tạo ({formData.channels.length} kênh)
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {/* Estimated time hint */}
+        {currentStep === 5 && !isLoading && (
+          <p className="text-center text-xs text-muted-foreground">
+            Thời gian ước tính: ~{estimatedTime} giây
+          </p>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+}

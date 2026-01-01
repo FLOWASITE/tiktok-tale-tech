@@ -25,6 +25,7 @@ interface FormData {
   topic: string;
   industry?: string;
   contentGoal: string;
+  contentAngle?: string; // Phase 6: Content Angle support
   channels: string[];
   brandTemplateId?: string;
   brandVoiceVariantId?: string;
@@ -765,6 +766,7 @@ const getSystemPrompt = (
   brandGuideline: string | null,
   primaryColor: string | null,
   contentGoal: string,
+  contentAngle: string | undefined,
   channels: string[],
   targetAudience: 'B2B' | 'B2C' | 'both',
   brandVoice?: BrandVoice,
@@ -779,6 +781,16 @@ const getSystemPrompt = (
     engagement: "Tương tác - Khuyến khích bình luận, chia sẻ. Tone: Gần gũi, đặt câu hỏi, tạo tranh luận.",
     expertise: "Xây chuyên gia - Thể hiện chuyên môn sâu. Tone: Chuyên nghiệp, có insight, data-driven.",
     conversion: "Chuyển đổi - Thúc đẩy hành động. Tone: Thuyết phục, urgency nhẹ, clear CTA.",
+  };
+
+  // Content Angle descriptions - how to approach the content
+  const angleDescriptions: Record<string, string> = {
+    educational: "Kiến thức - Focus chia sẻ tips, hướng dẫn, thông tin hữu ích. Tone giáo dục, có giá trị thực.",
+    storytelling: "Kể chuyện - Narrative flow, cảm xúc, câu chuyện thực. Tạo kết nối cảm xúc với người đọc.",
+    promotional: "Quảng cáo - CTA mạnh, urgency, ưu đãi rõ ràng. Thúc đẩy hành động ngay.",
+    social_proof: "Social Proof - Đánh giá, testimonial, case study. Tăng độ tin cậy qua bằng chứng thực.",
+    behind_the_scenes: "Hậu trường - Quy trình, đội ngũ, behind-the-scenes. Tạo kết nối gần gũi, authentic.",
+    qa_faq: "Q&A - Giải đáp thắc mắc, FAQ phổ biến. Giúp người đọc hiểu rõ, giải quyết objections.",
   };
 
   const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
@@ -808,6 +820,17 @@ const getSystemPrompt = (
     ? (extendedBrandContext as any).productPersonaTargeting 
     : "";
 
+  // Build Content Angle section
+  const contentAngleSection = contentAngle 
+    ? `## GÓC TIẾP CẬN NỘI DUNG (Content Angle)
+${angleDescriptions[contentAngle] || contentAngle}
+
+ÁP DỤNG GÓC TIẾP CẬN:
+- Mọi nội dung PHẢI thể hiện góc tiếp cận "${contentAngle}" xuyên suốt
+- Cách mở đầu, triển khai, kết thúc phải phù hợp với góc tiếp cận
+- Tone và cách diễn đạt phải nhất quán với góc tiếp cận đã chọn`
+    : "";
+
   return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
@@ -831,6 +854,8 @@ ${primaryColor ? `Màu chủ đạo: ${primaryColor}` : ""}
 
 ## MỤC TIÊU NỘI DUNG
 ${goalDescriptions[contentGoal] || contentGoal}
+
+${contentAngleSection}
 
 ## MARKETING FRAMEWORK (nếu có)
 Nếu user chọn framework, cấu trúc nội dung PHẢI theo framework đó:
@@ -1144,6 +1169,7 @@ serve(async (req) => {
       brandGuideline,
       primaryColor,
       formData.contentGoal,
+      formData.contentAngle,
       formData.channels,
       targetAudience,
       brandVoice,
