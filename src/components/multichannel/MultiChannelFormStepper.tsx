@@ -62,6 +62,8 @@ import {
   CONTENT_GOALS,
 } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
+import { JourneyStage, JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
+import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 
 interface MultiChannelFormStepperProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -137,6 +139,7 @@ export function MultiChannelFormStepper({
     personaId: initialPersonaId,
     contentPurpose: initialContentPurpose,
     marketingFramework: initialMarketingFramework,
+    journeyStage: undefined,
   });
 
   // Handle initialTopic prop changes
@@ -477,7 +480,7 @@ export function MultiChannelFormStepper({
             </div>
           )}
 
-          {/* Step 3: Goal & Angle */}
+          {/* Step 3: Goal, Angle & Journey Stage */}
           {currentStep === 3 && (
             <div className="space-y-5 animate-fade-in">
               <div className="space-y-3">
@@ -496,6 +499,19 @@ export function MultiChannelFormStepper({
                 onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
                 disabled={isLoading}
               />
+
+              {/* Journey Stage Selector - only show when product or persona is selected */}
+              {(formData.productId || formData.personaId) && (
+                <div className="pt-2">
+                  <Separator className="mb-4" />
+                  <JourneyStageSelector
+                    value={formData.journeyStage}
+                    onValueChange={(stage) => setFormData(prev => ({ ...prev, journeyStage: stage }))}
+                    disabled={isLoading}
+                    showEmotionalTone={true}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -623,6 +639,9 @@ export function MultiChannelFormStepper({
                         {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}
                         {formData.contentAngle && (
                           <span className="text-muted-foreground"> • {formData.contentAngle}</span>
+                        )}
+                        {formData.journeyStage && (
+                          <span className="text-muted-foreground"> • {JOURNEY_STAGE_CONFIG[formData.journeyStage].label}</span>
                         )}
                       </p>
                     </div>
