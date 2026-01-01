@@ -37,7 +37,8 @@ export function buildSystemPrompt(
   ragResults?: RAGResult[],
   userPreferences?: UserPreferencesContext | null,
   sessionMemory?: CrossSessionMemory | null,
-  conversationRagSection?: string
+  conversationRagSection?: string,
+  prefetchWebSection?: string // NEW: Prefetched web search results for trending intent
 ): string {
   // Safe null handling for all optional parameters
   const safeRagResults = ragResults ?? [];
@@ -47,6 +48,7 @@ export function buildSystemPrompt(
   const safeUserPrefs = userPreferences ?? null;
   const safeSessionMemory = sessionMemory ?? null;
   const safeConversationRag = conversationRagSection ?? '';
+  const safePrefetchWeb = prefetchWebSection ?? '';
   
   // Get current date in Vietnam timezone (UTC+7)
   const now = new Date();
@@ -96,6 +98,11 @@ export function buildSystemPrompt(
   const ragSection = buildRAGContextSection(safeRagResults);
   if (ragSection) {
     prompt += ragSection;
+  }
+
+  // INJECT PREFETCHED WEB SEARCH RESULTS (for trending intent)
+  if (safePrefetchWeb) {
+    prompt += '\n' + safePrefetchWeb;
   }
 
   // INJECT INDUSTRY MEMORY FIRST (Highest Priority)

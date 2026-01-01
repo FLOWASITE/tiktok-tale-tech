@@ -20,6 +20,7 @@ import { ChatMessage, ChatRequest, BrandContext, IndustryMemory, GlossaryTerm, R
 
 // Import shared data fetchers
 import { searchRelevantContent, fetchIndustryMemory, fetchIndustryGlossary } from "../_shared/data-fetchers/index.ts";
+import { enhancedWebSearch, WebSearchResponse } from "../_shared/data-fetchers/web-search-fallback.ts";
 import { getConversationRAGContext, ConversationRAGResult } from "../_shared/data-fetchers/conversation-rag.ts";
 
 // Import shared system prompt builder
@@ -406,6 +407,102 @@ serve(async (req) => {
       }
     }
 
+    // ============ PREFETCH WEB SEARCH FOR TRENDING INTENT ============
+    // Detect trending/xu hướng intent and prefetch web search to ensure AI always has data
+    let prefetchedTrends: WebSearchResponse | null = null;
+    let prefetchSection = '';
+    
+    if (messages.length > 0) {
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+      if (lastUserMessage) {
+        const content = lastUserMessage.content.toLowerCase();
+        const trendingKeywords = [
+          'xu hướng', 'trending', 'đang hot', 'viral', 'trend', 
+          'tin tức mới nhất', 'tin mới', 'hot topic', 'xu huong',
+          'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây'
+        ];
+        
+        const hasTrendingIntent = trendingKeywords.some(kw => content.includes(kw));
+        
+        if (hasTrendingIntent) {
+          logger.info('Detected trending intent, prefetching web search', { 
+            keywords: trendingKeywords.filter(kw => content.includes(kw))
+          });
+          
+          // Build industry-specific search query
+          const industryName = industryMemory?.name || brandContext?.industry?.[0] || 'business';
+          const searchQuery = `xu hướng nội dung ${industryName} Việt Nam tuần này trending topics content marketing`;
+          
+          try {
+            prefetchedTrends = await withTimeout(
+              () => enhancedWebSearch({
+                query: searchQuery,
+                searchType: 'trending',
+                industry: industryName,
+                recency: 'week',
+                maxResults: 8,
+                timeoutMs: 10000,
+                userId: userId || undefined,
+                organizationId: organizationId || undefined,
+                includeSocialTrends: true,
+              }),
+              12000, // 12s timeout for entire operation
+              'Prefetch web search timed out'
+            );
+            
+            if (prefetchedTrends && prefetchedTrends.success && prefetchedTrends.results.length > 0) {
+              logger.info('Prefetch web search successful', {
+                source: prefetchedTrends.source,
+                resultsCount: prefetchedTrends.results.length,
+                cacheHit: prefetchedTrends.cache_hit,
+              });
+              
+              // Build prefetch section for system prompt
+              prefetchSection = `
+## 🔍 Web Trends Context (Prefetched)
+Dữ liệu xu hướng được tự động tìm kiếm cho ngành "${industryName}":
+
+${prefetchedTrends.results.slice(0, 6).map((r, i) => 
+  `${i + 1}. **${r.title}**
+   - ${r.snippet}
+   ${r.content_angle ? `- Góc nội dung: ${r.content_angle}` : ''}`
+).join('\n\n')}
+
+${prefetchedTrends.citations?.length > 0 ? `
+**Nguồn tham khảo:**
+${prefetchedTrends.citations.slice(0, 3).map(c => `- ${c}`).join('\n')}
+` : ''}
+
+⚡ Sử dụng dữ liệu này để gợi ý topics cụ thể và relevant cho user.
+`;
+            } else {
+              logger.warn('Prefetch web search returned no results, using fallback note');
+              prefetchSection = `
+## 🔍 Web Trends Context
+⚠️ Đang sử dụng dữ liệu dự phòng do không thể tìm kiếm web ngay lúc này.
+Hãy gợi ý các topic dựa trên:
+- Các chủ đề evergreen của ngành "${industryName}"
+- Content pillars của brand
+- Xu hướng phổ biến theo mùa/thời điểm
+
+Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Thay vào đó, đưa ra gợi ý dựa trên kiến thức hiện có.
+`;
+            }
+          } catch (prefetchErr) {
+            logger.warn('Prefetch web search failed', { 
+              error: prefetchErr instanceof Error ? prefetchErr.message : String(prefetchErr) 
+            });
+            prefetchSection = `
+## 🔍 Web Trends Context
+⚠️ Đang sử dụng dữ liệu dự phòng do không thể tìm kiếm web ngay lúc này.
+Hãy gợi ý các topic dựa trên kiến thức về ngành và brand context có sẵn.
+Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đưa ra gợi ý hữu ích dựa trên context.
+`;
+          }
+        }
+      }
+    }
+
     // Calculate context fetch duration
     const contextFetchDurationMs = Math.round(performance.now() - contextFetchStart);
     logger.timed('context_fetch', 'Context fetching complete', contextFetchDurationMs, {
@@ -414,6 +511,7 @@ serve(async (req) => {
       ragResults: ragResults.length,
       personas: personasContext.length,
       products: productsContext.length,
+      prefetchedTrends: !!prefetchedTrends,
     });
 
     // ============ TOKEN MANAGEMENT ============
@@ -461,7 +559,8 @@ serve(async (req) => {
       ragResults,
       userPreferences,
       sessionMemory,
-      conversationRagSection // NEW: Conversation RAG context
+      conversationRagSection,
+      prefetchSection // NEW: Prefetched web search for trending intent
     );
 
     // Determine mode and settings
@@ -520,6 +619,7 @@ serve(async (req) => {
       journeyMessaging: journeyMessaging.length > 0 ? journeyMessaging : undefined,
       sampleTexts: sampleTexts || undefined,
       conversationRagResults: conversationRagResults.length > 0 ? conversationRagResults : undefined,
+      webSearchResults: prefetchedTrends?.results || undefined, // Prefetched web search results
     });
     
     // Get context sources for metrics
