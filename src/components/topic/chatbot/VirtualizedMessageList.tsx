@@ -160,22 +160,26 @@ export function VirtualizedMessageList({
     getItemKey: (index) => messages[index]?.id || index,
   });
 
+  // Track previous message count for auto-scroll
+  const prevMessageCountRef = useRef(messages.length);
+  
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > prevMessageCountRef.current) {
       // Small delay to allow DOM update
       requestAnimationFrame(() => {
         virtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
       });
     }
-  }, [messages.length, virtualizer]);
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length]); // Remove virtualizer from deps
 
   // Sync refs for external scroll control
   useEffect(() => {
     if (scrollContainerRef && parentRef.current) {
       (scrollContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = parentRef.current;
     }
-  }, [scrollContainerRef]);
+  }, []);
 
   const virtualItems = virtualizer.getVirtualItems();
 
