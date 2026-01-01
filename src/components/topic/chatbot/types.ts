@@ -73,6 +73,10 @@ export interface TopicAIChatbotProps {
   onInjectPrompt?: (prompt: string) => void;
   className?: string;
   isExpanded?: boolean;
+  /** Embedded mode hides header navigation and uses onTopicSelect callback */
+  mode?: 'standalone' | 'embedded';
+  /** Callback when user selects a topic in embedded mode */
+  onTopicSelect?: (topic: string) => void;
 }
 
 // Agent turn events for multi-turn agentic loop
