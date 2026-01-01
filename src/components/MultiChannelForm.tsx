@@ -13,7 +13,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
-import { MultiChannelFormData, ContentGoal, Channel, CHANNELS } from '@/types/multichannel';
+import { MultiChannelFormData, ContentGoal, ContentAngle, Channel, CHANNELS } from '@/types/multichannel';
+import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
@@ -110,6 +111,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
   const [topic, setTopic] = useState(initialTopic || '');
   const [industry, setIndustry] = useState('');
   const [contentGoal, setContentGoal] = useState<ContentGoal>(initialGoal || 'education');
+  const [contentAngle, setContentAngle] = useState<ContentAngle | undefined>(undefined);
   const [contentPurpose, setContentPurpose] = useState<ContentPurpose | undefined>(initialContentPurpose);
   const [marketingFramework, setMarketingFramework] = useState<MarketingFramework | undefined>(initialMarketingFramework);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(!!initialContentPurpose || !!initialMarketingFramework);
@@ -317,6 +319,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
       topic: topic.trim(),
       industry: industry.trim() || selectedTemplate?.industry?.join(', ') || undefined,
       contentGoal,
+      contentAngle,
       channels: selectedChannels,
       brandTemplateId: brandTemplateId || undefined,
       brandVoiceVariantId: brandVoiceVariantId || undefined,
@@ -519,6 +522,13 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                 disabled={isLoading}
               />
             </div>
+
+            {/* Content Angle - Góc tiếp cận nội dung */}
+            <ContentAngleSelector
+              value={contentAngle}
+              onValueChange={setContentAngle}
+              disabled={isLoading}
+            />
 
             {/* Quick Start Section - Show when topic is empty and no template selected */}
             {!topic.trim() && !selectedQuickStartTemplate && (
