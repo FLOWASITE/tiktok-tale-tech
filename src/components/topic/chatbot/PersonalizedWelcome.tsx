@@ -60,48 +60,59 @@ export function PersonalizedWelcome({
 
   if (data.isLoading) {
     return (
-      <div className={cn('space-y-3', className)}>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/20 animate-pulse" />
-          <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+      <div className={cn('space-y-4', className)}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl skeleton-shimmer" />
+          <div className="space-y-2 flex-1">
+            <div className="h-5 w-40 rounded-lg skeleton-shimmer" />
+            <div className="h-4 w-64 rounded-lg skeleton-shimmer" />
+          </div>
         </div>
-        <div className="space-y-2">
-          <div className="h-4 w-full bg-muted rounded animate-pulse" />
-          <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+        <div className="flex gap-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-9 w-28 rounded-xl skeleton-shimmer" />
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-5', className)}>
       {/* Greeting Header */}
       <AnimatePresence>
         {showGreeting && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="flex items-start gap-3"
+            transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
+            className="flex items-start gap-3.5"
           >
-            <div className="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Bot className="w-4.5 h-4.5 text-white" />
+            <div className="shrink-0 relative ai-avatar-pulse">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-xl shadow-primary/25">
+                <Bot className="w-5 h-5 text-white" />
+              </div>
             </div>
-            <div className="space-y-1 pt-1">
+            <div className="space-y-1.5 pt-0.5">
               <motion.h3 
-                className="text-base font-semibold text-foreground flex items-center gap-2"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
+                className="text-base font-bold text-foreground flex items-center gap-2"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
               >
                 {data.greeting}
-                <Sparkles className="w-4 h-4 text-amber-500" />
+                <motion.span
+                  animate={{ rotate: [0, 14, -8, 14, 0] }}
+                  transition={{ duration: 0.5, delay: 0.5 }}
+                >
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                </motion.span>
               </motion.h3>
               <motion.p 
                 className="text-sm text-muted-foreground leading-relaxed"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: 0.35, duration: 0.4 }}
               >
                 {getWelcomeMessage()}
               </motion.p>

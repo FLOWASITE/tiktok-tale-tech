@@ -99,16 +99,18 @@ export function ChatMessageBubble({
     <div
       id={`message-${message.id}`}
       className={cn(
-        'flex gap-2 animate-in fade-in-0 duration-300',
+        'flex gap-2.5 message-entrance',
         message.role === 'user' ? 'flex-row-reverse' : 'flex-row',
-        isAnimating && 'slide-in-from-bottom-4',
-        isHighlighted && 'bg-yellow-100/50 dark:bg-yellow-900/20 -mx-2 px-2 py-1 rounded-lg',
+        isAnimating && 'animate-in slide-in-from-bottom-4 duration-400',
+        isHighlighted && 'bg-amber-500/10 dark:bg-amber-500/5 -mx-2 px-2 py-1.5 rounded-xl ring-1 ring-amber-500/20',
         isRegenerating && 'opacity-50'
       )}
     >
       {message.role === 'assistant' && (
-        <div className="shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-md">
-          <Bot className="w-3.5 h-3.5 text-primary-foreground" />
+        <div className="shrink-0 relative ai-avatar-pulse">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-primary/20">
+            <Bot className="w-4 h-4 text-primary-foreground" />
+          </div>
         </div>
       )}
       
@@ -118,13 +120,13 @@ export function ChatMessageBubble({
       )}>
         {/* Error message */}
         {message.isError ? (
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/20">
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 shadow-sm">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <p className="text-xs">{message.content}</p>
+            <p className="text-xs flex-1">{message.content}</p>
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[10px] ml-auto"
+              className="h-7 px-2.5 text-[10px] hover:bg-destructive/20"
               onClick={() => onRegenerate(message)}
             >
               <RotateCcw className="w-3 h-3 mr-1" />
@@ -133,10 +135,10 @@ export function ChatMessageBubble({
           </div>
         ) : (
           <div className={cn(
-            'relative group/message rounded-2xl px-3 py-2 max-w-[90%] text-sm',
+            'relative group/message rounded-2xl px-3.5 py-2.5 max-w-[90%] text-sm transition-all duration-200',
             message.role === 'user' 
-              ? 'bg-primary text-primary-foreground ml-auto rounded-br-md' 
-              : 'bg-muted/50 rounded-bl-md'
+              ? 'bg-gradient-to-br from-primary to-violet-600 text-primary-foreground ml-auto rounded-br-sm shadow-lg shadow-primary/20' 
+              : 'glass-chat-bubble rounded-bl-sm'
           )}>
             {message.content ? (
               message.role === 'assistant' ? (
