@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -48,10 +47,11 @@ import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementS
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
-import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
 import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
+import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
+import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -62,8 +62,7 @@ import {
   CONTENT_GOALS,
 } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
-import { JourneyStage, JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
-import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
+import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
 
 interface MultiChannelFormStepperProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -77,12 +76,12 @@ interface MultiChannelFormStepperProps {
   initialPersonaId?: string;
 }
 
+// Reduced from 5 to 4 steps - Brand is now compact on Step 1
 const STEPS: Step[] = [
-  { id: 1, title: 'Thương hiệu', icon: <Sparkles className="w-4 h-4" /> },
-  { id: 2, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
-  { id: 3, title: 'Mục tiêu', icon: <Target className="w-4 h-4" /> },
-  { id: 4, title: 'Kênh', icon: <Layers className="w-4 h-4" /> },
-  { id: 5, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
+  { id: 1, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
+  { id: 2, title: 'Nhắm mục tiêu', icon: <Target className="w-4 h-4" /> },
+  { id: 3, title: 'Kênh', icon: <Layers className="w-4 h-4" /> },
+  { id: 4, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
 ];
 
 const LOADING_PHASES = [
@@ -157,7 +156,7 @@ export function MultiChannelFormStepper({
 
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
 
-  // Set default template
+  // Auto-select default template
   useEffect(() => {
     if (templatesLoading || templates.length === 0 || formData.brandTemplateId) return;
     const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0];
@@ -166,7 +165,7 @@ export function MultiChannelFormStepper({
     }
   }, [templatesLoading, templates, formData.brandTemplateId]);
 
-  // Topic Refinement
+  // Topic Refinement - enabled on Step 1 now
   const {
     refinedTopics,
     isLoading: isLoadingRefinement,
@@ -175,7 +174,7 @@ export function MultiChannelFormStepper({
   } = useTopicRefinement({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
-    enabled: currentStep === 2 && formData.topic.trim().length >= 10,
+    enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 
   // Loading phases
@@ -197,17 +196,16 @@ export function MultiChannelFormStepper({
     return baseTime + (formData.channels.length * perChannelTime);
   }, [formData.channels.length]);
 
+  // Updated canProceed for 4 steps
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
-        return !!formData.brandTemplateId;
+        return formData.topic.trim().length >= 10 && !!formData.brandTemplateId;
       case 2:
-        return formData.topic.trim().length >= 10;
-      case 3:
         return true; // Goal always has default
-      case 4:
+      case 3:
         return formData.channels.length > 0;
-      case 5:
+      case 4:
         return true;
       default:
         return false;
@@ -215,7 +213,7 @@ export function MultiChannelFormStepper({
   }, [currentStep, formData]);
 
   const handleNext = () => {
-    if (currentStep < 5 && canProceed) {
+    if (currentStep < 4 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
@@ -292,133 +290,21 @@ export function MultiChannelFormStepper({
 
         {/* Step Content */}
         <div className="min-h-[300px]">
-          {/* Step 1: Brand Selection */}
+          {/* Step 1: Topic with Compact Brand Selector */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-fade-in">
-              <div className="space-y-3">
-                <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
-                  Chọn thương hiệu
-                  <span className="text-primary">*</span>
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Brand Voice sẽ ảnh hưởng đến tone và style nội dung
-                </p>
+              {/* Compact Brand Selector - Auto-filled */}
+              <CompactBrandSelector
+                templates={templates}
+                isLoading={templatesLoading}
+                disabled={isLoading}
+                selectedTemplateId={formData.brandTemplateId}
+                selectedVoiceVariantId={formData.brandVoiceVariantId}
+                onTemplateChange={(templateId) => setFormData(prev => ({ ...prev, brandTemplateId: templateId }))}
+                onVoiceVariantChange={(variantId) => setFormData(prev => ({ ...prev, brandVoiceVariantId: variantId }))}
+              />
 
-                {templatesLoading ? (
-                  <div className="h-10 bg-muted/50 border border-border rounded-lg flex items-center px-3 animate-pulse">
-                    <span className="text-sm text-muted-foreground">Đang tải templates...</span>
-                  </div>
-                ) : (
-                  <Select
-                    value={formData.brandTemplateId || 'none'}
-                    onValueChange={(value) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        brandTemplateId: value === 'none' ? undefined : value,
-                      }));
-                    }}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="bg-muted/30 border-2 border-border focus:border-primary text-sm h-11">
-                      <SelectValue placeholder="Chọn Brand Template..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id} className="text-sm">
-                          <span className="flex items-center gap-2">
-                            {template.primary_color && (
-                              <span
-                                className="w-3 h-3 rounded-full inline-block ring-2 ring-offset-1 ring-offset-background"
-                                style={{ backgroundColor: template.primary_color }}
-                              />
-                            )}
-                            <span className="truncate">{template.name}</span>
-                            {template.is_default && (
-                              <Badge variant="secondary" className="text-[10px] h-4 px-1">Mặc định</Badge>
-                            )}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                {/* Brand Voice Variant */}
-                {formData.brandTemplateId && (
-                  <BrandVoiceVariantSelector
-                    brandTemplateId={formData.brandTemplateId}
-                    value={formData.brandVoiceVariantId}
-                    onValueChange={(variantId) => setFormData(prev => ({ ...prev, brandVoiceVariantId: variantId }))}
-                    disabled={isLoading}
-                  />
-                )}
-
-                {/* Preview selected template */}
-                {selectedTemplate && (
-                  <Card className="border-primary/20 bg-primary/5">
-                    <CardContent className="p-3 space-y-1">
-                      <p className="text-sm font-medium">{selectedTemplate.brand_name}</p>
-                      {selectedTemplate.tone_of_voice && (
-                        <p className="text-xs text-muted-foreground">
-                          Tone: {selectedTemplate.tone_of_voice.join(', ')}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Product/Persona Targeting Section */}
-                {formData.brandTemplateId && (
-                  <>
-                    <Separator className="my-4" />
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="w-4 h-4" />
-                        <span className="font-medium">Nhắm đối tượng (tùy chọn)</span>
-                      </div>
-                      
-                      {/* Product Selector */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <Package className="w-3.5 h-3.5" />
-                          Sản phẩm/Dịch vụ
-                        </Label>
-                        <ProductSelector
-                          brandTemplateId={formData.brandTemplateId}
-                          value={formData.productId}
-                          onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
-                          disabled={isLoading}
-                          placeholder="Chọn sản phẩm để tập trung..."
-                        />
-                      </div>
-
-                      {/* Persona Selector */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5" />
-                          Persona mục tiêu
-                        </Label>
-                        <PersonaSelector
-                          brandTemplateId={formData.brandTemplateId}
-                          value={formData.personaId}
-                          onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
-                          disabled={isLoading}
-                        />
-                      </div>
-
-                      <p className="text-xs text-muted-foreground/80 italic">
-                        Chọn sản phẩm/persona để AI tạo nội dung targeted hơn
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Topic */}
-          {currentStep === 2 && (
-            <div className="space-y-4 animate-fade-in">
+              {/* Topic Input - Main focus */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
@@ -443,6 +329,7 @@ export function MultiChannelFormStepper({
                   placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024"
                   className="min-h-[120px] resize-y text-sm"
                   disabled={isLoading}
+                  autoFocus
                 />
 
                 {formData.topic.length > 0 && formData.topic.length < 10 && (
@@ -480,9 +367,55 @@ export function MultiChannelFormStepper({
             </div>
           )}
 
-          {/* Step 3: Goal, Angle & Journey Stage */}
-          {currentStep === 3 && (
+          {/* Step 2: Targeting - Product/Persona + Goal + Angle + Journey */}
+          {currentStep === 2 && (
             <div className="space-y-5 animate-fade-in">
+              {/* Product/Persona Targeting */}
+              {formData.brandTemplateId && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="w-4 h-4" />
+                    <span className="font-medium">Nhắm đối tượng (tùy chọn)</span>
+                  </div>
+                  
+                  {/* Product Selector */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Package className="w-3.5 h-3.5" />
+                      Sản phẩm/Dịch vụ
+                    </Label>
+                    <ProductSelector
+                      brandTemplateId={formData.brandTemplateId}
+                      value={formData.productId}
+                      onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
+                      disabled={isLoading}
+                      placeholder="Chọn sản phẩm để tập trung..."
+                    />
+                  </div>
+
+                  {/* Persona Selector */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5" />
+                      Persona mục tiêu
+                    </Label>
+                    <PersonaSelector
+                      brandTemplateId={formData.brandTemplateId}
+                      value={formData.personaId}
+                      onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <p className="text-xs text-muted-foreground/80 italic">
+                    Chọn sản phẩm/persona để AI tạo nội dung targeted hơn
+                  </p>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Content Goal */}
               <div className="space-y-3">
                 <Label className="text-foreground font-semibold text-sm">
                   Mục tiêu nội dung
@@ -494,6 +427,7 @@ export function MultiChannelFormStepper({
                 />
               </div>
 
+              {/* Content Angle */}
               <ContentAngleSelector
                 value={formData.contentAngle}
                 onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
@@ -515,8 +449,8 @@ export function MultiChannelFormStepper({
             </div>
           )}
 
-          {/* Step 4: Channel Selection */}
-          {currentStep === 4 && (
+          {/* Step 3: Channel Selection */}
+          {currentStep === 3 && (
             <div className="space-y-4 animate-fade-in">
               <div className="flex items-center justify-between">
                 <Label className="text-foreground font-semibold text-sm">Kênh xuất bản</Label>
@@ -599,8 +533,8 @@ export function MultiChannelFormStepper({
             </div>
           )}
 
-          {/* Step 5: Review & Generate */}
-          {currentStep === 5 && (
+          {/* Step 4: Review & Generate */}
+          {currentStep === 4 && (
             <div className="space-y-4 animate-fade-in">
               <div className="text-center py-4">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
@@ -684,7 +618,7 @@ export function MultiChannelFormStepper({
             Quay lại
           </Button>
 
-          {currentStep < 5 ? (
+          {currentStep < 4 ? (
             <Button
               type="button"
               onClick={handleNext}
@@ -720,7 +654,7 @@ export function MultiChannelFormStepper({
         </div>
 
         {/* Estimated time hint */}
-        {currentStep === 5 && !isLoading && (
+        {currentStep === 4 && !isLoading && (
           <p className="text-center text-xs text-muted-foreground">
             Thời gian ước tính: ~{estimatedTime} giây
           </p>
