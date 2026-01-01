@@ -17,6 +17,8 @@ import { ContextBadges, parseContextBadges, removeContextLine } from './ContextB
 import { CopyButton } from './CopyButton';
 import { MessageSkeleton } from './MessageSkeleton';
 import { formatTimestamp } from './utils';
+import { PersonalizedWelcome } from './PersonalizedWelcome';
+import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -38,6 +40,8 @@ interface ChatMessageBubbleProps {
   searchQuery?: string;
   searchResults?: string[];
   highlightSearchTerm?: (text: string) => string;
+  // Personalized welcome
+  personalizedWelcome?: PersonalizedWelcomeData;
 }
 
 export function ChatMessageBubble({
@@ -56,7 +60,12 @@ export function ChatMessageBubble({
   searchQuery,
   searchResults = [],
   highlightSearchTerm,
+  personalizedWelcome,
 }: ChatMessageBubbleProps) {
+  // Check if this is a personalized welcome message
+  const isPersonalizedWelcome = message.id === 'welcome' && 
+    (message.content === '__PERSONALIZED_WELCOME__' || message.content.includes('AI Content Strategist'));
+
   // Get context badges - prefer realtime badges from backend
   const contextBadges: ParsedContextBadge[] = message.contextBadges 
     ? message.contextBadges.map(b => ({
@@ -68,6 +77,23 @@ export function ChatMessageBubble({
 
   // Clean content (remove context line for display)
   const cleanContent = removeContextLine(message.content);
+
+  // Render personalized welcome
+  if (isPersonalizedWelcome && personalizedWelcome) {
+    return (
+      <div
+        id={`message-${message.id}`}
+        className="flex gap-2 animate-in fade-in-0 duration-300"
+      >
+        <div className="flex-1 min-w-0">
+          <PersonalizedWelcome
+            data={personalizedWelcome}
+            onSuggestionClick={onSendFollowUp}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

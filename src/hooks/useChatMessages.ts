@@ -1,12 +1,14 @@
 // ============================================
 // useChatMessages Hook
 // Manages message state, localStorage persistence, CRUD operations
+// Includes personalized welcome message support
 // ============================================
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ChatMessage, ExtractedTopic } from '@/components/topic/chatbot/types';
-import { getStorageKey, WELCOME_MESSAGE } from '@/components/topic/chatbot/constants';
+import { getStorageKey } from '@/components/topic/chatbot/constants';
 import { extractTopicsFromMessage } from '@/components/topic/chatbot/utils';
+import { usePersonalizedWelcome, type PersonalizedWelcomeData } from './usePersonalizedWelcome';
 
 interface UseChatMessagesOptions {
   brandTemplateId?: string;
@@ -23,6 +25,8 @@ interface UseChatMessagesReturn {
   allExtractedTopics: ExtractedTopic[];
   animatingMessageId: string | null;
   setAnimatingMessageId: (id: string | null) => void;
+  // Personalized welcome data
+  personalizedWelcome: PersonalizedWelcomeData;
 }
 
 export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMessagesReturn {
@@ -30,6 +34,9 @@ export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMe
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
+  
+  // Get personalized welcome data
+  const personalizedWelcome = usePersonalizedWelcome({ brandTemplateId });
   
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -56,12 +63,13 @@ export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMe
     }
   }, [brandTemplateId, autoLoad]);
   
-  // Initialize with welcome message
+  // Initialize with personalized welcome message
+  // Content is rendered via PersonalizedWelcome component, so we just set a marker
   const initializeWithWelcome = useCallback(() => {
     setMessages([{
       id: 'welcome',
       role: 'assistant',
-      content: WELCOME_MESSAGE,
+      content: '__PERSONALIZED_WELCOME__', // Marker for PersonalizedWelcome component
       timestamp: new Date(),
     }]);
   }, []);
@@ -131,5 +139,6 @@ export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMe
     allExtractedTopics,
     animatingMessageId,
     setAnimatingMessageId,
+    personalizedWelcome,
   };
 }

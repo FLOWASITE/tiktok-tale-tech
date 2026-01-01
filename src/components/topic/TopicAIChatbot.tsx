@@ -283,6 +283,7 @@ export function TopicAIChatbot({
                     searchQuery={uiHook.searchQuery}
                     searchResults={uiHook.searchResults}
                     highlightSearchTerm={uiHook.highlightSearchTerm}
+                    personalizedWelcome={messagesHook.personalizedWelcome}
                   />
                 ))}
                 
