@@ -118,6 +118,9 @@ export interface MultiChannelFormData {
   topicHistoryId?: string;
   contentPurpose?: ContentPurpose;
   marketingFramework?: MarketingFramework;
+  // Product/Persona targeting
+  productId?: string;
+  personaId?: string;
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [

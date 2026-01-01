@@ -3,7 +3,7 @@ import { FileText, Sparkles, X, Plus, LayoutGrid, List, ChevronLeft, ChevronRigh
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { MultiChannelForm } from '@/components/MultiChannelForm';
+import { MultiChannelFormStepper } from '@/components/multichannel/MultiChannelFormStepper';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelListView } from '@/components/MultiChannelListView';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
@@ -640,7 +640,7 @@ export default function MultiChannel() {
         }
         description="Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc"
       >
-        <MultiChannelForm
+        <MultiChannelFormStepper
           onSubmit={handleGenerateContent}
           isLoading={generating}
           initialTopic={initialTopic}
