@@ -280,6 +280,21 @@ export function MultiChannelFormStepper({
           </div>
         </div>
 
+        {/* Brand Selector - Always visible in header */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-md">
+            <CompactBrandSelector
+              templates={templates}
+              isLoading={templatesLoading}
+              disabled={isLoading}
+              selectedTemplateId={formData.brandTemplateId}
+              selectedVoiceVariantId={formData.brandVoiceVariantId}
+              onTemplateChange={(templateId) => setFormData(prev => ({ ...prev, brandTemplateId: templateId }))}
+              onVoiceVariantChange={(variantId) => setFormData(prev => ({ ...prev, brandVoiceVariantId: variantId }))}
+            />
+          </div>
+        </div>
+
         {/* Step Indicator */}
         <StepIndicator
           steps={STEPS}
@@ -290,20 +305,9 @@ export function MultiChannelFormStepper({
 
         {/* Step Content */}
         <div className="min-h-[300px]">
-          {/* Step 1: Topic with Compact Brand Selector */}
+          {/* Step 1: Topic Input */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-fade-in">
-              {/* Compact Brand Selector - Auto-filled */}
-              <CompactBrandSelector
-                templates={templates}
-                isLoading={templatesLoading}
-                disabled={isLoading}
-                selectedTemplateId={formData.brandTemplateId}
-                selectedVoiceVariantId={formData.brandVoiceVariantId}
-                onTemplateChange={(templateId) => setFormData(prev => ({ ...prev, brandTemplateId: templateId }))}
-                onVoiceVariantChange={(variantId) => setFormData(prev => ({ ...prev, brandVoiceVariantId: variantId }))}
-              />
-
               {/* Topic Input - Main focus */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
