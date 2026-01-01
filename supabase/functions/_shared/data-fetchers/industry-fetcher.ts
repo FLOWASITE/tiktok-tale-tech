@@ -20,9 +20,9 @@ export async function fetchIndustryMemory(
         id, code, version, target_audience, is_active,
         compliance_rules, claim_restrictions, forbidden_terms,
         brand_voice, channel_settings, metadata,
-        argument_patterns, system_rules, preferred_words, forbidden_words,
+        argument_patterns, system_rules,
         industry_template_translations!inner (
-          name, language_code
+          name, language_code, preferred_words, forbidden_words
         )
       `)
       .eq('id', industryTemplateId)
@@ -43,9 +43,9 @@ export async function fetchIndustryMemory(
           id, code, version, target_audience, is_active,
           compliance_rules, claim_restrictions, forbidden_terms,
           brand_voice, channel_settings, metadata,
-          argument_patterns, system_rules, preferred_words, forbidden_words,
+          argument_patterns, system_rules,
           industry_template_translations!inner (
-            name, language_code
+            name, language_code, preferred_words, forbidden_words
           )
         `)
         .eq('id', industryTemplateId)
@@ -58,10 +58,11 @@ export async function fetchIndustryMemory(
         return null;
       }
 
+      const translation = fallbackTemplate.industry_template_translations?.[0];
       return {
         id: fallbackTemplate.id,
         code: fallbackTemplate.code,
-        name: fallbackTemplate.industry_template_translations?.[0]?.name || fallbackTemplate.code,
+        name: translation?.name || fallbackTemplate.code,
         version: fallbackTemplate.version,
         target_audience: fallbackTemplate.target_audience || 'both',
         compliance_rules: fallbackTemplate.compliance_rules || [],
@@ -72,15 +73,16 @@ export async function fetchIndustryMemory(
         metadata: fallbackTemplate.metadata,
         argument_patterns: fallbackTemplate.argument_patterns,
         system_rules: fallbackTemplate.system_rules || [],
-        preferred_words: fallbackTemplate.preferred_words || [],
-        forbidden_words: fallbackTemplate.forbidden_words || [],
+        preferred_words: translation?.preferred_words || [],
+        forbidden_words: translation?.forbidden_words || [],
       };
     }
 
+    const translation = template.industry_template_translations?.[0];
     return {
       id: template.id,
       code: template.code,
-      name: template.industry_template_translations?.[0]?.name || template.code,
+      name: translation?.name || template.code,
       version: template.version,
       target_audience: template.target_audience || 'both',
       compliance_rules: template.compliance_rules || [],
@@ -91,8 +93,8 @@ export async function fetchIndustryMemory(
       metadata: template.metadata,
       argument_patterns: template.argument_patterns,
       system_rules: template.system_rules || [],
-      preferred_words: template.preferred_words || [],
-      forbidden_words: template.forbidden_words || [],
+      preferred_words: translation?.preferred_words || [],
+      forbidden_words: translation?.forbidden_words || [],
     };
   } catch (error) {
     console.error('Error in fetchIndustryMemory:', error);
