@@ -278,13 +278,13 @@ export function TopicAIChatbot({
               {uiHook.showScrollButton && (
                 <Button
                   size="icon"
-                  variant="secondary"
-                  className="absolute bottom-32 right-4 h-9 w-9 rounded-full shadow-lg border bg-background/95 backdrop-blur-sm z-10"
+                  variant="default"
+                  className="absolute bottom-32 right-4 h-10 w-10 rounded-full shadow-xl z-20 bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-105"
                   onClick={uiHook.scrollToBottom}
                 >
-                  <ArrowDown className="w-4 h-4" />
+                  <ArrowDown className="w-4 h-4 text-primary-foreground" />
                   {uiHook.unreadCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 min-w-5 px-1.5 text-[10px]">
+                    <Badge className="absolute -top-2 -right-2 h-5 min-w-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground">
                       {uiHook.unreadCount > 9 ? '9+' : uiHook.unreadCount}
                     </Badge>
                   )}
