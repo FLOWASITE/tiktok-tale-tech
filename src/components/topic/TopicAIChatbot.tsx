@@ -44,7 +44,10 @@ export function TopicAIChatbot({
   onNavigate,
   className,
   isExpanded = false,
+  mode = 'standalone',
+  onTopicSelect,
 }: TopicAIChatbotProps) {
+  const isEmbedded = mode === 'embedded';
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
   const { profile } = useProfile();
@@ -149,12 +152,17 @@ export function TopicAIChatbot({
   
   // === HANDLERS ===
   const handleTopicAction = useCallback((topic: ExtractedTopic, format: 'multichannel' | 'script' | 'carousel') => {
+    // In embedded mode, use onTopicSelect callback instead of navigation
+    if (isEmbedded && onTopicSelect) {
+      onTopicSelect(topic.topic);
+      return;
+    }
     onNavigate(TOPIC_ACTION_PATHS[format], {
       prefillTopic: topic.topic,
       prefillGoal: contentGoal,
       fromTopics: true,
     });
-  }, [onNavigate, contentGoal]);
+  }, [onNavigate, contentGoal, isEmbedded, onTopicSelect]);
   
   const handleTopicRefinement = useCallback((topicTitle: string) => {
     handleSend(`Làm chi tiết hơn về topic: "${topicTitle}". Hãy cho tôi biết thêm về các góc độ tiếp cận, ý tưởng cụ thể và cách triển khai.`);
@@ -209,31 +217,34 @@ export function TopicAIChatbot({
             onDismiss={uiHook.dismissOnboarding}
           />
           
-          <ChatHeader
-            activeView={uiHook.activeView}
-            onActiveViewChange={uiHook.setActiveView}
-            isSearchOpen={uiHook.isSearchOpen}
-            onSearchToggle={() => uiHook.setIsSearchOpen(!uiHook.isSearchOpen)}
-            searchQuery={uiHook.searchQuery}
-            onSearchChange={uiHook.setSearchQuery}
-            searchResultsCount={uiHook.searchResults.length}
-            soundEnabled={uiHook.soundEnabled}
-            onSoundToggle={() => uiHook.setSoundEnabled(!uiHook.soundEnabled)}
-            onReset={handleReset}
-            onShowOnboarding={() => uiHook.setShowOnboarding(true)}
-            artifactsCount={artifactsHook.artifactTopics.length}
-            showArtifactsPanel={artifactsHook.showArtifactsPanel}
-            onArtifactsPanelToggle={() => artifactsHook.setShowArtifactsPanel(!artifactsHook.showArtifactsPanel)}
-            showHistorySidebar={uiHook.showHistorySidebar}
-            onHistorySidebarChange={uiHook.setShowHistorySidebar}
-            conversations={conversations}
-            currentConversationId={currentConversation?.id}
-            isLoadingConversations={isLoadingConversations}
-            onSelectConversation={loadConversation}
-            onNewConversation={handleReset}
-            onDeleteConversation={deleteConversation}
-            onArchiveConversation={archiveConversation}
-          />
+          {/* Hide header in embedded mode for cleaner UI */}
+          {!isEmbedded && (
+            <ChatHeader
+              activeView={uiHook.activeView}
+              onActiveViewChange={uiHook.setActiveView}
+              isSearchOpen={uiHook.isSearchOpen}
+              onSearchToggle={() => uiHook.setIsSearchOpen(!uiHook.isSearchOpen)}
+              searchQuery={uiHook.searchQuery}
+              onSearchChange={uiHook.setSearchQuery}
+              searchResultsCount={uiHook.searchResults.length}
+              soundEnabled={uiHook.soundEnabled}
+              onSoundToggle={() => uiHook.setSoundEnabled(!uiHook.soundEnabled)}
+              onReset={handleReset}
+              onShowOnboarding={() => uiHook.setShowOnboarding(true)}
+              artifactsCount={artifactsHook.artifactTopics.length}
+              showArtifactsPanel={artifactsHook.showArtifactsPanel}
+              onArtifactsPanelToggle={() => artifactsHook.setShowArtifactsPanel(!artifactsHook.showArtifactsPanel)}
+              showHistorySidebar={uiHook.showHistorySidebar}
+              onHistorySidebarChange={uiHook.setShowHistorySidebar}
+              conversations={conversations}
+              currentConversationId={currentConversation?.id}
+              isLoadingConversations={isLoadingConversations}
+              onSelectConversation={loadConversation}
+              onNewConversation={handleReset}
+              onDeleteConversation={deleteConversation}
+              onArchiveConversation={archiveConversation}
+            />
+          )}
           
           {uiHook.activeView === 'discovery' ? (
             <DiscoveryTab

@@ -39,6 +39,7 @@ import {
   Square,
   Users,
   Package,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -52,6 +53,7 @@ import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -126,6 +128,7 @@ export function MultiChannelFormStepper({
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loadingPhase, setLoadingPhase] = useState(0);
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialTopic || '',
@@ -341,6 +344,18 @@ export function MultiChannelFormStepper({
                     Chủ đề nên có ít nhất 10 ký tự
                   </p>
                 )}
+
+                {/* Brainstorm with AI Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBrainstormSheet(true)}
+                  className="gap-2 text-primary border-primary/30 hover:bg-primary/5"
+                  disabled={isLoading}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Brainstorm với AI
+                </Button>
 
                 {/* Topic Refinement */}
                 {formData.topic.trim().length >= 10 && (
@@ -664,6 +679,17 @@ export function MultiChannelFormStepper({
           </p>
         )}
       </div>
+      {/* Topic Brainstorm Sheet */}
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={formData.brandTemplateId}
+        contentGoal={formData.contentGoal}
+        onSelectTopic={(topic) => {
+          setFormData(prev => ({ ...prev, topic }));
+          toast.success('Đã chọn chủ đề từ AI!');
+        }}
+      />
     </TooltipProvider>
   );
 }
