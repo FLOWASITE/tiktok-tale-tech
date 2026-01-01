@@ -1,5 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   GraduationCap, 
   BookOpen, 
@@ -10,6 +15,7 @@ import {
   LucideIcon
 } from 'lucide-react';
 import { ContentAngle, CONTENT_ANGLES } from '@/types/multichannel';
+import { cn } from '@/lib/utils';
 
 interface ContentAngleSelectorProps {
   value?: ContentAngle;
@@ -44,39 +50,40 @@ export function ContentAngleSelector({
   return (
     <div className={`space-y-2 ${className}`}>
       <div className="flex items-center justify-between">
-        <Label className="text-xs xs:text-sm">Góc tiếp cận nội dung</Label>
-        <span className="text-[10px] xs:text-xs text-muted-foreground">(tùy chọn)</span>
+        <Label className="text-xs">Góc tiếp cận nội dung</Label>
+        <span className="text-[10px] text-muted-foreground">(tùy chọn)</span>
       </div>
-      <div className="flex flex-wrap gap-1.5 xs:gap-2">
+      <div className="flex flex-wrap gap-2">
         {CONTENT_ANGLES.map((angle) => {
           const Icon = angleIcons[angle.value];
           const isSelected = value === angle.value;
           
           return (
-            <Badge
-              key={angle.value}
-              variant={isSelected ? 'default' : 'outline'}
-              className={`
-                cursor-pointer transition-all py-1.5 px-2.5 gap-1.5
-                ${isSelected 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-primary/10 hover:border-primary/50'
-                }
-                ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-              `}
-              onClick={() => !disabled && handleToggle(angle.value)}
-            >
-              <Icon className="w-3 h-3 xs:w-3.5 xs:h-3.5" />
-              <span className="text-[10px] xs:text-xs">{angle.label}</span>
-            </Badge>
+            <Tooltip key={angle.value}>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant={isSelected ? 'default' : 'outline'}
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 py-2 px-3 gap-2",
+                    "active:scale-95",
+                    isSelected 
+                      ? 'bg-primary text-primary-foreground shadow-md scale-105' 
+                      : 'hover:bg-primary/10 hover:border-primary/50 hover:scale-102',
+                    disabled && 'opacity-50 cursor-not-allowed'
+                  )}
+                  onClick={() => !disabled && handleToggle(angle.value)}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="text-xs">{angle.label}</span>
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[200px]">
+                <p className="text-xs">{angle.description}</p>
+              </TooltipContent>
+            </Tooltip>
           );
         })}
       </div>
-      {value && (
-        <p className="text-[10px] xs:text-xs text-muted-foreground animate-fade-in">
-          {CONTENT_ANGLES.find(a => a.value === value)?.description}
-        </p>
-      )}
     </div>
   );
 }
