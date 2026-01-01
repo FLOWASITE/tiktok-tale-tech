@@ -3,7 +3,7 @@
 // Individual message rendering with all features
 // ============================================
 
-import { Bot, MessageSquare, Video, Images, Plus, Shuffle, Search as SearchIcon, User, AlertCircle, RotateCcw } from 'lucide-react';
+import { Bot, MessageSquare, Video, Images, Plus, Shuffle, Search as SearchIcon, User, AlertCircle, RotateCcw, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import ReactMarkdown from 'react-markdown';
@@ -42,6 +42,9 @@ interface ChatMessageBubbleProps {
   highlightSearchTerm?: (text: string) => string;
   // Personalized welcome
   personalizedWelcome?: PersonalizedWelcomeData;
+  // Embedded mode
+  mode?: 'standalone' | 'embedded';
+  onTopicSelect?: (topic: string) => void;
 }
 
 export function ChatMessageBubble({
@@ -61,6 +64,8 @@ export function ChatMessageBubble({
   searchResults = [],
   highlightSearchTerm,
   personalizedWelcome,
+  mode = 'standalone',
+  onTopicSelect,
 }: ChatMessageBubbleProps) {
   // Check if this is a personalized welcome message
   const isPersonalizedWelcome = message.id === 'welcome' && 
@@ -266,41 +271,55 @@ export function ChatMessageBubble({
                   <p className="text-[10px] text-muted-foreground line-clamp-2">{topic.reason}</p>
                 )}
                 <div className="flex flex-wrap gap-1">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-6 text-[10px] gap-1 px-2 hover:bg-primary hover:text-primary-foreground"
-                    onClick={() => onTopicAction(topic, 'multichannel')}
-                  >
-                    <MessageSquare className="w-2.5 h-2.5" />
-                    Multi
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-6 text-[10px] gap-1 px-2 hover:bg-violet-600 hover:text-white"
-                    onClick={() => onTopicAction(topic, 'script')}
-                  >
-                    <Video className="w-2.5 h-2.5" />
-                    Script
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-6 text-[10px] gap-1 px-2 hover:bg-orange-500 hover:text-white"
-                    onClick={() => onTopicAction(topic, 'carousel')}
-                  >
-                    <Images className="w-2.5 h-2.5" />
-                    Carousel
-                  </Button>
+                  {mode === 'embedded' && onTopicSelect ? (
+                    <Button
+                      size="sm"
+                      className="h-7 text-[10px] gap-1.5 px-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+                      onClick={() => onTopicSelect(topic.topic)}
+                    >
+                      <Check className="w-3 h-3" />
+                      Chọn topic này
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 text-[10px] gap-1 px-2 hover:bg-primary hover:text-primary-foreground"
+                        onClick={() => onTopicAction(topic, 'multichannel')}
+                      >
+                        <MessageSquare className="w-2.5 h-2.5" />
+                        Multi
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 text-[10px] gap-1 px-2 hover:bg-violet-600 hover:text-white"
+                        onClick={() => onTopicAction(topic, 'script')}
+                      >
+                        <Video className="w-2.5 h-2.5" />
+                        Script
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 text-[10px] gap-1 px-2 hover:bg-orange-500 hover:text-white"
+                        onClick={() => onTopicAction(topic, 'carousel')}
+                      >
+                        <Images className="w-2.5 h-2.5" />
+                        Carousel
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Follow-up Suggestions */}
-        {message.role === 'assistant' && 
+        {/* Follow-up Suggestions - hidden in embedded mode */}
+        {mode !== 'embedded' &&
+         message.role === 'assistant' && 
          message.id !== 'welcome' && 
          !message.isError && 
          message.content && 

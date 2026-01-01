@@ -39,6 +39,9 @@ interface SimpleMessageListProps {
   pullDistance: number;
   isRefreshing: boolean;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
+  // Embedded mode
+  mode?: 'standalone' | 'embedded';
+  onTopicSelect?: (topic: string) => void;
 }
 
 const MessageRow = memo(function MessageRow({
@@ -57,6 +60,8 @@ const MessageRow = memo(function MessageRow({
   onSendFollowUp,
   onNavigate,
   highlightSearchTerm,
+  mode,
+  onTopicSelect,
 }: {
   message: ChatMessage;
   isAnimating: boolean;
@@ -73,6 +78,8 @@ const MessageRow = memo(function MessageRow({
   onSendFollowUp: (message: string) => void;
   onNavigate: (path: string, state?: any) => void;
   highlightSearchTerm: (text: string) => string;
+  mode?: 'standalone' | 'embedded';
+  onTopicSelect?: (topic: string) => void;
 }) {
   return (
     <ChatMessageBubble
@@ -92,6 +99,8 @@ const MessageRow = memo(function MessageRow({
       searchResults={searchResults}
       highlightSearchTerm={highlightSearchTerm}
       personalizedWelcome={personalizedWelcome}
+      mode={mode}
+      onTopicSelect={onTopicSelect}
     />
   );
 });
@@ -123,6 +132,8 @@ export function SimpleMessageList({
   pullDistance,
   isRefreshing,
   scrollContainerRef,
+  mode,
+  onTopicSelect,
 }: SimpleMessageListProps) {
   const prevMessageCountRef = useRef(messages.length);
 
@@ -180,6 +191,8 @@ export function SimpleMessageList({
               onSendFollowUp={onSendFollowUp}
               onNavigate={onNavigate}
               highlightSearchTerm={highlightSearchTerm}
+              mode={mode}
+              onTopicSelect={onTopicSelect}
             />
           </div>
         ))}
