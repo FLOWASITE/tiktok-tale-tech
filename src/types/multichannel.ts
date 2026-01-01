@@ -8,6 +8,24 @@ export type ContentGoal =
   | 'expertise'      // Xây chuyên gia
   | 'conversion';    // Chuyển đổi
 
+// Content Angle - Góc tiếp cận nội dung
+export type ContentAngle = 
+  | 'educational'       // Chia sẻ kiến thức
+  | 'storytelling'      // Kể chuyện
+  | 'promotional'       // Quảng cáo trực tiếp
+  | 'social_proof'      // Đánh giá, testimonial
+  | 'behind_the_scenes' // Hậu trường
+  | 'qa_faq';           // Q&A / FAQ
+
+export const CONTENT_ANGLES: { value: ContentAngle; label: string; description: string }[] = [
+  { value: 'educational', label: 'Kiến thức', description: 'Chia sẻ tips, hướng dẫn, thông tin hữu ích' },
+  { value: 'storytelling', label: 'Kể chuyện', description: 'Narrative flow, cảm xúc, câu chuyện thực' },
+  { value: 'promotional', label: 'Quảng cáo', description: 'CTA mạnh, urgency, ưu đãi rõ ràng' },
+  { value: 'social_proof', label: 'Social Proof', description: 'Đánh giá, testimonial, case study' },
+  { value: 'behind_the_scenes', label: 'Hậu trường', description: 'Quy trình, đội ngũ, behind-the-scenes' },
+  { value: 'qa_faq', label: 'Q&A', description: 'Giải đáp thắc mắc, FAQ phổ biến' },
+];
+
 export type Channel = 
   | 'website'
   | 'facebook'
@@ -92,6 +110,7 @@ export interface MultiChannelFormData {
   topic: string;
   industry?: string;
   contentGoal: ContentGoal;
+  contentAngle?: ContentAngle;
   channels: Channel[];
   brandTemplateId?: string;
   brandVoiceVariantId?: string;
