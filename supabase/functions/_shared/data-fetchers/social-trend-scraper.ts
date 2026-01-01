@@ -58,75 +58,61 @@ export interface MergedTrendResults {
 // ============================================================================
 
 export const TREND_SOURCES: Record<string, TrendSource> = {
-  // TikTok Sources
-  tiktok_creative_center: {
-    url: 'https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/en',
-    name: 'TikTok Creative Center',
-    platform: 'tiktok',
-    type: 'hashtags',
-    scrapeOptions: { waitFor: 3000 }
-  },
-  socialblade_tiktok: {
-    url: 'https://socialblade.com/tiktok/top/100/followers',
-    name: 'SocialBlade TikTok',
-    platform: 'tiktok',
-    type: 'creators'
-  },
-  tiktok_exolyt: {
-    url: 'https://exolyt.com/trending',
-    name: 'Exolyt Trending',
-    platform: 'tiktok',
-    type: 'general',
-    scrapeOptions: { waitFor: 2000 }
-  },
+  // TikTok Sources - using reliable sources that don't require login
   ritetag_tiktok: {
     url: 'https://ritetag.com/best-hashtags-for/tiktok',
     name: 'RiteTag TikTok',
     platform: 'tiktok',
     type: 'hashtags'
   },
-  
-  // Facebook Sources
-  socialblade_facebook: {
-    url: 'https://socialblade.com/facebook/top/100/likes',
-    name: 'SocialBlade Facebook',
-    platform: 'facebook',
-    type: 'creators'
-  },
-  facebook_trends_tagembed: {
-    url: 'https://tagembed.com/blog/facebook-trends/',
-    name: 'Facebook Trends Guide',
-    platform: 'facebook',
+  tiktok_sproutsocial: {
+    url: 'https://sproutsocial.com/insights/tiktok-trends/',
+    name: 'Sprout Social TikTok',
+    platform: 'tiktok',
     type: 'general'
   },
+  tiktok_later: {
+    url: 'https://later.com/blog/tiktok-trends/',
+    name: 'Later TikTok Trends',
+    platform: 'tiktok',
+    type: 'general'
+  },
+  
+  // Facebook Sources
   facebook_trends_hootsuite: {
     url: 'https://blog.hootsuite.com/facebook-trends/',
     name: 'Hootsuite Facebook Trends',
     platform: 'facebook',
     type: 'general'
   },
+  facebook_sproutsocial: {
+    url: 'https://sproutsocial.com/insights/facebook-trends/',
+    name: 'Sprout Social Facebook',
+    platform: 'facebook',
+    type: 'general'
+  },
+  facebook_buffer: {
+    url: 'https://buffer.com/resources/facebook-marketing/',
+    name: 'Buffer Facebook',
+    platform: 'facebook',
+    type: 'general'
+  },
   
   // YouTube Sources
-  socialblade_youtube: {
-    url: 'https://socialblade.com/youtube/top/trending',
-    name: 'SocialBlade YouTube',
+  youtube_sproutsocial: {
+    url: 'https://sproutsocial.com/insights/youtube-trends/',
+    name: 'Sprout Social YouTube',
     platform: 'youtube',
-    type: 'videos'
+    type: 'general'
   },
-  youtube_trending_channels: {
-    url: 'https://us.youtubers.me/global/all/top-1000-most-subscribed-youtube-channels',
-    name: 'YouTubers.me Top',
+  youtube_hootsuite: {
+    url: 'https://blog.hootsuite.com/youtube-trends/',
+    name: 'Hootsuite YouTube Trends',
     platform: 'youtube',
-    type: 'creators'
+    type: 'general'
   },
   
   // Instagram Sources
-  socialblade_instagram: {
-    url: 'https://socialblade.com/instagram/top/100/followers',
-    name: 'SocialBlade Instagram',
-    platform: 'instagram',
-    type: 'creators'
-  },
   instagram_trends_hootsuite: {
     url: 'https://blog.hootsuite.com/instagram-trends/',
     name: 'Hootsuite Instagram Trends',
@@ -139,12 +125,10 @@ export const TREND_SOURCES: Record<string, TrendSource> = {
     platform: 'instagram',
     type: 'general'
   },
-  
-  // Multi-platform trend sites
-  social_media_today: {
-    url: 'https://www.socialmediatoday.com/social-networks/',
-    name: 'Social Media Today',
-    platform: 'multi',
+  instagram_sproutsocial: {
+    url: 'https://sproutsocial.com/insights/instagram-trends/',
+    name: 'Sprout Social Instagram',
+    platform: 'instagram',
     type: 'general'
   }
 };
@@ -223,79 +207,63 @@ function parseSocialBladeTable(markdown: string, source: string, platform: strin
   
   console.log(`[Parser:SocialBlade] Processing ${lines.length} lines from ${source}`);
   
-  // Pattern 1: Table rows with | separator
-  // | Rank | Username | Followers | Growth |
-  const tableRowRegex = /\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/;
-  
-  // Pattern 2: Lines with rank and username
-  // 1 @username 100M followers
-  const linePatternRegex = /^#?(\d+)[.\s]+[@]?([\w._-]+)\s+(\d+(?:\.\d+)?[KMB]?)/i;
-  
-  // Pattern 3: Markdown link with numbers
-  // [username](url) 100M followers
-  const linkPatternRegex = /\[([^\]]+)\]\([^)]+\)\s*(\d+(?:\.\d+)?[KMB]?)/i;
-
   const foundCreators = new Set<string>();
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+  // Blacklist patterns for navigation/UI elements
+  const blacklistPatterns = [
+    /^(rank|username|name|filter|sign|page|top|list|menu|home|about|contact|faq|support)/i,
+    /^(youtube|tiktok|twitch|facebook|instagram|twitter|social blade)/i,
+    /^(products|services|login|register|premium|compare)/i,
+    /^\d+(st|nd|rd|th)$/i,  // Skip pagination: 1st, 2nd, 3rd, etc.
+    /^(next|prev|previous|last|first|\d+)$/i,
+    /^(grade|rank|country|category|type)$/i
+  ];
+  
+  // Look for creator links with follower counts
+  // Pattern: [Creator Name](url) followed by number
+  const creatorWithStatsPattern = /\[([^\]]{3,40})\]\([^)]+\)\s*(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*(?:M\s+)?(?:followers?|likes?|subs?)?/gi;
+  
+  let match;
+  while ((match = creatorWithStatsPattern.exec(markdown)) !== null) {
+    const username = match[1].trim();
+    const metricValue = match[2].replace(/,/g, '');
     
-    let match: RegExpMatchArray | null = null;
-    let rank = 0;
-    let username = '';
-    let metricValue = '';
+    // Validate username
+    if (!username || username.length < 3) continue;
     
-    // Try table row pattern
-    match = line.match(tableRowRegex);
-    if (match) {
-      rank = parseInt(match[1]);
-      username = match[2].replace(/[@\[\]]/g, '').trim();
-      metricValue = match[3];
-    }
-    
-    // Try line pattern
-    if (!username) {
-      match = line.match(linePatternRegex);
-      if (match) {
-        rank = parseInt(match[1]);
-        username = match[2];
-        metricValue = match[3];
+    // Check blacklist
+    let isBlacklisted = false;
+    for (const pattern of blacklistPatterns) {
+      if (pattern.test(username)) {
+        isBlacklisted = true;
+        break;
       }
     }
-    
-    // Try link pattern
-    if (!username) {
-      match = line.match(linkPatternRegex);
-      if (match) {
-        username = match[1].replace(/[@]/g, '').trim();
-        metricValue = match[2];
-        rank = trends.length + 1;
-      }
-    }
-    
-    // Skip header rows and invalid entries
-    if (!username || username.toLowerCase() === 'username' || username.toLowerCase() === 'name') {
-      continue;
-    }
+    if (isBlacklisted) continue;
     
     const key = username.toLowerCase();
     if (foundCreators.has(key)) continue;
     foundCreators.add(key);
+    
+    // Extract numeric follower count
+    const followers = metricValue ? parseViewCount(metricValue) : undefined;
+    
+    // Only add if has meaningful follower count (at least 1000)
+    if (!followers || followers < 1000) continue;
     
     trends.push({
       name: username.startsWith('@') ? username : `@${username}`,
       type: 'creator',
       platform,
       metrics: {
-        followers: metricValue ? parseViewCount(metricValue) : undefined,
-        rank: rank || undefined
+        followers,
+        rank: trends.length + 1
       },
       source,
       scraped_at: new Date().toISOString()
     });
     
-    if (trends.length >= 50) break; // Limit to top 50
+    if (trends.length >= 50) break;
   }
   
   console.log(`[Parser:SocialBlade] Found ${trends.length} creators`);
@@ -310,20 +278,56 @@ function parseBlogTrends(markdown: string, source: string, platform: string): No
   
   console.log(`[Parser:Blog] Processing ${lines.length} lines from ${source}`);
   
-  // Patterns for blog content
+  // Patterns for blog content - ordered by specificity
   const patterns = [
+    // [1. Trend Name](link) - Hootsuite format
+    /\[\d+\\?[.)]\s*(.+?)\]\([^)]+\)/,
     // ## 1. Trend Name
     /^#{1,3}\s*\d+[.)]\s*(.+)/,
     // 1. **Trend Name**
     /^\d+[.)]\s*\*\*(.+?)\*\*/,
     // - **Trend Name**
     /^[-*]\s*\*\*(.+?)\*\*/,
-    // ## Trend Name (heading without number)
-    /^#{2,3}\s+([A-Z][^#\n]{10,60})$/,
-    // Bold text: **Trend Name** - description
-    /\*\*([^*]{5,50})\*\*\s*[-–:]/
+    // **Trend Name:** or **Trend Name** - description
+    /\*\*([^*]{5,60})\*\*\s*[-–:]/,
+    // ## Trend Name (heading)
+    /^#{2,3}\s+([A-Z][^#\n]{10,60})$/
   ];
   
+  // Also try to extract from table of contents links like [1. Topic](link)
+  const tocPattern = /\[(\d+)\\?[.)]\s*([^\]]+)\]\(/g;
+  let tocMatch;
+  while ((tocMatch = tocPattern.exec(markdown)) !== null) {
+    const trendName = tocMatch[2].trim()
+      .replace(/\*\*/g, '')
+      .replace(/_/g, ' ')
+      .substring(0, 80);
+    
+    if (trendName.length < 5) continue;
+    
+    const key = trendName.toLowerCase();
+    if (foundTrends.has(key)) continue;
+    foundTrends.add(key);
+    
+    trends.push({
+      name: trendName,
+      type: 'topic',
+      platform,
+      metrics: { rank: parseInt(tocMatch[1]) },
+      source,
+      scraped_at: new Date().toISOString()
+    });
+    
+    if (trends.length >= 25) break;
+  }
+  
+  // If TOC worked, return early
+  if (trends.length >= 5) {
+    console.log(`[Parser:Blog] Found ${trends.length} trends from TOC`);
+    return trends;
+  }
+  
+  // Fallback to line-by-line parsing
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.length < 5) continue;
@@ -334,11 +338,12 @@ function parseBlogTrends(markdown: string, source: string, platform: string): No
         const trendName = match[1].trim()
           .replace(/\*\*/g, '')
           .replace(/\[|\]/g, '')
+          .replace(/_/g, ' ')
           .substring(0, 80);
         
-        // Skip generic words
+        // Skip generic words and navigation
         if (trendName.length < 5 || 
-            /^(the|and|for|how|why|what|when|this|that|with|your|more)/i.test(trendName)) {
+            /^(the|and|for|how|why|what|when|this|that|with|your|more|skip|menu|home|about|contact|sign|login|filter|top\s+\d)/i.test(trendName)) {
           continue;
         }
         
@@ -355,7 +360,7 @@ function parseBlogTrends(markdown: string, source: string, platform: string): No
           scraped_at: new Date().toISOString()
         });
         
-        break; // Only match first pattern per line
+        break;
       }
     }
     
