@@ -59,25 +59,30 @@ export function SmartSuggestionsGrid({
           const button = (
             <motion.button
               key={suggestion.id}
-              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              initial={{ opacity: 0, y: 12, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ 
-                delay: index * 0.08,
-                duration: 0.3,
-                ease: [0.23, 1, 0.32, 1]
+                delay: index * 0.1,
+                duration: 0.4,
+                ease: [0.34, 1.56, 0.64, 1]
               }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ 
+                scale: 1.04, 
+                y: -2,
+                transition: { duration: 0.2 }
+              }}
+              whileTap={{ scale: 0.96 }}
               onClick={() => onSelect(suggestion.prompt)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
+                'flex items-center gap-2 px-3.5 py-2 rounded-xl',
                 'text-xs font-medium transition-all duration-200',
-                'border shadow-sm',
+                'border shadow-sm backdrop-blur-sm',
+                'suggestion-chip',
                 style
               )}
             >
               <Icon className="w-3.5 h-3.5" />
-              <span className="max-w-[150px] truncate">{suggestion.label}</span>
+              <span className="max-w-[140px] truncate">{suggestion.label}</span>
             </motion.button>
           );
           

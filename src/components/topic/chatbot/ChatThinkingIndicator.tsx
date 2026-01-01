@@ -63,25 +63,25 @@ export function ChatThinkingIndicator({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.2 }}
+      initial={{ opacity: 0, y: 16, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: [0.34, 1.56, 0.64, 1] }}
       className={cn(
-        'flex items-start gap-2 p-3',
+        'flex items-start gap-3',
         className
       )}
       role="status"
       aria-live="polite"
       aria-label="AI đang xử lý yêu cầu của bạn"
     >
-      {/* AI Avatar with pulse effect */}
-      <div className="relative shrink-0">
+      {/* AI Avatar with enhanced pulse effect */}
+      <div className="relative shrink-0 ai-avatar-pulse">
         <motion.div
           animate={{ 
             boxShadow: [
-              '0 0 0 0 hsl(var(--primary) / 0.4)',
-              '0 0 0 8px hsl(var(--primary) / 0)',
+              '0 0 0 0 hsl(var(--primary) / 0.5)',
+              '0 0 0 12px hsl(var(--primary) / 0)',
             ]
           }}
           transition={{ 
@@ -89,46 +89,47 @@ export function ChatThinkingIndicator({
             repeat: Infinity,
             ease: 'easeOut'
           }}
-          className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary via-violet-600 to-primary flex items-center justify-center"
+          className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-primary/25"
         >
-          <Bot className="w-4 h-4 text-primary-foreground" />
+          <Bot className="w-4 h-4 text-white" />
         </motion.div>
       </div>
 
-      {/* Thinking bubble */}
+      {/* Thinking bubble with glassmorphism */}
       <div className="flex-1 min-w-0">
-        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl rounded-tl-sm bg-muted/80 backdrop-blur-sm border border-border/50">
+        <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl rounded-tl-sm glass-chat-bubble">
           {/* Status icon with rotation for some statuses */}
           <motion.div
             animate={effectiveStatus === 'thinking' ? { rotate: [0, 360] } : {}}
             transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            className="text-primary"
           >
-            <StatusIcon className="w-3.5 h-3.5 text-primary" />
+            <StatusIcon className="w-4 h-4" />
           </motion.div>
           
           {/* Status text with turn info */}
-          <span className="text-xs text-muted-foreground font-medium">
+          <span className="text-xs text-foreground font-medium">
             {agentTurn && agentTurn.currentTurn > 0 && !agentTurn.isComplete && (
-              <span className="text-primary mr-1">
+              <span className="text-primary mr-1.5 font-semibold">
                 Turn {agentTurn.currentTurn}/{agentTurn.maxTurns}:
               </span>
             )}
             {config.message}
           </span>
           
-          {/* Animated dots (hide when complete) */}
+          {/* Enhanced animated dots (hide when complete) */}
           {effectiveStatus !== 'task_complete' && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 ml-1">
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
-                  className="w-1.5 h-1.5 rounded-full bg-primary/60"
+                  className="w-1.5 h-1.5 rounded-full bg-primary"
                   animate={{
-                    scale: [1, 1.3, 1],
-                    opacity: [0.5, 1, 0.5],
+                    scale: [1, 1.4, 1],
+                    opacity: [0.4, 1, 0.4],
                   }}
                   transition={{
-                    duration: 0.8,
+                    duration: 0.9,
                     repeat: Infinity,
                     delay: i * 0.15,
                     ease: 'easeInOut',

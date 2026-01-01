@@ -65,11 +65,11 @@ export function ChatInputArea({
   };
 
   return (
-    <form onSubmit={onSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-background space-y-1.5">
+    <form onSubmit={onSubmit} className="flex-shrink-0 p-1.5 sm:p-3 border-t bg-gradient-to-t from-background via-background to-transparent space-y-1.5">
       {/* Markdown preview */}
       {showMarkdownPreview && input.trim() && (
-        <div className="p-2 rounded-lg bg-muted/50 border text-xs animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
-          <div className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+        <div className="p-2.5 rounded-xl glass-chat-bubble text-xs animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+          <div className="text-[10px] text-muted-foreground mb-1.5 flex items-center gap-1.5 font-medium">
             <Eye className="w-3 h-3" /> Preview
           </div>
           <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0.5">
@@ -132,12 +132,15 @@ export function ChatInputArea({
       </div>
       
       <div className="flex gap-1.5 sm:gap-2 items-end">
-        <div className="flex-1 relative">
+        <div className={cn(
+          "flex-1 relative rounded-xl transition-all duration-300",
+          "chat-input-glow"
+        )}>
           {/* Interim text indicator */}
           {interimText && (
-            <div className="absolute -top-6 left-0 right-0 text-[10px] text-muted-foreground italic truncate animate-pulse">
-              <span className="inline-flex items-center gap-1">
-                <Mic className="w-2.5 h-2.5" />
+            <div className="absolute -top-7 left-0 right-0 text-[10px] text-primary italic truncate flex items-center gap-1.5 px-2">
+              <span className="inline-flex items-center gap-1 bg-primary/10 rounded-full px-2 py-0.5">
+                <Mic className="w-2.5 h-2.5 animate-pulse" />
                 {interimText}
               </span>
             </div>
@@ -149,20 +152,23 @@ export function ChatInputArea({
             onKeyDown={onKeyDown}
             placeholder={isRecording ? "Đang nghe..." : "Nhập tin nhắn... (hỗ trợ Markdown)"}
             className={cn(
-              "min-h-[36px] max-h-[120px] resize-none text-xs sm:text-sm py-2 pr-14 transition-all",
+              "min-h-[40px] max-h-[120px] resize-none text-xs sm:text-sm py-2.5 px-3 pr-14",
+              "rounded-xl border-2 transition-all duration-200",
+              "focus:border-primary/40 focus:ring-2 focus:ring-primary/10",
+              "placeholder:text-muted-foreground/60",
               input.length > maxChars * 0.95 && "border-destructive focus-visible:ring-destructive",
-              isRecording && "ring-2 ring-primary/30"
+              isRecording && "border-primary/50 bg-primary/5"
             )}
             disabled={isLoading}
-            style={{ height: '36px' }}
+            style={{ height: '40px' }}
           />
-          {/* Character counter */}
+          {/* Character counter with enhanced styling */}
           <span className={cn(
-            "absolute bottom-1.5 right-2 text-[10px] transition-colors pointer-events-none",
-            input.length === 0 && "text-transparent",
-            input.length > 0 && input.length <= maxChars * 0.8 && "text-muted-foreground/50",
+            "absolute bottom-2 right-3 text-[10px] transition-all duration-200 pointer-events-none font-medium",
+            input.length === 0 && "opacity-0",
+            input.length > 0 && input.length <= maxChars * 0.8 && "text-muted-foreground/40",
             input.length > maxChars * 0.8 && input.length <= maxChars * 0.95 && "text-amber-500",
-            input.length > maxChars * 0.95 && "text-destructive font-medium"
+            input.length > maxChars * 0.95 && "text-destructive"
           )}>
             {input.length}/{maxChars}
           </span>
@@ -218,10 +224,17 @@ export function ChatInputArea({
               <Button 
                 type="submit" 
                 size="icon"
-                className="shrink-0 h-9 w-9"
+                className={cn(
+                  "shrink-0 h-10 w-10 rounded-xl transition-all duration-200",
+                  "bg-gradient-to-br from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90",
+                  "shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30",
+                  "hover:scale-105 active:scale-95",
+                  "send-btn-ripple",
+                  !input.trim() && "opacity-50 shadow-none hover:scale-100"
+                )}
                 disabled={!input.trim() || input.length > maxChars}
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
