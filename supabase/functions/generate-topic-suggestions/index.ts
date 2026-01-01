@@ -276,6 +276,11 @@ interface IndustryContext {
     language_style?: string[];
   };
   seasonalEvents?: SeasonalEvent[];
+  claimRestrictions?: string[];
+  argumentPatterns?: {
+    valid_patterns?: string[];
+    forbidden_patterns?: string[];
+  };
 }
 
 // Seasonal event structure for industry-specific calendar
@@ -914,29 +919,203 @@ serve(async (req) => {
   }
 });
 
-// Handle refine mode - generates 3 improved versions of a raw topic
+// Handle refine mode - generates 3 improved versions of a raw topic with FULL context
 async function handleRefineMode(
   rawTopic: string,
   videoType: string | undefined,
   brandTemplateId: string | undefined,
   supabase: any
 ): Promise<Response> {
+  const startTime = Date.now();
+  
   try {
-    // Fetch brand context for better refinement
-    let brandContext = '';
+    console.log('Refine mode with full context, brandTemplateId:', brandTemplateId);
+    
+    // Initialize context trackers
+    let contextUsed = {
+      hasPersonas: false,
+      hasProducts: false,
+      hasIndustryMemory: false,
+      hasLearningContext: false,
+    };
+    
+    // Full brand context
+    let extendedBrandContext: ExtendedBrandContext | null = null;
+    let industryContext: IndustryContext | null = null;
+    let learningContext: LearningContext | null = null;
+    let personas: CustomerPersona[] = [];
+    let products: BrandProduct[] = [];
+    
     if (brandTemplateId) {
-      const { data: brandTemplate } = await supabase
+      // Fetch full brand template with extended fields
+      const { data: brandTemplate, error: brandError } = await supabase
         .from('brand_templates')
-        .select('brand_name, brand_positioning, tone_of_voice, industry')
+        .select(`
+          brand_name,
+          brand_positioning,
+          tone_of_voice,
+          preferred_words,
+          forbidden_words,
+          industry,
+          formality_level,
+          language_style,
+          allow_emoji,
+          content_pillars,
+          industry_template_id,
+          mission,
+          vision,
+          unique_value_proposition,
+          tagline,
+          main_competitors,
+          competitive_advantages,
+          market_segment,
+          target_age_range,
+          target_gender,
+          target_locations,
+          brand_hashtags,
+          signature_phrases,
+          cta_templates,
+          evergreen_themes,
+          organization_id
+        `)
         .eq('id', brandTemplateId)
         .single();
       
-      if (brandTemplate) {
-        brandContext = `
-Brand: ${brandTemplate.brand_name}
-${brandTemplate.brand_positioning ? `Định vị: ${brandTemplate.brand_positioning}` : ''}
-${brandTemplate.tone_of_voice?.length ? `Tone: ${brandTemplate.tone_of_voice.join(', ')}` : ''}
-${brandTemplate.industry?.length ? `Ngành: ${brandTemplate.industry.join(', ')}` : ''}`;
+      if (brandTemplate && !brandError) {
+        // Build extended brand context
+        extendedBrandContext = {
+          brandName: brandTemplate.brand_name,
+          brandPositioning: brandTemplate.brand_positioning,
+          toneOfVoice: brandTemplate.tone_of_voice,
+          preferredWords: brandTemplate.preferred_words,
+          forbiddenWords: brandTemplate.forbidden_words,
+          industry: brandTemplate.industry,
+          formality: brandTemplate.formality_level,
+          languageStyle: brandTemplate.language_style,
+          allowEmoji: brandTemplate.allow_emoji,
+          contentPillars: brandTemplate.content_pillars as ContentPillar[] || [],
+          // Extended fields
+          mission: brandTemplate.mission,
+          vision: brandTemplate.vision,
+          uniqueValueProposition: brandTemplate.unique_value_proposition,
+          tagline: brandTemplate.tagline,
+          mainCompetitors: brandTemplate.main_competitors,
+          competitiveAdvantages: brandTemplate.competitive_advantages,
+          marketSegment: brandTemplate.market_segment,
+          targetAgeRange: brandTemplate.target_age_range,
+          targetGender: brandTemplate.target_gender,
+          targetLocations: brandTemplate.target_locations,
+          brandHashtags: brandTemplate.brand_hashtags,
+          signaturePhrases: brandTemplate.signature_phrases,
+          ctaTemplates: brandTemplate.cta_templates,
+          evergreenThemes: brandTemplate.evergreen_themes,
+        };
+        
+        console.log('Extended brand context loaded:', extendedBrandContext.brandName);
+        
+        // PARALLEL: Fetch personas, products, industry, and learning context
+        const [personasResult, productsResult, industryResult, learningResult] = await Promise.all([
+          // Fetch customer personas with enhanced fields
+          supabase
+            .from('customer_personas')
+            .select(`
+              id, name, avatar_emoji, occupation, age_range, gender,
+              pain_points, desires, objections, buying_triggers,
+              preferred_channels, typical_funnel_stage, is_primary,
+              device_usage, tech_savviness, buying_motivation,
+              communication_style, journey_map, priority_score
+            `)
+            .eq('brand_template_id', brandTemplateId)
+            .order('is_primary', { ascending: false })
+            .order('priority_score', { ascending: false }),
+          
+          // Fetch brand products
+          supabase
+            .from('brand_products')
+            .select(`
+              id, name, category, description, unique_selling_points,
+              target_audience, pain_points_solved, benefits,
+              suggested_content_angles, is_featured
+            `)
+            .eq('brand_template_id', brandTemplateId)
+            .eq('is_active', true)
+            .order('is_featured', { ascending: false })
+            .order('sort_order', { ascending: true }),
+          
+          // Fetch industry memory if available
+          brandTemplate.industry_template_id ? supabase
+            .from('industry_templates')
+            .select(`
+              target_audience,
+              forbidden_terms,
+              compliance_rules,
+              brand_voice,
+              claim_restrictions,
+              argument_patterns
+            `)
+            .eq('id', brandTemplate.industry_template_id)
+            .single() : Promise.resolve({ data: null }),
+          
+          // Fetch learning context
+          fetchLearningContext(supabase, brandTemplateId, brandTemplate.organization_id),
+        ]);
+        
+        // Process personas
+        if (personasResult.data && personasResult.data.length > 0) {
+          personas = personasResult.data.map((p: any) => ({
+            name: p.name,
+            avatarEmoji: p.avatar_emoji,
+            occupation: p.occupation,
+            ageRange: p.age_range,
+            gender: p.gender,
+            painPoints: p.pain_points,
+            desires: p.desires,
+            objections: p.objections,
+            buyingTriggers: p.buying_triggers,
+            preferredChannels: p.preferred_channels,
+            typicalFunnelStage: p.typical_funnel_stage,
+            isPrimary: p.is_primary,
+            deviceUsage: p.device_usage,
+            techSavviness: p.tech_savviness,
+            buyingMotivation: p.buying_motivation,
+            communicationStyle: p.communication_style,
+            journeyMap: p.journey_map,
+            priorityScore: p.priority_score,
+          }));
+          contextUsed.hasPersonas = true;
+          extendedBrandContext.primaryPersona = personas.find(p => p.isPrimary) || personas[0];
+          extendedBrandContext.allPersonas = personas;
+          console.log('Personas loaded:', personas.length);
+        }
+        
+        // Process products
+        if (productsResult.data && productsResult.data.length > 0) {
+          products = productsResult.data;
+          contextUsed.hasProducts = true;
+          extendedBrandContext.products = products;
+          console.log('Products loaded:', products.length);
+        }
+        
+        // Process industry memory
+        if (industryResult.data) {
+          industryContext = {
+            targetAudience: industryResult.data.target_audience,
+            forbiddenTerms: industryResult.data.forbidden_terms,
+            complianceRules: industryResult.data.compliance_rules,
+            brandVoice: industryResult.data.brand_voice,
+            claimRestrictions: industryResult.data.claim_restrictions,
+            argumentPatterns: industryResult.data.argument_patterns,
+          };
+          contextUsed.hasIndustryMemory = true;
+          console.log('Industry memory loaded:', industryContext?.targetAudience);
+        }
+        
+        // Process learning context
+        if (learningResult) {
+          learningContext = learningResult;
+          contextUsed.hasLearningContext = true;
+          console.log('Learning context loaded:', learningContext.totalTopicsUsed, 'topics');
+        }
       }
     }
 
@@ -945,30 +1124,101 @@ ${brandTemplate.industry?.length ? `Ngành: ${brandTemplate.industry.join(', ')}
                           videoType === 'warning_mistake' ? 'cảnh báo sai lầm' :
                           videoType === 'quick_qa' ? 'hỏi đáp nhanh' : 'video marketing';
 
-    const prompt = `Bạn là Content Strategist chuyên nghiệp. Người dùng đã nhập một ý tưởng chủ đề thô và cần bạn cải thiện thành 3 phiên bản hay hơn, cụ thể hơn, hấp dẫn hơn.
+    // ========== BUILD ENHANCED PROMPT WITH FULL CONTEXT ==========
+    const promptParts: string[] = [];
+    
+    // Core instruction
+    promptParts.push(`Bạn là Content Strategist chuyên nghiệp. Cải thiện chủ đề thô thành 3 phiên bản hay hơn, cụ thể hơn, hấp dẫn hơn.
 
-Chủ đề thô: "${rawTopic}"
-Thể loại video: ${videoTypeLabel}
-${brandContext}
+## CHỦ ĐỀ THÔ
+"${rawTopic}"
+Thể loại: ${videoTypeLabel}`);
 
-Yêu cầu cho mỗi phiên bản cải thiện:
-1. Cụ thể hóa: Thêm số liệu, con số, hoặc phạm vi rõ ràng
-2. Hấp dẫn: Sử dụng pattern như "X điều...", "Bí quyết...", "Tại sao...", "Sai lầm..."
-3. Đa dạng góc tiếp cận: Mỗi phiên bản có góc nhìn khác nhau
-4. Phù hợp với thể loại video và brand (nếu có)
+    // Add extended brand context using utility
+    if (extendedBrandContext) {
+      const brandSection = buildExtendedBrandPrompt(extendedBrandContext);
+      if (brandSection) {
+        promptParts.push(brandSection);
+      }
+    }
+
+    // Add industry memory constraints (HIGHEST PRIORITY)
+    if (industryContext) {
+      const industrySection: string[] = [];
+      industrySection.push(`\n## 🔒 INDUSTRY MEMORY (QUY TẮC BẮT BUỘC - KHÔNG ĐƯỢC VI PHẠM)`);
+      
+      if (industryContext.targetAudience) {
+        industrySection.push(`Target Audience: ${industryContext.targetAudience}`);
+      }
+      
+      if (industryContext.forbiddenTerms?.length) {
+        industrySection.push(`\n### TỪ CẤM (TUYỆT ĐỐI KHÔNG DÙNG):`);
+        industrySection.push(industryContext.forbiddenTerms.slice(0, 10).join(', '));
+      }
+      
+      if (industryContext.complianceRules?.length) {
+        industrySection.push(`\n### COMPLIANCE RULES:`);
+        industryContext.complianceRules.slice(0, 5).forEach((rule: any) => {
+          industrySection.push(`- ${rule.rule}: ${rule.description}`);
+        });
+      }
+      
+      if (industryContext.claimRestrictions?.length) {
+        industrySection.push(`\n### CLAIM RESTRICTIONS:`);
+        industryContext.claimRestrictions.slice(0, 5).forEach((claim: string) => {
+          industrySection.push(`- ⚠️ ${claim}`);
+        });
+      }
+      
+      promptParts.push(industrySection.join('\n'));
+    }
+
+    // Add learning context using utility
+    if (learningContext) {
+      const learningSection = buildLearningSection(learningContext);
+      if (learningSection) {
+        promptParts.push(learningSection);
+      }
+      
+      // Add few-shot examples
+      const fewShotSection = buildFewShotExamples(learningContext, 'topic-suggestions', 2);
+      if (fewShotSection) {
+        promptParts.push(fewShotSection);
+      }
+    }
+
+    // Add CoT reasoning
+    promptParts.push(`
+## QUY TRÌNH CẢI THIỆN (CHAIN-OF-THOUGHT)
+
+Với MỖI phiên bản, suy nghĩ:
+1. **Persona Fit**: Phiên bản này giải quyết pain point nào của persona?
+2. **Product Alignment**: Có thể highlight USP sản phẩm nào không?
+3. **Industry Compliance**: Có tuân thủ forbidden terms và compliance rules?
+4. **Learning Insight**: Pattern nào đã thành công mà có thể áp dụng?
+5. **Hook Potential**: Hook có đủ mạnh để thu hút trong 3s đầu?`);
+
+    // Output format
+    promptParts.push(`
+## OUTPUT FORMAT
 
 Trả về CHÍNH XÁC JSON array với 3 items:
 [
   {
     "topic": "Tiêu đề chủ đề cải thiện (15-50 từ)",
-    "angle": "Góc tiếp cận (ví dụ: practical, controversial, educational, storytelling)",
-    "hook": "1 câu ngắn giải thích tại sao phiên bản này hay hơn bản gốc"
+    "angle": "Góc tiếp cận (practical, controversial, educational, storytelling, solution, data)",
+    "hook": "1 câu gợi ý hook mở đầu cho video"${personas.length > 0 ? `,
+    "targetPersona": "Tên persona phù hợp nhất (nếu rõ ràng)"` : ''}${products.length > 0 ? `,
+    "productFit": "Tên sản phẩm liên quan (nếu có)"` : ''}
   }
 ]
 
-CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`;
+CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`);
 
-    // Use lighter model for refine mode - faster response
+    const finalPrompt = promptParts.join('\n\n');
+    console.log('Enhanced refine prompt length:', finalPrompt.length, 'chars');
+
+    // Use gemini-2.5-flash for better quality with full context
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -976,18 +1226,20 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite', // Lighter model for simple refinement task
+        model: 'google/gemini-2.5-flash', // Upgraded from flash-lite
         messages: [
-          { role: 'user', content: prompt }
+          { role: 'user', content: finalPrompt }
         ],
       }),
     });
 
     if (!response.ok) {
-      console.error('AI gateway error in refine mode:', response.status);
+      const errorText = await response.text();
+      console.error('AI gateway error in refine mode:', response.status, errorText);
       return new Response(JSON.stringify({ 
         refinedTopics: [],
-        error: 'AI error'
+        error: 'AI error',
+        contextUsed,
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -997,7 +1249,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`;
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
     
-    let refinedTopics: RefinedTopic[] = [];
+    let refinedTopics: (RefinedTopic & { targetPersona?: string; productFit?: string })[] = [];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
@@ -1005,17 +1257,22 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`;
           topic: item.topic || '',
           angle: item.angle || 'general',
           hook: item.hook || '',
+          targetPersona: item.targetPersona,
+          productFit: item.productFit,
         }));
       }
     } catch (parseError) {
       console.error('Failed to parse refined topics:', parseError);
     }
 
-    console.log('Generated', refinedTopics.length, 'refined topics');
+    const duration = Date.now() - startTime;
+    console.log('Generated', refinedTopics.length, 'refined topics with full context in', duration, 'ms');
 
     return new Response(JSON.stringify({
       refinedTopics,
       source: 'ai',
+      contextUsed,
+      processingTime: duration,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

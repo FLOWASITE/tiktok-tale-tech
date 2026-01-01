@@ -5,6 +5,15 @@ export interface RefinedTopic {
   topic: string;
   angle: string;
   hook: string;
+  targetPersona?: string;
+  productFit?: string;
+}
+
+export interface RefineContextUsed {
+  hasPersonas: boolean;
+  hasProducts: boolean;
+  hasIndustryMemory: boolean;
+  hasLearningContext: boolean;
 }
 
 interface UseTopicRefinementOptions {
@@ -20,6 +29,7 @@ interface UseTopicRefinementResult {
   isTyping: boolean;
   error: string | null;
   refresh: () => void;
+  contextUsed: RefineContextUsed | null;
 }
 
 export function useTopicRefinement({
@@ -32,12 +42,14 @@ export function useTopicRefinement({
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contextUsed, setContextUsed] = useState<RefineContextUsed | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastTopicRef = useRef<string>('');
 
   const fetchRefinements = useCallback(async () => {
     if (!rawTopic || rawTopic.trim().length < 10) {
       setRefinedTopics([]);
+      setContextUsed(null);
       return;
     }
 
@@ -74,10 +86,18 @@ export function useTopicRefinement({
       } else {
         setRefinedTopics([]);
       }
+
+      // Store context metadata
+      if (data?.contextUsed) {
+        setContextUsed(data.contextUsed);
+      } else {
+        setContextUsed(null);
+      }
     } catch (err) {
       console.error('Topic refinement error:', err);
       setError(err instanceof Error ? err.message : 'Không thể cải thiện chủ đề');
       setRefinedTopics([]);
+      setContextUsed(null);
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +119,7 @@ export function useTopicRefinement({
     // Show typing indicator immediately
     setIsTyping(true);
 
-    // Debounce reduced to 400ms for faster response
+    // Debounce increased to 600ms for full context fetch
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -107,7 +127,7 @@ export function useTopicRefinement({
     debounceRef.current = setTimeout(() => {
       setIsTyping(false);
       fetchRefinements();
-    }, 400);
+    }, 600);
 
     return () => {
       if (debounceRef.current) {
@@ -122,5 +142,6 @@ export function useTopicRefinement({
     isTyping,
     error,
     refresh,
+    contextUsed,
   };
 }
