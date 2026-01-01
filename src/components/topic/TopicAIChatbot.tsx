@@ -5,7 +5,6 @@
 
 import { useEffect, useCallback } from 'react';
 import { ArrowDown } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Card } from '@/components/ui/card';
@@ -29,8 +28,7 @@ import {
   ChatHeader, 
   ChatInputArea, 
   ChatOnboarding, 
-  ChatMessageBubble,
-  ChatThinkingIndicator,
+  VirtualizedMessageList,
   DiscoveryTab,
   ArtifactsPanel,
   type TopicAIChatbotProps,
@@ -247,55 +245,31 @@ export function TopicAIChatbot({
             />
           ) : (
             <>
-              <div 
-                ref={uiHook.scrollContainerRef}
-                className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-4 scroll-smooth"
+              <VirtualizedMessageList
+                messages={messagesHook.messages}
+                animatingMessageId={messagesHook.animatingMessageId}
+                searchResults={uiHook.searchResults}
+                searchQuery={uiHook.searchQuery}
+                isLoading={streamingHook.isLoading}
+                thinkingStatus={streamingHook.thinkingStatus}
+                currentExecutingTool={streamingHook.currentExecutingTool || undefined}
+                userProfile={profile}
+                personalizedWelcome={messagesHook.personalizedWelcome}
+                onFeedback={handleFeedback}
+                onRegenerate={handleRegenerate}
+                onTopicAction={handleTopicAction}
+                onTopicRefinement={handleTopicRefinement}
+                onSendFollowUp={handleSend}
+                onNavigate={onNavigate}
+                highlightSearchTerm={uiHook.highlightSearchTerm}
                 onScroll={uiHook.handleScroll}
                 onTouchStart={uiHook.handleTouchStart}
                 onTouchMove={uiHook.handleTouchMove}
                 onTouchEnd={uiHook.handleTouchEnd}
-              >
-                {/* Pull-to-refresh indicator */}
-                {uiHook.pullDistance > 0 && (
-                  <div 
-                    className="flex items-center justify-center py-2 text-xs text-muted-foreground"
-                    style={{ height: uiHook.pullDistance }}
-                  >
-                    {uiHook.isRefreshing ? 'Đang làm mới...' : uiHook.pullDistance >= 80 ? 'Thả để làm mới' : 'Kéo xuống để làm mới'}
-                  </div>
-                )}
-                
-                {messagesHook.messages.map((message) => (
-                  <ChatMessageBubble
-                    key={message.id}
-                    message={message}
-                    isAnimating={messagesHook.animatingMessageId === message.id}
-                    isHighlighted={uiHook.searchResults.includes(message.id)}
-                    isRegenerating={false}
-                    isLoading={streamingHook.isLoading}
-                    userProfile={profile}
-                    onFeedback={handleFeedback}
-                    onRegenerate={handleRegenerate}
-                    onTopicAction={handleTopicAction}
-                    onTopicRefinement={handleTopicRefinement}
-                    onSendFollowUp={handleSend}
-                    onNavigate={onNavigate}
-                    searchQuery={uiHook.searchQuery}
-                    searchResults={uiHook.searchResults}
-                    highlightSearchTerm={uiHook.highlightSearchTerm}
-                    personalizedWelcome={messagesHook.personalizedWelcome}
-                  />
-                ))}
-                
-                <AnimatePresence>
-                  {streamingHook.isLoading && (
-                    <ChatThinkingIndicator 
-                      status={streamingHook.thinkingStatus}
-                      currentTool={streamingHook.currentExecutingTool || undefined}
-                    />
-                  )}
-                </AnimatePresence>
-              </div>
+                pullDistance={uiHook.pullDistance}
+                isRefreshing={uiHook.isRefreshing}
+                scrollContainerRef={uiHook.scrollContainerRef}
+              />
               
               {/* Scroll to bottom button */}
               {uiHook.showScrollButton && (
