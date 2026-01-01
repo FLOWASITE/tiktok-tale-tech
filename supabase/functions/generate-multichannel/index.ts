@@ -1179,11 +1179,71 @@ serve(async (req) => {
       extendedBrandContext
     );
 
+    // Fetch targeted product/persona if specified
+    let targetedProductContext = '';
+    let targetedPersonaContext = '';
+    
+    if (formData.targetProductId && formData.brandTemplateId) {
+      const { data: targetProduct } = await supabase
+        .from('brand_products')
+        .select('*')
+        .eq('id', formData.targetProductId)
+        .eq('brand_template_id', formData.brandTemplateId)
+        .single();
+      
+      if (targetProduct) {
+        targetedProductContext = `
+## 🎯 SẢN PHẨM/DỊCH VỤ MỤC TIÊU
+**Tên**: ${targetProduct.name}
+${targetProduct.category ? `**Danh mục**: ${targetProduct.category}` : ''}
+${targetProduct.description ? `**Mô tả**: ${targetProduct.description}` : ''}
+${targetProduct.unique_selling_points?.length ? `**USP**: ${targetProduct.unique_selling_points.join(', ')}` : ''}
+${targetProduct.benefits?.length ? `**Lợi ích**: ${targetProduct.benefits.join(', ')}` : ''}
+${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${targetProduct.pain_points_solved.join(', ')}` : ''}
+
+⚡ NỘI DUNG PHẢI TẬP TRUNG vào sản phẩm này, nhấn mạnh USP và cách giải quyết pain points.
+`;
+        console.log("Targeted product loaded:", targetProduct.name);
+      }
+    }
+    
+    if (formData.targetPersonaId && formData.brandTemplateId) {
+      const { data: targetPersona } = await supabase
+        .from('customer_personas')
+        .select('*')
+        .eq('id', formData.targetPersonaId)
+        .eq('brand_template_id', formData.brandTemplateId)
+        .single();
+      
+      if (targetPersona) {
+        targetedPersonaContext = `
+## 👤 PERSONA MỤC TIÊU
+**Tên**: ${targetPersona.name} ${targetPersona.avatar_emoji || ''}
+${targetPersona.occupation ? `**Nghề nghiệp**: ${targetPersona.occupation}` : ''}
+${targetPersona.age_range ? `**Độ tuổi**: ${targetPersona.age_range}` : ''}
+${targetPersona.pain_points?.length ? `**Pain points**: ${targetPersona.pain_points.join(', ')}` : ''}
+${targetPersona.desires?.length ? `**Mong muốn**: ${targetPersona.desires.join(', ')}` : ''}
+${targetPersona.buying_triggers?.length ? `**Trigger mua hàng**: ${targetPersona.buying_triggers.join(', ')}` : ''}
+${targetPersona.objections?.length ? `**Objections thường gặp**: ${targetPersona.objections.join(', ')}` : ''}
+${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPersona.communication_style}` : ''}
+
+⚡ NỘI DUNG PHẢI VIẾT CHO PERSONA NÀY:
+- Tone phù hợp với phong cách giao tiếp của họ
+- Giải quyết đúng pain points của họ
+- Trigger buying motivation
+- Phản bác objections nếu phù hợp
+`;
+        console.log("Targeted persona loaded:", targetPersona.name);
+      }
+    }
+
     // Build user prompt with optional edited previews as examples
     let userPrompt = `Tạo nội dung đa kênh cho chủ đề:
 "${formData.topic}"
 
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
+${targetedProductContext}
+${targetedPersonaContext}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
 

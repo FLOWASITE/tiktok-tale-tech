@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { 
   Tooltip,
   TooltipContent,
@@ -37,6 +38,8 @@ import {
   AtSign,
   CheckSquare,
   Square,
+  Users,
+  Package,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -47,6 +50,8 @@ import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSele
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
 import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
+import { ProductSelector } from '@/components/topic/ProductSelector';
+import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -56,6 +61,7 @@ import {
   CHANNELS,
   CONTENT_GOALS,
 } from '@/types/multichannel';
+import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 
 interface MultiChannelFormStepperProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
@@ -63,6 +69,10 @@ interface MultiChannelFormStepperProps {
   initialTopic?: string;
   initialGoal?: ContentGoal;
   topicHistoryId?: string;
+  initialContentPurpose?: ContentPurpose;
+  initialMarketingFramework?: MarketingFramework;
+  initialProductId?: string;
+  initialPersonaId?: string;
 }
 
 const STEPS: Step[] = [
@@ -103,7 +113,11 @@ export function MultiChannelFormStepper({
   isLoading, 
   initialTopic, 
   initialGoal,
-  topicHistoryId 
+  topicHistoryId,
+  initialContentPurpose,
+  initialMarketingFramework,
+  initialProductId,
+  initialPersonaId,
 }: MultiChannelFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -119,6 +133,10 @@ export function MultiChannelFormStepper({
     channels: ['facebook', 'instagram'],
     brandTemplateId: undefined,
     brandVoiceVariantId: undefined,
+    productId: initialProductId,
+    personaId: initialPersonaId,
+    contentPurpose: initialContentPurpose,
+    marketingFramework: initialMarketingFramework,
   });
 
   // Handle initialTopic prop changes
@@ -344,6 +362,52 @@ export function MultiChannelFormStepper({
                       )}
                     </CardContent>
                   </Card>
+                )}
+
+                {/* Product/Persona Targeting Section */}
+                {formData.brandTemplateId && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="w-4 h-4" />
+                        <span className="font-medium">Nhắm đối tượng (tùy chọn)</span>
+                      </div>
+                      
+                      {/* Product Selector */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Package className="w-3.5 h-3.5" />
+                          Sản phẩm/Dịch vụ
+                        </Label>
+                        <ProductSelector
+                          brandTemplateId={formData.brandTemplateId}
+                          value={formData.productId}
+                          onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
+                          disabled={isLoading}
+                          placeholder="Chọn sản phẩm để tập trung..."
+                        />
+                      </div>
+
+                      {/* Persona Selector */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5" />
+                          Persona mục tiêu
+                        </Label>
+                        <PersonaSelector
+                          brandTemplateId={formData.brandTemplateId}
+                          value={formData.personaId}
+                          onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
+                          disabled={isLoading}
+                        />
+                      </div>
+
+                      <p className="text-xs text-muted-foreground/80 italic">
+                        Chọn sản phẩm/persona để AI tạo nội dung targeted hơn
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
