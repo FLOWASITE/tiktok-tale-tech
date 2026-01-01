@@ -126,7 +126,8 @@ export function VirtualizedMessageList({
   isRefreshing,
   scrollContainerRef,
 }: VirtualizedMessageListProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
+  // Use the parent-provided ref to avoid ref-sync side effects
+  const scrollElRef = scrollContainerRef;
   
   // Estimate row height based on message content
   const estimateSize = useCallback((index: number) => {
@@ -144,7 +145,7 @@ export function VirtualizedMessageList({
     
     // Assistant messages with topics are larger
     if (message.extractedTopics?.length) {
-      return 200 + (message.extractedTopics.length * 80);
+      return 200 + message.extractedTopics.length * 80;
     }
     
     // Regular assistant messages
@@ -154,9 +155,9 @@ export function VirtualizedMessageList({
 
   const virtualizer = useVirtualizer({
     count: messages.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElRef.current,
     estimateSize,
-    overscan: 3, // Render 3 extra items above/below viewport
+    overscan: 3,
     getItemKey: (index) => messages[index]?.id || index,
   });
 
@@ -166,26 +167,18 @@ export function VirtualizedMessageList({
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (messages.length > prevMessageCountRef.current) {
-      // Small delay to allow DOM update
       requestAnimationFrame(() => {
         virtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
       });
     }
     prevMessageCountRef.current = messages.length;
-  }, [messages.length]); // Remove virtualizer from deps
-
-  // Sync refs for external scroll control
-  useEffect(() => {
-    if (scrollContainerRef && parentRef.current) {
-      (scrollContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = parentRef.current;
-    }
-  }, []);
+  }, [messages.length]);
 
   const virtualItems = virtualizer.getVirtualItems();
 
   return (
     <div
-      ref={parentRef}
+      ref={scrollElRef}
       className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 scroll-smooth"
       onScroll={onScroll}
       onTouchStart={onTouchStart}
