@@ -17,11 +17,13 @@ import { MultiChannelFormData, ContentGoal, Channel, CHANNELS } from '@/types/mu
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { BrandAppliedInfo } from '@/components/BrandAppliedInfo';
 import { BrandTemplateCombobox } from '@/components/BrandTemplateCombobox';
 import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
 import { MultiChannelPreviewDialog, EditedPreviews } from '@/components/MultiChannelPreviewDialog';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { ContentPurposeSelector } from '@/components/topic/ContentPurposeSelector';
 import { MarketingFrameworkSelector } from '@/components/topic/MarketingFrameworkSelector';
 import { QuickStartSection } from '@/components/QuickStartSection';
@@ -73,6 +75,36 @@ const channelColors: Record<Channel, string> = {
 
 const DRAFT_KEY = 'multichannel_form_draft';
 
+// Loading phases for enhanced UX during generation
+const LOADING_PHASES = [
+  { key: 'analyzing', label: 'Đang phân tích chủ đề...' },
+  { key: 'context', label: 'Đang tải ngữ cảnh thương hiệu...' },
+  { key: 'generating', label: 'Đang tạo nội dung...' },
+  { key: 'optimizing', label: 'Đang tối ưu hashtags...' },
+  { key: 'finalizing', label: 'Hoàn thiện nội dung...' },
+];
+
+// Channel-specific loading messages
+const getChannelLoadingPhases = (channels: Channel[]) => {
+  const basePhases = [{ key: 'analyzing', label: 'Đang phân tích chủ đề...' }];
+  
+  const channelPhases = channels.slice(0, 4).map(ch => {
+    const channelInfo = CHANNELS.find(c => c.value === ch);
+    return { key: `channel-${ch}`, label: `Đang tạo nội dung ${channelInfo?.label || ch}...` };
+  });
+  
+  if (channels.length > 4) {
+    channelPhases.push({ key: 'more-channels', label: `Đang tạo ${channels.length - 4} kênh còn lại...` });
+  }
+  
+  return [
+    ...basePhases,
+    ...channelPhases,
+    { key: 'optimizing', label: 'Đang tối ưu hashtags & CTA...' },
+    { key: 'finalizing', label: 'Hoàn thiện nội dung...' },
+  ];
+};
+
 export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoal, initialContentPurpose, initialMarketingFramework, topicHistoryId }: MultiChannelFormProps) {
   const { templates, loading: loadingTemplates } = useBrandTemplates();
   const [topic, setTopic] = useState(initialTopic || '');
@@ -82,7 +114,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
   const [marketingFramework, setMarketingFramework] = useState<MarketingFramework | undefined>(initialMarketingFramework);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(!!initialContentPurpose || !!initialMarketingFramework);
   const [selectedQuickStartTemplate, setSelectedQuickStartTemplate] = useState<QuickStartTemplate | null>(null);
-
+  const [loadingPhaseIndex, setLoadingPhaseIndex] = useState(0);
   // Handle initialTopic/initialGoal prop changes
   useEffect(() => {
     if (initialTopic) {
@@ -130,6 +162,41 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
     format: 'multichannel',
     enabled: hasLoadedDraft, // Only fetch after draft loaded
   });
+
+  // Topic refinement hook - AI-powered topic improvement suggestions
+  const {
+    refinedTopics,
+    isLoading: isRefining,
+    isTyping: isTypingTopic,
+    refresh: refreshRefinement,
+  } = useTopicRefinement({
+    rawTopic: topic,
+    brandTemplateId: brandTemplateId || undefined,
+    enabled: hasLoadedDraft && topic.trim().length >= 10,
+  });
+
+  // Dynamic loading phases based on selected channels
+  const loadingPhases = useMemo(() => 
+    getChannelLoadingPhases(selectedChannels), 
+    [selectedChannels]
+  );
+
+  // Loading phase rotation effect
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingPhaseIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setLoadingPhaseIndex(prev => {
+        const next = prev + 1;
+        return next >= loadingPhases.length ? loadingPhases.length - 1 : next;
+      });
+    }, 2500); // Rotate every 2.5 seconds
+
+    return () => clearInterval(interval);
+  }, [isLoading, loadingPhases.length]);
 
   // Load draft from localStorage
   useEffect(() => {
@@ -394,18 +461,32 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                 </p>
               )}
               
-              {/* Topic Suggestions */}
-              <TopicSuggestionPanel
-                suggestions={enhancedSuggestions}
-                source={suggestionsSource}
-                isLoading={suggestionsLoading}
-                onSelect={handleTopicSuggestion}
-                onRefresh={refreshSuggestions}
-                onSave={saveSuggestion}
-                onFeedback={submitFeedback}
-                disabled={isLoading}
-                showEnhancedInfo={true}
-              />
+              {/* Topic Suggestions - when topic is empty */}
+              {!topic.trim() && (
+                <TopicSuggestionPanel
+                  suggestions={enhancedSuggestions}
+                  source={suggestionsSource}
+                  isLoading={suggestionsLoading}
+                  onSelect={handleTopicSuggestion}
+                  onRefresh={refreshSuggestions}
+                  onSave={saveSuggestion}
+                  onFeedback={submitFeedback}
+                  disabled={isLoading}
+                  showEnhancedInfo={true}
+                />
+              )}
+
+              {/* Topic Refinement - when topic has content >= 10 chars */}
+              {topic.trim().length >= 10 && (
+                <TopicRefinementSuggestions
+                  refinedTopics={refinedTopics}
+                  isLoading={isRefining}
+                  isTyping={isTypingTopic}
+                  onSelect={(refined) => setTopic(refined)}
+                  onRefresh={refreshRefinement}
+                  disabled={isLoading}
+                />
+              )}
             </div>
 
             {/* Industry (Optional) */}
@@ -700,7 +781,9 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                 {isLoading ? (
                   <span className="flex items-center animate-pulse">
                     <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1.5 xs:mr-2 animate-spin" />
-                    <span className="text-xs xs:text-sm">Đang tạo...</span>
+                    <span className="text-xs xs:text-sm truncate max-w-[180px]">
+                      {loadingPhases[loadingPhaseIndex]?.label || 'Đang tạo...'}
+                    </span>
                   </span>
                 ) : (
                   <span className="flex items-center">
