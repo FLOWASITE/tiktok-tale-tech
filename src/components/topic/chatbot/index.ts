@@ -33,3 +33,5 @@ export { ChatHeader } from './ChatHeader';
 export { ChatInputArea } from './ChatInputArea';
 export { ChatOnboarding } from './ChatOnboarding';
 export { ChatMessageBubble } from './ChatMessageBubble';
+export { VirtualizedMessageList } from './VirtualizedMessageList';
+export { LazyMessageContent, MessageContentSkeleton, LazyMarkdown } from './LazyMessageContent';
