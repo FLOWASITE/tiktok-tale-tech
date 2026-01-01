@@ -253,6 +253,9 @@ export function TopicAIChatbot({
                 isLoading={streamingHook.isLoading}
                 thinkingStatus={streamingHook.thinkingStatus}
                 currentExecutingTool={streamingHook.currentExecutingTool || undefined}
+                agentTurnInfo={streamingHook.agentTurnInfo}
+                progressSteps={streamingHook.progressSteps}
+                elapsedSeconds={streamingHook.elapsedSeconds}
                 userProfile={profile}
                 personalizedWelcome={messagesHook.personalizedWelcome}
                 onFeedback={handleFeedback}

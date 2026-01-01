@@ -16,11 +16,21 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { ContentGoal } from '@/types/multichannel';
 
+export interface ProgressStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'active' | 'complete' | 'error';
+  duration?: number;
+  startTime?: number;
+}
+
 interface StreamingState {
   isLoading: boolean;
   thinkingStatus: ThinkingStatus;
   currentExecutingTool: string | null;
   agentTurnInfo: AgentTurnInfo | null;
+  progressSteps: ProgressStep[];
+  elapsedSeconds: number;
 }
 
 interface UseChatStreamingOptions {
@@ -52,12 +62,15 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
   } = options;
   
   const abortControllerRef = useRef<AbortController | null>(null);
+  const elapsedIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [state, setState] = useState<StreamingState>({
     isLoading: false,
     thinkingStatus: 'thinking',
     currentExecutingTool: null,
     agentTurnInfo: null,
+    progressSteps: [],
+    elapsedSeconds: 0,
   });
   
   const cancelStream = useCallback(() => {
@@ -65,23 +78,52 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
     setState(prev => ({
       ...prev,
       isLoading: false,
       thinkingStatus: 'thinking',
       currentExecutingTool: null,
       agentTurnInfo: null,
+      progressSteps: [],
+      elapsedSeconds: 0,
     }));
   }, []);
   
   const streamChat = useCallback(async (messages: ChatMessage[]): Promise<ChatMessage | null> => {
+    // Clear any existing interval
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+    }
+    
+    // Initialize progress steps
+    const initialSteps: ProgressStep[] = [
+      { id: 'context', label: 'Tải ngữ cảnh', status: 'active', startTime: Date.now() },
+      { id: 'thinking', label: 'AI xử lý', status: 'pending' },
+      { id: 'response', label: 'Tạo phản hồi', status: 'pending' },
+    ];
+    
     setState(prev => ({
       ...prev,
       isLoading: true,
       thinkingStatus: 'thinking',
       currentExecutingTool: null,
       agentTurnInfo: null,
+      progressSteps: initialSteps,
+      elapsedSeconds: 0,
     }));
+    
+    // Start elapsed timer
+    const startTime = Date.now();
+    elapsedIntervalRef.current = setInterval(() => {
+      setState(prev => ({
+        ...prev,
+        elapsedSeconds: Math.floor((Date.now() - startTime) / 1000),
+      }));
+    }, 1000);
     
     // Create abort controller
     abortControllerRef.current = new AbortController();
@@ -153,8 +195,18 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       let pendingContextBadges: RealtimeContextBadge[] | null = null;
       let contextRichness: number | undefined = undefined;
       
-      // Update status to generating
-      setState(prev => ({ ...prev, thinkingStatus: 'generating' }));
+      // Update progress: context loaded, move to thinking
+      setState(prev => ({ 
+        ...prev, 
+        thinkingStatus: 'generating',
+        progressSteps: prev.progressSteps.map(step => 
+          step.id === 'context' 
+            ? { ...step, status: 'complete' as const, duration: Date.now() - (step.startTime || Date.now()) }
+            : step.id === 'thinking'
+            ? { ...step, status: 'active' as const, startTime: Date.now() }
+            : step
+        ),
+      }));
       
       while (true) {
         const { done, value } = await reader.read();
@@ -238,8 +290,20 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             if (parsed.type === 'content_chunk' && parsed.data?.chunk) {
               assistantContent += parsed.data.chunk;
               
+              // Update progress: move to response step when content starts
               if (!messageCreated) {
                 messageCreated = true;
+                setState(prev => ({
+                  ...prev,
+                  progressSteps: prev.progressSteps.map(step => 
+                    step.id === 'thinking' 
+                      ? { ...step, status: 'complete' as const, duration: Date.now() - (step.startTime || Date.now()) }
+                      : step.id === 'response'
+                      ? { ...step, status: 'active' as const, startTime: Date.now() }
+                      : step
+                  ),
+                }));
+                
                 const newMessage: ChatMessage = {
                   id: assistantId,
                   role: 'assistant',
@@ -300,8 +364,20 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             if (content) {
               assistantContent += content;
               
+              // Update progress when content starts
               if (!messageCreated) {
                 messageCreated = true;
+                setState(prev => ({
+                  ...prev,
+                  progressSteps: prev.progressSteps.map(step => 
+                    step.id === 'thinking' 
+                      ? { ...step, status: 'complete' as const, duration: Date.now() - (step.startTime || Date.now()) }
+                      : step.id === 'response'
+                      ? { ...step, status: 'active' as const, startTime: Date.now() }
+                      : step
+                  ),
+                }));
+                
                 const newMessage: ChatMessage = {
                   id: assistantId,
                   role: 'assistant',
@@ -390,12 +466,19 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       return null;
       
     } finally {
+      // Clear elapsed timer
+      if (elapsedIntervalRef.current) {
+        clearInterval(elapsedIntervalRef.current);
+        elapsedIntervalRef.current = null;
+      }
       setState(prev => ({
         ...prev,
         isLoading: false,
         thinkingStatus: 'thinking',
         currentExecutingTool: null,
         agentTurnInfo: null,
+        progressSteps: [],
+        elapsedSeconds: 0,
       }));
       abortControllerRef.current = null;
     }
