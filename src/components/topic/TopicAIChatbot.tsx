@@ -283,6 +283,8 @@ export function TopicAIChatbot({
                 pullDistance={uiHook.pullDistance}
                 isRefreshing={uiHook.isRefreshing}
                 scrollContainerRef={uiHook.scrollContainerRef}
+                mode={mode}
+                onTopicSelect={onTopicSelect}
               />
               
               {/* Scroll to bottom button */}
