@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2 } from 'lucide-react';
+import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ThinkingStatus = 
@@ -15,6 +15,8 @@ export type ThinkingStatus =
   | 'generate_plan_draft'
   | 'refine_plan'
   | 'web_search'
+  | 'prefetch_web'
+  | 'fetch_context'
   | 'task_complete';
 
 export interface AgentTurnInfo {
@@ -24,10 +26,19 @@ export interface AgentTurnInfo {
   isComplete: boolean;
 }
 
+export interface ProgressStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'active' | 'complete' | 'error';
+  duration?: number;
+}
+
 interface ChatThinkingIndicatorProps {
   status?: ThinkingStatus;
   currentTool?: string;
   agentTurn?: AgentTurnInfo;
+  progressSteps?: ProgressStep[];
+  elapsedSeconds?: number;
   className?: string;
 }
 
@@ -43,7 +54,9 @@ const STATUS_CONFIG: Record<ThinkingStatus, { message: string; icon: typeof Brai
   start_planning_session: { message: 'Đang khởi tạo phiên lập kế hoạch...', icon: Calendar },
   generate_plan_draft: { message: 'Đang tạo bản kế hoạch...', icon: Calendar },
   refine_plan: { message: 'Đang tinh chỉnh kế hoạch...', icon: Wand2 },
-  web_search: { message: 'Đang tìm kiếm web...', icon: Search },
+  web_search: { message: 'Đang tìm kiếm web...', icon: Globe },
+  prefetch_web: { message: 'Đang tìm xu hướng...', icon: Globe },
+  fetch_context: { message: 'Đang tải ngữ cảnh...', icon: FileText },
   task_complete: { message: 'Đã hoàn thành!', icon: CheckCircle2 },
 };
 
@@ -51,15 +64,20 @@ export function ChatThinkingIndicator({
   status = 'thinking',
   currentTool,
   agentTurn,
+  progressSteps,
+  elapsedSeconds = 0,
   className 
 }: ChatThinkingIndicatorProps) {
-  // Determine the effective status based on currentTool if provided
   const effectiveStatus = currentTool && (currentTool in STATUS_CONFIG) 
     ? currentTool as ThinkingStatus 
     : status;
   
   const config = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.thinking;
   const StatusIcon = config.icon;
+
+  const hasProgressSteps = progressSteps && progressSteps.length > 0;
+  const completedSteps = progressSteps?.filter(s => s.status === 'complete').length || 0;
+  const totalSteps = progressSteps?.length || 0;
 
   return (
     <motion.div
@@ -75,7 +93,7 @@ export function ChatThinkingIndicator({
       aria-live="polite"
       aria-label="AI đang xử lý yêu cầu của bạn"
     >
-      {/* AI Avatar with enhanced pulse effect */}
+      {/* AI Avatar with pulse effect */}
       <div className="relative shrink-0 ai-avatar-pulse">
         <motion.div
           animate={{ 
@@ -95,10 +113,10 @@ export function ChatThinkingIndicator({
         </motion.div>
       </div>
 
-      {/* Thinking bubble with glassmorphism */}
+      {/* Main content */}
       <div className="flex-1 min-w-0">
+        {/* Header with status and elapsed time */}
         <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl rounded-tl-sm glass-chat-bubble">
-          {/* Status icon with rotation for some statuses */}
           <motion.div
             animate={effectiveStatus === 'thinking' ? { rotate: [0, 360] } : {}}
             transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
@@ -107,7 +125,6 @@ export function ChatThinkingIndicator({
             <StatusIcon className="w-4 h-4" />
           </motion.div>
           
-          {/* Status text with turn info */}
           <span className="text-xs text-foreground font-medium">
             {agentTurn && agentTurn.currentTurn > 0 && !agentTurn.isComplete && (
               <span className="text-primary mr-1.5 font-semibold">
@@ -117,7 +134,14 @@ export function ChatThinkingIndicator({
             {config.message}
           </span>
           
-          {/* Enhanced animated dots (hide when complete) */}
+          {/* Elapsed time badge */}
+          {elapsedSeconds > 0 && effectiveStatus !== 'task_complete' && (
+            <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
+              {elapsedSeconds}s
+            </span>
+          )}
+          
+          {/* Animated dots */}
           {effectiveStatus !== 'task_complete' && (
             <div className="flex items-center gap-1 ml-1">
               {[0, 1, 2].map((i) => (
@@ -140,8 +164,74 @@ export function ChatThinkingIndicator({
           )}
         </div>
 
+        {/* Progress Steps Timeline */}
+        {hasProgressSteps && (
+          <div className="mt-3 space-y-1">
+            {progressSteps.map((step, idx) => (
+              <motion.div
+                key={step.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="flex items-center gap-2"
+              >
+                {/* Step indicator */}
+                <div className="relative flex items-center justify-center w-5 h-5">
+                  {step.status === 'complete' ? (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center"
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-primary" />
+                    </motion.div>
+                  ) : step.status === 'active' ? (
+                    <div className="relative">
+                      <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                      <div className="absolute inset-0 w-4 h-4 rounded-full bg-primary/20 animate-ping" />
+                    </div>
+                  ) : step.status === 'error' ? (
+                    <div className="w-4 h-4 rounded-full bg-destructive/20 flex items-center justify-center">
+                      <span className="text-destructive text-[10px]">!</span>
+                    </div>
+                  ) : (
+                    <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />
+                  )}
+                  
+                  {/* Connecting line */}
+                  {idx < progressSteps.length - 1 && (
+                    <div 
+                      className={cn(
+                        "absolute top-5 left-1/2 w-0.5 h-4 -translate-x-1/2",
+                        step.status === 'complete' ? 'bg-primary/30' : 'bg-muted-foreground/20'
+                      )}
+                    />
+                  )}
+                </div>
+                
+                {/* Step label */}
+                <span className={cn(
+                  "text-xs",
+                  step.status === 'complete' ? 'text-muted-foreground' :
+                  step.status === 'active' ? 'text-foreground font-medium' :
+                  'text-muted-foreground/60'
+                )}>
+                  {step.label}
+                </span>
+                
+                {/* Duration badge */}
+                {step.status === 'complete' && step.duration && (
+                  <span className="text-[10px] text-muted-foreground/60">
+                    ({(step.duration / 1000).toFixed(1)}s)
+                  </span>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
+
         {/* Multi-turn progress indicator */}
-        {agentTurn && agentTurn.currentTurn > 0 && agentTurn.toolsExecuted.length > 0 && (
+        {agentTurn && agentTurn.currentTurn > 0 && agentTurn.toolsExecuted.length > 0 && !hasProgressSteps && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {agentTurn.toolsExecuted.map((tool, idx) => (
               <div
@@ -161,8 +251,8 @@ export function ChatThinkingIndicator({
           </div>
         )}
         
-        {/* Skeleton lines for content preview (only when not showing turn info) */}
-        {(!agentTurn || agentTurn.currentTurn === 0) && effectiveStatus !== 'task_complete' && (
+        {/* Skeleton lines (only when no progress steps) */}
+        {(!agentTurn || agentTurn.currentTurn === 0) && !hasProgressSteps && effectiveStatus !== 'task_complete' && (
           <div className="mt-2 space-y-1.5 max-w-[200px]">
             <motion.div
               className="h-2 rounded-full bg-muted/60"
@@ -182,6 +272,23 @@ export function ChatThinkingIndicator({
               transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
               style={{ width: '45%' }}
             />
+          </div>
+        )}
+
+        {/* Progress bar (when we have steps) */}
+        {hasProgressSteps && totalSteps > 0 && (
+          <div className="mt-3 w-full max-w-[200px]">
+            <div className="h-1 bg-muted/40 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-primary rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${(completedSteps / totalSteps) * 100}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {completedSteps}/{totalSteps} bước hoàn thành
+            </p>
           </div>
         )}
       </div>

@@ -7,7 +7,7 @@ import { memo, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ChatMessageBubble } from './ChatMessageBubble';
-import { ChatThinkingIndicator, type ThinkingStatus } from './ChatThinkingIndicator';
+import { ChatThinkingIndicator, type ThinkingStatus, type ProgressStep, type AgentTurnInfo } from './ChatThinkingIndicator';
 import type { ChatMessage, ExtractedTopic } from './types';
 import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 
@@ -19,6 +19,9 @@ interface SimpleMessageListProps {
   isLoading: boolean;
   thinkingStatus: ThinkingStatus;
   currentExecutingTool?: string;
+  agentTurnInfo?: AgentTurnInfo | null;
+  progressSteps?: ProgressStep[];
+  elapsedSeconds?: number;
   userProfile: any;
   personalizedWelcome: PersonalizedWelcomeData | null;
   onFeedback: (messageId: string, feedback: 'up' | 'down') => void;
@@ -101,6 +104,9 @@ export function SimpleMessageList({
   isLoading,
   thinkingStatus,
   currentExecutingTool,
+  agentTurnInfo,
+  progressSteps,
+  elapsedSeconds,
   userProfile,
   personalizedWelcome,
   onFeedback,
@@ -182,7 +188,13 @@ export function SimpleMessageList({
       <AnimatePresence>
         {isLoading && (
           <div className="pt-4">
-            <ChatThinkingIndicator status={thinkingStatus} currentTool={currentExecutingTool} />
+            <ChatThinkingIndicator 
+              status={thinkingStatus} 
+              currentTool={currentExecutingTool}
+              agentTurn={agentTurnInfo}
+              progressSteps={progressSteps}
+              elapsedSeconds={elapsedSeconds}
+            />
           </div>
         )}
       </AnimatePresence>
