@@ -7,6 +7,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { 
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -40,6 +45,12 @@ import {
   Users,
   Package,
   MessageSquare,
+  Crosshair,
+  Compass,
+  Rocket,
+  ChevronDown,
+  X,
+  Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -388,83 +399,185 @@ export function MultiChannelFormStepper({
 
           {/* Step 2: Targeting - Product/Persona + Goal + Angle + Journey */}
           {currentStep === 2 && (
-            <div className="space-y-5 animate-fade-in">
-              {/* Product/Persona Targeting */}
+            <div className="space-y-4 animate-fade-in">
+              {/* Section 1: Targeting */}
               {formData.brandTemplateId && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    <span className="font-medium">Nhắm đối tượng (tùy chọn)</span>
-                  </div>
-                  
-                  {/* Product Selector */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5" />
-                      Sản phẩm/Dịch vụ
-                    </Label>
-                    <ProductSelector
-                      brandTemplateId={formData.brandTemplateId}
-                      value={formData.productId}
-                      onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
-                      disabled={isLoading}
-                      placeholder="Chọn sản phẩm để tập trung..."
-                    />
-                  </div>
+                <Card className="bg-card/50 backdrop-blur-sm border-border/50 overflow-hidden animate-fade-in" style={{ animationDelay: '0ms' }}>
+                  <CardContent className="p-4 space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                          <Crosshair className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold text-foreground">Nhắm đối tượng</h3>
+                          <p className="text-[10px] text-muted-foreground">Sản phẩm & Persona mục tiêu</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        Tùy chọn
+                      </Badge>
+                    </div>
 
-                  {/* Persona Selector */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5" />
-                      Persona mục tiêu
-                    </Label>
-                    <PersonaSelector
-                      brandTemplateId={formData.brandTemplateId}
-                      value={formData.personaId}
-                      onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
-                      disabled={isLoading}
-                    />
-                  </div>
+                    {/* Selectors Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Product Selector */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Package className="w-3.5 h-3.5" />
+                          Sản phẩm/Dịch vụ
+                        </Label>
+                        <ProductSelector
+                          brandTemplateId={formData.brandTemplateId}
+                          value={formData.productId}
+                          onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
+                          disabled={isLoading}
+                          placeholder="Chọn sản phẩm..."
+                        />
+                      </div>
 
-                  <p className="text-xs text-muted-foreground/80 italic">
-                    Chọn sản phẩm/persona để AI tạo nội dung targeted hơn
-                  </p>
-                </div>
+                      {/* Persona Selector */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5" />
+                          Persona mục tiêu
+                        </Label>
+                        <PersonaSelector
+                          brandTemplateId={formData.brandTemplateId}
+                          value={formData.personaId}
+                          onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
+                          disabled={isLoading}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Selection Summary Chips */}
+                    {(formData.productId || formData.personaId) && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 animate-fade-in">
+                        {formData.productId && (
+                          <Badge variant="secondary" className="gap-1.5 pr-1.5 bg-primary/10 hover:bg-primary/15 transition-colors">
+                            <Package className="w-3 h-3" />
+                            <span className="text-xs">Đã chọn sản phẩm</span>
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, productId: undefined }))}
+                              className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        )}
+                        {formData.personaId && (
+                          <Badge variant="secondary" className="gap-1.5 pr-1.5 bg-primary/10 hover:bg-primary/15 transition-colors">
+                            <Users className="w-3 h-3" />
+                            <span className="text-xs">Đã chọn persona</span>
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, personaId: undefined }))}
+                              className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
 
-              <Separator />
+              {/* Section 2: Goal & Angle */}
+              <Card className="bg-card/50 backdrop-blur-sm border-border/50 overflow-hidden animate-fade-in" style={{ animationDelay: '100ms' }}>
+                <CardContent className="p-4 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                      <Compass className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Mục tiêu & Góc tiếp cận</h3>
+                      <p className="text-[10px] text-muted-foreground">Định hướng nội dung</p>
+                    </div>
+                  </div>
 
-              {/* Content Goal */}
-              <div className="space-y-3">
-                <Label className="text-foreground font-semibold text-sm">
-                  Mục tiêu nội dung
-                </Label>
-                <ContentGoalCombobox
-                  value={formData.contentGoal}
-                  onValueChange={(goal) => setFormData(prev => ({ ...prev, contentGoal: goal }))}
-                  disabled={isLoading}
-                />
-              </div>
+                  {/* Content Goal */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Mục tiêu nội dung</Label>
+                    <ContentGoalCombobox
+                      value={formData.contentGoal}
+                      onValueChange={(goal) => setFormData(prev => ({ ...prev, contentGoal: goal }))}
+                      disabled={isLoading}
+                    />
+                  </div>
 
-              {/* Content Angle */}
-              <ContentAngleSelector
-                value={formData.contentAngle}
-                onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
-                disabled={isLoading}
-              />
-
-              {/* Journey Stage Selector - only show when product or persona is selected */}
-              {(formData.productId || formData.personaId) && (
-                <div className="pt-2">
-                  <Separator className="mb-4" />
-                  <JourneyStageSelector
-                    value={formData.journeyStage}
-                    onValueChange={(stage) => setFormData(prev => ({ ...prev, journeyStage: stage }))}
+                  {/* Content Angle */}
+                  <ContentAngleSelector
+                    value={formData.contentAngle}
+                    onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
                     disabled={isLoading}
-                    showEmotionalTone={true}
                   />
-                </div>
-              )}
+                </CardContent>
+              </Card>
+
+              {/* Section 3: Journey Stage - Always visible in collapsible */}
+              <Card className="bg-card/50 backdrop-blur-sm border-border/50 overflow-hidden animate-fade-in" style={{ animationDelay: '200ms' }}>
+                <Collapsible defaultOpen={!!(formData.productId || formData.personaId)}>
+                  <CollapsibleTrigger className="w-full">
+                    <CardContent className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                          <Rocket className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="text-left">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-foreground">Giai đoạn hành trình</h3>
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                              Nâng cao
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Điều chỉnh messaging theo phễu</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {formData.journeyStage && (
+                          <Badge variant="secondary" className="text-xs">
+                            {JOURNEY_STAGE_CONFIG[formData.journeyStage]?.label}
+                          </Badge>
+                        )}
+                        <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+                      </div>
+                    </CardContent>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-4 pb-4">
+                      <Separator className="mb-4" />
+                      <JourneyStageSelector
+                        value={formData.journeyStage}
+                        onValueChange={(stage) => setFormData(prev => ({ ...prev, journeyStage: stage }))}
+                        disabled={isLoading}
+                        showEmotionalTone={true}
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+
+              {/* Progress indicator */}
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  (formData.productId || formData.personaId) ? "bg-primary" : "bg-muted-foreground/30"
+                )} />
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  formData.contentGoal ? "bg-primary" : "bg-muted-foreground/30"
+                )} />
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  formData.journeyStage ? "bg-primary" : "bg-muted-foreground/30"
+                )} />
+              </div>
             </div>
           )}
 
