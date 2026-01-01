@@ -211,7 +211,6 @@ export function VirtualizedMessageList({
             <div
               key={virtualRow.key}
               data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
               className={cn(
                 'absolute top-0 left-0 w-full',
                 virtualRow.index > 0 && 'pt-4'
