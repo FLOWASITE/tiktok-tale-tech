@@ -15,6 +15,7 @@ import {
 import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
 import { MultiChannelFormData, ContentGoal, ContentAngle, Channel, CHANNELS } from '@/types/multichannel';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
+import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
@@ -487,6 +488,27 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                   isTyping={isTypingTopic}
                   onSelect={(refined) => setTopic(refined)}
                   onRefresh={refreshRefinement}
+                  disabled={isLoading}
+                />
+              )}
+
+              {/* Multi-Channel Hook Generator - when topic >= 10 chars and channels selected */}
+              {topic.trim().length >= 10 && selectedChannels.length > 0 && (
+                <MultiChannelHookGenerator
+                  topic={topic}
+                  channels={selectedChannels}
+                  brandVoice={selectedTemplate ? {
+                    brand_name: selectedTemplate.brand_name,
+                    tone_of_voice: selectedTemplate.tone_of_voice || [],
+                    formality_level: selectedTemplate.formality_level || undefined,
+                  } : undefined}
+                  onSelectHook={(hook) => {
+                    // Prepend hook opening line to topic or use it as inspiration
+                    const hookPrefix = `[${hook.hook_type}] `;
+                    if (!topic.startsWith('[')) {
+                      setTopic(hookPrefix + topic);
+                    }
+                  }}
                   disabled={isLoading}
                 />
               )}
