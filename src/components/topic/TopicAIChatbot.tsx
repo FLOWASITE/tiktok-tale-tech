@@ -28,7 +28,6 @@ import {
   ChatHeader, 
   ChatInputArea, 
   ChatOnboarding, 
-  VirtualizedMessageList,
   DiscoveryTab,
   ArtifactsPanel,
   type TopicAIChatbotProps,
@@ -37,6 +36,7 @@ import {
   triggerHaptic,
   TOPIC_ACTION_PATHS,
 } from './chatbot';
+import { SimpleMessageList } from './chatbot/SimpleMessageList';
 
 export function TopicAIChatbot({
   brandTemplateId,
@@ -245,7 +245,7 @@ export function TopicAIChatbot({
             />
           ) : (
             <>
-              <VirtualizedMessageList
+              <SimpleMessageList
                 messages={messagesHook.messages}
                 animatingMessageId={messagesHook.animatingMessageId}
                 searchResults={uiHook.searchResults}
