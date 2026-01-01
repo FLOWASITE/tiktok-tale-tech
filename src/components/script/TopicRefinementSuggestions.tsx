@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sparkles, RefreshCw, ChevronRight, PenLine, User, Package, Shield, Brain, Wand2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, RefreshCw, ChevronRight, PenLine, User, Package, Shield, Brain, Wand2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -122,19 +122,50 @@ export function TopicRefinementSuggestions({
             ))}
           </div>
         ) : (
-          <div className="space-y-2">
-            {refinedTopics.map((item, index) => (
-              <RefinementCard
-                key={index}
-                item={item}
-                index={index}
-                onSelect={onSelect}
-                disabled={disabled}
-              />
-            ))}
-          </div>
+          <RefinementCardList
+            refinedTopics={refinedTopics}
+            onSelect={onSelect}
+            disabled={disabled}
+          />
         )}
       </div>
+    </div>
+  );
+}
+
+interface RefinementCardListProps {
+  refinedTopics: RefinedTopic[];
+  onSelect: (topic: string) => void;
+  disabled: boolean;
+}
+
+function RefinementCardList({ refinedTopics, onSelect, disabled }: RefinementCardListProps) {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const handleSelect = (item: RefinedTopic, index: number) => {
+    if (disabled || selectedIndex !== null) return;
+    
+    setSelectedIndex(index);
+    
+    // Delay callback to show success animation
+    setTimeout(() => {
+      onSelect(item.topic);
+      setSelectedIndex(null);
+    }, 350);
+  };
+
+  return (
+    <div className="space-y-2">
+      {refinedTopics.map((item, index) => (
+        <RefinementCard
+          key={index}
+          item={item}
+          index={index}
+          isSelected={selectedIndex === index}
+          onSelect={() => handleSelect(item, index)}
+          disabled={disabled || selectedIndex !== null}
+        />
+      ))}
     </div>
   );
 }
@@ -142,23 +173,28 @@ export function TopicRefinementSuggestions({
 interface RefinementCardProps {
   item: RefinedTopic;
   index: number;
-  onSelect: (topic: string) => void;
+  isSelected: boolean;
+  onSelect: () => void;
   disabled: boolean;
 }
 
-function RefinementCard({ item, index, onSelect, disabled }: RefinementCardProps) {
+function RefinementCard({ item, index, isSelected, onSelect, disabled }: RefinementCardProps) {
   return (
     <button
       type="button"
-      onClick={() => onSelect(item.topic)}
+      onClick={onSelect}
       disabled={disabled}
       className={cn(
         "w-full text-left p-3.5 rounded-xl",
         "bg-gradient-to-br from-background to-muted/30",
         "border border-border/60 hover:border-primary/40",
         "shadow-sm hover:shadow-md hover:shadow-primary/5",
-        "transition-all duration-300 ease-out",
+        "transition-all duration-200 ease-out",
         "group relative overflow-hidden",
+        // Scale effect on click
+        "active:scale-[0.98]",
+        // Selected state - success animation
+        isSelected && "border-emerald-500 bg-emerald-500/5 scale-[0.98]",
         disabled && "opacity-50 cursor-not-allowed"
       )}
       style={{
@@ -168,12 +204,31 @@ function RefinementCard({ item, index, onSelect, disabled }: RefinementCardProps
       }}
     >
       {/* Subtle gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className={cn(
+        "absolute inset-0 transition-opacity duration-300",
+        isSelected 
+          ? "bg-gradient-to-r from-emerald-500/5 via-emerald-500/10 to-emerald-500/5 opacity-100"
+          : "bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 opacity-0 group-hover:opacity-100"
+      )} />
       
       <div className="relative flex items-start justify-between gap-3">
+        {/* Number badge */}
+        <div className={cn(
+          "w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0",
+          "text-xs font-semibold transition-all duration-200",
+          isSelected 
+            ? "bg-emerald-500 text-white"
+            : "bg-gradient-to-br from-primary/20 to-primary/10 text-primary border border-primary/20"
+        )}>
+          {index + 1}
+        </div>
+
         <div className="flex-1 min-w-0 space-y-1.5">
           {/* Topic text */}
-          <p className="text-sm font-medium text-foreground leading-relaxed line-clamp-2 group-hover:text-primary/90 transition-colors">
+          <p className={cn(
+            "text-sm font-medium leading-relaxed line-clamp-2 transition-colors",
+            isSelected ? "text-emerald-600 dark:text-emerald-400" : "text-foreground group-hover:text-primary/90"
+          )}>
             {item.topic}
           </p>
           
@@ -212,13 +267,18 @@ function RefinementCard({ item, index, onSelect, disabled }: RefinementCardProps
           )}
         </div>
         
-        {/* Arrow indicator */}
+        {/* Arrow/Check indicator */}
         <div className={cn(
-          "p-1.5 rounded-lg bg-muted/50 group-hover:bg-primary/10",
-          "transition-all duration-300 flex-shrink-0",
-          "group-hover:translate-x-0.5"
+          "p-1.5 rounded-lg flex-shrink-0 transition-all duration-200",
+          isSelected 
+            ? "bg-emerald-500 text-white scale-110"
+            : "bg-muted/50 group-hover:bg-primary/10 group-hover:translate-x-0.5"
         )}>
-          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          {isSelected ? (
+            <Check className="w-4 h-4 animate-scale-in" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          )}
         </div>
       </div>
     </button>
