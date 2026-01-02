@@ -238,6 +238,12 @@ interface RefinedTopic {
   topic: string;
   angle: string;
   hook: string;
+  targetPersona?: string;
+  targetPersonaId?: string;
+  productFit?: string;
+  productFitId?: string;
+  suggestedJourneyStage?: 'awareness' | 'consideration' | 'decision' | 'loyalty';
+  suggestedContentAngle?: string;
 }
 
 interface BrandContext {
@@ -945,6 +951,9 @@ async function handleRefineMode(
     let learningContext: LearningContext | null = null;
     let personas: CustomerPersona[] = [];
     let products: BrandProduct[] = [];
+    // Raw data for ID lookup
+    let personasRawData: any[] = [];
+    let productsRawData: any[] = [];
     
     if (brandTemplateId) {
       // Fetch full brand template with extended fields
@@ -1060,8 +1069,10 @@ async function handleRefineMode(
           fetchLearningContext(supabase, brandTemplateId, brandTemplate.organization_id),
         ]);
         
-        // Process personas
+        // Process personas - keep raw data for ID lookup later
+        let personasRawData: any[] = [];
         if (personasResult.data && personasResult.data.length > 0) {
+          personasRawData = personasResult.data;
           personas = personasResult.data.map((p: any) => ({
             name: p.name,
             avatarEmoji: p.avatar_emoji,
@@ -1088,8 +1099,17 @@ async function handleRefineMode(
           console.log('Personas loaded:', personas.length);
         }
         
-        // Process products
+        // Store raw data in function scope for ID lookup during refinement
+        personasRawData = personasRawData.length > 0 ? personasRawData : [];
+        
+        // Need to update the local variable
+        if (personasResult.data) {
+          personasRawData = personasResult.data;
+        }
+        
+        // Process products - keep raw data for ID lookup
         if (productsResult.data && productsResult.data.length > 0) {
+          productsRawData = productsResult.data;
           products = productsResult.data;
           contextUsed.hasProducts = true;
           extendedBrandContext.products = products;
@@ -1249,17 +1269,68 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`);
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
     
-    let refinedTopics: (RefinedTopic & { targetPersona?: string; productFit?: string })[] = [];
+    let refinedTopics: RefinedTopic[] = [];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        refinedTopics = JSON.parse(jsonMatch[0]).map((item: any) => ({
-          topic: item.topic || '',
-          angle: item.angle || 'general',
-          hook: item.hook || '',
-          targetPersona: item.targetPersona,
-          productFit: item.productFit,
-        }));
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        // Map angle to journey stage
+        const angleToJourneyMap: Record<string, 'awareness' | 'consideration' | 'decision' | 'loyalty'> = {
+          'educational': 'awareness',
+          'storytelling': 'awareness',
+          'controversial': 'awareness',
+          'practical': 'consideration',
+          'solution': 'consideration',
+          'data': 'consideration',
+          'case_study': 'decision',
+          'comparison': 'decision',
+        };
+        
+        refinedTopics = parsed.map((item: any) => {
+          const result: RefinedTopic = {
+            topic: item.topic || '',
+            angle: item.angle || 'general',
+            hook: item.hook || '',
+            targetPersona: item.targetPersona,
+            productFit: item.productFit,
+            suggestedJourneyStage: angleToJourneyMap[item.angle?.toLowerCase()] || 'awareness',
+            suggestedContentAngle: item.angle === 'educational' ? 'educational' :
+                                   item.angle === 'storytelling' ? 'storytelling' :
+                                   item.angle === 'data' ? 'data_driven' :
+                                   item.angle === 'practical' || item.angle === 'solution' ? 'practical' : undefined,
+          };
+          
+          // Server-side lookup: match AI-suggested persona name to ID
+          if (item.targetPersona && personasRawData.length > 0) {
+            const normalizedSuggestion = item.targetPersona.toLowerCase().trim();
+            const matchedPersona = personasRawData.find((p: any) => {
+              const personaName = (p.name || '').toLowerCase().trim();
+              return personaName.includes(normalizedSuggestion) ||
+                     normalizedSuggestion.includes(personaName) ||
+                     personaName === normalizedSuggestion;
+            });
+            if (matchedPersona) {
+              result.targetPersonaId = matchedPersona.id;
+            }
+          }
+          
+          // Server-side lookup: match AI-suggested product name to ID
+          if (item.productFit && productsRawData.length > 0) {
+            const normalizedSuggestion = item.productFit.toLowerCase().trim();
+            const matchedProduct = productsRawData.find((p: any) => {
+              const productName = (p.name || '').toLowerCase().trim();
+              return productName.includes(normalizedSuggestion) ||
+                     normalizedSuggestion.includes(productName) ||
+                     productName === normalizedSuggestion;
+            });
+            if (matchedProduct) {
+              result.productFitId = matchedProduct.id;
+            }
+          }
+          
+          return result;
+        });
       }
     } catch (parseError) {
       console.error('Failed to parse refined topics:', parseError);

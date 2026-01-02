@@ -116,6 +116,17 @@ export interface EditedPreview {
 
 export type EditedPreviews = Record<string, EditedPreview>;
 
+export interface AiSuggestionContext {
+  targetPersona?: string;
+  targetPersonaId?: string;
+  productFit?: string;
+  productFitId?: string;
+  suggestedJourneyStage?: JourneyStage;
+  suggestedContentAngle?: string;
+  hook?: string;
+  angle?: string;
+}
+
 export interface MultiChannelFormData {
   topic: string;
   industry?: string;
@@ -133,6 +144,8 @@ export interface MultiChannelFormData {
   personaId?: string;
   // Journey Stage for targeted messaging
   journeyStage?: JourneyStage;
+  // AI suggestion context from topic refinement
+  aiSuggestion?: AiSuggestionContext;
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [

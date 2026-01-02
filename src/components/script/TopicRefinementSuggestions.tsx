@@ -11,7 +11,7 @@ interface TopicRefinementSuggestionsProps {
   refinedTopics: RefinedTopic[];
   isLoading: boolean;
   isTyping?: boolean;
-  onSelect: (topic: string) => void;
+  onSelect: (topic: string, suggestion?: RefinedTopic) => void;
   onRefresh: () => void;
   disabled?: boolean;
   contextUsed?: RefineContextUsed | null;
@@ -135,7 +135,7 @@ export function TopicRefinementSuggestions({
 
 interface RefinementCardListProps {
   refinedTopics: RefinedTopic[];
-  onSelect: (topic: string) => void;
+  onSelect: (topic: string, suggestion?: RefinedTopic) => void;
   disabled: boolean;
 }
 
@@ -149,7 +149,7 @@ function RefinementCardList({ refinedTopics, onSelect, disabled }: RefinementCar
     
     // Delay callback to show success animation
     setTimeout(() => {
-      onSelect(item.topic);
+      onSelect(item.topic, item);
       setSelectedIndex(null);
     }, 350);
   };
