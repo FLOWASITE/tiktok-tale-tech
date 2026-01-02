@@ -2339,6 +2339,7 @@ export type Database = {
           user_id: string | null
           was_refined: boolean | null
           website_content: string | null
+          website_seo_data: Json | null
           youtube_content: string | null
           zalo_oa_content: string | null
         }
@@ -2381,6 +2382,7 @@ export type Database = {
           user_id?: string | null
           was_refined?: boolean | null
           website_content?: string | null
+          website_seo_data?: Json | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }
@@ -2423,6 +2425,7 @@ export type Database = {
           user_id?: string | null
           was_refined?: boolean | null
           website_content?: string | null
+          website_seo_data?: Json | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }

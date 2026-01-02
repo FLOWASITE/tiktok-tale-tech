@@ -420,6 +420,10 @@ interface ChannelSettings {
   line_break_style: 'many' | 'short' | 'normal' | 'minimal';
   link_position: 'body' | 'end' | 'allowed' | 'none';
   format_description?: string;
+  // SEO-specific settings (for website)
+  seo_optimized?: boolean;
+  heading_structure_required?: boolean;
+  featured_snippet_format?: boolean;
 }
 
 // Partial override type
@@ -432,8 +436,8 @@ type ChannelOverrides = Record<string, ChannelOverride> | null;
 
 const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   website: {
-    min_length: 800,
-    max_length: 1500,
+    min_length: 1000,
+    max_length: 2000,
     length_unit: 'words',
     hook_required: false,
     hook_style: 'không cần giật tít',
@@ -445,7 +449,11 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'none',
     line_break_style: 'normal',
     link_position: 'body',
-    format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
+    format_description: 'Bài viết chuẩn SEO: H1 title, H2/H3 subheadings, intro 50-100 words, body sections, conclusion với CTA',
+    // SEO-specific settings
+    seo_optimized: true,
+    heading_structure_required: true,
+    featured_snippet_format: true,
   },
   facebook: {
     min_length: 120,
@@ -926,6 +934,40 @@ Không được để Channel Settings phá Brand Voice.
 
 ${selectedChannelRules}
 
+## 🔍 SEO OPTIMIZATION RULES (CHỈ ÁP DỤNG CHO WEBSITE)
+Khi tạo nội dung cho WEBSITE, BẮT BUỘC tuân thủ các quy tắc SEO sau:
+
+### Cấu trúc bài viết chuẩn SEO:
+1. **SEO Title**: 50-60 ký tự, chứa focus keyword ở đầu, hấp dẫn click
+2. **Meta Description**: 150-160 ký tự, chứa keyword, có CTA nhẹ
+3. **Intro paragraph** (50-100 words): Hook reader, chứa focus keyword trong câu đầu
+4. **Body sections**: Mỗi H2 có 150-300 words, H3 nếu cần chia nhỏ
+5. **Featured Snippet Box**: Đoạn tóm tắt 40-60 words trả lời câu hỏi chính
+6. **Conclusion**: Tóm tắt + CTA mềm
+
+### Heading Optimization:
+- **H1**: Chứa focus keyword, 50-70 ký tự, hấp dẫn (khác SEO title)
+- **H2**: Mỗi bài 4-6 H2, chứa secondary keywords, format: ## Heading
+- **H3**: Dùng để chia nhỏ H2 phức tạp, format: ### Heading
+
+### On-Page SEO:
+- Focus keyword: Xuất hiện trong H1, intro, 1-2 H2, conclusion (TỰ NHIÊN, không spam)
+- Keyword density: 1-2% (tính trên tổng words)
+- LSI keywords: Sử dụng từ liên quan ngữ nghĩa
+- Internal link anchors: Gợi ý 2-3 anchor text để link nội bộ
+- Slug: Ngắn gọn, chứa keyword, không dấu, lowercase
+
+### Featured Snippet Optimization:
+- Paragraph snippet: Câu trả lời trực tiếp 40-60 words
+- List snippet: Bullet points 5-8 items (nếu phù hợp)
+- Trả lời câu hỏi "Làm sao", "Là gì", "Tại sao" ngay đầu section
+
+### Readability:
+- Sentence length: Trung bình 15-20 words
+- Paragraph length: 2-4 câu
+- Transition words: "Ngoài ra", "Bên cạnh đó", "Cụ thể", "Quan trọng hơn"
+- Active voice > 80%
+
 ## KIỂM TRA CUỐI (BẮT BUỘC)
 Trước khi xuất nội dung, tự kiểm tra:
 - Có vượt max length không? → TỰ RÚT GỌN, giữ ý chính
@@ -1346,8 +1388,8 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
 
     // Build tool parameters based on selected channels
     const channelProperties: Record<string, object> = {};
-    const channelDescriptions: Record<string, string> = {
-      website: "Nội dung cho Website/Blog (800-1500 chữ, markdown format, không emoji)",
+const channelDescriptions: Record<string, string> = {
+      website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections, conclusion với CTA mềm. Markdown format.",
       facebook: "Nội dung cho Facebook (120-300 chữ, hook mạnh, chia đoạn ngắn)",
       instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
       twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
@@ -1360,7 +1402,65 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
     };
 
     formData.channels.forEach(channel => {
-      if (channelDescriptions[channel]) {
+      // Special handling for website with SEO metadata
+      if (channel === 'website') {
+        channelProperties['website_content'] = {
+          type: "object",
+          description: "Bài viết website chuẩn SEO hoàn chỉnh",
+          properties: {
+            seo_title: { 
+              type: "string", 
+              description: "SEO Title (50-60 ký tự), chứa focus keyword, hấp dẫn click" 
+            },
+            meta_description: { 
+              type: "string", 
+              description: "Meta description (150-160 ký tự), chứa keyword, có CTA nhẹ" 
+            },
+            focus_keyword: { 
+              type: "string", 
+              description: "Keyword chính tối ưu cho bài viết" 
+            },
+            secondary_keywords: {
+              type: "array",
+              items: { type: "string" },
+              description: "3-5 keywords phụ liên quan"
+            },
+            slug_suggestion: {
+              type: "string",
+              description: "URL slug gợi ý (lowercase, dấu gạch ngang, không dấu)"
+            },
+            heading_structure: {
+              type: "object",
+              properties: {
+                h1: { type: "string", description: "Tiêu đề H1 chính" },
+                h2s: { type: "array", items: { type: "string" }, description: "Các H2 subheadings" },
+              },
+              required: ["h1", "h2s"]
+            },
+            content: { 
+              type: "string", 
+              description: "Nội dung bài viết đầy đủ (1000-2000 words), markdown format với ## H2, ### H3" 
+            },
+            featured_snippet: {
+              type: "string",
+              description: "Đoạn tối ưu cho Featured Snippet (40-60 words), trả lời trực tiếp câu hỏi chính"
+            },
+            internal_link_anchors: {
+              type: "array",
+              items: { type: "string" },
+              description: "2-3 gợi ý anchor text cho internal linking"
+            },
+            schema_type: {
+              type: "string",
+              enum: ["Article", "HowTo", "FAQ", "Product", "BlogPosting"],
+              description: "Loại schema markup phù hợp"
+            },
+            word_count: { type: "number", description: "Số từ trong content" },
+            reading_time_minutes: { type: "number", description: "Thời gian đọc ước tính (phút)" }
+          },
+          required: ["seo_title", "meta_description", "focus_keyword", "content", "heading_structure"]
+        };
+      } else if (channelDescriptions[channel]) {
         channelProperties[`${channel}_content`] = {
           type: "string",
           description: channelDescriptions[channel],
@@ -1575,8 +1675,13 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         was_refined: wasRefined,
         refinement_count: refinementCount,
         needs_manual_review: needsManualReview, // NEW: Flag for manual review
-        // Channel contents
-        website_content: generatedData.website_content || null,
+        // Channel contents - Handle website SEO structured data
+        website_content: typeof generatedData.website_content === 'object' 
+          ? generatedData.website_content?.content || null 
+          : generatedData.website_content || null,
+        website_seo_data: typeof generatedData.website_content === 'object' 
+          ? generatedData.website_content 
+          : null,
         facebook_content: generatedData.facebook_content || null,
         instagram_content: generatedData.instagram_content || null,
         twitter_content: generatedData.twitter_content || null,
