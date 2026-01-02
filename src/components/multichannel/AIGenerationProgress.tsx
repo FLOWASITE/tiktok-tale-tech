@@ -102,7 +102,12 @@ export function AIGenerationProgress({
   if (!isLoading) return null;
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <motion.div 
+      className={cn("space-y-4", className)}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       {/* Header */}
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10">
@@ -222,6 +227,6 @@ export function AIGenerationProgress({
             : 'Đang hoàn thiện...'}
         </span>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
