@@ -407,12 +407,12 @@ export const CAROUSEL_CRITERIA = {
 
 // ================== REFINEMENT STRATEGY ==================
 export const REFINEMENT_STRATEGY = {
-  // Score tiers determine refinement approach
+  // Score tiers determine refinement approach (optimized for performance)
   tiers: {
-    high: { min: 80, max: 100, maxTries: 0, focus: 'none' },
-    medium_high: { min: 70, max: 79, maxTries: 1, focus: 'minor_polish' },
-    medium: { min: 60, max: 69, maxTries: 2, focus: 'targeted_fix' },
-    low: { min: 0, max: 59, maxTries: 2, focus: 'major_rewrite' },
+    high: { min: 75, max: 100, maxTries: 0, focus: 'none' },           // Giảm từ 80 → 75
+    medium_high: { min: 65, max: 74, maxTries: 1, focus: 'minor_polish' }, // 65-74: 1 refine
+    medium: { min: 50, max: 64, maxTries: 1, focus: 'targeted_fix' },  // Giảm maxTries 2→1
+    low: { min: 0, max: 49, maxTries: 1, focus: 'major_rewrite' },     // Giảm maxTries 2→1, flag manual review
   },
   
   // Focused refinement prompts by category
