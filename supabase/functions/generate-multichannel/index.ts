@@ -1504,6 +1504,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
     let critiqueResult: CritiqueResult | null = null;
     let wasRefined = false;
     let refinementCount = 0;
+    let needsManualReview = false;
 
     // Only run critique if not from cache
     if (!fromCache) {
@@ -1521,11 +1522,13 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         critiqueResult = critiqueLoop.critiqueResult;
         wasRefined = critiqueLoop.wasRefined;
         refinementCount = critiqueLoop.refinementCount;
+        needsManualReview = critiqueLoop.needsManualReview;
 
-        console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}`);
+        console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}, needsReview=${needsManualReview}`);
       } catch (critiqueError) {
-        console.error("Self-critique failed, using original content:", critiqueError);
-        // Continue with original content if critique fails
+        console.error("Self-critique failed, flagging for manual review:", critiqueError);
+        // Flag for manual review when critique system fails
+        needsManualReview = true;
       }
     }
 
@@ -1571,6 +1574,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         critique_details: critiqueResult || null,
         was_refined: wasRefined,
         refinement_count: refinementCount,
+        needs_manual_review: needsManualReview, // NEW: Flag for manual review
         // Channel contents
         website_content: generatedData.website_content || null,
         facebook_content: generatedData.facebook_content || null,
@@ -1590,7 +1594,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
       console.log("Content saved with Industry Memory version:", industryMemory.version);
     }
     if (critiqueResult) {
-      console.log("Content saved with critique score:", critiqueResult.overall_score);
+      console.log(`Content saved: score=${critiqueResult.overall_score}, needsReview=${needsManualReview}`);
     }
 
     if (dbError) {

@@ -584,12 +584,14 @@ export async function runSelfCritiqueLoop(options: {
   critiqueResult: CritiqueResult;
   wasRefined: boolean;
   refinementCount: number;
+  needsManualReview: boolean;
 }> {
   const { content, contentType, brandVoice, mergedRules, additionalContext, apiKey } = options;
   
   let currentContent = content;
   let refinementCount = 0;
   let wasRefined = false;
+  let needsManualReview = false;
   
   // First critique
   let critiqueResult = await critiqueContent({
@@ -643,10 +645,27 @@ export async function runSelfCritiqueLoop(options: {
     }
   }
   
+  // Determine if manual review is needed
+  // Criteria: score < MIN_ACCEPTABLE after all refinements OR critique had errors
+  if (critiqueResult.overall_score < CRITIQUE_CONFIG.MIN_ACCEPTABLE) {
+    needsManualReview = true;
+    critiqueResult.needs_manual_review = true;
+    console.log(`[Self-Critique] ⚠️ MANUAL REVIEW NEEDED: score ${critiqueResult.overall_score} < ${CRITIQUE_CONFIG.MIN_ACCEPTABLE}`);
+  }
+  
+  // Also flag if critique itself errored (already flagged in createDefaultCritiqueResult)
+  if (critiqueResult.needs_manual_review) {
+    needsManualReview = true;
+  }
+  
+  // Log final results
+  console.log(`[Self-Critique] COMPLETE: score=${critiqueResult.overall_score}, tier=${critiqueResult.quality_tier}, refined=${wasRefined} (x${refinementCount}), needsReview=${needsManualReview}`);
+  
   return {
     finalContent: currentContent,
     critiqueResult,
     wasRefined,
     refinementCount,
+    needsManualReview,
   };
 }

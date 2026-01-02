@@ -351,7 +351,7 @@ export function ContentQualityScore({
         )}
       </div>
 
-      {/* Category breakdown */}
+      {/* Category breakdown with weakness highlighting */}
       {critiqueDetails?.scores && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -363,20 +363,40 @@ export function ContentQualityScore({
               if (!config) return null;
               const Icon = config.icon;
               const percentage = (value / config.max) * 100;
+              const isWeak = percentage < 50;
+              const isModerate = percentage >= 50 && percentage < 70;
               
               return (
-                <div key={key} className="flex items-center gap-2 text-xs">
-                  <Icon className={cn("w-3.5 h-3.5 shrink-0", config.color)} />
-                  <span className="text-muted-foreground truncate">{config.label}</span>
+                <div 
+                  key={key} 
+                  className={cn(
+                    "flex items-center gap-2 text-xs p-1.5 rounded-md",
+                    isWeak && "bg-red-500/10 border border-red-500/20",
+                    isModerate && "bg-yellow-500/5 border border-yellow-500/20"
+                  )}
+                >
+                  <Icon className={cn(
+                    "w-3.5 h-3.5 shrink-0", 
+                    isWeak ? "text-red-500" : isModerate ? "text-yellow-500" : config.color
+                  )} />
+                  <span className={cn(
+                    "truncate",
+                    isWeak ? "text-red-600 font-medium" : "text-muted-foreground"
+                  )}>
+                    {config.label}
+                  </span>
                   <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                     <div 
-                      className={cn("h-full rounded-full", getProgressColor(percentage))}
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        isWeak ? "bg-red-500" : isModerate ? "bg-yellow-500" : getProgressColor(percentage)
+                      )}
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
                   <span className={cn(
                     "font-medium w-10 text-right",
-                    percentage < 50 ? "text-red-500" : percentage < 70 ? "text-yellow-500" : ""
+                    isWeak ? "text-red-500" : isModerate ? "text-yellow-500" : ""
                   )}>
                     {value}/{config.max}
                   </span>
@@ -384,6 +404,29 @@ export function ContentQualityScore({
               );
             })}
           </div>
+          
+          {/* Weakness summary */}
+          {(() => {
+            const weakCategories = Object.entries(critiqueDetails.scores)
+              .filter(([key, value]) => {
+                const config = CATEGORY_CONFIG[key as keyof typeof CATEGORY_CONFIG];
+                return config && (value / config.max) * 100 < 50;
+              })
+              .map(([key]) => CATEGORY_CONFIG[key as keyof typeof CATEGORY_CONFIG]?.label)
+              .filter(Boolean);
+            
+            if (weakCategories.length > 0) {
+              return (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-md p-2 text-xs">
+                  <p className="text-red-600 font-medium flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Cần cải thiện: {weakCategories.join(', ')}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       )}
 
