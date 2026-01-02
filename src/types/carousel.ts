@@ -35,6 +35,7 @@ export interface Carousel {
   critique_details?: Record<string, unknown> | null;
   was_refined?: boolean | null;
   refinement_count?: number | null;
+  needs_manual_review?: boolean | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Sparkles, 
   AlertTriangle, 
@@ -12,17 +12,23 @@ import {
   Zap,
   LayoutList,
   Target,
-  Hash
+  Hash,
+  MousePointerClick,
+  BookOpen,
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 
-// Score categories matching backend
+// Score categories matching backend (8 categories)
 interface CritiqueScores {
-  brand_voice: number;          // 0-20
+  brand_voice: number;          // 0-15
   compliance: number;           // 0-25
-  hook_strength: number;        // 0-15
-  content_structure: number;    // 0-15
-  engagement_potential: number; // 0-15
-  channel_fit: number;          // 0-10
+  hook_strength: number;        // 0-18
+  content_structure: number;    // 0-12
+  engagement_potential: number; // 0-10
+  channel_fit: number;          // 0-15
+  cta_quality: number;          // 0-8
+  readability: number;          // 0-7
 }
 
 interface CritiqueIssue {
@@ -41,6 +47,7 @@ interface CritiqueDetails {
   issues: CritiqueIssue[];
   suggestions: string[];
   strengths: string[];
+  needs_manual_review?: boolean;
 }
 
 interface ContentQualityScoreProps {
@@ -48,8 +55,9 @@ interface ContentQualityScoreProps {
   critiqueDetails?: CritiqueDetails | null;
   wasRefined?: boolean;
   refinementCount?: number;
-  variant?: 'badge' | 'compact' | 'detailed';
+  variant?: 'badge' | 'compact' | 'detailed' | 'warning';
   className?: string;
+  onRequestReview?: () => void;
 }
 
 // Quality tier config matching backend
@@ -58,17 +66,19 @@ const QUALITY_TIERS = {
   GOOD: { min: 80, label: 'Tốt', color: 'green', icon: CheckCircle2 },
   ACCEPTABLE: { min: 70, label: 'Chấp nhận', color: 'yellow', icon: TrendingUp },
   NEEDS_WORK: { min: 60, label: 'Cần cải thiện', color: 'orange', icon: AlertTriangle },
-  POOR: { min: 0, label: 'Yếu', color: 'red', icon: AlertTriangle },
+  POOR: { min: 0, label: 'Yếu', color: 'red', icon: XCircle },
 } as const;
 
-// Category config
+// Category config (8 categories)
 const CATEGORY_CONFIG = {
-  brand_voice: { label: 'Brand Voice', max: 20, icon: MessageSquare, color: 'text-purple-500' },
+  brand_voice: { label: 'Brand Voice', max: 15, icon: MessageSquare, color: 'text-purple-500' },
   compliance: { label: 'Compliance', max: 25, icon: Shield, color: 'text-blue-500' },
-  hook_strength: { label: 'Hook', max: 15, icon: Zap, color: 'text-yellow-500' },
-  content_structure: { label: 'Structure', max: 15, icon: LayoutList, color: 'text-cyan-500' },
-  engagement_potential: { label: 'Engagement', max: 15, icon: Target, color: 'text-pink-500' },
-  channel_fit: { label: 'Channel Fit', max: 10, icon: Hash, color: 'text-green-500' },
+  hook_strength: { label: 'Hook', max: 18, icon: Zap, color: 'text-yellow-500' },
+  content_structure: { label: 'Structure', max: 12, icon: LayoutList, color: 'text-cyan-500' },
+  engagement_potential: { label: 'Engagement', max: 10, icon: Target, color: 'text-pink-500' },
+  channel_fit: { label: 'Channel Fit', max: 15, icon: Hash, color: 'text-green-500' },
+  cta_quality: { label: 'CTA', max: 8, icon: MousePointerClick, color: 'text-orange-500' },
+  readability: { label: 'Readability', max: 7, icon: BookOpen, color: 'text-indigo-500' },
 } as const;
 
 function getQualityTier(score: number) {
@@ -95,6 +105,83 @@ function getProgressColor(score: number) {
   return 'bg-red-500';
 }
 
+// Warning banner component for low scores
+function QualityWarningBanner({ 
+  score, 
+  critiqueDetails,
+  onRequestReview 
+}: { 
+  score: number;
+  critiqueDetails?: CritiqueDetails | null;
+  onRequestReview?: () => void;
+}) {
+  const needsManualReview = critiqueDetails?.needs_manual_review;
+  const errorCount = critiqueDetails?.issues?.filter(i => i.severity === 'error').length || 0;
+  
+  // Score < 60: Critical warning
+  if (score < 60 || needsManualReview) {
+    return (
+      <Alert variant="destructive" className="border-red-500/50 bg-red-500/10">
+        <XCircle className="h-4 w-4" />
+        <AlertDescription className="flex items-center justify-between">
+          <div>
+            <span className="font-medium">Nội dung cần chỉnh sửa đáng kể</span>
+            <span className="text-muted-foreground ml-2">
+              (Score: {score}/100{errorCount > 0 ? `, ${errorCount} lỗi nghiêm trọng` : ''})
+            </span>
+          </div>
+          {onRequestReview && (
+            <button 
+              onClick={onRequestReview}
+              className="text-xs underline hover:no-underline"
+            >
+              Xem chi tiết
+            </button>
+          )}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  
+  // Score 60-70: Warning
+  if (score < 70) {
+    return (
+      <Alert className="border-orange-500/50 bg-orange-500/10">
+        <AlertTriangle className="h-4 w-4 text-orange-500" />
+        <AlertDescription className="flex items-center justify-between text-orange-700 dark:text-orange-400">
+          <div>
+            <span className="font-medium">Nội dung cần review trước khi đăng</span>
+            <span className="text-muted-foreground ml-2">(Score: {score}/100)</span>
+          </div>
+          {onRequestReview && (
+            <button 
+              onClick={onRequestReview}
+              className="text-xs underline hover:no-underline"
+            >
+              Xem chi tiết
+            </button>
+          )}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  
+  // Score 70-80: Info
+  if (score < 80) {
+    return (
+      <Alert className="border-yellow-500/50 bg-yellow-500/10">
+        <AlertCircle className="h-4 w-4 text-yellow-600" />
+        <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+          <span className="font-medium">Có thể cải thiện thêm</span>
+          <span className="text-muted-foreground ml-2">(Score: {score}/100)</span>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  
+  return null;
+}
+
 export function ContentQualityScore({
   score,
   critiqueDetails,
@@ -102,6 +189,7 @@ export function ContentQualityScore({
   refinementCount = 0,
   variant = 'badge',
   className,
+  onRequestReview,
 }: ContentQualityScoreProps) {
   if (score === null || score === undefined) {
     return null;
@@ -109,6 +197,17 @@ export function ContentQualityScore({
 
   const tier = getQualityTier(score);
   const TierIcon = tier.icon;
+
+  // Warning variant - shows banner for low scores
+  if (variant === 'warning') {
+    return (
+      <QualityWarningBanner 
+        score={score} 
+        critiqueDetails={critiqueDetails}
+        onRequestReview={onRequestReview}
+      />
+    );
+  }
 
   // Badge variant - simple score display
   if (variant === 'badge') {
@@ -121,6 +220,7 @@ export function ContentQualityScore({
               className={cn(
                 "gap-1 cursor-default",
                 getScoreColor(score),
+                score < 60 && "border-red-500/50 bg-red-500/10",
                 className
               )}
             >
@@ -128,6 +228,9 @@ export function ContentQualityScore({
               <span className="font-semibold">{score}</span>
               {wasRefined && (
                 <span className="text-xs opacity-70">✨</span>
+              )}
+              {critiqueDetails?.needs_manual_review && (
+                <AlertCircle className="w-3 h-3 text-red-500" />
               )}
             </Badge>
           </TooltipTrigger>
@@ -137,14 +240,29 @@ export function ContentQualityScore({
                 <span className="font-medium">{tier.label}</span>
                 <span className="text-muted-foreground">({score}/100)</span>
               </div>
+              {critiqueDetails?.needs_manual_review && (
+                <p className="text-xs text-red-500 font-medium">
+                  ⚠️ Cần review thủ công
+                </p>
+              )}
               {wasRefined && (
                 <p className="text-xs text-muted-foreground">
                   Đã được AI tối ưu {refinementCount > 0 ? `${refinementCount}x` : ''}
                 </p>
               )}
-              {critiqueDetails?.issues?.length > 0 && (
-                <p className="text-xs text-yellow-500">
-                  {critiqueDetails.issues.length} vấn đề cần lưu ý
+              {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (
+                <p className={cn(
+                  "text-xs",
+                  critiqueDetails.issues.some(i => i.severity === 'error') ? 'text-red-500' : 'text-yellow-500'
+                )}>
+                  {critiqueDetails.issues.filter(i => i.severity === 'error').length > 0 
+                    ? `❌ ${critiqueDetails.issues.filter(i => i.severity === 'error').length} lỗi`
+                    : ''
+                  }
+                  {critiqueDetails.issues.filter(i => i.severity === 'warning').length > 0 
+                    ? ` ⚠️ ${critiqueDetails.issues.filter(i => i.severity === 'warning').length} cảnh báo`
+                    : ''
+                  }
                 </p>
               )}
             </div>
@@ -161,7 +279,8 @@ export function ContentQualityScore({
         <Tooltip>
           <TooltipTrigger asChild>
             <div className={cn(
-              "flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50 cursor-default",
+              "flex items-center gap-2 px-2 py-1 rounded-md cursor-default",
+              score >= 80 ? "bg-muted/50" : score >= 60 ? "bg-yellow-500/10" : "bg-red-500/10",
               className
             )}>
               <TierIcon className={cn("w-4 h-4", getScoreColor(score))} />
@@ -172,9 +291,12 @@ export function ContentQualityScore({
               {wasRefined && (
                 <Sparkles className="w-3 h-3 text-primary" />
               )}
+              {critiqueDetails?.needs_manual_review && (
+                <AlertCircle className="w-3 h-3 text-red-500" />
+              )}
             </div>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="w-64 p-3">
+          <TooltipContent side="bottom" className="w-72 p-3">
             <CompactBreakdown 
               score={score}
               tier={tier}
@@ -190,6 +312,15 @@ export function ContentQualityScore({
   // Detailed variant - full breakdown panel
   return (
     <div className={cn("space-y-4 p-4 rounded-lg bg-card border", className)}>
+      {/* Warning banner for low scores */}
+      {score < 80 && (
+        <QualityWarningBanner 
+          score={score} 
+          critiqueDetails={critiqueDetails}
+          onRequestReview={onRequestReview}
+        />
+      )}
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -205,6 +336,9 @@ export function ContentQualityScore({
                 {score}
               </span>
               <span className="text-muted-foreground">/100</span>
+              {critiqueDetails?.needs_manual_review && (
+                <Badge variant="destructive" className="text-xs">Review</Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">{tier.label}</p>
           </div>
@@ -212,7 +346,7 @@ export function ContentQualityScore({
         {wasRefined && (
           <Badge variant="secondary" className="gap-1">
             <Sparkles className="w-3 h-3" />
-            AI Optimized
+            AI Optimized {refinementCount > 1 ? `(${refinementCount}x)` : ''}
           </Badge>
         )}
       </div>
@@ -221,7 +355,7 @@ export function ContentQualityScore({
       {critiqueDetails?.scores && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Chi tiết điểm
+            Chi tiết điểm (8 categories)
           </p>
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(critiqueDetails.scores).map(([key, value]) => {
@@ -240,7 +374,12 @@ export function ContentQualityScore({
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
-                  <span className="font-medium w-8 text-right">{value}/{config.max}</span>
+                  <span className={cn(
+                    "font-medium w-10 text-right",
+                    percentage < 50 ? "text-red-500" : percentage < 70 ? "text-yellow-500" : ""
+                  )}>
+                    {value}/{config.max}
+                  </span>
                 </div>
               );
             })}
@@ -249,7 +388,7 @@ export function ContentQualityScore({
       )}
 
       {/* Strengths */}
-      {critiqueDetails?.strengths?.length > 0 && (
+      {critiqueDetails?.strengths && critiqueDetails.strengths.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-green-500 uppercase tracking-wider">
             Điểm mạnh
@@ -266,19 +405,30 @@ export function ContentQualityScore({
       )}
 
       {/* Issues */}
-      {critiqueDetails?.issues?.length > 0 && (
+      {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-yellow-500 uppercase tracking-wider">
             Cần lưu ý ({critiqueDetails.issues.length})
           </p>
-          <ul className="text-xs text-muted-foreground space-y-0.5">
-            {critiqueDetails.issues.slice(0, 3).map((issue, i) => (
+          <ul className="text-xs text-muted-foreground space-y-1">
+            {critiqueDetails.issues.slice(0, 5).map((issue, i) => (
               <li key={i} className="flex items-start gap-1">
-                <AlertTriangle className={cn(
-                  "w-3 h-3 mt-0.5 shrink-0",
-                  issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'
-                )} />
-                <span>{issue.description}</span>
+                {issue.severity === 'error' ? (
+                  <XCircle className="w-3 h-3 text-red-500 mt-0.5 shrink-0" />
+                ) : (
+                  <AlertTriangle className={cn(
+                    "w-3 h-3 mt-0.5 shrink-0",
+                    issue.severity === 'warning' ? 'text-yellow-500' : 'text-blue-500'
+                  )} />
+                )}
+                <div>
+                  <span className={issue.severity === 'error' ? 'text-red-600' : ''}>
+                    {issue.description}
+                  </span>
+                  {issue.suggestion && (
+                    <p className="text-muted-foreground/70 mt-0.5">→ {issue.suggestion}</p>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -300,12 +450,22 @@ function CompactBreakdown({
   critiqueDetails?: CritiqueDetails | null;
   wasRefined?: boolean;
 }) {
+  const errorCount = critiqueDetails?.issues?.filter(i => i.severity === 'error').length || 0;
+  const warningCount = critiqueDetails?.issues?.filter(i => i.severity === 'warning').length || 0;
+  
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="font-medium">{tier.label}</span>
         <span className={cn("font-bold", getScoreColor(score))}>{score}/100</span>
       </div>
+      
+      {critiqueDetails?.needs_manual_review && (
+        <p className="text-xs text-red-500 font-medium flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          Cần review thủ công
+        </p>
+      )}
       
       {wasRefined && (
         <p className="text-xs text-primary flex items-center gap-1">
@@ -324,7 +484,10 @@ function CompactBreakdown({
             return (
               <div key={key} className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">{config.label}</span>
-                <span className={cn("font-medium", getScoreColor(percentage))}>
+                <span className={cn(
+                  "font-medium",
+                  percentage < 50 ? "text-red-500" : percentage < 70 ? "text-yellow-500" : getScoreColor(percentage)
+                )}>
                   {value}/{config.max}
                 </span>
               </div>
@@ -333,9 +496,11 @@ function CompactBreakdown({
         </div>
       )}
 
-      {critiqueDetails?.issues?.length > 0 && (
-        <p className="text-xs text-yellow-500 pt-1 border-t">
-          ⚠️ {critiqueDetails.issues.length} vấn đề cần lưu ý
+      {(errorCount > 0 || warningCount > 0) && (
+        <p className="text-xs pt-1 border-t">
+          {errorCount > 0 && <span className="text-red-500">❌ {errorCount} lỗi</span>}
+          {errorCount > 0 && warningCount > 0 && ' · '}
+          {warningCount > 0 && <span className="text-yellow-500">⚠️ {warningCount} cảnh báo</span>}
         </p>
       )}
     </div>
