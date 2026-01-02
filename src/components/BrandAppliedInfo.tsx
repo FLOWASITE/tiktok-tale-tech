@@ -15,7 +15,11 @@ import {
   AlertTriangle,
   Info,
   ShieldCheck,
-  Lock
+  Lock,
+  Hash,
+  Quote,
+  MousePointerClick,
+  Leaf
 } from 'lucide-react';
 import {
   Tooltip,
@@ -301,6 +305,79 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
               {template.allow_emoji !== false ? 'Có sử dụng 😀' : 'Không sử dụng'}
             </Badge>
           </div>
+
+          {/* Brand Social Assets Section */}
+          {(template.brand_hashtags?.length || template.signature_phrases?.length || template.cta_templates?.length || template.evergreen_themes?.length) && (
+            <div className="pt-2 border-t border-border/50 space-y-3">
+              <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Content Guidelines (tự động áp dụng)
+              </p>
+
+              {/* Brand Hashtags */}
+              {template.brand_hashtags && template.brand_hashtags.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <Hash className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Brand Hashtags</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {template.brand_hashtags.slice(0, 4).map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                          #{tag.replace(/^#/, '')}
+                        </Badge>
+                      ))}
+                      {template.brand_hashtags.length > 4 && (
+                        <span className="text-[10px] text-muted-foreground">+{template.brand_hashtags.length - 4}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Signature Phrases */}
+              {template.signature_phrases && template.signature_phrases.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <Quote className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Signature Phrases</p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400 italic mt-0.5">
+                      "{template.signature_phrases[0]}"
+                      {template.signature_phrases.length > 1 && (
+                        <span className="text-muted-foreground not-italic"> +{template.signature_phrases.length - 1}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* CTA Templates */}
+              {template.cta_templates && template.cta_templates.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <MousePointerClick className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">CTA Templates ({template.cta_templates.length})</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
+                      {template.cta_templates[0]}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Evergreen Themes */}
+              {template.evergreen_themes && template.evergreen_themes.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <Leaf className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Evergreen Themes</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      {template.evergreen_themes.slice(0, 2).join(', ')}
+                      {template.evergreen_themes.length > 2 && ` +${template.evergreen_themes.length - 2}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Channel Overrides */}
           {channelOverrides.length > 0 && (
