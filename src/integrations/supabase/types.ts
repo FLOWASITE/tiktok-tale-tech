@@ -584,6 +584,7 @@ export type Database = {
           include_logo: boolean
           industry_template_id: string | null
           industry_template_version: string | null
+          needs_manual_review: boolean | null
           organization_id: string | null
           platform: Database["public"]["Enums"]["carousel_platform"]
           refinement_count: number | null
@@ -610,6 +611,7 @@ export type Database = {
           include_logo?: boolean
           industry_template_id?: string | null
           industry_template_version?: string | null
+          needs_manual_review?: boolean | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           refinement_count?: number | null
@@ -636,6 +638,7 @@ export type Database = {
           include_logo?: boolean
           industry_template_id?: string | null
           industry_template_version?: string | null
+          needs_manual_review?: boolean | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           refinement_count?: number | null
@@ -2318,6 +2321,7 @@ export type Database = {
           industry_template_version: string | null
           instagram_content: string | null
           linkedin_content: string | null
+          needs_manual_review: boolean | null
           organization_id: string | null
           primary_color: string | null
           priority: string | null
@@ -2359,6 +2363,7 @@ export type Database = {
           industry_template_version?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
+          needs_manual_review?: boolean | null
           organization_id?: string | null
           primary_color?: string | null
           priority?: string | null
@@ -2400,6 +2405,7 @@ export type Database = {
           industry_template_version?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
+          needs_manual_review?: boolean | null
           organization_id?: string | null
           primary_color?: string | null
           priority?: string | null
@@ -2978,6 +2984,7 @@ export type Database = {
           id: string
           industry_template_id: string | null
           industry_template_version: string | null
+          needs_manual_review: boolean | null
           organization_id: string | null
           refinement_count: number | null
           script_purpose: string
@@ -3003,6 +3010,7 @@ export type Database = {
           id?: string
           industry_template_id?: string | null
           industry_template_version?: string | null
+          needs_manual_review?: boolean | null
           organization_id?: string | null
           refinement_count?: number | null
           script_purpose?: string
@@ -3028,6 +3036,7 @@ export type Database = {
           id?: string
           industry_template_id?: string | null
           industry_template_version?: string | null
+          needs_manual_review?: boolean | null
           organization_id?: string | null
           refinement_count?: number | null
           script_purpose?: string

@@ -122,14 +122,16 @@ export interface MultiChannelContent {
   updated_at: string;
 }
 
-// Self-Critique types
+// Self-Critique types (8 categories)
 export interface CritiqueScores {
-  brand_voice: number;
-  compliance: number;
-  hook_strength: number;
-  content_structure: number;
-  engagement_potential: number;
-  channel_fit: number;
+  brand_voice: number;          // 0-15
+  compliance: number;           // 0-25
+  hook_strength: number;        // 0-18
+  content_structure: number;    // 0-12
+  engagement_potential: number; // 0-10
+  channel_fit: number;          // 0-15
+  cta_quality: number;          // 0-8
+  readability: number;          // 0-7
 }
 
 export interface CritiqueIssue {
@@ -148,6 +150,7 @@ export interface CritiqueDetails {
   issues: CritiqueIssue[];
   suggestions: string[];
   strengths: string[];
+  needs_manual_review?: boolean;
 }
 
 export interface EditedPreview {
