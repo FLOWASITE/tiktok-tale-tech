@@ -147,6 +147,10 @@ export function MultiChannelFormStepper({
   const [loadingPhase, setLoadingPhase] = useState(0);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
   const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
+  const [uiLoading, setUiLoading] = useState(false);
+  const uiLoadingStartedAtRef = useRef<number | null>(null);
+
+  const effectiveLoading = isLoading || uiLoading;
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialTopic || '',
@@ -218,7 +222,7 @@ export function MultiChannelFormStepper({
 
   // Loading phases
   useEffect(() => {
-    if (!isLoading) {
+    if (!effectiveLoading) {
       setLoadingPhase(0);
       setGenerationElapsedMs(0);
       return;
@@ -234,7 +238,7 @@ export function MultiChannelFormStepper({
       clearInterval(phaseInterval);
       clearInterval(elapsedInterval);
     };
-  }, [isLoading]);
+  }, [effectiveLoading]);
 
   // Estimated time
   const estimatedTime = useMemo(() => {
@@ -300,7 +304,23 @@ export function MultiChannelFormStepper({
       toast.error('Vui lòng nhập chủ đề và chọn ít nhất 1 kênh');
       return;
     }
-    await onSubmit({ ...formData, topicHistoryId });
+
+    // Ensure the progress UI is visible long enough to be perceived
+    const MIN_PROGRESS_VISIBLE_MS = 1200;
+    setUiLoading(true);
+    uiLoadingStartedAtRef.current = Date.now();
+
+    try {
+      await onSubmit({ ...formData, topicHistoryId });
+    } finally {
+      const startedAt = uiLoadingStartedAtRef.current ?? Date.now();
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, MIN_PROGRESS_VISIBLE_MS - elapsed);
+      window.setTimeout(() => {
+        setUiLoading(false);
+        uiLoadingStartedAtRef.current = null;
+      }, remaining);
+    }
   };
 
   // Group channels by category
@@ -833,7 +853,7 @@ export function MultiChannelFormStepper({
           {currentStep === 4 && (
             <div className="space-y-4 animate-fade-in">
               {/* Topic Context Bar */}
-              {formData.topic && !isLoading && (
+              {formData.topic && !effectiveLoading && (
                 <TopicContextBar
                   topic={formData.topic}
                   brandName={selectedTemplate?.brand_name}
@@ -843,11 +863,11 @@ export function MultiChannelFormStepper({
               )}
 
               {/* AI Generation Progress - Show when loading */}
-              {isLoading ? (
+              {effectiveLoading ? (
                 <Card className="border-primary/20 bg-primary/5">
                   <CardContent className="p-4">
                     <AIGenerationProgress
-                      isLoading={isLoading}
+                      isLoading={effectiveLoading}
                       channelCount={formData.channels.length}
                       elapsedMs={generationElapsedMs}
                     />
@@ -932,7 +952,7 @@ export function MultiChannelFormStepper({
             type="button"
             variant="ghost"
             onClick={handleBack}
-            disabled={currentStep === 1 || isLoading}
+            disabled={currentStep === 1 || effectiveLoading}
             className="gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -943,7 +963,7 @@ export function MultiChannelFormStepper({
             <Button
               type="button"
               onClick={handleNext}
-              disabled={!canProceed || isLoading}
+              disabled={!canProceed || effectiveLoading}
               className="gap-2 gradient-primary glow-primary"
             >
               Tiếp tục
@@ -953,13 +973,13 @@ export function MultiChannelFormStepper({
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={isLoading || !formData.topic.trim() || formData.channels.length === 0}
+              disabled={effectiveLoading || !formData.topic.trim() || formData.channels.length === 0}
               className={cn(
                 "gap-2 gradient-primary min-w-[180px]",
-                !isLoading && "glow-primary"
+                !effectiveLoading && "glow-primary"
               )}
             >
-              {isLoading ? (
+              {effectiveLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Đang tạo...
@@ -975,7 +995,7 @@ export function MultiChannelFormStepper({
         </div>
 
         {/* Estimated time hint */}
-        {currentStep === 4 && !isLoading && (
+        {currentStep === 4 && !effectiveLoading && (
           <p className="text-center text-xs text-muted-foreground">
             Thời gian ước tính: ~{estimatedTime} giây
           </p>
