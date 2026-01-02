@@ -51,6 +51,7 @@ import {
   ChevronDown,
   X,
   Star,
+  Settings2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -814,7 +815,10 @@ export function MultiChannelFormStepper({
                 <div key={category.key} className="space-y-2">
                   <p className="text-xs text-muted-foreground font-medium">{category.name}</p>
                   <div className="grid grid-cols-2 gap-2">
-                    {category.channels.map((channel) => (
+                    {category.channels.map((channel) => {
+                      const hasOverride = selectedTemplate?.channel_overrides && 
+                        Object.keys(selectedTemplate.channel_overrides).includes(channel.value);
+                      return (
                       <Tooltip key={channel.value}>
                         <TooltipTrigger asChild>
                           <label
@@ -835,14 +839,24 @@ export function MultiChannelFormStepper({
                             <span className="text-primary">
                               {channelIcons[channel.value]}
                             </span>
-                            <span className="text-sm truncate">{channel.label}</span>
+                            <span className="text-sm truncate flex-1">{channel.label}</span>
+                            {hasOverride && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-purple-300 text-purple-600 dark:border-purple-700 dark:text-purple-400">
+                                <Settings2 className="w-2.5 h-2.5 mr-0.5" />
+                                Custom
+                              </Badge>
+                            )}
                           </label>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[200px]">
                           <p className="text-xs">{channel.description}</p>
+                          {hasOverride && (
+                            <p className="text-xs text-purple-500 mt-1">✨ Có cấu hình riêng cho kênh này</p>
+                          )}
                         </TooltipContent>
                       </Tooltip>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}

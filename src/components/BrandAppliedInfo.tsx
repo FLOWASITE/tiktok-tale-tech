@@ -70,6 +70,14 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
     return selectedChannels.filter(channel => overrideKeys.includes(channel));
   }, [template.channel_overrides, selectedChannels]);
 
+  // Check which channels have sample texts
+  const sampleTextsInfo = useMemo(() => {
+    const sampleTexts = (template as any).sample_texts as Record<string, string> | undefined;
+    if (!sampleTexts) return { count: 0, channels: [] };
+    const channels = Object.keys(sampleTexts).filter(ch => sampleTexts[ch]?.trim());
+    return { count: channels.length, channels };
+  }, [(template as any).sample_texts]);
+
   // Check for missing important brand info
   const warnings = useMemo(() => {
     const issues: string[] = [];
@@ -394,6 +402,30 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
               </div>
             </div>
           )}
+
+          {/* Sample Texts for AI Learning */}
+          {sampleTextsInfo.count > 0 && (
+            <div className="flex items-start gap-2 pt-2 border-t border-border/50">
+              <FileText className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Sample Texts (AI học style)</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {sampleTextsInfo.channels.slice(0, 4).map((channel) => (
+                    <Badge key={channel} variant="outline" className="text-xs border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400 capitalize">
+                      {channel.replace('_', ' ')}
+                    </Badge>
+                  ))}
+                  {sampleTextsInfo.channels.length > 4 && (
+                    <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400">
+                      +{sampleTextsInfo.channels.length - 4}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Channel Overrides */}
           {channelOverrides.length > 0 && (
             <div className="flex items-start gap-2 pt-2 border-t border-border/50">
               <Settings2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
