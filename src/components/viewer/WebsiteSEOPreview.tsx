@@ -163,12 +163,75 @@ function calculateSEOScore(seoData: WebsiteSEOData | null, content: string | nul
 function SERPPreview({ seoData, brandName }: { seoData: WebsiteSEOData; brandName?: string }) {
   const domain = brandName ? `${brandName.toLowerCase().replace(/\s+/g, '')}.com` : 'example.com';
   const slug = seoData.slug_suggestion || 'bai-viet';
+  const [copiedField, setCopiedField] = React.useState<string | null>(null);
+  
+  const handleCopy = async (text: string, field: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast.success(`Đã copy ${field}`);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast.error('Không thể copy');
+    }
+  };
   
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border border-border">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-        <Search className="h-3 w-3" />
-        Google Search Preview
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Search className="h-3 w-3" />
+          Google Search Preview
+        </div>
+        {/* Quick Copy Actions */}
+        <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => handleCopy(seoData.seo_title || '', 'Title')}
+                  disabled={!seoData.seo_title}
+                >
+                  {copiedField === 'Title' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy SEO Title</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => handleCopy(seoData.meta_description || '', 'Meta')}
+                  disabled={!seoData.meta_description}
+                >
+                  {copiedField === 'Meta' ? <Check className="h-3 w-3 text-green-500" /> : <FileText className="h-3 w-3" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy Meta Description</TooltipContent>
+            </Tooltip>
+            {seoData.focus_keyword && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => handleCopy(seoData.focus_keyword || '', 'Keyword')}
+                  >
+                    {copiedField === 'Keyword' ? <Check className="h-3 w-3 text-green-500" /> : <Hash className="h-3 w-3" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy Focus Keyword</TooltipContent>
+              </Tooltip>
+            )}
+          </TooltipProvider>
+        </div>
       </div>
       
       {/* Google result card */}

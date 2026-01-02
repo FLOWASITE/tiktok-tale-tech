@@ -1176,6 +1176,8 @@ export function MultiChannelViewer({
                                 logoUrl={undefined}
                                 primaryColor={content.primary_color || undefined}
                                 isLoading={isRegenerating}
+                                seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
+                                channelImage={content.channel_images?.[channel]?.url}
                               />
                               {/* SEO Preview for website channel */}
                               {channel === 'website' && (content as any).website_seo_data && (
