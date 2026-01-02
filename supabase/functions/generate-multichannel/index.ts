@@ -1132,6 +1132,8 @@ serve(async (req) => {
           signaturePhrases: template.signature_phrases || [],
           ctaTemplates: template.cta_templates || [],
           evergreenThemes: template.evergreen_themes || [],
+          // Footer Info for contact details in CTA
+          footerInfo: template.footer_info as any || undefined,
         };
         
         // Fetch customer personas for this brand
