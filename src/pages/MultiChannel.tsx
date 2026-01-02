@@ -1,17 +1,16 @@
 import { useState, useMemo, useEffect } from 'react';
-import { FileText, Sparkles, X, Plus, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles, X, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelFormStepper } from '@/components/multichannel/MultiChannelFormStepper';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelListView } from '@/components/MultiChannelListView';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
+import { MultiChannelHeroSection } from '@/components/multichannel/MultiChannelHeroSection';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
 import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
-import { MultiChannelStats } from '@/components/MultiChannelStats';
 import { PostCreationPrompt } from '@/components/PostCreationPrompt';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -96,7 +95,6 @@ export default function MultiChannel() {
         setInitialMarketingFramework(prefillData.marketingFramework);
       }
       setFormSheetOpen(true);
-      // Clear location state to prevent re-triggering
       window.history.replaceState({}, document.title);
     }
   }, [prefillData]);
@@ -161,35 +159,16 @@ export default function MultiChannel() {
 
   const filteredContents = useMemo(() => {
     return contents.filter((content) => {
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesTopic = content.topic.toLowerCase().includes(query);
         const matchesTitle = content.title.toLowerCase().includes(query);
         if (!matchesTopic && !matchesTitle) return false;
       }
-
-      // Goal filter
-      if (goalFilter !== 'all' && content.content_goal !== goalFilter) {
-        return false;
-      }
-
-      // Channel filter
-      if (channelFilter !== 'all' && !content.selected_channels.includes(channelFilter)) {
-        return false;
-      }
-
-      // Status filter
-      if (statusFilter !== 'all' && content.status !== statusFilter) {
-        return false;
-      }
-
-      // Brand filter
-      if (brandFilter !== 'all' && content.brand_template_id !== brandFilter) {
-        return false;
-      }
-
-      // Date range filter
+      if (goalFilter !== 'all' && content.content_goal !== goalFilter) return false;
+      if (channelFilter !== 'all' && !content.selected_channels.includes(channelFilter)) return false;
+      if (statusFilter !== 'all' && content.status !== statusFilter) return false;
+      if (brandFilter !== 'all' && content.brand_template_id !== brandFilter) return false;
       if (dateRange.from) {
         const contentDate = new Date(content.created_at);
         if (contentDate < dateRange.from) return false;
@@ -200,18 +179,11 @@ export default function MultiChannel() {
         endOfDay.setHours(23, 59, 59, 999);
         if (contentDate > endOfDay) return false;
       }
-
-      // Tag filter
-      if (tagFilter !== 'all' && !content.tags?.includes(tagFilter)) {
-        return false;
-      }
-
-      // Priority filter
+      if (tagFilter !== 'all' && !content.tags?.includes(tagFilter)) return false;
       if (priorityFilter !== 'all') {
         const contentPriority = content.priority || 'normal';
         if (contentPriority !== priorityFilter) return false;
       }
-
       return true;
     });
   }, [contents, searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
@@ -222,12 +194,10 @@ export default function MultiChannel() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedContents = filteredContents.slice(startIndex, endIndex);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
 
-  // Reset to page 1 if current page exceeds total pages
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
@@ -253,44 +223,29 @@ export default function MultiChannel() {
     setFormSheetOpen(false);
     const result = await generateContent(data);
     
-    // Show post-creation prompt if content was created successfully
     if (result) {
-      // Create topic-to-content link if came from Topics Hub
       if (data.topicHistoryId) {
         try {
-          await createLink(
-            data.topicHistoryId,
-            result.id,
-            'multichannel',
-            result.title,
-            result.status
-          );
+          await createLink(data.topicHistoryId, result.id, 'multichannel', result.title, result.status);
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }
       }
-      
       setNewlyCreatedContent(result);
       setShowPostCreationPrompt(true);
-      
-      // Clear topicHistoryId after use
       setTopicHistoryId(undefined);
     }
   };
 
   const handleRegenerate = async (contentId: string, channel: Channel) => {
     const updated = await regenerateChannel(contentId, channel);
-    if (updated) {
-      setSelectedContent(updated);
-    }
+    if (updated) setSelectedContent(updated);
     return updated;
   };
 
   const handleUpdateContent = async (contentId: string, channel: Channel, newContent: string) => {
     const updated = await updateChannelContent(contentId, channel, newContent);
-    if (updated) {
-      setSelectedContent(updated);
-    }
+    if (updated) setSelectedContent(updated);
     return updated;
   };
 
@@ -300,17 +255,13 @@ export default function MultiChannel() {
 
   const handleUpdateTitleTopic = async (contentId: string, title: string, topic: string) => {
     const updated = await updateTitleTopic(contentId, title, topic);
-    if (updated) {
-      setSelectedContent(updated);
-    }
+    if (updated) setSelectedContent(updated);
     return updated;
   };
 
   const handleUpdateChannelStatus = async (contentId: string, channel: Channel, status: ContentStatus) => {
     const updated = await updateChannelStatus(contentId, channel, status);
-    if (updated) {
-      setSelectedContent(updated);
-    }
+    if (updated) setSelectedContent(updated);
     return updated;
   };
 
@@ -331,19 +282,13 @@ export default function MultiChannel() {
     setSelectedIds(newSelected);
   };
 
-  const selectAll = () => {
-    setSelectedIds(new Set(filteredContents.map(c => c.id)));
-  };
-
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-  };
+  const selectAll = () => setSelectedIds(new Set(filteredContents.map(c => c.id)));
+  const clearSelection = () => setSelectedIds(new Set());
 
   const handleBulkDelete = async () => {
     setIsBulkDeleting(true);
     const idsToDelete = Array.from(selectedIds);
     let successCount = 0;
-    
     for (const id of idsToDelete) {
       try {
         await deleteContent(id);
@@ -352,7 +297,6 @@ export default function MultiChannel() {
         console.error(`Error deleting ${id}:`, error);
       }
     }
-    
     setSelectedIds(new Set());
     setIsBulkDeleting(false);
     toast.success(`Đã xóa ${successCount}/${idsToDelete.length} nội dung`);
@@ -362,7 +306,6 @@ export default function MultiChannel() {
     setIsBulkUpdating(true);
     const idsToUpdate = Array.from(selectedIds);
     let successCount = 0;
-    
     for (const id of idsToUpdate) {
       try {
         await updateStatus(id, status);
@@ -371,160 +314,131 @@ export default function MultiChannel() {
         console.error(`Error updating ${id}:`, error);
       }
     }
-    
     setSelectedIds(new Set());
     setIsBulkUpdating(false);
     toast.success(`Đã cập nhật ${successCount}/${idsToUpdate.length} nội dung`);
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header Bar - Compact & Responsive */}
-      <div className="flex-shrink-0 bg-background/95 backdrop-blur border-b px-3 sm:px-4 py-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <FileText className="w-4 h-4 text-primary flex-shrink-0" />
-            <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-semibold truncate">Quản lý nội dung đa kênh</h1>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">
-                {filteredContents.length} / {contents.length} bộ nội dung
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'grid' | 'list')} className="hidden sm:flex">
-              <ToggleGroupItem value="grid" aria-label="Grid view" className="h-8 w-8 p-0">
-                <LayoutGrid className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="list" aria-label="List view" className="h-8 w-8 p-0">
-                <List className="h-4 w-4" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1 sm:gap-1.5 h-8 px-2 sm:px-3">
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Thêm mới</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/')}
-              className="h-8 w-8"
-              title="Đóng"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Close Button - Fixed top right */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate('/')}
+        className="fixed top-3 right-3 z-50 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm"
+        title="Đóng"
+      >
+        <X className="h-4 w-4" />
+      </Button>
 
-      <div className="flex-1 overflow-auto p-3 sm:p-4 space-y-3">
+      <div className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 space-y-4">
+        {/* Hero Section with Stats */}
+        <MultiChannelHeroSection
+          contents={contents}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onAddNew={() => setFormSheetOpen(true)}
+          isLoading={loading}
+        />
 
-            {/* Stats Dashboard */}
-            <MultiChannelStats contents={contents} />
+        {/* Filters */}
+        <MultiChannelFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          goalFilter={goalFilter}
+          onGoalFilterChange={setGoalFilter}
+          channelFilter={channelFilter}
+          onChannelFilterChange={setChannelFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          brandFilter={brandFilter}
+          onBrandFilterChange={setBrandFilter}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          tagFilter={tagFilter}
+          onTagFilterChange={setTagFilter}
+          brandTemplates={brandTemplates}
+          availableTags={availableTags}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+        />
 
-            {/* Bulk Actions Bar */}
-            <BulkActionsBar
-              selectedCount={selectedIds.size}
-              totalCount={filteredContents.length}
-              onSelectAll={selectAll}
-              onClearSelection={clearSelection}
-              onBulkDelete={handleBulkDelete}
-              onBulkStatusChange={handleBulkStatusChange}
-              onBulkSchedule={() => setBulkScheduleOpen(true)}
-              isDeleting={isBulkDeleting}
-              isUpdating={isBulkUpdating}
-            />
+        {/* Bulk Actions Bar */}
+        <BulkActionsBar
+          selectedCount={selectedIds.size}
+          totalCount={filteredContents.length}
+          onSelectAll={selectAll}
+          onClearSelection={clearSelection}
+          onBulkDelete={handleBulkDelete}
+          onBulkStatusChange={handleBulkStatusChange}
+          onBulkSchedule={() => setBulkScheduleOpen(true)}
+          isDeleting={isBulkDeleting}
+          isUpdating={isBulkUpdating}
+        />
 
-            {/* Filters */}
-            <MultiChannelFilters
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              goalFilter={goalFilter}
-              onGoalFilterChange={setGoalFilter}
-              channelFilter={channelFilter}
-              onChannelFilterChange={setChannelFilter}
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              brandFilter={brandFilter}
-              onBrandFilterChange={setBrandFilter}
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              tagFilter={tagFilter}
-              onTagFilterChange={setTagFilter}
-              brandTemplates={brandTemplates}
-              availableTags={availableTags}
-              onClearFilters={clearFilters}
-              activeFilterCount={activeFilterCount}
-            />
+        {/* Generating Skeleton */}
+        {generating && (
+          <ContentGeneratingSkeleton 
+            channelCount={generatingChannelCount} 
+            message="AI đang tạo nội dung đa kênh..."
+          />
+        )}
 
-            {/* Generating Skeleton */}
-            {generating && (
-              <ContentGeneratingSkeleton 
-                channelCount={generatingChannelCount} 
-                message="AI đang tạo nội dung đa kênh..."
-              />
-            )}
-
-        {/* Content Grid/List - Responsive */}
+        {/* Content Grid/List */}
         {loading ? (
           viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
-              {[...Array(6)].map((_, i) => (
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              {[...Array(8)].map((_, i) => (
                 <CardLoadingSkeleton key={i} />
               ))}
             </div>
           ) : (
             <div className="space-y-2">
               {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
               ))}
             </div>
           )
         ) : filteredContents.length === 0 ? (
-          <div className="text-center py-8 animate-fade-in">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-muted/50 mb-3">
-              <Sparkles className="w-5 h-5 text-muted-foreground" />
+          <div className="text-center py-16 animate-fade-in">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 mb-4">
+              <Sparkles className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-sm font-medium text-foreground mb-1">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               {contents.length === 0 ? 'Chưa có nội dung nào' : 'Không tìm thấy nội dung'}
             </h3>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto mb-3">
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
               {contents.length === 0
-                ? 'Nhấn "Thêm mới" để tạo nội dung.'
-                : 'Thử thay đổi bộ lọc.'}
+                ? 'Bắt đầu tạo nội dung đa kênh với AI để tiếp cận khách hàng trên mọi nền tảng.'
+                : 'Thử thay đổi bộ lọc để tìm nội dung phù hợp.'}
             </p>
             {contents.length === 0 && (
-              <Button onClick={() => setFormSheetOpen(true)} size="sm" className="gap-1.5 h-7">
-                <Plus className="w-3.5 h-3.5" />
-                Tạo mới
+              <Button onClick={() => setFormSheetOpen(true)} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                <Plus className="w-4 h-4" />
+                Tạo nội dung đầu tiên
               </Button>
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {paginatedContents.map((content, index) => (
-              <div
-                key={content.id}
-                className="stagger-item relative"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                {/* Selection Checkbox */}
-                <div className="absolute top-1.5 left-1.5 z-20">
+              <div key={content.id} className="relative">
+                <div className="absolute top-2 left-2 z-20">
                   <Checkbox
                     checked={selectedIds.has(content.id)}
                     onCheckedChange={() => toggleSelection(content.id)}
-                    className="h-4 w-4 bg-background/80 backdrop-blur border-border"
+                    className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
                   />
                 </div>
                 <MultiChannelCard
                   content={content}
                   onView={handleView}
                   onDelete={handleDelete}
-                  onScheduleComplete={() => {
-                    toast.success('Đã lên lịch thành công');
-                  }}
+                  onScheduleComplete={() => toast.success('Đã lên lịch thành công')}
                   creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
                   isLoadingProfile={isLoadingProfiles}
+                  index={index}
                 />
               </div>
             ))}
@@ -542,14 +456,13 @@ export default function MultiChannel() {
           />
         )}
 
-        {/* Pagination Controls */}
+        {/* Pagination */}
         {!loading && filteredContents.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 border-t">
-            {/* Items per page selector */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-border/50">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Hiển thị</span>
               <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-                <SelectTrigger className="w-[70px] h-8">
+                <SelectTrigger className="w-[70px] h-8 bg-background/60 border-border/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -563,20 +476,18 @@ export default function MultiChannel() {
               <span className="text-muted-foreground">/ trang</span>
             </div>
 
-            {/* Page navigation */}
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="h-8 px-2 sm:px-3"
+                className="h-9 px-3 bg-background/60 border-border/50"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span className="hidden sm:inline ml-1">Trước</span>
               </Button>
 
-              {/* Page numbers */}
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter((page) => {
@@ -587,17 +498,16 @@ export default function MultiChannel() {
                   .map((page, index, array) => {
                     const prevPage = array[index - 1];
                     const showEllipsis = prevPage && page - prevPage > 1;
-                    
                     return (
                       <div key={page} className="flex items-center gap-1">
                         {showEllipsis && (
-                          <span className="px-1 text-muted-foreground">...</span>
+                          <span className="px-2 text-muted-foreground">...</span>
                         )}
                         <Button
                           variant={currentPage === page ? "default" : "outline"}
                           size="sm"
                           onClick={() => handlePageChange(page)}
-                          className="h-8 w-8 p-0"
+                          className={`h-9 w-9 p-0 ${currentPage === page ? 'bg-gradient-to-r from-primary to-secondary border-0' : 'bg-background/60 border-border/50'}`}
                         >
                           {page}
                         </Button>
@@ -611,24 +521,23 @@ export default function MultiChannel() {
                 size="sm"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="h-8 px-2 sm:px-3"
+                className="h-9 px-3 bg-background/60 border-border/50"
               >
                 <span className="hidden sm:inline mr-1">Sau</span>
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
 
-            {/* Page info */}
             <div className="text-sm text-muted-foreground">
               <span className="hidden sm:inline">Trang </span>
-              {currentPage}/{totalPages}
-              <span className="hidden sm:inline"> ({filteredContents.length} nội dung)</span>
+              <span className="font-medium text-foreground">{currentPage}</span>/{totalPages}
+              <span className="hidden sm:inline ml-1">({filteredContents.length} nội dung)</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Form Panel - Below Header */}
+      {/* Form Panel */}
       <SlidePanel
         open={formSheetOpen}
         onOpenChange={setFormSheetOpen}
@@ -693,7 +602,7 @@ export default function MultiChannel() {
         />
       )}
 
-      {/* Assignment dialog after creation */}
+      {/* Assignment dialog */}
       {newlyCreatedContent && (
         <AssignmentDialog
           open={showAssignmentDialog}
