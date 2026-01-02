@@ -49,6 +49,7 @@ export { TopicFormatSelector } from './TopicFormatSelector';
 export { UpcomingEventsCard } from './UpcomingEventsCard';
 export { QuickAccessBank } from './QuickAccessBank';
 export { AILearningStatus } from './AILearningStatus';
+export { TopicRefinementProgress } from './TopicRefinementProgress';
 
 // Phase 5: New Features
 export { TopicComparisonMode } from './TopicComparisonMode';

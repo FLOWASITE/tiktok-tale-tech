@@ -34,6 +34,8 @@ interface UseTopicRefinementResult {
   error: string | null;
   refresh: () => void;
   contextUsed: RefineContextUsed | null;
+  // Progress tracking
+  elapsedMs: number;
 }
 
 export function useTopicRefinement({
@@ -47,8 +49,12 @@ export function useTopicRefinement({
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contextUsed, setContextUsed] = useState<RefineContextUsed | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastTopicRef = useRef<string>('');
+  const startTimeRef = useRef<number>(0);
+  const elapsedTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchRefinements = useCallback(async () => {
     if (!rawTopic || rawTopic.trim().length < 10) {
@@ -65,6 +71,13 @@ export function useTopicRefinement({
     lastTopicRef.current = rawTopic.trim();
     setIsLoading(true);
     setError(null);
+    setElapsedMs(0);
+    
+    // Start elapsed time tracking
+    startTimeRef.current = Date.now();
+    elapsedTimerRef.current = setInterval(() => {
+      setElapsedMs(Date.now() - startTimeRef.current);
+    }, 100);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('generate-topic-suggestions', {
@@ -104,6 +117,11 @@ export function useTopicRefinement({
       setContextUsed(null);
     } finally {
       setIsLoading(false);
+      // Stop elapsed timer
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+        elapsedTimerRef.current = null;
+      }
     }
   }, [rawTopic, videoType, brandTemplateId]);
 
@@ -117,6 +135,7 @@ export function useTopicRefinement({
       setRefinedTopics([]);
       setIsLoading(false);
       setIsTyping(false);
+      setElapsedMs(0);
       return;
     }
 
@@ -137,6 +156,9 @@ export function useTopicRefinement({
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+      }
     };
   }, [rawTopic, enabled, fetchRefinements]);
 
@@ -147,5 +169,6 @@ export function useTopicRefinement({
     error,
     refresh,
     contextUsed,
+    elapsedMs,
   };
 }
