@@ -239,7 +239,7 @@ export function MultiChannelViewer({
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
-  const [showMockupView, setShowMockupView] = useState(false);
+  const [showMockupView, setShowMockupView] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
