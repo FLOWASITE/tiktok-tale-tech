@@ -968,6 +968,13 @@ Khi tạo nội dung cho WEBSITE, BẮT BUỘC tuân thủ các quy tắc SEO sa
 - Transition words: "Ngoài ra", "Bên cạnh đó", "Cụ thể", "Quan trọng hơn"
 - Active voice > 80%
 
+## ⚠️ QUAN TRỌNG: WEBSITE CONTENT FORMAT
+Khi tạo nội dung cho channel WEBSITE:
+- Content PHẢI là pure Markdown syntax
+- TUYỆT ĐỐI KHÔNG dùng HTML tags (<h1>, <h2>, <p>, <strong>, <ul>, <li>, etc.)
+- Chỉ dùng: # ## ### **bold** *italic* - list > quote [link](url)
+- Nếu output HTML, content sẽ KHÔNG RENDER được trên website mockup
+
 ## KIỂM TRA CUỐI (BẮT BUỘC)
 Trước khi xuất nội dung, tự kiểm tra:
 - Có vượt max length không? → TỰ RÚT GỌN, giữ ý chính
@@ -975,6 +982,7 @@ Trước khi xuất nội dung, tự kiểm tra:
 - Có CTA sai quy định không? → TỰ SỬA
 - Có format sai nền tảng không? → TỰ ĐIỀU CHỈNH
 - Có sử dụng rich text (emoji, bold) đúng cách không? → TỰ ĐIỀU CHỈNH
+- WEBSITE content có phải pure Markdown không? → TỰ CHUYỂN ĐỔI nếu có HTML
 
 ## NGUYÊN TẮC BẮT BUỘC
 1. KHÔNG dùng chung một bài cho mọi kênh
@@ -1441,7 +1449,16 @@ const channelDescriptions: Record<string, string> = {
             },
             content: { 
               type: "string", 
-              description: "Nội dung bài viết đầy đủ (1000-2000 words), markdown format với ## H2, ### H3" 
+              description: `Nội dung bài viết đầy đủ (1000-2000 words).
+⚠️ FORMAT BẮT BUỘC: Pure Markdown - TUYỆT ĐỐI KHÔNG dùng HTML tags.
+- Dùng # cho H1 (chỉ 1 H1 đầu bài)
+- Dùng ## cho H2 sections
+- Dùng ### cho H3 sub-sections
+- Dùng **text** cho bold, *text* cho italic
+- Dùng - hoặc * cho bullet lists
+- Dùng > cho blockquotes
+- Dùng [text](url) cho links
+KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất kỳ HTML tag nào.` 
             },
             featured_snippet: {
               type: "string",

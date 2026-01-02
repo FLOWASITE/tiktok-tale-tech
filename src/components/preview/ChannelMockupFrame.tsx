@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { ensureMarkdownFormat } from '@/utils/contentFormatter';
 import ReactMarkdown from 'react-markdown';
 import { 
   Facebook, 
@@ -645,7 +646,11 @@ function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channel
 function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating }: Omit<ChannelMockupFrameProps, 'channel'>) {
   const [liked, setLiked] = useState(false);
   const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
-  const readTime = Math.max(1, Math.ceil(content.split(/\s+/).length / 200));
+  
+  // Ensure content is in Markdown format (auto-converts HTML if detected)
+  const formattedContent = useMemo(() => ensureMarkdownFormat(content), [content]);
+  
+  const readTime = Math.max(1, Math.ceil(formattedContent.split(/\s+/).length / 200));
   const themeColor = primaryColor || '#3b82f6';
   
   return (
@@ -776,7 +781,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
                 h1: ({ children }) => <h1 className="text-xl font-bold mb-3">{children}</h1>,
                 h2: ({ children }) => <h2 className="text-lg font-bold mb-2">{children}</h2>,
                 h3: ({ children }) => <h3 className="text-base font-semibold mb-2">{children}</h3>,
-              }}>{content}</ReactMarkdown>
+              }}>{formattedContent}</ReactMarkdown>
             </div>
           )}
         </div>
