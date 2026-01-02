@@ -1,24 +1,38 @@
 // ============================================
 // Self-Critique Loop for AI Content Generation
-// Evaluates and refines AI-generated content with Enhanced Scoring
+// Enhanced with 8 Categories & Professional Criteria
 // ============================================
 
-// Critique Configuration with Enhanced Weights
+import {
+  HOOK_CRITERIA,
+  CTA_CRITERIA,
+  READABILITY_CRITERIA,
+  MULTICHANNEL_CRITERIA,
+  SCRIPT_CRITERIA,
+  CAROUSEL_CRITERIA,
+  REFINEMENT_STRATEGY,
+  getFocusedRefinePrompt,
+  getRefinementStrategy,
+} from './critique-criteria.ts';
+
+// ================== CONFIGURATION ==================
 export const CRITIQUE_CONFIG = {
   PASS_THRESHOLD: 80,           // Score >= 80 = không cần refine
-  MIN_ACCEPTABLE: 60,           // Score < 60 = flag warning
-  MAX_REFINEMENTS: 1,           // Tối đa 1 lần refine
+  MIN_ACCEPTABLE: 65,           // Score < 65 = flag warning (tăng từ 60)
+  MAX_REFINEMENTS: 2,           // Tối đa 2 lần refine (tăng từ 1)
   COMPLIANCE_WEIGHT: 2.0,       // Compliance quan trọng gấp đôi
   TIMEOUT_MS: 15000,            // Timeout cho mỗi critique call
   
-  // Enhanced category weights (must sum to 100)
+  // Enhanced category weights (8 categories, sum = 100)
   CATEGORY_WEIGHTS: {
-    brand_voice: 20,
-    compliance: 25,
-    hook_strength: 15,
-    content_structure: 15,
-    engagement_potential: 15,
-    channel_fit: 10,
+    brand_voice: 15,        // Giảm từ 20 → 15
+    compliance: 25,         // Giữ nguyên - ưu tiên cao nhất
+    hook_strength: 18,      // Tăng từ 15 → 18
+    content_structure: 12,  // Giảm từ 15 → 12
+    engagement_potential: 10, // Giảm từ 15 → 10
+    channel_fit: 15,        // Tăng từ 10 → 15
+    cta_quality: 8,         // MỚI
+    readability: 7,         // MỚI
   } as const,
   
   // Quality tiers for display
@@ -31,13 +45,13 @@ export const CRITIQUE_CONFIG = {
   } as const,
 };
 
-// Type definitions
+// ================== TYPE DEFINITIONS ==================
 export interface CritiqueIssue {
   category: CritiqueCategory;
   severity: 'error' | 'warning' | 'info';
   description: string;
-  location?: string; // Which channel or slide
-  suggestion?: string; // Direct fix suggestion
+  location?: string;
+  suggestion?: string;
 }
 
 export type CritiqueCategory = 
@@ -47,26 +61,31 @@ export type CritiqueCategory =
   | 'structure'
   | 'engagement'
   | 'channel_fit'
+  | 'cta'
+  | 'readability'
   | 'forbidden';
 
-// Enhanced Critique Scores with 6 categories
+// Enhanced Critique Scores with 8 categories
 export interface CritiqueScores {
-  brand_voice: number;          // 0-20: Tone, style, formality
+  brand_voice: number;          // 0-15: Tone, style, formality
   compliance: number;           // 0-25: Rules, forbidden terms
-  hook_strength: number;        // 0-15: Opening impact
-  content_structure: number;    // 0-15: Flow, CTA, format
-  engagement_potential: number; // 0-15: Virality, shareability
-  channel_fit: number;          // 0-10: Platform optimization
+  hook_strength: number;        // 0-18: Opening impact
+  content_structure: number;    // 0-12: Flow, format
+  engagement_potential: number; // 0-10: Virality, shareability
+  channel_fit: number;          // 0-15: Platform optimization
+  cta_quality: number;          // 0-8: CTA effectiveness (MỚI)
+  readability: number;          // 0-7: Mobile-first reading (MỚI)
 }
 
 export interface CritiqueResult {
-  overall_score: number; // 0-100
+  overall_score: number;
   passed: boolean;
   quality_tier: keyof typeof CRITIQUE_CONFIG.QUALITY_TIERS;
   scores: CritiqueScores;
   issues: CritiqueIssue[];
   suggestions: string[];
-  strengths: string[]; // What's working well
+  strengths: string[];
+  needs_manual_review?: boolean; // Flag for failed critiques
 }
 
 export interface MergedRules {
@@ -94,7 +113,7 @@ export interface BrandVoice {
 
 export type ContentType = 'multichannel' | 'script' | 'carousel';
 
-// Helper to determine quality tier
+// ================== HELPER FUNCTIONS ==================
 export function getQualityTier(score: number): keyof typeof CRITIQUE_CONFIG.QUALITY_TIERS {
   const tiers = CRITIQUE_CONFIG.QUALITY_TIERS;
   if (score >= tiers.EXCELLENT.min) return 'EXCELLENT';
@@ -104,7 +123,66 @@ export function getQualityTier(score: number): keyof typeof CRITIQUE_CONFIG.QUAL
   return 'POOR';
 }
 
-// Build critique prompt based on content type
+// Map old category names to new ones
+function mapCategory(category: string): CritiqueCategory {
+  const mapping: Record<string, CritiqueCategory> = {
+    'brand_voice': 'brand_voice',
+    'brand_voice_consistency': 'brand_voice',
+    'compliance': 'compliance',
+    'hook': 'hook',
+    'hook_strength': 'hook',
+    'quality': 'structure',
+    'content_quality': 'structure',
+    'structure': 'structure',
+    'content_structure': 'structure',
+    'engagement': 'engagement',
+    'engagement_potential': 'engagement',
+    'channel_fit': 'channel_fit',
+    'cta': 'cta',
+    'cta_quality': 'cta',
+    'readability': 'readability',
+    'forbidden': 'forbidden',
+  };
+  return mapping[category] || 'structure';
+}
+
+// Create default critique result (used on errors)
+function createDefaultCritiqueResult(isError: boolean = false): CritiqueResult {
+  // On error: return low score with manual review flag
+  // This prevents false positives from being published
+  const score = isError ? 50 : 75;
+  const tier = getQualityTier(score);
+  
+  return {
+    overall_score: score,
+    passed: !isError && score >= CRITIQUE_CONFIG.PASS_THRESHOLD,
+    quality_tier: tier,
+    needs_manual_review: isError, // Flag for manual review
+    scores: {
+      brand_voice: Math.round(score * 0.15),
+      compliance: Math.round(score * 0.25),
+      hook_strength: Math.round(score * 0.18),
+      content_structure: Math.round(score * 0.12),
+      engagement_potential: Math.round(score * 0.10),
+      channel_fit: Math.round(score * 0.15),
+      cta_quality: Math.round(score * 0.08),
+      readability: Math.round(score * 0.07),
+    },
+    issues: isError ? [{
+      category: 'structure',
+      severity: 'error',
+      description: 'Không thể phân tích tự động - BẮT BUỘC review thủ công',
+    }] : [{
+      category: 'structure',
+      severity: 'warning',
+      description: 'Không thể phân tích chi tiết - cần review thủ công',
+    }],
+    suggestions: ['Kiểm tra lại nội dung trước khi đăng'],
+    strengths: [],
+  };
+}
+
+// ================== PROMPT BUILDERS ==================
 export function buildCritiquePrompt(
   content: any,
   contentType: ContentType,
@@ -122,8 +200,10 @@ export function buildCritiquePrompt(
   let contentText = '';
   
   if (contentType === 'multichannel') {
-    // Extract all channel content
-    const channels = Object.keys(content).filter(k => k.endsWith('_content') || ['title', 'facebook', 'instagram', 'twitter', 'website', 'linkedin', 'google_maps', 'email', 'zalo_oa', 'telegram', 'youtube'].includes(k));
+    const channels = Object.keys(content).filter(k => 
+      k.endsWith('_content') || 
+      ['title', 'facebook', 'instagram', 'twitter', 'website', 'linkedin', 'google_maps', 'email', 'zalo_oa', 'telegram', 'youtube', 'tiktok'].includes(k)
+    );
     contentText = channels.map(ch => `[${ch}]: ${content[ch] || content[ch + '_content'] || ''}`).join('\n\n');
   } else if (contentType === 'script') {
     contentText = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
@@ -133,14 +213,17 @@ export function buildCritiquePrompt(
     ).join('\n\n') || JSON.stringify(content, null, 2);
   }
 
-  return `Bạn là Content Quality Analyst chuyên nghiệp. ĐÁNH GIÁ NGHIÊM KHẮC nội dung sau.
+  // Build hook anti-patterns list
+  const hookAntiPatterns = HOOK_CRITERIA.antiPatterns.map(ap => `"${ap.pattern.source}"`).slice(0, 5).join(', ');
+
+  return `Bạn là Content Quality Analyst chuyên nghiệp với 10+ năm kinh nghiệm. ĐÁNH GIÁ NGHIÊM KHẮC nội dung sau.
 
 ## NỘI DUNG CẦN ĐÁNH GIÁ (${contentType.toUpperCase()})
 ${contentText}
 
-## TIÊU CHÍ ĐÁNH GIÁ (Tổng 100 điểm - 6 Categories)
+## TIÊU CHÍ ĐÁNH GIÁ (Tổng 100 điểm - 8 Categories)
 
-### 1. BRAND VOICE (20 điểm)
+### 1. BRAND VOICE (15 điểm)
 - Tone of Voice yêu cầu: ${toneOfVoice.join(', ') || 'N/A'}
 - Formality Level: ${formalityLevel}
 - Kiểm tra: Giọng văn nhất quán? Đúng tone? Đúng style?
@@ -150,28 +233,42 @@ ${contentText}
 ${forbiddenTerms.length > 0 ? `- TỪ CẤM TUYỆT ĐỐI: ${forbiddenTerms.join(', ')}` : ''}
 ${forbiddenWords.length > 0 ? `- Từ cấm brand: ${forbiddenWords.join(', ')}` : ''}
 ${complianceRules.length > 0 ? `- Quy tắc:\n  ${complianceRules.slice(0, 5).join('\n  ')}` : ''}
-- ⚠️ VI PHẠM → compliance = 0, overall_score tối đa 50
+- ⚠️ VI PHẠM TỪ CẤM → compliance = 0, overall_score TỐI ĐA 50
 
-### 3. HOOK STRENGTH (15 điểm)
-- Câu mở đầu gây tò mò/shock?
-- Có số liệu, câu hỏi, statement mạnh?
-- Trừ: Hook generic "Xin chào", "Hôm nay..."
+### 3. HOOK STRENGTH (18 điểm) 🎯 CRITICAL
+- Câu mở đầu PHẢI gây tò mò/shock trong 3 giây đầu
+- Patterns tốt: Số liệu, Câu hỏi, Story hook, Pain point, Curiosity gap
+- ❌ ANTI-PATTERNS (trừ điểm nặng): ${hookAntiPatterns}
+- Hook generic = tối đa 5/18 điểm
 
-### 4. CONTENT STRUCTURE (15 điểm)
+### 4. CONTENT STRUCTURE (12 điểm)
 - Cấu trúc logic, flow tốt?
-- CTA rõ ràng và phù hợp?
 - Format đúng (markdown, paragraphs)?
 ${preferredWords.length > 0 ? `- Từ nên dùng: ${preferredWords.slice(0, 10).join(', ')}` : ''}
 
-### 5. ENGAGEMENT POTENTIAL (15 điểm)
+### 5. ENGAGEMENT POTENTIAL (10 điểm)
 - Nội dung có viral potential?
 - Có yếu tố share-worthy?
 - Gây emotion/reaction?
 
-### 6. CHANNEL FIT (10 điểm)
-- Đúng độ dài kênh?
+### 6. CHANNEL FIT (15 điểm) 🎯 CRITICAL cho multichannel
+- Đúng độ dài kênh? (FB: 100-500, IG: 50-300, LI: 150-700, TW: 20-280)
 - Emoji policy đúng (${mergedRules?.allow_emoji || brandVoice?.allow_emoji ? 'Cho phép' : 'Không dùng'})?
 - Hashtags phù hợp?
+- Content có adapt theo từng kênh hay copy y nguyên?
+
+### 7. CTA QUALITY (8 điểm) - MỚI
+- CTA có cụ thể không? (generic = 2đ, specific = 6đ, compelling = 8đ)
+- CTA có action verb + benefit?
+- CTA có urgency element?
+- ❌ CTA generic như "Liên hệ ngay", "Xem thêm" = tối đa 2 điểm
+
+### 8. READABILITY (7 điểm) - MỚI
+- Câu có ngắn gọn? (max 25 từ/câu)
+- Paragraph có được chia nhỏ? (max 3-4 dòng)
+- Có bullet points, numbered list?
+- Có bold keywords?
+- Mobile-friendly?
 ${additionalContext || ''}
 
 ## OUTPUT FORMAT (JSON ONLY)
@@ -179,16 +276,18 @@ ${additionalContext || ''}
   "overall_score": 0-100,
   "passed": true/false,
   "scores": {
-    "brand_voice": 0-20,
+    "brand_voice": 0-15,
     "compliance": 0-25,
-    "hook_strength": 0-15,
-    "content_structure": 0-15,
-    "engagement_potential": 0-15,
-    "channel_fit": 0-10
+    "hook_strength": 0-18,
+    "content_structure": 0-12,
+    "engagement_potential": 0-10,
+    "channel_fit": 0-15,
+    "cta_quality": 0-8,
+    "readability": 0-7
   },
   "issues": [
     {
-      "category": "brand_voice|compliance|hook|structure|engagement|channel_fit|forbidden",
+      "category": "brand_voice|compliance|hook|structure|engagement|channel_fit|cta|readability|forbidden",
       "severity": "error|warning|info",
       "description": "Mô tả cụ thể vấn đề",
       "location": "tên kênh/slide (optional)",
@@ -199,18 +298,18 @@ ${additionalContext || ''}
   "strengths": ["Điểm mạnh 1", "Điểm mạnh 2"]
 }
 
-## NGUYÊN TẮC
-1. NGHIÊM KHẮC - Đánh giá như reviewer chuyên nghiệp
-2. CỤ THỂ - Chỉ rõ vị trí lỗi
-3. ACTIONABLE - Mỗi issue có gợi ý sửa
-4. COMPLIANCE ƯU TIÊN #1
-5. passed = true NẾU overall_score >= ${CRITIQUE_CONFIG.PASS_THRESHOLD}
-6. NHẬN DIỆN ĐIỂM MẠNH - Ghi nhận những gì làm tốt
+## NGUYÊN TẮC ĐÁNH GIÁ NGHIÊM KHẮC
+1. COMPLIANCE ƯU TIÊN #1 - Vi phạm = 0 điểm compliance, max 50 overall
+2. HOOK PHẢI MẠNH - Generic hook = max 5/18 điểm
+3. CTA PHẢI CỤ THỂ - "Liên hệ ngay" = max 2/8 điểm
+4. ĐÁNH GIÁ THỰC TẾ - Không cho điểm cao nếu content trung bình
+5. passed = true NẾU VÀ CHỈ NẾU overall_score >= ${CRITIQUE_CONFIG.PASS_THRESHOLD}
+6. NHẬN DIỆN ĐIỂM MẠNH - Ghi nhận những gì làm tốt trong "strengths"
 
 CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC.`;
 }
 
-// Build refinement prompt
+// Build focused refinement prompt
 export function buildRefinePrompt(
   originalContent: any,
   critiqueResult: CritiqueResult,
@@ -219,10 +318,23 @@ export function buildRefinePrompt(
   mergedRules?: MergedRules
 ): string {
   const issuesList = critiqueResult.issues
-    .map(i => `- [${i.severity.toUpperCase()}] ${i.category}: ${i.description}${i.location ? ` (${i.location})` : ''}`)
+    .map(i => `- [${i.severity.toUpperCase()}] ${i.category}: ${i.description}${i.location ? ` (${i.location})` : ''}${i.suggestion ? `\n  → ${i.suggestion}` : ''}`)
     .join('\n');
   
   const suggestionsList = critiqueResult.suggestions.join('\n- ');
+
+  // Get focused refinement prompt based on lowest category
+  const maxScores = {
+    brand_voice: 15,
+    compliance: 25,
+    hook_strength: 18,
+    content_structure: 12,
+    engagement_potential: 10,
+    channel_fit: 15,
+    cta_quality: 8,
+    readability: 7,
+  };
+  const focusPrompt = getFocusedRefinePrompt(critiqueResult.scores as unknown as Record<string, number>, maxScores);
 
   let contentText = '';
   if (contentType === 'multichannel') {
@@ -246,25 +358,29 @@ ${issuesList}
 ## GỢI Ý SỬA
 - ${suggestionsList}
 
+## FOCUS ƯU TIÊN
+${focusPrompt}
+
 ## QUY TẮC QUAN TRỌNG
-${mergedRules?.forbidden_terms?.length ? `- KHÔNG DÙNG các từ: ${mergedRules.forbidden_terms.join(', ')}` : ''}
+${mergedRules?.forbidden_terms?.length ? `- KHÔNG DÙNG các từ CẤM: ${mergedRules.forbidden_terms.join(', ')}` : ''}
 ${mergedRules?.forbidden_words?.length ? `- TRÁNH các từ: ${mergedRules.forbidden_words.join(', ')}` : ''}
 ${mergedRules?.preferred_words?.length ? `- NÊN DÙNG: ${mergedRules.preferred_words.slice(0, 10).join(', ')}` : ''}
 ${brandVoice?.tone_of_voice?.length ? `- TONE: ${brandVoice.tone_of_voice.join(', ')}` : ''}
 
 ## YÊU CẦU
-1. SỬA TẤT CẢ các issues được liệt kê
+1. SỬA TẤT CẢ các issues được liệt kê, ƯU TIÊN theo FOCUS
 2. GIỮ NGUYÊN cấu trúc và format output gốc
 3. KHÔNG thay đổi ý nghĩa chính của nội dung
 4. TRẢ VỀ CÙNG FORMAT JSON/TEXT như input
+5. HOOK PHẢI MẠNH - Không bắt đầu bằng "Xin chào", "Hôm nay"
+6. CTA PHẢI CỤ THỂ - Có action verb + benefit + urgency
 
 CHỈ TRẢ VỀ NỘI DUNG ĐÃ SỬA, KHÔNG CÓ GIẢI THÍCH.`;
 }
 
-// Parse critique result from AI response
+// ================== PARSE CRITIQUE RESULT ==================
 export function parseCritiqueResult(aiResponse: string): CritiqueResult {
   try {
-    // Try to extract JSON from response
     let jsonStr = aiResponse.trim();
     
     // Handle markdown code blocks
@@ -278,14 +394,16 @@ export function parseCritiqueResult(aiResponse: string): CritiqueResult {
     
     const parsed = JSON.parse(jsonStr);
     
-    // Validate and normalize with new 6-category scores
+    // Validate and normalize with new 8-category scores
     const scores: CritiqueScores = {
-      brand_voice: Math.max(0, Math.min(20, parseInt(parsed.scores?.brand_voice) || 0)),
+      brand_voice: Math.max(0, Math.min(15, parseInt(parsed.scores?.brand_voice) || 0)),
       compliance: Math.max(0, Math.min(25, parseInt(parsed.scores?.compliance) || 0)),
-      hook_strength: Math.max(0, Math.min(15, parseInt(parsed.scores?.hook_strength) || 0)),
-      content_structure: Math.max(0, Math.min(15, parseInt(parsed.scores?.content_structure) || 0)),
-      engagement_potential: Math.max(0, Math.min(15, parseInt(parsed.scores?.engagement_potential) || 0)),
-      channel_fit: Math.max(0, Math.min(10, parseInt(parsed.scores?.channel_fit) || 0)),
+      hook_strength: Math.max(0, Math.min(18, parseInt(parsed.scores?.hook_strength) || 0)),
+      content_structure: Math.max(0, Math.min(12, parseInt(parsed.scores?.content_structure) || 0)),
+      engagement_potential: Math.max(0, Math.min(10, parseInt(parsed.scores?.engagement_potential) || 0)),
+      channel_fit: Math.max(0, Math.min(15, parseInt(parsed.scores?.channel_fit) || 0)),
+      cta_quality: Math.max(0, Math.min(8, parseInt(parsed.scores?.cta_quality) || 0)),
+      readability: Math.max(0, Math.min(7, parseInt(parsed.scores?.readability) || 0)),
     };
     
     // Recalculate overall score from individual scores
@@ -305,63 +423,22 @@ export function parseCritiqueResult(aiResponse: string): CritiqueResult {
       })),
       suggestions: parsed.suggestions || [],
       strengths: parsed.strengths || [],
+      needs_manual_review: false,
     };
     
     return result;
   } catch (err) {
     console.error('Failed to parse critique result:', err);
-    // Return a default "needs review" result
-    return createDefaultCritiqueResult(50, false);
+    return createDefaultCritiqueResult(true); // Mark as needs review
   }
 }
 
-// Helper to map old category names to new ones
-function mapCategory(category: string): CritiqueCategory {
-  const mapping: Record<string, CritiqueCategory> = {
-    'brand_voice': 'brand_voice',
-    'brand_voice_consistency': 'brand_voice',
-    'compliance': 'compliance',
-    'hook': 'hook',
-    'hook_strength': 'hook',
-    'quality': 'structure',
-    'content_quality': 'structure',
-    'structure': 'structure',
-    'content_structure': 'structure',
-    'engagement': 'engagement',
-    'engagement_potential': 'engagement',
-    'channel_fit': 'channel_fit',
-    'forbidden': 'forbidden',
-  };
-  return mapping[category] || 'structure';
-}
-
-// Helper to create default critique result
-function createDefaultCritiqueResult(score: number, passed: boolean): CritiqueResult {
-  const tier = getQualityTier(score);
-  return {
-    overall_score: score,
-    passed,
-    quality_tier: tier,
-    scores: {
-      brand_voice: Math.round(score * 0.2),
-      compliance: Math.round(score * 0.25),
-      hook_strength: Math.round(score * 0.15),
-      content_structure: Math.round(score * 0.15),
-      engagement_potential: Math.round(score * 0.15),
-      channel_fit: Math.round(score * 0.1),
-    },
-    issues: [{
-      category: 'structure',
-      severity: 'warning',
-      description: 'Không thể phân tích chi tiết - cần review thủ công',
-    }],
-    suggestions: ['Kiểm tra lại nội dung trước khi đăng'],
-    strengths: [],
-  };
-}
-
-// Check if content should be refined
+// ================== SHOULD REFINE ==================
 export function shouldRefine(critiqueResult: CritiqueResult): boolean {
+  // Check refinement strategy based on score
+  const strategy = getRefinementStrategy(critiqueResult.overall_score);
+  if (strategy.maxTries === 0) return false;
+  
   // Refine if score < threshold
   if (critiqueResult.overall_score < CRITIQUE_CONFIG.PASS_THRESHOLD) {
     return true;
@@ -375,7 +452,7 @@ export function shouldRefine(critiqueResult: CritiqueResult): boolean {
   return false;
 }
 
-// Main critique function - calls AI to evaluate content
+// ================== MAIN CRITIQUE FUNCTION ==================
 export async function critiqueContent(options: {
   content: any;
   contentType: ContentType;
@@ -398,11 +475,11 @@ export async function critiqueContent(options: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite", // Use faster model for critique
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { 
             role: "system", 
-            content: "You are a strict content quality analyst. Always respond with valid JSON only." 
+            content: "You are a strict content quality analyst with 10+ years experience in content marketing. Always respond with valid JSON only. Be critical and honest in your scoring." 
           },
           { role: "user", content: critiquePrompt }
         ],
@@ -411,8 +488,7 @@ export async function critiqueContent(options: {
 
     if (!response.ok) {
       console.error(`[Self-Critique] AI error: ${response.status}`);
-      // Return neutral result on error
-      return createDefaultCritiqueResult(75, false);
+      return createDefaultCritiqueResult(true); // Mark for manual review on error
     }
 
     const data = await response.json();
@@ -424,11 +500,11 @@ export async function critiqueContent(options: {
     return result;
   } catch (err) {
     console.error('[Self-Critique] Error:', err);
-    return createDefaultCritiqueResult(75, false);
+    return createDefaultCritiqueResult(true); // Mark for manual review on error
   }
 }
 
-// Main refinement function - calls AI to fix content
+// ================== MAIN REFINEMENT FUNCTION ==================
 export async function refineContent(options: {
   originalContent: any;
   critiqueResult: CritiqueResult;
@@ -451,11 +527,11 @@ export async function refineContent(options: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash", // Use standard model for refinement
+        model: "google/gemini-2.5-flash",
         messages: [
           { 
             role: "system", 
-            content: "You are a professional content editor. Fix the issues while maintaining the original structure and format." 
+            content: "You are a professional content editor. Fix the issues while maintaining the original structure and format. Focus on making hooks compelling and CTAs specific." 
           },
           { role: "user", content: refinePrompt }
         ],
@@ -464,7 +540,7 @@ export async function refineContent(options: {
 
     if (!response.ok) {
       console.error(`[Self-Critique] Refinement error: ${response.status}`);
-      return originalContent; // Return original on error
+      return originalContent;
     }
 
     const data = await response.json();
@@ -472,10 +548,8 @@ export async function refineContent(options: {
     
     // Parse based on content type
     if (contentType === 'script') {
-      // Script is just text
       return aiContent.trim();
     } else {
-      // Multichannel and carousel are JSON
       try {
         let jsonStr = aiContent.trim();
         if (jsonStr.includes('```json')) {
@@ -497,7 +571,7 @@ export async function refineContent(options: {
   }
 }
 
-// Complete self-critique loop
+// ================== COMPLETE SELF-CRITIQUE LOOP ==================
 export async function runSelfCritiqueLoop(options: {
   content: any;
   contentType: ContentType;
@@ -530,9 +604,13 @@ export async function runSelfCritiqueLoop(options: {
   const initialScore = critiqueResult.overall_score;
   console.log(`[Self-Critique] Initial score: ${initialScore}`);
   
-  // Refine if needed (max 1 time as per config)
-  if (shouldRefine(critiqueResult) && refinementCount < CRITIQUE_CONFIG.MAX_REFINEMENTS) {
-    console.log(`[Self-Critique] Content needs refinement, score: ${critiqueResult.overall_score}`);
+  // Get refinement strategy based on score
+  const strategy = getRefinementStrategy(critiqueResult.overall_score);
+  const maxRefinements = Math.min(strategy.maxTries, CRITIQUE_CONFIG.MAX_REFINEMENTS);
+  
+  // Refine loop (up to maxRefinements times)
+  while (shouldRefine(critiqueResult) && refinementCount < maxRefinements) {
+    console.log(`[Self-Critique] Content needs refinement (attempt ${refinementCount + 1}/${maxRefinements}), score: ${critiqueResult.overall_score}, focus: ${strategy.focus}`);
     
     const refinedContent = await refineContent({
       originalContent: currentContent,
@@ -558,7 +636,10 @@ export async function runSelfCritiqueLoop(options: {
         apiKey,
       });
       
-      console.log(`[Self-Critique] After refinement: ${critiqueResult.overall_score} (improved by ${critiqueResult.overall_score - initialScore})`);
+      console.log(`[Self-Critique] After refinement ${refinementCount}: ${critiqueResult.overall_score} (improved by ${critiqueResult.overall_score - initialScore})`);
+    } else {
+      // No change from refinement, break loop
+      break;
     }
   }
   
