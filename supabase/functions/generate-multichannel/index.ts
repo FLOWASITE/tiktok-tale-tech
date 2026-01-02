@@ -1559,7 +1559,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         title: generatedData.title,
         topic: formData.topic,
         industry: industry,
-        content_goal: formData.contentGoal,
+        content_goal: formData.contentGoal || 'engagement', // Default fallback to avoid NOT NULL constraint
         selected_channels: formData.channels,
         brand_template_id: formData.brandTemplateId || null,
         brand_voice_variant_id: formData.brandVoiceVariantId || null,
