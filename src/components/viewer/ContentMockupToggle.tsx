@@ -40,8 +40,8 @@ export function ContentMockupToggle({
   const mockupType = channelToMockupType[channel];
 
   return (
-    <div className={cn('flex justify-center p-4 bg-muted/20 rounded-lg border border-border/50 min-h-[400px]', className)}>
-      <div className="w-full max-w-md">
+    <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
+      <div className="w-full max-w-xl">
         <ChannelMockupFrame
           channel={mockupType}
           content={content}
