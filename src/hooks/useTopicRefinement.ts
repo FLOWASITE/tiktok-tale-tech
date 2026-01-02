@@ -6,7 +6,11 @@ export interface RefinedTopic {
   angle: string;
   hook: string;
   targetPersona?: string;
+  targetPersonaId?: string;
   productFit?: string;
+  productFitId?: string;
+  suggestedJourneyStage?: 'awareness' | 'consideration' | 'decision' | 'loyalty';
+  suggestedContentAngle?: string;
 }
 
 export interface RefineContextUsed {

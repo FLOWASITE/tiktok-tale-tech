@@ -54,7 +54,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
-import { useTopicRefinement } from '@/hooks/useTopicRefinement';
+import { useTopicRefinement, RefinedTopic } from '@/hooks/useTopicRefinement';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
@@ -74,7 +74,9 @@ import {
   CHANNELS,
   CONTENT_GOALS,
   JOURNEY_TO_GOAL_MAP,
+  AiSuggestionContext,
 } from '@/types/multichannel';
+import { JourneyStage } from '@/types/customerPersona';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
 
@@ -383,7 +385,30 @@ export function MultiChannelFormStepper({
                     refinedTopics={refinedTopics}
                     isLoading={isLoadingRefinement}
                     isTyping={isTypingTopic}
-                    onSelect={(refined) => setFormData(prev => ({ ...prev, topic: refined }))}
+                    onSelect={(refined, suggestion) => {
+                      // Auto-populate targeting from AI suggestion
+                      const aiSuggestion: AiSuggestionContext | undefined = suggestion ? {
+                        targetPersona: suggestion.targetPersona,
+                        targetPersonaId: suggestion.targetPersonaId,
+                        productFit: suggestion.productFit,
+                        productFitId: suggestion.productFitId,
+                        suggestedJourneyStage: suggestion.suggestedJourneyStage,
+                        suggestedContentAngle: suggestion.suggestedContentAngle,
+                        hook: suggestion.hook,
+                        angle: suggestion.angle,
+                      } : undefined;
+                      
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        topic: refined,
+                        // Auto-populate if AI provided IDs
+                        productId: suggestion?.productFitId || prev.productId,
+                        personaId: suggestion?.targetPersonaId || prev.personaId,
+                        journeyStage: suggestion?.suggestedJourneyStage || prev.journeyStage,
+                        // Store full suggestion context
+                        aiSuggestion,
+                      }));
+                    }}
                     onRefresh={refreshRefinement}
                     disabled={isLoading}
                   />
@@ -470,7 +495,7 @@ export function MultiChannelFormStepper({
                             <span className="text-xs">Đã chọn sản phẩm</span>
                             <button
                               type="button"
-                              onClick={() => setFormData(prev => ({ ...prev, productId: undefined }))}
+                              onClick={() => setFormData(prev => ({ ...prev, productId: undefined, aiSuggestion: prev.aiSuggestion ? { ...prev.aiSuggestion, productFitId: undefined } : undefined }))}
                               className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
                             >
                               <X className="w-3 h-3" />
@@ -483,13 +508,47 @@ export function MultiChannelFormStepper({
                             <span className="text-xs">Đã chọn persona</span>
                             <button
                               type="button"
-                              onClick={() => setFormData(prev => ({ ...prev, personaId: undefined }))}
+                              onClick={() => setFormData(prev => ({ ...prev, personaId: undefined, aiSuggestion: prev.aiSuggestion ? { ...prev.aiSuggestion, targetPersonaId: undefined } : undefined }))}
                               className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
                             >
                               <X className="w-3 h-3" />
                             </button>
                           </Badge>
                         )}
+                      </div>
+                    )}
+
+                    {/* AI Suggestion Indicator */}
+                    {formData.aiSuggestion && (formData.aiSuggestion.targetPersonaId || formData.aiSuggestion.productFitId) && (
+                      <div className="p-3 rounded-lg bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-amber-500/5 border border-amber-500/20 animate-fade-in">
+                        <div className="flex items-start gap-2.5">
+                          <div className="p-1.5 rounded-md bg-amber-500/20">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                              AI đề xuất dựa trên chủ đề
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                              {formData.aiSuggestion.targetPersona && `Persona: ${formData.aiSuggestion.targetPersona}`}
+                              {formData.aiSuggestion.targetPersona && formData.aiSuggestion.productFit && ' • '}
+                              {formData.aiSuggestion.productFit && `Sản phẩm: ${formData.aiSuggestion.productFit}`}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ 
+                              ...prev, 
+                              aiSuggestion: undefined,
+                              productId: undefined,
+                              personaId: undefined,
+                              journeyStage: undefined,
+                            }))}
+                            className="p-1 rounded-md hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </CardContent>
