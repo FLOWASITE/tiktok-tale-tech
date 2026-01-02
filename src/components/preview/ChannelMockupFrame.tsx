@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { 
   Facebook, 
   Linkedin, 
@@ -23,6 +24,15 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+
+// Shared markdown components for mockups
+const mockupMarkdownComponents = {
+  p: ({ children }: { children: React.ReactNode }) => <p className="mb-2">{children}</p>,
+  strong: ({ children }: { children: React.ReactNode }) => <strong className="font-bold">{children}</strong>,
+  em: ({ children }: { children: React.ReactNode }) => <em className="italic">{children}</em>,
+  ul: ({ children }: { children: React.ReactNode }) => <ul className="list-none my-2 space-y-1">{children}</ul>,
+  li: ({ children }: { children: React.ReactNode }) => <li className="flex items-start gap-1">{children}</li>,
+};
 
 type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general';
 
@@ -106,7 +116,9 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating }: Omit<Chan
             <div className="h-4 bg-[#e4e6eb] dark:bg-[#3a3b3c] rounded w-4/6" />
           </div>
         ) : (
-          <p className="text-[15px] text-[#050505] dark:text-[#e4e6eb] whitespace-pre-wrap leading-[1.3333]">{content}</p>
+          <div className="text-[15px] text-[#050505] dark:text-[#e4e6eb] leading-[1.3333]">
+            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+          </div>
         )}
       </div>
 
@@ -201,7 +213,9 @@ function LinkedInMockup({ content, brandName, logoUrl, isGenerating }: Omit<Chan
             <div className="h-4 bg-[#00000014] dark:bg-[#ffffff14] rounded w-3/4" />
           </div>
         ) : (
-          <p className="text-sm text-[#000000e6] dark:text-[#ffffffe6] whitespace-pre-wrap leading-[1.42857]">{content}</p>
+          <div className="text-sm text-[#000000e6] dark:text-[#ffffffe6] leading-[1.42857]">
+            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+          </div>
         )}
       </div>
 
@@ -362,10 +376,13 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating }: Omit<Cha
             <div className="h-3 bg-[#efefef] dark:bg-[#262626] rounded w-4/5" />
           </div>
         ) : (
-          <p className="text-sm text-[#262626] dark:text-white">
+          <div className="text-sm text-[#262626] dark:text-white">
             <span className="font-semibold mr-1 hover:opacity-60 cursor-pointer transition-opacity">{username}</span>
-            <span className="whitespace-pre-wrap">{content}</span>
-          </p>
+            <ReactMarkdown components={{
+              p: ({ children }) => <span className="inline">{children}</span>,
+              strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+            }}>{content}</ReactMarkdown>
+          </div>
         )}
         <p className="text-[10px] text-[#8e8e8e] uppercase mt-2 tracking-wide">2 GIỜ TRƯỚC</p>
       </div>
@@ -488,7 +505,12 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channe
             <div className="h-3 bg-white/30 rounded w-3/4" />
           </div>
         ) : (
-          <p className="text-sm mb-3 line-clamp-2 leading-[1.3]">{content}</p>
+          <div className="text-sm mb-3 line-clamp-2 leading-[1.3]">
+            <ReactMarkdown components={{
+              p: ({ children }) => <span>{children}</span>,
+              strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+            }}>{content}</ReactMarkdown>
+          </div>
         )}
 
         {/* Music */}
@@ -596,8 +618,8 @@ function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channel
             <div className="h-4 bg-[#f0f0f0] dark:bg-[#3c3c3c] rounded w-3/4" />
           </div>
         ) : (
-          <div className="text-sm text-[#1a1a1a] dark:text-[#e0e0e0] whitespace-pre-wrap leading-relaxed">
-            {emailBody}
+          <div className="text-sm text-[#1a1a1a] dark:text-[#e0e0e0] leading-relaxed">
+            <ReactMarkdown components={mockupMarkdownComponents}>{emailBody}</ReactMarkdown>
           </div>
         )}
       </div>
@@ -744,10 +766,17 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
               <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-4/5" />
             </div>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <p className="text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed whitespace-pre-wrap">
-                {content}
-              </p>
+            <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed">
+              <ReactMarkdown components={{
+                p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                em: ({ children }) => <em className="italic">{children}</em>,
+                ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
+                li: ({ children }) => <li className="flex items-start gap-2">{children}</li>,
+                h1: ({ children }) => <h1 className="text-xl font-bold mb-3">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-bold mb-2">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-semibold mb-2">{children}</h3>,
+              }}>{content}</ReactMarkdown>
             </div>
           )}
         </div>

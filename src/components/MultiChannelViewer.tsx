@@ -1130,16 +1130,29 @@ export function MultiChannelViewer({
                               isLoading={isRegenerating}
                             />
                           ) : (
-                            <div className="rounded-xl border border-border/50 bg-muted/20 p-5 min-h-[350px]">
+                          <div className="rounded-xl border border-border/50 bg-muted/20 p-5 min-h-[350px]">
                               {isRegenerating ? (
                                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                                   <Loader2 className="w-8 h-8 animate-spin mb-3" />
                                   <p>Đang tạo lại nội dung...</p>
                                 </div>
                               ) : channelContent ? (
-                                <pre className="whitespace-pre-wrap font-sans text-foreground leading-relaxed text-[15px]">
-                                  {channelContent}
-                                </pre>
+                                <div className="prose prose-sm dark:prose-invert max-w-none prose-p:mb-3 prose-p:leading-relaxed prose-strong:text-foreground prose-strong:font-semibold">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <p className="mb-3 leading-relaxed text-[15px]">{children}</p>,
+                                      strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                                      em: ({ children }) => <em className="italic">{children}</em>,
+                                      ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
+                                      li: ({ children }) => <li className="flex items-start gap-2 text-[15px]">{children}</li>,
+                                      h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-foreground">{children}</h1>,
+                                      h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-foreground">{children}</h2>,
+                                      h3: ({ children }) => <h3 className="text-base font-semibold mb-2 text-foreground">{children}</h3>,
+                                    }}
+                                  >
+                                    {channelContent}
+                                  </ReactMarkdown>
+                                </div>
                               ) : (
                                 <p className="text-muted-foreground text-center py-8">
                                   Không có nội dung cho kênh này
