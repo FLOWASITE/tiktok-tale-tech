@@ -17,9 +17,9 @@ import {
 
 // ================== CONFIGURATION ==================
 export const CRITIQUE_CONFIG = {
-  PASS_THRESHOLD: 80,           // Score >= 80 = không cần refine
-  MIN_ACCEPTABLE: 65,           // Score < 65 = flag warning (tăng từ 60)
-  MAX_REFINEMENTS: 2,           // Tối đa 2 lần refine (tăng từ 1)
+  PASS_THRESHOLD: 75,           // Score >= 75 = không cần refine (giảm từ 80 để tăng tốc)
+  MIN_ACCEPTABLE: 65,           // Score < 65 = flag warning
+  MAX_REFINEMENTS: 1,           // Tối đa 1 lần refine (giảm từ 2 để tránh timeout)
   COMPLIANCE_WEIGHT: 2.0,       // Compliance quan trọng gấp đôi
   TIMEOUT_MS: 15000,            // Timeout cho mỗi critique call
   
