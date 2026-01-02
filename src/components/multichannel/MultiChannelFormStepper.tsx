@@ -66,6 +66,7 @@ import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSele
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
+import { AIGenerationProgress } from '@/components/multichannel/AIGenerationProgress';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -145,6 +146,7 @@ export function MultiChannelFormStepper({
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loadingPhase, setLoadingPhase] = useState(0);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialTopic || '',
@@ -218,12 +220,20 @@ export function MultiChannelFormStepper({
   useEffect(() => {
     if (!isLoading) {
       setLoadingPhase(0);
+      setGenerationElapsedMs(0);
       return;
     }
-    const interval = setInterval(() => {
+    const startTime = Date.now();
+    const phaseInterval = setInterval(() => {
       setLoadingPhase((prev) => (prev + 1) % LOADING_PHASES.length);
     }, 2500);
-    return () => clearInterval(interval);
+    const elapsedInterval = setInterval(() => {
+      setGenerationElapsedMs(Date.now() - startTime);
+    }, 100);
+    return () => {
+      clearInterval(phaseInterval);
+      clearInterval(elapsedInterval);
+    };
   }, [isLoading]);
 
   // Estimated time
@@ -823,7 +833,7 @@ export function MultiChannelFormStepper({
           {currentStep === 4 && (
             <div className="space-y-4 animate-fade-in">
               {/* Topic Context Bar */}
-              {formData.topic && (
+              {formData.topic && !isLoading && (
                 <TopicContextBar
                   topic={formData.topic}
                   brandName={selectedTemplate?.brand_name}
@@ -831,71 +841,87 @@ export function MultiChannelFormStepper({
                   onEdit={() => setCurrentStep(1)}
                 />
               )}
-              <div className="text-center py-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo nội dung!</h3>
-                <p className="text-sm text-muted-foreground">Xem lại thông tin trước khi tạo</p>
-              </div>
 
-              {/* Summary */}
-              <Card className="border-border">
-                <CardContent className="p-4 space-y-3">
-                  {selectedTemplate && (
-                    <div className="flex items-start gap-3">
-                      <Sparkles className="w-4 h-4 text-primary mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Thương hiệu</p>
-                        <p className="text-sm font-medium">{selectedTemplate.name}</p>
+              {/* AI Generation Progress - Show when loading */}
+              {isLoading ? (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="p-4">
+                    <AIGenerationProgress
+                      isLoading={isLoading}
+                      channelCount={formData.channels.length}
+                      elapsedMs={generationElapsedMs}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo nội dung!</h3>
+                    <p className="text-sm text-muted-foreground">Xem lại thông tin trước khi tạo</p>
+                  </div>
+
+                  {/* Summary */}
+                  <Card className="border-border">
+                    <CardContent className="p-4 space-y-3">
+                      {selectedTemplate && (
+                        <div className="flex items-start gap-3">
+                          <Sparkles className="w-4 h-4 text-primary mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground">Thương hiệu</p>
+                            <p className="text-sm font-medium">{selectedTemplate.name}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-start gap-3">
+                        <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground">Chủ đề</p>
+                          <p className="text-sm font-medium">{formData.topic}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
 
-                  <div className="flex items-start gap-3">
-                    <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Chủ đề</p>
-                      <p className="text-sm font-medium">{formData.topic}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Target className="w-4 h-4 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Mục tiêu</p>
-                      <p className="text-sm">
-                        {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}
-                        {formData.contentAngle && (
-                          <span className="text-muted-foreground"> • {formData.contentAngle}</span>
-                        )}
-                        {formData.journeyStage && (
-                          <span className="text-muted-foreground"> • {JOURNEY_STAGE_CONFIG[formData.journeyStage].label}</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Layers className="w-4 h-4 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Kênh ({formData.channels.length})</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {formData.channels.slice(0, 5).map(ch => (
-                          <Badge key={ch} variant="outline" className="text-[10px] px-1.5">
-                            {CHANNELS.find(c => c.value === ch)?.label}
-                          </Badge>
-                        ))}
-                        {formData.channels.length > 5 && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5">
-                            +{formData.channels.length - 5}
-                          </Badge>
-                        )}
+                      <div className="flex items-start gap-3">
+                        <Target className="w-4 h-4 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground">Mục tiêu</p>
+                          <p className="text-sm">
+                            {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}
+                            {formData.contentAngle && (
+                              <span className="text-muted-foreground"> • {formData.contentAngle}</span>
+                            )}
+                            {formData.journeyStage && (
+                              <span className="text-muted-foreground"> • {JOURNEY_STAGE_CONFIG[formData.journeyStage].label}</span>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+
+                      <div className="flex items-start gap-3">
+                        <Layers className="w-4 h-4 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground">Kênh ({formData.channels.length})</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {formData.channels.slice(0, 5).map(ch => (
+                              <Badge key={ch} variant="outline" className="text-[10px] px-1.5">
+                                {CHANNELS.find(c => c.value === ch)?.label}
+                              </Badge>
+                            ))}
+                            {formData.channels.length > 5 && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5">
+                                +{formData.channels.length - 5}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -936,7 +962,7 @@ export function MultiChannelFormStepper({
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="animate-pulse">{LOADING_PHASES[loadingPhase]}</span>
+                  Đang tạo...
                 </>
               ) : (
                 <>
