@@ -57,6 +57,7 @@ import { ChannelComparison } from '@/components/viewer/ChannelComparison';
 import { ContentAnalyticsPanel } from '@/components/viewer/ContentAnalyticsPanel';
 import { ActivityTimeline } from '@/components/viewer/ActivityTimeline';
 import { AIContentSummary } from '@/components/viewer/AIContentSummary';
+import { ContentQualityScore } from '@/components/ContentQualityScore';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -621,6 +622,16 @@ export function MultiChannelViewer({
                     )}
                   </div>
                   <Badge variant="outline" className="text-xs shrink-0">{goalLabel}</Badge>
+                  {/* Quality Score Badge */}
+                  {content.critique_score && (
+                    <ContentQualityScore
+                      score={content.critique_score}
+                      critiqueDetails={content.critique_details}
+                      wasRefined={content.was_refined ?? false}
+                      refinementCount={content.refinement_count ?? 0}
+                      variant="badge"
+                    />
+                  )}
                   <Badge variant="outline" className="bg-muted/50 text-xs shrink-0 hidden sm:inline-flex">
                     {content.brand_name}
                   </Badge>

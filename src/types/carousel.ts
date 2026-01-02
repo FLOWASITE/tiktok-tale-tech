@@ -30,6 +30,11 @@ export interface Carousel {
   user_id: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
+  // Self-Critique fields
+  critique_score?: number | null;
+  critique_details?: Record<string, unknown> | null;
+  was_refined?: boolean | null;
+  refinement_count?: number | null;
   created_at: string;
   updated_at: string;
 }

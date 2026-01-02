@@ -1,38 +1,72 @@
 // ============================================
 // Self-Critique Loop for AI Content Generation
-// Evaluates and refines AI-generated content
+// Evaluates and refines AI-generated content with Enhanced Scoring
 // ============================================
 
-// Critique Configuration
+// Critique Configuration with Enhanced Weights
 export const CRITIQUE_CONFIG = {
   PASS_THRESHOLD: 80,           // Score >= 80 = không cần refine
   MIN_ACCEPTABLE: 60,           // Score < 60 = flag warning
   MAX_REFINEMENTS: 1,           // Tối đa 1 lần refine
   COMPLIANCE_WEIGHT: 2.0,       // Compliance quan trọng gấp đôi
   TIMEOUT_MS: 15000,            // Timeout cho mỗi critique call
+  
+  // Enhanced category weights (must sum to 100)
+  CATEGORY_WEIGHTS: {
+    brand_voice: 20,
+    compliance: 25,
+    hook_strength: 15,
+    content_structure: 15,
+    engagement_potential: 15,
+    channel_fit: 10,
+  } as const,
+  
+  // Quality tiers for display
+  QUALITY_TIERS: {
+    EXCELLENT: { min: 90, label: 'Xuất sắc', color: 'emerald' },
+    GOOD: { min: 80, label: 'Tốt', color: 'green' },
+    ACCEPTABLE: { min: 70, label: 'Chấp nhận', color: 'yellow' },
+    NEEDS_WORK: { min: 60, label: 'Cần cải thiện', color: 'orange' },
+    POOR: { min: 0, label: 'Yếu', color: 'red' },
+  } as const,
 };
 
 // Type definitions
 export interface CritiqueIssue {
-  category: 'brand_voice' | 'compliance' | 'hook' | 'quality' | 'forbidden';
-  severity: 'error' | 'warning';
+  category: CritiqueCategory;
+  severity: 'error' | 'warning' | 'info';
   description: string;
   location?: string; // Which channel or slide
+  suggestion?: string; // Direct fix suggestion
 }
 
+export type CritiqueCategory = 
+  | 'brand_voice'
+  | 'compliance' 
+  | 'hook' 
+  | 'structure'
+  | 'engagement'
+  | 'channel_fit'
+  | 'forbidden';
+
+// Enhanced Critique Scores with 6 categories
 export interface CritiqueScores {
-  brand_voice_consistency: number;    // 0-25
-  compliance: number;                  // 0-25
-  hook_strength: number;               // 0-25
-  content_quality: number;             // 0-25
+  brand_voice: number;          // 0-20: Tone, style, formality
+  compliance: number;           // 0-25: Rules, forbidden terms
+  hook_strength: number;        // 0-15: Opening impact
+  content_structure: number;    // 0-15: Flow, CTA, format
+  engagement_potential: number; // 0-15: Virality, shareability
+  channel_fit: number;          // 0-10: Platform optimization
 }
 
 export interface CritiqueResult {
   overall_score: number; // 0-100
   passed: boolean;
+  quality_tier: keyof typeof CRITIQUE_CONFIG.QUALITY_TIERS;
   scores: CritiqueScores;
   issues: CritiqueIssue[];
   suggestions: string[];
+  strengths: string[]; // What's working well
 }
 
 export interface MergedRules {
@@ -59,6 +93,16 @@ export interface BrandVoice {
 }
 
 export type ContentType = 'multichannel' | 'script' | 'carousel';
+
+// Helper to determine quality tier
+export function getQualityTier(score: number): keyof typeof CRITIQUE_CONFIG.QUALITY_TIERS {
+  const tiers = CRITIQUE_CONFIG.QUALITY_TIERS;
+  if (score >= tiers.EXCELLENT.min) return 'EXCELLENT';
+  if (score >= tiers.GOOD.min) return 'GOOD';
+  if (score >= tiers.ACCEPTABLE.min) return 'ACCEPTABLE';
+  if (score >= tiers.NEEDS_WORK.min) return 'NEEDS_WORK';
+  return 'POOR';
+}
 
 // Build critique prompt based on content type
 export function buildCritiquePrompt(
@@ -94,30 +138,40 @@ export function buildCritiquePrompt(
 ## NỘI DUNG CẦN ĐÁNH GIÁ (${contentType.toUpperCase()})
 ${contentText}
 
-## TIÊU CHÍ ĐÁNH GIÁ (Tổng 100 điểm)
+## TIÊU CHÍ ĐÁNH GIÁ (Tổng 100 điểm - 6 Categories)
 
-### 1. BRAND VOICE CONSISTENCY (25 điểm)
+### 1. BRAND VOICE (20 điểm)
 - Tone of Voice yêu cầu: ${toneOfVoice.join(', ') || 'N/A'}
 - Formality Level: ${formalityLevel}
-- Kiểm tra: Giọng văn có nhất quán xuyên suốt? Có đúng tone?
+- Kiểm tra: Giọng văn nhất quán? Đúng tone? Đúng style?
 - Trừ điểm: Giọng văn không nhất quán, sai formality level
 
-### 2. COMPLIANCE CHECK (25 điểm)
-${forbiddenTerms.length > 0 ? `- TỪ CẤM TUYỆT ĐỐI (Industry-level): ${forbiddenTerms.join(', ')}` : ''}
-${forbiddenWords.length > 0 ? `- Từ cấm (Brand-level): ${forbiddenWords.join(', ')}` : ''}
-${complianceRules.length > 0 ? `- Quy tắc tuân thủ:\n  ${complianceRules.slice(0, 5).join('\n  ')}` : ''}
-- ⚠️ VI PHẠM TỪ CẤM → COMPLIANCE = 0, overall_score tối đa 50
+### 2. COMPLIANCE (25 điểm) ⚠️ QUAN TRỌNG NHẤT
+${forbiddenTerms.length > 0 ? `- TỪ CẤM TUYỆT ĐỐI: ${forbiddenTerms.join(', ')}` : ''}
+${forbiddenWords.length > 0 ? `- Từ cấm brand: ${forbiddenWords.join(', ')}` : ''}
+${complianceRules.length > 0 ? `- Quy tắc:\n  ${complianceRules.slice(0, 5).join('\n  ')}` : ''}
+- ⚠️ VI PHẠM → compliance = 0, overall_score tối đa 50
 
-### 3. HOOK STRENGTH (25 điểm)
-- Câu mở đầu có gây tò mò/sốc không?
-- Có số liệu, câu hỏi, hoặc statement mạnh không?
-- Trừ điểm: Hook generic như "Xin chào", "Hôm nay...", câu mở đầu nhạt
+### 3. HOOK STRENGTH (15 điểm)
+- Câu mở đầu gây tò mò/shock?
+- Có số liệu, câu hỏi, statement mạnh?
+- Trừ: Hook generic "Xin chào", "Hôm nay..."
 
-### 4. CONTENT QUALITY (25 điểm)
+### 4. CONTENT STRUCTURE (15 điểm)
+- Cấu trúc logic, flow tốt?
+- CTA rõ ràng và phù hợp?
+- Format đúng (markdown, paragraphs)?
 ${preferredWords.length > 0 ? `- Từ nên dùng: ${preferredWords.slice(0, 10).join(', ')}` : ''}
-- Đủ độ dài theo quy định kênh?
-- CTA phù hợp với mục tiêu?
-- Format đúng (markdown, emoji policy, hashtags)?
+
+### 5. ENGAGEMENT POTENTIAL (15 điểm)
+- Nội dung có viral potential?
+- Có yếu tố share-worthy?
+- Gây emotion/reaction?
+
+### 6. CHANNEL FIT (10 điểm)
+- Đúng độ dài kênh?
+- Emoji policy đúng (${mergedRules?.allow_emoji || brandVoice?.allow_emoji ? 'Cho phép' : 'Không dùng'})?
+- Hashtags phù hợp?
 ${additionalContext || ''}
 
 ## OUTPUT FORMAT (JSON ONLY)
@@ -125,31 +179,33 @@ ${additionalContext || ''}
   "overall_score": 0-100,
   "passed": true/false,
   "scores": {
-    "brand_voice_consistency": 0-25,
+    "brand_voice": 0-20,
     "compliance": 0-25,
-    "hook_strength": 0-25,
-    "content_quality": 0-25
+    "hook_strength": 0-15,
+    "content_structure": 0-15,
+    "engagement_potential": 0-15,
+    "channel_fit": 0-10
   },
   "issues": [
     {
-      "category": "compliance|brand_voice|hook|quality|forbidden",
-      "severity": "error|warning",
+      "category": "brand_voice|compliance|hook|structure|engagement|channel_fit|forbidden",
+      "severity": "error|warning|info",
       "description": "Mô tả cụ thể vấn đề",
-      "location": "tên kênh hoặc slide (optional)"
+      "location": "tên kênh/slide (optional)",
+      "suggestion": "Gợi ý sửa trực tiếp (optional)"
     }
   ],
-  "suggestions": [
-    "Gợi ý sửa cụ thể 1",
-    "Gợi ý sửa cụ thể 2"
-  ]
+  "suggestions": ["Gợi ý cải thiện 1", "Gợi ý 2"],
+  "strengths": ["Điểm mạnh 1", "Điểm mạnh 2"]
 }
 
-## NGUYÊN TẮC ĐÁNH GIÁ
-1. NGHIÊM KHẮC - Không nể nang, đánh giá như reviewer chuyên nghiệp
-2. CỤ THỂ - Chỉ rõ vị trí lỗi (kênh nào, slide nào)
-3. ACTIONABLE - Mỗi issue phải có gợi ý sửa được
-4. COMPLIANCE LÀ ƯU TIÊN #1 - Vi phạm Industry Memory → FAIL
-5. passed = true NẾU VÀ CHỈ NẾU overall_score >= ${CRITIQUE_CONFIG.PASS_THRESHOLD}
+## NGUYÊN TẮC
+1. NGHIÊM KHẮC - Đánh giá như reviewer chuyên nghiệp
+2. CỤ THỂ - Chỉ rõ vị trí lỗi
+3. ACTIONABLE - Mỗi issue có gợi ý sửa
+4. COMPLIANCE ƯU TIÊN #1
+5. passed = true NẾU overall_score >= ${CRITIQUE_CONFIG.PASS_THRESHOLD}
+6. NHẬN DIỆN ĐIỂM MẠNH - Ghi nhận những gì làm tốt
 
 CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC.`;
 }
@@ -222,51 +278,86 @@ export function parseCritiqueResult(aiResponse: string): CritiqueResult {
     
     const parsed = JSON.parse(jsonStr);
     
-    // Validate and normalize
-    const result: CritiqueResult = {
-      overall_score: Math.max(0, Math.min(100, parseInt(parsed.overall_score) || 0)),
-      passed: parsed.overall_score >= CRITIQUE_CONFIG.PASS_THRESHOLD,
-      scores: {
-        brand_voice_consistency: Math.max(0, Math.min(25, parseInt(parsed.scores?.brand_voice_consistency) || 0)),
-        compliance: Math.max(0, Math.min(25, parseInt(parsed.scores?.compliance) || 0)),
-        hook_strength: Math.max(0, Math.min(25, parseInt(parsed.scores?.hook_strength) || 0)),
-        content_quality: Math.max(0, Math.min(25, parseInt(parsed.scores?.content_quality) || 0)),
-      },
-      issues: (parsed.issues || []).map((i: any) => ({
-        category: i.category || 'quality',
-        severity: i.severity || 'warning',
-        description: i.description || 'Unknown issue',
-        location: i.location,
-      })),
-      suggestions: parsed.suggestions || [],
+    // Validate and normalize with new 6-category scores
+    const scores: CritiqueScores = {
+      brand_voice: Math.max(0, Math.min(20, parseInt(parsed.scores?.brand_voice) || 0)),
+      compliance: Math.max(0, Math.min(25, parseInt(parsed.scores?.compliance) || 0)),
+      hook_strength: Math.max(0, Math.min(15, parseInt(parsed.scores?.hook_strength) || 0)),
+      content_structure: Math.max(0, Math.min(15, parseInt(parsed.scores?.content_structure) || 0)),
+      engagement_potential: Math.max(0, Math.min(15, parseInt(parsed.scores?.engagement_potential) || 0)),
+      channel_fit: Math.max(0, Math.min(10, parseInt(parsed.scores?.channel_fit) || 0)),
     };
     
     // Recalculate overall score from individual scores
-    const calculatedScore = Object.values(result.scores).reduce((a, b) => a + b, 0);
-    result.overall_score = calculatedScore;
-    result.passed = calculatedScore >= CRITIQUE_CONFIG.PASS_THRESHOLD;
+    const calculatedScore = Object.values(scores).reduce((a, b) => a + b, 0);
+    
+    const result: CritiqueResult = {
+      overall_score: calculatedScore,
+      passed: calculatedScore >= CRITIQUE_CONFIG.PASS_THRESHOLD,
+      quality_tier: getQualityTier(calculatedScore),
+      scores,
+      issues: (parsed.issues || []).map((i: any) => ({
+        category: mapCategory(i.category) || 'structure',
+        severity: i.severity || 'warning',
+        description: i.description || 'Unknown issue',
+        location: i.location,
+        suggestion: i.suggestion,
+      })),
+      suggestions: parsed.suggestions || [],
+      strengths: parsed.strengths || [],
+    };
     
     return result;
   } catch (err) {
     console.error('Failed to parse critique result:', err);
     // Return a default "needs review" result
-    return {
-      overall_score: 50,
-      passed: false,
-      scores: {
-        brand_voice_consistency: 12,
-        compliance: 12,
-        hook_strength: 12,
-        content_quality: 14,
-      },
-      issues: [{
-        category: 'quality',
-        severity: 'warning',
-        description: 'Không thể phân tích critique result - cần review thủ công',
-      }],
-      suggestions: ['Kiểm tra lại nội dung trước khi đăng'],
-    };
+    return createDefaultCritiqueResult(50, false);
   }
+}
+
+// Helper to map old category names to new ones
+function mapCategory(category: string): CritiqueCategory {
+  const mapping: Record<string, CritiqueCategory> = {
+    'brand_voice': 'brand_voice',
+    'brand_voice_consistency': 'brand_voice',
+    'compliance': 'compliance',
+    'hook': 'hook',
+    'hook_strength': 'hook',
+    'quality': 'structure',
+    'content_quality': 'structure',
+    'structure': 'structure',
+    'content_structure': 'structure',
+    'engagement': 'engagement',
+    'engagement_potential': 'engagement',
+    'channel_fit': 'channel_fit',
+    'forbidden': 'forbidden',
+  };
+  return mapping[category] || 'structure';
+}
+
+// Helper to create default critique result
+function createDefaultCritiqueResult(score: number, passed: boolean): CritiqueResult {
+  const tier = getQualityTier(score);
+  return {
+    overall_score: score,
+    passed,
+    quality_tier: tier,
+    scores: {
+      brand_voice: Math.round(score * 0.2),
+      compliance: Math.round(score * 0.25),
+      hook_strength: Math.round(score * 0.15),
+      content_structure: Math.round(score * 0.15),
+      engagement_potential: Math.round(score * 0.15),
+      channel_fit: Math.round(score * 0.1),
+    },
+    issues: [{
+      category: 'structure',
+      severity: 'warning',
+      description: 'Không thể phân tích chi tiết - cần review thủ công',
+    }],
+    suggestions: ['Kiểm tra lại nội dung trước khi đăng'],
+    strengths: [],
+  };
 }
 
 // Check if content should be refined
@@ -321,41 +412,19 @@ export async function critiqueContent(options: {
     if (!response.ok) {
       console.error(`[Self-Critique] AI error: ${response.status}`);
       // Return neutral result on error
-      return {
-        overall_score: 75,
-        passed: false,
-        scores: {
-          brand_voice_consistency: 18,
-          compliance: 19,
-          hook_strength: 19,
-          content_quality: 19,
-        },
-        issues: [],
-        suggestions: ['API error - manual review recommended'],
-      };
+      return createDefaultCritiqueResult(75, false);
     }
 
     const data = await response.json();
     const aiContent = data.choices?.[0]?.message?.content || '';
     
     const result = parseCritiqueResult(aiContent);
-    console.log(`[Self-Critique] Score: ${result.overall_score}/100, Passed: ${result.passed}, Issues: ${result.issues.length}`);
+    console.log(`[Self-Critique] Score: ${result.overall_score}/100, Tier: ${result.quality_tier}, Passed: ${result.passed}, Issues: ${result.issues.length}`);
     
     return result;
   } catch (err) {
     console.error('[Self-Critique] Error:', err);
-    return {
-      overall_score: 75,
-      passed: false,
-      scores: {
-        brand_voice_consistency: 18,
-        compliance: 19,
-        hook_strength: 19,
-        content_quality: 19,
-      },
-      issues: [],
-      suggestions: ['Critique failed - manual review recommended'],
-    };
+    return createDefaultCritiqueResult(75, false);
   }
 }
 
