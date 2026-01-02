@@ -172,6 +172,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
     isLoading: isRefining,
     isTyping: isTypingTopic,
     refresh: refreshRefinement,
+    elapsedMs: refinementElapsedMs,
   } = useTopicRefinement({
     rawTopic: topic,
     brandTemplateId: brandTemplateId || undefined,
@@ -486,6 +487,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                   refinedTopics={refinedTopics}
                   isLoading={isRefining}
                   isTyping={isTypingTopic}
+                  elapsedMs={refinementElapsedMs}
                   onSelect={(refined) => setTopic(refined)}
                   onRefresh={refreshRefinement}
                   disabled={isLoading}

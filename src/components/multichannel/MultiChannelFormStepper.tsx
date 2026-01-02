@@ -207,6 +207,7 @@ export function MultiChannelFormStepper({
     isLoading: isLoadingRefinement,
     isTyping: isTypingTopic,
     refresh: refreshRefinement,
+    elapsedMs: refinementElapsedMs,
   } = useTopicRefinement({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
@@ -396,6 +397,7 @@ export function MultiChannelFormStepper({
                     refinedTopics={refinedTopics}
                     isLoading={isLoadingRefinement}
                     isTyping={isTypingTopic}
+                    elapsedMs={refinementElapsedMs}
                     onSelect={(refined, suggestion) => {
                       // Auto-populate targeting from AI suggestion
                       const aiSuggestion: AiSuggestionContext | undefined = suggestion ? {

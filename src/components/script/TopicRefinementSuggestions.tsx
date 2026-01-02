@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { RefinedTopic, RefineContextUsed } from '@/hooks/useTopicRefinement';
+import { TopicRefinementProgress } from '@/components/topic/TopicRefinementProgress';
 
 interface TopicRefinementSuggestionsProps {
   refinedTopics: RefinedTopic[];
@@ -15,6 +16,7 @@ interface TopicRefinementSuggestionsProps {
   onRefresh: () => void;
   disabled?: boolean;
   contextUsed?: RefineContextUsed | null;
+  elapsedMs?: number;
 }
 
 const contextBadgeConfig = [
@@ -32,6 +34,7 @@ export function TopicRefinementSuggestions({
   onRefresh,
   disabled = false,
   contextUsed,
+  elapsedMs = 0,
 }: TopicRefinementSuggestionsProps) {
   if (!isLoading && !isTyping && refinedTopics.length === 0) {
     return null;
@@ -116,11 +119,10 @@ export function TopicRefinementSuggestions({
         {isTyping ? (
           <TypingIndicator />
         ) : isLoading ? (
-          <div className="space-y-2">
-            {[0, 1, 2].map((i) => (
-              <RefinementSkeleton key={i} delay={i * 100} />
-            ))}
-          </div>
+          <TopicRefinementProgress 
+            isLoading={isLoading}
+            elapsedMs={elapsedMs}
+          />
         ) : (
           <RefinementCardList
             refinedTopics={refinedTopics}

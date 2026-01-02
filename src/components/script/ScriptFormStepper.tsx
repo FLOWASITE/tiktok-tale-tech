@@ -138,6 +138,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     refinedTopics,
     isLoading: isLoadingRefinement,
     refresh: refreshRefinement,
+    elapsedMs: refinementElapsedMs,
   } = useTopicRefinement({
     rawTopic: formData.topic,
     videoType: formData.video_type,
@@ -443,6 +444,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 <TopicRefinementSuggestions
                   refinedTopics={refinedTopics}
                   isLoading={isLoadingRefinement}
+                  elapsedMs={refinementElapsedMs}
                   onSelect={(topic) => {
                     setFormData((prev) => ({ ...prev, topic }));
                     toast.success('Đã chọn chủ đề cải thiện');
