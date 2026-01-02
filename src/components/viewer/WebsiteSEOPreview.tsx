@@ -1,12 +1,14 @@
-import React, { useMemo } from 'react';
-import { Globe, Search, FileText, Link2, Clock, Hash, ChevronRight, Copy, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Globe, Search, FileText, Link2, Clock, Hash, ChevronRight, Copy, Check, AlertCircle, CheckCircle2, Facebook, Twitter, Lightbulb, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import type { WebsiteSEOData } from '@/types/multichannel';
 
 interface WebsiteSEOPreviewProps {
@@ -449,8 +451,189 @@ function SchemaGenerator({ seoData, brandName }: { seoData: WebsiteSEOData; bran
   );
 }
 
+// Social Share Preview Component
+function SocialSharePreview({ seoData, brandName }: { seoData: WebsiteSEOData; brandName?: string }) {
+  const domain = brandName ? `${brandName.toLowerCase().replace(/\s+/g, '')}.com` : 'example.com';
+  
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {/* Facebook OG Preview */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Facebook className="h-3 w-3" />
+          Facebook Share
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-lg border overflow-hidden">
+          <div className="h-24 bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+            <Globe className="h-8 w-8 opacity-30" />
+          </div>
+          <div className="p-3 border-t">
+            <p className="text-[10px] text-muted-foreground uppercase">{domain}</p>
+            <p className="text-sm font-medium line-clamp-1">{seoData.seo_title || 'Chưa có title'}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2">{seoData.meta_description || 'Chưa có description'}</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Twitter Card Preview */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Twitter className="h-3 w-3" />
+          Twitter Card
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border overflow-hidden">
+          <div className="h-24 bg-gradient-to-br from-sky-500/20 to-sky-500/40 flex items-center justify-center">
+            <Globe className="h-8 w-8 opacity-30" />
+          </div>
+          <div className="p-3">
+            <p className="text-sm font-medium line-clamp-1">{seoData.seo_title || 'Chưa có title'}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2">{seoData.meta_description || 'Chưa có description'}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+              <Link2 className="h-3 w-3" />
+              {domain}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// SEO Improvement Tips Component
+function SEOImprovementTips({ scores }: { scores: ReturnType<typeof calculateSEOScore> }) {
+  const tips = useMemo(() => {
+    const result: { type: 'error' | 'warning' | 'success'; message: string }[] = [];
+    
+    if (scores.title.score < 15) {
+      result.push({ type: 'error', message: 'Title nên dài 50-60 ký tự để hiển thị đầy đủ trên SERP' });
+    }
+    if (scores.meta.score < 15) {
+      result.push({ type: 'error', message: 'Meta description nên dài 150-160 ký tự để tối ưu CTR' });
+    }
+    if (scores.keyword.score < 10) {
+      result.push({ type: 'warning', message: 'Thêm focus keyword vào title và meta description' });
+    }
+    if (scores.headings.score < 10) {
+      result.push({ type: 'warning', message: 'Sử dụng heading H2/H3 để cấu trúc nội dung rõ ràng' });
+    }
+    if (scores.readability.score < 10) {
+      result.push({ type: 'warning', message: 'Nội dung nên dài ít nhất 800 từ cho SEO tốt hơn' });
+    }
+    if (scores.overall >= 80) {
+      result.push({ type: 'success', message: 'SEO đã được tối ưu tốt! Tiếp tục duy trì chất lượng.' });
+    }
+    
+    return result;
+  }, [scores]);
+  
+  if (tips.length === 0) return null;
+  
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium flex items-center gap-2">
+        <Lightbulb className="h-4 w-4 text-amber-500" />
+        Gợi ý cải thiện
+      </h4>
+      <div className="space-y-1.5">
+        {tips.map((tip, idx) => (
+          <div 
+            key={idx}
+            className={cn(
+              "flex items-start gap-2 text-xs p-2 rounded-lg",
+              tip.type === 'error' && "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300",
+              tip.type === 'warning' && "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300",
+              tip.type === 'success' && "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300"
+            )}
+          >
+            {tip.type === 'error' && <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />}
+            {tip.type === 'warning' && <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />}
+            {tip.type === 'success' && <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />}
+            <span>{tip.message}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Keyword Density Component
+function KeywordDensity({ content, focusKeyword }: { content: string | null; focusKeyword?: string }) {
+  const density = useMemo(() => {
+    if (!content || !focusKeyword) return null;
+    
+    const words = content.toLowerCase().split(/\s+/);
+    const totalWords = words.length;
+    const keywordLower = focusKeyword.toLowerCase();
+    const keywordCount = words.filter(w => w.includes(keywordLower)).length;
+    const percentage = totalWords > 0 ? (keywordCount / totalWords) * 100 : 0;
+    
+    return {
+      count: keywordCount,
+      total: totalWords,
+      percentage: percentage.toFixed(2),
+      status: percentage >= 1 && percentage <= 3 ? 'optimal' : percentage < 1 ? 'low' : 'high'
+    };
+  }, [content, focusKeyword]);
+  
+  if (!density) return null;
+  
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium flex items-center gap-2">
+        <BarChart3 className="h-4 w-4" />
+        Keyword Density
+      </h4>
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <Progress 
+            value={Math.min(100, parseFloat(density.percentage) * 33)} 
+            className="h-2"
+          />
+        </div>
+        <Badge 
+          variant={density.status === 'optimal' ? 'default' : 'secondary'}
+          className={cn(
+            density.status === 'optimal' && "bg-green-500",
+            density.status === 'low' && "bg-amber-500",
+            density.status === 'high' && "bg-red-500"
+          )}
+        >
+          {density.percentage}%
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        "{focusKeyword}" xuất hiện {density.count} lần trong {density.total} từ
+        {density.status === 'optimal' && ' - Tối ưu!'}
+        {density.status === 'low' && ' - Nên thêm keyword'}
+        {density.status === 'high' && ' - Có thể bị xem là spam'}
+      </p>
+    </div>
+  );
+}
+
 export function WebsiteSEOPreview({ seoData, content, brandName }: WebsiteSEOPreviewProps) {
   const scores = useMemo(() => calculateSEOScore(seoData, content), [seoData, content]);
+  const [showTips, setShowTips] = useState(false);
+
+  // Copy all SEO data
+  const handleCopyAllSEO = async () => {
+    if (!seoData) return;
+    const allData = {
+      title: seoData.seo_title,
+      metaDescription: seoData.meta_description,
+      focusKeyword: seoData.focus_keyword,
+      secondaryKeywords: seoData.secondary_keywords,
+      slug: seoData.slug_suggestion,
+      wordCount: seoData.word_count,
+      readingTime: seoData.reading_time_minutes
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(allData, null, 2));
+      toast.success('Đã copy tất cả dữ liệu SEO');
+    } catch {
+      toast.error('Không thể copy');
+    }
+  };
 
   if (!seoData) {
     return (
@@ -466,89 +649,129 @@ export function WebsiteSEOPreview({ seoData, content, brandName }: WebsiteSEOPre
 
   return (
     <TooltipProvider>
-      <Tabs defaultValue="preview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="preview">SERP Preview</TabsTrigger>
-          <TabsTrigger value="score">SEO Score</TabsTrigger>
-          <TabsTrigger value="structure">Headings</TabsTrigger>
-          <TabsTrigger value="schema">Schema</TabsTrigger>
-        </TabsList>
+      <div className="space-y-3">
+        {/* Header with Copy All button */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            SEO Analysis
+          </h3>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleCopyAllSEO}>
+            <Copy className="h-3 w-3 mr-1" />
+            Copy All
+          </Button>
+        </div>
+        
+        <Tabs defaultValue="preview" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="preview" className="text-xs">SERP</TabsTrigger>
+            <TabsTrigger value="social" className="text-xs">Social</TabsTrigger>
+            <TabsTrigger value="score" className="text-xs">Score</TabsTrigger>
+            <TabsTrigger value="structure" className="text-xs">Headings</TabsTrigger>
+            <TabsTrigger value="schema" className="text-xs">Schema</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="preview" className="mt-4 space-y-4">
-          <SERPPreview seoData={seoData} brandName={brandName} />
-          
-          {/* Keywords */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              <Hash className="h-4 w-4" />
-              Keywords
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="default">{seoData.focus_keyword}</Badge>
-              {seoData.secondary_keywords?.map((kw, idx) => (
-                <Badge key={idx} variant="secondary">{kw}</Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Featured Snippet */}
-          {seoData.featured_snippet && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Featured Snippet</h4>
-              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
-                <p className="text-sm">{seoData.featured_snippet}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Internal Links */}
-          {seoData.internal_link_anchors && seoData.internal_link_anchors.length > 0 && (
+          <TabsContent value="preview" className="mt-4 space-y-4">
+            <SERPPreview seoData={seoData} brandName={brandName} />
+            
+            {/* Keyword Density */}
+            {seoData.focus_keyword && (
+              <KeywordDensity content={content} focusKeyword={seoData.focus_keyword} />
+            )}
+            
+            {/* Keywords */}
             <div className="space-y-2">
               <h4 className="text-sm font-medium flex items-center gap-2">
-                <Link2 className="h-4 w-4" />
-                Internal Link Suggestions
+                <Hash className="h-4 w-4" />
+                Keywords
               </h4>
               <div className="flex flex-wrap gap-2">
-                {seoData.internal_link_anchors.map((anchor, idx) => (
-                  <Tooltip key={idx}>
-                    <TooltipTrigger asChild>
-                      <Badge variant="outline" className="cursor-help">
-                        {anchor}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Gợi ý anchor text cho internal link</p>
-                    </TooltipContent>
-                  </Tooltip>
+                <Badge variant="default">{seoData.focus_keyword}</Badge>
+                {seoData.secondary_keywords?.map((kw, idx) => (
+                  <Badge key={idx} variant="secondary">{kw}</Badge>
                 ))}
               </div>
             </div>
-          )}
 
-          {/* Reading time & word count */}
-          <div className="flex gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              {seoData.reading_time_minutes || Math.ceil((seoData.word_count || 0) / 200)} phút đọc
-            </span>
-            <span>
-              {seoData.word_count || content?.split(/\s+/).length || 0} từ
-            </span>
-          </div>
-        </TabsContent>
+            {/* Featured Snippet */}
+            {seoData.featured_snippet && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Featured Snippet</h4>
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm">{seoData.featured_snippet}</p>
+                </div>
+              </div>
+            )}
 
-        <TabsContent value="score" className="mt-4">
-          <SEOScoreCard scores={scores} />
-        </TabsContent>
+            {/* Internal Links */}
+            {seoData.internal_link_anchors && seoData.internal_link_anchors.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Internal Link Suggestions
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {seoData.internal_link_anchors.map((anchor, idx) => (
+                    <Tooltip key={idx}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="cursor-help">
+                          {anchor}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Gợi ý anchor text cho internal link</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        <TabsContent value="structure" className="mt-4">
-          <HeadingStructureTree headingStructure={seoData.heading_structure} />
-        </TabsContent>
+            {/* Reading time & word count */}
+            <div className="flex gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                {seoData.reading_time_minutes || Math.ceil((seoData.word_count || 0) / 200)} phút đọc
+              </span>
+              <span>
+                {seoData.word_count || content?.split(/\s+/).length || 0} từ
+              </span>
+            </div>
+          </TabsContent>
 
-        <TabsContent value="schema" className="mt-4">
-          <SchemaGenerator seoData={seoData} brandName={brandName} />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="social" className="mt-4">
+            <SocialSharePreview seoData={seoData} brandName={brandName} />
+          </TabsContent>
+
+          <TabsContent value="score" className="mt-4 space-y-4">
+            <SEOScoreCard scores={scores} />
+            
+            {/* Collapsible Improvement Tips */}
+            <Collapsible open={showTips} onOpenChange={setShowTips}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-between">
+                  <span className="flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4" />
+                    Gợi ý cải thiện SEO
+                  </span>
+                  <ChevronRight className={cn("h-4 w-4 transition-transform", showTips && "rotate-90")} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <SEOImprovementTips scores={scores} />
+              </CollapsibleContent>
+            </Collapsible>
+          </TabsContent>
+
+          <TabsContent value="structure" className="mt-4">
+            <HeadingStructureTree headingStructure={seoData.heading_structure} />
+          </TabsContent>
+
+          <TabsContent value="schema" className="mt-4">
+            <SchemaGenerator seoData={seoData} brandName={brandName} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </TooltipProvider>
   );
 }
