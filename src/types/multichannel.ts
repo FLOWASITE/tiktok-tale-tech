@@ -1,6 +1,16 @@
 import { GraduationCap, Eye, MessageCircle, Award, Target, LucideIcon } from 'lucide-react';
 import { ContentPurpose, MarketingFramework } from './topicDiscovery';
 import { JourneyStage } from './journeyStageMessaging';
+
+// Journey Stage → Content Goal Mapping
+// Auto-derive contentGoal from journeyStage to reduce user input
+export const JOURNEY_TO_GOAL_MAP: Record<JourneyStage, ContentGoal> = {
+  awareness: 'awareness',
+  consideration: 'education', // So sánh, đánh giá → cần giáo dục
+  decision: 'conversion',
+  loyalty: 'engagement', // Giữ chân, tương tác
+};
+
 export type ContentGoal = 
   | 'education'      // Giáo dục
   | 'awareness'      // Nhận diện  
@@ -109,7 +119,7 @@ export type EditedPreviews = Record<string, EditedPreview>;
 export interface MultiChannelFormData {
   topic: string;
   industry?: string;
-  contentGoal: ContentGoal;
+  contentGoal?: ContentGoal; // Now optional - auto-derived from journeyStage
   contentAngle?: ContentAngle;
   channels: Channel[];
   brandTemplateId?: string;

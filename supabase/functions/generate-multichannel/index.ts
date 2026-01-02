@@ -24,7 +24,7 @@ interface EditedPreview {
 interface FormData {
   topic: string;
   industry?: string;
-  contentGoal: string;
+  contentGoal?: string; // Now optional - auto-derived from journeyStage
   contentAngle?: string; // Phase 6: Content Angle support
   channels: string[];
   brandTemplateId?: string;
@@ -37,6 +37,15 @@ interface FormData {
   targetPersonaId?: string;
   targetProductId?: string;
 }
+
+// Journey Stage → Content Goal Mapping
+// Auto-derive contentGoal from journeyStage to reduce user input
+const JOURNEY_TO_GOAL_MAP: Record<JourneyStage, string> = {
+  awareness: 'awareness',
+  consideration: 'education', // So sánh, đánh giá → cần giáo dục
+  decision: 'conversion',
+  loyalty: 'engagement', // Giữ chân, tương tác
+};
 
 // Brand Voice label mappings
 const brandPositioningLabels: Record<string, string> = {
@@ -1164,11 +1173,18 @@ serve(async (req) => {
     const targetAudience = await detectTargetAudience(industryArray, supabase);
     console.log("Target audience detected:", targetAudience);
 
+    // Derive contentGoal from journeyStage if not provided
+    let contentGoal = formData.contentGoal || 'education'; // Default fallback
+    if (!formData.contentGoal && formData.targetJourneyStage) {
+      contentGoal = JOURNEY_TO_GOAL_MAP[formData.targetJourneyStage] || 'education';
+      console.log("Content goal auto-derived from journey stage:", formData.targetJourneyStage, "→", contentGoal);
+    }
+
     const systemPrompt = getSystemPrompt(
       brandName,
       brandGuideline,
       primaryColor,
-      formData.contentGoal,
+      contentGoal,
       formData.contentAngle,
       formData.channels,
       targetAudience,

@@ -59,7 +59,7 @@ import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementS
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
-import { ContentGoalCombobox } from '@/components/ContentGoalCombobox';
+// ContentGoalCombobox removed - auto-derive from journeyStage
 import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
@@ -73,6 +73,7 @@ import {
   Channel, 
   CHANNELS,
   CONTENT_GOALS,
+  JOURNEY_TO_GOAL_MAP,
 } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
@@ -143,7 +144,7 @@ export function MultiChannelFormStepper({
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialTopic || '',
-    contentGoal: initialGoal || 'education',
+    contentGoal: undefined, // Will be auto-derived from journeyStage
     contentAngle: undefined,
     channels: ['facebook', 'instagram'],
     brandTemplateId: undefined,
@@ -167,6 +168,14 @@ export function MultiChannelFormStepper({
       setFormData(prev => ({ ...prev, contentGoal: initialGoal }));
     }
   }, [initialGoal]);
+
+  // Auto-derive contentGoal from journeyStage
+  useEffect(() => {
+    if (formData.journeyStage) {
+      const derivedGoal = JOURNEY_TO_GOAL_MAP[formData.journeyStage];
+      setFormData(prev => ({ ...prev, contentGoal: derivedGoal }));
+    }
+  }, [formData.journeyStage]);
 
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
 
@@ -487,36 +496,43 @@ export function MultiChannelFormStepper({
                 </Card>
               )}
 
-              {/* Section 2: Goal & Angle */}
+              {/* Section 2: Content Angle (Content Goal removed - auto-derived from Journey Stage) */}
               <Card className="bg-card/50 backdrop-blur-sm border-border/50 overflow-hidden animate-fade-in" style={{ animationDelay: '100ms' }}>
                 <CardContent className="p-4 space-y-4">
                   {/* Header */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
-                      <Compass className="w-4 h-4 text-primary" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                        <Compass className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">Góc tiếp cận nội dung</h3>
+                        <p className="text-[10px] text-muted-foreground">Cách triển khai chủ đề</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">Mục tiêu & Góc tiếp cận</h3>
-                      <p className="text-[10px] text-muted-foreground">Định hướng nội dung</p>
-                    </div>
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                      Tùy chọn
+                    </Badge>
                   </div>
 
-                  {/* Content Goal */}
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Mục tiêu nội dung</Label>
-                    <ContentGoalCombobox
-                      value={formData.contentGoal}
-                      onValueChange={(goal) => setFormData(prev => ({ ...prev, contentGoal: goal }))}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  {/* Content Angle */}
+                  {/* Content Angle - Now the main focus of this section */}
                   <ContentAngleSelector
                     value={formData.contentAngle}
                     onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
                     disabled={isLoading}
                   />
+
+                  {/* Auto-derived Content Goal indicator */}
+                  {formData.journeyStage && formData.contentGoal && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10 animate-fade-in">
+                      <Target className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs text-muted-foreground">
+                        Mục tiêu tự động: <span className="font-medium text-foreground">
+                          {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}
+                        </span> (từ giai đoạn {JOURNEY_STAGE_CONFIG[formData.journeyStage]?.label})
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -563,7 +579,7 @@ export function MultiChannelFormStepper({
                 </Collapsible>
               </Card>
 
-              {/* Progress indicator */}
+              {/* Progress indicator - 3 sections: Targeting, Angle, Journey */}
               <div className="flex items-center justify-center gap-2 pt-2">
                 <div className={cn(
                   "w-2 h-2 rounded-full transition-colors",
@@ -571,7 +587,7 @@ export function MultiChannelFormStepper({
                 )} />
                 <div className={cn(
                   "w-2 h-2 rounded-full transition-colors",
-                  formData.contentGoal ? "bg-primary" : "bg-muted-foreground/30"
+                  formData.contentAngle ? "bg-primary" : "bg-muted-foreground/30"
                 )} />
                 <div className={cn(
                   "w-2 h-2 rounded-full transition-colors",
