@@ -619,6 +619,177 @@ function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channel
   );
 }
 
+// Website/Blog Mockup - Modern browser with article preview
+function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating }: Omit<ChannelMockupFrameProps, 'channel'>) {
+  const [liked, setLiked] = useState(false);
+  const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
+  const readTime = Math.max(1, Math.ceil(content.split(/\s+/).length / 200));
+  const themeColor = primaryColor || '#3b82f6';
+  
+  return (
+    <div className="bg-[#f5f5f7] dark:bg-[#1c1c1e] rounded-xl overflow-hidden shadow-2xl border border-[#d2d2d7] dark:border-[#3d3d3f] font-['Inter',system-ui,sans-serif]">
+      {/* Browser Chrome */}
+      <div className="bg-gradient-to-b from-[#e8e8ed] to-[#dedee3] dark:from-[#3d3d3f] dark:to-[#2c2c2e] px-3 py-2.5 flex items-center gap-3">
+        {/* Traffic lights */}
+        <div className="flex gap-2">
+          <div className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-90 transition cursor-pointer shadow-sm" />
+          <div className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-90 transition cursor-pointer shadow-sm" />
+          <div className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-90 transition cursor-pointer shadow-sm" />
+        </div>
+        
+        {/* URL Bar */}
+        <div className="flex-1 bg-white/90 dark:bg-[#1c1c1e]/90 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs shadow-inner border border-[#c5c5c7] dark:border-[#4a4a4c]">
+          <div className="flex items-center gap-1.5 text-[#28c840]">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <span className="text-[#1d1d1f] dark:text-white font-medium">{domain}</span>
+          <span className="text-[#86868b]">/blog/article</span>
+        </div>
+        
+        {/* Browser actions */}
+        <div className="flex items-center gap-1">
+          <button className="p-1.5 hover:bg-white/50 dark:hover:bg-white/10 rounded transition-colors">
+            <Share2 className="w-3.5 h-3.5 text-[#86868b]" />
+          </button>
+          <button className="p-1.5 hover:bg-white/50 dark:hover:bg-white/10 rounded transition-colors">
+            <MoreHorizontal className="w-3.5 h-3.5 text-[#86868b]" />
+          </button>
+        </div>
+      </div>
+      
+      {/* Website Content */}
+      <div className="bg-white dark:bg-[#1c1c1e] max-h-[450px] overflow-y-auto">
+        {/* Website Header */}
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-sm border-b border-[#e5e5e7] dark:border-[#3d3d3f] px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} className="w-7 h-7 rounded-lg object-cover" />
+            ) : (
+              <div 
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs"
+                style={{ backgroundColor: themeColor }}
+              >
+                {brandName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="font-semibold text-sm text-[#1d1d1f] dark:text-white">{brandName}</span>
+          </div>
+          <nav className="hidden sm:flex items-center gap-4 text-xs text-[#86868b]">
+            <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors">Trang chủ</span>
+            <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors font-medium" style={{ color: themeColor }}>Blog</span>
+            <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors">Giới thiệu</span>
+            <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors">Liên hệ</span>
+          </nav>
+        </div>
+        
+        {/* Featured Image */}
+        <div 
+          className="h-32 sm:h-40 relative overflow-hidden"
+          style={{ 
+            background: `linear-gradient(135deg, ${themeColor}20 0%, ${themeColor}40 50%, ${themeColor}20 100%)`
+          }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <Globe className="w-10 h-10 mx-auto opacity-30" style={{ color: themeColor }} />
+              <p className="text-xs mt-1 opacity-40" style={{ color: themeColor }}>Featured Image</p>
+            </div>
+          </div>
+          {/* Decorative pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-4 left-4 w-20 h-20 rounded-full border-2" style={{ borderColor: themeColor }} />
+            <div className="absolute bottom-4 right-4 w-16 h-16 rounded-full border-2" style={{ borderColor: themeColor }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border" style={{ borderColor: themeColor }} />
+          </div>
+        </div>
+        
+        {/* Article Content */}
+        <div className="px-4 sm:px-6 py-4">
+          {/* Article Meta */}
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868b] mb-3">
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              2 Jan, 2026
+            </span>
+            <span className="w-1 h-1 rounded-full bg-[#86868b]" />
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {readTime} phút đọc
+            </span>
+            <span className="w-1 h-1 rounded-full bg-[#86868b]" />
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {brandName}
+            </span>
+          </div>
+          
+          {/* Divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-[#e5e5e7] dark:via-[#3d3d3f] to-transparent mb-4" />
+          
+          {/* Content */}
+          {isGenerating ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-5 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded-lg w-3/4" />
+              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-full" />
+              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-full" />
+              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-5/6" />
+              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-4/5" />
+            </div>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <p className="text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed whitespace-pre-wrap">
+                {content}
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {/* Engagement Bar */}
+        <div className="px-4 sm:px-6 py-3 border-t border-[#e5e5e7] dark:border-[#3d3d3f] bg-[#fafafa] dark:bg-[#2c2c2e]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setLiked(!liked)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95",
+                  liked 
+                    ? "bg-red-50 dark:bg-red-900/30 text-red-500" 
+                    : "bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c]"
+                )}
+              >
+                <Heart className={cn("w-3.5 h-3.5 transition-all", liked && "fill-current")} />
+                <span>{liked ? '235' : '234'}</span>
+              </button>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c] transition-all duration-200 hover:scale-105 active:scale-95">
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>56</span>
+              </button>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c] transition-all duration-200 hover:scale-105 active:scale-95">
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Chia sẻ</span>
+              </button>
+            </div>
+            <button 
+              className="px-4 py-1.5 rounded-full text-xs font-semibold text-white transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
+              style={{ backgroundColor: themeColor }}
+            >
+              Đọc tiếp →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
   const { channel, ...rest } = props;
 
@@ -633,6 +804,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <TikTokMockup {...rest} />;
     case 'email':
       return <EmailMockup {...rest} />;
+    case 'general':
+      return <WebsiteMockup {...rest} />;
     default:
       return null;
   }
