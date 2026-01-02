@@ -65,6 +65,7 @@ import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
+import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -446,6 +447,15 @@ export function MultiChannelFormStepper({
           {/* Step 2: Targeting - Product/Persona + Goal + Angle + Journey */}
           {currentStep === 2 && (
             <div className="space-y-4 animate-fade-in">
+              {/* Topic Context Bar */}
+              {formData.topic && (
+                <TopicContextBar
+                  topic={formData.topic}
+                  brandName={selectedTemplate?.brand_name}
+                  aiSuggestion={formData.aiSuggestion}
+                  onEdit={() => setCurrentStep(1)}
+                />
+              )}
               {/* Section 1: Targeting */}
               {formData.brandTemplateId && (
                 <Card className="bg-card/50 backdrop-blur-sm border-border/50 overflow-hidden animate-fade-in" style={{ animationDelay: '0ms' }}>
@@ -717,6 +727,15 @@ export function MultiChannelFormStepper({
           {/* Step 3: Channel Selection */}
           {currentStep === 3 && (
             <div className="space-y-4 animate-fade-in">
+              {/* Topic Context Bar */}
+              {formData.topic && (
+                <TopicContextBar
+                  topic={formData.topic}
+                  brandName={selectedTemplate?.brand_name}
+                  aiSuggestion={formData.aiSuggestion}
+                  onEdit={() => setCurrentStep(1)}
+                />
+              )}
               <div className="flex items-center justify-between">
                 <Label className="text-foreground font-semibold text-sm">Kênh xuất bản</Label>
                 <Badge variant="secondary" className="text-xs">
@@ -801,6 +820,15 @@ export function MultiChannelFormStepper({
           {/* Step 4: Review & Generate */}
           {currentStep === 4 && (
             <div className="space-y-4 animate-fade-in">
+              {/* Topic Context Bar */}
+              {formData.topic && (
+                <TopicContextBar
+                  topic={formData.topic}
+                  brandName={selectedTemplate?.brand_name}
+                  aiSuggestion={formData.aiSuggestion}
+                  onEdit={() => setCurrentStep(1)}
+                />
+              )}
               <div className="text-center py-4">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
                   <CheckCircle2 className="w-8 h-8 text-primary" />
