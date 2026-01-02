@@ -111,53 +111,78 @@ export const HOOK_CRITERIA = {
   },
 } as const;
 
-// ================== CTA CRITERIA (8 điểm - MỚI) ==================
+// ================== CTA CRITERIA (8 điểm - ENHANCED) ==================
 export const CTA_CRITERIA = {
-  // CTA specificity levels
+  // ⛔ CTA BLACKLIST - Các CTA generic bị phạt nặng (max 2 điểm)
+  blacklist: [
+    { pattern: /liên hệ ngay/i, penalty: -6, reason: 'CTA quá generic, thiếu benefit' },
+    { pattern: /xem thêm$/i, penalty: -5, reason: 'CTA vô định hướng' },
+    { pattern: /click vào đây/i, penalty: -6, reason: 'CTA spam-style' },
+    { pattern: /bấm vào link/i, penalty: -5, reason: 'CTA không có value prop' },
+    { pattern: /để lại (thông tin|comment)/i, penalty: -4, reason: 'CTA yêu cầu không rõ benefit' },
+    { pattern: /inbox ngay/i, penalty: -4, reason: 'CTA thiếu specificity' },
+    { pattern: /theo dõi để/i, penalty: -3, reason: 'CTA yếu cho engagement' },
+    { pattern: /nhấn link (dưới )?bio/i, penalty: -3, reason: 'CTA chung chung' },
+  ],
+  
+  // CTA specificity levels (scoring tiers)
   specificityPatterns: {
     vague: {
-      patterns: [/liên hệ ngay/i, /xem thêm/i, /click vào/i, /bấm vào/i],
+      patterns: [/liên hệ/i, /xem thêm/i, /click/i, /bấm/i],
       score: 2,
-      description: 'CTA quá generic',
+      description: 'CTA quá generic, thiếu benefit rõ ràng',
     },
     moderate: {
-      patterns: [/nhấn link/i, /tìm hiểu thêm/i, /đọc bài viết/i, /xem video/i],
+      patterns: [/tìm hiểu/i, /đọc bài/i, /xem video/i, /theo dõi/i],
       score: 4,
-      description: 'CTA có hướng dẫn cơ bản',
+      description: 'CTA có action nhưng thiếu urgency',
     },
     specific: {
-      patterns: [/đăng ký nhận/i, /tải.*miễn phí/i, /lấy ngay/i, /nhận.*ưu đãi/i],
+      patterns: [/đăng ký nhận/i, /tải.*miễn phí/i, /lấy ngay/i, /nhận.*ưu đãi/i, /đặt lịch.*tư vấn/i],
       score: 6,
-      description: 'CTA cụ thể với benefit',
+      description: 'CTA cụ thể với benefit rõ ràng',
     },
     compelling: {
-      patterns: [/chỉ còn \d+/i, /slot cuối/i, /hôm nay.*miễn phí/i, /\d+% off/i],
+      patterns: [/chỉ còn \d+/i, /slot (cuối|còn)/i, /hôm nay.*miễn phí/i, /\d+% (off|giảm)/i, /\d+\+ người đã/i, /số lượng có hạn/i],
       score: 8,
-      description: 'CTA có urgency + benefit',
+      description: 'CTA có urgency + benefit + social proof',
     },
   },
   
-  // CTA journey matching
+  // CTA journey matching for contextual scoring
   journeyMatch: {
-    awareness: ['Tìm hiểu', 'Khám phá', 'Xem thêm', 'Đọc tiếp', 'Theo dõi'],
-    consideration: ['So sánh', 'Tải tài liệu', 'Xem case study', 'Đọc review', 'Tham khảo'],
-    decision: ['Đăng ký', 'Liên hệ', 'Mua ngay', 'Nhận ưu đãi', 'Đặt lịch', 'Booking'],
-    loyalty: ['Chia sẻ', 'Giới thiệu bạn bè', 'Tham gia cộng đồng', 'Đánh giá', 'Review'],
+    awareness: ['Tìm hiểu', 'Khám phá', 'Xem thêm', 'Đọc tiếp', 'Theo dõi', 'Đọc bài'],
+    consideration: ['So sánh', 'Tải tài liệu', 'Xem case study', 'Đọc review', 'Tham khảo', 'Xem demo'],
+    decision: ['Đăng ký', 'Liên hệ', 'Mua ngay', 'Nhận ưu đãi', 'Đặt lịch', 'Booking', 'Order'],
+    loyalty: ['Chia sẻ', 'Giới thiệu bạn bè', 'Tham gia cộng đồng', 'Đánh giá', 'Review', 'Tag bạn'],
   },
   
   // CTA placement scoring
   placement: {
-    missing: { score: 0, description: 'Không có CTA' },
-    end_only: { score: 4, description: 'CTA cuối bài' },
-    mid_and_end: { score: 6, description: 'CTA giữa + cuối (long-form)' },
-    multiple_strategic: { score: 8, description: 'Nhiều soft CTA + 1 hard CTA' },
+    missing: { score: 0, description: 'Không có CTA - thiếu hành động' },
+    end_only: { score: 4, description: 'CTA cuối bài - cơ bản' },
+    mid_and_end: { score: 6, description: 'Soft CTA giữa + Hard CTA cuối' },
+    multiple_strategic: { score: 8, description: 'CTA chiến lược ở nhiều điểm' },
   },
   
-  // Strong action verbs (tăng điểm)
+  // Strong action verbs (bonus points)
   actionVerbs: [
     'Đăng ký', 'Tải ngay', 'Nhận ngay', 'Lấy miễn phí', 'Đặt lịch',
     'Khám phá', 'Trải nghiệm', 'Sở hữu', 'Bắt đầu', 'Tham gia',
+    'Nhận ưu đãi', 'Đặt hàng', 'Mua ngay', 'Đăng nhập', 'Kích hoạt',
   ],
+  
+  // Example compelling CTAs for refinement prompts
+  examples: {
+    weak: ['Liên hệ ngay', 'Xem thêm', 'Click vào đây', 'Inbox mình'],
+    strong: [
+      'Đăng ký nhận ebook miễn phí - chỉ hôm nay',
+      'Đặt lịch tư vấn 1-1 (còn 3 slot)',
+      'Tải checklist 10 bước - 5000+ người đã dùng',
+      'Nhận ưu đãi 30% - hết hạn trong 24h',
+      'Xem demo 5 phút - không cần đăng ký',
+    ],
+  },
 } as const;
 
 // ================== READABILITY CRITERIA (7 điểm - MỚI) ==================
@@ -503,36 +528,73 @@ export function analyzeCTA(text: string, journeyStage?: string): { score: number
   let score = 0;
   const issues: string[] = [];
   const strengths: string[] = [];
+  let blacklistHit = false;
+  
+  // ⛔ BLACKLIST CHECK FIRST - Heavy penalty for generic CTAs
+  for (const blacklistItem of CTA_CRITERIA.blacklist) {
+    if (blacklistItem.pattern.test(text)) {
+      score += blacklistItem.penalty;
+      issues.push(`CTA blacklist: ${blacklistItem.reason}`);
+      blacklistHit = true;
+    }
+  }
+  
+  // If blacklist hit, cap score at 2 max
+  if (blacklistHit) {
+    return {
+      score: Math.max(0, Math.min(2, score + 8)), // Base 8 + penalties, capped at 2
+      issues,
+      strengths,
+    };
+  }
   
   // Check CTA presence and specificity
   let ctaFound = false;
+  let highestScore = 0;
+  
   for (const [level, config] of Object.entries(CTA_CRITERIA.specificityPatterns)) {
     for (const pattern of config.patterns) {
       if (pattern.test(text)) {
-        score = Math.max(score, config.score);
-        ctaFound = true;
-        if (config.score >= 6) {
-          strengths.push(config.description);
+        if (config.score > highestScore) {
+          highestScore = config.score;
+          ctaFound = true;
+          if (config.score >= 6) {
+            strengths.push(config.description);
+          }
         }
       }
     }
   }
+  
+  score = highestScore;
   
   if (!ctaFound) {
     issues.push('Không tìm thấy CTA rõ ràng');
     score = 0;
   }
   
-  // Check action verbs
+  // Bonus for action verbs
   for (const verb of CTA_CRITERIA.actionVerbs) {
-    if (text.includes(verb)) {
+    if (text.toLowerCase().includes(verb.toLowerCase())) {
       score += 0.5;
       break;
     }
   }
   
+  // Bonus for journey stage matching (if provided)
+  if (journeyStage && CTA_CRITERIA.journeyMatch[journeyStage as keyof typeof CTA_CRITERIA.journeyMatch]) {
+    const matchingCTAs = CTA_CRITERIA.journeyMatch[journeyStage as keyof typeof CTA_CRITERIA.journeyMatch];
+    for (const cta of matchingCTAs) {
+      if (text.toLowerCase().includes(cta.toLowerCase())) {
+        score += 0.5;
+        strengths.push(`CTA phù hợp với journey stage ${journeyStage}`);
+        break;
+      }
+    }
+  }
+  
   return { 
-    score: Math.max(0, Math.min(8, score)),
+    score: Math.max(0, Math.min(8, Math.round(score))),
     issues, 
     strengths 
   };
