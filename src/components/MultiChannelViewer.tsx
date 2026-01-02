@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -241,6 +241,7 @@ export function MultiChannelViewer({
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
   const [showMockupView, setShowMockupView] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
@@ -749,12 +750,40 @@ export function MultiChannelViewer({
             />
           </div>
         ) : (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden relative">
+            {/* Nút mở lại sidebar khi đã đóng */}
+            {sidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarCollapsed(false)}
+                className="absolute left-2 top-4 z-10 bg-background/80 backdrop-blur-sm border shadow-sm h-8 w-8 p-0"
+                title="Mở sidebar kênh"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            )}
+
             {/* Channel Sidebar */}
             <div className={cn(
-              "border-r border-border/50 bg-muted/20 flex flex-col shrink-0 transition-all duration-200",
-              showMockupView ? "w-44" : "w-52"
+              "border-r border-border/50 bg-muted/20 flex flex-col shrink-0 transition-all duration-300 overflow-hidden",
+              sidebarCollapsed 
+                ? "w-0 opacity-0" 
+                : showMockupView ? "w-44" : "w-52"
             )}>
+              {/* Sidebar Header với nút đóng */}
+              <div className="p-2 border-b border-border/30 flex items-center justify-between shrink-0">
+                <span className="text-xs font-medium text-muted-foreground">Kênh</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setSidebarCollapsed(true)}
+                  title="Thu gọn sidebar"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </Button>
+              </div>
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
                   {content.selected_channels.map((channel) => {
