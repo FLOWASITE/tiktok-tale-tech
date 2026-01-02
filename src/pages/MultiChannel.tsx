@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Sparkles, X, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters
 import { MultiChannelHeroSection } from '@/components/multichannel/MultiChannelHeroSection';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
-import { ContentGeneratingSkeleton, CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
+import { CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
+import { GeneratingBanner } from '@/components/multichannel/GeneratingBanner';
 import { PostCreationPrompt } from '@/components/PostCreationPrompt';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -72,6 +73,28 @@ export default function MultiChannel() {
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
   const [initialContentPurpose, setInitialContentPurpose] = useState<string | undefined>();
   const [initialMarketingFramework, setInitialMarketingFramework] = useState<string | undefined>();
+
+  // Elapsed time tracking for generating progress
+  const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
+  const generationStartRef = useRef<number | null>(null);
+
+  // Track elapsed time while generating
+  useEffect(() => {
+    if (!generating) {
+      setGenerationElapsedMs(0);
+      generationStartRef.current = null;
+      return;
+    }
+
+    generationStartRef.current = Date.now();
+    const interval = setInterval(() => {
+      if (generationStartRef.current) {
+        setGenerationElapsedMs(Date.now() - generationStartRef.current);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [generating]);
 
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
@@ -220,10 +243,14 @@ export default function MultiChannel() {
 
   const handleGenerateContent = async (data: any) => {
     setGeneratingChannelCount(data.channels?.length || 3);
-    setFormSheetOpen(false);
+    // Don't close the panel immediately - let user see progress in Step 4
+    // Panel will close after generation completes successfully
     const result = await generateContent(data);
     
     if (result) {
+      // Close panel only after successful generation
+      setFormSheetOpen(false);
+      
       if (data.topicHistoryId) {
         try {
           await createLink(data.topicHistoryId, result.id, 'multichannel', result.title, result.status);
@@ -377,11 +404,12 @@ export default function MultiChannel() {
           isUpdating={isBulkUpdating}
         />
 
-        {/* Generating Skeleton */}
+        {/* Generating Banner - Show progress card when AI is generating */}
         {generating && (
-          <ContentGeneratingSkeleton 
-            channelCount={generatingChannelCount} 
-            message="AI đang tạo nội dung đa kênh..."
+          <GeneratingBanner
+            isGenerating={generating}
+            channelCount={generatingChannelCount}
+            elapsedMs={generationElapsedMs}
           />
         )}
 
@@ -537,10 +565,14 @@ export default function MultiChannel() {
         )}
       </div>
 
-      {/* Form Panel */}
+      {/* Form Panel - Prevent closing while generating */}
       <SlidePanel
         open={formSheetOpen}
-        onOpenChange={setFormSheetOpen}
+        onOpenChange={(open) => {
+          // Prevent closing while generating
+          if (!open && generating) return;
+          setFormSheetOpen(open);
+        }}
         title={
           <>
             <Plus className="w-5 h-5 text-primary" />
@@ -557,6 +589,7 @@ export default function MultiChannel() {
           topicHistoryId={topicHistoryId}
           initialContentPurpose={initialContentPurpose as any}
           initialMarketingFramework={initialMarketingFramework as any}
+          generationElapsedMs={generationElapsedMs}
         />
       </SlidePanel>
 

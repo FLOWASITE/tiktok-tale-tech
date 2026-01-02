@@ -93,6 +93,8 @@ interface MultiChannelFormStepperProps {
   initialMarketingFramework?: MarketingFramework;
   initialProductId?: string;
   initialPersonaId?: string;
+  /** Elapsed time in ms from parent (for synchronized progress display) */
+  generationElapsedMs?: number;
 }
 
 // Reduced from 5 to 4 steps - Brand is now compact on Step 1
@@ -138,6 +140,7 @@ export function MultiChannelFormStepper({
   initialMarketingFramework,
   initialProductId,
   initialPersonaId,
+  generationElapsedMs: externalElapsedMs,
 }: MultiChannelFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -146,11 +149,13 @@ export function MultiChannelFormStepper({
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loadingPhase, setLoadingPhase] = useState(0);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
-  const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
+  const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [uiLoading, setUiLoading] = useState(false);
   const uiLoadingStartedAtRef = useRef<number | null>(null);
 
   const effectiveLoading = isLoading || uiLoading;
+  // Use external elapsed if provided, otherwise internal
+  const generationElapsedMs = externalElapsedMs ?? internalElapsedMs;
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialTopic || '',
@@ -220,25 +225,28 @@ export function MultiChannelFormStepper({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 
-  // Loading phases
+  // Loading phases - only track internal elapsed if external not provided
   useEffect(() => {
     if (!effectiveLoading) {
       setLoadingPhase(0);
-      setGenerationElapsedMs(0);
+      setInternalElapsedMs(0);
       return;
     }
     const startTime = Date.now();
     const phaseInterval = setInterval(() => {
       setLoadingPhase((prev) => (prev + 1) % LOADING_PHASES.length);
     }, 2500);
-    const elapsedInterval = setInterval(() => {
-      setGenerationElapsedMs(Date.now() - startTime);
-    }, 100);
+    // Only track internal elapsed if external not provided
+    const elapsedInterval = externalElapsedMs === undefined
+      ? setInterval(() => {
+          setInternalElapsedMs(Date.now() - startTime);
+        }, 100)
+      : undefined;
     return () => {
       clearInterval(phaseInterval);
-      clearInterval(elapsedInterval);
+      if (elapsedInterval) clearInterval(elapsedInterval);
     };
-  }, [effectiveLoading]);
+  }, [effectiveLoading, externalElapsedMs]);
 
   // Estimated time
   const estimatedTime = useMemo(() => {
