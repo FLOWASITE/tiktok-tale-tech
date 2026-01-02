@@ -113,8 +113,41 @@ export interface MultiChannelContent {
   deadline: string | null;
   user_id: string | null;
   industry_template_version: string | null;
+  // Self-Critique fields
+  critique_score: number | null;
+  critique_details: CritiqueDetails | null;
+  was_refined: boolean | null;
+  refinement_count: number | null;
   created_at: string;
   updated_at: string;
+}
+
+// Self-Critique types
+export interface CritiqueScores {
+  brand_voice: number;
+  compliance: number;
+  hook_strength: number;
+  content_structure: number;
+  engagement_potential: number;
+  channel_fit: number;
+}
+
+export interface CritiqueIssue {
+  category: string;
+  severity: 'error' | 'warning' | 'info';
+  description: string;
+  location?: string;
+  suggestion?: string;
+}
+
+export interface CritiqueDetails {
+  overall_score: number;
+  passed: boolean;
+  quality_tier: string;
+  scores: CritiqueScores;
+  issues: CritiqueIssue[];
+  suggestions: string[];
+  strengths: string[];
 }
 
 export interface EditedPreview {

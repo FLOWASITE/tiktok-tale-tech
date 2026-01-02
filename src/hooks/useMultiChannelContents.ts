@@ -37,6 +37,10 @@ const transformContent = (data: any): MultiChannelContent => ({
   deadline: data.deadline,
   user_id: data.user_id,
   industry_template_version: data.industry_template_version || null,
+  critique_score: data.critique_score ?? null,
+  critique_details: data.critique_details ?? null,
+  was_refined: data.was_refined ?? null,
+  refinement_count: data.refinement_count ?? null,
   created_at: data.created_at,
   updated_at: data.updated_at,
 });
