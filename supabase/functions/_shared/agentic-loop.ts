@@ -4,7 +4,7 @@
 
 import { CHAT_TOOLS, ToolCall, ToolCallResult, AgentTurn, AgentLoopResult } from "./tool-definitions.ts";
 import { executeToolCall } from "./tool-executor.ts";
-import { executeToolsParallel, estimateSpeedup } from "./parallel-tool-executor.ts";
+import { executeToolsParallel, executeToolsWithMetrics, estimateSpeedup, type ParallelExecutionMetrics } from "./parallel-tool-executor.ts";
 import { withRetry, isRetryableError, RetryableError } from "./error-utils.ts";
 import { estimateTokenCount, MODEL_LIMITS } from "./token-manager.ts";
 
@@ -153,18 +153,23 @@ async function parseStreamingResponse(
 async function executeTools(
   toolCalls: ToolCall[],
   context: ExecutionContext,
-  onToolExecuting?: (toolName: string) => void
-): Promise<ToolCallResult[]> {
-  if (toolCalls.length === 0) return [];
+  onToolExecuting?: (toolName: string) => void,
+  onToolComplete?: (result: ToolCallResult) => void
+): Promise<{ results: ToolCallResult[]; metrics?: ParallelExecutionMetrics }> {
+  if (toolCalls.length === 0) return { results: [] };
 
   // Log parallelization estimate
   const speedupEstimate = estimateSpeedup(toolCalls);
   if (speedupEstimate.estimatedSpeedup > 1) {
-    console.log(`[executeTools] Parallelizing: ${speedupEstimate.sequentialBatches} tools → ${speedupEstimate.parallelBatches} batches (${speedupEstimate.estimatedSpeedup.toFixed(1)}x speedup)`);
+    console.log(`[executeTools] Parallelizing: ${speedupEstimate.sequentialBatches} tools → ${speedupEstimate.parallelBatches} batches (${speedupEstimate.estimatedSpeedup.toFixed(1)}x estimated speedup)`);
   }
 
-  // Use parallel executor
-  return executeToolsParallel(toolCalls, context, onToolExecuting);
+  // Use parallel executor with metrics
+  const { results, metrics } = await executeToolsWithMetrics(toolCalls, context, onToolExecuting, onToolComplete);
+  
+  console.log(`[executeTools] Actual speedup: ${metrics.speedupFactor}x (${metrics.actualMs}ms vs estimated ${metrics.estimatedSequentialMs}ms sequential)`);
+  
+  return { results, metrics };
 }
 
 // Build observation summary from tool results
@@ -304,7 +309,7 @@ export async function executeAgenticLoop(
     const taskCompleteTool = toolCalls.find(tc => tc.function.name === 'task_complete');
     
     // Execute all tools
-    const toolResults = await executeTools(
+    const { results: toolResults, metrics: parallelMetrics } = await executeTools(
       toolCalls,
       options.executionContext,
       (toolName) => {
@@ -343,6 +348,7 @@ export async function executeAgenticLoop(
         tools_executed: toolCalls.map(tc => tc.function.name),
         duration_ms: turnDuration,
         observation: observationSummary,
+        parallel_metrics: parallelMetrics,
       } 
     });
 

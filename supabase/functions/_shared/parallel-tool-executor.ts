@@ -1,5 +1,6 @@
 // Parallel Tool Executor with Dependency Detection
 // Executes independent tools concurrently, dependent tools sequentially
+// Enhanced with timeout handling, chunking, and metrics
 
 import { ToolCall, ToolCallResult } from "./tool-definitions.ts";
 import { executeToolCall } from "./tool-executor.ts";
@@ -16,6 +17,24 @@ interface ToolExecutionPlan {
   dependencyMap: Map<string, string[]>; // tool_id -> [dependent_on_tool_ids]
   isParallelizable: boolean;
 }
+
+export interface ParallelExecutionMetrics {
+  totalTools: number;
+  parallelBatches: number;
+  estimatedSequentialMs: number; // Estimated if run sequentially
+  actualMs: number;
+  speedupFactor: number;
+  timeoutCount: number;
+  errorCount: number;
+  batchBreakdown: Array<{ batchIndex: number; toolCount: number; durationMs: number }>;
+}
+
+// Tool execution timeout (15 seconds default)
+const TOOL_TIMEOUT_MS = 15000;
+// Maximum concurrent tools in a batch to prevent overwhelming
+const MAX_CONCURRENT_TOOLS = 5;
+// Average estimated tool execution time for speedup calculation
+const AVG_TOOL_EXECUTION_MS = 2000;
 
 // Output patterns: what data each tool produces
 const TOOL_OUTPUTS: Record<string, string[]> = {
@@ -153,6 +172,7 @@ export function createExecutionPlan(toolCalls: ToolCall[]): ToolExecutionPlan {
 }
 
 // Execute tools with parallel execution for independent tools
+// Returns results AND execution metrics
 export async function executeToolsParallel(
   toolCalls: ToolCall[],
   context: ExecutionContext,
@@ -165,6 +185,9 @@ export async function executeToolsParallel(
   const plan = createExecutionPlan(toolCalls);
   const results: ToolCallResult[] = [];
   const resultMap = new Map<string, ToolCallResult>();
+  const batchBreakdown: ParallelExecutionMetrics['batchBreakdown'] = [];
+  let timeoutCount = 0;
+  let errorCount = 0;
 
   console.log(`[ParallelExecutor] Executing ${toolCalls.length} tools in ${plan.batches.length} batch(es)`);
 
@@ -175,38 +198,68 @@ export async function executeToolsParallel(
     console.log(`[ParallelExecutor] Batch ${batchIndex + 1}/${plan.batches.length}: ${batch.map(t => t.function.name).join(', ')}`);
 
     if (batch.length === 1) {
-      // Single tool - execute directly
+      // Single tool - execute directly with timeout
       const tool = batch[0];
       onToolExecuting?.(tool.function.name);
       
-      const result = await executeSingleTool(tool, context);
+      const result = await executeSingleToolWithTimeout(tool, context, TOOL_TIMEOUT_MS);
+      if (result.error?.includes('timeout')) timeoutCount++;
+      if (!result.success) errorCount++;
+      
       resultMap.set(tool.id, result);
       results.push(result);
       onToolComplete?.(result);
     } else {
-      // Multiple tools - execute in parallel
-      const batchPromises = batch.map(async (tool) => {
-        onToolExecuting?.(tool.function.name);
-        const result = await executeSingleTool(tool, context);
-        return { tool, result };
-      });
-
-      const batchResults = await Promise.all(batchPromises);
+      // Multiple tools - execute in parallel with chunking
+      const chunks = chunkArray(batch, MAX_CONCURRENT_TOOLS);
       
-      for (const { tool, result } of batchResults) {
-        resultMap.set(tool.id, result);
-        results.push(result);
-        onToolComplete?.(result);
+      for (const chunk of chunks) {
+        const batchPromises = chunk.map(async (tool) => {
+          onToolExecuting?.(tool.function.name);
+          const result = await executeSingleToolWithTimeout(tool, context, TOOL_TIMEOUT_MS);
+          return { tool, result };
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        
+        for (const { tool, result } of batchResults) {
+          if (result.error?.includes('timeout')) timeoutCount++;
+          if (!result.success) errorCount++;
+          
+          resultMap.set(tool.id, result);
+          results.push(result);
+          onToolComplete?.(result);
+        }
       }
     }
 
-    console.log(`[ParallelExecutor] Batch ${batchIndex + 1} completed in ${Date.now() - batchStart}ms`);
+    const batchDuration = Date.now() - batchStart;
+    batchBreakdown.push({
+      batchIndex: batchIndex + 1,
+      toolCount: batch.length,
+      durationMs: batchDuration,
+    });
+
+    console.log(`[ParallelExecutor] Batch ${batchIndex + 1} completed in ${batchDuration}ms`);
   }
 
   const totalTime = Date.now() - startTime;
   const successCount = results.filter(r => r.success).length;
+  const estimatedSequential = toolCalls.length * AVG_TOOL_EXECUTION_MS;
+  const speedupFactor = estimatedSequential / Math.max(totalTime, 1);
 
-  console.log(`[ParallelExecutor] Complete: ${successCount}/${toolCalls.length} succeeded in ${totalTime}ms`);
+  const metrics: ParallelExecutionMetrics = {
+    totalTools: toolCalls.length,
+    parallelBatches: plan.batches.length,
+    estimatedSequentialMs: estimatedSequential,
+    actualMs: totalTime,
+    speedupFactor: Math.round(speedupFactor * 100) / 100,
+    timeoutCount,
+    errorCount,
+    batchBreakdown,
+  };
+
+  console.log(`[ParallelExecutor] Complete: ${successCount}/${toolCalls.length} succeeded in ${totalTime}ms (speedup: ${metrics.speedupFactor}x)`);
 
   // Return results in original tool call order
   return toolCalls.map(tc => resultMap.get(tc.id) || {
@@ -217,10 +270,106 @@ export async function executeToolsParallel(
   });
 }
 
-// Execute a single tool with special handling for task_complete
-async function executeSingleTool(
+// Execute tools and return metrics separately
+export async function executeToolsWithMetrics(
+  toolCalls: ToolCall[],
+  context: ExecutionContext,
+  onToolExecuting?: (toolName: string) => void,
+  onToolComplete?: (result: ToolCallResult) => void
+): Promise<{ results: ToolCallResult[]; metrics: ParallelExecutionMetrics }> {
+  if (toolCalls.length === 0) {
+    return {
+      results: [],
+      metrics: {
+        totalTools: 0,
+        parallelBatches: 0,
+        estimatedSequentialMs: 0,
+        actualMs: 0,
+        speedupFactor: 1,
+        timeoutCount: 0,
+        errorCount: 0,
+        batchBreakdown: [],
+      },
+    };
+  }
+
+  const startTime = Date.now();
+  const plan = createExecutionPlan(toolCalls);
+  const results: ToolCallResult[] = [];
+  const resultMap = new Map<string, ToolCallResult>();
+  const batchBreakdown: ParallelExecutionMetrics['batchBreakdown'] = [];
+  let timeoutCount = 0;
+  let errorCount = 0;
+
+  for (let batchIndex = 0; batchIndex < plan.batches.length; batchIndex++) {
+    const batch = plan.batches[batchIndex];
+    const batchStart = Date.now();
+
+    const chunks = chunkArray(batch, MAX_CONCURRENT_TOOLS);
+    
+    for (const chunk of chunks) {
+      const batchPromises = chunk.map(async (tool) => {
+        onToolExecuting?.(tool.function.name);
+        const result = await executeSingleToolWithTimeout(tool, context, TOOL_TIMEOUT_MS);
+        return { tool, result };
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      
+      for (const { tool, result } of batchResults) {
+        if (result.error?.includes('timeout')) timeoutCount++;
+        if (!result.success) errorCount++;
+        
+        resultMap.set(tool.id, result);
+        results.push(result);
+        onToolComplete?.(result);
+      }
+    }
+
+    batchBreakdown.push({
+      batchIndex: batchIndex + 1,
+      toolCount: batch.length,
+      durationMs: Date.now() - batchStart,
+    });
+  }
+
+  const totalTime = Date.now() - startTime;
+  const estimatedSequential = toolCalls.length * AVG_TOOL_EXECUTION_MS;
+
+  return {
+    results: toolCalls.map(tc => resultMap.get(tc.id) || {
+      success: false,
+      tool_name: tc.function.name,
+      result: null,
+      error: 'Result not found',
+    }),
+    metrics: {
+      totalTools: toolCalls.length,
+      parallelBatches: plan.batches.length,
+      estimatedSequentialMs: estimatedSequential,
+      actualMs: totalTime,
+      speedupFactor: Math.round((estimatedSequential / Math.max(totalTime, 1)) * 100) / 100,
+      timeoutCount,
+      errorCount,
+      batchBreakdown,
+    },
+  };
+}
+
+// Helper: Chunk array into smaller arrays
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
+// Execute a single tool with timeout
+async function executeSingleToolWithTimeout(
   tool: ToolCall,
-  context: ExecutionContext
+  context: ExecutionContext,
+  timeoutMs: number
 ): Promise<ToolCallResult> {
   const toolName = tool.function.name;
 
@@ -241,9 +390,18 @@ async function executeSingleTool(
       };
     }
     
-    return await executeToolCall(toolName, args, context);
+    // Execute with timeout
+    const result = await Promise.race([
+      executeToolCall(toolName, args, context),
+      new Promise<ToolCallResult>((_, reject) => 
+        setTimeout(() => reject(new Error(`Tool ${toolName} timeout after ${timeoutMs}ms`)), timeoutMs)
+      ),
+    ]);
+    
+    return result;
   } catch (err) {
-    console.error(`[ParallelExecutor] Tool ${toolName} error:`, err);
+    const isTimeout = err instanceof Error && err.message.includes('timeout');
+    console.error(`[ParallelExecutor] Tool ${toolName} ${isTimeout ? 'timeout' : 'error'}:`, err);
     return {
       success: false,
       tool_name: toolName,
