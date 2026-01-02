@@ -58,6 +58,7 @@ import { ContentAnalyticsPanel } from '@/components/viewer/ContentAnalyticsPanel
 import { ActivityTimeline } from '@/components/viewer/ActivityTimeline';
 import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 import { ContentQualityScore } from '@/components/ContentQualityScore';
+import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -1167,14 +1168,24 @@ export function MultiChannelViewer({
                         ) : (
                           /* View Mode */
                           showMockupView ? (
-                            <ContentMockupToggle
-                              channel={channel}
-                              content={channelContent || ''}
-                              brandName={content.brand_name}
-                              logoUrl={undefined}
-                              primaryColor={content.primary_color || undefined}
-                              isLoading={isRegenerating}
-                            />
+                            <div className="space-y-4">
+                              <ContentMockupToggle
+                                channel={channel}
+                                content={channelContent || ''}
+                                brandName={content.brand_name}
+                                logoUrl={undefined}
+                                primaryColor={content.primary_color || undefined}
+                                isLoading={isRegenerating}
+                              />
+                              {/* SEO Preview for website channel */}
+                              {channel === 'website' && (content as any).website_seo_data && (
+                                <WebsiteSEOPreview
+                                  seoData={(content as any).website_seo_data}
+                                  content={channelContent}
+                                  brandName={content.brand_name}
+                                />
+                              )}
+                            </div>
                           ) : (
                           <div className="rounded-xl border border-border/50 bg-muted/20 p-5 min-h-[350px]">
                               {isRegenerating ? (

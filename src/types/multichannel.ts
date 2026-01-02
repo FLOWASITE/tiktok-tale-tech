@@ -82,6 +82,26 @@ export const calculateMasterStatus = (channelStatuses: ChannelStatuses, selected
   return 'draft';
 };
 
+// Website SEO Data structure for structured SEO metadata
+export interface WebsiteSEOData {
+  seo_title: string;
+  meta_description: string;
+  focus_keyword: string;
+  secondary_keywords?: string[];
+  slug_suggestion?: string;
+  heading_structure: {
+    h1: string;
+    h2s: string[];
+    h3s?: string[];
+  };
+  content?: string; // Full content (if stored separately)
+  featured_snippet?: string;
+  internal_link_anchors?: string[];
+  schema_type?: 'Article' | 'HowTo' | 'FAQ' | 'Product' | 'BlogPosting';
+  word_count?: number;
+  reading_time_minutes?: number;
+}
+
 export interface MultiChannelContent {
   id: string;
   title: string;
@@ -94,6 +114,7 @@ export interface MultiChannelContent {
   brand_guideline: string | null;
   primary_color: string | null;
   website_content: string | null;
+  website_seo_data?: WebsiteSEOData | null;
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;
