@@ -4,6 +4,12 @@ import { Sparkles, Loader2, ChevronDown, ChevronUp, Bot } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { 
+  GENERATION_STEPS, 
+  calculateStepDurations, 
+  calculateTotalDuration,
+  PROGRESS_CAP_PERCENT 
+} from './progressConstants';
 
 interface GeneratingBannerProps {
   isGenerating: boolean;
@@ -11,16 +17,6 @@ interface GeneratingBannerProps {
   elapsedMs?: number;
   className?: string;
 }
-
-const PROGRESS_STEPS = [
-  { id: 'context', label: 'Tải ngữ cảnh thương hiệu', duration: 800 },
-  { id: 'personas', label: 'Phân tích personas & sản phẩm', duration: 1200 },
-  { id: 'industry', label: 'Tải dữ liệu ngành', duration: 1000 },
-  { id: 'prompt', label: 'Xây dựng prompt AI', duration: 600 },
-  { id: 'generate', label: 'AI đang tạo nội dung', duration: 8000 },
-  { id: 'critique', label: 'Đánh giá chất lượng', duration: 2000 },
-  { id: 'finalize', label: 'Tối ưu và hoàn thiện', duration: 1500 },
-];
 
 export function GeneratingBanner({
   isGenerating,
@@ -32,6 +28,10 @@ export function GeneratingBanner({
   const [expanded, setExpanded] = useState(false);
 
   const elapsedMs = externalElapsedMs ?? internalElapsedMs;
+
+  // Calculate step durations based on channel count
+  const steps = useMemo(() => calculateStepDurations(channelCount), [channelCount]);
+  const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
 
   // Internal timer if no external elapsed provided
   useEffect(() => {
@@ -49,37 +49,36 @@ export function GeneratingBanner({
 
   // Calculate current step based on elapsed time
   const { currentStepIndex, stepProgress } = useMemo(() => {
-    // Scale durations based on channel count
-    const channelMultiplier = 1 + (channelCount - 1) * 0.4;
     let accumulated = 0;
 
-    for (let i = 0; i < PROGRESS_STEPS.length; i++) {
-      const step = PROGRESS_STEPS[i];
-      const scaledDuration = i === 4 ? step.duration * channelMultiplier : step.duration;
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
       
-      if (elapsedMs < accumulated + scaledDuration) {
-        const progress = (elapsedMs - accumulated) / scaledDuration;
+      if (elapsedMs < accumulated + step.duration) {
+        const progress = (elapsedMs - accumulated) / step.duration;
         return { currentStepIndex: i, stepProgress: Math.min(progress, 1) };
       }
-      accumulated += scaledDuration;
+      accumulated += step.duration;
     }
 
-    return { currentStepIndex: PROGRESS_STEPS.length - 1, stepProgress: 1 };
-  }, [elapsedMs, channelCount]);
+    return { currentStepIndex: steps.length - 1, stepProgress: 1 };
+  }, [elapsedMs, steps]);
 
   // Estimated remaining time
   const estimatedRemainingSeconds = useMemo(() => {
-    const channelMultiplier = 1 + (channelCount - 1) * 0.4;
-    const totalMs = PROGRESS_STEPS.reduce((sum, step, i) => {
-      return sum + (i === 4 ? step.duration * channelMultiplier : step.duration);
-    }, 0);
-    const remaining = Math.max(0, totalMs - elapsedMs);
+    const remaining = Math.max(0, totalDuration - elapsedMs);
     return Math.ceil(remaining / 1000);
-  }, [elapsedMs, channelCount]);
+  }, [elapsedMs, totalDuration]);
+
+  // Calculate overall progress percentage (capped at 95%)
+  const progressPercent = useMemo(() => {
+    const rawPercent = ((currentStepIndex + stepProgress) / steps.length) * 100;
+    return Math.min(PROGRESS_CAP_PERCENT, rawPercent);
+  }, [currentStepIndex, stepProgress, steps.length]);
 
   if (!isGenerating) return null;
 
-  const currentStep = PROGRESS_STEPS[currentStepIndex];
+  const currentStep = steps[currentStepIndex];
 
   return (
     <AnimatePresence>
@@ -96,9 +95,7 @@ export function GeneratingBanner({
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-secondary"
               initial={{ width: '0%' }}
-              animate={{
-                width: `${((currentStepIndex + stepProgress) / PROGRESS_STEPS.length) * 100}%`,
-              }}
+              animate={{ width: `${progressPercent}%` }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             />
             {/* Shimmer effect */}
@@ -149,7 +146,13 @@ export function GeneratingBanner({
                 <div className="text-right hidden sm:block">
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                    <span>~{estimatedRemainingSeconds}s còn lại</span>
+                    <span>
+                      {estimatedRemainingSeconds > 5 
+                        ? `~${estimatedRemainingSeconds}s còn lại`
+                        : estimatedRemainingSeconds > 0
+                          ? 'Sắp hoàn thành...'
+                          : 'Đang hoàn thiện...'}
+                    </span>
                   </div>
                 </div>
 
@@ -179,7 +182,7 @@ export function GeneratingBanner({
                   className="overflow-hidden"
                 >
                   <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
-                    {PROGRESS_STEPS.map((step, index) => {
+                    {steps.map((step, index) => {
                       const isComplete = index < currentStepIndex;
                       const isCurrent = index === currentStepIndex;
                       const isPending = index > currentStepIndex;
@@ -207,14 +210,33 @@ export function GeneratingBanner({
                           </div>
 
                           {/* Step label */}
-                          <span className={cn(isCurrent && 'text-foreground font-medium')}>
+                          <span className={cn('flex-1', isCurrent && 'text-foreground font-medium')}>
                             {step.label}
                           </span>
 
-                          {/* Loading indicator for current step */}
+                          {/* Mini progress bar for current step */}
                           {isCurrent && (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary ml-auto" />
+                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full bg-primary"
+                                initial={{ width: '0%' }}
+                                animate={{ width: `${stepProgress * 100}%` }}
+                                transition={{ duration: 0.2 }}
+                              />
+                            </div>
                           )}
+
+                          {/* Loading indicator for current step */}
+                          {isCurrent && step.id === 'ai' ? (
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-primary" />
+                            </motion.div>
+                          ) : isCurrent ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          ) : null}
                         </div>
                       );
                     })}

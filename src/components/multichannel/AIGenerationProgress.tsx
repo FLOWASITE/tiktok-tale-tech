@@ -12,12 +12,17 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { 
+  GENERATION_STEPS, 
+  calculateTotalDuration,
+  PROGRESS_CAP_PERCENT 
+} from './progressConstants';
 
 interface ProgressStep {
   id: string;
   label: string;
   icon: React.ReactNode;
-  duration: number; // ms
+  duration: number;
 }
 
 interface AIGenerationProgressProps {
@@ -27,17 +32,26 @@ interface AIGenerationProgressProps {
   className?: string;
 }
 
-// Dynamic step durations based on channel count
-// Durations aligned with backend reality (~15-25s total)
-const getProgressSteps = (channelCount: number): ProgressStep[] => [
-  { id: 'brand', label: 'Tải ngữ cảnh thương hiệu', icon: <Building2 className="w-4 h-4" />, duration: 1500 },
-  { id: 'personas', label: 'Phân tích personas & sản phẩm', icon: <Users className="w-4 h-4" />, duration: 1200 },
-  { id: 'industry', label: 'Tải dữ liệu ngành', icon: <Package className="w-4 h-4" />, duration: 1000 },
-  { id: 'prompt', label: 'Xây dựng prompt AI', icon: <FileText className="w-4 h-4" />, duration: 800 },
-  { id: 'ai', label: 'AI đang tạo nội dung', icon: <Sparkles className="w-4 h-4" />, duration: 6000 + (channelCount * 1500) },
-  { id: 'critique', label: 'Đánh giá chất lượng', icon: <CheckCircle2 className="w-4 h-4" />, duration: 4000 },
-  { id: 'finalize', label: 'Tối ưu và hoàn thiện', icon: <Wand2 className="w-4 h-4" />, duration: 5000 },
-];
+// Map step IDs to icons
+const STEP_ICONS: Record<string, React.ReactNode> = {
+  brand: <Building2 className="w-4 h-4" />,
+  personas: <Users className="w-4 h-4" />,
+  industry: <Package className="w-4 h-4" />,
+  prompt: <FileText className="w-4 h-4" />,
+  ai: <Sparkles className="w-4 h-4" />,
+  critique: <CheckCircle2 className="w-4 h-4" />,
+  finalize: <Wand2 className="w-4 h-4" />,
+};
+
+// Build progress steps with icons from shared constants
+const getProgressSteps = (channelCount: number): ProgressStep[] => {
+  return GENERATION_STEPS.map(step => ({
+    id: step.id,
+    label: step.label,
+    icon: STEP_ICONS[step.id] || <Sparkles className="w-4 h-4" />,
+    duration: step.baseDuration + (step.channelScaling || 0) * Math.max(0, channelCount - 1)
+  }));
+};
 
 export function AIGenerationProgress({ 
   isLoading, 
@@ -75,7 +89,7 @@ export function AIGenerationProgress({
     });
   }, [steps]);
 
-  const totalDuration = stepThresholds[stepThresholds.length - 1];
+  const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
 
   // Determine step statuses based on elapsed time
   const stepsWithStatus = useMemo(() => {
@@ -128,7 +142,7 @@ export function AIGenerationProgress({
           initial={{ height: 0 }}
           animate={{ 
             // Cap at 95% until actual completion to avoid "stuck at 100%" feeling
-            height: `${Math.min(95, (elapsed / totalDuration) * 100)}%` 
+            height: `${Math.min(PROGRESS_CAP_PERCENT, (elapsed / totalDuration) * 100)}%` 
           }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         />
