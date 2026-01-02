@@ -576,6 +576,8 @@ export type Database = {
           brand_name: string
           caption_suggestion: string | null
           created_at: string
+          critique_details: Json | null
+          critique_score: number | null
           cta_suggestion: string | null
           generated_images: Json | null
           id: string
@@ -584,6 +586,7 @@ export type Database = {
           industry_template_version: string | null
           organization_id: string | null
           platform: Database["public"]["Enums"]["carousel_platform"]
+          refinement_count: number | null
           slide_count: number
           slides_content: Json
           status: string | null
@@ -591,6 +594,7 @@ export type Database = {
           topic: string
           updated_at: string
           user_id: string | null
+          was_refined: boolean | null
         }
         Insert: {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
@@ -598,6 +602,8 @@ export type Database = {
           brand_name?: string
           caption_suggestion?: string | null
           created_at?: string
+          critique_details?: Json | null
+          critique_score?: number | null
           cta_suggestion?: string | null
           generated_images?: Json | null
           id?: string
@@ -606,6 +612,7 @@ export type Database = {
           industry_template_version?: string | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
+          refinement_count?: number | null
           slide_count?: number
           slides_content?: Json
           status?: string | null
@@ -613,6 +620,7 @@ export type Database = {
           topic: string
           updated_at?: string
           user_id?: string | null
+          was_refined?: boolean | null
         }
         Update: {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
@@ -620,6 +628,8 @@ export type Database = {
           brand_name?: string
           caption_suggestion?: string | null
           created_at?: string
+          critique_details?: Json | null
+          critique_score?: number | null
           cta_suggestion?: string | null
           generated_images?: Json | null
           id?: string
@@ -628,6 +638,7 @@ export type Database = {
           industry_template_version?: string | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
+          refinement_count?: number | null
           slide_count?: number
           slides_content?: Json
           status?: string | null
@@ -635,6 +646,7 @@ export type Database = {
           topic?: string
           updated_at?: string
           user_id?: string | null
+          was_refined?: boolean | null
         }
         Relationships: [
           {
@@ -2295,6 +2307,8 @@ export type Database = {
           content_calendar_color: string | null
           content_goal: string
           created_at: string
+          critique_details: Json | null
+          critique_score: number | null
           deadline: string | null
           email_content: string | null
           facebook_content: string | null
@@ -2307,6 +2321,7 @@ export type Database = {
           organization_id: string | null
           primary_color: string | null
           priority: string | null
+          refinement_count: number | null
           selected_channels: string[]
           status: string | null
           tags: string[] | null
@@ -2318,6 +2333,7 @@ export type Database = {
           twitter_content: string | null
           updated_at: string
           user_id: string | null
+          was_refined: boolean | null
           website_content: string | null
           youtube_content: string | null
           zalo_oa_content: string | null
@@ -2332,6 +2348,8 @@ export type Database = {
           content_calendar_color?: string | null
           content_goal: string
           created_at?: string
+          critique_details?: Json | null
+          critique_score?: number | null
           deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
@@ -2344,6 +2362,7 @@ export type Database = {
           organization_id?: string | null
           primary_color?: string | null
           priority?: string | null
+          refinement_count?: number | null
           selected_channels: string[]
           status?: string | null
           tags?: string[] | null
@@ -2355,6 +2374,7 @@ export type Database = {
           twitter_content?: string | null
           updated_at?: string
           user_id?: string | null
+          was_refined?: boolean | null
           website_content?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
@@ -2369,6 +2389,8 @@ export type Database = {
           content_calendar_color?: string | null
           content_goal?: string
           created_at?: string
+          critique_details?: Json | null
+          critique_score?: number | null
           deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
@@ -2381,6 +2403,7 @@ export type Database = {
           organization_id?: string | null
           primary_color?: string | null
           priority?: string | null
+          refinement_count?: number | null
           selected_channels?: string[]
           status?: string | null
           tags?: string[] | null
@@ -2392,6 +2415,7 @@ export type Database = {
           twitter_content?: string | null
           updated_at?: string
           user_id?: string | null
+          was_refined?: boolean | null
           website_content?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
@@ -2947,12 +2971,15 @@ export type Database = {
           character_type: string
           content: string
           created_at: string
+          critique_details: Json | null
+          critique_score: number | null
           dialogue_style: string | null
           duration: number
           id: string
           industry_template_id: string | null
           industry_template_version: string | null
           organization_id: string | null
+          refinement_count: number | null
           script_purpose: string
           status: string | null
           title: string
@@ -2961,6 +2988,7 @@ export type Database = {
           user_id: string | null
           video_type: string
           voice_region: string | null
+          was_refined: boolean | null
         }
         Insert: {
           brand_template_id?: string | null
@@ -2968,12 +2996,15 @@ export type Database = {
           character_type?: string
           content: string
           created_at?: string
+          critique_details?: Json | null
+          critique_score?: number | null
           dialogue_style?: string | null
           duration?: number
           id?: string
           industry_template_id?: string | null
           industry_template_version?: string | null
           organization_id?: string | null
+          refinement_count?: number | null
           script_purpose?: string
           status?: string | null
           title: string
@@ -2982,6 +3013,7 @@ export type Database = {
           user_id?: string | null
           video_type?: string
           voice_region?: string | null
+          was_refined?: boolean | null
         }
         Update: {
           brand_template_id?: string | null
@@ -2989,12 +3021,15 @@ export type Database = {
           character_type?: string
           content?: string
           created_at?: string
+          critique_details?: Json | null
+          critique_score?: number | null
           dialogue_style?: string | null
           duration?: number
           id?: string
           industry_template_id?: string | null
           industry_template_version?: string | null
           organization_id?: string | null
+          refinement_count?: number | null
           script_purpose?: string
           status?: string | null
           title?: string
@@ -3003,6 +3038,7 @@ export type Database = {
           user_id?: string | null
           video_type?: string
           voice_region?: string | null
+          was_refined?: boolean | null
         }
         Relationships: [
           {
