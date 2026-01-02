@@ -9,6 +9,11 @@ import {
   type JourneyStageMessagingData,
   type JourneyStage,
 } from "../_shared/prompt-utils.ts";
+import {
+  runSelfCritiqueLoop,
+  CRITIQUE_CONFIG,
+  type CritiqueResult,
+} from "../_shared/self-critique.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1671,6 +1676,37 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
 
     console.log("Script generated successfully, saving to database...");
 
+    // ============================================
+    // SELF-CRITIQUE LOOP - Evaluate and refine script
+    // ============================================
+    let critiqueResult: CritiqueResult | null = null;
+    let wasRefined = false;
+    let refinementCount = 0;
+
+    // Only run critique if not from cache
+    if (!fromCache) {
+      try {
+        const critiqueLoop = await runSelfCritiqueLoop({
+          content,
+          contentType: 'script',
+          brandVoice,
+          mergedRules,
+          additionalContext: `Video type: ${video_type}, Character: ${character_type}, Duration: ${duration}`,
+          apiKey: LOVABLE_API_KEY,
+        });
+
+        content = critiqueLoop.finalContent;
+        critiqueResult = critiqueLoop.critiqueResult;
+        wasRefined = critiqueLoop.wasRefined;
+        refinementCount = critiqueLoop.refinementCount;
+
+        console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}`);
+      } catch (critiqueError) {
+        console.error("Self-critique failed, using original content:", critiqueError);
+        // Continue with original content if critique fails
+      }
+    }
+
     // Get user from auth header
     const authHeader = req.headers.get("authorization");
     let userId: string | null = null;
@@ -1735,6 +1771,11 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
         brand_voice_variant_id: brandVoiceVariantId || null,
         industry_template_id: industryMemory?.id || null,
         industry_template_version: industryMemory?.version || null,
+        // Self-critique metadata
+        critique_score: critiqueResult?.overall_score || null,
+        critique_details: critiqueResult || null,
+        was_refined: wasRefined,
+        refinement_count: refinementCount,
       })
       .select()
       .single();
@@ -1747,7 +1788,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       );
     }
 
-    console.log("Script saved with ID:", savedScript.id, "fromCache:", fromCache);
+    console.log("Script saved with ID:", savedScript.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
 
     return new Response(JSON.stringify({ ...savedScript, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

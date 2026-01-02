@@ -2,6 +2,11 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
+import {
+  runSelfCritiqueLoop,
+  CRITIQUE_CONFIG,
+  type CritiqueResult,
+} from "../_shared/self-critique.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -648,6 +653,37 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
 
     console.log("Generated carousel:", generatedData.title);
 
+    // ============================================
+    // SELF-CRITIQUE LOOP - Evaluate and refine carousel
+    // ============================================
+    let critiqueResult: CritiqueResult | null = null;
+    let wasRefined = false;
+    let refinementCount = 0;
+
+    // Only run critique if not from cache
+    if (!fromCache) {
+      try {
+        const critiqueLoop = await runSelfCritiqueLoop({
+          content: generatedData,
+          contentType: 'carousel',
+          brandVoice,
+          mergedRules,
+          additionalContext: `Platform: ${formData.platform}, Slides: ${formData.slideCount}, AI Tool: ${formData.aiTool}`,
+          apiKey: LOVABLE_API_KEY,
+        });
+
+        generatedData = critiqueLoop.finalContent;
+        critiqueResult = critiqueLoop.critiqueResult;
+        wasRefined = critiqueLoop.wasRefined;
+        refinementCount = critiqueLoop.refinementCount;
+
+        console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}`);
+      } catch (critiqueError) {
+        console.error("Self-critique failed, using original content:", critiqueError);
+        // Continue with original content if critique fails
+      }
+    }
+
     // Check organization's skip_approval setting
     let initialStatus = 'draft';
     if (organizationId) {
@@ -683,6 +719,11 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
         status: initialStatus,
         industry_template_id: industryMemory?.id || null,
         industry_template_version: industryMemory?.version || null,
+        // Self-critique metadata
+        critique_score: critiqueResult?.overall_score || null,
+        critique_details: critiqueResult || null,
+        was_refined: wasRefined,
+        refinement_count: refinementCount,
       })
       .select()
       .single();
@@ -692,7 +733,7 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
       throw new Error("Failed to save carousel");
     }
 
-    console.log("Carousel saved with ID:", carousel.id, "fromCache:", fromCache);
+    console.log("Carousel saved with ID:", carousel.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
 
     return new Response(JSON.stringify({ ...carousel, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

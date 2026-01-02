@@ -10,6 +10,11 @@ import {
   type JourneyStageMessagingData,
   type JourneyStage,
 } from "../_shared/prompt-utils.ts";
+import {
+  runSelfCritiqueLoop,
+  CRITIQUE_CONFIG,
+  type CritiqueResult,
+} from "../_shared/self-critique.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1493,6 +1498,37 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
 
     console.log("Generated content:", generatedData.title);
 
+    // ============================================
+    // SELF-CRITIQUE LOOP - Evaluate and refine content
+    // ============================================
+    let critiqueResult: CritiqueResult | null = null;
+    let wasRefined = false;
+    let refinementCount = 0;
+
+    // Only run critique if not from cache
+    if (!fromCache) {
+      try {
+        const critiqueLoop = await runSelfCritiqueLoop({
+          content: generatedData,
+          contentType: 'multichannel',
+          brandVoice,
+          mergedRules,
+          additionalContext: `Channels: ${formData.channels.join(', ')}`,
+          apiKey: LOVABLE_API_KEY,
+        });
+
+        generatedData = critiqueLoop.finalContent;
+        critiqueResult = critiqueLoop.critiqueResult;
+        wasRefined = critiqueLoop.wasRefined;
+        refinementCount = critiqueLoop.refinementCount;
+
+        console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}`);
+      } catch (critiqueError) {
+        console.error("Self-critique failed, using original content:", critiqueError);
+        // Continue with original content if critique fails
+      }
+    }
+
     // Check organization's approval settings
     let initialStatus = 'draft';
     if (organizationId) {
@@ -1511,7 +1547,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
       }
     }
 
-    // Save to database with Industry Memory version tracking
+    // Save to database with Industry Memory version tracking + critique metadata
     const { data: content, error: dbError } = await supabase
       .from("multi_channel_contents")
       .insert({
@@ -1530,6 +1566,12 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         status: initialStatus,
         // Track Industry Memory version for audit trail
         industry_template_version: industryMemory?.version || null,
+        // Self-critique metadata
+        critique_score: critiqueResult?.overall_score || null,
+        critique_details: critiqueResult || null,
+        was_refined: wasRefined,
+        refinement_count: refinementCount,
+        // Channel contents
         website_content: generatedData.website_content || null,
         facebook_content: generatedData.facebook_content || null,
         instagram_content: generatedData.instagram_content || null,
@@ -1547,13 +1589,16 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
     if (industryMemory) {
       console.log("Content saved with Industry Memory version:", industryMemory.version);
     }
+    if (critiqueResult) {
+      console.log("Content saved with critique score:", critiqueResult.overall_score);
+    }
 
     if (dbError) {
       console.error("Database error:", dbError);
       throw new Error("Failed to save content");
     }
 
-    console.log("Content saved with ID:", content.id, "fromCache:", fromCache);
+    console.log("Content saved with ID:", content.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
 
     return new Response(JSON.stringify({ ...content, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
