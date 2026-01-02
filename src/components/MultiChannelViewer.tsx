@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { cn } from '@/lib/utils';
 import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { Button } from '@/components/ui/button';
@@ -750,7 +751,10 @@ export function MultiChannelViewer({
         ) : (
           <div className="flex-1 flex overflow-hidden">
             {/* Channel Sidebar */}
-            <div className="w-52 border-r border-border/50 bg-muted/20 flex flex-col shrink-0">
+            <div className={cn(
+              "border-r border-border/50 bg-muted/20 flex flex-col shrink-0 transition-all duration-200",
+              showMockupView ? "w-44" : "w-52"
+            )}>
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
                   {content.selected_channels.map((channel) => {
@@ -1005,13 +1009,15 @@ export function MultiChannelViewer({
                     </div>
 
                     {/* Content Area */}
-                    <ScrollArea className="flex-1">
-                      <div className="p-4">
+                      <ScrollArea className="flex-1">
+                        <div className={showMockupView ? "p-2" : "p-4"}>
                         {/* Length Indicator & Rules */}
-                        <div className="space-y-2 mb-4">
-                          <ContentLengthIndicator content={displayContent} settings={DEFAULT_CHANNEL_SETTINGS[channel]} />
-                          <ChannelRulesPanel channel={channel} />
-                        </div>
+                        {!showMockupView && (
+                          <div className="space-y-2 mb-4">
+                            <ContentLengthIndicator content={displayContent} settings={DEFAULT_CHANNEL_SETTINGS[channel]} />
+                            <ChannelRulesPanel channel={channel} />
+                          </div>
+                        )}
 
                         {isEditing ? (
                           <div className="space-y-3">
