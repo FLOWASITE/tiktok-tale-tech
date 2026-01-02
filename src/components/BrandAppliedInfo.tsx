@@ -19,7 +19,8 @@ import {
   Hash,
   Quote,
   MousePointerClick,
-  Leaf
+  Leaf,
+  Phone
 } from 'lucide-react';
 import {
   Tooltip,
@@ -379,7 +380,20 @@ export function BrandAppliedInfo({ template, selectedChannels = [], industry }: 
             </div>
           )}
 
-          {/* Channel Overrides */}
+          {/* Footer Contact Info */}
+          {template.footer_info && (template.footer_info.phone || template.footer_info.email || template.footer_info.website) && (
+            <div className="flex items-start gap-2 pt-2 border-t border-border/50">
+              <Phone className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Contact Info (cho CTA)</p>
+                <div className="text-xs text-green-600 dark:text-green-400 mt-0.5 space-y-0.5">
+                  {template.footer_info.phone && <p>📞 {template.footer_info.phone}</p>}
+                  {template.footer_info.email && <p>📧 {template.footer_info.email}</p>}
+                  {template.footer_info.website && <p>🌐 {template.footer_info.website}</p>}
+                </div>
+              </div>
+            </div>
+          )}
           {channelOverrides.length > 0 && (
             <div className="flex items-start gap-2 pt-2 border-t border-border/50">
               <Settings2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
