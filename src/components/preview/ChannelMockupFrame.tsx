@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { ensureMarkdownFormat } from '@/utils/contentFormatter';
 import ReactMarkdown from 'react-markdown';
+import { motion } from 'framer-motion';
+import { WebsiteSEOData } from '@/types/multichannel';
 import { 
   Facebook, 
   Linkedin, 
@@ -44,6 +46,9 @@ interface ChannelMockupFrameProps {
   logoUrl?: string;
   primaryColor?: string;
   isGenerating?: boolean;
+  // Website-specific props
+  seoData?: WebsiteSEOData;
+  channelImage?: string;
 }
 
 // Reusable animated button component
@@ -642,16 +647,87 @@ function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channel
   );
 }
 
+// Article TOC Component
+function ArticleTOC({ headings, themeColor }: { headings: string[]; themeColor: string }) {
+  if (!headings?.length) return null;
+  
+  return (
+    <div className="bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg p-3 text-xs mb-4">
+      <h4 className="font-semibold mb-2 text-[#1d1d1f] dark:text-white flex items-center gap-1.5">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+        </svg>
+        Mục lục
+      </h4>
+      <ol className="space-y-1.5 list-decimal list-inside text-[#86868b]">
+        {headings.slice(0, 5).map((h, i) => (
+          <li key={i} className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer truncate transition-colors" style={{ '--hover-color': themeColor } as React.CSSProperties}>
+            {h}
+          </li>
+        ))}
+        {headings.length > 5 && (
+          <li className="text-[#86868b] italic">+{headings.length - 5} mục khác...</li>
+        )}
+      </ol>
+    </div>
+  );
+}
+
+// SEO Score Badge Component  
+function SEOScoreBadge({ score, themeColor }: { score: number; themeColor: string }) {
+  const getScoreColor = () => {
+    if (score >= 80) return 'bg-green-500';
+    if (score >= 60) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+  
+  return (
+    <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur rounded-full px-2 py-1 text-xs shadow-sm border border-[#e5e5e7] dark:border-[#3d3d3f]">
+      <div className={cn("w-2 h-2 rounded-full", getScoreColor())} />
+      <span className="font-medium text-[#1d1d1f] dark:text-white">SEO {score}</span>
+    </div>
+  );
+}
+
 // Website/Blog Mockup - Modern browser with article preview
-function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating }: Omit<ChannelMockupFrameProps, 'channel'>) {
+function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating, seoData, channelImage }: Omit<ChannelMockupFrameProps, 'channel'>) {
   const [liked, setLiked] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
   
   // Ensure content is in Markdown format (auto-converts HTML if detected)
   const formattedContent = useMemo(() => ensureMarkdownFormat(content), [content]);
   
-  const readTime = Math.max(1, Math.ceil(formattedContent.split(/\s+/).length / 200));
+  // Use SEO data for reading time if available
+  const wordCount = seoData?.word_count || formattedContent.split(/\s+/).length;
+  const readTime = seoData?.reading_time_minutes || Math.max(1, Math.ceil(wordCount / 200));
   const themeColor = primaryColor || '#3b82f6';
+  
+  // Calculate simple SEO score based on available data
+  const seoScore = useMemo(() => {
+    if (!seoData) return 0;
+    let score = 0;
+    if (seoData.seo_title && seoData.seo_title.length >= 30 && seoData.seo_title.length <= 60) score += 25;
+    else if (seoData.seo_title) score += 15;
+    if (seoData.meta_description && seoData.meta_description.length >= 120 && seoData.meta_description.length <= 160) score += 25;
+    else if (seoData.meta_description) score += 15;
+    if (seoData.focus_keyword) score += 15;
+    if (seoData.heading_structure?.h1) score += 15;
+    if (seoData.heading_structure?.h2s?.length) score += 10;
+    if (wordCount >= 800) score += 10;
+    return Math.min(100, score);
+  }, [seoData, wordCount]);
+
+  // Handle scroll progress
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const scrollHeight = el.scrollHeight - el.clientHeight;
+    if (scrollHeight > 0) {
+      const progress = (el.scrollTop / scrollHeight) * 100;
+      setScrollProgress(Math.min(100, Math.max(0, progress)));
+    }
+  };
   
   return (
     <div className="bg-[#f5f5f7] dark:bg-[#1c1c1e] rounded-xl overflow-hidden shadow-2xl border border-[#d2d2d7] dark:border-[#3d3d3f] font-['Inter',system-ui,sans-serif]">
@@ -672,7 +748,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
             </svg>
           </div>
           <span className="text-[#1d1d1f] dark:text-white font-medium">{domain}</span>
-          <span className="text-[#86868b]">/blog/article</span>
+          <span className="text-[#86868b]">{seoData?.slug_suggestion ? `/${seoData.slug_suggestion}` : '/blog/article'}</span>
         </div>
         
         {/* Browser actions */}
@@ -686,8 +762,28 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
         </div>
       </div>
       
+      {/* Reading Progress Bar */}
+      <div className="h-0.5 bg-[#e5e5e7] dark:bg-[#3d3d3f]">
+        <motion.div 
+          className="h-full"
+          style={{ backgroundColor: themeColor }}
+          initial={{ width: '0%' }}
+          animate={{ width: `${scrollProgress}%` }}
+          transition={{ duration: 0.1 }}
+        />
+      </div>
+      
       {/* Website Content */}
-      <div className="bg-white dark:bg-[#1c1c1e] max-h-[450px] overflow-y-auto">
+      <div 
+        ref={scrollContainerRef}
+        className="bg-white dark:bg-[#1c1c1e] max-h-[450px] overflow-y-auto relative"
+        onScroll={handleScroll}
+      >
+        {/* SEO Score Badge */}
+        {seoData && seoScore > 0 && (
+          <SEOScoreBadge score={seoScore} themeColor={themeColor} />
+        )}
+        
         {/* Website Header */}
         <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-sm border-b border-[#e5e5e7] dark:border-[#3d3d3f] px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -715,25 +811,48 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
         <div 
           className="h-32 sm:h-40 relative overflow-hidden"
           style={{ 
-            background: `linear-gradient(135deg, ${themeColor}20 0%, ${themeColor}40 50%, ${themeColor}20 100%)`
+            background: channelImage ? undefined : `linear-gradient(135deg, ${themeColor}20 0%, ${themeColor}40 50%, ${themeColor}20 100%)`
           }}
         >
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <Globe className="w-10 h-10 mx-auto opacity-30" style={{ color: themeColor }} />
-              <p className="text-xs mt-1 opacity-40" style={{ color: themeColor }}>Featured Image</p>
-            </div>
-          </div>
-          {/* Decorative pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-4 left-4 w-20 h-20 rounded-full border-2" style={{ borderColor: themeColor }} />
-            <div className="absolute bottom-4 right-4 w-16 h-16 rounded-full border-2" style={{ borderColor: themeColor }} />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border" style={{ borderColor: themeColor }} />
-          </div>
+          {channelImage ? (
+            <>
+              <img 
+                src={channelImage} 
+                alt="Featured" 
+                className="w-full h-full object-cover"
+              />
+              <div 
+                className="absolute inset-0"
+                style={{ background: `linear-gradient(to bottom, transparent 50%, ${themeColor}30 100%)` }}
+              />
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <Globe className="w-10 h-10 mx-auto opacity-30" style={{ color: themeColor }} />
+                  <p className="text-xs mt-1 opacity-40" style={{ color: themeColor }}>Featured Image</p>
+                </div>
+              </div>
+              {/* Decorative pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-4 left-4 w-20 h-20 rounded-full border-2" style={{ borderColor: themeColor }} />
+                <div className="absolute bottom-4 right-4 w-16 h-16 rounded-full border-2" style={{ borderColor: themeColor }} />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border" style={{ borderColor: themeColor }} />
+              </div>
+            </>
+          )}
         </div>
         
         {/* Article Content */}
         <div className="px-4 sm:px-6 py-4">
+          {/* SEO Title Display */}
+          {seoData?.seo_title && (
+            <h1 className="text-lg sm:text-xl font-bold text-[#1d1d1f] dark:text-white mb-2 leading-tight">
+              {seoData.seo_title}
+            </h1>
+          )}
+          
           {/* Article Meta */}
           <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868b] mb-3">
             <span className="flex items-center gap-1">
@@ -749,17 +868,32 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
               </svg>
               {readTime} phút đọc
             </span>
-            <span className="w-1 h-1 rounded-full bg-[#86868b]" />
-            <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              {brandName}
-            </span>
+            {seoData?.focus_keyword && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-[#86868b]" />
+                <span 
+                  className="px-2 py-0.5 rounded-full text-white font-medium"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  {seoData.focus_keyword}
+                </span>
+              </>
+            )}
+            {wordCount > 0 && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-[#86868b]" />
+                <span>{wordCount.toLocaleString()} từ</span>
+              </>
+            )}
           </div>
           
           {/* Divider */}
           <div className="h-px bg-gradient-to-r from-transparent via-[#e5e5e7] dark:via-[#3d3d3f] to-transparent mb-4" />
+          
+          {/* Table of Contents */}
+          {seoData?.heading_structure?.h2s && seoData.heading_structure.h2s.length > 0 && (
+            <ArticleTOC headings={seoData.heading_structure.h2s} themeColor={themeColor} />
+          )}
           
           {/* Content */}
           {isGenerating ? (
@@ -779,11 +913,39 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
                 ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
                 li: ({ children }) => <li className="flex items-start gap-2">{children}</li>,
                 h1: ({ children }) => <h1 className="text-xl font-bold mb-3">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-bold mb-2">{children}</h2>,
+                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 mt-4 pb-1 border-b border-[#e5e5e7] dark:border-[#3d3d3f]">{children}</h2>,
                 h3: ({ children }) => <h3 className="text-base font-semibold mb-2">{children}</h3>,
               }}>{formattedContent}</ReactMarkdown>
             </div>
           )}
+        </div>
+        
+        {/* Author Card */}
+        <div className="px-4 sm:px-6 py-4 bg-[#f8f8fa] dark:bg-[#2c2c2e] border-t border-[#e5e5e7] dark:border-[#3d3d3f]">
+          <div className="flex items-start gap-3">
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} className="w-12 h-12 rounded-full object-cover" />
+            ) : (
+              <div 
+                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                style={{ backgroundColor: themeColor }}
+              >
+                {brandName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm text-[#1d1d1f] dark:text-white">{brandName}</p>
+              <p className="text-xs text-[#86868b] line-clamp-2 mt-0.5">
+                Theo dõi để cập nhật thêm nội dung chất lượng từ {brandName}
+              </p>
+              <button 
+                className="mt-2 text-xs font-medium transition-colors hover:opacity-80"
+                style={{ color: themeColor }}
+              >
+                Theo dõi →
+              </button>
+            </div>
+          </div>
         </div>
         
         {/* Engagement Bar */}
@@ -825,7 +987,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
 }
 
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
-  const { channel, ...rest } = props;
+  const { channel, seoData, channelImage, ...rest } = props;
 
   switch (channel) {
     case 'facebook':
@@ -839,7 +1001,7 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
     case 'email':
       return <EmailMockup {...rest} />;
     case 'general':
-      return <WebsiteMockup {...rest} />;
+      return <WebsiteMockup {...rest} seoData={seoData} channelImage={channelImage} />;
     default:
       return null;
   }

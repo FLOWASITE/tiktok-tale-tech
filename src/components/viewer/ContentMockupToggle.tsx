@@ -1,5 +1,5 @@
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
-import { Channel } from '@/types/multichannel';
+import { Channel, WebsiteSEOData } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
 interface ContentMockupToggleProps {
@@ -10,6 +10,9 @@ interface ContentMockupToggleProps {
   primaryColor?: string;
   isLoading?: boolean;
   className?: string;
+  // Website-specific props
+  seoData?: WebsiteSEOData;
+  channelImage?: string;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
@@ -36,6 +39,8 @@ export function ContentMockupToggle({
   primaryColor,
   isLoading,
   className,
+  seoData,
+  channelImage,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
 
@@ -49,6 +54,8 @@ export function ContentMockupToggle({
           logoUrl={logoUrl}
           primaryColor={primaryColor}
           isGenerating={isLoading}
+          seoData={channel === 'website' ? seoData : undefined}
+          channelImage={channel === 'website' ? channelImage : undefined}
         />
       </div>
     </div>
