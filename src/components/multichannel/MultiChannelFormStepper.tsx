@@ -74,6 +74,7 @@ import {
   CHANNELS,
   CONTENT_GOALS,
   JOURNEY_TO_GOAL_MAP,
+  JOURNEY_TO_ANGLE_MAP,
   AiSuggestionContext,
 } from '@/types/multichannel';
 import { JourneyStage } from '@/types/customerPersona';
@@ -171,11 +172,20 @@ export function MultiChannelFormStepper({
     }
   }, [initialGoal]);
 
-  // Auto-derive contentGoal from journeyStage
+  // Auto-derive contentGoal from journeyStage + suggest contentAngle
   useEffect(() => {
     if (formData.journeyStage) {
       const derivedGoal = JOURNEY_TO_GOAL_MAP[formData.journeyStage];
-      setFormData(prev => ({ ...prev, contentGoal: derivedGoal }));
+      // Only auto-suggest angle if not already set by AI or user
+      const suggestedAngle = !formData.contentAngle && !formData.aiSuggestion?.suggestedContentAngle
+        ? JOURNEY_TO_ANGLE_MAP[formData.journeyStage]
+        : undefined;
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        contentGoal: derivedGoal,
+        contentAngle: suggestedAngle || prev.contentAngle,
+      }));
     }
   }, [formData.journeyStage]);
 
@@ -405,6 +415,8 @@ export function MultiChannelFormStepper({
                         productId: suggestion?.productFitId || prev.productId,
                         personaId: suggestion?.targetPersonaId || prev.personaId,
                         journeyStage: suggestion?.suggestedJourneyStage || prev.journeyStage,
+                        // Auto-populate contentAngle from AI suggestion
+                        contentAngle: (suggestion?.suggestedContentAngle as ContentAngle) || prev.contentAngle,
                         // Store full suggestion context
                         aiSuggestion,
                       }));
@@ -461,11 +473,21 @@ export function MultiChannelFormStepper({
                         <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                           <Package className="w-3.5 h-3.5" />
                           Sản phẩm/Dịch vụ
+                          {formData.aiSuggestion?.productFitId && formData.productId === formData.aiSuggestion.productFitId && (
+                            <Sparkles className="w-3 h-3 text-amber-500" />
+                          )}
                         </Label>
                         <ProductSelector
                           brandTemplateId={formData.brandTemplateId}
                           value={formData.productId}
-                          onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
+                          onValueChange={(productId) => setFormData(prev => ({ 
+                            ...prev, 
+                            productId,
+                            // Clear AI indicator if user manually changed
+                            aiSuggestion: prev.aiSuggestion && prev.aiSuggestion.productFitId !== productId
+                              ? { ...prev.aiSuggestion, productFitId: undefined }
+                              : prev.aiSuggestion
+                          }))}
                           disabled={isLoading}
                           placeholder="Chọn sản phẩm..."
                         />
@@ -476,11 +498,21 @@ export function MultiChannelFormStepper({
                         <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5" />
                           Persona mục tiêu
+                          {formData.aiSuggestion?.targetPersonaId && formData.personaId === formData.aiSuggestion.targetPersonaId && (
+                            <Sparkles className="w-3 h-3 text-amber-500" />
+                          )}
                         </Label>
                         <PersonaSelector
                           brandTemplateId={formData.brandTemplateId}
                           value={formData.personaId}
-                          onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
+                          onValueChange={(personaId) => setFormData(prev => ({ 
+                            ...prev, 
+                            personaId,
+                            // Clear AI indicator if user manually changed
+                            aiSuggestion: prev.aiSuggestion && prev.aiSuggestion.targetPersonaId !== personaId
+                              ? { ...prev.aiSuggestion, targetPersonaId: undefined }
+                              : prev.aiSuggestion
+                          }))}
                           disabled={isLoading}
                         />
                       </div>
@@ -518,22 +550,47 @@ export function MultiChannelFormStepper({
                       </div>
                     )}
 
-                    {/* AI Suggestion Indicator */}
-                    {formData.aiSuggestion && (formData.aiSuggestion.targetPersonaId || formData.aiSuggestion.productFitId) && (
+                    {/* AI Suggestion Indicator - Enhanced with badges and hook */}
+                    {formData.aiSuggestion && (formData.aiSuggestion.targetPersonaId || formData.aiSuggestion.productFitId || formData.aiSuggestion.hook) && (
                       <div className="p-3 rounded-lg bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-amber-500/5 border border-amber-500/20 animate-fade-in">
                         <div className="flex items-start gap-2.5">
                           <div className="p-1.5 rounded-md bg-amber-500/20">
                             <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 space-y-2">
                             <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
                               AI đề xuất dựa trên chủ đề
                             </p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-                              {formData.aiSuggestion.targetPersona && `Persona: ${formData.aiSuggestion.targetPersona}`}
-                              {formData.aiSuggestion.targetPersona && formData.aiSuggestion.productFit && ' • '}
-                              {formData.aiSuggestion.productFit && `Sản phẩm: ${formData.aiSuggestion.productFit}`}
-                            </p>
+                            
+                            {/* Suggestion Badges */}
+                            <div className="flex flex-wrap gap-1.5">
+                              {formData.aiSuggestion.targetPersona && (
+                                <Badge variant="secondary" className="text-[10px] gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+                                  <Users className="w-2.5 h-2.5" />
+                                  {formData.aiSuggestion.targetPersona}
+                                </Badge>
+                              )}
+                              {formData.aiSuggestion.productFit && (
+                                <Badge variant="secondary" className="text-[10px] gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                                  <Package className="w-2.5 h-2.5" />
+                                  {formData.aiSuggestion.productFit}
+                                </Badge>
+                              )}
+                              {formData.aiSuggestion.suggestedJourneyStage && (
+                                <Badge variant="secondary" className="text-[10px] gap-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
+                                  <Rocket className="w-2.5 h-2.5" />
+                                  {JOURNEY_STAGE_CONFIG[formData.aiSuggestion.suggestedJourneyStage]?.label}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Hook Preview */}
+                            {formData.aiSuggestion.hook && (
+                              <div className="p-2 rounded-md bg-background/50 border border-border/30">
+                                <p className="text-[10px] text-muted-foreground mb-0.5">Hook gợi ý:</p>
+                                <p className="text-xs italic text-foreground line-clamp-2">"{formData.aiSuggestion.hook}"</p>
+                              </div>
+                            )}
                           </div>
                           <button
                             type="button"
@@ -543,6 +600,7 @@ export function MultiChannelFormStepper({
                               productId: undefined,
                               personaId: undefined,
                               journeyStage: undefined,
+                              contentAngle: undefined,
                             }))}
                             className="p-1 rounded-md hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 transition-colors"
                           >

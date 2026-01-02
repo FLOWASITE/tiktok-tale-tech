@@ -11,6 +11,14 @@ export const JOURNEY_TO_GOAL_MAP: Record<JourneyStage, ContentGoal> = {
   loyalty: 'engagement', // Giữ chân, tương tác
 };
 
+// Journey Stage → Content Angle Mapping (reverse mapping for auto-suggestion)
+export const JOURNEY_TO_ANGLE_MAP: Partial<Record<JourneyStage, ContentAngle>> = {
+  awareness: 'educational',
+  consideration: 'social_proof', // So sánh, đánh giá → social proof
+  decision: 'promotional',
+  loyalty: 'storytelling', // Giữ chân → kể chuyện, gắn kết
+};
+
 export type ContentGoal = 
   | 'education'      // Giáo dục
   | 'awareness'      // Nhận diện  
