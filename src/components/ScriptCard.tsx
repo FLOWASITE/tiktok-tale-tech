@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, STATUS_CONFIG, SCRIPT_PURPOSE_CONFIG, VOICE_REGION_CONFIG, DIALOGUE_STYLE_CONFIG, ScriptPurpose, VoiceRegion, DialogueStyle } from '@/types/script';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,7 @@ import {
 } from '@/components/ui/tooltip';
 import { CreatorCell } from '@/components/CreatorCell';
 import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
+import { cn } from '@/lib/utils';
 
 // Purpose icons mapping
 const PURPOSE_ICONS: Record<ScriptPurpose, React.ElementType> = {
@@ -58,6 +61,14 @@ const DIALOGUE_STYLE_SHORT: Record<DialogueStyle, string> = {
   narrative: 'Kể chuyện',
 };
 
+// Status glow effects
+const STATUS_GLOW: Record<string, string> = {
+  draft: '',
+  review: 'hover:shadow-yellow-500/20',
+  approved: 'hover:shadow-blue-500/20',
+  published: 'hover:shadow-green-500/20',
+};
+
 // Brand template type for display
 interface BrandTemplateInfo {
   id: string;
@@ -75,9 +86,12 @@ interface ScriptCardProps {
   brandTemplate?: BrandTemplateInfo;
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
+  index?: number;
 }
 
-export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile }: ScriptCardProps) {
+export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile, index = 0 }: ScriptCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  
   const purpose = script.script_purpose as ScriptPurpose;
   const PurposeIcon = PURPOSE_ICONS[purpose] || Wand2;
   const purposeConfig = SCRIPT_PURPOSE_CONFIG[purpose];
@@ -103,225 +117,260 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
     .trim()
     .slice(0, 100);
 
+  const statusGlow = STATUS_GLOW[script.status || 'draft'] || '';
+
   return (
     <TooltipProvider>
-      <Card className="relative gradient-card border-border/50 hover:border-primary/40 transition-all duration-300 ease-out group overflow-hidden hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1">
-        {/* Glow effect on hover */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
-        
-        <CardHeader className="p-3 xs:p-4 pb-2 space-y-2">
-          {/* Top row: Purpose Badge + Status Badge */}
-          <div className="flex items-center justify-between gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge 
-                  variant="outline" 
-                  className={`${purposeColor} border text-[9px] xs:text-xs px-1.5 xs:px-2 py-0.5 flex items-center gap-1`}
-                >
-                  <PurposeIcon className="w-3 h-3" />
-                  <span className="hidden xs:inline">{purposeConfig?.label || purpose}</span>
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <p className="font-medium">{purposeConfig?.label}</p>
-                <p className="text-xs text-muted-foreground">{purposeConfig?.description}</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {script.status && (
-              <Badge 
-                variant={STATUS_CONFIG[script.status]?.variant || 'secondary'} 
-                className="shrink-0 text-[9px] xs:text-xs px-1.5 xs:px-2 py-0.5"
-              >
-                {STATUS_CONFIG[script.status]?.label || script.status}
-              </Badge>
-            )}
-          </div>
-
-          {/* Title */}
-          <h3 className="text-sm xs:text-base font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight">
-            {script.title}
-          </h3>
-
-          {/* Topic + Brand */}
-          <div className="flex items-center gap-2 text-[10px] xs:text-xs text-muted-foreground">
-            <span className="line-clamp-1 flex-1">
-              <span className="font-medium">Chủ đề:</span> {script.topic}
-            </span>
-            {brandTemplate && (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ 
+          duration: 0.4,
+          delay: index * 0.05,
+          ease: [0.25, 0.46, 0.45, 0.94]
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <Card className={cn(
+          "relative border-border/50 transition-all duration-300 ease-out group overflow-hidden",
+          "bg-background/80 backdrop-blur-sm",
+          "hover:shadow-xl hover:-translate-y-1",
+          statusGlow
+        )}>
+          {/* Animated gradient overlay on hover */}
+          <div className={cn(
+            "absolute inset-0 bg-gradient-to-br from-primary/0 via-transparent to-secondary/0 transition-all duration-500 pointer-events-none",
+            isHovered && "from-primary/5 to-secondary/5"
+          )} />
+          
+          {/* Status glow border */}
+          <div className={cn(
+            "absolute inset-0 rounded-lg transition-opacity duration-300 pointer-events-none",
+            script.status === 'published' && "ring-1 ring-green-500/30",
+            script.status === 'review' && "ring-1 ring-yellow-500/30",
+            script.status === 'approved' && "ring-1 ring-blue-500/30",
+            !isHovered && "opacity-0",
+            isHovered && "opacity-100"
+          )} />
+          
+          <CardHeader className="relative p-3 xs:p-4 pb-2 space-y-2">
+            {/* Top row: Purpose Badge + Status Badge */}
+            <div className="flex items-center justify-between gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span 
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium shrink-0"
-                    style={{ 
-                      backgroundColor: brandTemplate.primary_color ? `${brandTemplate.primary_color}20` : 'hsl(var(--muted))',
-                      color: brandTemplate.primary_color || 'hsl(var(--muted-foreground))'
-                    }}
+                  <Badge 
+                    variant="outline" 
+                    className={`${purposeColor} border text-[9px] xs:text-xs px-1.5 xs:px-2 py-0.5 flex items-center gap-1`}
                   >
-                    {brandTemplate.logo_url ? (
-                      <img src={brandTemplate.logo_url} alt="" className="w-3 h-3 rounded object-cover" />
-                    ) : (
-                      <Palette className="w-2.5 h-2.5" />
-                    )}
-                    <span className="max-w-[60px] truncate">{brandTemplate.brand_name}</span>
-                  </span>
+                    <PurposeIcon className="w-3 h-3" />
+                    <span className="hidden xs:inline">{purposeConfig?.label || purpose}</span>
+                  </Badge>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">{brandTemplate.brand_name}</p>
-                  <p className="text-xs text-muted-foreground">Brand Template: {brandTemplate.name}</p>
+                <TooltipContent side="top" className="max-w-xs">
+                  <p className="font-medium">{purposeConfig?.label}</p>
+                  <p className="text-xs text-muted-foreground">{purposeConfig?.description}</p>
                 </TooltipContent>
               </Tooltip>
-            )}
-          </div>
-        </CardHeader>
 
-        <CardContent className="p-3 xs:p-4 pt-0 space-y-3">
-          {/* Content Preview */}
-          <p className="text-[10px] xs:text-xs text-muted-foreground/80 line-clamp-2 italic border-l-2 border-primary/30 pl-2">
-            "{contentPreview}..."
-          </p>
+              {script.status && (
+                <Badge 
+                  variant={STATUS_CONFIG[script.status]?.variant || 'secondary'} 
+                  className="shrink-0 text-[9px] xs:text-xs px-1.5 xs:px-2 py-0.5"
+                >
+                  {STATUS_CONFIG[script.status]?.label || script.status}
+                </Badge>
+              )}
+            </div>
 
-          {/* Info Badges Row 1: Duration, Video Type, Character */}
-          <div className="flex flex-wrap gap-1 xs:gap-1.5 text-[9px] xs:text-xs">
-            <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-              <Clock className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-              <span>{DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}</span>
-            </span>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-secondary/10 text-secondary">
-                  <Film className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-                  <span className="truncate max-w-[50px] xs:max-w-[80px]">
-                    {VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}
-                  </span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}</TooltipContent>
-            </Tooltip>
-            
-            <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              <User className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-              <span className="hidden xs:inline truncate max-w-[60px]">
-                {CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}
+            {/* Title */}
+            <h3 className="text-sm xs:text-base font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight">
+              {script.title}
+            </h3>
+
+            {/* Topic + Brand */}
+            <div className="flex items-center gap-2 text-[10px] xs:text-xs text-muted-foreground">
+              <span className="line-clamp-1 flex-1">
+                <span className="font-medium">Chủ đề:</span> {script.topic}
               </span>
-            </span>
-          </div>
+              {brandTemplate && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span 
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium shrink-0"
+                      style={{ 
+                        backgroundColor: brandTemplate.primary_color ? `${brandTemplate.primary_color}20` : 'hsl(var(--muted))',
+                        color: brandTemplate.primary_color || 'hsl(var(--muted-foreground))'
+                      }}
+                    >
+                      {brandTemplate.logo_url ? (
+                        <img src={brandTemplate.logo_url} alt="" className="w-3 h-3 rounded object-cover" />
+                      ) : (
+                        <Palette className="w-2.5 h-2.5" />
+                      )}
+                      <span className="max-w-[60px] truncate">{brandTemplate.brand_name}</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-medium">{brandTemplate.brand_name}</p>
+                    <p className="text-xs text-muted-foreground">Brand Template: {brandTemplate.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </CardHeader>
 
-          {/* Info Badges Row 2: Voice Region, Dialogue Style, Industry */}
-          <div className="flex flex-wrap gap-1 xs:gap-1.5 text-[9px] xs:text-xs">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                  <MapPin className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-                  <span>{voiceRegionDisplay.emoji} {voiceRegionDisplay.label}</span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <p className="font-medium">{voiceRegionConfig?.label}</p>
-                <p className="text-xs text-muted-foreground">{voiceRegionConfig?.dialect_notes}</p>
-              </TooltipContent>
-            </Tooltip>
+          <CardContent className="relative p-3 xs:p-4 pt-0 space-y-3">
+            {/* Content Preview */}
+            <p className="text-[10px] xs:text-xs text-muted-foreground/80 line-clamp-2 italic border-l-2 border-primary/30 pl-2">
+              "{contentPreview}..."
+            </p>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                  <MessageSquare className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-                  <span>{dialogueStyleShort}</span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <p className="font-medium">{dialogueStyleConfig?.label}</p>
-                <p className="text-xs text-muted-foreground">{dialogueStyleConfig?.description}</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {script.industry_template_id && (
+            {/* Info Badges Row 1: Duration, Video Type, Character */}
+            <div className="flex flex-wrap gap-1 xs:gap-1.5 text-[9px] xs:text-xs">
+              <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                <Clock className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
+                <span>{DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}</span>
+              </span>
+              
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                    <Package className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-                    <span className="hidden xs:inline">Industry</span>
+                  <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-secondary/10 text-secondary">
+                    <Film className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
+                    <span className="truncate max-w-[50px] xs:max-w-[80px]">
+                      {VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}
+                    </span>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>Industry Rules applied</TooltipContent>
+                <TooltipContent>{VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}</TooltipContent>
               </Tooltip>
-            )}
-          </div>
-
-          {/* Creator + Organization */}
-          <div className="flex items-center gap-1.5 text-[9px] xs:text-[10px]">
-            <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-          </div>
-
-          {/* Timestamps */}
-          <div className="flex items-center gap-2 text-[9px] xs:text-[10px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5" />
-              {formatDistanceToNow(createdDate, { addSuffix: true, locale: vi })}
-            </span>
-            {wasUpdated && (
-              <span className="inline-flex items-center gap-1 text-primary/70">
-                <RefreshCw className="w-2.5 h-2.5" />
-                Cập nhật {formatDistanceToNow(updatedDate, { addSuffix: true, locale: vi })}
+              
+              <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                <User className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
+                <span className="hidden xs:inline truncate max-w-[60px]">
+                  {CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}
+                </span>
               </span>
-            )}
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex gap-1.5 xs:gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onView(script)}
-              className="flex-1 h-7 xs:h-8 text-[10px] xs:text-sm border-border hover:border-primary hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Eye className="w-3 h-3 xs:w-4 xs:h-4 mr-0.5 xs:mr-1" />
-              Xem
-            </Button>
+            </div>
 
-            {onSchedule && (
+            {/* Info Badges Row 2: Voice Region, Dialogue Style, Industry */}
+            <div className="flex flex-wrap gap-1 xs:gap-1.5 text-[9px] xs:text-xs">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <MapPin className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
+                    <span>{voiceRegionDisplay.emoji} {voiceRegionDisplay.label}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium">{voiceRegionConfig?.label}</p>
+                  <p className="text-xs text-muted-foreground">{voiceRegionConfig?.dialect_notes}</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                    <MessageSquare className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
+                    <span>{dialogueStyleShort}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium">{dialogueStyleConfig?.label}</p>
+                  <p className="text-xs text-muted-foreground">{dialogueStyleConfig?.description}</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {script.industry_template_id && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      <Package className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
+                      <span className="hidden xs:inline">Industry</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Industry Rules applied</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+
+            {/* Creator + Organization */}
+            <div className="flex items-center gap-1.5 text-[9px] xs:text-[10px]">
+              <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+            </div>
+
+            {/* Timestamps */}
+            <div className="flex items-center gap-2 text-[9px] xs:text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5" />
+                {formatDistanceToNow(createdDate, { addSuffix: true, locale: vi })}
+              </span>
+              {wasUpdated && (
+                <span className="inline-flex items-center gap-1 text-primary/70">
+                  <RefreshCw className="w-2.5 h-2.5" />
+                  Cập nhật {formatDistanceToNow(updatedDate, { addSuffix: true, locale: vi })}
+                </span>
+              )}
+            </div>
+            
+            {/* Action Buttons */}
+            <div className={cn(
+              "flex gap-1.5 xs:gap-2 pt-1 transition-all duration-300",
+              isHovered ? "opacity-100 translate-y-0" : "opacity-80"
+            )}>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onSchedule(script)}
-                className="h-7 xs:h-8 px-2 xs:px-3 text-[10px] xs:text-sm border-border hover:border-secondary hover:bg-secondary/10 hover:text-secondary transition-all duration-200"
+                onClick={() => onView(script)}
+                className="flex-1 h-7 xs:h-8 text-[10px] xs:text-sm bg-background/80 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200"
               >
-                <Calendar className="w-3 h-3 xs:w-4 xs:h-4" />
+                <Eye className="w-3 h-3 xs:w-4 xs:h-4 mr-0.5 xs:mr-1" />
+                Xem
               </Button>
-            )}
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+              {onSchedule && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 w-7 xs:h-8 xs:w-8 border-border hover:border-destructive hover:bg-destructive/10 hover:text-destructive transition-all duration-200 hover:scale-105 active:scale-95"
+                  onClick={() => onSchedule(script)}
+                  className="h-7 xs:h-8 px-2 xs:px-3 bg-background/80 hover:bg-secondary hover:text-secondary-foreground hover:border-secondary transition-all duration-200"
                 >
-                  <Trash2 className="w-3 h-3 xs:w-4 xs:h-4" />
+                  <Calendar className="w-3 h-3 xs:w-4 xs:h-4" />
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Xác nhận xóa kịch bản</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Bạn có chắc chắn muốn xóa kịch bản "{script.title}"? Hành động này không thể hoàn tác.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => onDelete(script.id)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              )}
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 xs:h-8 xs:w-8 bg-background/80 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-all duration-200"
                   >
-                    Xóa
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </CardContent>
-      </Card>
+                    <Trash2 className="w-3 h-3 xs:w-4 xs:h-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xác nhận xóa kịch bản</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Bạn có chắc chắn muốn xóa kịch bản "{script.title}"? Hành động này không thể hoàn tác.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => onDelete(script.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Xóa
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </TooltipProvider>
   );
 }
