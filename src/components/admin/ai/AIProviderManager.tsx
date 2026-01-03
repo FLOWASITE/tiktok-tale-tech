@@ -51,28 +51,46 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const handleSaveProvider = async () => {
     if (!editingProvider?.providerType) return;
 
-    // Build provider data with proper typing
-    const providerData: Partial<AIProviderConfig> & { providerType: string } = {
-      id: editingProvider.id,
-      providerType: editingProvider.providerType,
-      displayName: editingProvider.displayName,
-      isActive: editingProvider.isActive,
-      baseUrl: editingProvider.baseUrl,
-      defaultModel: editingProvider.defaultModel,
-      apiKeySecretName: editingProvider.apiKeySecretName,
-    };
+    try {
+      // Build provider data with proper typing
+      const providerData: Partial<AIProviderConfig> & { providerType: string } = {
+        id: editingProvider.id,
+        providerType: editingProvider.providerType,
+        displayName: editingProvider.displayName,
+        isActive: editingProvider.isActive,
+        baseUrl: editingProvider.baseUrl,
+        defaultModel: editingProvider.defaultModel,
+        apiKeySecretName: editingProvider.apiKeySecretName,
+      };
 
-    // Store API key directly (will be encrypted in edge function when used)
-    if (editingProvider.apiKey) {
-      providerData.encryptedApiKey = editingProvider.apiKey;
+      // Save the provider
+      const savedProvider = await upsertProvider(providerData);
+
+      // If there's an API key, encrypt and save it via edge function
+      if (editingProvider.apiKey && savedProvider?.id) {
+        const { error: encryptError } = await supabase.functions.invoke('encrypt-api-key', {
+          body: {
+            apiKey: editingProvider.apiKey,
+            providerId: savedProvider.id,
+          },
+        });
+
+        if (encryptError) {
+          console.error('Failed to encrypt API key:', encryptError);
+          toast.error('Lưu provider thành công nhưng không thể mã hóa API key');
+        } else {
+          toast.success('Provider và API key đã được mã hóa và lưu thành công');
+        }
+      }
+
+      setIsDialogOpen(false);
+      setEditingProvider(null);
+      setShowApiKey(false);
+      setTestResult(null);
+    } catch (error) {
+      console.error('Save provider error:', error);
+      toast.error('Không thể lưu provider');
     }
-
-    upsertProvider(providerData);
-    setIsDialogOpen(false);
-    setEditingProvider(null);
-    setShowApiKey(false);
-    setTestResult(null);
-    toast.success('Provider đã được lưu thành công');
   };
 
   const handleTestConnection = async () => {

@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.overlay-logo-canvas]
 verify_jwt = false
+
+[functions.encrypt-api-key]
+verify_jwt = false
