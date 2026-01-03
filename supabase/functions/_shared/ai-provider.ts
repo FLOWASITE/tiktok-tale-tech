@@ -13,6 +13,7 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
   openai: "https://api.openai.com/v1/chat/completions",
   anthropic: "https://api.anthropic.com/v1/messages",
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
+  openrouter: "https://openrouter.ai/api/v1/chat/completions",
 };
 
 // Model prefix to provider mapping
@@ -22,6 +23,11 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "gpt-": "openai",     // Direct OpenAI
   "claude-": "anthropic", // Direct Anthropic
   "gemini-": "gemini",  // Direct Gemini (without prefix)
+  "openrouter/": "openrouter", // OpenRouter explicit prefix
+  "anthropic/": "openrouter", // Claude via OpenRouter
+  "meta-llama/": "openrouter", // Llama via OpenRouter
+  "mistralai/": "openrouter", // Mistral via OpenRouter
+  "deepseek/": "openrouter", // DeepSeek via OpenRouter
 };
 
 export interface AICallOptions {
@@ -373,6 +379,73 @@ async function callAnthropic(
 }
 
 /**
+ * Call OpenRouter (200+ models via single API)
+ */
+async function callOpenRouter(
+  apiKey: string,
+  messages: Array<{ role: string; content: string }>,
+  model: string,
+  config: AIFunctionConfig,
+  options: AICallOptions
+): Promise<AICallResult> {
+  try {
+    // Strip openrouter/ prefix if present, keep provider/model format
+    const cleanModel = model.replace(/^openrouter\//, "");
+    
+    const body: any = {
+      model: cleanModel,
+      messages,
+      max_tokens: options.maxTokensOverride || config.max_tokens,
+      temperature: config.temperature,
+    };
+
+    if (options.tools) {
+      body.tools = options.tools;
+    }
+    if (options.toolChoice) {
+      body.tool_choice = options.toolChoice;
+    }
+    if (options.stream) {
+      body.stream = true;
+    }
+
+    const response = await fetch(PROVIDER_ENDPOINTS.openrouter, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://flowa.app",
+        "X-Title": "Flowa Content Platform",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[ai-provider] OpenRouter error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return { success: false, error: "Rate limit exceeded", provider: "openrouter", model };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "Payment required", provider: "openrouter", model };
+      }
+      return { success: false, error: `OpenRouter error: ${response.status}`, provider: "openrouter", model };
+    }
+
+    if (options.stream) {
+      return { success: true, data: response.body, provider: "openrouter", model };
+    }
+
+    const data = await response.json();
+    return { success: true, data, provider: "openrouter", model };
+  } catch (err) {
+    console.error("[ai-provider] OpenRouter call failed:", err);
+    return { success: false, error: String(err), provider: "openrouter", model };
+  }
+}
+
+/**
  * Call Gemini directly (without Lovable Gateway)
  */
 async function callGeminiDirect(
@@ -513,6 +586,9 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
           break;
         case "gemini":
           result = await callGeminiDirect(apiKey, messages, config.model, config, options);
+          break;
+        case "openrouter":
+          result = await callOpenRouter(apiKey, messages, config.model, config, options);
           break;
         default:
           result = await callLovableGateway(messages, config.model, config, options);

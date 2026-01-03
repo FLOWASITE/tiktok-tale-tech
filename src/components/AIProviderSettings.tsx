@@ -35,6 +35,7 @@ export function AIProviderSettings() {
     openai: false,
     replicate: false,
     custom: false,
+    openrouter: false,
   });
   const [testing, setTesting] = useState<AIProviderType | null>(null);
   const [testResults, setTestResults] = useState<Record<AIProviderType, ConnectionTestResult | null>>({
@@ -42,12 +43,14 @@ export function AIProviderSettings() {
     openai: null,
     replicate: null,
     custom: null,
+    openrouter: null,
   });
   const [editValues, setEditValues] = useState<Record<AIProviderType, AIProviderConfig>>({
     gemini: getProviderConfig('gemini') || { apiKey: '' },
     openai: getProviderConfig('openai') || { apiKey: '' },
     replicate: getProviderConfig('replicate') || { apiKey: '' },
     custom: getProviderConfig('custom') || { apiKey: '', baseUrl: '', model: '' },
+    openrouter: getProviderConfig('openrouter') || { apiKey: '' },
   });
 
   if (isLoading) {

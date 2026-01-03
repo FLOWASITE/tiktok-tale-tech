@@ -36,6 +36,9 @@ serve(async (req) => {
       case 'replicate':
         testResult = await testReplicate(apiKey);
         break;
+      case 'openrouter':
+        testResult = await testOpenRouter(apiKey);
+        break;
       default:
         return new Response(
           JSON.stringify({ success: false, error: `Unknown provider: ${provider}` }),
@@ -176,6 +179,35 @@ async function testReplicate(apiKey: string) {
     return { 
       success: true, 
       message: `Kết nối thành công! Account: ${data.username || 'verified'}` 
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
+  }
+}
+
+async function testOpenRouter(apiKey: string) {
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (response.status === 401) {
+      return { success: false, error: 'API key không hợp lệ' };
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `OpenRouter error: ${errorText}` };
+    }
+
+    const data = await response.json();
+    const modelCount = data.data?.length || 0;
+    return { 
+      success: true, 
+      message: `Kết nối thành công! Có ${modelCount} models khả dụng.` 
     };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig } from '@/hooks/useAIConfig';
-import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ interface AIProviderManagerProps {
 
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   lovable: <Sparkles className="h-5 w-5 text-primary" />,
+  openrouter: <Workflow className="h-5 w-5 text-pink-500" />,
   perplexity: <Search className="h-5 w-5 text-blue-500" />,
   firecrawl: <Flame className="h-5 w-5 text-orange-500" />,
   openai: <Bot className="h-5 w-5 text-green-500" />,
@@ -29,6 +30,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
 };
 
 const PROVIDER_KEY_URLS: Record<string, string> = {
+  openrouter: 'https://openrouter.ai/keys',
   openai: 'https://platform.openai.com/api-keys',
   anthropic: 'https://console.anthropic.com/settings/keys',
   gemini: 'https://aistudio.google.com/app/apikey',
