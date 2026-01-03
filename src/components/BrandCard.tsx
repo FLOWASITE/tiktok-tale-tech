@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Copy, User, Building2, Eye, Users, Package, Scroll, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Copy, User, Building2, Eye, Users, Package, Scroll, ChevronDown, ChevronUp, Link2Off } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +41,7 @@ interface BrandCardProps {
   onSelectChange?: (id: string, checked: boolean) => void;
   usageStats?: BrandUsageStats | null;
   brandCounts?: BrandCounts;
+  hasSocialConnections?: boolean;
 }
 
 // Animated Completeness Ring Component
@@ -104,6 +105,7 @@ export function BrandCard({
   selected = false,
   onSelectChange,
   brandCounts,
+  hasSocialConnections = false,
 }: BrandCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -299,6 +301,26 @@ export function BrandCard({
               <Scroll className="w-3 h-3" />
               {brandCounts.industryMemoryName}
             </Badge>
+          )}
+          {!hasSocialConnections && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to={`/brands/${template.id}?tab=connections`}>
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] gap-1 px-2 py-0.5 bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300 cursor-pointer hover:bg-amber-500/20"
+                    >
+                      <Link2Off className="w-3 h-3" />
+                      Chưa kết nối
+                    </Badge>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Kết nối mạng xã hội để đăng bài trực tiếp</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
 
