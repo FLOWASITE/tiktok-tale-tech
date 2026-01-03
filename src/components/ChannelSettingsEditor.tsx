@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap } from 'lucide-react';
+import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -31,7 +32,10 @@ import { cn } from '@/lib/utils';
 export type ChannelOverride = Partial<Pick<ChannelSettings, 
   'max_length' | 'min_length' | 'hook_required' | 'cta_policy' | 
   'emoji_allowed' | 'emoji_limit' | 'hashtag_limit' | 'link_position'
->>;
+>> & {
+  footer_template?: string; // Custom footer template for this channel
+  footer_enabled?: boolean; // Enable/disable footer for this channel
+};
 
 export type ChannelOverrides = Partial<Record<Channel, ChannelOverride>>;
 
@@ -129,6 +133,8 @@ function ChannelSettingRow({
   const currentEmojiLimit = override?.emoji_limit ?? defaults.emoji_limit ?? 0;
   const currentHashtagLimit = override?.hashtag_limit ?? defaults.hashtag_limit;
   const currentLinkPosition = override?.link_position ?? defaults.link_position;
+  const currentFooterEnabled = override?.footer_enabled ?? true;
+  const currentFooterTemplate = override?.footer_template ?? '';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -297,6 +303,41 @@ function ChannelSettingRow({
             </div>
           </div>
 
+          {/* Footer Template Section */}
+          <div className="space-y-2 pt-2 border-t border-border/30">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1.5">
+                <FileText className="w-3 h-3" />
+                Footer liên hệ
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">
+                        Tuỳ chỉnh template footer cho kênh này. Dùng biến: {'{phone}'}, {'{email}'}, {'{website}'}, {'{address}'}, {'{company}'}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </Label>
+              <Switch
+                checked={currentFooterEnabled}
+                onCheckedChange={(checked) => onUpdate({ footer_enabled: checked })}
+                className="scale-75"
+              />
+            </div>
+            {currentFooterEnabled && (
+              <Textarea
+                placeholder={`Ví dụ:\n━━━━━━━━━━━━━━━━━━━━\n✨ LIÊN HỆ NGAY ✨\n📞 Hotline: {phone}\n📧 Email: {email}\n🌐 Website: {website}`}
+                value={currentFooterTemplate}
+                onChange={(e) => onUpdate({ footer_template: e.target.value })}
+                className="text-xs min-h-[80px] resize-y"
+              />
+            )}
+          </div>
+
           {/* Reset Button */}
           {hasOverrides && (
             <Button
@@ -355,6 +396,13 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
     }
     if (newOverride.link_position !== undefined && newOverride.link_position !== defaults.link_position) {
       cleanedOverride.link_position = newOverride.link_position;
+    }
+    // Footer fields - always keep if set
+    if (newOverride.footer_enabled !== undefined && newOverride.footer_enabled !== true) {
+      cleanedOverride.footer_enabled = newOverride.footer_enabled;
+    }
+    if (newOverride.footer_template !== undefined && newOverride.footer_template.trim() !== '') {
+      cleanedOverride.footer_template = newOverride.footer_template;
     }
 
     const newValue = { ...value };
