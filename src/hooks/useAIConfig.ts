@@ -296,7 +296,7 @@ export function useAIConfig(organizationId?: string) {
     providers: providersQuery.data || [],
     functions: functionsQuery.data || [],
     isLoading: providersQuery.isLoading || functionsQuery.isLoading,
-    upsertProvider: upsertProviderMutation.mutate,
+    upsertProvider: upsertProviderMutation.mutateAsync,
     upsertFunction: upsertFunctionMutation.mutate,
     deleteProvider: deleteProviderMutation.mutate,
     refetch: () => {
