@@ -12,6 +12,7 @@ export interface AIProviderConfig {
   baseUrl: string | null;
   defaultModel: string | null;
   config: Record<string, any>;
+  encryptedApiKey: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -148,6 +149,7 @@ export function useAIConfig(organizationId?: string) {
         baseUrl: p.base_url,
         defaultModel: p.default_model,
         config: (p.config as Record<string, any>) || {},
+        encryptedApiKey: (p as any).encrypted_api_key ?? null,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
       }));
@@ -189,7 +191,7 @@ export function useAIConfig(organizationId?: string) {
   // Upsert provider config
   const upsertProviderMutation = useMutation({
     mutationFn: async (config: Partial<AIProviderConfig> & { providerType: string }) => {
-      const payload = {
+      const payload: Record<string, any> = {
         organization_id: organizationId,
         provider_type: config.providerType,
         display_name: config.displayName || config.providerType,
@@ -199,6 +201,11 @@ export function useAIConfig(organizationId?: string) {
         default_model: config.defaultModel,
         config: config.config || {},
       };
+      
+      // Add encrypted API key if provided
+      if (config.encryptedApiKey) {
+        payload.encrypted_api_key = config.encryptedApiKey;
+      }
 
       if (config.id) {
         const { data, error } = await supabase
@@ -212,7 +219,7 @@ export function useAIConfig(organizationId?: string) {
       } else {
         const { data, error } = await supabase
           .from('ai_provider_configs')
-          .insert(payload)
+          .insert(payload as any)
           .select()
           .single();
         if (error) throw error;

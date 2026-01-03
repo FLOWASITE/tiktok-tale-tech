@@ -6,10 +6,12 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig } from '@/hooks/useAIConfig';
-import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2 } from 'lucide-react';
+import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AIProviderManagerProps {
   organizationId?: string;
@@ -26,23 +28,94 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   custom: <Settings className="h-5 w-5 text-muted-foreground" />,
 };
 
+const PROVIDER_KEY_URLS: Record<string, string> = {
+  openai: 'https://platform.openai.com/api-keys',
+  anthropic: 'https://console.anthropic.com/settings/keys',
+  gemini: 'https://aistudio.google.com/app/apikey',
+  replicate: 'https://replicate.com/account/api-tokens',
+};
+
+interface TestResult {
+  success: boolean;
+  message: string;
+}
+
 export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const { providers, isLoading, upsertProvider, deleteProvider } = useAIConfig(organizationId);
-  const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> | null>(null);
+  const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> & { apiKey?: string } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
-  const handleSaveProvider = () => {
+  const handleSaveProvider = async () => {
     if (!editingProvider?.providerType) return;
-    upsertProvider({
-      ...editingProvider,
+
+    // Build provider data with proper typing
+    const providerData: Partial<AIProviderConfig> & { providerType: string } = {
+      id: editingProvider.id,
       providerType: editingProvider.providerType,
-    });
+      displayName: editingProvider.displayName,
+      isActive: editingProvider.isActive,
+      baseUrl: editingProvider.baseUrl,
+      defaultModel: editingProvider.defaultModel,
+      apiKeySecretName: editingProvider.apiKeySecretName,
+    };
+
+    // Store API key directly (will be encrypted in edge function when used)
+    if (editingProvider.apiKey) {
+      providerData.encryptedApiKey = editingProvider.apiKey;
+    }
+
+    upsertProvider(providerData);
     setIsDialogOpen(false);
     setEditingProvider(null);
+    setShowApiKey(false);
+    setTestResult(null);
+    toast.success('Provider đã được lưu thành công');
+  };
+
+  const handleTestConnection = async () => {
+    if (!editingProvider?.apiKey || !editingProvider?.providerType) {
+      toast.error('Vui lòng nhập API key trước');
+      return;
+    }
+
+    setIsTesting(true);
+    setTestResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('test-ai-connection', {
+        body: {
+          provider: editingProvider.providerType,
+          apiKey: editingProvider.apiKey,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setTestResult({ success: true, message: data.message || 'Kết nối thành công!' });
+        toast.success('Kết nối thành công!');
+      } else {
+        setTestResult({ success: false, message: data?.error || 'Kết nối thất bại' });
+        toast.error(data?.error || 'Kết nối thất bại');
+      }
+    } catch (error) {
+      console.error('Test connection error:', error);
+      setTestResult({ success: false, message: 'Không thể test kết nối' });
+      toast.error('Không thể test kết nối');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const getConfiguredProvider = (type: string) => {
     return providers.find(p => p.providerType === type);
+  };
+
+  const hasApiKey = (provider: Partial<AIProviderConfig>) => {
+    return !!(provider as any).encryptedApiKey || !!provider.apiKeySecretName;
   };
 
   if (isLoading) {
@@ -79,6 +152,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
           const configured = getConfiguredProvider(provider.type);
           const isBuiltIn = provider.type === 'lovable';
           const hasConnector = provider.type === 'perplexity' || provider.type === 'firecrawl';
+          const hasKey = configured && hasApiKey(configured);
           
           return (
             <Card key={provider.type} className={configured?.isActive || isBuiltIn ? 'border-primary/50' : ''}>
@@ -135,6 +209,12 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                   </div>
                 ) : configured ? (
                   <div className="space-y-3">
+                    {hasKey && (
+                      <p className="text-sm text-green-600">
+                        <CheckCircle2 className="h-4 w-4 inline mr-1" />
+                        API Key đã cấu hình
+                      </p>
+                    )}
                     {configured.defaultModel && (
                       <p className="text-sm">
                         Model: <span className="font-medium">{configured.defaultModel}</span>
@@ -147,6 +227,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                         onClick={() => {
                           setEditingProvider(configured);
                           setIsDialogOpen(true);
+                          setTestResult(null);
                         }}
                       >
                         <Settings className="h-4 w-4 mr-1" />
@@ -169,6 +250,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                     onClick={() => {
                       setEditingProvider({ providerType: provider.type, displayName: provider.name });
                       setIsDialogOpen(true);
+                      setTestResult(null);
                     }}
                   >
                     <Plus className="h-4 w-4 mr-1" />
@@ -182,7 +264,13 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) {
+          setShowApiKey(false);
+          setTestResult(null);
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -200,6 +288,81 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                   placeholder="Provider name"
                 />
               </div>
+
+              {/* API Key Input */}
+              {AI_PROVIDERS.find(p => p.type === editingProvider.providerType)?.hasKey && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>API Key</Label>
+                    {PROVIDER_KEY_URLS[editingProvider.providerType!] && (
+                      <a
+                        href={PROVIDER_KEY_URLS[editingProvider.providerType!]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        Lấy API Key <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={editingProvider.apiKey || ''}
+                      onChange={(e) => {
+                        setEditingProvider({ ...editingProvider, apiKey: e.target.value });
+                        setTestResult(null);
+                      }}
+                      placeholder={hasApiKey(editingProvider) ? '••••••••••••••••' : 'sk-xxxxx...'}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {hasApiKey(editingProvider) 
+                      ? 'Để trống nếu không muốn thay đổi API key hiện tại'
+                      : 'API key sẽ được mã hóa và lưu an toàn'}
+                  </p>
+                  
+                  {/* Test Connection Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={handleTestConnection}
+                    disabled={!editingProvider.apiKey || isTesting}
+                  >
+                    {isTesting ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang test...</>
+                    ) : (
+                      'Test Connection'
+                    )}
+                  </Button>
+
+                  {/* Test Result */}
+                  {testResult && (
+                    <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                      testResult.success ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                    }`}>
+                      {testResult.success ? (
+                        <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-4 w-4 flex-shrink-0" />
+                      )}
+                      {testResult.message}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {editingProvider.providerType === 'custom' && (
                 <div className="space-y-2">
@@ -240,19 +403,6 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                   onCheckedChange={(checked) => setEditingProvider({ ...editingProvider, isActive: checked })}
                 />
               </div>
-
-              {AI_PROVIDERS.find(p => p.type === editingProvider.providerType)?.hasKey && (
-                <div className="p-3 bg-muted rounded-lg text-sm">
-                  <p className="text-muted-foreground">
-                    💡 API Key được quản lý qua Supabase Secrets. 
-                    {editingProvider.apiKeySecretName && (
-                      <span className="block mt-1">
-                        Secret: <code className="bg-background px-1 rounded">{editingProvider.apiKeySecretName}</code>
-                      </span>
-                    )}
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
