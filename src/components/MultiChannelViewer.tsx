@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2 } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +61,7 @@ import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
 import { AutoImageGenerator } from '@/components/multichannel/AutoImageGenerator';
+import { ExpandChannelsDialog } from '@/components/multichannel/ExpandChannelsDialog';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -73,8 +74,10 @@ interface MultiChannelViewerProps {
   onSaveChannelImage?: (contentId: string, channel: Channel, imageData: ChannelImage) => Promise<MultiChannelContent | void>;
   onDeleteChannelImage?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | void>;
   onUpdateChannelStatus?: (contentId: string, channel: Channel, status: ContentStatus) => Promise<MultiChannelContent | null>;
+  onExpandChannels?: (contentId: string, newChannels: Channel[]) => Promise<MultiChannelContent | null>;
   regeneratingChannel?: string | null;
   aiEditingChannel?: string | null;
+  expandingChannels?: boolean;
 }
 
 const channelConfig: Record<Channel, { 
@@ -225,8 +228,10 @@ export function MultiChannelViewer({
   onSaveChannelImage,
   onDeleteChannelImage,
   onUpdateChannelStatus,
+  onExpandChannels,
   regeneratingChannel,
   aiEditingChannel,
+  expandingChannels,
 }: MultiChannelViewerProps) {
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
@@ -249,6 +254,7 @@ export function MultiChannelViewer({
   const [showAutoImageGenerator, setShowAutoImageGenerator] = useState(false);
   const [showImageHistory, setShowImageHistory] = useState(false);
   const [historyChannel, setHistoryChannel] = useState<Channel | null>(null);
+  const [showExpandDialog, setShowExpandDialog] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
@@ -710,6 +716,32 @@ export function MultiChannelViewer({
                   <Wand2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Tạo ảnh AI</span>
                 </Button>
+                
+                {/* Expand Channels Button */}
+                {onExpandChannels && (() => {
+                  const ALL_CHANNELS: Channel[] = ['website', 'facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'email', 'google_maps', 'zalo_oa', 'telegram', 'tiktok', 'threads'];
+                  const availableChannelsCount = ALL_CHANNELS.filter(ch => !content.selected_channels.includes(ch)).length;
+                  
+                  return availableChannelsCount > 0 ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowExpandDialog(true)}
+                      disabled={expandingChannels}
+                      className="h-8 gap-1.5 border-emerald-500/30 hover:border-emerald-500 hover:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+                    >
+                      {expandingChannels ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Thêm kênh</span>
+                      <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                        {availableChannelsCount}
+                      </Badge>
+                    </Button>
+                  ) : null;
+                })()}
                 
                 {/* Gallery Toggle */}
                 <Button 
@@ -1403,6 +1435,19 @@ export function MultiChannelViewer({
               description: `Đã áp dụng ảnh từ lịch sử cho ${channelConfig[historyChannel].label}`,
             });
           } : undefined}
+        />
+      )}
+
+      {/* Expand Channels Dialog */}
+      {onExpandChannels && (
+        <ExpandChannelsDialog
+          open={showExpandDialog}
+          onOpenChange={setShowExpandDialog}
+          content={content}
+          onExpand={async (newChannels) => {
+            await onExpandChannels(content.id, newChannels);
+          }}
+          isExpanding={expandingChannels || false}
         />
       )}
     </Dialog>

@@ -47,6 +47,7 @@ export default function MultiChannel() {
     generating, 
     regeneratingChannel, 
     aiEditingChannel, 
+    expandingChannels,
     generateContent, 
     regenerateChannel, 
     updateChannelContent, 
@@ -57,6 +58,7 @@ export default function MultiChannel() {
     updateTitleTopic,
     saveChannelImage,
     deleteChannelImage,
+    expandChannels,
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
@@ -636,8 +638,10 @@ export default function MultiChannel() {
         onSaveChannelImage={saveChannelImage}
         onDeleteChannelImage={deleteChannelImage}
         onUpdateChannelStatus={handleUpdateChannelStatus}
+        onExpandChannels={expandChannels}
         regeneratingChannel={regeneratingChannel}
         aiEditingChannel={aiEditingChannel}
+        expandingChannels={expandingChannels}
       />
 
       {/* Bulk Schedule Dialog */}
