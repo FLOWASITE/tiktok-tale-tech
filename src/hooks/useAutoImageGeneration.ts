@@ -19,6 +19,8 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Partial<Record<Channel, '16:9' | '1:1
   tiktok: '9:16',
 };
 
+export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic';
+
 export interface AutoGenerateOptions {
   contentId: string;
   brandTemplateId: string;
@@ -28,6 +30,8 @@ export interface AutoGenerateOptions {
   logoPosition?: LogoPosition;
   logoUrl?: string;
   aspectRatio?: AspectRatioOption;
+  imageStylePreset?: ImageStylePreset;
+  negativePrompt?: string;
 }
 
 export interface GeneratedImage {
@@ -52,79 +56,106 @@ export function useAutoImageGeneration() {
     return aspectRatio;
   }, []);
 
+  // Generate with retry logic and exponential backoff
+  const generateWithRetry = useCallback(async (
+    channel: Channel,
+    options: AutoGenerateOptions,
+    maxRetries = 2
+  ): Promise<GeneratedImage | null> => {
+    const { contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl, aspectRatio = '16:9', imageStylePreset, negativePrompt } = options;
+    
+    const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(`[useAutoImageGeneration] Retry attempt ${attempt} for ${channel}`);
+        }
+        
+        setProgress(prev => ({ ...prev, [channel]: 'generating' }));
+        
+        console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}`);
+
+        // Step 1: Generate base image with brand colors and optional style preset
+        const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-brand-image', {
+          body: {
+            contentId,
+            channel,
+            contentSummary: contentSummaries[channel] || `Content for ${channel}`,
+            brandTemplateId,
+            aspectRatio: channelAspectRatio,
+            imageStylePreset,
+            negativePrompt,
+          },
+        });
+
+        if (imageError || !imageData?.success) {
+          console.error(`[useAutoImageGeneration] Generate error for ${channel}:`, imageError || imageData?.error);
+          throw new Error(imageData?.error || imageError?.message || 'Failed to generate image');
+        }
+
+        let finalImageUrl = imageData.imageUrl;
+
+        // Step 2: Overlay logo if requested (using canvas-based overlay for speed)
+        if (includeLogo && logoUrl) {
+          setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
+          
+          const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-logo-canvas', {
+            body: {
+              baseImageUrl: finalImageUrl,
+              logoUrl,
+              position: logoPosition || 'bottom-right',
+              logoSizePercent: 12,
+              padding: 20,
+              contentId,
+              channel,
+            },
+          });
+
+          if (overlayError || !overlayData?.success) {
+            console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
+            // Continue with base image if overlay fails
+          } else {
+            finalImageUrl = overlayData.imageUrl;
+          }
+        }
+
+        const result: GeneratedImage = {
+          channel,
+          imageUrl: finalImageUrl,
+          prompt: imageData.prompt,
+          generatedAt: new Date().toISOString(),
+          aspectRatio: channelAspectRatio,
+        };
+
+        setProgress(prev => ({ ...prev, [channel]: 'done' }));
+        setGeneratedImages(prev => ({ ...prev, [channel]: result }));
+
+        return result;
+      } catch (err) {
+        console.error(`[useAutoImageGeneration] Attempt ${attempt + 1} error for ${channel}:`, err);
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = 1000 * Math.pow(2, attempt);
+          console.log(`[useAutoImageGeneration] Waiting ${delay}ms before retry...`);
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          setProgress(prev => ({ ...prev, [channel]: 'error' }));
+          return null;
+        }
+      }
+    }
+    
+    return null;
+  }, [getAspectRatioForChannel]);
+
   const generateForChannel = useCallback(async (
     channel: Channel,
     options: AutoGenerateOptions
   ): Promise<GeneratedImage | null> => {
-    const { contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl, aspectRatio = '16:9' } = options;
-    
-    const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
-    
-    try {
-      setProgress(prev => ({ ...prev, [channel]: 'generating' }));
-      
-      console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}`);
-
-      // Step 1: Generate base image with brand colors
-      const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-brand-image', {
-        body: {
-          contentId,
-          channel,
-          contentSummary: contentSummaries[channel] || `Content for ${channel}`,
-          brandTemplateId,
-          aspectRatio: channelAspectRatio,
-        },
-      });
-
-      if (imageError || !imageData?.success) {
-        console.error(`[useAutoImageGeneration] Generate error for ${channel}:`, imageError || imageData?.error);
-        throw new Error(imageData?.error || imageError?.message || 'Failed to generate image');
-      }
-
-      let finalImageUrl = imageData.imageUrl;
-
-      // Step 2: Overlay logo if requested (using canvas-based overlay for speed)
-      if (includeLogo && logoUrl) {
-        setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
-        
-        const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-logo-canvas', {
-          body: {
-            baseImageUrl: finalImageUrl,
-            logoUrl,
-            position: logoPosition || 'bottom-right',
-            logoSizePercent: 12,
-            padding: 20,
-            contentId,
-            channel,
-          },
-        });
-
-        if (overlayError || !overlayData?.success) {
-          console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
-          // Continue with base image if overlay fails
-        } else {
-          finalImageUrl = overlayData.imageUrl;
-        }
-      }
-
-      const result: GeneratedImage = {
-        channel,
-        imageUrl: finalImageUrl,
-        prompt: imageData.prompt,
-        generatedAt: new Date().toISOString(),
-        aspectRatio: channelAspectRatio,
-      };
-
-      setProgress(prev => ({ ...prev, [channel]: 'done' }));
-      setGeneratedImages(prev => ({ ...prev, [channel]: result }));
-
-      return result;
-    } catch (err) {
-      console.error(`[useAutoImageGeneration] Error for ${channel}:`, err);
-      setProgress(prev => ({ ...prev, [channel]: 'error' }));
-      return null;
-    }
-  }, [getAspectRatioForChannel]);
+    return generateWithRetry(channel, options, 2);
+  }, [generateWithRetry]);
 
   const generateAllImages = useCallback(async (
     options: AutoGenerateOptions,

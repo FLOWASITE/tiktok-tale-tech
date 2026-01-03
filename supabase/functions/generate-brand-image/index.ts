@@ -5,6 +5,8 @@ import {
   getChannelAspectRatio,
   type Channel,
   type BrandImageContext,
+  type PersonaContext,
+  type ImageStylePreset,
 } from "../_shared/image-prompt-builder.ts";
 
 const corsHeaders = {
@@ -20,6 +22,25 @@ interface GenerateImageRequest {
   aspectRatio?: "16:9" | "1:1" | "9:16" | "4:5";
   journeyStage?: 'awareness' | 'consideration' | 'decision' | 'retention';
   contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
+  imageStylePreset?: ImageStylePreset;
+  negativePrompt?: string;
+}
+
+// Map content_goal to journey stage
+function mapContentGoalToJourneyStage(
+  contentGoal?: string
+): 'awareness' | 'consideration' | 'decision' | 'retention' | undefined {
+  const mapping: Record<string, 'awareness' | 'consideration' | 'decision' | 'retention'> = {
+    'brand_awareness': 'awareness',
+    'engagement': 'awareness',
+    'lead_generation': 'consideration',
+    'traffic': 'consideration',
+    'conversion': 'decision',
+    'sales': 'decision',
+    'retention': 'retention',
+    'loyalty': 'retention',
+  };
+  return contentGoal ? mapping[contentGoal] : undefined;
 }
 
 serve(async (req) => {
@@ -46,6 +67,8 @@ serve(async (req) => {
       aspectRatio,
       journeyStage,
       contentType,
+      imageStylePreset,
+      negativePrompt,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}`);
@@ -60,6 +83,57 @@ serve(async (req) => {
     if (brandError || !brandTemplate) {
       console.error("[generate-brand-image] Brand template not found:", brandError);
       throw new Error("Brand template not found");
+    }
+
+    // Fetch content goal if not provided journey stage
+    let finalJourneyStage = journeyStage;
+    if (!finalJourneyStage && contentId) {
+      const { data: contentData } = await supabase
+        .from("multi_channel_contents")
+        .select("content_goal")
+        .eq("id", contentId)
+        .single();
+      
+      if (contentData?.content_goal) {
+        finalJourneyStage = mapContentGoalToJourneyStage(contentData.content_goal);
+        console.log(`[generate-brand-image] Mapped content_goal "${contentData.content_goal}" to journeyStage "${finalJourneyStage}"`);
+      }
+    }
+
+    // Fetch primary persona for the brand
+    let personaContext: PersonaContext | undefined;
+    try {
+      const { data: personaMapping } = await supabase
+        .from("product_persona_mappings")
+        .select(`
+          customer_personas (
+            name, 
+            age_range, 
+            gender, 
+            occupation, 
+            interests,
+            communication_style
+          )
+        `)
+        .eq("brand_template_id", brandTemplateId)
+        .eq("is_primary", true)
+        .limit(1)
+        .maybeSingle();
+
+      if (personaMapping?.customer_personas) {
+        const p = personaMapping.customer_personas as any;
+        personaContext = {
+          name: p.name,
+          ageRange: p.age_range,
+          gender: p.gender,
+          occupation: p.occupation,
+          interests: p.interests,
+          communicationStyle: p.communication_style,
+        };
+        console.log(`[generate-brand-image] Using persona context: ${personaContext.name}`);
+      }
+    } catch (personaErr) {
+      console.warn("[generate-brand-image] Failed to fetch persona, continuing without:", personaErr);
     }
 
     // Determine aspect ratio - use provided or get optimal for channel
@@ -83,8 +157,11 @@ serve(async (req) => {
       contentSummary,
       brand: brandContext,
       aspectRatio: finalAspectRatio,
-      journeyStage,
+      journeyStage: finalJourneyStage,
       contentType,
+      persona: personaContext,
+      imageStylePreset,
+      negativePrompt,
     });
 
     console.log("[generate-brand-image] Calling Lovable AI Gateway with Gemini 3 Pro Image...");

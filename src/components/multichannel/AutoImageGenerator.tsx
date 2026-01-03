@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Sparkles, Image, Check, Loader2, X, AlertCircle, RefreshCw, Save, Eye } from 'lucide-react';
+import { Sparkles, Image, Check, Loader2, X, AlertCircle, RefreshCw, Save, Eye, Download, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -19,12 +21,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Channel, MultiChannelContent, ChannelImage } from '@/types/multichannel';
 import { 
   useAutoImageGeneration, 
   LogoPosition, 
   ImageGenerationStatus, 
   AspectRatioOption,
+  ImageStylePreset,
   CHANNEL_OPTIMAL_ASPECT_RATIO 
 } from '@/hooks/useAutoImageGeneration';
 import { cn } from '@/lib/utils';
@@ -52,6 +60,17 @@ const ASPECT_RATIOS: { value: AspectRatioOption; label: string; description: str
   { value: '1:1', label: '1:1', description: 'Facebook, Instagram Feed' },
   { value: '4:5', label: '4:5', description: 'Instagram Portrait' },
   { value: '9:16', label: '9:16', description: 'Stories, Reels, TikTok' },
+];
+
+const IMAGE_STYLES: { value: ImageStylePreset | 'auto'; label: string; description: string }[] = [
+  { value: 'auto', label: 'Tự động', description: 'Theo brand style' },
+  { value: 'photorealistic', label: 'Chân thực', description: 'Ảnh chụp chuyên nghiệp' },
+  { value: 'illustration', label: 'Minh họa', description: 'Đồ họa vector' },
+  { value: 'minimalist', label: 'Tối giản', description: 'Đơn giản, thanh lịch' },
+  { value: '3d_render', label: '3D Render', description: 'Đồ họa 3D' },
+  { value: 'flat_design', label: 'Flat Design', description: 'Phẳng, màu đặc' },
+  { value: 'watercolor', label: 'Màu nước', description: 'Nghệ thuật mềm mại' },
+  { value: 'cinematic', label: 'Điện ảnh', description: 'Ánh sáng kịch tính' },
 ];
 
 function getContentSummary(content: MultiChannelContent, channel: Channel): string {
@@ -104,9 +123,12 @@ export function AutoImageGenerator({
   const [includeLogo, setIncludeLogo] = useState(!!brandLogoUrl);
   const [logoPosition, setLogoPosition] = useState<LogoPosition>('bottom-right');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('auto');
+  const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content.selected_channels);
   const [showPreview, setShowPreview] = useState(false);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
+  const [advancedMode, setAdvancedMode] = useState(false);
 
   const {
     isGenerating,
@@ -143,7 +165,9 @@ export function AutoImageGenerator({
     logoPosition,
     logoUrl: brandLogoUrl || undefined,
     aspectRatio,
-  }), [content.id, content.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio]);
+    imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
+    negativePrompt: negativePrompt.trim() || undefined,
+  }), [content.id, content.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt]);
 
   const handleGenerate = async () => {
     if (!content.brand_template_id) {
@@ -214,6 +238,14 @@ export function AutoImageGenerator({
                 const isRegenerating = regeneratingChannel === channel;
                 const status = progress[channel as Channel];
                 
+                const handleDownload = () => {
+                  const link = document.createElement('a');
+                  link.href = image.imageUrl;
+                  link.download = `${content.title.replace(/[^a-zA-Z0-9]/g, '_')}-${channel}.png`;
+                  link.target = '_blank';
+                  link.click();
+                };
+                
                 return (
                   <div key={channel} className="relative group rounded-lg overflow-hidden border">
                     <div className="aspect-video relative bg-muted">
@@ -231,16 +263,35 @@ export function AutoImageGenerator({
                       
                       {/* Overlay actions */}
                       {!isRegenerating && (
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleRegenerateChannel(channel as Channel)}
-                            disabled={isGenerating}
-                          >
-                            <RefreshCw className="w-4 h-4 mr-1" />
-                            Tạo lại
-                          </Button>
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleRegenerateChannel(channel as Channel)}
+                                disabled={isGenerating}
+                              >
+                                <RefreshCw className="w-4 h-4 mr-1" />
+                                Tạo lại
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Tạo lại ảnh cho kênh này</TooltipContent>
+                          </Tooltip>
+                          
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="secondary"
+                                onClick={handleDownload}
+                                className="h-9 w-9"
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Tải xuống</TooltipContent>
+                          </Tooltip>
                         </div>
                       )}
                     </div>
@@ -344,24 +395,47 @@ export function AutoImageGenerator({
               )}
             </div>
 
-            {/* Aspect Ratio */}
-            <div className="space-y-2">
-              <Label>Tỉ lệ ảnh</Label>
-              <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as AspectRatioOption)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ASPECT_RATIOS.map(ratio => (
-                    <SelectItem key={ratio.value} value={ratio.value}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{ratio.label}</span>
-                        <span className="text-muted-foreground text-xs">- {ratio.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Aspect Ratio & Image Style Row */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Aspect Ratio */}
+              <div className="space-y-2">
+                <Label>Tỉ lệ ảnh</Label>
+                <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as AspectRatioOption)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASPECT_RATIOS.map(ratio => (
+                      <SelectItem key={ratio.value} value={ratio.value}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{ratio.label}</span>
+                          <span className="text-muted-foreground text-xs">- {ratio.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Image Style Preset */}
+              <div className="space-y-2">
+                <Label>Phong cách ảnh</Label>
+                <Select value={imageStyle} onValueChange={(v) => setImageStyle(v as ImageStylePreset | 'auto')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {IMAGE_STYLES.map(style => (
+                      <SelectItem key={style.value} value={style.value}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{style.label}</span>
+                          <span className="text-muted-foreground text-xs">- {style.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Logo Options */}
@@ -402,6 +476,37 @@ export function AutoImageGenerator({
                 )}
               </div>
             )}
+
+            {/* Advanced Mode Toggle */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setAdvancedMode(!advancedMode)}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Settings2 className="w-4 h-4" />
+                <span>{advancedMode ? 'Ẩn tùy chọn nâng cao' : 'Tùy chọn nâng cao'}</span>
+              </button>
+
+              {advancedMode && (
+                <div className="space-y-3 pl-6 border-l-2 border-muted">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Negative Prompt (những gì không muốn)</Label>
+                    <Textarea
+                      value={negativePrompt}
+                      onChange={(e) => setNegativePrompt(e.target.value)}
+                      placeholder="text, logo, watermark, blurry, distorted, low quality..."
+                      rows={2}
+                      className="text-sm"
+                      disabled={isGenerating}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Liệt kê các yếu tố bạn không muốn xuất hiện trong ảnh
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Progress */}
             {isGenerating && (

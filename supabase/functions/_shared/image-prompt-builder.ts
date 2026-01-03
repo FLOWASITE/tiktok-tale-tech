@@ -45,7 +45,54 @@ export interface ImagePromptParams {
   persona?: PersonaContext;
   journeyStage?: 'awareness' | 'consideration' | 'decision' | 'retention';
   contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
+  imageStylePreset?: ImageStylePreset;
+  negativePrompt?: string;
 }
+
+// Image Style Presets
+export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic';
+
+export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
+  description: string;
+  keywords: string[];
+  negativeKeywords: string[];
+}> = {
+  photorealistic: {
+    description: 'Ultra-realistic photography style with natural lighting',
+    keywords: ['photorealistic', 'DSLR quality', 'natural lighting', '8K resolution', 'professional photography'],
+    negativeKeywords: ['illustration', 'cartoon', 'anime', 'drawing', 'sketch'],
+  },
+  illustration: {
+    description: 'Digital illustration with clean lines and vibrant colors',
+    keywords: ['digital illustration', 'vector art style', 'clean lines', 'vibrant colors', 'artistic'],
+    negativeKeywords: ['photorealistic', 'photograph', 'blurry', 'noisy'],
+  },
+  minimalist: {
+    description: 'Clean, simple design with lots of whitespace',
+    keywords: ['minimalist', 'clean design', 'whitespace', 'simple composition', 'elegant', 'understated'],
+    negativeKeywords: ['cluttered', 'busy', 'complex', 'detailed', 'ornate'],
+  },
+  '3d_render': {
+    description: '3D rendered graphics with depth and dimension',
+    keywords: ['3D render', 'octane render', 'volumetric lighting', 'depth', 'CGI quality', 'realistic shadows'],
+    negativeKeywords: ['flat', '2D', 'illustration', 'sketch'],
+  },
+  flat_design: {
+    description: 'Flat design style with solid colors and geometric shapes',
+    keywords: ['flat design', 'solid colors', 'geometric shapes', 'no shadows', 'modern UI style'],
+    negativeKeywords: ['3D', 'realistic', 'gradient heavy', 'photorealistic'],
+  },
+  watercolor: {
+    description: 'Soft watercolor painting aesthetic',
+    keywords: ['watercolor', 'soft edges', 'artistic', 'paint texture', 'flowing colors', 'hand-painted feel'],
+    negativeKeywords: ['sharp edges', 'digital', 'photorealistic', 'CGI'],
+  },
+  cinematic: {
+    description: 'Movie-like visuals with dramatic lighting and composition',
+    keywords: ['cinematic', 'dramatic lighting', 'movie still', 'film grain', 'widescreen composition', 'atmospheric'],
+    negativeKeywords: ['flat lighting', 'amateur', 'snapshot', 'casual'],
+  },
+};
 
 // ============================================
 // CHANNEL CONFIGURATIONS
@@ -208,8 +255,27 @@ function buildJourneyStageSection(stage?: string): string {
 /**
  * Main function to build enhanced image prompt
  */
+/**
+ * Build image style preset section
+ */
+function buildStylePresetSection(stylePreset?: ImageStylePreset): string {
+  if (!stylePreset || !IMAGE_STYLE_PRESETS[stylePreset]) return '';
+  
+  const preset = IMAGE_STYLE_PRESETS[stylePreset];
+  
+  let section = `\n\n## IMAGE STYLE PRESET (${stylePreset.toUpperCase().replace('_', ' ')}):\n`;
+  section += `- Description: ${preset.description}\n`;
+  section += `- Apply these qualities: ${preset.keywords.join(', ')}\n`;
+  section += `- AVOID: ${preset.negativeKeywords.join(', ')}`;
+  
+  return section;
+}
+
+/**
+ * Main function to build enhanced image prompt
+ */
 export function buildImagePrompt(params: ImagePromptParams): string {
-  const { channel, contentSummary, brand, aspectRatio, persona, journeyStage, contentType } = params;
+  const { channel, contentSummary, brand, aspectRatio, persona, journeyStage, contentType, imageStylePreset, negativePrompt } = params;
   
   const channelSpec = CHANNEL_IMAGE_SPECS[channel] || CHANNEL_IMAGE_SPECS.facebook;
   const finalAspectRatio = aspectRatio || channelSpec.aspectRatio;
@@ -238,6 +304,9 @@ ${contentSummary}
   // Add color section
   prompt += buildColorSection(brand.brandColors);
   
+  // Add style preset section
+  prompt += buildStylePresetSection(imageStylePreset);
+  
   // Add persona section
   prompt += buildPersonaVisualSection(persona);
   
@@ -256,6 +325,11 @@ ${contentSummary}
     if (contentTypeGuides[contentType]) {
       prompt += `\n\n## CONTENT TYPE (${contentType.toUpperCase()}):\n${contentTypeGuides[contentType]}`;
     }
+  }
+  
+  // Add negative prompt if provided
+  if (negativePrompt) {
+    prompt += `\n\n## ELEMENTS TO AVOID:\n${negativePrompt}`;
   }
   
   // Critical rules (always include)
