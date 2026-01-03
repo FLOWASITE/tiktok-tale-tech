@@ -460,16 +460,21 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     max_length: 300,
     length_unit: 'words',
     hook_required: true,
-    hook_style: 'BẮT BUỘC 2 dòng đầu là hook mạnh (câu sốc, số liệu, câu hỏi)',
+    hook_style: 'BẮT BUỘC 2 dòng đầu là hook mạnh (câu sốc, số liệu, câu hỏi) + emoji thu hút (🎯⚡💡🔥)',
     bullet_allowed: true,
     cta_policy: 'optional',
     emoji_allowed: true,
-    emoji_limit: 3,
+    emoji_limit: 5,
     hashtag_limit: 3,
     hashtag_position: 'end',
     line_break_style: 'short',
     link_position: 'body',
-    format_description: 'Xuống dòng ngắn, chia đoạn 2-3 dòng',
+    format_description: `BẮT BUỘC RICH TEXT FORMAT:
+• Hook: Emoji + **text đậm** (VD: 🎯 **5 sai lầm phổ biến...**)
+• Body: Dùng emoji làm bullet (✅ 💡 ⚡ 📌 ➡️), **in đậm** keywords
+• Chia đoạn ngắn 2-3 dòng, xuống dòng nhiều
+• CTA cuối: emoji + **text đậm** (VD: ➡️ **Liên hệ ngay**)
+• KHÔNG viết plain text không format`,
   },
   instagram: {
     min_length: 50,
