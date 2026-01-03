@@ -3,12 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ModelCard } from './ModelCard';
 import { 
   MODELS_BY_TYPE, 
   MODELS_BY_PROVIDER, 
-  MODEL_INFO, 
   getModelInfo,
   AIFunctionType 
 } from '@/hooks/useAIConfig';
@@ -26,6 +24,7 @@ interface ModelSelectorProps {
 }
 
 type FilterType = 'all' | 'fast' | 'quality' | 'cheap';
+type ProviderFilter = 'all' | 'lovable' | 'openrouter';
 
 export function ModelSelector({
   open,
@@ -38,6 +37,7 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
 
   // Get available models based on function type
   const availableModels = useMemo(() => {
@@ -52,7 +52,7 @@ export function ModelSelector({
     };
   }, [functionType, hasOpenRouterApiKey]);
 
-  // Filter models based on search and filter
+  // Filter models based on search, filter, and provider
   const filteredModels = useMemo(() => {
     const filterFn = (modelId: string) => {
       const info = getModelInfo(modelId);
@@ -81,11 +81,21 @@ export function ModelSelector({
       }
     };
 
+    let lovableFiltered = availableModels.lovable.filter(filterFn);
+    let openrouterFiltered = availableModels.openrouter.filter(filterFn);
+
+    // Apply provider filter
+    if (providerFilter === 'lovable') {
+      openrouterFiltered = [];
+    } else if (providerFilter === 'openrouter') {
+      lovableFiltered = [];
+    }
+
     return {
-      lovable: availableModels.lovable.filter(filterFn),
-      openrouter: availableModels.openrouter.filter(filterFn),
+      lovable: lovableFiltered,
+      openrouter: openrouterFiltered,
     };
-  }, [availableModels, searchQuery, activeFilter]);
+  }, [availableModels, searchQuery, activeFilter, providerFilter]);
 
   const handleSelectModel = (modelId: string | null) => {
     onSelectModel(modelId);
@@ -93,6 +103,7 @@ export function ModelSelector({
   };
 
   const totalModels = filteredModels.lovable.length + filteredModels.openrouter.length;
+  const hasOpenRouter = availableModels.openrouter.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,6 +114,37 @@ export function ModelSelector({
             Chọn AI Model
           </DialogTitle>
         </DialogHeader>
+
+        {/* Provider Tabs */}
+        {hasOpenRouter && (
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+            <ProviderTab
+              active={providerFilter === 'all'}
+              onClick={() => setProviderFilter('all')}
+              count={availableModels.lovable.length + availableModels.openrouter.length}
+            >
+              Tất cả
+            </ProviderTab>
+            <ProviderTab
+              active={providerFilter === 'lovable'}
+              onClick={() => setProviderFilter('lovable')}
+              provider="lovable"
+              count={availableModels.lovable.length}
+            >
+              <span className="hidden sm:inline">Lovable AI</span>
+              <span className="sm:hidden">Lovable</span>
+            </ProviderTab>
+            <ProviderTab
+              active={providerFilter === 'openrouter'}
+              onClick={() => setProviderFilter('openrouter')}
+              provider="openrouter"
+              count={availableModels.openrouter.length}
+            >
+              <span className="hidden sm:inline">OpenRouter</span>
+              <span className="sm:hidden">OR</span>
+            </ProviderTab>
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="space-y-2 sm:space-y-3">
@@ -175,11 +217,17 @@ export function ModelSelector({
             {/* Lovable AI Models */}
             {filteredModels.lovable.length > 0 && (
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-xs sm:text-sm">Lovable AI</h3>
-                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] hidden xs:inline-flex">
-                    Không cần API Key
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <Sparkles className="h-4 w-4 text-blue-500" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-blue-700 dark:text-blue-400">Lovable AI</h3>
+                    <p className="text-[10px] sm:text-xs text-blue-600/70 dark:text-blue-400/70 truncate">
+                      Tích hợp sẵn, không cần API key
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/30">
+                    {filteredModels.lovable.length}
                   </Badge>
                 </div>
                 <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
@@ -199,10 +247,16 @@ export function ModelSelector({
             {/* OpenRouter Models */}
             {filteredModels.openrouter.length > 0 && (
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
                   <ExternalLink className="h-4 w-4 text-orange-500" />
-                  <h3 className="font-semibold text-xs sm:text-sm">OpenRouter</h3>
-                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-green-500/10 text-green-600">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-orange-700 dark:text-orange-400">OpenRouter</h3>
+                    <p className="text-[10px] sm:text-xs text-orange-600/70 dark:text-orange-400/70 truncate">
+                      200+ models, yêu cầu API key
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-green-500/10 text-green-600 border-green-500/30">
                     API Key ✓
                   </Badge>
                 </div>
@@ -231,6 +285,50 @@ export function ModelSelector({
         </ScrollArea>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Provider tab component
+interface ProviderTabProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  provider?: 'lovable' | 'openrouter';
+  count?: number;
+}
+
+function ProviderTab({ active, onClick, children, provider, count }: ProviderTabProps) {
+  const providerColors = {
+    lovable: 'text-blue-600 bg-blue-500/10',
+    openrouter: 'text-orange-600 bg-orange-500/10',
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex-1 flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-medium transition-all",
+        active 
+          ? "bg-background text-foreground shadow-sm" 
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {provider && (
+        <span className={cn(
+          "w-2 h-2 rounded-full",
+          provider === 'lovable' ? 'bg-blue-500' : 'bg-orange-500'
+        )} />
+      )}
+      {children}
+      {count !== undefined && (
+        <Badge variant="secondary" className={cn(
+          "text-[8px] sm:text-[9px] py-0 px-1 ml-0.5",
+          active && provider ? providerColors[provider] : ""
+        )}>
+          {count}
+        </Badge>
+      )}
+    </button>
   );
 }
 
