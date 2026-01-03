@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -9,8 +9,8 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useAIConfig, AI_FUNCTIONS, MODELS_BY_PROVIDER, AIFunctionConfig as FunctionConfigType } from '@/hooks/useAIConfig';
-import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2 } from 'lucide-react';
+import { useAIConfig, AI_FUNCTIONS, MODELS_BY_TYPE, AIFunctionType, AIFunctionConfig as FunctionConfigType } from '@/hooks/useAIConfig';
+import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, Type, Globe } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface AIFunctionConfigProps {
@@ -37,8 +37,27 @@ const CATEGORY_COLORS: Record<string, string> = {
   analysis: 'bg-cyan-500/10 text-cyan-500',
 };
 
+const TYPE_BADGES: Record<AIFunctionType, { label: string; className: string; icon: React.ReactNode }> = {
+  text: { label: 'Text', className: 'bg-blue-500/20 text-blue-600 border-blue-500/30', icon: <Type className="h-3 w-3" /> },
+  image: { label: 'Image', className: 'bg-purple-500/20 text-purple-600 border-purple-500/30', icon: <Image className="h-3 w-3" /> },
+  'image-direct': { label: 'Image (Direct)', className: 'bg-orange-500/20 text-orange-600 border-orange-500/30', icon: <Image className="h-3 w-3" /> },
+  search: { label: 'Search', className: 'bg-green-500/20 text-green-600 border-green-500/30', icon: <Globe className="h-3 w-3" /> },
+};
+
+// Helper function to get models for a function type
+const getModelsForFunction = (functionName: string): string[] => {
+  const func = AI_FUNCTIONS.find(f => f.name === functionName);
+  if (!func) return MODELS_BY_TYPE.text;
+  return MODELS_BY_TYPE[func.type] || MODELS_BY_TYPE.text;
+};
+
+// Helper function to get function metadata
+const getFunctionMeta = (functionName: string) => {
+  return AI_FUNCTIONS.find(f => f.name === functionName);
+};
+
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
-  const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
+  const { functions, isLoading, upsertFunction } = useAIConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -55,10 +74,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const getConfiguredFunction = (name: string) => {
     return functions.find(f => f.functionName === name);
   };
-
-  const allModels = ['lovable', ...Object.keys(MODELS_BY_PROVIDER)]
-    .flatMap(provider => MODELS_BY_PROVIDER[provider] || [])
-    .filter((v, i, a) => a.indexOf(v) === i);
 
   if (isLoading) {
     return (
@@ -79,6 +94,14 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
             Cấu hình AI model và parameters cho từng edge function
           </p>
         </div>
+        <div className="flex gap-2">
+          {Object.entries(TYPE_BADGES).map(([type, badge]) => (
+            <Badge key={type} variant="outline" className={`${badge.className} text-xs`}>
+              {badge.icon}
+              <span className="ml-1">{badge.label}</span>
+            </Badge>
+          ))}
+        </div>
       </div>
 
       <Card>
@@ -87,8 +110,9 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[200px]">Function</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead>Model</TableHead>
+                <TableHead>Current Model</TableHead>
                 <TableHead>Cache TTL</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -98,6 +122,8 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
               {AI_FUNCTIONS.map((fn) => {
                 const config = getConfiguredFunction(fn.name);
                 const category = fn.category;
+                const typeBadge = TYPE_BADGES[fn.type];
+                const displayModel = config?.modelOverride || fn.currentModel;
                 
                 return (
                   <TableRow key={fn.name}>
@@ -108,15 +134,24 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                       </div>
                     </TableCell>
                     <TableCell>
+                      <Badge variant="outline" className={`${typeBadge.className} text-xs`}>
+                        {typeBadge.icon}
+                        <span className="ml-1">{typeBadge.label}</span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="secondary" className={CATEGORY_COLORS[category]}>
                         <span className="mr-1">{CATEGORY_ICONS[category]}</span>
                         {category}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">
-                        {config?.modelOverride || 'Default'}
+                      <span className="text-sm font-mono text-xs">
+                        {displayModel}
                       </span>
+                      {config?.modelOverride && (
+                        <Badge variant="outline" className="ml-2 text-xs">Override</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">
@@ -168,8 +203,13 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
               Cấu hình: {editingFunction?.functionName}
+              {editingFunction?.functionName && (
+                <Badge variant="outline" className={TYPE_BADGES[getFunctionMeta(editingFunction.functionName)?.type || 'text'].className}>
+                  {TYPE_BADGES[getFunctionMeta(editingFunction.functionName)?.type || 'text'].label}
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           
@@ -196,51 +236,60 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                     <SelectValue placeholder="Sử dụng model mặc định" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_default">Mặc định (Auto)</SelectItem>
-                    {allModels.map((model) => (
+                    <SelectItem value="_default">
+                      Mặc định ({getFunctionMeta(editingFunction.functionName!)?.currentModel || 'Auto'})
+                    </SelectItem>
+                    {getModelsForFunction(editingFunction.functionName!).map((model) => (
                       <SelectItem key={model} value={model}>
                         {model}
+                        {model === getFunctionMeta(editingFunction.functionName!)?.currentModel && (
+                          <span className="ml-2 text-muted-foreground">(recommended)</span>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Override model cho function này thay vì dùng model mặc định của provider
+                  Chỉ hiển thị models phù hợp với loại function ({getFunctionMeta(editingFunction.functionName!)?.type})
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label>Temperature: {editingFunction.parameters?.temperature ?? 0.7}</Label>
-                <Slider
-                  value={[editingFunction.parameters?.temperature ?? 0.7]}
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  onValueChange={([value]) => setEditingFunction({ 
-                    ...editingFunction, 
-                    parameters: { ...editingFunction.parameters, temperature: value } 
-                  })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  0 = Deterministic, 2 = Creative
-                </p>
-              </div>
+              {getFunctionMeta(editingFunction.functionName!)?.type === 'text' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Temperature: {editingFunction.parameters?.temperature ?? 0.7}</Label>
+                    <Slider
+                      value={[editingFunction.parameters?.temperature ?? 0.7]}
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      onValueChange={([value]) => setEditingFunction({ 
+                        ...editingFunction, 
+                        parameters: { ...editingFunction.parameters, temperature: value } 
+                      })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      0 = Deterministic, 2 = Creative
+                    </p>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Max Tokens</Label>
-                <Input
-                  type="number"
-                  value={editingFunction.parameters?.maxTokens || ''}
-                  onChange={(e) => setEditingFunction({ 
-                    ...editingFunction, 
-                    parameters: { 
-                      ...editingFunction.parameters, 
-                      maxTokens: e.target.value ? parseInt(e.target.value) : undefined 
-                    } 
-                  })}
-                  placeholder="Default (auto)"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Max Tokens</Label>
+                    <Input
+                      type="number"
+                      value={editingFunction.parameters?.maxTokens || ''}
+                      onChange={(e) => setEditingFunction({ 
+                        ...editingFunction, 
+                        parameters: { 
+                          ...editingFunction.parameters, 
+                          maxTokens: e.target.value ? parseInt(e.target.value) : undefined 
+                        } 
+                      })}
+                      placeholder="Default (auto)"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label>Cache TTL (giờ)</Label>
