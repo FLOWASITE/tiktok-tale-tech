@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText, Eye } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText, Eye, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -218,6 +218,8 @@ function FooterPreview({
   customTemplate,
   footerEnabled = true,
 }: FooterPreviewProps) {
+  const [copied, setCopied] = useState(false);
+
   const preview = useMemo(() => {
     if (!footerEnabled || !footerInfo) return null;
     
@@ -226,6 +228,17 @@ function FooterPreview({
     
     return generateFooterPreview(channel, footerInfo, useEmoji, companyName, tagline, customTemplate);
   }, [channel, footerInfo, useEmoji, companyName, tagline, customTemplate, footerEnabled]);
+
+  const handleCopy = useCallback(async () => {
+    if (!preview) return;
+    try {
+      await navigator.clipboard.writeText(preview);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, [preview]);
 
   if (!footerEnabled) return null;
 
@@ -241,10 +254,31 @@ function FooterPreview({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground flex items-center gap-1">
-        <Eye className="w-3 h-3" />
-        Preview
-      </Label>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+          <Eye className="w-3 h-3" />
+          Preview
+        </Label>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleCopy}
+          className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3 h-3 text-green-500" />
+              <span className="text-green-500">Đã copy</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3" />
+              Copy
+            </>
+          )}
+        </Button>
+      </div>
       <div className="p-3 rounded-lg border border-border/50 bg-background text-xs whitespace-pre-wrap font-mono leading-relaxed">
         {preview}
       </div>
