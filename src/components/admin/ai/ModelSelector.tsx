@@ -1,0 +1,257 @@
+import { useState, useMemo } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ModelCard } from './ModelCard';
+import { 
+  MODELS_BY_TYPE, 
+  MODELS_BY_PROVIDER, 
+  MODEL_INFO, 
+  getModelInfo,
+  AIFunctionType 
+} from '@/hooks/useAIConfig';
+import { Search, Sparkles, ExternalLink, Zap, Star, DollarSign } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface ModelSelectorProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedModel: string | null;
+  onSelectModel: (model: string | null) => void;
+  functionType: AIFunctionType;
+  defaultModel: string;
+  hasOpenRouterApiKey: boolean;
+}
+
+type FilterType = 'all' | 'fast' | 'quality' | 'cheap';
+
+export function ModelSelector({
+  open,
+  onOpenChange,
+  selectedModel,
+  onSelectModel,
+  functionType,
+  defaultModel,
+  hasOpenRouterApiKey,
+}: ModelSelectorProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+
+  // Get available models based on function type
+  const availableModels = useMemo(() => {
+    const lovableModels = MODELS_BY_TYPE[functionType] || MODELS_BY_TYPE.text;
+    const openRouterModels = hasOpenRouterApiKey && functionType === 'text' 
+      ? MODELS_BY_PROVIDER.openrouter 
+      : [];
+    
+    return {
+      lovable: lovableModels,
+      openrouter: openRouterModels,
+    };
+  }, [functionType, hasOpenRouterApiKey]);
+
+  // Filter models based on search and filter
+  const filteredModels = useMemo(() => {
+    const filterFn = (modelId: string) => {
+      const info = getModelInfo(modelId);
+      
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          modelId.toLowerCase().includes(query) ||
+          info.shortName.toLowerCase().includes(query) ||
+          info.description.toLowerCase().includes(query) ||
+          info.bestFor.some(b => b.toLowerCase().includes(query));
+        if (!matchesSearch) return false;
+      }
+
+      // Type filter
+      switch (activeFilter) {
+        case 'fast':
+          return info.speed === 'fast';
+        case 'quality':
+          return info.quality === 'premium';
+        case 'cheap':
+          return info.cost === 'low';
+        default:
+          return true;
+      }
+    };
+
+    return {
+      lovable: availableModels.lovable.filter(filterFn),
+      openrouter: availableModels.openrouter.filter(filterFn),
+    };
+  }, [availableModels, searchQuery, activeFilter]);
+
+  const handleSelectModel = (modelId: string | null) => {
+    onSelectModel(modelId);
+    onOpenChange(false);
+  };
+
+  const totalModels = filteredModels.lovable.length + filteredModels.openrouter.length;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Chọn AI Model
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Search and Filters */}
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm kiếm model..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <FilterButton 
+              active={activeFilter === 'all'} 
+              onClick={() => setActiveFilter('all')}
+            >
+              Tất cả
+            </FilterButton>
+            <FilterButton 
+              active={activeFilter === 'fast'} 
+              onClick={() => setActiveFilter('fast')}
+              icon={<Zap className="h-3 w-3" />}
+            >
+              Nhanh nhất
+            </FilterButton>
+            <FilterButton 
+              active={activeFilter === 'quality'} 
+              onClick={() => setActiveFilter('quality')}
+              icon={<Star className="h-3 w-3" />}
+            >
+              Chất lượng cao
+            </FilterButton>
+            <FilterButton 
+              active={activeFilter === 'cheap'} 
+              onClick={() => setActiveFilter('cheap')}
+              icon={<DollarSign className="h-3 w-3" />}
+            >
+              Tiết kiệm
+            </FilterButton>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {totalModels} models
+            </span>
+          </div>
+        </div>
+
+        {/* Model List */}
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="space-y-6 py-2">
+            {/* Default Option */}
+            <div className="space-y-2">
+              <ModelCard
+                modelId={defaultModel}
+                info={{
+                  ...getModelInfo(defaultModel),
+                  shortName: `Mặc định (${getModelInfo(defaultModel).shortName})`,
+                  description: 'Sử dụng model mặc định của function',
+                }}
+                isSelected={selectedModel === null || selectedModel === '_default'}
+                isDefault
+                onClick={() => handleSelectModel(null)}
+                compact
+              />
+            </div>
+
+            {/* Lovable AI Models */}
+            {filteredModels.lovable.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-sm">Lovable AI</h3>
+                  <Badge variant="secondary" className="text-[10px]">
+                    Không cần API Key
+                  </Badge>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {filteredModels.lovable.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* OpenRouter Models */}
+            {filteredModels.openrouter.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-orange-500" />
+                  <h3 className="font-semibold text-sm">OpenRouter</h3>
+                  <Badge variant="secondary" className="text-[10px] bg-green-500/10 text-green-600">
+                    API Key ✓
+                  </Badge>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {filteredModels.openrouter.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No results */}
+            {totalModels === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Không tìm thấy model phù hợp</p>
+                <p className="text-sm">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Filter button component
+interface FilterButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function FilterButton({ active, onClick, icon, children }: FilterButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+        active 
+          ? "bg-primary text-primary-foreground" 
+          : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+      )}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}

@@ -93,6 +93,224 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
   ],
 };
 
+// Detailed model information for UI display
+export type ModelSpeed = 'fast' | 'medium' | 'slow';
+export type ModelQuality = 'standard' | 'high' | 'premium';
+export type ModelCost = 'low' | 'medium' | 'high';
+
+export interface ModelInfo {
+  shortName: string;
+  description: string;
+  speed: ModelSpeed;
+  quality: ModelQuality;
+  cost: ModelCost;
+  bestFor: string[];
+  provider: 'lovable' | 'openrouter';
+  isRecommended?: boolean;
+}
+
+export const MODEL_INFO: Record<string, ModelInfo> = {
+  // Lovable AI - Google Gemini
+  'google/gemini-2.5-flash': {
+    shortName: 'Gemini 2.5 Flash',
+    description: 'Cân bằng tốc độ và chất lượng',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Nội dung chung', 'Phản hồi nhanh'],
+    provider: 'lovable',
+    isRecommended: true,
+  },
+  'google/gemini-2.5-flash-lite': {
+    shortName: 'Gemini 2.5 Lite',
+    description: 'Nhanh nhất, tiết kiệm nhất',
+    speed: 'fast',
+    quality: 'standard',
+    cost: 'low',
+    bestFor: ['Tác vụ đơn giản', 'Phân loại'],
+    provider: 'lovable',
+  },
+  'google/gemini-2.5-pro': {
+    shortName: 'Gemini 2.5 Pro',
+    description: 'Suy luận phức tạp, ngữ cảnh dài',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Phân tích phức tạp', 'Context dài'],
+    provider: 'lovable',
+  },
+  'google/gemini-3-pro-preview': {
+    shortName: 'Gemini 3 Pro',
+    description: 'Thế hệ mới nhất, tính năng tiên tiến',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Tác vụ nâng cao', 'Tính năng mới'],
+    provider: 'lovable',
+  },
+  'google/gemini-3-pro-image-preview': {
+    shortName: 'Gemini 3 Image',
+    description: 'Tạo hình ảnh thế hệ mới',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Tạo hình ảnh', 'Visual content'],
+    provider: 'lovable',
+  },
+  // Lovable AI - OpenAI
+  'openai/gpt-5': {
+    shortName: 'GPT-5',
+    description: 'Mạnh nhất, đa năng nhất',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Phân tích phức tạp', 'Nội dung tinh tế'],
+    provider: 'lovable',
+  },
+  'openai/gpt-5-mini': {
+    shortName: 'GPT-5 Mini',
+    description: 'Mạnh với chi phí hợp lý',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Nội dung chất lượng', 'Cân bằng chi phí'],
+    provider: 'lovable',
+  },
+  'openai/gpt-5-nano': {
+    shortName: 'GPT-5 Nano',
+    description: 'Nhanh và tiết kiệm',
+    speed: 'fast',
+    quality: 'standard',
+    cost: 'low',
+    bestFor: ['Khối lượng lớn', 'Tác vụ đơn giản'],
+    provider: 'lovable',
+  },
+  // Perplexity Search
+  'sonar-pro': {
+    shortName: 'Sonar Pro',
+    description: 'Web search chuyên sâu',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Research', 'Trending topics'],
+    provider: 'lovable',
+  },
+  'sonar': {
+    shortName: 'Sonar',
+    description: 'Web search nhanh',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Quick search', 'Topic ideas'],
+    provider: 'lovable',
+  },
+  // Image generation
+  'gemini-2.0-flash-exp-image-generation': {
+    shortName: 'Gemini 2.0 Image',
+    description: 'Tạo hình ảnh trực tiếp',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Carousel images', 'Quick visuals'],
+    provider: 'lovable',
+  },
+  // OpenRouter Models
+  'anthropic/claude-sonnet-4-20250514': {
+    shortName: 'Claude Sonnet 4',
+    description: 'Flagship mới nhất của Anthropic',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Viết sáng tạo', 'An toàn'],
+    provider: 'openrouter',
+  },
+  'anthropic/claude-3.5-sonnet': {
+    shortName: 'Claude 3.5 Sonnet',
+    description: 'Cân bằng xuất sắc',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Viết sáng tạo', 'Coding'],
+    provider: 'openrouter',
+  },
+  'openai/gpt-4o': {
+    shortName: 'GPT-4o',
+    description: 'GPT-4 tối ưu đa phương tiện',
+    speed: 'fast',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Vision', 'Đa phương tiện'],
+    provider: 'openrouter',
+  },
+  'openai/gpt-4-turbo': {
+    shortName: 'GPT-4 Turbo',
+    description: 'GPT-4 nhanh hơn',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Tác vụ phức tạp', 'Long context'],
+    provider: 'openrouter',
+  },
+  'meta-llama/llama-3.3-70b-instruct': {
+    shortName: 'Llama 3.3 70B',
+    description: 'Open source mạnh mẽ',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Chi phí thấp', 'Đa năng'],
+    provider: 'openrouter',
+  },
+  'mistralai/mistral-large': {
+    shortName: 'Mistral Large',
+    description: 'Flagship của Mistral',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Đa ngôn ngữ', 'Reasoning'],
+    provider: 'openrouter',
+  },
+  'google/gemini-pro-1.5': {
+    shortName: 'Gemini Pro 1.5',
+    description: 'Context siêu dài (1M tokens)',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Documents dài', 'Analysis'],
+    provider: 'openrouter',
+  },
+  'deepseek/deepseek-chat': {
+    shortName: 'DeepSeek Chat',
+    description: 'Chi phí cực thấp, chất lượng tốt',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Chi phí thấp', 'Chat'],
+    provider: 'openrouter',
+  },
+  'qwen/qwen-2.5-72b-instruct': {
+    shortName: 'Qwen 2.5 72B',
+    description: 'Mạnh với tiếng Việt',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Tiếng Việt', 'Coding'],
+    provider: 'openrouter',
+  },
+};
+
+// Helper function to get model info with fallback
+export const getModelInfo = (modelId: string): ModelInfo => {
+  return MODEL_INFO[modelId] || {
+    shortName: modelId.split('/').pop() || modelId,
+    description: 'Model không có thông tin chi tiết',
+    speed: 'medium' as ModelSpeed,
+    quality: 'standard' as ModelQuality,
+    cost: 'medium' as ModelCost,
+    bestFor: [],
+    provider: modelId.includes('anthropic') || modelId.includes('llama') || modelId.includes('mistral') || modelId.includes('deepseek') || modelId.includes('qwen') ? 'openrouter' : 'lovable',
+  };
+};
+
 // Known AI providers
 export const AI_PROVIDERS = [
   { type: 'lovable', name: 'Lovable AI', description: 'Built-in AI (không cần API key)', hasKey: false },
