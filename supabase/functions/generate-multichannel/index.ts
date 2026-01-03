@@ -2061,6 +2061,109 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       }
     }
 
+    // ============================================
+    // AUTO-APPEND FOOTER INFO (Post AI-generation)
+    // ============================================
+    const footerInfo = extendedBrandContext?.footerInfo;
+    const hasFooterInfo = footerInfo && (footerInfo.phone || footerInfo.email || footerInfo.website || footerInfo.address);
+    const brandAllowEmoji = brandVoice?.allow_emoji !== false;
+
+    if (hasFooterInfo) {
+      const formatFooterInfo = (
+        footer: typeof footerInfo,
+        channel: string,
+        useEmoji: boolean
+      ): string => {
+        if (!footer) return '';
+        
+        const parts: string[] = [];
+        
+        // Social channels: Facebook, Instagram, LinkedIn
+        if (channel === 'facebook' || channel === 'instagram' || channel === 'linkedin') {
+          if (useEmoji) {
+            if (footer.phone) parts.push(`📞 ${footer.phone}`);
+            if (footer.email) parts.push(`📧 ${footer.email}`);
+            if (footer.website) parts.push(`🌐 ${footer.website}`);
+            if (footer.address) parts.push(`📍 ${footer.address}`);
+          } else {
+            // No-emoji mode - use text labels
+            if (footer.phone) parts.push(`Hotline: ${footer.phone}`);
+            if (footer.email) parts.push(`Email: ${footer.email}`);
+            if (footer.website) parts.push(`Website: ${footer.website}`);
+            if (footer.address) parts.push(`Địa chỉ: ${footer.address}`);
+          }
+          return parts.length > 0 ? `\n\n---\n${parts.join('\n')}` : '';
+        }
+        
+        // Email: Signature style with pipe separator
+        if (channel === 'email') {
+          if (footer.company_name) parts.push(`**${footer.company_name}**`);
+          if (footer.phone) parts.push(`Tel: ${footer.phone}`);
+          if (footer.email) parts.push(`Email: ${footer.email}`);
+          if (footer.website) parts.push(`Web: ${footer.website}`);
+          if (footer.address) parts.push(footer.address);
+          return parts.length > 0 ? `\n\n---\n${parts.join(' | ')}` : '';
+        }
+        
+        // Website: Subtle author box at the end
+        if (channel === 'website') {
+          if (footer.company_name) {
+            return `\n\n---\n*Bài viết bởi **${footer.company_name}**${footer.website ? ` - [${footer.website}](${footer.website})` : ''}*`;
+          }
+          return '';
+        }
+        
+        // Twitter/TikTok: Just website URL (minimal)
+        if (channel === 'twitter' || channel === 'tiktok' || channel === 'youtube') {
+          return footer.website ? `\n\n${footer.website}` : '';
+        }
+        
+        // Zalo OA / Telegram: Formal format without emoji
+        if (channel === 'zalo_oa' || channel === 'telegram') {
+          if (footer.phone) parts.push(`Hotline: ${footer.phone}`);
+          if (footer.email) parts.push(`Email: ${footer.email}`);
+          if (footer.website) parts.push(`Website: ${footer.website}`);
+          return parts.length > 0 ? `\n\n---\n${parts.join('\n')}` : '';
+        }
+        
+        return '';
+      };
+      
+      // Append footer to each channel content
+      if (generatedData.facebook_content) {
+        generatedData.facebook_content += formatFooterInfo(footerInfo, 'facebook', brandAllowEmoji);
+      }
+      if (generatedData.instagram_content) {
+        generatedData.instagram_content += formatFooterInfo(footerInfo, 'instagram', brandAllowEmoji);
+      }
+      if (generatedData.linkedin_content) {
+        generatedData.linkedin_content += formatFooterInfo(footerInfo, 'linkedin', brandAllowEmoji);
+      }
+      if (generatedData.email_content) {
+        generatedData.email_content += formatFooterInfo(footerInfo, 'email', brandAllowEmoji);
+      }
+      if (generatedData.twitter_content) {
+        generatedData.twitter_content += formatFooterInfo(footerInfo, 'twitter', brandAllowEmoji);
+      }
+      if (generatedData.youtube_content) {
+        generatedData.youtube_content += formatFooterInfo(footerInfo, 'youtube', brandAllowEmoji);
+      }
+      if (generatedData.zalo_oa_content) {
+        generatedData.zalo_oa_content += formatFooterInfo(footerInfo, 'zalo_oa', brandAllowEmoji);
+      }
+      if (generatedData.telegram_content) {
+        generatedData.telegram_content += formatFooterInfo(footerInfo, 'telegram', brandAllowEmoji);
+      }
+      // Website: append to content field inside SEO object
+      if (typeof generatedData.website_content === 'object' && generatedData.website_content?.content) {
+        generatedData.website_content.content += formatFooterInfo(footerInfo, 'website', brandAllowEmoji);
+      } else if (typeof generatedData.website_content === 'string') {
+        generatedData.website_content += formatFooterInfo(footerInfo, 'website', brandAllowEmoji);
+      }
+      
+      console.log("Footer info appended to channel contents");
+    }
+
     // Check organization's approval settings
     let initialStatus = 'draft';
     if (organizationId) {
