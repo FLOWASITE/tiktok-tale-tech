@@ -26,6 +26,9 @@ export interface AIFunctionConfig {
   isEnabled: boolean;
   cacheTtlHours: number;
   priorityLevel: string;
+  temperature: number | null;
+  maxTokens: number | null;
+  customSystemPrompt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -173,6 +176,9 @@ export function useAIConfig(organizationId?: string) {
         isEnabled: f.is_enabled ?? true,
         cacheTtlHours: f.cache_ttl_hours ?? 24,
         priorityLevel: f.priority_level ?? 'normal',
+        temperature: (f as any).temperature ?? null,
+        maxTokens: (f as any).max_tokens ?? null,
+        customSystemPrompt: (f as any).custom_system_prompt ?? null,
         createdAt: f.created_at,
         updatedAt: f.updated_at,
       }));
@@ -225,7 +231,7 @@ export function useAIConfig(organizationId?: string) {
   // Upsert function config
   const upsertFunctionMutation = useMutation({
     mutationFn: async (config: Partial<AIFunctionConfig> & { functionName: string }) => {
-      const payload = {
+      const payload: Record<string, any> = {
         organization_id: organizationId,
         function_name: config.functionName,
         provider_config_id: config.providerConfigId,
@@ -234,6 +240,9 @@ export function useAIConfig(organizationId?: string) {
         is_enabled: config.isEnabled ?? true,
         cache_ttl_hours: config.cacheTtlHours ?? 24,
         priority_level: config.priorityLevel ?? 'normal',
+        temperature: config.temperature ?? null,
+        max_tokens: config.maxTokens ?? null,
+        custom_system_prompt: config.customSystemPrompt ?? null,
       };
 
       if (config.id) {
@@ -248,7 +257,7 @@ export function useAIConfig(organizationId?: string) {
       } else {
         const { data, error } = await supabase
           .from('ai_function_configs')
-          .upsert(payload, { onConflict: 'organization_id,function_name' })
+          .upsert(payload as any, { onConflict: 'organization_id,function_name' })
           .select()
           .single();
         if (error) throw error;

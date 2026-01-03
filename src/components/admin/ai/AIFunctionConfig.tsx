@@ -66,6 +66,8 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     upsertFunction({
       ...editingFunction,
       functionName: editingFunction.functionName,
+      temperature: editingFunction.temperature ?? null,
+      maxTokens: editingFunction.maxTokens ?? null,
     });
     setIsDialogOpen(false);
     setEditingFunction(null);
@@ -183,6 +185,8 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                             isEnabled: true,
                             cacheTtlHours: 24,
                             priorityLevel: 'normal',
+                            temperature: 0.7,
+                            maxTokens: null,
                             parameters: {},
                           });
                           setIsDialogOpen(true);
@@ -257,15 +261,15 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
               {getFunctionMeta(editingFunction.functionName!)?.type === 'text' && (
                 <>
                   <div className="space-y-2">
-                    <Label>Temperature: {editingFunction.parameters?.temperature ?? 0.7}</Label>
+                    <Label>Temperature: {editingFunction.temperature ?? 0.7}</Label>
                     <Slider
-                      value={[editingFunction.parameters?.temperature ?? 0.7]}
+                      value={[editingFunction.temperature ?? 0.7]}
                       min={0}
                       max={2}
                       step={0.1}
                       onValueChange={([value]) => setEditingFunction({ 
                         ...editingFunction, 
-                        parameters: { ...editingFunction.parameters, temperature: value } 
+                        temperature: value,
                       })}
                     />
                     <p className="text-xs text-muted-foreground">
@@ -277,16 +281,16 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                     <Label>Max Tokens</Label>
                     <Input
                       type="number"
-                      value={editingFunction.parameters?.maxTokens || ''}
+                      value={editingFunction.maxTokens || ''}
                       onChange={(e) => setEditingFunction({ 
                         ...editingFunction, 
-                        parameters: { 
-                          ...editingFunction.parameters, 
-                          maxTokens: e.target.value ? parseInt(e.target.value) : undefined 
-                        } 
+                        maxTokens: e.target.value ? parseInt(e.target.value) : null,
                       })}
                       placeholder="Default (auto)"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Giới hạn tokens output. Để trống = auto
+                    </p>
                   </div>
                 </>
               )}
