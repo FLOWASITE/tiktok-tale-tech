@@ -521,6 +521,47 @@ Hỗ trợ Markdown:
           </CardContent>
         </Card>
       )}
+
+      {/* Next Steps Checklist */}
+      <Card className="border-dashed border-muted-foreground/30 bg-muted/30">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+              <Check className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <span className="font-medium text-sm">Bước tiếp theo (sau khi lưu)</span>
+          </div>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-center gap-2 text-muted-foreground">
+              <Check className="w-4 h-4 text-green-500" />
+              <span>Thông tin cơ bản</span>
+            </li>
+            <li className="flex items-center gap-2 text-muted-foreground">
+              <Check className="w-4 h-4 text-green-500" />
+              <span>Customer Personas</span>
+            </li>
+            <li className="flex items-center gap-2 text-muted-foreground">
+              <Check className="w-4 h-4 text-green-500" />
+              <span>Sản phẩm</span>
+            </li>
+            <li className="flex items-center gap-2 text-muted-foreground">
+              <Check className="w-4 h-4 text-green-500" />
+              <span>Giọng nói & Chiến lược</span>
+            </li>
+            <li className="flex items-center gap-2 text-muted-foreground">
+              <Check className="w-4 h-4 text-green-500" />
+              <span>Cài đặt kênh</span>
+            </li>
+            <li className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <div className="w-4 h-4 rounded border-2 border-amber-500" />
+              <span className="font-medium">Kết nối mạng xã hội</span>
+              <Badge variant="outline" className="text-[10px] ml-1 border-amber-500/50 text-amber-600 dark:text-amber-400">
+                Sau khi lưu
+              </Badge>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

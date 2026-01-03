@@ -505,6 +505,21 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       toast.success(`Đã lưu ${pendingSamples.length} mẫu nội dung!`);
       setPendingSamples([]);
     }
+
+    // Show toast to remind user to connect social accounts (for new brands only)
+    if (!template && result && typeof result === 'object' && 'id' in result) {
+      const newTemplateId = result.id;
+      toast.success('Đã tạo Brand Template!', {
+        description: 'Kết nối tài khoản mạng xã hội để đăng bài trực tiếp',
+        action: {
+          label: 'Kết nối ngay',
+          onClick: () => {
+            window.location.href = `/brands/${newTemplateId}?tab=connections`;
+          },
+        },
+        duration: 8000,
+      });
+    }
   };
 
   // Quick Start Screen

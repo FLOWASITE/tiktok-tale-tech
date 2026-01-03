@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useBrandAnalytics } from '@/hooks/useBrandAnalytics';
 import { useBrandCounts } from '@/hooks/useBrandCounts';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
@@ -83,6 +84,18 @@ export default function Brands() {
     [templates]
   );
   const { getCountsForBrand } = useBrandCounts(brandsForCounts);
+
+  // Fetch all social connections to check which brands have connections
+  const { connections: allSocialConnections } = useSocialConnections();
+  const brandsWithConnections = useMemo(() => {
+    const set = new Set<string>();
+    allSocialConnections.forEach(conn => {
+      if (conn.brand_template_id) {
+        set.add(conn.brand_template_id);
+      }
+    });
+    return set;
+  }, [allSocialConnections]);
   
   const [editingTemplate, setEditingTemplate] = useState<BrandTemplate | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -617,6 +630,7 @@ export default function Brands() {
                     onSelectChange={handleSelectChange}
                     usageStats={getUsageForBrand(template.id)}
                     brandCounts={getCountsForBrand(template.id)}
+                    hasSocialConnections={brandsWithConnections.has(template.id)}
                   />
                 </SwipeableBrandCard>
               </motion.div>
