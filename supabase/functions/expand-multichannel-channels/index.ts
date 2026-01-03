@@ -45,6 +45,19 @@ interface ExpandRequest {
   newChannels: string[];
 }
 
+interface FooterInfo {
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  company_name?: string;
+}
+
+interface ChannelOverride {
+  footer_enabled?: boolean;
+  footer_template?: string;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -91,19 +104,26 @@ serve(async (req) => {
       );
     }
 
-    // Fetch brand template for context
-    let brandContext = '';
+// Fetch brand template for context (including footer_info)
+let brandContext = '';
     let brandAllowEmoji = true;
+    let footerInfo: FooterInfo | null = null;
+    let channelOverrides: Record<string, ChannelOverride> | null = null;
+    let companyName: string | undefined;
     
     if (existingContent.brand_template_id) {
       const { data: brand } = await supabase
         .from('brand_templates')
-        .select('*')
+        .select('*, footer_info, channel_overrides, brand_name')
         .eq('id', existingContent.brand_template_id)
         .single();
 
       if (brand) {
         brandAllowEmoji = brand.allow_emoji !== false;
+        footerInfo = brand.footer_info as FooterInfo | null;
+        channelOverrides = brand.channel_overrides as Record<string, ChannelOverride> | null;
+        companyName = brand.brand_name;
+        
         brandContext = `
 ## BRAND VOICE
 - Tên thương hiệu: ${brand.brand_name}
@@ -116,6 +136,116 @@ ${brand.forbidden_words?.length ? `- Từ cấm: ${brand.forbidden_words.join(',
 `;
       }
     }
+
+// Helper to replace footer template variables
+    const replaceFooterVariables = (
+      template: string, 
+      footer: FooterInfo | null,
+      compName?: string
+    ): string => {
+      return template
+        .replace(/\{phone\}/g, footer?.phone || '')
+        .replace(/\{email\}/g, footer?.email || '')
+        .replace(/\{website\}/g, footer?.website || '')
+        .replace(/\{address\}/g, footer?.address || '')
+        .replace(/\{company\}/g, compName || footer?.company_name || '');
+    };
+
+    // Format footer info for each channel (copied from generate-multichannel)
+    const formatFooterInfo = (
+      footer: FooterInfo | null,
+      channel: string,
+      useEmoji: boolean
+    ): string => {
+      if (!footer) return '';
+      
+      const channelOverride = channelOverrides?.[channel];
+      
+      // Check if this channel has footer disabled
+      if (channelOverride?.footer_enabled === false) return '';
+      
+      // Check if this channel has a custom footer template
+      if (channelOverride?.footer_template?.trim()) {
+        return '\n\n' + replaceFooterVariables(channelOverride.footer_template, footer, companyName);
+      }
+      
+      const divider = '━━━━━━━━━━━━━━━━━━━━';
+      
+      // FACEBOOK / INSTAGRAM / LINKEDIN - Card Style
+      if (channel === 'facebook' || channel === 'instagram' || channel === 'linkedin') {
+        const lines: string[] = ['\n\n' + divider];
+        if (useEmoji) {
+          lines.push('✨ **LIÊN HỆ NGAY** ✨');
+          lines.push('');
+          if (footer.phone) lines.push(`📞 **Hotline:** ${footer.phone}`);
+          if (footer.email) lines.push(`📧 **Email:** ${footer.email}`);
+          if (footer.website) lines.push(`🌐 **Website:** ${footer.website}`);
+          if (footer.address) lines.push(`📍 **Địa chỉ:** ${footer.address}`);
+        } else {
+          lines.push('→ **LIÊN HỆ NGAY**');
+          lines.push('');
+          if (footer.phone) lines.push(`• **Hotline:** ${footer.phone}`);
+          if (footer.email) lines.push(`• **Email:** ${footer.email}`);
+          if (footer.website) lines.push(`• **Website:** ${footer.website}`);
+          if (footer.address) lines.push(`• **Địa chỉ:** ${footer.address}`);
+        }
+        lines.push(divider);
+        return lines.join('  \n');
+      }
+      
+      // EMAIL - Professional Signature Block
+      if (channel === 'email') {
+        const lines: string[] = ['\n\n---'];
+        if (companyName) lines.push(`\n**${companyName}**`);
+        lines.push(divider);
+        lines.push('');
+        const contactLine: string[] = [];
+        if (useEmoji) {
+          if (footer.phone) contactLine.push(`📞 ${footer.phone}`);
+          if (footer.email) contactLine.push(`📧 ${footer.email}`);
+        } else {
+          if (footer.phone) contactLine.push(`Tel: ${footer.phone}`);
+          if (footer.email) contactLine.push(`Email: ${footer.email}`);
+        }
+        if (contactLine.length) lines.push(contactLine.join('  |  '));
+        if (footer.website) lines.push(useEmoji ? `🌐 ${footer.website}` : footer.website);
+        if (footer.address) lines.push(`\n*${footer.address}*`);
+        return lines.join('  \n');
+      }
+      
+      // WEBSITE - Author Box
+      if (channel === 'website') {
+        const lines: string[] = ['\n\n---\n'];
+        lines.push(companyName ? `### Về ${companyName}` : '### Thông tin liên hệ');
+        lines.push('');
+        const contactParts: string[] = [];
+        if (footer.phone) contactParts.push(useEmoji ? `📞 ${footer.phone}` : `Hotline: ${footer.phone}`);
+        if (footer.email) contactParts.push(useEmoji ? `📧 ${footer.email}` : `Email: ${footer.email}`);
+        if (footer.website) contactParts.push(useEmoji ? `🌐 ${footer.website}` : footer.website);
+        if (contactParts.length) lines.push(contactParts.join(' | '));
+        if (footer.address) lines.push(`\n${useEmoji ? '📍 ' : ''}${footer.address}`);
+        return lines.join('  \n');
+      }
+      
+      // TWITTER / TIKTOK / YOUTUBE - Compact CTA
+      if (channel === 'twitter' || channel === 'tiktok' || channel === 'youtube') {
+        if (!footer.website) return '';
+        return useEmoji ? `\n\n👉 Theo dõi: ${footer.website}` : `\n\n→ Xem thêm: ${footer.website}`;
+      }
+      
+      // ZALO OA / TELEGRAM / THREADS - Clean Professional
+      if (channel === 'zalo_oa' || channel === 'telegram' || channel === 'threads') {
+        const lines: string[] = ['\n\n' + divider];
+        lines.push('**THÔNG TIN LIÊN HỆ:**');
+        lines.push('');
+        if (footer.phone) lines.push(`→ Hotline: ${footer.phone}`);
+        if (footer.email) lines.push(`→ Email: ${footer.email}`);
+        if (footer.website) lines.push(`→ Website: ${footer.website}`);
+        return lines.join('  \n');
+      }
+      
+      return '';
+};
 
     // Build channel-specific prompts
     const channelInstructions = newChannels.map(channel => {
@@ -255,7 +385,21 @@ QUAN TRỌNG: Chỉ trả về JSON object, không có text khác.`;
       }
     }
 
-    console.log('[expand-multichannel] AI generated contents for:', Object.keys(generatedContents).join(', '));
+console.log('[expand-multichannel] AI generated contents for:', Object.keys(generatedContents).join(', '));
+
+    // ============================================
+    // AUTO-APPEND FOOTER INFO (Post AI-generation)
+    // ============================================
+    const hasFooterInfo = footerInfo && (footerInfo.phone || footerInfo.email || footerInfo.website || footerInfo.address);
+    
+    if (hasFooterInfo) {
+      console.log('[expand-multichannel] Appending footer info to generated contents');
+      for (const channel of newChannels) {
+        if (generatedContents[channel]) {
+          generatedContents[channel] += formatFooterInfo(footerInfo, channel, brandAllowEmoji);
+        }
+      }
+    }
 
     // Build update payload
     const updatePayload: Record<string, any> = {
