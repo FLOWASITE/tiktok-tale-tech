@@ -134,7 +134,7 @@ function generateFooterPreview(
       if (footer.address) lines.push(`• Địa chỉ: ${footer.address}`);
     }
     lines.push(divider);
-    return lines.join('\n');
+    return lines.join('  \n');
   }
 
   // EMAIL - Professional Signature
@@ -147,7 +147,7 @@ function generateFooterPreview(
     if (footer.email) lines.push(`Email: ${footer.email}`);
     if (footer.website) lines.push(`Web: ${footer.website}`);
     if (footer.address) lines.push(`\n${footer.address}`);
-    return lines.join('\n');
+    return lines.join('  \n');
   }
 
   // WEBSITE - Author Box
@@ -161,7 +161,7 @@ function generateFooterPreview(
     if (footer.email) contacts.push(footer.email);
     if (footer.website) contacts.push(footer.website);
     if (contacts.length > 0) lines.push(contacts.join(' | '));
-    return lines.join('\n');
+    return lines.join('  \n');
   }
 
   // TWITTER / TIKTOK / YOUTUBE - Compact CTA
@@ -174,7 +174,7 @@ function generateFooterPreview(
       if (footer.website) parts.push(`→ ${footer.website}`);
       else if (footer.phone) parts.push(`Tel: ${footer.phone}`);
     }
-    return parts.join('\n');
+    return parts.join('  \n');
   }
 
   // ZALO OA / TELEGRAM - Clean Professional
@@ -187,7 +187,7 @@ function generateFooterPreview(
       if (footer.phone) lines.push(`Hotline: ${footer.phone}`);
       if (footer.website) lines.push(`Web: ${footer.website}`);
     }
-    return lines.join('\n');
+    return lines.join('  \n');
   }
 
   // Default format
@@ -195,7 +195,7 @@ function generateFooterPreview(
   if (footer.phone) lines.push(useEmoji ? `📞 ${footer.phone}` : `Tel: ${footer.phone}`);
   if (footer.email) lines.push(useEmoji ? `📧 ${footer.email}` : `Email: ${footer.email}`);
   if (footer.website) lines.push(useEmoji ? `🌐 ${footer.website}` : `Web: ${footer.website}`);
-  return lines.join('\n');
+  return lines.join('  \n');
 }
 
 // Footer Preview Component
