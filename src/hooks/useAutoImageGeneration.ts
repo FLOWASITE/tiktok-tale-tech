@@ -105,7 +105,8 @@ export function useAutoImageGeneration() {
               baseImageUrl: finalImageUrl,
               logoUrl,
               position: logoPosition || 'bottom-right',
-              logoSizePercent: 12,
+              // Make logo more visible by default
+              logoSizePercent: 18,
               padding: 20,
               contentId,
               channel,
