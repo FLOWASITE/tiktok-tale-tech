@@ -87,7 +87,7 @@ function ActionButton({
 }
 
 // Facebook Post Mockup - Match official FB design
-function FacebookMockup({ content, brandName, logoUrl, isGenerating }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [liked, setLiked] = useState(false);
   
   return (
@@ -127,6 +127,17 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating }: Omit<Chan
           </div>
         )}
       </div>
+
+      {/* Image - show if available */}
+      {channelImage && (
+        <div className="w-full aspect-video bg-[#f0f2f5] dark:bg-[#3a3b3c]">
+          <img 
+            src={channelImage} 
+            alt="Post image" 
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
       {/* Reactions bar */}
       <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#dadde1] dark:border-[#3e4042]">
@@ -183,7 +194,7 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating }: Omit<Chan
 }
 
 // LinkedIn Post Mockup - Match official LinkedIn design
-function LinkedInMockup({ content, brandName, logoUrl, isGenerating }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function LinkedInMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [liked, setLiked] = useState(false);
   
   return (
@@ -224,6 +235,17 @@ function LinkedInMockup({ content, brandName, logoUrl, isGenerating }: Omit<Chan
           </div>
         )}
       </div>
+
+      {/* Image - show if available */}
+      {channelImage && (
+        <div className="w-full aspect-[1.91/1] bg-[#00000014] dark:bg-[#ffffff14]">
+          <img 
+            src={channelImage} 
+            alt="Article image" 
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
       {/* Engagement counts */}
       <div className="px-4 py-2 flex items-center justify-between border-t border-[#00000014] dark:border-[#ffffff14]">
@@ -284,7 +306,7 @@ function LinkedInMockup({ content, brandName, logoUrl, isGenerating }: Omit<Chan
 }
 
 // Instagram Post Mockup - Match official IG design
-function InstagramMockup({ content, brandName, logoUrl, isGenerating }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -320,15 +342,23 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating }: Omit<Cha
         </button>
       </div>
 
-      {/* Image placeholder */}
+      {/* Image */}
       <div 
-        className="aspect-square bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30 flex items-center justify-center relative cursor-pointer select-none"
+        className="aspect-square bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30 flex items-center justify-center relative cursor-pointer select-none overflow-hidden"
         onDoubleClick={handleDoubleClick}
       >
-        <div className="text-center">
-          <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
-          <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
-        </div>
+        {channelImage ? (
+          <img 
+            src={channelImage} 
+            alt="Post" 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="text-center">
+            <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
+            <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
+          </div>
+        )}
         
         {/* Heart animation on double click */}
         <div className={cn(
@@ -397,7 +427,7 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating }: Omit<Cha
 }
 
 // TikTok Post Mockup - Match official TikTok design
-function TikTokMockup({ content, brandName, logoUrl, isGenerating }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -405,8 +435,17 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channe
   
   return (
     <div className="bg-black rounded-xl shadow-lg overflow-hidden relative aspect-[9/16] max-h-[450px] font-['TikTokFont','Proxima_Nova',sans-serif]">
-      {/* Video background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+      {/* Video background with image or gradient */}
+      <div className="absolute inset-0">
+        {channelImage ? (
+          <img 
+            src={channelImage} 
+            alt="Video thumbnail" 
+            className="w-full h-full object-cover"
+          />
+        ) : null}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+      </div>
       
       {/* Play button overlay */}
       <div className="absolute inset-0 flex items-center justify-center">
@@ -991,13 +1030,13 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
 
   switch (channel) {
     case 'facebook':
-      return <FacebookMockup {...rest} />;
+      return <FacebookMockup {...rest} channelImage={channelImage} />;
     case 'linkedin':
-      return <LinkedInMockup {...rest} />;
+      return <LinkedInMockup {...rest} channelImage={channelImage} />;
     case 'instagram':
-      return <InstagramMockup {...rest} />;
+      return <InstagramMockup {...rest} channelImage={channelImage} />;
     case 'tiktok':
-      return <TikTokMockup {...rest} />;
+      return <TikTokMockup {...rest} channelImage={channelImage} />;
     case 'email':
       return <EmailMockup {...rest} />;
     case 'general':
