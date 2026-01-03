@@ -2,16 +2,18 @@ import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { ModelCard } from './ModelCard';
 import { 
   MODELS_BY_TYPE, 
   MODELS_BY_PROVIDER, 
   getModelInfo,
-  AIFunctionType 
+  AIFunctionType,
+  ModelInfo 
 } from '@/hooks/useAIConfig';
-import { Search, Sparkles, ExternalLink, Zap, Star, DollarSign } from 'lucide-react';
+import { useOpenRouterModels, openRouterModelToModelInfo, groupModelsByProvider } from '@/hooks/useOpenRouterModels';
+import { Search, Sparkles, ExternalLink, Zap, Star, DollarSign, Loader2, RefreshCw, Brain, Code, Image } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface ModelSelectorProps {
   open: boolean;
@@ -23,7 +25,7 @@ interface ModelSelectorProps {
   hasOpenRouterApiKey: boolean;
 }
 
-type FilterType = 'all' | 'fast' | 'quality' | 'cheap';
+type FilterType = 'all' | 'fast' | 'quality' | 'cheap' | 'reasoning' | 'coding' | 'multimodal';
 type ProviderFilter = 'all' | 'lovable' | 'openrouter';
 
 export function ModelSelector({
@@ -39,22 +41,33 @@ export function ModelSelector({
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
 
+  // Fetch OpenRouter models dynamically
+  const { 
+    data: openRouterModels = [], 
+    isLoading: isLoadingModels, 
+    refetch: refetchModels,
+    isRefetching 
+  } = useOpenRouterModels(hasOpenRouterApiKey && functionType === 'text');
+
   // Get available models based on function type
   const availableModels = useMemo(() => {
     const lovableModels = MODELS_BY_TYPE[functionType] || MODELS_BY_TYPE.text;
-    const openRouterModels = hasOpenRouterApiKey && functionType === 'text' 
-      ? MODELS_BY_PROVIDER.openrouter 
-      : [];
     
     return {
       lovable: lovableModels,
       openrouter: openRouterModels,
     };
-  }, [functionType, hasOpenRouterApiKey]);
+  }, [functionType, openRouterModels]);
+
+  // Group OpenRouter models by provider
+  const groupedOpenRouterModels = useMemo(() => {
+    return groupModelsByProvider(openRouterModels);
+  }, [openRouterModels]);
 
   // Filter models based on search, filter, and provider
   const filteredModels = useMemo(() => {
-    const filterFn = (modelId: string) => {
+    // Filter Lovable models
+    const filterLovableFn = (modelId: string) => {
       const info = getModelInfo(modelId);
       
       // Search filter
@@ -81,8 +94,42 @@ export function ModelSelector({
       }
     };
 
-    let lovableFiltered = availableModels.lovable.filter(filterFn);
-    let openrouterFiltered = availableModels.openrouter.filter(filterFn);
+    // Filter OpenRouter models
+    const filterOpenRouterFn = (model: typeof openRouterModels[0]) => {
+      const info = openRouterModelToModelInfo(model);
+      
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          model.id.toLowerCase().includes(query) ||
+          model.name.toLowerCase().includes(query) ||
+          model.provider.toLowerCase().includes(query) ||
+          (model.description?.toLowerCase().includes(query) || false);
+        if (!matchesSearch) return false;
+      }
+
+      // Category filters
+      switch (activeFilter) {
+        case 'fast':
+          return info.speed === 'fast' || model.category === 'fast';
+        case 'quality':
+          return info.quality === 'premium' || model.category === 'flagship';
+        case 'cheap':
+          return info.cost === 'low' || model.category === 'cheap';
+        case 'reasoning':
+          return model.category === 'reasoning';
+        case 'coding':
+          return model.category === 'coding';
+        case 'multimodal':
+          return model.category === 'multimodal';
+        default:
+          return true;
+      }
+    };
+
+    let lovableFiltered = availableModels.lovable.filter(filterLovableFn);
+    let openrouterFiltered = availableModels.openrouter.filter(filterOpenRouterFn);
 
     // Apply provider filter
     if (providerFilter === 'lovable') {
@@ -97,13 +144,18 @@ export function ModelSelector({
     };
   }, [availableModels, searchQuery, activeFilter, providerFilter]);
 
+  // Group filtered OpenRouter models
+  const filteredGroupedOpenRouter = useMemo(() => {
+    return groupModelsByProvider(filteredModels.openrouter);
+  }, [filteredModels.openrouter]);
+
   const handleSelectModel = (modelId: string | null) => {
     onSelectModel(modelId);
     onOpenChange(false);
   };
 
   const totalModels = filteredModels.lovable.length + filteredModels.openrouter.length;
-  const hasOpenRouter = availableModels.openrouter.length > 0;
+  const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -139,6 +191,7 @@ export function ModelSelector({
               onClick={() => setProviderFilter('openrouter')}
               provider="openrouter"
               count={availableModels.openrouter.length}
+              isLoading={isLoadingModels}
             >
               <span className="hidden sm:inline">OpenRouter</span>
               <span className="sm:hidden">OR</span>
@@ -156,9 +209,20 @@ export function ModelSelector({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9 sm:h-10 text-sm"
             />
+            {hasOpenRouter && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => refetchModels()}
+                disabled={isRefetching}
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", isRefetching && "animate-spin")} />
+              </Button>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
             <FilterButton 
               active={activeFilter === 'all'} 
               onClick={() => setActiveFilter('all')}
@@ -179,7 +243,7 @@ export function ModelSelector({
               icon={<Star className="h-3 w-3" />}
               hideTextOnMobile
             >
-              Chất lượng
+              Premium
             </FilterButton>
             <FilterButton 
               active={activeFilter === 'cheap'} 
@@ -187,8 +251,36 @@ export function ModelSelector({
               icon={<DollarSign className="h-3 w-3" />}
               hideTextOnMobile
             >
-              Tiết kiệm
+              Rẻ
             </FilterButton>
+            {hasOpenRouter && (
+              <>
+                <FilterButton 
+                  active={activeFilter === 'reasoning'} 
+                  onClick={() => setActiveFilter('reasoning')}
+                  icon={<Brain className="h-3 w-3" />}
+                  hideTextOnMobile
+                >
+                  Reasoning
+                </FilterButton>
+                <FilterButton 
+                  active={activeFilter === 'coding'} 
+                  onClick={() => setActiveFilter('coding')}
+                  icon={<Code className="h-3 w-3" />}
+                  hideTextOnMobile
+                >
+                  Coding
+                </FilterButton>
+                <FilterButton 
+                  active={activeFilter === 'multimodal'} 
+                  onClick={() => setActiveFilter('multimodal')}
+                  icon={<Image className="h-3 w-3" />}
+                  hideTextOnMobile
+                >
+                  Vision
+                </FilterButton>
+              </>
+            )}
             <span className="text-[10px] sm:text-xs text-muted-foreground ml-auto">
               {totalModels} models
             </span>
@@ -244,38 +336,68 @@ export function ModelSelector({
               </div>
             )}
 
-            {/* OpenRouter Models */}
-            {filteredModels.openrouter.length > 0 && (
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/20 sticky top-0 z-10">
-                  <div className="w-2 h-2 rounded-full bg-orange-500" />
-                  <ExternalLink className="h-4 w-4 text-orange-500" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-xs sm:text-sm text-orange-700 dark:text-orange-400">OpenRouter</h3>
-                    <p className="text-[10px] sm:text-xs text-orange-600/70 dark:text-orange-400/70 truncate">
-                      200+ models, yêu cầu API key
-                    </p>
+            {/* OpenRouter Models - Grouped by Provider */}
+            {hasOpenRouter && (
+              <>
+                {isLoadingModels ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">Đang tải models từ OpenRouter...</span>
                   </div>
-                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-green-500/10 text-green-600 border-green-500/30">
-                    API Key ✓
-                  </Badge>
-                </div>
-                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
-                  {filteredModels.openrouter.map((modelId) => (
-                    <ModelCard
-                      key={modelId}
-                      modelId={modelId}
-                      info={getModelInfo(modelId)}
-                      isSelected={selectedModel === modelId}
-                      onClick={() => handleSelectModel(modelId)}
-                    />
-                  ))}
-                </div>
-              </div>
+                ) : filteredModels.openrouter.length > 0 ? (
+                  <div className="space-y-4">
+                    {/* OpenRouter Header */}
+                    <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/20 sticky top-0 z-10">
+                      <div className="w-2 h-2 rounded-full bg-orange-500" />
+                      <ExternalLink className="h-4 w-4 text-orange-500" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-xs sm:text-sm text-orange-700 dark:text-orange-400">OpenRouter</h3>
+                        <p className="text-[10px] sm:text-xs text-orange-600/70 dark:text-orange-400/70 truncate">
+                          {Object.keys(filteredGroupedOpenRouter).length} providers, {filteredModels.openrouter.length} models
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-green-500/10 text-green-600 border-green-500/30">
+                        API Key ✓
+                      </Badge>
+                    </div>
+
+                    {/* Models grouped by provider */}
+                    {Object.entries(filteredGroupedOpenRouter).map(([providerName, models]) => (
+                      <div key={providerName} className="space-y-2">
+                        <div className="flex items-center gap-2 px-2">
+                          <span className="text-xs font-medium text-muted-foreground">{providerName}</span>
+                          <div className="flex-1 h-px bg-border" />
+                          <span className="text-[10px] text-muted-foreground">{models.length}</span>
+                        </div>
+                        <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                          {models.map((model) => {
+                            const modelInfo = openRouterModelToModelInfo(model);
+                            return (
+                              <ModelCard
+                                key={model.id}
+                                modelId={model.id}
+                                info={modelInfo as ModelInfo}
+                                isSelected={selectedModel === model.id}
+                                onClick={() => handleSelectModel(model.id)}
+                                pricing={model.pricing}
+                                contextLength={model.contextLength}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : providerFilter === 'openrouter' && searchQuery ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <p className="text-sm">Không tìm thấy model OpenRouter phù hợp</p>
+                  </div>
+                ) : null}
+              </>
             )}
 
             {/* No results */}
-            {totalModels === 0 && (
+            {totalModels === 0 && !isLoadingModels && (
               <div className="text-center py-6 sm:py-8 text-muted-foreground">
                 <p className="text-sm">Không tìm thấy model phù hợp</p>
                 <p className="text-xs sm:text-sm">Thử thay đổi bộ lọc hoặc từ khóa</p>
@@ -295,9 +417,10 @@ interface ProviderTabProps {
   children: React.ReactNode;
   provider?: 'lovable' | 'openrouter';
   count?: number;
+  isLoading?: boolean;
 }
 
-function ProviderTab({ active, onClick, children, provider, count }: ProviderTabProps) {
+function ProviderTab({ active, onClick, children, provider, count, isLoading }: ProviderTabProps) {
   const providerColors = {
     lovable: 'text-blue-600 bg-blue-500/10',
     openrouter: 'text-orange-600 bg-orange-500/10',
@@ -320,14 +443,16 @@ function ProviderTab({ active, onClick, children, provider, count }: ProviderTab
         )} />
       )}
       {children}
-      {count !== undefined && (
+      {isLoading ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : count !== undefined ? (
         <Badge variant="secondary" className={cn(
           "text-[8px] sm:text-[9px] py-0 px-1 ml-0.5",
           active && provider ? providerColors[provider] : ""
         )}>
           {count}
         </Badge>
-      )}
+      ) : null}
     </button>
   );
 }

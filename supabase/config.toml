@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.encrypt-api-key]
 verify_jwt = false
+
+[functions.fetch-openrouter-models]
+verify_jwt = false
