@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_channel_model_configs: {
+        Row: {
+          channel: string
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          max_tokens: number | null
+          model_override: string | null
+          organization_id: string | null
+          priority: number | null
+          temperature: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_tokens?: number | null
+          model_override?: string | null
+          organization_id?: string | null
+          priority?: number | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_tokens?: number | null
+          model_override?: string | null
+          organization_id?: string | null
+          priority?: number | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_channel_model_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_function_configs: {
         Row: {
           cache_ttl_hours: number | null

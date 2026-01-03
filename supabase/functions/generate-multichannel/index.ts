@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
-import { getAIConfig } from "../_shared/ai-config.ts";
+import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";
 import { callAI } from "../_shared/ai-provider.ts";
 import { 
   buildExtendedBrandPrompt,
@@ -1770,6 +1770,12 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     // Fetch AI config from database for runtime configuration
     const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
     console.log(`[ai-config] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}, max_tokens: ${aiConfig.max_tokens}`);
+
+    // Fetch channel-specific model configs (for future per-channel generation)
+    const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
+    if (channelModelConfigs.size > 0) {
+      console.log(`[ai-config] Channel model overrides: ${Array.from(channelModelConfigs.entries()).map(([ch, cfg]) => `${ch}=${cfg.model}`).join(', ')}`);
+    }
 
     // Define the AI generation function with dynamic prompt using callAI (multi-provider support)
     const generateAIContent = async (currentPrompt: string) => {
