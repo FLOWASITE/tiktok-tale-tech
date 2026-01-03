@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2, ChevronDown, ChevronUp, Bot } from 'lucide-react';
+import { Sparkles, Loader2, ChevronDown, ChevronUp, Bot, RefreshCw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,9 @@ import {
   GENERATION_STEPS, 
   calculateStepDurations, 
   calculateTotalDuration,
-  PROGRESS_CAP_PERCENT 
+  PROGRESS_CAP_PERCENT,
+  STEP_PROGRESS_MAP,
+  type ProgressStepId,
 } from './progressConstants';
 
 interface GeneratingBannerProps {
@@ -16,6 +18,11 @@ interface GeneratingBannerProps {
   channelCount: number;
   elapsedMs?: number;
   className?: string;
+  // Real-time progress from SSE streaming
+  sseStep?: string;
+  sseProgress?: number;
+  sseMessage?: string;
+  retryCount?: number;
 }
 
 export function GeneratingBanner({
@@ -23,6 +30,10 @@ export function GeneratingBanner({
   channelCount,
   elapsedMs: externalElapsedMs,
   className,
+  sseStep,
+  sseProgress,
+  sseMessage,
+  retryCount = 0,
 }: GeneratingBannerProps) {
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -33,9 +44,9 @@ export function GeneratingBanner({
   const steps = useMemo(() => calculateStepDurations(channelCount), [channelCount]);
   const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
 
-  // Internal timer if no external elapsed provided
+  // Internal timer if no external elapsed provided and no SSE progress
   useEffect(() => {
-    if (!isGenerating || externalElapsedMs !== undefined) {
+    if (!isGenerating || externalElapsedMs !== undefined || sseProgress !== undefined) {
       if (!isGenerating) setInternalElapsedMs(0);
       return;
     }
@@ -45,24 +56,30 @@ export function GeneratingBanner({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isGenerating, externalElapsedMs]);
+  }, [isGenerating, externalElapsedMs, sseProgress]);
 
-  // Calculate current step based on elapsed time
-  const { currentStepIndex, stepProgress } = useMemo(() => {
+  // Find step index from SSE step ID or calculate from time
+  const { currentStepIndex, stepProgress: calculatedStepProgress } = useMemo(() => {
+    // If SSE step is provided, use it
+    if (sseStep) {
+      const sseIndex = steps.findIndex(s => s.id === sseStep);
+      if (sseIndex >= 0) {
+        return { currentStepIndex: sseIndex, stepProgress: 0.5 };
+      }
+    }
+
+    // Fallback: calculate from elapsed time
     let accumulated = 0;
-
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      
       if (elapsedMs < accumulated + step.duration) {
         const progress = (elapsedMs - accumulated) / step.duration;
         return { currentStepIndex: i, stepProgress: Math.min(progress, 1) };
       }
       accumulated += step.duration;
     }
-
     return { currentStepIndex: steps.length - 1, stepProgress: 1 };
-  }, [elapsedMs, steps]);
+  }, [elapsedMs, steps, sseStep]);
 
   // Estimated remaining time
   const estimatedRemainingSeconds = useMemo(() => {
@@ -70,15 +87,20 @@ export function GeneratingBanner({
     return Math.ceil(remaining / 1000);
   }, [elapsedMs, totalDuration]);
 
-  // Calculate overall progress percentage (capped at 95%)
+  // Calculate overall progress percentage - prefer SSE progress if available
   const progressPercent = useMemo(() => {
-    const rawPercent = ((currentStepIndex + stepProgress) / steps.length) * 100;
+    if (sseProgress !== undefined) {
+      return Math.min(PROGRESS_CAP_PERCENT, sseProgress);
+    }
+    const rawPercent = ((currentStepIndex + calculatedStepProgress) / steps.length) * 100;
     return Math.min(PROGRESS_CAP_PERCENT, rawPercent);
-  }, [currentStepIndex, stepProgress, steps.length]);
+  }, [sseProgress, currentStepIndex, calculatedStepProgress, steps.length]);
 
   if (!isGenerating) return null;
 
-  const currentStep = steps[currentStepIndex];
+  const activeStep = steps[currentStepIndex];
+  // Display message: prefer SSE message, then step label
+  const displayMessage = sseMessage || activeStep?.label || 'Đang xử lý...';
 
   return (
     <AnimatePresence>
@@ -91,12 +113,12 @@ export function GeneratingBanner({
       >
         <Card className="border-primary/30 bg-gradient-to-r from-primary/5 via-primary/10 to-secondary/5 shadow-lg shadow-primary/5 overflow-hidden">
           {/* Progress bar at top */}
-          <div className="h-1 bg-primary/10 relative overflow-hidden">
+          <div className="h-1.5 bg-primary/10 relative overflow-hidden">
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-secondary"
               initial={{ width: '0%' }}
               animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
             />
             {/* Shimmer effect */}
             <motion.div
@@ -132,26 +154,35 @@ export function GeneratingBanner({
                     <h3 className="font-semibold text-foreground truncate">
                       AI đang tạo nội dung đa kênh
                     </h3>
+                    {retryCount > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                        <RefreshCw className="w-3 h-3" />
+                        Retry {retryCount}
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2">
                     <span>Đang xử lý {channelCount} kênh</span>
                     <span className="text-primary/60">•</span>
-                    <span className="text-primary font-medium">{currentStep?.label}</span>
+                    <span className="text-primary font-medium truncate">{displayMessage}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Right: Time and expand button */}
+              {/* Right: Progress percentage and expand button */}
               <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="text-right hidden sm:block">
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                    <span>
+                    <span className="font-medium text-primary">
+                      {Math.round(progressPercent)}%
+                    </span>
+                    <span className="text-muted-foreground/70">
                       {estimatedRemainingSeconds > 5 
-                        ? `~${estimatedRemainingSeconds}s còn lại`
+                        ? `~${estimatedRemainingSeconds}s`
                         : estimatedRemainingSeconds > 0
-                          ? 'Sắp hoàn thành...'
-                          : 'Đang hoàn thiện...'}
+                          ? 'Sắp xong'
+                          : '...'}
                     </span>
                   </div>
                 </div>
@@ -212,6 +243,11 @@ export function GeneratingBanner({
                           {/* Step label */}
                           <span className={cn('flex-1', isCurrent && 'text-foreground font-medium')}>
                             {step.label}
+                            {isCurrent && step.id === 'retry' && retryCount > 0 && (
+                              <span className="ml-2 text-xs text-amber-600">
+                                (lần {retryCount})
+                              </span>
+                            )}
                           </span>
 
                           {/* Mini progress bar for current step */}
@@ -220,14 +256,14 @@ export function GeneratingBanner({
                               <motion.div
                                 className="h-full bg-primary"
                                 initial={{ width: '0%' }}
-                                animate={{ width: `${stepProgress * 100}%` }}
+                                animate={{ width: `${calculatedStepProgress * 100}%` }}
                                 transition={{ duration: 0.2 }}
                               />
                             </div>
                           )}
 
                           {/* Loading indicator for current step */}
-                          {isCurrent && step.id === 'ai' ? (
+                          {isCurrent && (step.id === 'ai' || step.id === 'retry') ? (
                             <motion.div
                               animate={{ rotate: 360 }}
                               transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}

@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { toast } from 'sonner';
@@ -78,11 +79,37 @@ export default function MultiChannel() {
   const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
   const generationStartRef = useRef<number | null>(null);
 
+  // SSE streaming progress state
+  const [sseProgress, setSseProgress] = useState<ProgressEvent | null>(null);
+  
+  // Streaming generation hook
+  const { 
+    generate: streamGenerate, 
+    progress: streamProgress, 
+    isGenerating: isStreamGenerating,
+    cancel: cancelGeneration,
+  } = useStreamingGeneration({
+    onProgress: (event) => {
+      setSseProgress(event);
+    },
+    onComplete: () => {
+      setSseProgress(null);
+    },
+    onError: (error) => {
+      toast.error(error);
+      setSseProgress(null);
+    },
+  });
+
+  // Combined generating state
+  const isGenerating = generating || isStreamGenerating;
+
   // Track elapsed time while generating
   useEffect(() => {
-    if (!generating) {
+    if (!isGenerating) {
       setGenerationElapsedMs(0);
       generationStartRef.current = null;
+      setSseProgress(null);
       return;
     }
 
@@ -94,7 +121,7 @@ export default function MultiChannel() {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [generating]);
+  }, [isGenerating]);
 
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
@@ -405,11 +432,15 @@ export default function MultiChannel() {
         />
 
         {/* Generating Banner - Show progress card when AI is generating */}
-        {generating && (
+        {isGenerating && (
           <GeneratingBanner
-            isGenerating={generating}
+            isGenerating={isGenerating}
             channelCount={generatingChannelCount}
             elapsedMs={generationElapsedMs}
+            sseStep={sseProgress?.step}
+            sseProgress={sseProgress?.progress}
+            sseMessage={sseProgress?.message}
+            retryCount={sseProgress?.retryCount}
           />
         )}
 

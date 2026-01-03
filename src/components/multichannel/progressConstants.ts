@@ -5,16 +5,46 @@ export interface ProgressStepConfig {
   channelScaling?: number; // Additional ms per extra channel
 }
 
-// Durations aligned with backend reality (~15-25s total)
+// Step IDs that match backend SSE events
+export type ProgressStepId = 
+  | 'init' 
+  | 'brand' 
+  | 'personas' 
+  | 'industry' 
+  | 'prompt' 
+  | 'ai' 
+  | 'retry' 
+  | 'critique' 
+  | 'finalize' 
+  | 'complete';
+
+// Durations aligned with backend reality (~15-30s total, including retries)
 export const GENERATION_STEPS: ProgressStepConfig[] = [
+  { id: 'init', label: 'Khởi tạo...', baseDuration: 500 },
   { id: 'brand', label: 'Tải ngữ cảnh thương hiệu', baseDuration: 1500 },
   { id: 'personas', label: 'Phân tích personas & sản phẩm', baseDuration: 1200 },
   { id: 'industry', label: 'Tải dữ liệu ngành', baseDuration: 1000 },
   { id: 'prompt', label: 'Xây dựng prompt AI', baseDuration: 800 },
-  { id: 'ai', label: 'AI đang tạo nội dung', baseDuration: 6000, channelScaling: 1500 },
+  { id: 'ai', label: 'AI đang tạo nội dung', baseDuration: 8000, channelScaling: 2000 },
+  { id: 'retry', label: 'Retry nếu cần...', baseDuration: 5000 },
   { id: 'critique', label: 'Đánh giá chất lượng', baseDuration: 4000 },
-  { id: 'finalize', label: 'Tối ưu và hoàn thiện', baseDuration: 5000 },
+  { id: 'finalize', label: 'Lưu và hoàn thiện', baseDuration: 2000 },
+  { id: 'complete', label: 'Hoàn thành!', baseDuration: 500 },
 ];
+
+// Map step ID to progress percentage
+export const STEP_PROGRESS_MAP: Record<ProgressStepId, number> = {
+  init: 0,
+  brand: 10,
+  personas: 20,
+  industry: 30,
+  prompt: 40,
+  ai: 50,
+  retry: 65,
+  critique: 75,
+  finalize: 90,
+  complete: 100,
+};
 
 export function calculateStepDurations(channelCount: number) {
   return GENERATION_STEPS.map(step => ({
