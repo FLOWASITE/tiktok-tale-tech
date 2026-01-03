@@ -23,7 +23,8 @@ import {
   Forward,
   Star,
   Trash2,
-  MoreVertical
+  MoreVertical,
+  Check
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -101,7 +102,12 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[15px] text-[#050505] dark:text-[#e4e6eb] leading-tight hover:underline cursor-pointer transition-colors">{brandName}</p>
+          <div className="flex items-center gap-1">
+            <p className="font-semibold text-[15px] text-[#050505] dark:text-[#e4e6eb] leading-tight hover:underline cursor-pointer transition-colors">{brandName}</p>
+            <div className="w-[15px] h-[15px] bg-[#1877f2] rounded-full flex items-center justify-center flex-shrink-0">
+              <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+            </div>
+          </div>
           <div className="flex items-center gap-1 text-[13px] text-[#65676b] dark:text-[#b0b3b8]">
             <span>2 giờ</span>
             <span>·</span>
@@ -148,6 +154,9 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
             </div>
             <div className="w-[18px] h-[18px] rounded-full bg-[#f33e58] flex items-center justify-center border-2 border-white dark:border-[#242526]">
               <Heart className="w-2.5 h-2.5 text-white fill-white" />
+            </div>
+            <div className="w-[18px] h-[18px] rounded-full bg-[#f7b928] flex items-center justify-center border-2 border-white dark:border-[#242526] text-[10px]">
+              😂
             </div>
             <div className="w-[18px] h-[18px] rounded-full bg-[#f7b928] flex items-center justify-center border-2 border-white dark:border-[#242526] text-[10px]">
               😮
