@@ -39,6 +39,7 @@ interface DirectPublishButtonProps {
   content: string;
   contentId?: string;
   channel: string;
+  brandTemplateId?: string;
   disabled?: boolean;
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
@@ -69,6 +70,7 @@ export function DirectPublishButton({
   content,
   contentId,
   channel,
+  brandTemplateId,
   disabled,
   variant = 'outline',
   size = 'sm',
@@ -76,7 +78,11 @@ export function DirectPublishButton({
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
-  const { connections, getConnectionForPlatform } = useSocialConnections({ organizationId: currentOrganization?.id });
+  // Prioritize brand-level connections, fallback to organization-level
+  const { connections, getConnectionForPlatform } = useSocialConnections({ 
+    brandTemplateId,
+    organizationId: !brandTemplateId ? currentOrganization?.id : undefined,
+  });
   const { publishToTwitter, isPublishing, publishResult } = useDirectPublish();
 
   const [confirmDialog, setConfirmDialog] = useState<{

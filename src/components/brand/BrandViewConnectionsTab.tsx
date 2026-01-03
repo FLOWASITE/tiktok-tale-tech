@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -42,8 +43,11 @@ import {
   Clock,
   Music2,
   AtSign,
+  RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BrandViewConnectionsTabProps {
   template: BrandTemplate;
@@ -127,6 +131,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     isDisconnecting,
     isDeleting,
     getConnectionForPlatform,
+    refetch,
   } = useSocialConnections({ brandTemplateId: template.id });
 
   const [setupDialogOpen, setSetupDialogOpen] = useState(false);
@@ -134,6 +139,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null);
+  const [testingConnection, setTestingConnection] = useState<string | null>(null);
 
   const [twitterForm, setTwitterForm] = useState<TwitterSetupForm>({
     accessToken: '',
@@ -198,6 +204,33 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
+  const handleTestConnection = async (connectionId: string) => {
+    setTestingConnection(connectionId);
+    try {
+      const { data, error } = await supabase.functions.invoke('test-twitter-connection', {
+        body: { connectionId },
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Không thể xác minh kết nối');
+      }
+
+      toast.success('Xác minh thành công!', {
+        description: `Đã kết nối với @${data.data.username}`,
+      });
+
+      // Refetch connections to get updated data
+      refetch();
+    } catch (error: any) {
+      console.error('Test connection error:', error);
+      toast.error('Xác minh thất bại', {
+        description: error.message || 'Vui lòng kiểm tra lại API Keys',
+      });
+    } finally {
+      setTestingConnection(null);
+    }
+  };
+
   const toggleSecret = (key: string) => {
     setShowSecrets(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -205,6 +238,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const renderConnection = (platform: SocialPlatform) => {
     const config = PLATFORM_CONFIG[platform];
     const connection = getConnectionForPlatform(platform);
+    const isTesting = testingConnection === connection?.id;
 
     return (
       <div
@@ -212,12 +246,24 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors"
       >
         <div className="flex items-center gap-4">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
-            {config.icon}
-          </div>
+          {/* Platform icon or user avatar */}
+          {connection?.platform_avatar_url ? (
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={connection.platform_avatar_url} alt={connection.platform_display_name || ''} />
+              <AvatarFallback className={config.color}>
+                {config.icon}
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
+              {config.icon}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-medium">{config.name}</span>
+              <span className="font-medium">
+                {connection?.platform_display_name || config.name}
+              </span>
               {!config.available && (
                 <Badge variant="secondary" className="text-xs">
                   <Clock className="w-3 h-3 mr-1" />
@@ -225,25 +271,33 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">{config.description}</p>
-            {connection && (
+            {connection ? (
               <div className="flex items-center gap-2 mt-1">
+                {connection.platform_username && (
+                  <span className="text-sm text-muted-foreground">
+                    @{connection.platform_username}
+                  </span>
+                )}
                 {connection.is_active ? (
-                  <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Đã kết nối
-                  </Badge>
+                  connection.last_verified_at ? (
+                    <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                      <ShieldCheck className="w-3 h-3 mr-1" />
+                      Đã xác thực
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Đã kết nối
+                    </Badge>
+                  )
                 ) : (
                   <Badge variant="secondary" className="text-xs">
                     Đã ngắt
                   </Badge>
                 )}
-                {connection.platform_username && (
-                  <span className="text-xs text-muted-foreground">
-                    @{connection.platform_username}
-                  </span>
-                )}
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{config.description}</p>
             )}
           </div>
         </div>
@@ -252,15 +306,30 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           {connection ? (
             <>
               {connection.is_active && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDisconnect(connection.id)}
-                  disabled={isDisconnecting}
-                >
-                  <Unplug className="w-4 h-4 mr-1" />
-                  Ngắt
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTestConnection(connection.id)}
+                    disabled={isTesting}
+                  >
+                    {isTesting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                    )}
+                    {isTesting ? '' : 'Test'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDisconnect(connection.id)}
+                    disabled={isDisconnecting}
+                  >
+                    <Unplug className="w-4 h-4 mr-1" />
+                    Ngắt
+                  </Button>
+                </>
               )}
               <Button
                 variant="ghost"
