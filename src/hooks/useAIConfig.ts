@@ -96,6 +96,7 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
 // Known AI providers
 export const AI_PROVIDERS = [
   { type: 'lovable', name: 'Lovable AI', description: 'Built-in AI (không cần API key)', hasKey: false },
+  { type: 'openrouter', name: 'OpenRouter', description: '200+ models (Claude, GPT, Llama, Mistral...)', hasKey: true },
   { type: 'perplexity', name: 'Perplexity', description: 'Web search & research', hasKey: true, secretName: 'PERPLEXITY_API_KEY' },
   { type: 'firecrawl', name: 'Firecrawl', description: 'Web scraping & trends', hasKey: true, secretName: 'FIRECRAWL_API_KEY' },
   { type: 'openai', name: 'OpenAI', description: 'GPT-4, DALL-E', hasKey: true },
@@ -116,6 +117,17 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
     'openai/gpt-5',
     'openai/gpt-5-mini',
     'openai/gpt-5-nano',
+  ],
+  openrouter: [
+    'anthropic/claude-sonnet-4-20250514',
+    'anthropic/claude-3.5-sonnet',
+    'openai/gpt-4o',
+    'openai/gpt-4-turbo',
+    'meta-llama/llama-3.3-70b-instruct',
+    'mistralai/mistral-large',
+    'google/gemini-pro-1.5',
+    'deepseek/deepseek-chat',
+    'qwen/qwen-2.5-72b-instruct',
   ],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3', 'gpt-image-1'],
   anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-opus', 'claude-3-haiku'],

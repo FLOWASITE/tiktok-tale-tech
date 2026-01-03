@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom';
+export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter';
 
 export interface AIProviderConfig {
   apiKey: string;
@@ -41,6 +41,20 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     getKeyUrl: 'https://platform.openai.com/api-keys',
     models: ['dall-e-3', 'gpt-image-1'],
     icon: '🤖',
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    description: 'Claude, GPT-4, Llama, Mistral, Deepseek...',
+    getKeyUrl: 'https://openrouter.ai/keys',
+    models: [
+      'anthropic/claude-sonnet-4-20250514',
+      'anthropic/claude-3.5-sonnet',
+      'openai/gpt-4o',
+      'meta-llama/llama-3.3-70b-instruct',
+      'mistralai/mistral-large',
+    ],
+    icon: '🔀',
   },
   {
     id: 'replicate',
