@@ -67,9 +67,20 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Convert images to base64 for AI processing
-    const imageBase64 = btoa(String.fromCharCode(...new Uint8Array(imageArrayBuffer)));
-    const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
+    // Convert images to base64 for AI processing (chunked to avoid stack overflow)
+    const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        binary += String.fromCharCode(...chunk);
+      }
+      return btoa(binary);
+    };
+
+    const imageBase64 = arrayBufferToBase64(imageArrayBuffer);
+    const logoBase64 = arrayBufferToBase64(logoArrayBuffer);
 
     // Determine position description
     const positionDesc: Record<LogoPosition, string> = {
