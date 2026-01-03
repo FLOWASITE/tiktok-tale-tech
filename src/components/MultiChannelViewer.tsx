@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2 } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +59,7 @@ import { ActivityTimeline } from '@/components/viewer/ActivityTimeline';
 import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
+import { AutoImageGenerator } from '@/components/multichannel/AutoImageGenerator';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -244,6 +245,7 @@ export function MultiChannelViewer({
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
   const [showMockupView, setShowMockupView] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showAutoImageGenerator, setShowAutoImageGenerator] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
@@ -337,6 +339,23 @@ export function MultiChannelViewer({
 
   // Fetch Industry Memory for brand template
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryForBrand(content?.brand_template_id);
+
+  // Fetch brand template for logo URL
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (content?.brand_template_id) {
+      import('@/integrations/supabase/client').then(({ supabase }) => {
+        supabase
+          .from('brand_templates')
+          .select('logo_url')
+          .eq('id', content.brand_template_id!)
+          .single()
+          .then(({ data }) => {
+            setBrandLogoUrl(data?.logo_url || null);
+          });
+      });
+    }
+  }, [content?.brand_template_id]);
 
   // Check for industry version upgrade
   const { isOutdated: hasVersionUpgrade, latestVersion, industryName: upgradeIndustryName } = useContentVersionCheck(
@@ -676,6 +695,17 @@ export function MultiChannelViewer({
                 >
                   <Users className="w-4 h-4" />
                   <span className="hidden sm:inline">Team</span>
+                </Button>
+                
+                {/* Auto Generate Images Button */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowAutoImageGenerator(true)}
+                  className="h-8 gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/5"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tạo ảnh AI</span>
                 </Button>
                 
                 {/* Gallery Toggle */}
@@ -1270,6 +1300,18 @@ export function MultiChannelViewer({
           onCancel={handleValidationCancel}
         />
       )}
+
+      {/* Auto Image Generator Dialog */}
+      <AutoImageGenerator
+        open={showAutoImageGenerator}
+        onOpenChange={setShowAutoImageGenerator}
+        content={content}
+        brandLogoUrl={brandLogoUrl}
+        brandPrimaryColor={content.primary_color}
+        onImageGenerated={onSaveChannelImage ? async (channel, image) => {
+          await onSaveChannelImage(content.id, channel, image);
+        } : undefined}
+      />
     </Dialog>
   );
 }
