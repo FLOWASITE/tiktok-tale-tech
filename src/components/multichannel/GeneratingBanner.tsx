@@ -220,8 +220,8 @@ export function GeneratingBanner({
                       <span className="text-primary font-medium truncate">{displayMessage}</span>
                     </div>
                     
-                    {/* Per-channel progress indicators */}
-                    {totalChannels.length > 0 && sseStep === 'ai' && (
+                    {/* Per-channel progress indicators - show during ai, critique, finalize steps */}
+                    {totalChannels.length > 0 && ['ai', 'critique', 'finalize', 'retry'].includes(sseStep || '') && (
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                         {totalChannels.map((channel) => {
                           const isCompleted = completedChannels.includes(channel);
@@ -232,7 +232,11 @@ export function GeneratingBanner({
                             <motion.span
                               key={channel}
                               initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
+                              animate={{ 
+                                opacity: 1, 
+                                scale: isCompleted ? [1, 1.1, 1] : 1 
+                              }}
+                              transition={{ duration: 0.3 }}
                               className={cn(
                                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors',
                                 isCompleted && 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
@@ -246,6 +250,12 @@ export function GeneratingBanner({
                             </motion.span>
                           );
                         })}
+                        {/* Summary when all done */}
+                        {completedChannels.length === totalChannels.length && totalChannels.length > 0 && (
+                          <span className="text-green-600 dark:text-green-400 text-xs ml-1">
+                            ✓ Đã tạo xong {totalChannels.length} kênh
+                          </span>
+                        )}
                       </div>
                     )}
                     
