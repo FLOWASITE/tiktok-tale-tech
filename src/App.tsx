@@ -34,6 +34,7 @@ import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
 import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
+import AdminAI from "./pages/AdminAI";
 
 const queryClient = new QueryClient();
 
@@ -263,6 +264,16 @@ const App = () => (
                         <AdminIndustryNews />
                       </AppLayout>
                     </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* AI Management (accessible by org admins) */}
+              <Route
+                path="/admin/ai"
+                element={
+                  <ProtectedRoute>
+                    <AdminAI />
                   </ProtectedRoute>
                 }
               />
