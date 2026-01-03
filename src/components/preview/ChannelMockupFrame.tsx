@@ -579,6 +579,133 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
   );
 }
 
+// Twitter/X Post Mockup - Match official X design
+function TwitterMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+  const username = brandName.toLowerCase().replace(/\s+/g, '');
+  const [liked, setLiked] = useState(false);
+  const [retweeted, setRetweeted] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+  
+  return (
+    <div className="bg-white dark:bg-black rounded-xl border border-[#eff3f4] dark:border-[#2f3336] overflow-hidden font-['Segoe_UI',system-ui,sans-serif]">
+      {/* Header */}
+      <div className="p-4 flex items-start gap-3">
+        <Avatar className="h-10 w-10 shrink-0 transition-transform duration-200 hover:scale-105 cursor-pointer">
+          {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
+          <AvatarFallback className="bg-[#1d9bf0] text-white font-bold">
+            {brandName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-[15px] text-[#0f1419] dark:text-[#e7e9ea] hover:underline cursor-pointer">{brandName}</span>
+            <div className="w-[18px] h-[18px] bg-[#1d9bf0] rounded-full flex items-center justify-center flex-shrink-0">
+              <Check className="w-3 h-3 text-white" strokeWidth={3} />
+            </div>
+          </div>
+          <span className="text-[15px] text-[#536471] dark:text-[#71767b]">@{username}</span>
+        </div>
+        <button className="p-2 -mt-1 -mr-2 hover:bg-[#1d9bf0]/10 rounded-full transition-all duration-200">
+          <MoreHorizontal className="w-5 h-5 text-[#536471] dark:text-[#71767b]" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="px-4 pb-3">
+        {isGenerating ? (
+          <div className="space-y-2 animate-pulse">
+            <div className="h-4 bg-[#eff3f4] dark:bg-[#2f3336] rounded w-full" />
+            <div className="h-4 bg-[#eff3f4] dark:bg-[#2f3336] rounded w-5/6" />
+            <div className="h-4 bg-[#eff3f4] dark:bg-[#2f3336] rounded w-4/6" />
+          </div>
+        ) : (
+          <div className="text-[15px] text-[#0f1419] dark:text-[#e7e9ea] leading-[1.3125]">
+            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+          </div>
+        )}
+      </div>
+
+      {/* Image - show if available */}
+      {channelImage && (
+        <div className="mx-4 mb-3 rounded-2xl overflow-hidden border border-[#eff3f4] dark:border-[#2f3336]">
+          <img 
+            src={channelImage} 
+            alt="Post image" 
+            className="w-full aspect-video object-cover"
+          />
+        </div>
+      )}
+
+      {/* Time & Views */}
+      <div className="px-4 pb-3 flex items-center gap-1 text-[15px] text-[#536471] dark:text-[#71767b]">
+        <span>10:30 SA</span>
+        <span>·</span>
+        <span>3 Th1, 2026</span>
+        <span>·</span>
+        <span className="text-[#0f1419] dark:text-[#e7e9ea] font-semibold">125K</span>
+        <span>Lượt xem</span>
+      </div>
+
+      {/* Engagement stats */}
+      <div className="px-4 py-3 border-t border-[#eff3f4] dark:border-[#2f3336] flex items-center gap-5 text-[15px]">
+        <span className="hover:underline cursor-pointer">
+          <span className="font-bold text-[#0f1419] dark:text-[#e7e9ea]">{retweeted ? '1,3K' : '1,2K'}</span>
+          <span className="text-[#536471] dark:text-[#71767b]"> Reposts</span>
+        </span>
+        <span className="hover:underline cursor-pointer">
+          <span className="font-bold text-[#0f1419] dark:text-[#e7e9ea]">342</span>
+          <span className="text-[#536471] dark:text-[#71767b]"> Trích dẫn</span>
+        </span>
+        <span className="hover:underline cursor-pointer">
+          <span className="font-bold text-[#0f1419] dark:text-[#e7e9ea]">{liked ? '8,9K' : '8,8K'}</span>
+          <span className="text-[#536471] dark:text-[#71767b]"> Lượt thích</span>
+        </span>
+        <span className="hover:underline cursor-pointer">
+          <span className="font-bold text-[#0f1419] dark:text-[#e7e9ea]">{bookmarked ? '457' : '456'}</span>
+          <span className="text-[#536471] dark:text-[#71767b]"> Lưu</span>
+        </span>
+      </div>
+
+      {/* Action bar */}
+      <div className="px-4 py-2 border-t border-[#eff3f4] dark:border-[#2f3336] flex items-center justify-around">
+        <button className="p-2 hover:bg-[#1d9bf0]/10 rounded-full transition-all duration-200 group">
+          <MessageCircle className="w-5 h-5 text-[#536471] dark:text-[#71767b] group-hover:text-[#1d9bf0] transition-colors" />
+        </button>
+        <button 
+          onClick={() => setRetweeted(!retweeted)}
+          className="p-2 hover:bg-[#00ba7c]/10 rounded-full transition-all duration-200 group"
+        >
+          <Repeat2 className={cn(
+            "w-5 h-5 transition-all duration-300",
+            retweeted ? "text-[#00ba7c]" : "text-[#536471] dark:text-[#71767b] group-hover:text-[#00ba7c]"
+          )} />
+        </button>
+        <button 
+          onClick={() => setLiked(!liked)}
+          className="p-2 hover:bg-[#f91880]/10 rounded-full transition-all duration-200 group"
+        >
+          <Heart className={cn(
+            "w-5 h-5 transition-all duration-300",
+            liked ? "text-[#f91880] fill-[#f91880]" : "text-[#536471] dark:text-[#71767b] group-hover:text-[#f91880]"
+          )} />
+        </button>
+        <button 
+          onClick={() => setBookmarked(!bookmarked)}
+          className="p-2 hover:bg-[#1d9bf0]/10 rounded-full transition-all duration-200 group"
+        >
+          <Bookmark className={cn(
+            "w-5 h-5 transition-all duration-300",
+            bookmarked ? "text-[#1d9bf0] fill-[#1d9bf0]" : "text-[#536471] dark:text-[#71767b] group-hover:text-[#1d9bf0]"
+          )} />
+        </button>
+        <button className="p-2 hover:bg-[#1d9bf0]/10 rounded-full transition-all duration-200 group">
+          <Share2 className="w-5 h-5 text-[#536471] dark:text-[#71767b] group-hover:text-[#1d9bf0] transition-colors" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Email Mockup - Modern email client design
 function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [starred, setStarred] = useState(false);
@@ -1046,6 +1173,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <InstagramMockup {...rest} channelImage={channelImage} />;
     case 'tiktok':
       return <TikTokMockup {...rest} channelImage={channelImage} />;
+    case 'twitter':
+      return <TwitterMockup {...rest} channelImage={channelImage} />;
     case 'email':
       return <EmailMockup {...rest} />;
     case 'general':
