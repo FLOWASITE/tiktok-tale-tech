@@ -9,6 +9,7 @@ import { BrandViewOverviewTab } from '@/components/brand/BrandViewOverviewTab';
 import { BrandViewVoiceTab } from '@/components/brand/BrandViewVoiceTab';
 import { BrandViewStrategyTab } from '@/components/brand/BrandViewStrategyTab';
 import { BrandViewChannelsTab } from '@/components/brand/BrandViewChannelsTab';
+import { BrandViewConnectionsTab } from '@/components/brand/BrandViewConnectionsTab';
 import { BrandViewSamplesTab } from '@/components/brand/BrandViewSamplesTab';
 import { BrandViewPersonasTab } from '@/components/brand/BrandViewPersonasTab';
 import { BrandViewProductsTab } from '@/components/brand/BrandViewProductsTab';
@@ -31,6 +32,7 @@ import {
   FileText,
   Users,
   Package,
+  Share2,
 } from 'lucide-react';
 import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
 import { toast } from 'sonner';
@@ -226,6 +228,10 @@ export default function BrandView() {
             <Settings2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Kênh</span>
           </TabsTrigger>
+          <TabsTrigger value="connections" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Kết nối</span>
+          </TabsTrigger>
           <TabsTrigger value="samples" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <FileText className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Samples</span>
@@ -254,6 +260,10 @@ export default function BrandView() {
 
         <TabsContent value="channels" className="mt-4 animate-in fade-in duration-200">
           <BrandViewChannelsTab template={template} />
+        </TabsContent>
+
+        <TabsContent value="connections" className="mt-4 animate-in fade-in duration-200">
+          <BrandViewConnectionsTab template={template} />
         </TabsContent>
 
         <TabsContent value="samples" className="mt-4 animate-in fade-in duration-200">
