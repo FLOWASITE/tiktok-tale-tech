@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText, Eye, Copy, Check } from 'lucide-react';
+import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText, Eye, Copy, Check, AlertTriangle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -93,7 +93,127 @@ const linkPositionOptions = [
   { value: 'none', label: 'Không link' },
 ];
 
-// Presets
+// Valid footer template variables
+const VALID_TEMPLATE_VARIABLES = ['phone', 'email', 'website', 'address', 'company'] as const;
+type TemplateVariable = typeof VALID_TEMPLATE_VARIABLES[number];
+
+interface TemplateValidation {
+  isValid: boolean;
+  usedVariables: TemplateVariable[];
+  invalidVariables: string[];
+  missingData: { variable: TemplateVariable; label: string }[];
+}
+
+// Validate footer template
+function validateFooterTemplate(
+  template: string,
+  footerInfo: BrandFooterInfo | null | undefined,
+  companyName?: string
+): TemplateValidation {
+  const result: TemplateValidation = {
+    isValid: true,
+    usedVariables: [],
+    invalidVariables: [],
+    missingData: [],
+  };
+
+  if (!template?.trim()) return result;
+
+  // Find all {variable} patterns in template
+  const variablePattern = /\{(\w+)\}/g;
+  let match;
+  const foundVariables = new Set<string>();
+
+  while ((match = variablePattern.exec(template)) !== null) {
+    foundVariables.add(match[1]);
+  }
+
+  // Check each found variable
+  foundVariables.forEach((variable) => {
+    if (VALID_TEMPLATE_VARIABLES.includes(variable as TemplateVariable)) {
+      result.usedVariables.push(variable as TemplateVariable);
+      
+      // Check if data exists for this variable
+      const dataMap: Record<TemplateVariable, { exists: boolean; label: string }> = {
+        phone: { exists: !!footerInfo?.phone, label: 'Số điện thoại' },
+        email: { exists: !!footerInfo?.email, label: 'Email' },
+        website: { exists: !!footerInfo?.website, label: 'Website' },
+        address: { exists: !!footerInfo?.address, label: 'Địa chỉ' },
+        company: { exists: !!(companyName || footerInfo?.company_name), label: 'Tên công ty' },
+      };
+
+      const varData = dataMap[variable as TemplateVariable];
+      if (!varData.exists) {
+        result.missingData.push({ variable: variable as TemplateVariable, label: varData.label });
+      }
+    } else {
+      result.invalidVariables.push(variable);
+      result.isValid = false;
+    }
+  });
+
+  return result;
+}
+
+// Template Validation Display Component
+interface TemplateValidationDisplayProps {
+  template: string;
+  footerInfo: BrandFooterInfo | null | undefined;
+  companyName?: string;
+}
+
+function TemplateValidationDisplay({ template, footerInfo, companyName }: TemplateValidationDisplayProps) {
+  const validation = useMemo(
+    () => validateFooterTemplate(template, footerInfo, companyName),
+    [template, footerInfo, companyName]
+  );
+
+  if (!template?.trim()) return null;
+
+  const hasIssues = validation.invalidVariables.length > 0 || validation.missingData.length > 0;
+  if (!hasIssues) return null;
+
+  return (
+    <div className="space-y-1.5">
+      {/* Invalid variables - Error */}
+      {validation.invalidVariables.length > 0 && (
+        <div className="flex items-start gap-2 p-2 rounded-md bg-destructive/10 border border-destructive/30">
+          <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <p className="font-medium text-destructive">Biến không hợp lệ:</p>
+            <p className="text-destructive/80">
+              {validation.invalidVariables.map(v => `{${v}}`).join(', ')}
+            </p>
+            <p className="text-muted-foreground mt-1">
+              Biến hợp lệ: {VALID_TEMPLATE_VARIABLES.map(v => `{${v}}`).join(', ')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Missing data - Warning */}
+      {validation.missingData.length > 0 && (
+        <div className="flex items-start gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <p className="font-medium text-amber-600 dark:text-amber-400">Thiếu dữ liệu:</p>
+            <ul className="list-disc list-inside text-amber-600/80 dark:text-amber-400/80">
+              {validation.missingData.map(({ variable, label }) => (
+                <li key={variable}>
+                  <code className="bg-amber-500/20 px-1 rounded">{`{${variable}}`}</code> - {label}
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted-foreground mt-1">
+              Vui lòng cập nhật Footer Info ở Step 1 để hiển thị đúng.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Generate footer preview - client-side equivalent of formatFooterInfo
 function generateFooterPreview(
   channel: Channel,
@@ -550,6 +670,13 @@ function ChannelSettingRow({
                   value={currentFooterTemplate}
                   onChange={(e) => onUpdate({ footer_template: e.target.value })}
                   className="text-xs min-h-[80px] resize-y"
+                />
+                
+                {/* Template Validation */}
+                <TemplateValidationDisplay
+                  template={currentFooterTemplate}
+                  footerInfo={footerInfo}
+                  companyName={companyName}
                 />
                 
                 {/* Footer Preview */}
