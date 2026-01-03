@@ -465,6 +465,12 @@ export default function ContentCalendar() {
     }
   };
 
+  const handleExpandChannels = async (contentId: string, newChannels: Channel[]) => {
+    const updated = await expandChannels(contentId, newChannels);
+    if (updated) setSelectedContent(updated);
+    return updated;
+  };
+
   // Handle scheduling a topic from Topics Hub
   const handleScheduleTopic = async (data: ScheduleTopicData) => {
     setIsSchedulingTopic(true);
@@ -885,7 +891,7 @@ export default function ContentCalendar() {
         onAIEdit={aiEditChannel}
         onUpdateTitleTopic={updateTitleTopic}
         onUpdateChannelStatus={updateChannelStatus}
-        onExpandChannels={expandChannels}
+        onExpandChannels={handleExpandChannels}
         expandingChannels={expandingChannels}
       />
 
