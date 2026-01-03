@@ -104,3 +104,9 @@ verify_jwt = false
 
 [functions.firecrawl-trends]
 verify_jwt = false
+
+[functions.generate-brand-image]
+verify_jwt = false
+
+[functions.overlay-brand-logo]
+verify_jwt = false
