@@ -32,18 +32,26 @@ import {
   Crown,
   UserCheck,
   Calendar,
-  ShieldAlert,
   Database,
   CalendarDays,
   Newspaper,
+  Brain,
+  Plug,
+  Settings,
+  BarChart3,
+  LayoutDashboard,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import CacheAnalytics from "@/components/admin/CacheAnalytics";
+import { AIDashboard } from "@/components/admin/ai/AIDashboard";
+import { AIProviderManager } from "@/components/admin/ai/AIProviderManager";
+import { AIFunctionConfigComponent } from "@/components/admin/ai/AIFunctionConfig";
 import { Link } from "react-router-dom";
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("users");
+  const [aiSubTab, setAiSubTab] = useState("dashboard");
   const {
     users,
     stats,
@@ -110,9 +118,9 @@ export default function Admin() {
             <Users className="h-4 w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="cache" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            AI Cache
+          <TabsTrigger value="ai" className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            AI Management
           </TabsTrigger>
           <TabsTrigger value="curated" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
@@ -363,8 +371,51 @@ export default function Admin() {
       </Card>
         </TabsContent>
 
-        <TabsContent value="cache" className="mt-6">
-          <CacheAnalytics />
+        <TabsContent value="ai" className="mt-6">
+          <Tabs value={aiSubTab} onValueChange={setAiSubTab}>
+            <TabsList className="grid grid-cols-5 w-full max-w-2xl mb-6">
+              <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="providers" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Plug className="h-4 w-4" />
+                <span className="hidden sm:inline">Providers</span>
+              </TabsTrigger>
+              <TabsTrigger value="functions" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Functions</span>
+              </TabsTrigger>
+              <TabsTrigger value="metrics" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Metrics</span>
+              </TabsTrigger>
+              <TabsTrigger value="cache" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Database className="h-4 w-4" />
+                <span className="hidden sm:inline">Cache</span>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="dashboard">
+              <AIDashboard />
+            </TabsContent>
+            
+            <TabsContent value="providers">
+              <AIProviderManager />
+            </TabsContent>
+            
+            <TabsContent value="functions">
+              <AIFunctionConfigComponent />
+            </TabsContent>
+            
+            <TabsContent value="metrics">
+              <AIDashboard />
+            </TabsContent>
+            
+            <TabsContent value="cache">
+              <CacheAnalytics />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="curated" className="mt-6">
