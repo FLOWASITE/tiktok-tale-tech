@@ -18,6 +18,9 @@ verify_jwt = false
 [functions.generate-multichannel]
 verify_jwt = false
 
+[functions.generate-multichannel-stream]
+verify_jwt = false
+
 [functions.regenerate-channel]
 verify_jwt = false
 
