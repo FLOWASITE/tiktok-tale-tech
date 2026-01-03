@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,11 +6,11 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useAIConfig, AI_FUNCTIONS, MODELS_BY_TYPE, AIFunctionType, AIFunctionConfig as FunctionConfigType } from '@/hooks/useAIConfig';
-import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, Type, Globe } from 'lucide-react';
+import { useAIConfig, AI_FUNCTIONS, MODELS_BY_TYPE, MODELS_BY_PROVIDER, AIFunctionType, AIFunctionConfig as FunctionConfigType } from '@/hooks/useAIConfig';
+import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, Type, Globe, ExternalLink } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface AIFunctionConfigProps {
@@ -44,22 +44,27 @@ const TYPE_BADGES: Record<AIFunctionType, { label: string; className: string; ic
   search: { label: 'Search', className: 'bg-green-500/20 text-green-600 border-green-500/30', icon: <Globe className="h-3 w-3" /> },
 };
 
-// Helper function to get models for a function type
-const getModelsForFunction = (functionName: string): string[] => {
-  const func = AI_FUNCTIONS.find(f => f.name === functionName);
-  if (!func) return MODELS_BY_TYPE.text;
-  return MODELS_BY_TYPE[func.type] || MODELS_BY_TYPE.text;
-};
-
 // Helper function to get function metadata
 const getFunctionMeta = (functionName: string) => {
   return AI_FUNCTIONS.find(f => f.name === functionName);
 };
 
+// Check if a model belongs to OpenRouter
+const isOpenRouterModel = (model: string): boolean => {
+  return MODELS_BY_PROVIDER.openrouter.includes(model);
+};
+
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
-  const { functions, isLoading, upsertFunction } = useAIConfig(organizationId);
+  const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Check if OpenRouter provider has API key configured
+  const hasOpenRouterApiKey = useMemo(() => {
+    return providers.some(
+      p => p.providerType === 'openrouter' && p.encryptedApiKey && p.isActive
+    );
+  }, [providers]);
 
   const handleSaveFunction = () => {
     if (!editingFunction?.functionName) return;
@@ -148,12 +153,20 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm font-mono text-xs">
-                        {displayModel}
-                      </span>
-                      {config?.modelOverride && (
-                        <Badge variant="outline" className="ml-2 text-xs">Override</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono text-xs">
+                          {displayModel}
+                        </span>
+                        {config?.modelOverride && (
+                          <Badge variant="outline" className="text-xs">Override</Badge>
+                        )}
+                        {isOpenRouterModel(displayModel) && (
+                          <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-600 border-orange-500/30">
+                            <ExternalLink className="h-2.5 w-2.5 mr-1" />
+                            OpenRouter
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">
@@ -243,18 +256,44 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                     <SelectItem value="_default">
                       Mặc định ({getFunctionMeta(editingFunction.functionName!)?.currentModel || 'Auto'})
                     </SelectItem>
-                    {getModelsForFunction(editingFunction.functionName!).map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
-                        {model === getFunctionMeta(editingFunction.functionName!)?.currentModel && (
-                          <span className="ml-2 text-muted-foreground">(recommended)</span>
-                        )}
-                      </SelectItem>
-                    ))}
+                    
+                    {/* Lovable AI Models */}
+                    <SelectGroup>
+                      <SelectLabel className="text-xs text-muted-foreground font-semibold">
+                        Lovable AI
+                      </SelectLabel>
+                      {(MODELS_BY_TYPE[getFunctionMeta(editingFunction.functionName!)?.type || 'text'] || MODELS_BY_TYPE.text).map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
+                          {model === getFunctionMeta(editingFunction.functionName!)?.currentModel && (
+                            <span className="ml-2 text-muted-foreground">(recommended)</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    
+                    {/* OpenRouter Models - only for text functions when API key is configured */}
+                    {hasOpenRouterApiKey && getFunctionMeta(editingFunction.functionName!)?.type === 'text' && (
+                      <SelectGroup>
+                        <SelectLabel className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
+                          <ExternalLink className="h-3 w-3" />
+                          OpenRouter
+                          <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1">API Key ✓</Badge>
+                        </SelectLabel>
+                        {MODELS_BY_PROVIDER.openrouter.map((model) => (
+                          <SelectItem key={model} value={model}>
+                            {model}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Chỉ hiển thị models phù hợp với loại function ({getFunctionMeta(editingFunction.functionName!)?.type})
+                  {hasOpenRouterApiKey && getFunctionMeta(editingFunction.functionName!)?.type === 'text' 
+                    ? 'Lovable AI + OpenRouter models khả dụng'
+                    : `Chỉ hiển thị models Lovable AI (${getFunctionMeta(editingFunction.functionName!)?.type})`
+                  }
                 </p>
               </div>
 
