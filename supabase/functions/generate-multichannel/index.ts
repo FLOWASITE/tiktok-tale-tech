@@ -1626,6 +1626,8 @@ const channelDescriptions: Record<string, string> = {
       youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
       zalo_oa: "Nội dung Zalo OA (60-150 chữ, thân thiện, local)",
       telegram: "Nội dung Telegram (100-500 chữ, bullet, dễ đọc)",
+      tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
+      threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
     };
 
     formData.channels.forEach(channel => {
@@ -2244,6 +2246,9 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       }
       if (generatedData.tiktok_content) {
         generatedData.tiktok_content += formatFooterInfo(footerInfo, 'tiktok', brandAllowEmoji);
+      }
+      if (generatedData.threads_content) {
+        generatedData.threads_content += formatFooterInfo(footerInfo, 'threads', brandAllowEmoji);
       }
       // Website: append to content field inside SEO object
       if (typeof generatedData.website_content === 'object' && generatedData.website_content?.content) {
