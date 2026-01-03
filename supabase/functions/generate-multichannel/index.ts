@@ -962,6 +962,28 @@ Khi tạo nội dung cho WEBSITE, BẮT BUỘC tuân thủ các quy tắc SEO sa
 - List snippet: Bullet points 5-8 items (nếu phù hợp)
 - Trả lời câu hỏi "Làm sao", "Là gì", "Tại sao" ngay đầu section
 
+### Open Graph Tags (ADVANCED):
+- OG Title: 60-90 ký tự, hấp dẫn hơn SEO title, có thể dùng emoji nếu phù hợp
+- OG Description: 150-200 ký tự, tạo curiosity, có CTA mềm
+
+### SEO Score Calculation (PHẢI tự tính và trả về seo_score_estimate):
+Tính điểm SEO dựa trên các tiêu chí sau (tổng 100 điểm):
+- Title length (50-60 chars): 15 điểm
+- Meta description (150-160 chars): 15 điểm
+- Focus keyword có trong title: 15 điểm
+- Focus keyword có trong H1: 10 điểm
+- Focus keyword trong 100 từ đầu: 10 điểm
+- Số H2 (4-6): 10 điểm
+- Word count (1000-2000): 10 điểm
+- Featured snippet provided: 10 điểm
+- Internal link anchors (2-3): 5 điểm
+→ Trả về seo_score_estimate dựa trên tính toán này
+
+### FAQ Extraction (nếu content có dạng Q&A hoặc liệt kê câu hỏi):
+- Extract 2-4 câu FAQ tự nhiên từ nội dung
+- Mỗi FAQ: question (câu hỏi tự nhiên) + answer (50-100 words trả lời súc tích)
+- Dùng để tạo FAQ Schema Markup
+
 ### Readability:
 - Sentence length: Trung bình 15-20 words
 - Paragraph length: 2-4 câu
@@ -1475,7 +1497,40 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
               description: "Loại schema markup phù hợp"
             },
             word_count: { type: "number", description: "Số từ trong content" },
-            reading_time_minutes: { type: "number", description: "Thời gian đọc ước tính (phút)" }
+            reading_time_minutes: { type: "number", description: "Thời gian đọc ước tính (phút)" },
+            // Advanced SEO fields
+            og_title: {
+              type: "string",
+              description: "Open Graph title cho Facebook/LinkedIn share (60-90 ký tự, hấp dẫn hơn SEO title)"
+            },
+            og_description: {
+              type: "string",
+              description: "Open Graph description cho social share (150-200 ký tự, tạo curiosity)"
+            },
+            keyword_density_percent: {
+              type: "number",
+              description: "Mật độ focus keyword trong content (1-2% là tối ưu)"
+            },
+            seo_score_estimate: {
+              type: "number",
+              description: "Ước tính SEO score (0-100) dựa trên: title length, meta length, keyword placement, heading structure"
+            },
+            faq_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  question: { type: "string", description: "Câu hỏi FAQ" },
+                  answer: { type: "string", description: "Câu trả lời (50-100 words)" }
+                },
+                required: ["question", "answer"]
+              },
+              description: "2-4 câu FAQ rút trích từ content (nếu phù hợp) để tạo FAQ Schema"
+            },
+            canonical_url_suggestion: {
+              type: "string",
+              description: "Gợi ý URL canonical đầy đủ (https://domain.com/slug)"
+            }
           },
           required: ["seo_title", "meta_description", "focus_keyword", "content", "heading_structure"]
         };
@@ -1616,6 +1671,84 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     }
 
     console.log("Generated content:", generatedData.title);
+
+    // ============================================
+    // POST-PROCESS: Auto-fix missing SEO fields for website
+    // ============================================
+    if (generatedData.website_content && typeof generatedData.website_content === 'object') {
+      const seo = generatedData.website_content;
+      
+      // Auto-calculate keyword density if not provided
+      if (!seo.keyword_density_percent && seo.content && seo.focus_keyword) {
+        const contentLower = seo.content.toLowerCase();
+        const keywordLower = seo.focus_keyword.toLowerCase();
+        const words = contentLower.split(/\s+/);
+        const keywordCount = words.filter((w: string) => w.includes(keywordLower)).length;
+        seo.keyword_density_percent = Math.round((keywordCount / words.length) * 100 * 100) / 100;
+      }
+      
+      // Auto-calculate SEO score if not provided
+      if (!seo.seo_score_estimate) {
+        let score = 0;
+        const titleLen = seo.seo_title?.length || 0;
+        const metaLen = seo.meta_description?.length || 0;
+        const keyword = seo.focus_keyword?.toLowerCase() || '';
+        const h2Count = seo.heading_structure?.h2s?.length || 0;
+        const wordCount = seo.word_count || seo.content?.split(/\s+/).length || 0;
+        
+        // Title length (50-60): 15 pts
+        if (titleLen >= 50 && titleLen <= 60) score += 15;
+        else if (titleLen >= 40 && titleLen <= 70) score += 10;
+        else if (titleLen > 0) score += 5;
+        
+        // Meta length (150-160): 15 pts
+        if (metaLen >= 150 && metaLen <= 160) score += 15;
+        else if (metaLen >= 120 && metaLen <= 180) score += 10;
+        else if (metaLen > 0) score += 5;
+        
+        // Keyword in title: 15 pts
+        if (keyword && seo.seo_title?.toLowerCase().includes(keyword)) score += 15;
+        
+        // Keyword in H1: 10 pts
+        if (keyword && seo.heading_structure?.h1?.toLowerCase().includes(keyword)) score += 10;
+        
+        // Keyword in first 100 words: 10 pts
+        if (keyword && seo.content) {
+          const first100 = seo.content.split(/\s+/).slice(0, 100).join(' ').toLowerCase();
+          if (first100.includes(keyword)) score += 10;
+        }
+        
+        // H2 count (4-6): 10 pts
+        if (h2Count >= 4 && h2Count <= 6) score += 10;
+        else if (h2Count >= 3) score += 7;
+        else if (h2Count >= 2) score += 4;
+        
+        // Word count (1000-2000): 10 pts
+        if (wordCount >= 1000 && wordCount <= 2000) score += 10;
+        else if (wordCount >= 800) score += 7;
+        else if (wordCount >= 500) score += 4;
+        
+        // Featured snippet: 10 pts
+        if (seo.featured_snippet) score += 10;
+        
+        // Internal link anchors: 5 pts
+        if (seo.internal_link_anchors?.length >= 2) score += 5;
+        else if (seo.internal_link_anchors?.length >= 1) score += 3;
+        
+        seo.seo_score_estimate = score;
+      }
+      
+      // Auto-generate OG title/description if not provided
+      if (!seo.og_title && seo.seo_title) {
+        seo.og_title = seo.seo_title;
+      }
+      if (!seo.og_description && seo.meta_description) {
+        seo.og_description = seo.meta_description;
+      }
+      
+      generatedData.website_content = seo;
+      console.log(`SEO auto-fix applied: density=${seo.keyword_density_percent}%, score=${seo.seo_score_estimate}`);
+    }
 
     // ============================================
     // SELF-CRITIQUE LOOP - Evaluate and refine content

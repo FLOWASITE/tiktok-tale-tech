@@ -455,46 +455,92 @@ function SchemaGenerator({ seoData, brandName }: { seoData: WebsiteSEOData; bran
 function SocialSharePreview({ seoData, brandName }: { seoData: WebsiteSEOData; brandName?: string }) {
   const domain = brandName ? `${brandName.toLowerCase().replace(/\s+/g, '')}.com` : 'example.com';
   
+  // Use AI-generated OG data if available, fallback to SEO data
+  const ogTitle = seoData.og_title || seoData.seo_title;
+  const ogDescription = seoData.og_description || seoData.meta_description;
+  
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {/* Facebook OG Preview */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Facebook className="h-3 w-3" />
-          Facebook Share
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-lg border overflow-hidden">
-          <div className="h-24 bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-            <Globe className="h-8 w-8 opacity-30" />
+    <div className="space-y-4">
+      {/* AI SEO Score Badge if available */}
+      {seoData.seo_score_estimate !== undefined && (
+        <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">AI SEO Score</span>
           </div>
-          <div className="p-3 border-t">
-            <p className="text-[10px] text-muted-foreground uppercase">{domain}</p>
-            <p className="text-sm font-medium line-clamp-1">{seoData.seo_title || 'Chưa có title'}</p>
-            <p className="text-xs text-muted-foreground line-clamp-2">{seoData.meta_description || 'Chưa có description'}</p>
+          <Badge className={cn(
+            seoData.seo_score_estimate >= 80 ? "bg-green-500" :
+            seoData.seo_score_estimate >= 60 ? "bg-blue-500" :
+            seoData.seo_score_estimate >= 40 ? "bg-amber-500" : "bg-red-500"
+          )}>
+            {seoData.seo_score_estimate}/100
+          </Badge>
+        </div>
+      )}
+      
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Facebook OG Preview */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Facebook className="h-3 w-3" />
+            Facebook Share
+          </div>
+          <div className="bg-white dark:bg-slate-900 rounded-lg border overflow-hidden">
+            <div className="h-24 bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+              <Globe className="h-8 w-8 opacity-30" />
+            </div>
+            <div className="p-3 border-t">
+              <p className="text-[10px] text-muted-foreground uppercase">{domain}</p>
+              <p className="text-sm font-medium line-clamp-1">{ogTitle || 'Chưa có title'}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">{ogDescription || 'Chưa có description'}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Twitter Card Preview */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Twitter className="h-3 w-3" />
+            Twitter Card
+          </div>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border overflow-hidden">
+            <div className="h-24 bg-gradient-to-br from-sky-500/20 to-sky-500/40 flex items-center justify-center">
+              <Globe className="h-8 w-8 opacity-30" />
+            </div>
+            <div className="p-3">
+              <p className="text-sm font-medium line-clamp-1">{ogTitle || 'Chưa có title'}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">{ogDescription || 'Chưa có description'}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                {domain}
+              </p>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Twitter Card Preview */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Twitter className="h-3 w-3" />
-          Twitter Card
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border overflow-hidden">
-          <div className="h-24 bg-gradient-to-br from-sky-500/20 to-sky-500/40 flex items-center justify-center">
-            <Globe className="h-8 w-8 opacity-30" />
+      {/* FAQ Schema Preview */}
+      {seoData.faq_items && seoData.faq_items.length > 0 && (
+        <div className="space-y-2 pt-2 border-t">
+          <h4 className="text-sm font-medium flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            FAQ Schema ({seoData.faq_items.length} items)
+          </h4>
+          <div className="space-y-2">
+            {seoData.faq_items.map((faq, idx) => (
+              <Collapsible key={idx}>
+                <CollapsibleTrigger className="flex items-center gap-2 w-full text-left text-sm p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <ChevronRight className="h-4 w-4 shrink-0" />
+                  <span className="font-medium">{faq.question}</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-6 pr-2 py-2 text-sm text-muted-foreground">
+                  {faq.answer}
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
           </div>
-          <div className="p-3">
-            <p className="text-sm font-medium line-clamp-1">{seoData.seo_title || 'Chưa có title'}</p>
-            <p className="text-xs text-muted-foreground line-clamp-2">{seoData.meta_description || 'Chưa có description'}</p>
-            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-              <Link2 className="h-3 w-3" />
-              {domain}
-            </p>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -556,9 +602,27 @@ function SEOImprovementTips({ scores }: { scores: ReturnType<typeof calculateSEO
   );
 }
 
-// Keyword Density Component
-function KeywordDensity({ content, focusKeyword }: { content: string | null; focusKeyword?: string }) {
+// Keyword Density Component - supports AI-generated density
+function KeywordDensity({ content, focusKeyword, aiDensity }: { 
+  content: string | null; 
+  focusKeyword?: string;
+  aiDensity?: number;
+}) {
   const density = useMemo(() => {
+    // Use AI-generated density if available
+    if (aiDensity !== undefined && focusKeyword) {
+      const wordCount = content?.split(/\s+/).length || 0;
+      const estimatedCount = Math.round((aiDensity / 100) * wordCount);
+      return {
+        count: estimatedCount,
+        total: wordCount,
+        percentage: aiDensity.toFixed(2),
+        status: aiDensity >= 1 && aiDensity <= 3 ? 'optimal' : aiDensity < 1 ? 'low' : 'high',
+        source: 'ai' as const
+      };
+    }
+    
+    // Fallback to manual calculation
     if (!content || !focusKeyword) return null;
     
     const words = content.toLowerCase().split(/\s+/);
@@ -571,9 +635,10 @@ function KeywordDensity({ content, focusKeyword }: { content: string | null; foc
       count: keywordCount,
       total: totalWords,
       percentage: percentage.toFixed(2),
-      status: percentage >= 1 && percentage <= 3 ? 'optimal' : percentage < 1 ? 'low' : 'high'
+      status: percentage >= 1 && percentage <= 3 ? 'optimal' : percentage < 1 ? 'low' : 'high',
+      source: 'calculated' as const
     };
-  }, [content, focusKeyword]);
+  }, [content, focusKeyword, aiDensity]);
   
   if (!density) return null;
   
@@ -582,6 +647,9 @@ function KeywordDensity({ content, focusKeyword }: { content: string | null; foc
       <h4 className="text-sm font-medium flex items-center gap-2">
         <BarChart3 className="h-4 w-4" />
         Keyword Density
+        {density.source === 'ai' && (
+          <Badge variant="outline" className="text-[10px] h-4 px-1">AI</Badge>
+        )}
       </h4>
       <div className="flex items-center gap-3">
         <div className="flex-1">
@@ -602,7 +670,7 @@ function KeywordDensity({ content, focusKeyword }: { content: string | null; foc
         </Badge>
       </div>
       <p className="text-xs text-muted-foreground">
-        "{focusKeyword}" xuất hiện {density.count} lần trong {density.total} từ
+        "{focusKeyword}" xuất hiện ~{density.count} lần trong {density.total} từ
         {density.status === 'optimal' && ' - Tối ưu!'}
         {density.status === 'low' && ' - Nên thêm keyword'}
         {density.status === 'high' && ' - Có thể bị xem là spam'}
@@ -676,7 +744,11 @@ export function WebsiteSEOPreview({ seoData, content, brandName }: WebsiteSEOPre
             
             {/* Keyword Density */}
             {seoData.focus_keyword && (
-              <KeywordDensity content={content} focusKeyword={seoData.focus_keyword} />
+              <KeywordDensity 
+                content={content} 
+                focusKeyword={seoData.focus_keyword}
+                aiDensity={seoData.keyword_density_percent}
+              />
             )}
             
             {/* Keywords */}
