@@ -100,6 +100,13 @@ export interface WebsiteSEOData {
   schema_type?: 'Article' | 'HowTo' | 'FAQ' | 'Product' | 'BlogPosting';
   word_count?: number;
   reading_time_minutes?: number;
+  // Advanced SEO fields (AI-generated)
+  og_title?: string;
+  og_description?: string;
+  keyword_density_percent?: number;
+  seo_score_estimate?: number;
+  faq_items?: Array<{ question: string; answer: string }>;
+  canonical_url_suggestion?: string;
 }
 
 export interface MultiChannelContent {
