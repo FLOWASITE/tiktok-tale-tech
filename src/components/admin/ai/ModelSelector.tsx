@@ -107,7 +107,7 @@ export function ModelSelector({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-4 sm:p-6">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -196,8 +196,8 @@ export function ModelSelector({
         </div>
 
         {/* Model List */}
-        <ScrollArea className="flex-1 -mx-4 sm:-mx-6 px-4 sm:px-6">
-          <div className="space-y-4 sm:space-y-6 py-2">
+        <div className="flex-1 min-h-0 -mx-4 sm:-mx-6 overflow-y-auto">
+          <div className="space-y-4 sm:space-y-6 py-2 px-4 sm:px-6">
             {/* Default Option */}
             <div className="space-y-2">
               <ModelCard
@@ -282,7 +282,7 @@ export function ModelSelector({
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
