@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useAIConfig, AI_FUNCTIONS, MODELS_BY_PROVIDER, AIFunctionType, AIFunctionConfig as FunctionConfigType, getModelInfo } from '@/hooks/useAIConfig';
+import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionConfig as FunctionConfigType, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
+import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
 import { ModelSelector } from './ModelSelector';
 import { ModelCard, QuickSelectButton, ProviderIndicator } from './ModelCard';
 import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, Type, Globe, ExternalLink, ChevronRight, Sparkles, Star, DollarSign } from 'lucide-react';
@@ -53,10 +54,6 @@ const getFunctionMeta = (functionName: string) => {
   return AI_FUNCTIONS.find(f => f.name === functionName);
 };
 
-// Check if a model belongs to OpenRouter
-const isOpenRouterModel = (model: string): boolean => {
-  return MODELS_BY_PROVIDER.openrouter.includes(model);
-};
 
 // Quick select presets
 const QUICK_PRESETS = {
@@ -77,6 +74,27 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
       p => p.providerType === 'openrouter' && p.encryptedApiKey && p.isActive
     );
   }, [providers]);
+
+  // Fetch OpenRouter models for enhanced model info
+  const { data: openRouterModels } = useOpenRouterModels(hasOpenRouterApiKey);
+
+  // Enhanced getModelInfo that uses dynamic OpenRouter data
+  const getEnhancedModelInfo = (modelId: string): ModelInfo => {
+    // Check hardcoded first
+    const hardcodedInfo = getModelInfo(modelId);
+    if (hardcodedInfo.description !== 'OpenRouter model') {
+      return hardcodedInfo;
+    }
+    
+    // Check dynamic OpenRouter models
+    const orModel = openRouterModels?.find(m => m.id === modelId);
+    if (orModel) {
+      return openRouterModelToModelInfo(orModel);
+    }
+    
+    // Fallback to basic info
+    return hardcodedInfo;
+  };
 
   const handleSaveFunction = () => {
     if (!editingFunction?.functionName) return;
@@ -113,7 +131,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
 
   const currentFunctionMeta = editingFunction?.functionName ? getFunctionMeta(editingFunction.functionName) : null;
   const currentModel = editingFunction?.modelOverride || currentFunctionMeta?.currentModel || '';
-  const currentModelInfo = getModelInfo(currentModel);
+  const currentModelInfo = getEnhancedModelInfo(currentModel);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -154,7 +172,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                 const category = fn.category;
                 const typeBadge = TYPE_BADGES[fn.type];
                 const displayModel = config?.modelOverride || fn.currentModel;
-                const modelInfo = getModelInfo(displayModel);
+                const modelInfo = getEnhancedModelInfo(displayModel);
                 
                 return (
                   <TableRow key={fn.name}>
@@ -380,7 +398,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                           Đang sử dụng
                         </Badge>
                         <span className="font-medium text-xs sm:text-sm truncate">{currentModelInfo.shortName}</span>
-                        {isOpenRouterModel(editingFunction.modelOverride) && (
+                        {currentModelInfo.provider === 'openrouter' && (
                           <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-orange-500/20 text-orange-600 flex-shrink-0">
                             OR
                           </Badge>
