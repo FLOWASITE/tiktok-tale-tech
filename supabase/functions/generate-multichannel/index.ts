@@ -2073,12 +2073,48 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     const tagline = (extendedBrandContext as any)?.tagline || (brandVoice as any)?.tagline;
 
     if (hasFooterInfo) {
+      // Use existing channelOverrides variable (extracted from brand template earlier)
+      const footerOverrides = channelOverrides as Record<string, { 
+        footer_enabled?: boolean; 
+        footer_template?: string 
+      }> | null;
+
+      // Helper to replace template variables with actual footer values
+      const replaceFooterVariables = (
+        template: string, 
+        footer: typeof footerInfo,
+        compName?: string
+      ): string => {
+        return template
+          .replace(/\{phone\}/g, footer?.phone || '')
+          .replace(/\{email\}/g, footer?.email || '')
+          .replace(/\{website\}/g, footer?.website || '')
+          .replace(/\{address\}/g, footer?.address || '')
+          .replace(/\{company\}/g, compName || footer?.company_name || '');
+      };
+
       const formatFooterInfo = (
         footer: typeof footerInfo,
         channel: string,
         useEmoji: boolean
       ): string => {
         if (!footer) return '';
+        
+        // Check if this channel has custom footer settings
+        const channelOverride = footerOverrides?.[channel] as { 
+          footer_enabled?: boolean; 
+          footer_template?: string 
+        } | undefined;
+        
+        // Check if this channel has footer disabled
+        if (channelOverride?.footer_enabled === false) {
+          return '';
+        }
+        
+        // Check if this channel has a custom footer template
+        if (channelOverride?.footer_template && channelOverride.footer_template.trim()) {
+          return '\n\n' + replaceFooterVariables(channelOverride.footer_template, footer, companyName);
+        }
         
         const divider = '━━━━━━━━━━━━━━━━━━━━';
         
@@ -2205,6 +2241,9 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       }
       if (generatedData.telegram_content) {
         generatedData.telegram_content += formatFooterInfo(footerInfo, 'telegram', brandAllowEmoji);
+      }
+      if (generatedData.tiktok_content) {
+        generatedData.tiktok_content += formatFooterInfo(footerInfo, 'tiktok', brandAllowEmoji);
       }
       // Website: append to content field inside SEO object
       if (typeof generatedData.website_content === 'object' && generatedData.website_content?.content) {
