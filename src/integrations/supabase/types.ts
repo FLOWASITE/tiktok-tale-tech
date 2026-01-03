@@ -172,6 +172,7 @@ export type Database = {
           created_at: string | null
           default_model: string | null
           display_name: string
+          encrypted_api_key: string | null
           id: string
           is_active: boolean | null
           organization_id: string | null
@@ -185,6 +186,7 @@ export type Database = {
           created_at?: string | null
           default_model?: string | null
           display_name: string
+          encrypted_api_key?: string | null
           id?: string
           is_active?: boolean | null
           organization_id?: string | null
@@ -198,6 +200,7 @@ export type Database = {
           created_at?: string | null
           default_model?: string | null
           display_name?: string
+          encrypted_api_key?: string | null
           id?: string
           is_active?: boolean | null
           organization_id?: string | null
