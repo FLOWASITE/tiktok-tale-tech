@@ -17,6 +17,7 @@ export interface SocialConnection {
   is_active: boolean;
   connected_at: string;
   last_used_at: string | null;
+  last_verified_at: string | null;
   last_error: string | null;
   scopes: string[];
 }

@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.connect-social]
 verify_jwt = false
+
+[functions.test-twitter-connection]
+verify_jwt = false

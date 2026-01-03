@@ -155,22 +155,23 @@ serve(async (req) => {
       throw new Error('Invalid platform for this endpoint');
     }
 
-    // Get Twitter credentials from metadata or use app-level tokens
-    // For user-level OAuth 1.0a, tokens are stored in the connection
+    // Get Twitter credentials from connection (brand-specific) or fallback to ENV
     const accessToken = connection.access_token;
     const accessTokenSecret = connection.refresh_token; // We store token secret in refresh_token field
-
-    // Get app-level credentials from environment
-    const consumerKey = Deno.env.get('TWITTER_CONSUMER_KEY');
-    const consumerSecret = Deno.env.get('TWITTER_CONSUMER_SECRET');
+    
+    // Consumer keys: prioritize connection-specific, fallback to ENV
+    const consumerKey = connection.consumer_key || Deno.env.get('TWITTER_CONSUMER_KEY');
+    const consumerSecret = connection.consumer_secret || Deno.env.get('TWITTER_CONSUMER_SECRET');
 
     if (!consumerKey || !consumerSecret) {
-      throw new Error('Twitter app credentials not configured');
+      throw new Error('Twitter app credentials not configured. Please add Consumer Key and Secret.');
     }
 
     if (!accessToken || !accessTokenSecret) {
       throw new Error('Twitter user credentials not found in connection');
     }
+
+    console.log(`Using ${connection.consumer_key ? 'brand-specific' : 'environment'} consumer keys`);
 
     // Create publish attempt record
     const { data: attempt, error: attemptError } = await supabase
