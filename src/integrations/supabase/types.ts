@@ -675,6 +675,60 @@ export type Database = {
           },
         ]
       }
+      channel_image_history: {
+        Row: {
+          aspect_ratio: string | null
+          channel: string
+          content_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          image_url: string
+          is_selected: boolean | null
+          organization_id: string | null
+          prompt: string | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          channel: string
+          content_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url: string
+          is_selected?: boolean | null
+          organization_id?: string | null
+          prompt?: string | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          channel?: string
+          content_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url?: string
+          is_selected?: boolean | null
+          organization_id?: string | null
+          prompt?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_image_history_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_image_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversation_messages: {
         Row: {
           content: string

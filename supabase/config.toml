@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.test-twitter-connection]
 verify_jwt = false
+
+[functions.overlay-logo-canvas]
+verify_jwt = false

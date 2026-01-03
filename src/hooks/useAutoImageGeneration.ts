@@ -83,16 +83,16 @@ export function useAutoImageGeneration() {
 
       let finalImageUrl = imageData.imageUrl;
 
-      // Step 2: Overlay logo if requested
+      // Step 2: Overlay logo if requested (using canvas-based overlay for speed)
       if (includeLogo && logoUrl) {
         setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
         
-        const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-brand-logo', {
+        const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-logo-canvas', {
           body: {
-            imageUrl: finalImageUrl,
+            baseImageUrl: finalImageUrl,
             logoUrl,
             position: logoPosition || 'bottom-right',
-            logoScale: 0.12,
+            logoSizePercent: 12,
             padding: 20,
             contentId,
             channel,
@@ -100,7 +100,7 @@ export function useAutoImageGeneration() {
         });
 
         if (overlayError || !overlayData?.success) {
-          console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image`);
+          console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
           // Continue with base image if overlay fails
         } else {
           finalImageUrl = overlayData.imageUrl;
