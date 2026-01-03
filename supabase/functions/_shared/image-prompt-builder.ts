@@ -68,9 +68,9 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
     negativeKeywords: ['photorealistic', 'photograph', 'blurry', 'noisy'],
   },
   minimalist: {
-    description: 'Clean, simple design with lots of whitespace',
-    keywords: ['minimalist', 'clean design', 'whitespace', 'simple composition', 'elegant', 'understated'],
-    negativeKeywords: ['cluttered', 'busy', 'complex', 'detailed', 'ornate'],
+    description: 'Clean, simple design with subtle colors and soft gradients',
+    keywords: ['minimalist', 'clean design', 'simple composition', 'elegant', 'understated', 'soft color palette', 'subtle gradient background'],
+    negativeKeywords: ['cluttered', 'busy', 'complex', 'detailed', 'ornate', 'pure white background', 'blank', 'empty'],
   },
   '3d_render': {
     description: '3D rendered graphics with depth and dimension',
@@ -342,7 +342,10 @@ ${contentSummary}
 4. Ensure the image works well as a background for text overlay
 5. Main subject should be clearly visible and not cropped
 6. Use natural, professional lighting
-7. Maintain brand-appropriate color temperature`;
+7. Maintain brand-appropriate color temperature
+8. NEVER create blank, white, or empty images - always include clear visual content
+9. Background must have visible color, texture, or gradient - NEVER pure white (#FFFFFF)
+10. Image must have at least one clear focal point or subject`;
 
   return prompt;
 }
