@@ -68,13 +68,13 @@ serve(async (req) => {
         emit({ type: 'progress', step: 'prompt', progress: 40, message: 'Xây dựng prompt AI...' });
 
         // Step 6: Call main generate-multichannel function
-        emit({ type: 'progress', step: 'ai', progress: 50, message: 'AI đang tạo nội dung...' });
+        emit({ type: 'progress', step: 'ai', progress: 50, message: 'AI đang tạo nội dung (có thể mất 30-60 giây)...' });
         
         // Get auth token from request
         const authHeader = req.headers.get('authorization');
         
-        // Call the actual generation function
-        const response = await fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
+        // Start the AI call as a promise
+        const aiCallPromise = fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -82,6 +82,25 @@ serve(async (req) => {
           },
           body: JSON.stringify(formData),
         });
+
+        // Heartbeat: emit progress updates every 2s while waiting for AI
+        let currentProgress = 50;
+        const maxProgressWhileWaiting = 72; // Cap at 72% to leave room for critique/finalize
+        const heartbeatInterval = setInterval(() => {
+          if (currentProgress < maxProgressWhileWaiting) {
+            currentProgress += 2;
+            emit({ 
+              type: 'progress', 
+              step: 'ai', 
+              progress: currentProgress, 
+              message: `AI đang xử lý nội dung... (${currentProgress}%)` 
+            });
+          }
+        }, 2000);
+
+        // Wait for AI response
+        const response = await aiCallPromise;
+        clearInterval(heartbeatInterval);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -105,7 +124,6 @@ serve(async (req) => {
 
         // Step 7: Self-critique happening inside main function
         emit({ type: 'progress', step: 'critique', progress: 75, message: 'Đánh giá chất lượng...' });
-        await delay(500);
 
         // Step 8: Finalize
         emit({ type: 'progress', step: 'finalize', progress: 90, message: 'Lưu và hoàn thiện...' });

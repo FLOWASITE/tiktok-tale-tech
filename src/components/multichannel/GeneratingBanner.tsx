@@ -37,6 +37,9 @@ export function GeneratingBanner({
 }: GeneratingBannerProps) {
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const [lastProgressChangeTime, setLastProgressChangeTime] = useState(Date.now());
+  const [lastProgressValue, setLastProgressValue] = useState(0);
+  const [showLongWaitMessage, setShowLongWaitMessage] = useState(false);
 
   const elapsedMs = externalElapsedMs ?? internalElapsedMs;
 
@@ -95,6 +98,32 @@ export function GeneratingBanner({
     const rawPercent = ((currentStepIndex + calculatedStepProgress) / steps.length) * 100;
     return Math.min(PROGRESS_CAP_PERCENT, rawPercent);
   }, [sseProgress, currentStepIndex, calculatedStepProgress, steps.length]);
+
+  // Track when progress changes to detect "frozen" state
+  useEffect(() => {
+    if (progressPercent !== lastProgressValue) {
+      setLastProgressValue(progressPercent);
+      setLastProgressChangeTime(Date.now());
+      setShowLongWaitMessage(false);
+    }
+  }, [progressPercent, lastProgressValue]);
+
+  // Detect frozen progress (no change for > 15 seconds)
+  useEffect(() => {
+    if (!isGenerating) {
+      setShowLongWaitMessage(false);
+      return;
+    }
+    
+    const timer = setInterval(() => {
+      const timeSinceLastChange = Date.now() - lastProgressChangeTime;
+      if (timeSinceLastChange > 15000 && progressPercent < 90) {
+        setShowLongWaitMessage(true);
+      }
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [isGenerating, lastProgressChangeTime, progressPercent]);
 
   if (!isGenerating) return null;
 
@@ -161,11 +190,18 @@ export function GeneratingBanner({
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2">
-                    <span>Đang xử lý {channelCount} kênh</span>
-                    <span className="text-primary/60">•</span>
-                    <span className="text-primary font-medium truncate">{displayMessage}</span>
-                  </p>
+                  <div className="text-sm text-muted-foreground mt-0.5">
+                    <div className="flex items-center gap-2">
+                      <span>Đang xử lý {channelCount} kênh</span>
+                      <span className="text-primary/60">•</span>
+                      <span className="text-primary font-medium truncate">{displayMessage}</span>
+                    </div>
+                    {showLongWaitMessage && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 animate-pulse">
+                        AI đang xử lý nội dung phức tạp, vui lòng chờ thêm...
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
