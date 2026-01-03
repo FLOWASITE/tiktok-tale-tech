@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 import { 
   buildExtendedBrandPrompt,
   buildJourneyStageMessagingSection,
@@ -1770,47 +1771,37 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
     console.log(`[ai-config] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}, max_tokens: ${aiConfig.max_tokens}`);
 
-    // Define the AI generation function with dynamic prompt
+    // Define the AI generation function with dynamic prompt using callAI (multi-provider support)
     const generateAIContent = async (currentPrompt: string) => {
-      console.log("Calling Lovable AI (no cache hit)...");
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          // Model from runtime config (defaults to gemini-3-pro-preview)
-          model: aiConfig.model,
-          messages: [
-            { role: "system", content: aiConfig.custom_system_prompt || systemPrompt },
-            { role: "user", content: currentPrompt },
-          ],
-          tools,
-          tool_choice: { type: "function", function: { name: "generate_multichannel_content" } },
-          // Tokens from runtime config, with website content override
-          max_completion_tokens: hasWebsiteChannel ? Math.max(aiConfig.max_tokens, 12288) : aiConfig.max_tokens,
-          temperature: aiConfig.temperature,
-        }),
+      console.log("Calling AI via multi-provider...");
+      
+      const result = await callAI({
+        functionName: 'generate-multichannel',
+        organizationId: organizationId || undefined,
+        messages: [
+          { role: "system", content: aiConfig.custom_system_prompt || systemPrompt },
+          { role: "user", content: currentPrompt },
+        ],
+        tools,
+        toolChoice: { type: "function", function: { name: "generate_multichannel_content" } },
+        maxTokensOverride: hasWebsiteChannel ? Math.max(aiConfig.max_tokens, 12288) : undefined,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("AI API error:", response.status, errorText);
+      if (!result.success) {
+        console.error("AI call failed:", result.error);
         
-        if (response.status === 429) {
+        if (result.error?.includes("Rate limit") || result.error?.includes("429")) {
           throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
         }
-        if (response.status === 402) {
+        if (result.error?.includes("Payment required") || result.error?.includes("402")) {
           throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
         }
-        throw new Error(`AI API error: ${response.status}`);
+        throw new Error(`AI error: ${result.error}`);
       }
 
-      const aiResponse = await response.json();
-      console.log("AI response received");
+      console.log(`AI response from ${result.provider}${result.fromFallback ? ' (fallback)' : ''}`);
 
-      const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+      const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall || toolCall.function.name !== "generate_multichannel_content") {
         throw new Error("Invalid AI response format");
       }
