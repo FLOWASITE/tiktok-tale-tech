@@ -109,7 +109,14 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   };
 
   const getConfiguredFunction = (name: string) => {
-    return functions.find(f => f.functionName === name);
+    // Get all configs for this function, then return the latest one
+    const configs = functions.filter(f => f.functionName === name);
+    if (configs.length === 0) return undefined;
+    
+    // Sort by updatedAt descending and return the first (latest)
+    return configs.sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )[0];
   };
 
   const getCurrentQuickPreset = (): 'default' | 'fast' | 'quality' | 'custom' => {
