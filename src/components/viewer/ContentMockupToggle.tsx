@@ -55,7 +55,7 @@ export function ContentMockupToggle({
           primaryColor={primaryColor}
           isGenerating={isLoading}
           seoData={channel === 'website' ? seoData : undefined}
-          channelImage={channel === 'website' ? channelImage : undefined}
+          channelImage={channelImage}
         />
       </div>
     </div>
