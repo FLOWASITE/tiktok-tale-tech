@@ -20,7 +20,9 @@ import {
   Send,
   Loader2,
   Music2,
-  AtSign
+  AtSign,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import { Channel, ChannelImage, ChannelImages } from '@/types/multichannel';
 import { toast } from 'sonner';
@@ -34,12 +36,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ChannelImagesGalleryProps {
   channelImages: ChannelImages;
   selectedChannels: Channel[];
   onDeleteImage?: (channel: Channel) => Promise<void>;
+  onRegenerateImage?: (channel: Channel) => Promise<void>;
   isDeleting?: Channel | null;
+  isRegenerating?: Channel | null;
 }
 
 const channelConfig: Record<Channel, { 
@@ -126,7 +136,9 @@ export function ChannelImagesGallery({
   channelImages,
   selectedChannels,
   onDeleteImage,
+  onRegenerateImage,
   isDeleting,
+  isRegenerating,
 }: ChannelImagesGalleryProps) {
   const [deleteConfirmChannel, setDeleteConfirmChannel] = useState<Channel | null>(null);
 
@@ -184,6 +196,12 @@ export function ChannelImagesGallery({
     }
   };
 
+  const handleRegenerate = async (channel: Channel) => {
+    if (onRegenerateImage) {
+      await onRegenerateImage(channel);
+    }
+  };
+
   if (imagesWithChannels.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -192,119 +210,165 @@ export function ChannelImagesGallery({
         </div>
         <h3 className="font-medium text-lg mb-1">Chưa có ảnh nào</h3>
         <p className="text-sm text-muted-foreground max-w-sm">
-          Nhấn "Tạo ảnh" trên từng kênh để bắt đầu tạo ảnh AI.
+          Nhấn "Tạo ảnh AI" để bắt đầu tạo ảnh tự động cho các kênh.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            {imagesWithChannels.length}/{selectedChannels.length} ảnh
-          </Badge>
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">
+              {imagesWithChannels.length}/{selectedChannels.length} ảnh
+            </Badge>
+          </div>
+          <Button onClick={handleDownloadAll} size="sm" variant="outline">
+            <Package className="w-4 h-4 mr-2" />
+            Tải tất cả
+          </Button>
         </div>
-        <Button onClick={handleDownloadAll} size="sm" variant="outline">
-          <Package className="w-4 h-4 mr-2" />
-          Tải tất cả
-        </Button>
-      </div>
 
-      {/* Gallery Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {imagesWithChannels.map(({ channel, image }) => {
-          const config = channelConfig[channel];
-          const isDeletingThis = isDeleting === channel;
-          
-          return (
-            <Card key={channel} className="overflow-hidden group">
-              <CardContent className="p-0 relative">
-                <div className="aspect-square relative">
-                  <img
-                    src={image.url}
-                    alt={`${config.label} image`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      onClick={() => handleOpenInNewTab(image.url)}
-                      className="h-8 w-8"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      onClick={() => handleDownloadSingle(channel, image)}
-                      className="h-8 w-8"
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                    {onDeleteImage && (
+        {/* Gallery Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {imagesWithChannels.map(({ channel, image }) => {
+            const config = channelConfig[channel];
+            const isDeletingThis = isDeleting === channel;
+            const isRegeneratingThis = isRegenerating === channel;
+            const hasPrompt = !!image.prompt;
+            
+            return (
+              <Card key={channel} className="overflow-hidden group">
+                <CardContent className="p-0 relative">
+                  <div className="aspect-square relative">
+                    {isRegeneratingThis ? (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <img
+                        src={image.url}
+                        alt={`${config.label} image`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      {/* Prompt info button */}
+                      {hasPrompt && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="h-8 w-8"
+                            >
+                              <Info className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="text-xs line-clamp-6">{image.prompt}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      
                       <Button
                         size="icon"
-                        variant="destructive"
-                        onClick={() => setDeleteConfirmChannel(channel)}
-                        disabled={isDeletingThis}
+                        variant="secondary"
+                        onClick={() => handleOpenInNewTab(image.url)}
                         className="h-8 w-8"
                       >
-                        {isDeletingThis ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
+                        <ExternalLink className="w-4 h-4" />
                       </Button>
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        onClick={() => handleDownloadSingle(channel, image)}
+                        className="h-8 w-8"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      
+                      {/* Regenerate button */}
+                      {onRegenerateImage && (
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={() => handleRegenerate(channel)}
+                          disabled={isRegeneratingThis}
+                          className="h-8 w-8"
+                        >
+                          {isRegeneratingThis ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
+                      
+                      {onDeleteImage && (
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          onClick={() => setDeleteConfirmChannel(channel)}
+                          disabled={isDeletingThis}
+                          className="h-8 w-8"
+                        >
+                          {isDeletingThis ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    {/* Channel badge */}
+                    <Badge className={`absolute top-2 left-2 ${config.bgColor} ${config.color} border-0 gap-1`}>
+                      {config.icon}
+                      {config.label}
+                    </Badge>
+                    {/* Provider badge */}
+                    {image.provider && (
+                      <Badge variant="outline" className="absolute bottom-2 right-2 bg-black/70 text-white text-xs border-0">
+                        {image.provider}
+                      </Badge>
                     )}
                   </div>
-                  {/* Channel badge */}
-                  <Badge className={`absolute top-2 left-2 ${config.bgColor} ${config.color} border-0 gap-1`}>
-                    {config.icon}
-                    {config.label}
-                  </Badge>
-                  {/* Provider badge */}
-                  {image.provider && (
-                    <Badge variant="outline" className="absolute bottom-2 right-2 bg-black/70 text-white text-xs border-0">
-                      {image.provider}
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Missing channels info */}
+        {imagesWithChannels.length < selectedChannels.length && (
+          <p className="text-xs text-muted-foreground text-center">
+            Còn {selectedChannels.length - imagesWithChannels.length} kênh chưa tạo ảnh
+          </p>
+        )}
+
+        {/* Delete confirmation dialog */}
+        <AlertDialog open={!!deleteConfirmChannel} onOpenChange={() => setDeleteConfirmChannel(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Xác nhận xóa ảnh</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bạn có chắc muốn xóa ảnh của kênh {deleteConfirmChannel && channelConfig[deleteConfirmChannel].label}? 
+                Hành động này không thể hoàn tác.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Hủy</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Xóa
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
-
-      {/* Missing channels info */}
-      {imagesWithChannels.length < selectedChannels.length && (
-        <p className="text-xs text-muted-foreground text-center">
-          Còn {selectedChannels.length - imagesWithChannels.length} kênh chưa tạo ảnh
-        </p>
-      )}
-
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={!!deleteConfirmChannel} onOpenChange={() => setDeleteConfirmChannel(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa ảnh</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc muốn xóa ảnh của kênh {deleteConfirmChannel && channelConfig[deleteConfirmChannel].label}? 
-              Hành động này không thể hoàn tác.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Xóa
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    </TooltipProvider>
   );
 }

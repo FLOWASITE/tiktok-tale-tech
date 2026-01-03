@@ -5,6 +5,19 @@ import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
 export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | 'auto';
+
+// Map channels to optimal aspect ratios
+export const CHANNEL_OPTIMAL_ASPECT_RATIO: Partial<Record<Channel, '16:9' | '1:1' | '9:16' | '4:5'>> = {
+  website: '16:9',
+  youtube: '16:9',
+  linkedin: '16:9',
+  twitter: '16:9',
+  facebook: '1:1',
+  instagram: '1:1',
+  threads: '1:1',
+  tiktok: '9:16',
+};
 
 export interface AutoGenerateOptions {
   contentId: string;
@@ -14,14 +27,15 @@ export interface AutoGenerateOptions {
   includeLogo?: boolean;
   logoPosition?: LogoPosition;
   logoUrl?: string;
-  aspectRatio?: '16:9' | '1:1' | '9:16' | '4:5';
+  aspectRatio?: AspectRatioOption;
 }
 
-interface GeneratedImage {
+export interface GeneratedImage {
   channel: Channel;
   imageUrl: string;
   prompt: string;
   generatedAt: string;
+  aspectRatio: string;
 }
 
 export function useAutoImageGeneration() {
@@ -29,17 +43,27 @@ export function useAutoImageGeneration() {
   const [progress, setProgress] = useState<Record<Channel, ImageGenerationStatus>>({} as Record<Channel, ImageGenerationStatus>);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, GeneratedImage>>({} as Record<Channel, GeneratedImage>);
   const [error, setError] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+
+  const getAspectRatioForChannel = useCallback((channel: Channel, aspectRatio: AspectRatioOption): '16:9' | '1:1' | '9:16' | '4:5' => {
+    if (aspectRatio === 'auto') {
+      return CHANNEL_OPTIMAL_ASPECT_RATIO[channel] || '16:9';
+    }
+    return aspectRatio;
+  }, []);
 
   const generateForChannel = useCallback(async (
     channel: Channel,
     options: AutoGenerateOptions
   ): Promise<GeneratedImage | null> => {
-    const { contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl, aspectRatio } = options;
+    const { contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl, aspectRatio = '16:9' } = options;
+    
+    const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
     
     try {
       setProgress(prev => ({ ...prev, [channel]: 'generating' }));
       
-      console.log(`[useAutoImageGeneration] Generating image for ${channel}`);
+      console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}`);
 
       // Step 1: Generate base image with brand colors
       const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-brand-image', {
@@ -48,7 +72,7 @@ export function useAutoImageGeneration() {
           channel,
           contentSummary: contentSummaries[channel] || `Content for ${channel}`,
           brandTemplateId,
-          aspectRatio,
+          aspectRatio: channelAspectRatio,
         },
       });
 
@@ -88,6 +112,7 @@ export function useAutoImageGeneration() {
         imageUrl: finalImageUrl,
         prompt: imageData.prompt,
         generatedAt: new Date().toISOString(),
+        aspectRatio: channelAspectRatio,
       };
 
       setProgress(prev => ({ ...prev, [channel]: 'done' }));
@@ -99,17 +124,19 @@ export function useAutoImageGeneration() {
       setProgress(prev => ({ ...prev, [channel]: 'error' }));
       return null;
     }
-  }, []);
+  }, [getAspectRatioForChannel]);
 
   const generateAllImages = useCallback(async (
     options: AutoGenerateOptions,
-    onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>
+    onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>,
+    saveImmediately: boolean = true
   ): Promise<{ successful: Channel[]; failed: Channel[] }> => {
     const { channels } = options;
     
     setGeneratingChannels(channels);
     setError(null);
     setGeneratedImages({} as Record<Channel, GeneratedImage>);
+    setPreviewMode(!saveImmediately);
     
     // Initialize progress for all channels
     const initialProgress: Record<Channel, ImageGenerationStatus> = {} as Record<Channel, ImageGenerationStatus>;
@@ -137,8 +164,8 @@ export function useAutoImageGeneration() {
         if (result) {
           successful.push(channel);
           
-          // Call callback to save image to DB
-          if (onImageGenerated) {
+          // Only save immediately if not in preview mode
+          if (saveImmediately && onImageGenerated) {
             try {
               await onImageGenerated(channel, {
                 url: result.imageUrl,
@@ -166,18 +193,74 @@ export function useAutoImageGeneration() {
     if (failed.length > 0) {
       toast.error(`Không thể tạo ảnh cho ${failed.length} kênh`);
     }
-    if (successful.length > 0) {
+    if (successful.length > 0 && saveImmediately) {
       toast.success(`Đã tạo ảnh cho ${successful.length} kênh thành công!`);
     }
 
     return { successful, failed };
   }, [generateForChannel]);
 
+  const regenerateForChannel = useCallback(async (
+    channel: Channel,
+    options: AutoGenerateOptions,
+    onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>
+  ): Promise<GeneratedImage | null> => {
+    const result = await generateForChannel(channel, options);
+    
+    if (result && onImageGenerated) {
+      try {
+        await onImageGenerated(channel, {
+          url: result.imageUrl,
+          prompt: result.prompt,
+          provider: 'lovable-ai',
+          generatedAt: result.generatedAt,
+        });
+        toast.success(`Đã tạo lại ảnh cho ${channel} thành công!`);
+      } catch (saveErr) {
+        console.error(`[useAutoImageGeneration] Failed to save regenerated image for ${channel}:`, saveErr);
+        toast.error(`Không thể lưu ảnh cho ${channel}`);
+      }
+    }
+    
+    return result;
+  }, [generateForChannel]);
+
+  const savePreviewImages = useCallback(async (
+    channels: Channel[],
+    onImageGenerated: (channel: Channel, image: ChannelImage) => Promise<void>
+  ) => {
+    let savedCount = 0;
+    
+    for (const channel of channels) {
+      const image = generatedImages[channel];
+      if (image) {
+        try {
+          await onImageGenerated(channel, {
+            url: image.imageUrl,
+            prompt: image.prompt,
+            provider: 'lovable-ai',
+            generatedAt: image.generatedAt,
+          });
+          savedCount++;
+        } catch (err) {
+          console.error(`[useAutoImageGeneration] Failed to save ${channel}:`, err);
+        }
+      }
+    }
+    
+    if (savedCount > 0) {
+      toast.success(`Đã lưu ${savedCount} ảnh thành công!`);
+    }
+    
+    setPreviewMode(false);
+  }, [generatedImages]);
+
   const resetProgress = useCallback(() => {
     setProgress({} as Record<Channel, ImageGenerationStatus>);
     setGeneratedImages({} as Record<Channel, GeneratedImage>);
     setError(null);
     setGeneratingChannels([]);
+    setPreviewMode(false);
   }, []);
 
   const isGenerating = generatingChannels.length > 0;
@@ -196,7 +279,11 @@ export function useAutoImageGeneration() {
     error,
     completedCount,
     totalCount,
+    previewMode,
     generateAllImages,
+    regenerateForChannel,
+    savePreviewImages,
     resetProgress,
+    getAspectRatioForChannel,
   };
 }
