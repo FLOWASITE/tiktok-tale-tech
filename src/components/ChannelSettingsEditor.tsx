@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -39,11 +39,26 @@ export type ChannelOverride = Partial<Pick<ChannelSettings,
 
 export type ChannelOverrides = Partial<Record<Channel, ChannelOverride>>;
 
+// Footer info type for preview
+export interface BrandFooterInfo {
+  company_name?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  social_links?: Record<string, string>;
+}
+
 interface ChannelSettingsEditorProps {
   value: ChannelOverrides;
   onChange: (value: ChannelOverrides) => void;
   defaultExpanded?: boolean;
   showWrapper?: boolean;
+  // Props for footer preview
+  footerInfo?: BrandFooterInfo | null;
+  brandAllowEmoji?: boolean;
+  companyName?: string;
+  tagline?: string;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -79,6 +94,164 @@ const linkPositionOptions = [
 ];
 
 // Presets
+// Generate footer preview - client-side equivalent of formatFooterInfo
+function generateFooterPreview(
+  channel: Channel,
+  footer: BrandFooterInfo,
+  useEmoji: boolean,
+  companyName?: string,
+  tagline?: string,
+  customTemplate?: string
+): string {
+  // If custom template exists, replace variables
+  if (customTemplate?.trim()) {
+    return customTemplate
+      .replace(/\{phone\}/g, footer.phone || '[Phone]')
+      .replace(/\{email\}/g, footer.email || '[Email]')
+      .replace(/\{website\}/g, footer.website || '[Website]')
+      .replace(/\{address\}/g, footer.address || '[Địa chỉ]')
+      .replace(/\{company\}/g, companyName || footer.company_name || '[Company]');
+  }
+
+  const divider = '━━━━━━━━━━━━━━━━━━━━';
+  const hasAnyInfo = footer.phone || footer.email || footer.website || footer.address;
+  if (!hasAnyInfo) return '';
+
+  // FACEBOOK / INSTAGRAM / LINKEDIN - Card Style
+  if (['facebook', 'instagram', 'linkedin'].includes(channel)) {
+    const lines: string[] = [divider];
+    if (useEmoji) {
+      lines.push('✨ LIÊN HỆ NGAY ✨', '');
+      if (footer.phone) lines.push(`📞 Hotline: ${footer.phone}`);
+      if (footer.email) lines.push(`📧 Email: ${footer.email}`);
+      if (footer.website) lines.push(`🌐 Website: ${footer.website}`);
+      if (footer.address) lines.push(`📍 Địa chỉ: ${footer.address}`);
+    } else {
+      lines.push('→ LIÊN HỆ NGAY', '');
+      if (footer.phone) lines.push(`• Hotline: ${footer.phone}`);
+      if (footer.email) lines.push(`• Email: ${footer.email}`);
+      if (footer.website) lines.push(`• Website: ${footer.website}`);
+      if (footer.address) lines.push(`• Địa chỉ: ${footer.address}`);
+    }
+    lines.push(divider);
+    return lines.join('\n');
+  }
+
+  // EMAIL - Professional Signature
+  if (channel === 'email') {
+    const lines: string[] = ['---'];
+    if (companyName) lines.push(`\n${companyName}`);
+    if (tagline) lines.push(tagline);
+    lines.push('');
+    if (footer.phone) lines.push(`Tel: ${footer.phone}`);
+    if (footer.email) lines.push(`Email: ${footer.email}`);
+    if (footer.website) lines.push(`Web: ${footer.website}`);
+    if (footer.address) lines.push(`\n${footer.address}`);
+    return lines.join('\n');
+  }
+
+  // WEBSITE - Author Box
+  if (channel === 'website') {
+    const lines: string[] = ['---', ''];
+    if (companyName) lines.push(`**${companyName}**`);
+    if (tagline) lines.push(`_${tagline}_`);
+    lines.push('');
+    const contacts: string[] = [];
+    if (footer.phone) contacts.push(footer.phone);
+    if (footer.email) contacts.push(footer.email);
+    if (footer.website) contacts.push(footer.website);
+    if (contacts.length > 0) lines.push(contacts.join(' | '));
+    return lines.join('\n');
+  }
+
+  // TWITTER / TIKTOK / YOUTUBE - Compact CTA
+  if (['twitter', 'tiktok', 'youtube', 'threads'].includes(channel)) {
+    const parts: string[] = [];
+    if (useEmoji) {
+      if (footer.website) parts.push(`🔗 ${footer.website}`);
+      else if (footer.phone) parts.push(`📞 ${footer.phone}`);
+    } else {
+      if (footer.website) parts.push(`→ ${footer.website}`);
+      else if (footer.phone) parts.push(`Tel: ${footer.phone}`);
+    }
+    return parts.join('\n');
+  }
+
+  // ZALO OA / TELEGRAM - Clean Professional
+  if (['zalo_oa', 'telegram'].includes(channel)) {
+    const lines: string[] = ['───────────────'];
+    if (useEmoji) {
+      if (footer.phone) lines.push(`📱 ${footer.phone}`);
+      if (footer.website) lines.push(`🌐 ${footer.website}`);
+    } else {
+      if (footer.phone) lines.push(`Hotline: ${footer.phone}`);
+      if (footer.website) lines.push(`Web: ${footer.website}`);
+    }
+    return lines.join('\n');
+  }
+
+  // Default format
+  const lines: string[] = [];
+  if (footer.phone) lines.push(useEmoji ? `📞 ${footer.phone}` : `Tel: ${footer.phone}`);
+  if (footer.email) lines.push(useEmoji ? `📧 ${footer.email}` : `Email: ${footer.email}`);
+  if (footer.website) lines.push(useEmoji ? `🌐 ${footer.website}` : `Web: ${footer.website}`);
+  return lines.join('\n');
+}
+
+// Footer Preview Component
+interface FooterPreviewProps {
+  channel: Channel;
+  footerInfo: BrandFooterInfo | null | undefined;
+  useEmoji: boolean;
+  companyName?: string;
+  tagline?: string;
+  customTemplate?: string;
+  footerEnabled?: boolean;
+}
+
+function FooterPreview({
+  channel,
+  footerInfo,
+  useEmoji,
+  companyName,
+  tagline,
+  customTemplate,
+  footerEnabled = true,
+}: FooterPreviewProps) {
+  const preview = useMemo(() => {
+    if (!footerEnabled || !footerInfo) return null;
+    
+    const hasAnyInfo = footerInfo.phone || footerInfo.email || footerInfo.website || footerInfo.address;
+    if (!hasAnyInfo && !customTemplate?.trim()) return null;
+    
+    return generateFooterPreview(channel, footerInfo, useEmoji, companyName, tagline, customTemplate);
+  }, [channel, footerInfo, useEmoji, companyName, tagline, customTemplate, footerEnabled]);
+
+  if (!footerEnabled) return null;
+
+  if (!footerInfo || (!footerInfo.phone && !footerInfo.email && !footerInfo.website && !footerInfo.address)) {
+    return (
+      <div className="p-2 rounded bg-muted/30 text-xs text-muted-foreground italic">
+        Chưa có thông tin liên hệ. Vui lòng cập nhật Footer Info ở Step 1.
+      </div>
+    );
+  }
+
+  if (!preview) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground flex items-center gap-1">
+        <Eye className="w-3 h-3" />
+        Preview
+      </Label>
+      <div className="p-3 rounded-lg border border-border/50 bg-background text-xs whitespace-pre-wrap font-mono leading-relaxed">
+        {preview}
+      </div>
+    </div>
+  );
+}
+
 const CHANNEL_PRESETS = {
   standard: {
     label: 'Chuẩn',
@@ -112,12 +285,20 @@ function ChannelSettingRow({
   onUpdate,
   onReset,
   compact = false,
+  footerInfo,
+  brandAllowEmoji,
+  companyName,
+  tagline,
 }: { 
   channel: Channel; 
   override: ChannelOverride | undefined;
   onUpdate: (update: ChannelOverride) => void;
   onReset: () => void;
   compact?: boolean;
+  footerInfo?: BrandFooterInfo | null;
+  brandAllowEmoji?: boolean;
+  companyName?: string;
+  tagline?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
@@ -329,12 +510,25 @@ function ChannelSettingRow({
               />
             </div>
             {currentFooterEnabled && (
-              <Textarea
-                placeholder={`Ví dụ:\n━━━━━━━━━━━━━━━━━━━━\n✨ LIÊN HỆ NGAY ✨\n📞 Hotline: {phone}\n📧 Email: {email}\n🌐 Website: {website}`}
-                value={currentFooterTemplate}
-                onChange={(e) => onUpdate({ footer_template: e.target.value })}
-                className="text-xs min-h-[80px] resize-y"
-              />
+              <>
+                <Textarea
+                  placeholder={`Ví dụ:\n━━━━━━━━━━━━━━━━━━━━\n✨ LIÊN HỆ NGAY ✨\n📞 Hotline: {phone}\n📧 Email: {email}\n🌐 Website: {website}`}
+                  value={currentFooterTemplate}
+                  onChange={(e) => onUpdate({ footer_template: e.target.value })}
+                  className="text-xs min-h-[80px] resize-y"
+                />
+                
+                {/* Footer Preview */}
+                <FooterPreview
+                  channel={channel}
+                  footerInfo={footerInfo}
+                  useEmoji={brandAllowEmoji ?? true}
+                  companyName={companyName}
+                  tagline={tagline}
+                  customTemplate={currentFooterTemplate}
+                  footerEnabled={currentFooterEnabled}
+                />
+              </>
             )}
           </div>
 
@@ -357,7 +551,16 @@ function ChannelSettingRow({
   );
 }
 
-export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false, showWrapper = true }: ChannelSettingsEditorProps) {
+export function ChannelSettingsEditor({ 
+  value, 
+  onChange, 
+  defaultExpanded = false, 
+  showWrapper = true,
+  footerInfo,
+  brandAllowEmoji,
+  companyName,
+  tagline,
+}: ChannelSettingsEditorProps) {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
   const [showAllChannels, setShowAllChannels] = useState(false);
   
@@ -497,6 +700,10 @@ export function ChannelSettingsEditor({ value, onChange, defaultExpanded = false
             onUpdate={(update) => handleUpdateChannel(ch.value, update)}
             onReset={() => handleResetChannel(ch.value)}
             compact
+            footerInfo={footerInfo}
+            brandAllowEmoji={brandAllowEmoji}
+            companyName={companyName}
+            tagline={tagline}
           />
         ))}
       </div>
