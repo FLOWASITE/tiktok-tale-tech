@@ -2973,6 +2973,91 @@ export type Database = {
           },
         ]
       }
+      publish_attempts: {
+        Row: {
+          attempted_at: string | null
+          channel: string
+          completed_at: string | null
+          connection_id: string | null
+          content_id: string | null
+          created_at: string | null
+          error_code: string | null
+          error_message: string | null
+          external_post_id: string | null
+          external_post_url: string | null
+          id: string
+          organization_id: string | null
+          platform: string
+          request_payload: Json | null
+          response_payload: Json | null
+          retry_count: number | null
+          schedule_id: string | null
+          status: string | null
+        }
+        Insert: {
+          attempted_at?: string | null
+          channel: string
+          completed_at?: string | null
+          connection_id?: string | null
+          content_id?: string | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_post_id?: string | null
+          external_post_url?: string | null
+          id?: string
+          organization_id?: string | null
+          platform: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          retry_count?: number | null
+          schedule_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          attempted_at?: string | null
+          channel?: string
+          completed_at?: string | null
+          connection_id?: string | null
+          content_id?: string | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_post_id?: string | null
+          external_post_url?: string | null
+          id?: string
+          organization_id?: string | null
+          platform?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          retry_count?: number | null
+          schedule_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publish_attempts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publish_attempts_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publish_attempts_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "content_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scripts: {
         Row: {
           brand_template_id: string | null
@@ -3083,6 +3168,86 @@ export type Database = {
           },
           {
             foreignKeyName: "scripts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_connections: {
+        Row: {
+          access_token: string
+          connected_at: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_error: string | null
+          last_used_at: string | null
+          metadata: Json | null
+          organization_id: string | null
+          page_id: string | null
+          page_name: string | null
+          platform: string
+          platform_avatar_url: string | null
+          platform_display_name: string | null
+          platform_user_id: string | null
+          platform_username: string | null
+          refresh_token: string | null
+          scopes: string[] | null
+          token_expires_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          connected_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_error?: string | null
+          last_used_at?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          page_id?: string | null
+          page_name?: string | null
+          platform: string
+          platform_avatar_url?: string | null
+          platform_display_name?: string | null
+          platform_user_id?: string | null
+          platform_username?: string | null
+          refresh_token?: string | null
+          scopes?: string[] | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          connected_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_error?: string | null
+          last_used_at?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          page_id?: string | null
+          page_name?: string | null
+          platform?: string
+          platform_avatar_url?: string | null
+          platform_display_name?: string | null
+          platform_user_id?: string | null
+          platform_username?: string | null
+          refresh_token?: string | null
+          scopes?: string[] | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

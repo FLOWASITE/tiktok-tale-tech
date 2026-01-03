@@ -110,3 +110,9 @@ verify_jwt = false
 
 [functions.overlay-brand-logo]
 verify_jwt = false
+
+[functions.publish-twitter]
+verify_jwt = false
+
+[functions.connect-social]
+verify_jwt = false
