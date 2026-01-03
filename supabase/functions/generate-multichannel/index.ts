@@ -2068,6 +2068,10 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     const hasFooterInfo = footerInfo && (footerInfo.phone || footerInfo.email || footerInfo.website || footerInfo.address);
     const brandAllowEmoji = brandVoice?.allow_emoji !== false;
 
+    // Get extra brand context for footer
+    const companyName = extendedBrandContext?.brandName || footerInfo?.company_name;
+    const tagline = (extendedBrandContext as any)?.tagline || (brandVoice as any)?.tagline;
+
     if (hasFooterInfo) {
       const formatFooterInfo = (
         footer: typeof footerInfo,
@@ -2076,54 +2080,102 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       ): string => {
         if (!footer) return '';
         
-        const parts: string[] = [];
+        const divider = '━━━━━━━━━━━━━━━━━━━━';
         
-        // Social channels: Facebook, Instagram, LinkedIn
+        // ======= FACEBOOK / INSTAGRAM / LINKEDIN - Card Style =======
         if (channel === 'facebook' || channel === 'instagram' || channel === 'linkedin') {
+          const lines: string[] = ['\n\n' + divider];
+          
           if (useEmoji) {
-            if (footer.phone) parts.push(`📞 ${footer.phone}`);
-            if (footer.email) parts.push(`📧 ${footer.email}`);
-            if (footer.website) parts.push(`🌐 ${footer.website}`);
-            if (footer.address) parts.push(`📍 ${footer.address}`);
+            lines.push('✨ **LIÊN HỆ NGAY** ✨');
+            lines.push('');
+            if (footer.phone) lines.push(`📞 **Hotline:** ${footer.phone}`);
+            if (footer.email) lines.push(`📧 **Email:** ${footer.email}`);
+            if (footer.website) lines.push(`🌐 **Website:** ${footer.website}`);
+            if (footer.address) lines.push(`📍 **Địa chỉ:** ${footer.address}`);
           } else {
-            // No-emoji mode - use text labels
-            if (footer.phone) parts.push(`Hotline: ${footer.phone}`);
-            if (footer.email) parts.push(`Email: ${footer.email}`);
-            if (footer.website) parts.push(`Website: ${footer.website}`);
-            if (footer.address) parts.push(`Địa chỉ: ${footer.address}`);
+            lines.push('→ **LIÊN HỆ NGAY**');
+            lines.push('');
+            if (footer.phone) lines.push(`• **Hotline:** ${footer.phone}`);
+            if (footer.email) lines.push(`• **Email:** ${footer.email}`);
+            if (footer.website) lines.push(`• **Website:** ${footer.website}`);
+            if (footer.address) lines.push(`• **Địa chỉ:** ${footer.address}`);
           }
-          return parts.length > 0 ? `\n\n---\n${parts.join('\n')}` : '';
+          
+          lines.push(divider);
+          return lines.join('\n');
         }
         
-        // Email: Signature style with pipe separator
+        // ======= EMAIL - Professional Signature Block =======
         if (channel === 'email') {
-          if (footer.company_name) parts.push(`**${footer.company_name}**`);
-          if (footer.phone) parts.push(`Tel: ${footer.phone}`);
-          if (footer.email) parts.push(`Email: ${footer.email}`);
-          if (footer.website) parts.push(`Web: ${footer.website}`);
-          if (footer.address) parts.push(footer.address);
-          return parts.length > 0 ? `\n\n---\n${parts.join(' | ')}` : '';
-        }
-        
-        // Website: Subtle author box at the end
-        if (channel === 'website') {
-          if (footer.company_name) {
-            return `\n\n---\n*Bài viết bởi **${footer.company_name}**${footer.website ? ` - [${footer.website}](${footer.website})` : ''}*`;
+          const lines: string[] = ['\n\n---'];
+          
+          if (companyName) lines.push(`\n**${companyName}**`);
+          lines.push(divider);
+          lines.push('');
+          
+          const contactLine: string[] = [];
+          if (useEmoji) {
+            if (footer.phone) contactLine.push(`📞 ${footer.phone}`);
+            if (footer.email) contactLine.push(`📧 ${footer.email}`);
+          } else {
+            if (footer.phone) contactLine.push(`Tel: ${footer.phone}`);
+            if (footer.email) contactLine.push(`Email: ${footer.email}`);
           }
-          return '';
+          if (contactLine.length) lines.push(contactLine.join('  |  '));
+          
+          if (footer.website) {
+            lines.push(useEmoji ? `🌐 ${footer.website}` : footer.website);
+          }
+          
+          if (footer.address) lines.push(`\n*${footer.address}*`);
+          
+          return lines.join('\n');
         }
         
-        // Twitter/TikTok: Just website URL (minimal)
+        // ======= WEBSITE - Author Box with Company Branding =======
+        if (channel === 'website') {
+          const lines: string[] = ['\n\n---\n'];
+          
+          if (companyName) {
+            lines.push(`### Về ${companyName}`);
+          } else {
+            lines.push('### Thông tin liên hệ');
+          }
+          lines.push('');
+          
+          if (tagline) lines.push(`*${tagline}*\n`);
+          
+          const contactParts: string[] = [];
+          if (footer.phone) contactParts.push(useEmoji ? `📞 ${footer.phone}` : `Hotline: ${footer.phone}`);
+          if (footer.email) contactParts.push(useEmoji ? `📧 ${footer.email}` : `Email: ${footer.email}`);
+          if (footer.website) contactParts.push(useEmoji ? `🌐 ${footer.website}` : footer.website);
+          
+          if (contactParts.length) lines.push(contactParts.join(' | '));
+          if (footer.address) lines.push(`\n${useEmoji ? '📍 ' : ''}${footer.address}`);
+          
+          return lines.join('\n');
+        }
+        
+        // ======= TWITTER / TIKTOK / YOUTUBE - Compact CTA =======
         if (channel === 'twitter' || channel === 'tiktok' || channel === 'youtube') {
-          return footer.website ? `\n\n${footer.website}` : '';
+          if (!footer.website) return '';
+          return useEmoji 
+            ? `\n\n👉 Theo dõi: ${footer.website}` 
+            : `\n\n→ Xem thêm: ${footer.website}`;
         }
         
-        // Zalo OA / Telegram: Formal format without emoji
+        // ======= ZALO OA / TELEGRAM - Clean Professional =======
         if (channel === 'zalo_oa' || channel === 'telegram') {
-          if (footer.phone) parts.push(`Hotline: ${footer.phone}`);
-          if (footer.email) parts.push(`Email: ${footer.email}`);
-          if (footer.website) parts.push(`Website: ${footer.website}`);
-          return parts.length > 0 ? `\n\n---\n${parts.join('\n')}` : '';
+          const lines: string[] = ['\n\n' + divider];
+          lines.push('**THÔNG TIN LIÊN HỆ:**');
+          lines.push('');
+          
+          if (footer.phone) lines.push(`→ Hotline: ${footer.phone}`);
+          if (footer.email) lines.push(`→ Email: ${footer.email}`);
+          if (footer.website) lines.push(`→ Website: ${footer.website}`);
+          
+          return lines.join('\n');
         }
         
         return '';
