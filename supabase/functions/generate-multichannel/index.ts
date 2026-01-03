@@ -648,6 +648,143 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   },
 };
 
+// ============================================
+// ADAPTIVE FORMAT DESCRIPTION - Thích ứng theo brandAllowEmoji
+// Khi brand cấm emoji → dùng ký hiệu (✓ → • ★) + bold
+// Khi brand cho emoji → dùng emoji như thường
+// ============================================
+function getAdaptiveFormatDescription(channel: string, brandAllowEmoji: boolean): string {
+  // Format mặc định cho các kênh không có emoji mode
+  const noEmojiChannels = ['website', 'google_maps', 'email', 'zalo_oa', 'telegram', 'twitter'];
+  
+  if (noEmojiChannels.includes(channel)) {
+    // Các kênh này vốn không dùng emoji, giữ nguyên format gốc
+    return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
+  }
+  
+  // Adaptive format cho các kênh social có emoji
+  if (!brandAllowEmoji) {
+    // NO-EMOJI MODE: Dùng ký hiệu thay emoji
+    switch (channel) {
+      case 'facebook':
+        return `BẮT BUỘC RICH TEXT FORMAT (KHÔNG EMOJI):
+• Hook: ★ **[Câu hook mạnh]** - dùng ký hiệu ★ hoặc → thay emoji
+• Body: Dùng bullets ✓ hoặc → cho điểm chính, **in đậm** keywords
+• Chia đoạn ngắn 2-3 dòng, xuống dòng nhiều
+• CTA cuối: → **Liên hệ ngay** (dùng ký hiệu, không emoji)
+• TUYỆT ĐỐI KHÔNG dùng emoji (🎯❌💡⚡ đều cấm)
+• VẪN PHẢI có bullets và bold formatting`;
+      
+      case 'instagram':
+        return `BẮT BUỘC RICH TEXT FORMAT (KHÔNG EMOJI):
+• Hook: ★ **[Text mạnh]** - dùng ký hiệu thay emoji
+• Body: Nhiều xuống dòng, mỗi dòng 1 ý ngắn
+• Dùng → hoặc • làm điểm nhấn thay emoji
+• KHÔNG hashtag trong body - tách riêng cuối bài
+• CTA nhẹ: → Comment ý kiến của bạn
+• TUYỆT ĐỐI KHÔNG emoji - VẪN PHẢI có bullets`;
+      
+      case 'linkedin':
+        return `BẮT BUỘC PROFESSIONAL FORMAT (KHÔNG EMOJI):
+• Hook: Insight/số liệu thú vị (không giật tít)
+• Body: Chia đoạn rõ ràng, mỗi đoạn 2-3 dòng
+• Bullets: Dùng → hoặc • cho điểm chính
+• Keywords: **In đậm** các insight quan trọng
+• KHÔNG emoji (giữ professional tone)
+• CTA mềm cuối bài + 3 hashtag chuyên ngành`;
+      
+      case 'youtube':
+        return `SCRIPT FORMAT CHI TIẾT (KHÔNG EMOJI):
+• HOOK (0-5s): Câu hỏi/số liệu gây shock
+• INTRO (5-15s): Giới thiệu vấn đề + promise
+• CONTENT: Chia thành 3-5 segments, mỗi segment có heading
+• Dùng → hoặc • làm bullet cho từng point
+• **In đậm** các keywords quan trọng
+• CTA: Subscribe + Like + Comment reminder
+• OUTRO: Tóm tắt + teaser video tiếp`;
+      
+      case 'tiktok':
+        return `SHORT-FORM SCRIPT FORMAT (KHÔNG EMOJI):
+• Hook 3s đầu: Gây tò mò NGAY - dùng ★ hoặc → thay emoji
+• Body: 3-5 điểm chính, mỗi điểm 1 dòng
+• Dùng → hoặc • làm bullet
+• **In đậm** từ khóa action
+• CTA cuối: → Follow + Share
+• Tone: Nhanh, trẻ, năng lượng cao`;
+      
+      case 'threads':
+        return `CONVERSATIONAL FORMAT (KHÔNG EMOJI):
+• Hook: Quan điểm cá nhân rõ ràng
+• Body: 2-3 đoạn ngắn, giọng trò chuyện
+• Dùng → cho emphasis thay emoji
+• Kết: Câu hỏi mở để tạo discussion
+• KHÔNG hashtag, KHÔNG link trong body`;
+      
+      default:
+        return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
+    }
+  } else {
+    // EMOJI MODE: Giữ nguyên format có emoji
+    switch (channel) {
+      case 'facebook':
+        return `BẮT BUỘC RICH TEXT FORMAT:
+• Hook: Emoji + **text đậm** (VD: 🎯 **5 sai lầm phổ biến...**)
+• Body: Dùng emoji làm bullet (✅ 💡 ⚡ 📌 ➡️), **in đậm** keywords
+• Chia đoạn ngắn 2-3 dòng, xuống dòng nhiều
+• CTA cuối: emoji + **text đậm** (VD: ➡️ **Liên hệ ngay**)
+• KHÔNG viết plain text không format`;
+      
+      case 'instagram':
+        return `BẮT BUỘC RICH TEXT FORMAT:
+• Hook: Emoji thu hút + text mạnh (🔥✨💫)
+• Body: Nhiều xuống dòng, mỗi dòng 1 ý ngắn
+• Dùng emoji làm điểm nhấn (không quá 5)
+• KHÔNG hashtag trong body - tách riêng cuối bài
+• Kết thúc bằng CTA nhẹ + emoji (💬 Comment...)
+• KHÔNG viết dạng đoạn văn dài liền mạch`;
+      
+      case 'linkedin':
+        return `BẮT BUỘC PROFESSIONAL FORMAT:
+• Hook: Insight/số liệu thú vị (không giật tít)
+• Body: Chia đoạn rõ ràng, mỗi đoạn 2-3 dòng
+• Bullets: Dùng → hoặc • cho điểm chính
+• Keywords: **In đậm** các insight quan trọng
+• Emoji: Tiết chế (1-2 cho professional 🎯💡)
+• CTA mềm cuối bài + 3 hashtag chuyên ngành`;
+      
+      case 'youtube':
+        return `SCRIPT FORMAT CHI TIẾT BẮT BUỘC:
+• HOOK (0-5s): Câu hỏi/số liệu gây shock
+• INTRO (5-15s): Giới thiệu vấn đề + promise
+• CONTENT: Chia thành 3-5 segments, mỗi segment có heading
+• Dùng emoji 🎯💡⚡ làm bullet cho từng point
+• **In đậm** các keywords quan trọng
+• CTA: Subscribe + Like + Comment reminder
+• OUTRO: Tóm tắt + teaser video tiếp`;
+      
+      case 'tiktok':
+        return `SHORT-FORM SCRIPT FORMAT:
+• Hook 3s đầu: Gây tò mò NGAY (❓🔥💥)
+• Body: 3-5 điểm chính, mỗi điểm 1 dòng
+• Dùng emoji làm bullet (✅ ❌ 💡 ⚡)
+• **In đậm** từ khóa action
+• CTA cuối: Follow + Share (📲)
+• Tone: Nhanh, trẻ, năng lượng cao`;
+      
+      case 'threads':
+        return `CONVERSATIONAL FORMAT:
+• Hook: Quan điểm cá nhân rõ ràng
+• Body: 2-3 đoạn ngắn, giọng trò chuyện
+• Emoji: Tiết chế (1-2 phù hợp ngữ cảnh)
+• Kết: Câu hỏi mở để tạo discussion
+• KHÔNG hashtag, KHÔNG link trong body`;
+      
+      default:
+        return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
+    }
+  }
+}
+
 // Build chi tiết rules prompt cho AI từ settings
 function buildChannelRulesPrompt(
   channel: string,
@@ -667,9 +804,13 @@ function buildChannelRulesPrompt(
     parts.push(`- Độ dài: Tối đa ${settings.max_length} ${lengthLabel}`);
   }
   
-  // Hook
+  // Hook - adaptive based on emoji mode
   if (settings.hook_required) {
-    parts.push(`- Hook: ${settings.hook_style || 'BẮT BUỘC'}`);
+    if (!brandAllowEmoji && ['facebook', 'instagram', 'tiktok', 'youtube'].includes(channel)) {
+      parts.push(`- Hook: BẮT BUỘC dùng ký hiệu (★ →) + **bold** thay emoji`);
+    } else {
+      parts.push(`- Hook: ${settings.hook_style || 'BẮT BUỘC'}`);
+    }
   } else {
     parts.push(`- Hook: ${settings.hook_style || 'Không bắt buộc'}`);
   }
@@ -685,11 +826,17 @@ function buildChannelRulesPrompt(
   
   // Emoji - Brand Voice overrides
   if (!brandAllowEmoji) {
-    parts.push(`- Emoji: KHÔNG (Brand Voice yêu cầu)`);
+    parts.push(`- Emoji: TUYỆT ĐỐI KHÔNG (Brand Voice) - dùng ký hiệu ✓ → • ★ thay thế`);
   } else if (settings.emoji_allowed) {
     parts.push(`- Emoji: Cho phép, tối đa ${settings.emoji_limit || 3}`);
   } else {
     parts.push(`- Emoji: KHÔNG`);
+  }
+  
+  // Bullets requirement - always require for social channels
+  if (['facebook', 'instagram', 'linkedin', 'youtube', 'tiktok'].includes(channel)) {
+    parts.push(`- Bullets: BẮT BUỘC có bullets/điểm nhấn (${brandAllowEmoji ? 'emoji hoặc ký hiệu' : 'ký hiệu ✓ → •'})`);
+    parts.push(`- Bold: BẮT BUỘC **in đậm** hook + keywords + CTA`);
   }
   
   // Hashtag
@@ -709,9 +856,10 @@ function buildChannelRulesPrompt(
   };
   parts.push(`- Link: ${linkLabels[settings.link_position] || settings.link_position}`);
   
-  // Format description
-  if (settings.format_description) {
-    parts.push(`- Format: ${settings.format_description}`);
+  // Adaptive format description based on emoji mode
+  const adaptiveFormat = getAdaptiveFormatDescription(channel, brandAllowEmoji);
+  if (adaptiveFormat) {
+    parts.push(`- Format: ${adaptiveFormat}`);
   }
   
   // Subject line for email
