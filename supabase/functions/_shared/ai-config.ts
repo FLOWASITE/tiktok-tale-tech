@@ -266,3 +266,91 @@ export function clearConfigCache(): void {
 export function getDefaultConfigs(): Record<string, Omit<AIFunctionConfig, 'function_name'>> {
   return { ...DEFAULT_CONFIGS };
 }
+
+/**
+ * Channel-specific AI model configuration
+ */
+export interface ChannelModelConfig {
+  channel: string;
+  model: string;
+  temperature: number;
+  maxTokens: number | null;
+  isEnabled: boolean;
+}
+
+// In-memory cache for channel configs
+const channelConfigCache: Map<string, { configs: ChannelModelConfig[]; fetchedAt: number }> = new Map();
+
+/**
+ * Get channel-specific model configurations
+ * Returns map of channel -> config for use in generate-multichannel
+ */
+export async function getChannelModelConfigs(
+  organizationId?: string
+): Promise<Map<string, ChannelModelConfig>> {
+  const cacheKey = organizationId || 'global';
+  const cached = channelConfigCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    console.log(`[ai-config] Channel config cache hit`);
+    return new Map(cached.configs.map(c => [c.channel, c]));
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn('[ai-config] Missing Supabase credentials for channel configs');
+    return new Map();
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  try {
+    let query = supabase
+      .from('ai_channel_model_configs')
+      .select('channel, model_override, temperature, max_tokens, is_enabled')
+      .eq('is_enabled', true);
+
+    if (organizationId) {
+      query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+    } else {
+      query = query.is('organization_id', null);
+    }
+
+    const { data, error } = await query.order('organization_id', { nullsFirst: false });
+
+    if (error) {
+      console.warn('[ai-config] Error fetching channel configs:', error.message);
+      return new Map();
+    }
+
+    // Convert to map, prioritizing org-specific over global
+    const configMap = new Map<string, ChannelModelConfig>();
+    const seenChannels = new Set<string>();
+
+    for (const row of data || []) {
+      if (!seenChannels.has(row.channel) && row.model_override) {
+        seenChannels.add(row.channel);
+        configMap.set(row.channel, {
+          channel: row.channel,
+          model: row.model_override,
+          temperature: row.temperature ?? 0.7,
+          maxTokens: row.max_tokens,
+          isEnabled: row.is_enabled ?? true,
+        });
+      }
+    }
+
+    // Cache results
+    channelConfigCache.set(cacheKey, {
+      configs: Array.from(configMap.values()),
+      fetchedAt: Date.now(),
+    });
+
+    console.log(`[ai-config] Loaded ${configMap.size} channel model configs`);
+    return configMap;
+  } catch (err) {
+    console.error('[ai-config] Failed to fetch channel configs:', err);
+    return new Map();
+  }
+}

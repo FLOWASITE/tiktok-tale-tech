@@ -6,6 +6,7 @@ import { ArrowLeft, LayoutDashboard, Plug, Settings, BarChart3, Database, Refres
 import { AIDashboard } from '@/components/admin/ai/AIDashboard';
 import { AIProviderManager } from '@/components/admin/ai/AIProviderManager';
 import { AIFunctionConfigComponent } from '@/components/admin/ai/AIFunctionConfig';
+import { AIChannelModelConfig } from '@/components/admin/ai/AIChannelModelConfig';
 import CacheAnalytics from '@/components/admin/CacheAnalytics';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -105,7 +106,7 @@ export default function AdminAI() {
 
         {/* Tabs */}
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+          <TabsList className="grid grid-cols-6 w-full max-w-3xl">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -117,6 +118,10 @@ export default function AdminAI() {
             <TabsTrigger value="functions" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Functions</span>
+            </TabsTrigger>
+            <TabsTrigger value="channels" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Channels</span>
             </TabsTrigger>
             <TabsTrigger value="metrics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -138,6 +143,10 @@ export default function AdminAI() {
 
           <TabsContent value="functions" className="space-y-6">
             <AIFunctionConfigComponent organizationId={organizationId} />
+          </TabsContent>
+
+          <TabsContent value="channels" className="space-y-6">
+            <AIChannelModelConfig organizationId={organizationId} />
           </TabsContent>
 
           <TabsContent value="metrics" className="space-y-6">
