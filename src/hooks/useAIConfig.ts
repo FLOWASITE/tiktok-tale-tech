@@ -298,16 +298,55 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
   },
 };
 
+// Lovable AI model prefixes - models that are served through Lovable AI gateway
+export const LOVABLE_MODEL_PREFIXES = [
+  'google/gemini-2.5',
+  'google/gemini-3',
+  'openai/gpt-5',
+  'sonar',
+];
+
+export const LOVABLE_EXACT_MODELS = [
+  'gemini-2.0-flash-exp-image-generation',
+];
+
+// Check if a model is a Lovable AI model
+export const isLovableAIModel = (modelId: string): boolean => {
+  if (LOVABLE_EXACT_MODELS.includes(modelId)) return true;
+  return LOVABLE_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
+};
+
+// Helper to extract readable name from model ID
+const extractShortName = (modelId: string): string => {
+  const parts = modelId.split('/');
+  if (parts.length === 2) {
+    // "anthropic/claude-sonnet-4" -> "Claude Sonnet 4"
+    return parts[1]
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  return modelId;
+};
+
 // Helper function to get model info with fallback
 export const getModelInfo = (modelId: string): ModelInfo => {
-  return MODEL_INFO[modelId] || {
-    shortName: modelId.split('/').pop() || modelId,
-    description: 'Model không có thông tin chi tiết',
+  // First check if we have hardcoded info
+  if (MODEL_INFO[modelId]) {
+    return MODEL_INFO[modelId];
+  }
+  
+  // Determine provider: Lovable AI models vs OpenRouter
+  const isLovableModel = isLovableAIModel(modelId);
+    
+  return {
+    shortName: extractShortName(modelId),
+    description: isLovableModel ? 'Lovable AI model' : 'OpenRouter model',
     speed: 'medium' as ModelSpeed,
     quality: 'standard' as ModelQuality,
     cost: 'medium' as ModelCost,
     bestFor: [],
-    provider: modelId.includes('anthropic') || modelId.includes('llama') || modelId.includes('mistral') || modelId.includes('deepseek') || modelId.includes('qwen') ? 'openrouter' : 'lovable',
+    provider: isLovableModel ? 'lovable' : 'openrouter',
   };
 };
 
