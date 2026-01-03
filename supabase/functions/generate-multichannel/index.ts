@@ -481,7 +481,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     max_length: 150,
     length_unit: 'words',
     hook_required: true,
-    hook_style: 'hook ngắn gọn, hấp dẫn',
+    hook_style: 'Hook ngắn gọn + emoji thu hút (🔥✨💫)',
     bullet_allowed: false,
     cta_policy: 'optional',
     emoji_allowed: true,
@@ -490,14 +490,20 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'end',
     line_break_style: 'many',
     link_position: 'none',
-    format_description: 'Nhiều xuống dòng, KHÔNG chèn hashtag trong body, hashtag cuối bài',
+    format_description: `BẮT BUỘC RICH TEXT FORMAT:
+• Hook: Emoji thu hút + text mạnh (🔥✨💫)
+• Body: Nhiều xuống dòng, mỗi dòng 1 ý ngắn
+• Dùng emoji làm điểm nhấn (không quá 5)
+• KHÔNG hashtag trong body - tách riêng cuối bài
+• Kết thúc bằng CTA nhẹ + emoji (💬 Comment...)
+• KHÔNG viết dạng đoạn văn dài liền mạch`,
   },
   twitter: {
     min_length: 0,
     max_length: 280,
     length_unit: 'chars',
     hook_required: true,
-    hook_style: 'quan điểm rõ ràng ngay câu đầu',
+    hook_style: 'Quan điểm sắc nét ngay câu đầu, gây tò mò',
     bullet_allowed: false,
     cta_policy: 'none',
     emoji_allowed: false,
@@ -506,7 +512,13 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'end',
     line_break_style: 'minimal',
     link_position: 'allowed',
-    format_description: 'Thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số 1/, 2/..., câu ngắn sắc nét',
+    format_description: `THREAD FORMAT BẮT BUỘC:
+• Tweet 1/: Hook sắc nét, gây tò mò mạnh
+• Mỗi tweet đánh số (1/, 2/, 3/...)
+• Tối đa 280 ký tự/tweet - câu ngắn, ý rõ
+• KHÔNG emoji (giữ tone nghiêm túc)
+• Tweet cuối: CTA follow hoặc retweet
+• Tổng 5-7 tweets cho thread hoàn chỉnh`,
   },
   google_maps: {
     min_length: 80,
@@ -529,7 +541,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     max_length: 400,
     length_unit: 'words',
     hook_required: true,
-    hook_style: 'nhẹ, không giật tít, insight hoặc số liệu',
+    hook_style: 'Insight/số liệu thú vị (không giật tít rẻ tiền)',
     bullet_allowed: true,
     cta_policy: 'soft',
     emoji_allowed: true,
@@ -538,7 +550,13 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'end',
     line_break_style: 'normal',
     link_position: 'allowed',
-    format_description: 'Chuyên nghiệp, rõ đoạn, B2B authority, perspective cá nhân',
+    format_description: `BẮT BUỘC PROFESSIONAL FORMAT:
+• Hook: Insight/số liệu thú vị (không giật tít)
+• Body: Chia đoạn rõ ràng, mỗi đoạn 2-3 dòng
+• Bullets: Dùng → hoặc • cho điểm chính
+• Keywords: **In đậm** các insight quan trọng
+• Emoji: Tiết chế (1-2 cho professional 🎯💡)
+• CTA mềm cuối bài + 3 hashtag chuyên ngành`,
   },
   email: {
     min_length: 150,
@@ -554,30 +572,43 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'none',
     line_break_style: 'normal',
     link_position: 'body',
-    format_description: 'Có Subject line hấp dẫn (không spam trigger), đoạn ngắn, dễ đọc, CTA rõ',
+    format_description: `EMAIL MARKETING FORMAT BẮT BUỘC:
+• Subject: Hấp dẫn, KHÔNG spam trigger (free, !!!, CAPS)
+• Opening: Personalized greeting
+• Body: Đoạn ngắn 2-3 câu, scannable
+• Bullets cho benefits: ✓ hoặc •
+• CTA: **Button-style text** rõ ràng
+• P.S. line optional cho urgency`,
   },
   youtube: {
     min_length: 500,
     max_length: 800,
     length_unit: 'words',
     hook_required: true,
-    hook_style: 'hook 5 giây đầu gây tò mò',
+    hook_style: 'Hook 5 giây đầu gây shock/tò mò (câu hỏi/số liệu)',
     bullet_allowed: true,
     cta_policy: 'required',
     emoji_allowed: true,
-    emoji_limit: 3,
+    emoji_limit: 5,
     hashtag_limit: 5,
     hashtag_position: 'end',
     line_break_style: 'normal',
     link_position: 'body',
-    format_description: 'Script 3-5 phút với Hook + Intro + Content (chia segments) + CTA subscribe + Outro',
+    format_description: `SCRIPT FORMAT CHI TIẾT BẮT BUỘC:
+• HOOK (0-5s): Câu hỏi/số liệu gây shock
+• INTRO (5-15s): Giới thiệu vấn đề + promise
+• CONTENT: Chia thành 3-5 segments, mỗi segment có heading
+• Dùng emoji 🎯💡⚡ làm bullet cho từng point
+• **In đậm** các keywords quan trọng
+• CTA: Subscribe + Like + Comment reminder
+• OUTRO: Tóm tắt + teaser video tiếp`,
   },
   zalo_oa: {
     min_length: 60,
     max_length: 150,
     length_unit: 'words',
     hook_required: true,
-    hook_style: 'trực diện, không giật tít',
+    hook_style: 'Trực diện, không giật tít',
     bullet_allowed: false,
     cta_policy: 'required',
     emoji_allowed: false,
@@ -586,14 +617,19 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'none',
     line_break_style: 'short',
     link_position: 'allowed',
-    format_description: 'Thông báo rõ việc, thân thiện local, format phù hợp mobile',
+    format_description: `MOBILE-FIRST FORMAT BẮT BUỘC:
+• Hook: Trực diện, không giật tít
+• Body: Đoạn ngắn 2-3 dòng, dễ đọc trên mobile
+• KHÔNG emoji (phong cách formal)
+• CTA rõ ràng với link action
+• Tone: Thân thiện, local, chuyên nghiệp`,
   },
   telegram: {
     min_length: 100,
     max_length: 500,
     length_unit: 'words',
     hook_required: false,
-    hook_style: 'không cần giật',
+    hook_style: 'Thông tin giá trị ngay từ đầu',
     bullet_allowed: true,
     cta_policy: 'optional',
     emoji_allowed: false,
@@ -602,7 +638,13 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'none',
     line_break_style: 'normal',
     link_position: 'allowed',
-    format_description: 'Bullet points, dễ đọc, linh hoạt',
+    format_description: `COMMUNITY FORMAT BẮT BUỘC:
+• Hook: Thông tin giá trị ngay từ đầu
+• Body: Bullets rõ ràng (• hoặc -)
+• Chia sections với heading nếu dài
+• KHÔNG emoji (technical/serious tone)
+• Link cho phép trong body
+• CTA: Join channel/Share nếu phù hợp`,
   },
 };
 
