@@ -13,6 +13,10 @@ interface ProgressEvent {
   message?: string;
   data?: any;
   retryCount?: number;
+  // Per-channel progress
+  currentChannel?: string;
+  completedChannels?: string[];
+  totalChannels?: string[];
 }
 
 // Helper to create SSE emitter
@@ -67,8 +71,33 @@ serve(async (req) => {
         // Step 5: Build Prompt
         emit({ type: 'progress', step: 'prompt', progress: 40, message: 'Xây dựng prompt AI...' });
 
+        // Extract channels from formData for per-channel progress
+        const channels: string[] = formData.channels || [];
+        const channelDisplayNames: Record<string, string> = {
+          facebook: 'Facebook',
+          instagram: 'Instagram',
+          linkedin: 'LinkedIn',
+          twitter: 'Twitter',
+          threads: 'Threads',
+          tiktok: 'TikTok',
+          youtube: 'YouTube',
+          zalo: 'Zalo',
+          telegram: 'Telegram',
+          email: 'Email',
+          website: 'Website',
+          blog: 'Blog',
+        };
+
         // Step 6: Call main generate-multichannel function
-        emit({ type: 'progress', step: 'ai', progress: 50, message: 'AI đang tạo nội dung (có thể mất 30-60 giây)...' });
+        emit({ 
+          type: 'progress', 
+          step: 'ai', 
+          progress: 50, 
+          message: 'AI đang tạo nội dung (có thể mất 30-60 giây)...',
+          totalChannels: channels,
+          completedChannels: [],
+          currentChannel: channels[0],
+        });
         
         // Get auth token from request
         const authHeader = req.headers.get('authorization');
@@ -84,10 +113,40 @@ serve(async (req) => {
         });
 
         // Heartbeat: emit progress updates every 2s while waiting for AI
+        // Simulate per-channel progress by cycling through channels
         let currentProgress = 50;
-        const maxProgressWhileWaiting = 72; // Cap at 72% to leave room for critique/finalize
+        const maxProgressWhileWaiting = 72;
+        let channelIndex = 0;
+        const completedChannels: string[] = [];
+        const progressPerChannel = channels.length > 0 ? (maxProgressWhileWaiting - 50) / channels.length : 22;
+
         const heartbeatInterval = setInterval(() => {
-          if (currentProgress < maxProgressWhileWaiting) {
+          if (currentProgress < maxProgressWhileWaiting && channels.length > 0) {
+            // Calculate which channel we're "working on" based on progress
+            const expectedChannelIndex = Math.floor((currentProgress - 50) / progressPerChannel);
+            
+            // Mark previous channels as completed
+            while (channelIndex < expectedChannelIndex && channelIndex < channels.length) {
+              if (!completedChannels.includes(channels[channelIndex])) {
+                completedChannels.push(channels[channelIndex]);
+              }
+              channelIndex++;
+            }
+            
+            const currentChannel = channels[Math.min(channelIndex, channels.length - 1)];
+            const displayName = channelDisplayNames[currentChannel] || currentChannel;
+            
+            currentProgress += 2;
+            emit({ 
+              type: 'progress', 
+              step: 'ai', 
+              progress: currentProgress, 
+              message: `Đang tạo ${displayName}...`,
+              currentChannel,
+              completedChannels: [...completedChannels],
+              totalChannels: channels,
+            });
+          } else if (currentProgress < maxProgressWhileWaiting) {
             currentProgress += 2;
             emit({ 
               type: 'progress', 
