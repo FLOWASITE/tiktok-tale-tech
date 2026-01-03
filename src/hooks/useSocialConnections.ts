@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export type SocialPlatform = 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube';
 
 export interface SocialConnection {
   id: string;
-  organization_id: string;
+  organization_id: string | null;
+  brand_template_id: string | null;
   user_id: string;
   platform: SocialPlatform;
   platform_user_id: string | null;
@@ -20,74 +21,86 @@ export interface SocialConnection {
   scopes: string[];
 }
 
-export function useSocialConnections(organizationId: string | undefined) {
-  const { toast } = useToast();
+interface UseSocialConnectionsOptions {
+  organizationId?: string;
+  brandTemplateId?: string;
+}
+
+export function useSocialConnections(options: UseSocialConnectionsOptions = {}) {
+  const { organizationId, brandTemplateId } = options;
   const queryClient = useQueryClient();
 
+  const queryKey = brandTemplateId 
+    ? ['social-connections', 'brand', brandTemplateId]
+    : ['social-connections', 'org', organizationId];
+
   const { data: connections, isLoading, error, refetch } = useQuery({
-    queryKey: ['social-connections', organizationId],
+    queryKey,
     queryFn: async () => {
-      if (!organizationId) return [];
+      let query = supabase.from('social_connections').select('*');
       
-      const { data, error } = await supabase
-        .from('social_connections')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .order('platform', { ascending: true });
+      if (brandTemplateId) {
+        query = query.eq('brand_template_id', brandTemplateId);
+      } else if (organizationId) {
+        query = query.eq('organization_id', organizationId);
+      } else {
+        return [];
+      }
+      
+      const { data, error } = await query.order('platform', { ascending: true });
 
       if (error) throw error;
       return data as SocialConnection[];
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId || !!brandTemplateId,
   });
 
   const connectMutation = useMutation({
     mutationFn: async ({
       platform,
+      brandTemplateId: connectBrandTemplateId,
+      organizationId: connectOrgId,
       accessToken,
       accessTokenSecret,
-      username,
+      consumerKey,
+      consumerSecret,
     }: {
       platform: SocialPlatform;
+      brandTemplateId?: string;
+      organizationId?: string;
       accessToken?: string;
       accessTokenSecret?: string;
-      username?: string;
+      consumerKey?: string;
+      consumerSecret?: string;
     }) => {
-      if (!organizationId) throw new Error('Organization ID required');
-
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const response = await supabase.functions.invoke('connect-social', {
+      const { data, error } = await supabase.functions.invoke('connect-social', {
         body: {
           platform,
-          organizationId,
+          organizationId: connectOrgId || organizationId,
+          brandTemplateId: connectBrandTemplateId || brandTemplateId,
           accessToken,
           accessTokenSecret,
-          username,
+          consumerKey,
+          consumerSecret,
         },
       });
 
-      if (response.error) throw response.error;
-      return response.data;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: (data) => {
       if (data.requiresManualSetup) {
-        // Don't show success toast, UI will handle showing instructions
         return;
       }
-      toast({
-        title: 'Kết nối thành công',
-        description: `Đã kết nối ${data.connection?.platform || 'tài khoản'}`,
-      });
-      queryClient.invalidateQueries({ queryKey: ['social-connections', organizationId] });
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Đã kết nối tài khoản thành công');
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Lỗi kết nối',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Lỗi kết nối: ${error.message}`);
     },
   });
 
@@ -101,18 +114,11 @@ export function useSocialConnections(organizationId: string | undefined) {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: 'Đã ngắt kết nối',
-        description: 'Tài khoản đã được ngắt kết nối',
-      });
-      queryClient.invalidateQueries({ queryKey: ['social-connections', organizationId] });
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Đã ngắt kết nối');
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Lỗi',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Lỗi ngắt kết nối: ${error.message}`);
     },
   });
 
@@ -126,18 +132,11 @@ export function useSocialConnections(organizationId: string | undefined) {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: 'Đã xóa kết nối',
-        description: 'Tài khoản đã được xóa hoàn toàn',
-      });
-      queryClient.invalidateQueries({ queryKey: ['social-connections', organizationId] });
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Đã xóa kết nối');
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Lỗi',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Lỗi xóa kết nối: ${error.message}`);
     },
   });
 

@@ -3178,6 +3178,7 @@ export type Database = {
       social_connections: {
         Row: {
           access_token: string
+          brand_template_id: string | null
           connected_at: string | null
           created_at: string | null
           id: string
@@ -3201,6 +3202,7 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          brand_template_id?: string | null
           connected_at?: string | null
           created_at?: string | null
           id?: string
@@ -3224,6 +3226,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          brand_template_id?: string | null
           connected_at?: string | null
           created_at?: string | null
           id?: string
@@ -3246,6 +3249,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "social_connections_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "social_connections_organization_id_fkey"
             columns: ["organization_id"]

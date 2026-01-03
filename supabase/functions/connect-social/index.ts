@@ -7,12 +7,13 @@ const corsHeaders = {
 };
 
 interface ConnectRequest {
-  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok';
-  organizationId: string;
-  redirectUri: string;
-  // For Twitter OAuth 1.0a - manual token input (simpler approach)
+  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube';
+  organizationId?: string;
+  brandTemplateId?: string;
   accessToken?: string;
   accessTokenSecret?: string;
+  consumerKey?: string;
+  consumerSecret?: string;
   username?: string;
 }
 
@@ -40,29 +41,64 @@ serve(async (req) => {
     }
 
     const body: ConnectRequest = await req.json();
-    const { platform, organizationId, accessToken, accessTokenSecret, username } = body;
+    const { platform, organizationId, brandTemplateId, accessToken, accessTokenSecret, consumerKey, consumerSecret, username } = body;
 
-    if (!platform || !organizationId) {
-      throw new Error('platform and organizationId are required');
+    if (!platform) {
+      throw new Error('platform is required');
     }
 
-    console.log(`Connecting ${platform} for organization ${organizationId}`);
-
-    // Verify user is member of organization
-    const { data: membership, error: memberError } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (memberError || !membership) {
-      throw new Error('Not a member of this organization');
+    if (!brandTemplateId && !organizationId) {
+      throw new Error('brandTemplateId or organizationId is required');
     }
 
-    // For Twitter - using manual token approach (user provides their own API tokens)
+    console.log(`Connecting ${platform} for brand ${brandTemplateId || 'N/A'}, org ${organizationId || 'N/A'}`);
+
+    // If brandTemplateId provided, verify user has access to the brand
+    if (brandTemplateId) {
+      const { data: brand, error: brandError } = await supabase
+        .from('brand_templates')
+        .select('id, organization_id, user_id')
+        .eq('id', brandTemplateId)
+        .single();
+
+      if (brandError || !brand) {
+        throw new Error('Brand not found');
+      }
+
+      // Check if user owns the brand or is member of the org
+      if (brand.user_id !== user.id) {
+        if (brand.organization_id) {
+          const { data: membership, error: memberError } = await supabase
+            .from('organization_members')
+            .select('role')
+            .eq('organization_id', brand.organization_id)
+            .eq('user_id', user.id)
+            .single();
+
+          if (memberError || !membership) {
+            throw new Error('Not authorized to access this brand');
+          }
+        } else {
+          throw new Error('Not authorized to access this brand');
+        }
+      }
+    } else if (organizationId) {
+      // Verify user is member of organization
+      const { data: membership, error: memberError } = await supabase
+        .from('organization_members')
+        .select('role')
+        .eq('organization_id', organizationId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (memberError || !membership) {
+        throw new Error('Not a member of this organization');
+      }
+    }
+
+    // For Twitter - using manual token approach
     if (platform === 'twitter') {
-      if (!accessToken || !accessTokenSecret) {
+      if (!accessToken || !accessTokenSecret || !consumerKey || !consumerSecret) {
         // Return instructions for getting Twitter tokens
         return new Response(
           JSON.stringify({
@@ -72,13 +108,15 @@ serve(async (req) => {
               steps: [
                 '1. Truy cập developer.twitter.com và tạo App',
                 '2. Trong App Settings, chọn "Read and Write" permissions',
-                '3. Trong Keys and Tokens, tạo Access Token and Secret',
-                '4. Copy các giá trị và nhập vào form bên dưới',
+                '3. Copy API Key và API Secret',
+                '4. Trong Keys and Tokens, tạo Access Token and Secret',
+                '5. Copy các giá trị và nhập vào form',
               ],
               fields: [
+                { key: 'consumerKey', label: 'API Key (Consumer Key)', required: true },
+                { key: 'consumerSecret', label: 'API Secret (Consumer Secret)', required: true },
                 { key: 'accessToken', label: 'Access Token', required: true },
                 { key: 'accessTokenSecret', label: 'Access Token Secret', required: true },
-                { key: 'username', label: 'Twitter Username (không có @)', required: false },
               ],
             },
           }),
@@ -86,21 +124,30 @@ serve(async (req) => {
         );
       }
 
-      // Save Twitter connection with provided tokens
-      const { data: existingConnection } = await supabase
+      // Check for existing connection
+      let query = supabase
         .from('social_connections')
         .select('id')
-        .eq('organization_id', organizationId)
-        .eq('platform', 'twitter')
-        .maybeSingle();
+        .eq('platform', 'twitter');
+
+      if (brandTemplateId) {
+        query = query.eq('brand_template_id', brandTemplateId);
+      } else {
+        query = query.eq('organization_id', organizationId);
+      }
+
+      const { data: existingConnection } = await query.maybeSingle();
 
       const connectionData = {
-        organization_id: organizationId,
+        organization_id: organizationId || null,
+        brand_template_id: brandTemplateId || null,
         user_id: user.id,
         platform: 'twitter',
         platform_username: username || null,
         access_token: accessToken,
-        refresh_token: accessTokenSecret, // Store token secret in refresh_token field
+        refresh_token: accessTokenSecret,
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
         is_active: true,
         connected_at: new Date().toISOString(),
         scopes: ['tweet.read', 'tweet.write', 'users.read'],
@@ -109,7 +156,6 @@ serve(async (req) => {
 
       let connection;
       if (existingConnection) {
-        // Update existing connection
         const { data, error } = await supabase
           .from('social_connections')
           .update(connectionData)
@@ -120,7 +166,6 @@ serve(async (req) => {
         if (error) throw error;
         connection = data;
       } else {
-        // Create new connection
         const { data, error } = await supabase
           .from('social_connections')
           .insert(connectionData)
@@ -147,8 +192,7 @@ serve(async (req) => {
       );
     }
 
-    // For other platforms (Facebook, Instagram, LinkedIn, TikTok) - OAuth flow
-    // These will be implemented in Phase 2 and 3
+    // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,

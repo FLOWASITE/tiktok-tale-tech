@@ -76,7 +76,7 @@ export function DirectPublishButton({
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
-  const { connections, getConnectionForPlatform } = useSocialConnections(currentOrganization?.id);
+  const { connections, getConnectionForPlatform } = useSocialConnections({ organizationId: currentOrganization?.id });
   const { publishToTwitter, isPublishing, publishResult } = useDirectPublish();
 
   const [confirmDialog, setConfirmDialog] = useState<{

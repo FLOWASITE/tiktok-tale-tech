@@ -123,7 +123,7 @@ export function SocialConnectionsManager() {
     disconnect,
     deleteConnection,
     isDeleting,
-  } = useSocialConnections(currentOrganization?.id);
+  } = useSocialConnections({ organizationId: currentOrganization?.id });
 
   const [setupDialog, setSetupDialog] = useState<{
     open: boolean;
@@ -169,7 +169,6 @@ export function SocialConnectionsManager() {
         platform: 'twitter',
         accessToken: twitterForm.accessToken,
         accessTokenSecret: twitterForm.accessTokenSecret,
-        username: twitterForm.username,
       });
       
       setSetupDialog({ open: false, platform: null });
