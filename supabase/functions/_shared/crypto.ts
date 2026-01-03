@@ -8,26 +8,50 @@ const IV_LENGTH = 12; // 96 bits for GCM
 const TAG_LENGTH = 128; // bits
 
 /**
- * Get encryption key from environment
- * Key should be 32 bytes (256 bits) base64 encoded
+ * Get encryption key from environment.
+ *
+ * Preferred format: base64 of 32 random bytes (AES-256).
+ *
+ * To prevent configuration "got X bytes" errors from breaking the app,
+ * we accept any non-empty value and *derive* a 32-byte key via SHA-256 when needed.
+ *
+ * Security note: hashing a low-entropy input does NOT increase entropy.
+ * Always use a randomly generated value for AI_ENCRYPTION_KEY.
  */
 async function getEncryptionKey(): Promise<CryptoKey> {
-  const keyBase64 = Deno.env.get("AI_ENCRYPTION_KEY");
-  if (!keyBase64) {
-    throw new Error("AI_ENCRYPTION_KEY is not configured");
+  const raw = Deno.env.get("AI_ENCRYPTION_KEY");
+  if (!raw) throw new Error("AI_ENCRYPTION_KEY is not configured");
+
+  // 1) Try to treat env as base64.
+  let keyBytes: Uint8Array | null = null;
+  try {
+    const decoded = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+    // Only accept base64 decode if it looks plausible (non-empty)
+    if (decoded.length > 0) keyBytes = decoded;
+  } catch {
+    keyBytes = null;
   }
 
-  // Decode base64 key
-  const keyBytes = Uint8Array.from(atob(keyBase64), (c) => c.charCodeAt(0));
-  
-  // Key should be 32 bytes for AES-256
+  // 2) Fallback: treat env as a raw string.
+  if (!keyBytes) {
+    keyBytes = new TextEncoder().encode(raw);
+  }
+
+  // 3) Ensure 32 bytes for AES-256.
   if (keyBytes.length !== 32) {
-    throw new Error(`Invalid encryption key length: expected 32 bytes, got ${keyBytes.length}`);
+    console.warn(
+      `[crypto] AI_ENCRYPTION_KEY decoded length is ${keyBytes.length} bytes; deriving 32-byte key via SHA-256.`
+    );
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      keyBytes as unknown as BufferSource
+    );
+    keyBytes = new Uint8Array(digest);
   }
 
   return await crypto.subtle.importKey(
     "raw",
-    keyBytes,
+    keyBytes as unknown as BufferSource,
     { name: ALGORITHM },
     false,
     ["encrypt", "decrypt"]
