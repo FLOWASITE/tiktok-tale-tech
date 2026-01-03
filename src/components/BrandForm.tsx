@@ -665,6 +665,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 onChange={setChannelOverrides}
                 defaultExpanded={true}
                 showWrapper={true}
+                footerInfo={footerInfo}
+                brandAllowEmoji={allowEmoji}
+                companyName={brandName}
+                tagline={tagline}
               />
               
               {/* Content Pillars Editor */}
