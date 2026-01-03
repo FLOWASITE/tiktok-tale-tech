@@ -1578,15 +1578,16 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          // Gemini 3 Pro for better long-form content and complex reasoning
+          model: "google/gemini-3-pro-preview",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: currentPrompt },
           ],
           tools,
           tool_choice: { type: "function", function: { name: "generate_multichannel_content" } },
-          // Increase tokens for website content
-          max_completion_tokens: hasWebsiteChannel ? 8192 : 4096,
+          // Increase tokens for website content - Gemini 3 supports larger context
+          max_completion_tokens: hasWebsiteChannel ? 12288 : 8192,
         }),
       });
 
