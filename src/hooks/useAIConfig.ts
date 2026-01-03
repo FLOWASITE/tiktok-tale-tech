@@ -145,9 +145,13 @@ export function useAIConfig(organizationId?: string) {
     queryKey: ['ai-provider-configs', organizationId],
     queryFn: async (): Promise<AIProviderConfig[]> => {
       let query = supabase.from('ai_provider_configs').select('*');
+      
       if (organizationId) {
-        query = query.eq('organization_id', organizationId);
+        // Fetch org-specific OR global providers (organization_id is null)
+        query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
       }
+      // If no organizationId, fetch all providers (for admins)
+      
       const { data, error } = await query;
       if (error) throw error;
       
@@ -161,12 +165,12 @@ export function useAIConfig(organizationId?: string) {
         baseUrl: p.base_url,
         defaultModel: p.default_model,
         config: (p.config as Record<string, any>) || {},
-        encryptedApiKey: (p as any).encrypted_api_key ?? null,
+        encryptedApiKey: p.encrypted_api_key ?? null,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
       }));
     },
-    enabled: !!organizationId,
+    enabled: true, // Always fetch - RLS will handle permissions
   });
 
   // Fetch function configs
