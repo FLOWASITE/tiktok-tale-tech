@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.fetch-openrouter-models]
 verify_jwt = false
+
+[functions.expand-multichannel-channels]
+verify_jwt = false

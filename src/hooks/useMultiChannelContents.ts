@@ -882,6 +882,48 @@ export function useMultiChannelContents() {
     fetchContents();
   }, [user]);
 
+  // Expand channels - add new channels to existing content
+  const [expandingChannels, setExpandingChannels] = useState(false);
+
+  const expandChannels = async (contentId: string, newChannels: Channel[]): Promise<MultiChannelContent | null> => {
+    setExpandingChannels(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('expand-multichannel-channels', {
+        body: { contentId, newChannels },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Lỗi khi mở rộng kênh');
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const updatedContent = transformContent(data);
+      setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
+      
+      toast({
+        title: '✨ Đã thêm kênh mới',
+        description: `Đã tạo nội dung cho ${newChannels.length} kênh mới`,
+        className: 'animate-success',
+      });
+
+      return updatedContent;
+    } catch (error) {
+      console.error('Error expanding channels:', error);
+      toast({
+        title: '❌ Lỗi mở rộng kênh',
+        description: error instanceof Error ? error.message : 'Vui lòng thử lại sau',
+        variant: 'destructive',
+        className: 'animate-error-shake',
+      });
+      return null;
+    } finally {
+      setExpandingChannels(false);
+    }
+  };
+
   return {
     contents,
     loading,
@@ -889,6 +931,7 @@ export function useMultiChannelContents() {
     regeneratingChannel,
     aiEditingChannel,
     approvingContent,
+    expandingChannels,
     generateContent,
     regenerateChannel,
     updateChannelContent,
@@ -906,6 +949,7 @@ export function useMultiChannelContents() {
     bulkSubmitForReview,
     bulkApproveContent,
     bulkRejectContent,
+    expandChannels,
     refetch: fetchContents,
   };
 }

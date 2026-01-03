@@ -265,12 +265,14 @@ export default function ContentCalendar() {
     contents,
     generating,
     regeneratingChannel,
+    expandingChannels,
     generateContent, 
     regenerateChannel,
     updateChannelContent,
     aiEditChannel,
     updateTitleTopic,
     updateChannelStatus,
+    expandChannels,
   } = useMultiChannelContents();
 
   const sensors = useSensors(
@@ -883,6 +885,8 @@ export default function ContentCalendar() {
         onAIEdit={aiEditChannel}
         onUpdateTitleTopic={updateTitleTopic}
         onUpdateChannelStatus={updateChannelStatus}
+        onExpandChannels={expandChannels}
+        expandingChannels={expandingChannels}
       />
 
       {/* Schedule Topic Dialog from Topics Hub */}
