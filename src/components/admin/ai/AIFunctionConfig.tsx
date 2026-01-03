@@ -116,19 +116,19 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const currentModelInfo = getModelInfo(currentModel);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h3 className="text-lg font-medium">Function Configuration</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="text-base sm:text-lg font-medium">Function Configuration</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Cấu hình AI model và parameters cho từng edge function
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap">
           {Object.entries(TYPE_BADGES).map(([type, badge]) => (
-            <Badge key={type} variant="outline" className={`${badge.className} text-xs`}>
+            <Badge key={type} variant="outline" className={`${badge.className} text-[10px] sm:text-xs`}>
               {badge.icon}
-              <span className="ml-1">{badge.label}</span>
+              <span className="ml-1 hidden xs:inline">{badge.label}</span>
             </Badge>
           ))}
         </div>
@@ -273,12 +273,15 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
 
       {/* Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              Cấu hình: {editingFunction?.functionName}
+        <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm sm:text-base">
+              <span className="truncate">Cấu hình: {editingFunction?.functionName}</span>
               {editingFunction?.functionName && (
-                <Badge variant="outline" className={TYPE_BADGES[getFunctionMeta(editingFunction.functionName)?.type || 'text'].className}>
+                <Badge variant="outline" className={cn(
+                  TYPE_BADGES[getFunctionMeta(editingFunction.functionName)?.type || 'text'].className,
+                  "text-[10px] sm:text-xs w-fit"
+                )}>
                   {TYPE_BADGES[getFunctionMeta(editingFunction.functionName)?.type || 'text'].label}
                 </Badge>
               )}
@@ -286,9 +289,9 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
           </DialogHeader>
           
           {editingFunction && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div className="flex items-center justify-between">
-                <Label>Kích hoạt function</Label>
+                <Label className="text-sm">Kích hoạt function</Label>
                 <Switch
                   checked={editingFunction.isEnabled ?? true}
                   onCheckedChange={(checked) => setEditingFunction({ ...editingFunction, isEnabled: checked })}
@@ -296,14 +299,14 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
               </div>
 
               {/* Model Selection - New UI */}
-              <div className="space-y-3">
-                <Label className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
+              <div className="space-y-2 sm:space-y-3">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                   Chọn AI Model
                 </Label>
                 
                 {/* Quick Select Buttons */}
-                <div className="grid gap-2">
+                <div className="grid gap-1.5 sm:gap-2">
                   <QuickSelectButton
                     label={QUICK_PRESETS.default.label}
                     description={`${currentFunctionMeta?.currentModel ? getModelInfo(currentFunctionMeta.currentModel).shortName : 'Auto'} - ${QUICK_PRESETS.default.description}`}
@@ -336,29 +339,29 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                 <button
                   onClick={() => setIsModelSelectorOpen(true)}
                   className={cn(
-                    "w-full flex items-center justify-between p-3 rounded-lg border text-left transition-all",
+                    "w-full flex items-center justify-between p-2.5 sm:p-3 rounded-lg border text-left transition-all",
                     getCurrentQuickPreset() === 'custom'
                       ? "border-primary bg-primary/5"
                       : "border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/50"
                   )}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <div className={cn(
-                      "h-10 w-10 rounded-full flex items-center justify-center",
+                      "h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center flex-shrink-0",
                       getCurrentQuickPreset() === 'custom' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     )}>
-                      <Settings className="h-5 w-5" />
+                      <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       {getCurrentQuickPreset() === 'custom' ? (
                         <>
-                          <p className="font-medium text-sm">{currentModelInfo.shortName}</p>
-                          <p className="text-xs text-muted-foreground">{currentModelInfo.description}</p>
+                          <p className="font-medium text-xs sm:text-sm truncate">{currentModelInfo.shortName}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{currentModelInfo.description}</p>
                         </>
                       ) : (
                         <>
-                          <p className="font-medium text-sm">Chọn model khác...</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="font-medium text-xs sm:text-sm">Chọn model khác...</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                             {hasOpenRouterApiKey && currentFunctionMeta?.type === 'text'
                               ? 'Lovable AI + OpenRouter models'
                               : 'Xem tất cả models khả dụng'
@@ -368,34 +371,34 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                       )}
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                 </button>
 
                 {/* Current Selection Info */}
                 {editingFunction.modelOverride && (
-                  <div className="p-3 rounded-lg bg-muted/50 border">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
+                  <div className="p-2 sm:p-3 rounded-lg bg-muted/50 border">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs flex-shrink-0">
                           Đang sử dụng
                         </Badge>
-                        <span className="font-medium text-sm">{currentModelInfo.shortName}</span>
+                        <span className="font-medium text-xs sm:text-sm truncate">{currentModelInfo.shortName}</span>
                         {isOpenRouterModel(editingFunction.modelOverride) && (
-                          <Badge variant="secondary" className="text-[10px] bg-orange-500/20 text-orange-600">
-                            OpenRouter
+                          <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-orange-500/20 text-orange-600 flex-shrink-0">
+                            OR
                           </Badge>
                         )}
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs"
+                        className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 flex-shrink-0"
                         onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null })}
                       >
-                        Reset về mặc định
+                        Reset
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 font-mono">
+                    <p className="text-[9px] sm:text-xs text-muted-foreground mt-1 font-mono truncate">
                       {editingFunction.modelOverride}
                     </p>
                   </div>
