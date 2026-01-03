@@ -10,6 +10,8 @@ interface ModelCardProps {
   isDefault?: boolean;
   onClick?: () => void;
   compact?: boolean;
+  pricing?: { prompt: number; completion: number };
+  contextLength?: number;
 }
 
 const SPEED_CONFIG: Record<ModelSpeed, { icon: React.ReactNode; label: string; className: string }> = {
@@ -46,11 +48,24 @@ const PROVIDER_STYLES = {
   },
 };
 
-export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compact }: ModelCardProps) {
+export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compact, pricing, contextLength }: ModelCardProps) {
   const speedConfig = SPEED_CONFIG[info.speed];
   const qualityConfig = QUALITY_CONFIG[info.quality];
   const costConfig = COST_CONFIG[info.cost];
   const providerStyle = PROVIDER_STYLES[info.provider];
+
+  // Format pricing for display
+  const formatPricing = (p: { prompt: number; completion: number }) => {
+    const formatNum = (n: number) => n < 1 ? n.toFixed(2) : n < 10 ? n.toFixed(1) : Math.round(n).toString();
+    return `$${formatNum(p.prompt)}/$${formatNum(p.completion)}`;
+  };
+
+  // Format context length
+  const formatContext = (ctx: number) => {
+    if (ctx >= 1000000) return `${(ctx / 1000000).toFixed(1)}M`;
+    if (ctx >= 1000) return `${Math.round(ctx / 1000)}K`;
+    return ctx.toString();
+  };
 
   if (compact) {
     return (
@@ -172,6 +187,19 @@ export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compa
                 {use}
               </Badge>
             ))}
+          </div>
+        )}
+
+        {/* Pricing & Context - for OpenRouter models */}
+        {pricing && (
+          <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground">
+            <span className="font-mono">{formatPricing(pricing)}/1M</span>
+            {contextLength && contextLength > 0 && (
+              <>
+                <span>•</span>
+                <span>{formatContext(contextLength)} ctx</span>
+              </>
+            )}
           </div>
         )}
 
