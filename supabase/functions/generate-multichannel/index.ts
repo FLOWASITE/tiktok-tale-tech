@@ -436,7 +436,7 @@ type ChannelOverrides = Record<string, ChannelOverride> | null;
 
 const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   website: {
-    min_length: 1000,
+    min_length: 800,
     max_length: 2000,
     length_unit: 'words',
     hook_required: false,
@@ -449,7 +449,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     hashtag_position: 'none',
     line_break_style: 'normal',
     link_position: 'body',
-    format_description: 'Bài viết chuẩn SEO: H1 title, H2/H3 subheadings, intro 50-100 words, body sections, conclusion với CTA',
+    format_description: '⚠️ BÀI DÀI 800-2000 TỪ: H1 title, Intro 50-100 words, 4-6 H2 sections (mỗi section 150-300 words), Conclusion với CTA. PHẢI viết ĐẦY ĐỦ tất cả sections.',
     // SEO-specific settings
     seo_optimized: true,
     heading_structure_required: true,
@@ -1563,8 +1563,13 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       },
     ];
 
-    // Define the AI generation function
-    const generateAIContent = async () => {
+    // Website content validation constants
+    const MIN_WEBSITE_WORDS = 800;
+    const MAX_RETRIES = 2;
+    const hasWebsiteChannel = formData.channels.includes('website');
+
+    // Define the AI generation function with dynamic prompt
+    const generateAIContent = async (currentPrompt: string) => {
       console.log("Calling Lovable AI (no cache hit)...");
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -1576,10 +1581,12 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            { role: "user", content: currentPrompt },
           ],
           tools,
           tool_choice: { type: "function", function: { name: "generate_multichannel_content" } },
+          // Increase tokens for website content
+          max_completion_tokens: hasWebsiteChannel ? 8192 : 4096,
         }),
       });
 
@@ -1605,6 +1612,12 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       }
 
       return JSON.parse(toolCall.function.arguments);
+    };
+
+    // Helper to calculate actual word count
+    const getActualWordCount = (data: any): number => {
+      if (!data?.website_content?.content) return 0;
+      return data.website_content.content.split(/\s+/).filter((w: string) => w.length > 0).length;
     };
 
     // Use cache wrapper for AI content generation
@@ -1634,8 +1647,51 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
 
     let generatedData: any;
     let fromCache = false;
+    let retryCount = 0;
+    let currentUserPrompt = userPrompt;
 
     try {
+      // Generate with retry logic for website content
+      const generateWithRetry = async () => {
+        let data = await generateAIContent(currentUserPrompt);
+        
+        // Validate and retry if website content is too short
+        if (hasWebsiteChannel) {
+          let actualWordCount = getActualWordCount(data);
+          console.log(`Website content word count: ${actualWordCount} (min: ${MIN_WEBSITE_WORDS})`);
+          
+          while (actualWordCount < MIN_WEBSITE_WORDS && retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.warn(`⚠️ Website content too short (${actualWordCount} words), retry ${retryCount}/${MAX_RETRIES}`);
+            
+            // Add stronger instruction for retry
+            currentUserPrompt = userPrompt + `\n\n⚠️ LẦN THỬ LẠI ${retryCount}/${MAX_RETRIES}: Bài website PHẢI có TỐI THIỂU ${MIN_WEBSITE_WORDS} TỪ. Lần trước chỉ có ${actualWordCount} từ - QUÁ NGẮN!
+
+BẮT BUỘC viết ĐẦY ĐỦ:
+- Intro: 80-120 words
+- Mỗi H2 section: 200-350 words (tối thiểu 4 sections)  
+- Conclusion: 80-120 words
+
+KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ mọi section.`;
+            
+            data = await generateAIContent(currentUserPrompt);
+            actualWordCount = getActualWordCount(data);
+            console.log(`Retry ${retryCount} word count: ${actualWordCount}`);
+          }
+          
+          // Update actual word count in data
+          if (data?.website_content?.content) {
+            data.website_content.word_count = actualWordCount;
+          }
+          
+          if (actualWordCount < MIN_WEBSITE_WORDS) {
+            console.warn(`❌ Final website content still short (${actualWordCount} words) after ${retryCount} retries - flagging for review`);
+          }
+        }
+        
+        return data;
+      };
+
       const cacheResult = await withCache({
         functionName,
         scope,
@@ -1647,12 +1703,12 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           brandVoice: brandVoice?.formality_level || undefined,
         },
         ttlDays,
-        generateFn: generateAIContent,
+        generateFn: generateWithRetry,
       });
 
       generatedData = cacheResult.data;
       fromCache = cacheResult.fromCache;
-      console.log(`Content generation: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}`);
+      console.log(`Content generation: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}${retryCount > 0 ? `, retries: ${retryCount}` : ''}`);
     } catch (err: any) {
       // Handle rate limit / credit errors specially
       if (err.status === 429) {
@@ -1673,10 +1729,23 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     console.log("Generated content:", generatedData.title);
 
     // ============================================
-    // POST-PROCESS: Auto-fix missing SEO fields for website
+    // POST-PROCESS: Auto-fix missing SEO fields for website + word count validation
     // ============================================
+    let websiteWordCountShort = false;
     if (generatedData.website_content && typeof generatedData.website_content === 'object') {
       const seo = generatedData.website_content;
+      
+      // Calculate actual word count and update
+      const actualWordCount = seo.content?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
+      seo.word_count = actualWordCount;
+      
+      // Flag if content is too short
+      if (actualWordCount < MIN_WEBSITE_WORDS) {
+        websiteWordCountShort = true;
+        console.warn(`⚠️ Website content validation: ${actualWordCount} words (required: ${MIN_WEBSITE_WORDS}+)`);
+      } else {
+        console.log(`✅ Website content validation passed: ${actualWordCount} words`);
+      }
       
       // Auto-calculate keyword density if not provided
       if (!seo.keyword_density_percent && seo.content && seo.focus_keyword) {
@@ -1774,9 +1843,9 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         critiqueResult = critiqueLoop.critiqueResult;
         wasRefined = critiqueLoop.wasRefined;
         refinementCount = critiqueLoop.refinementCount;
-        needsManualReview = critiqueLoop.needsManualReview;
+        needsManualReview = critiqueLoop.needsManualReview || websiteWordCountShort;
 
-        console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}, needsReview=${needsManualReview}`);
+        console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}, needsReview=${needsManualReview}, shortContent=${websiteWordCountShort}`);
       } catch (critiqueError) {
         console.error("Self-critique failed, flagging for manual review:", critiqueError);
         // Flag for manual review when critique system fails

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Globe, Search, FileText, Link2, Clock, Hash, ChevronRight, Copy, Check, AlertCircle, CheckCircle2, Facebook, Twitter, Lightbulb, BarChart3 } from 'lucide-react';
+import { Globe, Search, FileText, Link2, Clock, Hash, ChevronRight, Copy, Check, AlertCircle, CheckCircle2, Facebook, Twitter, Lightbulb, BarChart3, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { WebsiteSEOData } from '@/types/multichannel';
@@ -459,8 +460,27 @@ function SocialSharePreview({ seoData, brandName }: { seoData: WebsiteSEOData; b
   const ogTitle = seoData.og_title || seoData.seo_title;
   const ogDescription = seoData.og_description || seoData.meta_description;
   
+  // Calculate actual word count for validation
+  const actualWordCount = useMemo(() => {
+    const content = seoData.content || '';
+    return content.split(/\s+/).filter(w => w.length > 0).length;
+  }, [seoData.content]);
+  
+  const isContentShort = actualWordCount > 0 && actualWordCount < 500;
+  
   return (
     <div className="space-y-4">
+      {/* Warning for short content */}
+      {isContentShort && (
+        <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            Nội dung chỉ có <strong>{actualWordCount} từ</strong> (yêu cầu 800-1500 từ). 
+            Bài viết quá ngắn có thể ảnh hưởng SEO. Hãy thử tạo lại với chủ đề chi tiết hơn.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       {/* AI SEO Score Badge if available */}
       {seoData.seo_score_estimate !== undefined && (
         <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border">
