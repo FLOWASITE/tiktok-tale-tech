@@ -6,12 +6,16 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useAIConfig, AI_FUNCTIONS, MODELS_BY_TYPE, MODELS_BY_PROVIDER, AIFunctionType, AIFunctionConfig as FunctionConfigType } from '@/hooks/useAIConfig';
-import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, Type, Globe, ExternalLink } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAIConfig, AI_FUNCTIONS, MODELS_BY_PROVIDER, AIFunctionType, AIFunctionConfig as FunctionConfigType, getModelInfo } from '@/hooks/useAIConfig';
+import { ModelSelector } from './ModelSelector';
+import { ModelCard, QuickSelectButton } from './ModelCard';
+import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, Type, Globe, ExternalLink, ChevronRight, Sparkles, Star, DollarSign } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface AIFunctionConfigProps {
   organizationId?: string;
@@ -54,10 +58,18 @@ const isOpenRouterModel = (model: string): boolean => {
   return MODELS_BY_PROVIDER.openrouter.includes(model);
 };
 
+// Quick select presets
+const QUICK_PRESETS = {
+  default: { label: 'Mặc định', description: 'Model được khuyến nghị cho function này', icon: <Sparkles className="h-5 w-5" /> },
+  fast: { label: 'Nhanh nhất', description: 'Gemini 2.5 Flash Lite - Phản hồi cực nhanh', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-lite' },
+  quality: { label: 'Chất lượng cao', description: 'Gemini 3 Pro - Kết quả tốt nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-preview' },
+};
+
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
   const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
   // Check if OpenRouter provider has API key configured
   const hasOpenRouterApiKey = useMemo(() => {
@@ -82,6 +94,13 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     return functions.find(f => f.functionName === name);
   };
 
+  const getCurrentQuickPreset = (): 'default' | 'fast' | 'quality' | 'custom' => {
+    if (!editingFunction?.modelOverride) return 'default';
+    if (editingFunction.modelOverride === QUICK_PRESETS.fast.model) return 'fast';
+    if (editingFunction.modelOverride === QUICK_PRESETS.quality.model) return 'quality';
+    return 'custom';
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -91,6 +110,10 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
       </Card>
     );
   }
+
+  const currentFunctionMeta = editingFunction?.functionName ? getFunctionMeta(editingFunction.functionName) : null;
+  const currentModel = editingFunction?.modelOverride || currentFunctionMeta?.currentModel || '';
+  const currentModelInfo = getModelInfo(currentModel);
 
   return (
     <div className="space-y-6">
@@ -131,6 +154,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                 const category = fn.category;
                 const typeBadge = TYPE_BADGES[fn.type];
                 const displayModel = config?.modelOverride || fn.currentModel;
+                const modelInfo = getModelInfo(displayModel);
                 
                 return (
                   <TableRow key={fn.name}>
@@ -153,20 +177,51 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono text-xs">
-                          {displayModel}
-                        </span>
-                        {config?.modelOverride && (
-                          <Badge variant="outline" className="text-xs">Override</Badge>
-                        )}
-                        {isOpenRouterModel(displayModel) && (
-                          <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-600 border-orange-500/30">
-                            <ExternalLink className="h-2.5 w-2.5 mr-1" />
-                            OpenRouter
-                          </Badge>
-                        )}
-                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-2 cursor-help">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {modelInfo.shortName}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {modelInfo.description}
+                                </span>
+                              </div>
+                              {config?.modelOverride && (
+                                <Badge variant="outline" className="text-xs">Override</Badge>
+                              )}
+                              {isOpenRouterModel(displayModel) && (
+                                <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-600 border-orange-500/30">
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                </Badge>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <div className="space-y-2">
+                              <p className="font-semibold">{modelInfo.shortName}</p>
+                              <p className="text-sm">{modelInfo.description}</p>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span>Tốc độ: {modelInfo.speed}</span>
+                                <span>•</span>
+                                <span>Chất lượng: {modelInfo.quality}</span>
+                                <span>•</span>
+                                <span>Chi phí: {modelInfo.cost}</span>
+                              </div>
+                              {modelInfo.bestFor.length > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                  Phù hợp: {modelInfo.bestFor.join(', ')}
+                                </p>
+                              )}
+                              <p className="text-[10px] font-mono text-muted-foreground">
+                                {displayModel}
+                              </p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">
@@ -218,7 +273,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
 
       {/* Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Cấu hình: {editingFunction?.functionName}
@@ -240,61 +295,111 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Model Override</Label>
-                <Select
-                  value={editingFunction.modelOverride || '_default'}
-                  onValueChange={(value) => setEditingFunction({ 
-                    ...editingFunction, 
-                    modelOverride: value === '_default' ? null : value 
-                  })}
+              {/* Model Selection - New UI */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Chọn AI Model
+                </Label>
+                
+                {/* Quick Select Buttons */}
+                <div className="grid gap-2">
+                  <QuickSelectButton
+                    label={QUICK_PRESETS.default.label}
+                    description={`${currentFunctionMeta?.currentModel ? getModelInfo(currentFunctionMeta.currentModel).shortName : 'Auto'} - ${QUICK_PRESETS.default.description}`}
+                    icon={QUICK_PRESETS.default.icon}
+                    isSelected={getCurrentQuickPreset() === 'default'}
+                    onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null })}
+                  />
+                  
+                  {currentFunctionMeta?.type === 'text' && (
+                    <>
+                      <QuickSelectButton
+                        label={QUICK_PRESETS.fast.label}
+                        description={QUICK_PRESETS.fast.description}
+                        icon={QUICK_PRESETS.fast.icon}
+                        isSelected={getCurrentQuickPreset() === 'fast'}
+                        onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.fast.model })}
+                      />
+                      <QuickSelectButton
+                        label={QUICK_PRESETS.quality.label}
+                        description={QUICK_PRESETS.quality.description}
+                        icon={QUICK_PRESETS.quality.icon}
+                        isSelected={getCurrentQuickPreset() === 'quality'}
+                        onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.quality.model })}
+                      />
+                    </>
+                  )}
+                </div>
+
+                {/* Custom Model Selection */}
+                <button
+                  onClick={() => setIsModelSelectorOpen(true)}
+                  className={cn(
+                    "w-full flex items-center justify-between p-3 rounded-lg border text-left transition-all",
+                    getCurrentQuickPreset() === 'custom'
+                      ? "border-primary bg-primary/5"
+                      : "border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/50"
+                  )}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sử dụng model mặc định" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_default">
-                      Mặc định ({getFunctionMeta(editingFunction.functionName!)?.currentModel || 'Auto'})
-                    </SelectItem>
-                    
-                    {/* Lovable AI Models */}
-                    <SelectGroup>
-                      <SelectLabel className="text-xs text-muted-foreground font-semibold">
-                        Lovable AI
-                      </SelectLabel>
-                      {(MODELS_BY_TYPE[getFunctionMeta(editingFunction.functionName!)?.type || 'text'] || MODELS_BY_TYPE.text).map((model) => (
-                        <SelectItem key={model} value={model}>
-                          {model}
-                          {model === getFunctionMeta(editingFunction.functionName!)?.currentModel && (
-                            <span className="ml-2 text-muted-foreground">(recommended)</span>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                    
-                    {/* OpenRouter Models - only for text functions when API key is configured */}
-                    {hasOpenRouterApiKey && getFunctionMeta(editingFunction.functionName!)?.type === 'text' && (
-                      <SelectGroup>
-                        <SelectLabel className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
-                          <ExternalLink className="h-3 w-3" />
-                          OpenRouter
-                          <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1">API Key ✓</Badge>
-                        </SelectLabel>
-                        {MODELS_BY_PROVIDER.openrouter.map((model) => (
-                          <SelectItem key={model} value={model}>
-                            {model}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {hasOpenRouterApiKey && getFunctionMeta(editingFunction.functionName!)?.type === 'text' 
-                    ? 'Lovable AI + OpenRouter models khả dụng'
-                    : `Chỉ hiển thị models Lovable AI (${getFunctionMeta(editingFunction.functionName!)?.type})`
-                  }
-                </p>
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center",
+                      getCurrentQuickPreset() === 'custom' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      <Settings className="h-5 w-5" />
+                    </div>
+                    <div>
+                      {getCurrentQuickPreset() === 'custom' ? (
+                        <>
+                          <p className="font-medium text-sm">{currentModelInfo.shortName}</p>
+                          <p className="text-xs text-muted-foreground">{currentModelInfo.description}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-sm">Chọn model khác...</p>
+                          <p className="text-xs text-muted-foreground">
+                            {hasOpenRouterApiKey && currentFunctionMeta?.type === 'text'
+                              ? 'Lovable AI + OpenRouter models'
+                              : 'Xem tất cả models khả dụng'
+                            }
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </button>
+
+                {/* Current Selection Info */}
+                {editingFunction.modelOverride && (
+                  <div className="p-3 rounded-lg bg-muted/50 border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          Đang sử dụng
+                        </Badge>
+                        <span className="font-medium text-sm">{currentModelInfo.shortName}</span>
+                        {isOpenRouterModel(editingFunction.modelOverride) && (
+                          <Badge variant="secondary" className="text-[10px] bg-orange-500/20 text-orange-600">
+                            OpenRouter
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null })}
+                      >
+                        Reset về mặc định
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 font-mono">
+                      {editingFunction.modelOverride}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {getFunctionMeta(editingFunction.functionName!)?.type === 'text' && (
@@ -380,6 +485,19 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Model Selector Dialog */}
+      {editingFunction && (
+        <ModelSelector
+          open={isModelSelectorOpen}
+          onOpenChange={setIsModelSelectorOpen}
+          selectedModel={editingFunction.modelOverride || null}
+          onSelectModel={(model) => setEditingFunction({ ...editingFunction, modelOverride: model })}
+          functionType={currentFunctionMeta?.type || 'text'}
+          defaultModel={currentFunctionMeta?.currentModel || 'google/gemini-2.5-flash'}
+          hasOpenRouterApiKey={hasOpenRouterApiKey}
+        />
+      )}
     </div>
   );
 }
