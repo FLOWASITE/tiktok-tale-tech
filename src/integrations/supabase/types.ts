@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_function_configs: {
+        Row: {
+          cache_ttl_hours: number | null
+          created_at: string | null
+          function_name: string
+          id: string
+          is_enabled: boolean | null
+          model_override: string | null
+          organization_id: string | null
+          parameters: Json | null
+          priority_level: string | null
+          provider_config_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cache_ttl_hours?: number | null
+          created_at?: string | null
+          function_name: string
+          id?: string
+          is_enabled?: boolean | null
+          model_override?: string | null
+          organization_id?: string | null
+          parameters?: Json | null
+          priority_level?: string | null
+          provider_config_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cache_ttl_hours?: number | null
+          created_at?: string | null
+          function_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          model_override?: string | null
+          organization_id?: string | null
+          parameters?: Json | null
+          priority_level?: string | null
+          provider_config_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_function_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_function_configs_provider_config_id_fkey"
+            columns: ["provider_config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_provider_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_metrics: {
         Row: {
           ai_call_duration_ms: number | null
@@ -91,6 +148,56 @@ export type Database = {
           },
           {
             foreignKeyName: "ai_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_provider_configs: {
+        Row: {
+          api_key_secret_name: string | null
+          base_url: string | null
+          config: Json | null
+          created_at: string | null
+          default_model: string | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          organization_id: string | null
+          provider_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          api_key_secret_name?: string | null
+          base_url?: string | null
+          config?: Json | null
+          created_at?: string | null
+          default_model?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string | null
+          provider_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          api_key_secret_name?: string | null
+          base_url?: string | null
+          config?: Json | null
+          created_at?: string | null
+          default_model?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string | null
+          provider_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_configs_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
