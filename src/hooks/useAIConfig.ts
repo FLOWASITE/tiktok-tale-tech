@@ -435,9 +435,18 @@ export function useAIConfig(organizationId?: string) {
     queryKey: ['ai-function-configs', organizationId],
     queryFn: async (): Promise<AIFunctionConfig[]> => {
       let query = supabase.from('ai_function_configs').select('*');
+      
       if (organizationId) {
-        query = query.eq('organization_id', organizationId);
+        // Org-specific configs OR global configs (organization_id is null)
+        query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+      } else {
+        // Admin mode: only get global configs
+        query = query.is('organization_id', null);
       }
+      
+      // Order by updated_at DESC to get latest first
+      query = query.order('updated_at', { ascending: false });
+      
       const { data, error } = await query;
       if (error) throw error;
       
@@ -458,7 +467,7 @@ export function useAIConfig(organizationId?: string) {
         updatedAt: f.updated_at,
       }));
     },
-    enabled: !!organizationId,
+    enabled: true, // Always enabled for admin access
   });
 
   // Upsert provider config
@@ -512,7 +521,7 @@ export function useAIConfig(organizationId?: string) {
   const upsertFunctionMutation = useMutation({
     mutationFn: async (config: Partial<AIFunctionConfig> & { functionName: string }) => {
       const payload: Record<string, any> = {
-        organization_id: organizationId,
+        organization_id: organizationId ?? null,
         function_name: config.functionName,
         provider_config_id: config.providerConfigId,
         model_override: config.modelOverride,
@@ -525,19 +534,35 @@ export function useAIConfig(organizationId?: string) {
         custom_system_prompt: config.customSystemPrompt ?? null,
       };
 
-      if (config.id) {
+      // Check if record exists for this function_name + organization_id
+      let existingQuery = supabase
+        .from('ai_function_configs')
+        .select('id')
+        .eq('function_name', config.functionName);
+        
+      if (organizationId) {
+        existingQuery = existingQuery.eq('organization_id', organizationId);
+      } else {
+        existingQuery = existingQuery.is('organization_id', null);
+      }
+      
+      const { data: existing } = await existingQuery.maybeSingle();
+
+      if (config.id || existing?.id) {
+        // UPDATE existing record
         const { data, error } = await supabase
           .from('ai_function_configs')
           .update(payload)
-          .eq('id', config.id)
+          .eq('id', config.id || existing!.id)
           .select()
           .single();
         if (error) throw error;
         return data;
       } else {
+        // INSERT new record
         const { data, error } = await supabase
           .from('ai_function_configs')
-          .upsert(payload as any, { onConflict: 'organization_id,function_name' })
+          .insert(payload as any)
           .select()
           .single();
         if (error) throw error;
