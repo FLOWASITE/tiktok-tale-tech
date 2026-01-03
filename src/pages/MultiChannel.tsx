@@ -321,6 +321,12 @@ export default function MultiChannel() {
     return updated;
   };
 
+  const handleExpandChannels = async (contentId: string, newChannels: Channel[]) => {
+    const updated = await expandChannels(contentId, newChannels);
+    if (updated) setSelectedContent(updated);
+    return updated;
+  };
+
   const handleDelete = async (id: string) => {
     await deleteContent(id);
     selectedIds.delete(id);
@@ -638,7 +644,7 @@ export default function MultiChannel() {
         onSaveChannelImage={saveChannelImage}
         onDeleteChannelImage={deleteChannelImage}
         onUpdateChannelStatus={handleUpdateChannelStatus}
-        onExpandChannels={expandChannels}
+        onExpandChannels={handleExpandChannels}
         regeneratingChannel={regeneratingChannel}
         aiEditingChannel={aiEditingChannel}
         expandingChannels={expandingChannels}
