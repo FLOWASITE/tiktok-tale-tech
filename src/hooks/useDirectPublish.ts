@@ -1,0 +1,109 @@
+import { useMutation } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { SocialPlatform } from './useSocialConnections';
+
+interface PublishResult {
+  success: boolean;
+  platform: SocialPlatform;
+  postId?: string;
+  postUrl?: string;
+  error?: string;
+}
+
+interface PublishOptions {
+  connectionId: string;
+  contentId?: string;
+  content: string;
+  mediaUrls?: string[];
+  scheduleId?: string;
+}
+
+export function useDirectPublish() {
+  const { toast } = useToast();
+
+  const publishMutation = useMutation({
+    mutationFn: async ({
+      platform,
+      options,
+    }: {
+      platform: SocialPlatform;
+      options: PublishOptions;
+    }): Promise<PublishResult> => {
+      const functionName = `publish-${platform}`;
+      
+      console.log(`Publishing to ${platform}...`, options);
+
+      const response = await supabase.functions.invoke(functionName, {
+        body: options,
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to publish');
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Failed to publish');
+      }
+
+      return {
+        success: true,
+        platform,
+        postId: response.data.data?.tweetId || response.data.data?.postId,
+        postUrl: response.data.data?.tweetUrl || response.data.data?.postUrl,
+      };
+    },
+    onSuccess: (result) => {
+      const message = result.postUrl 
+        ? `Đã đăng lên ${result.platform}. Xem bài đăng tại ${result.postUrl}`
+        : `Đã đăng lên ${result.platform}`;
+      
+      toast({
+        title: 'Đăng bài thành công! 🎉',
+        description: message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Đăng bài thất bại',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const publishToTwitter = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'twitter',
+      options,
+    });
+  };
+
+  // Placeholder for future platforms
+  const publishToFacebook = async (_options: PublishOptions) => {
+    toast({
+      title: 'Chưa hỗ trợ',
+      description: 'Facebook sẽ được hỗ trợ trong phiên bản tiếp theo',
+      variant: 'destructive',
+    });
+    throw new Error('Facebook not yet supported');
+  };
+
+  const publishToInstagram = async (_options: PublishOptions) => {
+    toast({
+      title: 'Chưa hỗ trợ',
+      description: 'Instagram sẽ được hỗ trợ trong phiên bản tiếp theo',
+      variant: 'destructive',
+    });
+    throw new Error('Instagram not yet supported');
+  };
+
+  return {
+    publishToTwitter,
+    publishToFacebook,
+    publishToInstagram,
+    isPublishing: publishMutation.isPending,
+    publishResult: publishMutation.data,
+    publishError: publishMutation.error,
+  };
+}
