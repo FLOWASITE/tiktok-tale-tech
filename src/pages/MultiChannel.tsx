@@ -449,6 +449,9 @@ export default function MultiChannel() {
             sseProgress={sseProgress?.progress}
             sseMessage={sseProgress?.message}
             retryCount={sseProgress?.retryCount}
+            currentChannel={sseProgress?.currentChannel}
+            completedChannels={sseProgress?.completedChannels}
+            totalChannels={sseProgress?.totalChannels}
           />
         )}
 

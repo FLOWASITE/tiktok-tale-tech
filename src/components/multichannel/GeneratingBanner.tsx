@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2, ChevronDown, ChevronUp, Bot, RefreshCw } from 'lucide-react';
+import { Sparkles, Loader2, ChevronDown, ChevronUp, Bot, RefreshCw, Check } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,27 @@ interface GeneratingBannerProps {
   sseProgress?: number;
   sseMessage?: string;
   retryCount?: number;
+  // Per-channel progress
+  currentChannel?: string;
+  completedChannels?: string[];
+  totalChannels?: string[];
 }
+
+// Channel display names mapping
+const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  twitter: 'Twitter',
+  threads: 'Threads',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+  zalo: 'Zalo',
+  telegram: 'Telegram',
+  email: 'Email',
+  website: 'Website',
+  blog: 'Blog',
+};
 
 export function GeneratingBanner({
   isGenerating,
@@ -34,6 +54,9 @@ export function GeneratingBanner({
   sseProgress,
   sseMessage,
   retryCount = 0,
+  currentChannel,
+  completedChannels = [],
+  totalChannels = [],
 }: GeneratingBannerProps) {
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -196,6 +219,36 @@ export function GeneratingBanner({
                       <span className="text-primary/60">•</span>
                       <span className="text-primary font-medium truncate">{displayMessage}</span>
                     </div>
+                    
+                    {/* Per-channel progress indicators */}
+                    {totalChannels.length > 0 && sseStep === 'ai' && (
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {totalChannels.map((channel) => {
+                          const isCompleted = completedChannels.includes(channel);
+                          const isCurrent = currentChannel === channel && !isCompleted;
+                          const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
+                          
+                          return (
+                            <motion.span
+                              key={channel}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className={cn(
+                                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors',
+                                isCompleted && 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+                                isCurrent && 'bg-primary/20 text-primary border border-primary/30',
+                                !isCompleted && !isCurrent && 'bg-muted text-muted-foreground'
+                              )}
+                            >
+                              {isCompleted && <Check className="w-3 h-3" />}
+                              {isCurrent && <Loader2 className="w-3 h-3 animate-spin" />}
+                              {displayName}
+                            </motion.span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
                     {showLongWaitMessage && (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 animate-pulse">
                         AI đang xử lý nội dung phức tạp, vui lòng chờ thêm...

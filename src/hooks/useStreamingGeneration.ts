@@ -7,6 +7,10 @@ export interface ProgressEvent {
   message?: string;
   data?: any;
   retryCount?: number;
+  // Per-channel progress
+  currentChannel?: string;
+  completedChannels?: string[];
+  totalChannels?: string[];
 }
 
 interface UseStreamingGenerationOptions {
