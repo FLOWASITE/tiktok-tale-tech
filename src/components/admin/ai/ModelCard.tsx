@@ -30,17 +30,35 @@ const COST_CONFIG: Record<ModelCost, { icon: React.ReactNode; label: string; cla
   high: { icon: <DollarSign className="h-3 w-3" />, label: 'Cao', className: 'text-red-600 bg-red-500/10' },
 };
 
+// Provider-based styling
+const PROVIDER_STYLES = {
+  lovable: {
+    border: 'border-l-blue-500',
+    badge: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+    icon: <Sparkles className="h-3 w-3" />,
+    label: 'Lovable AI',
+  },
+  openrouter: {
+    border: 'border-l-orange-500',
+    badge: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+    icon: <ExternalLink className="h-3 w-3" />,
+    label: 'OpenRouter',
+  },
+};
+
 export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compact }: ModelCardProps) {
   const speedConfig = SPEED_CONFIG[info.speed];
   const qualityConfig = QUALITY_CONFIG[info.quality];
   const costConfig = COST_CONFIG[info.cost];
+  const providerStyle = PROVIDER_STYLES[info.provider];
 
   if (compact) {
     return (
       <div
         onClick={onClick}
         className={cn(
-          "flex items-center justify-between p-2 sm:p-3 rounded-lg border cursor-pointer transition-all",
+          "flex items-center justify-between p-2 sm:p-3 rounded-lg border border-l-4 cursor-pointer transition-all",
+          providerStyle.border,
           isSelected 
             ? "border-primary bg-primary/5 ring-1 ring-primary" 
             : "border-border hover:border-primary/50 hover:bg-accent/50"
@@ -55,10 +73,12 @@ export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compa
                   Khuyên dùng
                 </Badge>
               )}
-              {info.provider === 'openrouter' && (
-                <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              )}
             </div>
+            {/* Provider badge - always visible */}
+            <Badge variant="outline" className={cn("text-[8px] sm:text-[9px] py-0 px-1 mt-0.5", providerStyle.badge)}>
+              {providerStyle.icon}
+              <span className="ml-0.5">{providerStyle.label}</span>
+            </Badge>
           </div>
           <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
             <Badge variant="outline" className={cn("text-[9px] sm:text-[10px] py-0 px-1 sm:px-1.5", speedConfig.className)}>
@@ -83,7 +103,8 @@ export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compa
     <div
       onClick={onClick}
       className={cn(
-        "relative p-3 sm:p-4 rounded-xl border cursor-pointer transition-all",
+        "relative p-3 sm:p-4 rounded-xl border border-l-4 cursor-pointer transition-all",
+        providerStyle.border,
         isSelected 
           ? "border-primary bg-primary/5 ring-2 ring-primary shadow-md" 
           : "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm"
@@ -113,15 +134,18 @@ export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compa
         <div className="pr-6 sm:pr-8">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <h4 className="font-semibold text-sm sm:text-base">{info.shortName}</h4>
-            {info.provider === 'openrouter' && (
-              <Badge variant="outline" className="text-[9px] sm:text-[10px] py-0 px-1 sm:px-1.5 bg-orange-500/10 text-orange-600 border-orange-500/30">
-                <ExternalLink className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-0.5" />
-                <span className="hidden xs:inline">OpenRouter</span>
-              </Badge>
-            )}
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-1">{info.description}</p>
         </div>
+
+        {/* Provider Badge - Always visible */}
+        <Badge variant="outline" className={cn("text-[9px] sm:text-[10px] py-0.5 px-1.5", providerStyle.badge)}>
+          {providerStyle.icon}
+          <span className="ml-1">{providerStyle.label}</span>
+          {info.provider === 'lovable' && (
+            <span className="ml-1 text-[8px] opacity-75">- Không cần API Key</span>
+          )}
+        </Badge>
 
         {/* Indicators */}
         <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
@@ -194,5 +218,23 @@ export function QuickSelectButton({ label, description, icon, isSelected, onClic
         <Check className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
       )}
     </button>
+  );
+}
+
+// Provider indicator for table view
+interface ProviderIndicatorProps {
+  provider: 'lovable' | 'openrouter';
+  className?: string;
+}
+
+export function ProviderIndicator({ provider, className }: ProviderIndicatorProps) {
+  const style = PROVIDER_STYLES[provider];
+  return (
+    <span className={cn("inline-flex items-center gap-1", className)}>
+      <span className={cn(
+        "w-2 h-2 rounded-full",
+        provider === 'lovable' ? 'bg-blue-500' : 'bg-orange-500'
+      )} />
+    </span>
   );
 }

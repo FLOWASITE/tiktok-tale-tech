@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAIConfig, AI_FUNCTIONS, MODELS_BY_PROVIDER, AIFunctionType, AIFunctionConfig as FunctionConfigType, getModelInfo } from '@/hooks/useAIConfig';
 import { ModelSelector } from './ModelSelector';
-import { ModelCard, QuickSelectButton } from './ModelCard';
+import { ModelCard, QuickSelectButton, ProviderIndicator } from './ModelCard';
 import { Settings, Check, X, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, Type, Globe, ExternalLink, ChevronRight, Sparkles, Star, DollarSign } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -181,6 +181,8 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="flex items-center gap-2 cursor-help">
+                              {/* Provider color indicator */}
+                              <ProviderIndicator provider={modelInfo.provider} />
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium">
                                   {modelInfo.shortName}
@@ -191,11 +193,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                               </div>
                               {config?.modelOverride && (
                                 <Badge variant="outline" className="text-xs">Override</Badge>
-                              )}
-                              {isOpenRouterModel(displayModel) && (
-                                <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-600 border-orange-500/30">
-                                  <ExternalLink className="h-2.5 w-2.5" />
-                                </Badge>
                               )}
                             </div>
                           </TooltipTrigger>
