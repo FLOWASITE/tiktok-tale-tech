@@ -1692,6 +1692,17 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         return data;
       };
 
+      // Validate cached data: if website content is too short, invalidate and regenerate
+      const validateCachedData = (data: any): boolean => {
+        if (!hasWebsiteChannel) return true;
+        const wordCount = getActualWordCount(data);
+        if (wordCount < MIN_WEBSITE_WORDS) {
+          console.log(`Cache validation FAILED: website content only ${wordCount} words (min: ${MIN_WEBSITE_WORDS})`);
+          return false;
+        }
+        return true;
+      };
+
       const cacheResult = await withCache({
         functionName,
         scope,
@@ -1704,6 +1715,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         },
         ttlDays,
         generateFn: generateWithRetry,
+        validateFn: validateCachedData,
       });
 
       generatedData = cacheResult.data;

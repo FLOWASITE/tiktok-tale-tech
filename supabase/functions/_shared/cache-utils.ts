@@ -39,6 +39,7 @@ interface CacheParams<T> {
   };
   ttlDays: number;
   generateFn: () => Promise<T>;  // Returns validated AI response
+  validateFn?: (data: T) => boolean;  // Optional validation - if returns false, invalidate cache and regenerate
 }
 
 // ============================================
@@ -265,12 +266,23 @@ export async function withCache<T>(params: CacheParams<T>): Promise<CachedResult
   );
   
   if (cached !== null) {
-    console.log(`Cache HIT: ${params.functionName}`);
-    return {
-      data: cached,
-      fromCache: true,
-      // NO cacheKey exposed!
-    };
+    // Validate cached data if validateFn provided
+    if (params.validateFn && !params.validateFn(cached)) {
+      console.log(`Cache HIT but INVALID: ${params.functionName} - regenerating...`);
+      // Invalidate this specific cache entry
+      await supabase
+        .from('ai_response_cache')
+        .delete()
+        .eq('cache_key', cacheKey);
+      // Fall through to regenerate
+    } else {
+      console.log(`Cache HIT: ${params.functionName}`);
+      return {
+        data: cached,
+        fromCache: true,
+        // NO cacheKey exposed!
+      };
+    }
   }
   
   console.log(`Cache MISS: ${params.functionName} - calling AI...`);
