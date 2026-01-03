@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ImagePlus, Loader2, Sparkles, Copy, Check, Download, RefreshCw, Settings, Wand2 } from 'lucide-react';
+import { ImagePlus, Loader2, Sparkles, Copy, Check, Download, RefreshCw, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -20,8 +20,6 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Channel } from '@/types/multichannel';
-import { useAIProviders } from '@/hooks/useAIProviders';
-import { AI_PROVIDERS } from '@/types/aiProvider';
 import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
 import { toast } from 'sonner';
 
@@ -172,10 +170,8 @@ export function ImagePromptEditor({
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   
-  const { config, getProviderConfig } = useAIProviders();
-  const { generating, generateImage, isConfigured } = useSocialImageGeneration();
+  const { generating, generateImage } = useSocialImageGeneration();
   
-  const activeProvider = AI_PROVIDERS.find(p => p.id === config.selectedProvider);
   const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
   const isGenerating = generating === channel;
 
@@ -205,7 +201,7 @@ export function ImagePromptEditor({
       prompt,
       contentId,
       channel,
-      size: selectedSize,
+      aspectRatio: channelConfig.aspectRatio,
     });
 
     if (imageUrl) {
@@ -266,23 +262,19 @@ export function ImagePromptEditor({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Provider Info */}
+          {/* Provider Info - Simplified */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
             <div className="flex items-center gap-2">
-              <span className="text-xl">{activeProvider?.icon}</span>
+              <span className="text-xl">🪄</span>
               <div>
-                <p className="text-sm font-medium">{activeProvider?.name}</p>
-                <p className="text-xs text-muted-foreground">{activeProvider?.description}</p>
+                <p className="text-sm font-medium">Lovable AI</p>
+                <p className="text-xs text-muted-foreground">Tạo ảnh tự động với AI</p>
               </div>
             </div>
-            {isConfigured ? (
-              <Badge variant="outline" className="gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                Đã cấu hình
-              </Badge>
-            ) : (
-              <Badge variant="destructive">Chưa cấu hình API key</Badge>
-            )}
+            <Badge variant="outline" className="gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              Sẵn sàng
+            </Badge>
           </div>
 
           {/* Channel Config */}
@@ -396,14 +388,13 @@ export function ImagePromptEditor({
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Đóng
             </Button>
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || !isConfigured || !prompt.trim()}
+              disabled={isGenerating || !prompt.trim()}
               className="gap-2"
             >
               {isGenerating ? (

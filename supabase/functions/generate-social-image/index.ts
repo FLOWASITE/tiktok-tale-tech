@@ -1,227 +1,108 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Replicate from "https://esm.sh/replicate@0.25.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type ProviderType = 'gemini' | 'openai' | 'replicate' | 'custom';
-
 interface GenerateRequest {
   prompt: string;
-  provider: ProviderType;
-  apiKey: string;
-  baseUrl?: string;
-  model?: string;
   contentId?: string;
   channel?: string;
   size?: string;
+  aspectRatio?: string;
+  organizationId?: string;
 }
 
 interface ImageResult {
   success: boolean;
   imageUrl?: string;
-  imageBase64?: string;
   error?: string;
 }
 
-// Generate image using Gemini
-async function generateWithGemini(prompt: string, apiKey: string): Promise<ImageResult> {
-  console.log("[generate-social-image] Using Gemini provider");
+/**
+ * Generate image using Lovable AI Gateway (Gemini 3 Pro Image)
+ */
+async function generateWithLovableAI(prompt: string, apiKey: string): Promise<ImageResult> {
+  console.log("[generate-social-image] Using Lovable AI Gateway");
   
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[generate-social-image] Gemini error:", response.status, errorText);
-    
-    if (response.status === 429) {
-      return { success: false, error: "Đã vượt giới hạn API Gemini. Vui lòng thử lại sau." };
-    }
-    if (response.status === 401 || response.status === 403) {
-      return { success: false, error: "API key Gemini không hợp lệ." };
-    }
-    return { success: false, error: `Lỗi Gemini: ${errorText}` };
-  }
-
-  const data = await response.json();
-  let imageBase64: string | null = null;
-
-  if (data.candidates?.[0]?.content?.parts) {
-    for (const part of data.candidates[0].content.parts) {
-      if (part.inlineData) {
-        imageBase64 = part.inlineData.data;
-        break;
-      }
-    }
-  }
-
-  if (!imageBase64) {
-    return { success: false, error: "Gemini không trả về dữ liệu ảnh." };
-  }
-
-  return { success: true, imageBase64 };
-}
-
-// Generate image using OpenAI DALL-E / gpt-image-1
-async function generateWithOpenAI(prompt: string, apiKey: string, size: string = "1024x1024"): Promise<ImageResult> {
-  console.log("[generate-social-image] Using OpenAI provider");
-  
-  const response = await fetch("https://api.openai.com/v1/images/generations", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-image-1",
-      prompt: prompt,
-      n: 1,
-      size: size,
-      response_format: "b64_json",
+      model: "google/gemini-3-pro-image-preview",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      modalities: ["image", "text"],
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[generate-social-image] OpenAI error:", response.status, errorText);
+    console.error("[generate-social-image] Lovable AI error:", response.status, errorText);
     
     if (response.status === 429) {
-      return { success: false, error: "Đã vượt giới hạn API OpenAI. Vui lòng thử lại sau." };
+      return { success: false, error: "Đã vượt giới hạn API. Vui lòng thử lại sau hoặc nạp thêm credits." };
     }
-    if (response.status === 401) {
-      return { success: false, error: "API key OpenAI không hợp lệ." };
+    if (response.status === 402) {
+      return { success: false, error: "Hết credits. Vui lòng nạp thêm credits tại Settings → Workspace → Usage." };
     }
-    return { success: false, error: `Lỗi OpenAI: ${errorText}` };
-  }
-
-  const data = await response.json();
-  const imageBase64 = data.data?.[0]?.b64_json;
-
-  if (!imageBase64) {
-    return { success: false, error: "OpenAI không trả về dữ liệu ảnh." };
-  }
-
-  return { success: true, imageBase64 };
-}
-
-// Generate image using Replicate
-async function generateWithReplicate(prompt: string, apiKey: string, model: string = "black-forest-labs/flux-schnell"): Promise<ImageResult> {
-  console.log("[generate-social-image] Using Replicate provider with model:", model);
-  
-  const replicate = new Replicate({ auth: apiKey });
-
-  try {
-    const output = await replicate.run(model, {
-      input: {
-        prompt: prompt,
-        go_fast: true,
-        megapixels: "1",
-        num_outputs: 1,
-        aspect_ratio: "1:1",
-        output_format: "webp",
-        output_quality: 80,
-        num_inference_steps: 4,
-      },
-    });
-
-    console.log("[generate-social-image] Replicate output:", output);
-
-    // Replicate returns array of URLs
-    if (Array.isArray(output) && output.length > 0) {
-      return { success: true, imageUrl: output[0] };
-    }
-
-    return { success: false, error: "Replicate không trả về ảnh." };
-  } catch (err) {
-    console.error("[generate-social-image] Replicate error:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { success: false, error: `Lỗi Replicate: ${message}` };
-  }
-}
-
-// Generate image using Custom OpenAI-compatible API
-async function generateWithCustom(
-  prompt: string,
-  apiKey: string,
-  baseUrl: string,
-  model: string,
-  size: string = "1024x1024"
-): Promise<ImageResult> {
-  console.log("[generate-social-image] Using Custom provider:", baseUrl, model);
-  
-  const endpoint = `${baseUrl.replace(/\/$/, '')}/images/generations`;
-  
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: model,
-      prompt: prompt,
-      n: 1,
-      size: size,
-      response_format: "b64_json",
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[generate-social-image] Custom API error:", response.status, errorText);
-    return { success: false, error: `Lỗi Custom API: ${errorText}` };
+    return { success: false, error: `Lỗi tạo ảnh: ${errorText}` };
   }
 
   const data = await response.json();
   
-  // Try different response formats
-  const imageBase64 = data.data?.[0]?.b64_json || data.data?.[0]?.b64;
-  const imageUrl = data.data?.[0]?.url;
-
-  if (imageBase64) {
-    return { success: true, imageBase64 };
-  }
-  if (imageUrl) {
-    return { success: true, imageUrl };
+  // Extract image from response
+  const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  
+  if (!imageData) {
+    console.error("[generate-social-image] No image in response:", JSON.stringify(data).substring(0, 500));
+    return { success: false, error: "AI không trả về dữ liệu ảnh." };
   }
 
-  return { success: false, error: "Custom API không trả về dữ liệu ảnh." };
+  return { success: true, imageUrl: imageData };
 }
 
-// Upload base64 image to Supabase storage
+/**
+ * Upload base64 image to Supabase storage
+ */
 async function uploadToStorage(
   imageBase64: string,
   contentId: string,
-  channel: string
+  channel: string,
+  organizationId?: string
 ): Promise<{ url: string } | { error: string }> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Convert base64 to Uint8Array
-  const binaryString = atob(imageBase64);
+  // Remove data URL prefix if present
+  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+  
+  // Convert base64 to Uint8Array using chunked approach to avoid stack overflow
+  const binaryString = atob(base64Data);
   const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  
+  // Process in chunks to avoid stack size issues
+  const chunkSize = 8192;
+  for (let i = 0; i < binaryString.length; i += chunkSize) {
+    const end = Math.min(i + chunkSize, binaryString.length);
+    for (let j = i; j < end; j++) {
+      bytes[j] = binaryString.charCodeAt(j);
+    }
   }
 
-  const fileName = `social/${contentId}/${channel}-${Date.now()}.png`;
+  const timestamp = Date.now();
+  const orgPath = organizationId ? `org-${organizationId}` : 'unassigned';
+  const fileName = `social/${orgPath}/${contentId}/${channel}-${timestamp}.png`;
 
   console.log(`[generate-social-image] Uploading to storage: ${fileName}`);
 
@@ -244,6 +125,52 @@ async function uploadToStorage(
   return { url: urlData.publicUrl };
 }
 
+/**
+ * Save image to history
+ */
+async function saveToHistory(
+  contentId: string,
+  channel: string,
+  imageUrl: string,
+  prompt: string,
+  aspectRatio: string,
+  organizationId?: string
+): Promise<void> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // First, unselect any currently selected images for this content+channel
+    await supabase
+      .from("channel_image_history")
+      .update({ is_selected: false })
+      .eq("content_id", contentId)
+      .eq("channel", channel);
+
+    // Insert new image as selected
+    const { error } = await supabase
+      .from("channel_image_history")
+      .insert({
+        content_id: contentId,
+        channel,
+        image_url: imageUrl,
+        prompt,
+        aspect_ratio: aspectRatio,
+        is_selected: true,
+        organization_id: organizationId,
+      });
+
+    if (error) {
+      console.error("[generate-social-image] Failed to save to history:", error);
+    } else {
+      console.log("[generate-social-image] Saved to image history");
+    }
+  } catch (err) {
+    console.error("[generate-social-image] Error saving to history:", err);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -251,83 +178,67 @@ serve(async (req) => {
 
   try {
     const body: GenerateRequest = await req.json();
-    const { prompt, provider, apiKey, baseUrl, model, contentId, channel, size } = body;
+    const { prompt, contentId, channel, size, aspectRatio, organizationId } = body;
 
-    console.log(`[generate-social-image] Request - Provider: ${provider}, Channel: ${channel}`);
+    console.log(`[generate-social-image] Request - Channel: ${channel}, ContentId: ${contentId?.substring(0, 8)}`);
 
     // Validate required fields
     if (!prompt) {
       return new Response(
-        JSON.stringify({ error: "Prompt is required" }),
+        JSON.stringify({ success: false, error: "Prompt is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!apiKey) {
+    // Get Lovable API Key from environment
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableApiKey) {
+      console.error("[generate-social-image] LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "API key is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!provider) {
-      return new Response(
-        JSON.stringify({ error: "Provider is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Generate image based on provider
-    let result: ImageResult;
-
-    switch (provider) {
-      case 'gemini':
-        result = await generateWithGemini(prompt, apiKey);
-        break;
-      case 'openai':
-        result = await generateWithOpenAI(prompt, apiKey, size || "1024x1024");
-        break;
-      case 'replicate':
-        result = await generateWithReplicate(prompt, apiKey, model || "black-forest-labs/flux-schnell");
-        break;
-      case 'custom':
-        if (!baseUrl || !model) {
-          return new Response(
-            JSON.stringify({ error: "Base URL and model are required for custom provider" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        result = await generateWithCustom(prompt, apiKey, baseUrl, model, size || "1024x1024");
-        break;
-      default:
-        return new Response(
-          JSON.stringify({ error: `Unknown provider: ${provider}` }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-    }
-
-    if (!result.success) {
-      return new Response(
-        JSON.stringify({ error: result.error }),
+        JSON.stringify({ success: false, error: "Image generation service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // If we have base64, upload to storage
+    // Generate image using Lovable AI
+    const result = await generateWithLovableAI(prompt, lovableApiKey);
+
+    if (!result.success) {
+      return new Response(
+        JSON.stringify({ success: false, error: result.error }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     let finalImageUrl = result.imageUrl;
-    
-    if (result.imageBase64 && contentId && channel) {
-      const uploadResult = await uploadToStorage(result.imageBase64, contentId, channel);
+
+    // If we have base64 data and storage params, upload to storage
+    if (result.imageUrl?.startsWith('data:') && contentId && channel) {
+      const uploadResult = await uploadToStorage(
+        result.imageUrl,
+        contentId,
+        channel,
+        organizationId
+      );
+      
       if ('error' in uploadResult) {
         return new Response(
-          JSON.stringify({ error: uploadResult.error }),
+          JSON.stringify({ success: false, error: uploadResult.error }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      
       finalImageUrl = uploadResult.url;
-    } else if (result.imageBase64) {
-      // Return base64 if no storage upload needed
-      finalImageUrl = `data:image/png;base64,${result.imageBase64}`;
+
+      // Save to history
+      await saveToHistory(
+        contentId,
+        channel,
+        finalImageUrl,
+        prompt,
+        aspectRatio || size || '1:1',
+        organizationId
+      );
     }
 
     console.log(`[generate-social-image] Success - Image URL: ${finalImageUrl?.substring(0, 100)}...`);
@@ -336,7 +247,6 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         imageUrl: finalImageUrl,
-        provider,
         channel,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -344,7 +254,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("[generate-social-image] Unexpected error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

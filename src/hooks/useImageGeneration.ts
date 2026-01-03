@@ -8,12 +8,6 @@ export interface GeneratedImage {
   generatedAt: string;
 }
 
-export interface GeneratedImage {
-  slideNumber: number;
-  imageUrl: string;
-  generatedAt: string;
-}
-
 export function useImageGeneration() {
   const [generating, setGenerating] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
