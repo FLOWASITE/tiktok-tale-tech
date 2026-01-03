@@ -18,40 +18,49 @@ export type Database = {
         Row: {
           cache_ttl_hours: number | null
           created_at: string | null
+          custom_system_prompt: string | null
           function_name: string
           id: string
           is_enabled: boolean | null
+          max_tokens: number | null
           model_override: string | null
           organization_id: string | null
           parameters: Json | null
           priority_level: string | null
           provider_config_id: string | null
+          temperature: number | null
           updated_at: string | null
         }
         Insert: {
           cache_ttl_hours?: number | null
           created_at?: string | null
+          custom_system_prompt?: string | null
           function_name: string
           id?: string
           is_enabled?: boolean | null
+          max_tokens?: number | null
           model_override?: string | null
           organization_id?: string | null
           parameters?: Json | null
           priority_level?: string | null
           provider_config_id?: string | null
+          temperature?: number | null
           updated_at?: string | null
         }
         Update: {
           cache_ttl_hours?: number | null
           created_at?: string | null
+          custom_system_prompt?: string | null
           function_name?: string
           id?: string
           is_enabled?: boolean | null
+          max_tokens?: number | null
           model_override?: string | null
           organization_id?: string | null
           parameters?: Json | null
           priority_level?: string | null
           provider_config_id?: string | null
+          temperature?: number | null
           updated_at?: string | null
         }
         Relationships: [

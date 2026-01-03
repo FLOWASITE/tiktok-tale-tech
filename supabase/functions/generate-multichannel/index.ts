@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 import { 
   buildExtendedBrandPrompt,
   buildJourneyStageMessagingSection,
@@ -1765,6 +1766,10 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     const MAX_RETRIES = 2;
     const hasWebsiteChannel = formData.channels.includes('website');
 
+    // Fetch AI config from database for runtime configuration
+    const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
+    console.log(`[ai-config] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}, max_tokens: ${aiConfig.max_tokens}`);
+
     // Define the AI generation function with dynamic prompt
     const generateAIContent = async (currentPrompt: string) => {
       console.log("Calling Lovable AI (no cache hit)...");
@@ -1775,16 +1780,17 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          // Gemini 3 Pro for better long-form content and complex reasoning
-          model: "google/gemini-3-pro-preview",
+          // Model from runtime config (defaults to gemini-3-pro-preview)
+          model: aiConfig.model,
           messages: [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: aiConfig.custom_system_prompt || systemPrompt },
             { role: "user", content: currentPrompt },
           ],
           tools,
           tool_choice: { type: "function", function: { name: "generate_multichannel_content" } },
-          // Increase tokens for website content - Gemini 3 supports larger context
-          max_completion_tokens: hasWebsiteChannel ? 12288 : 8192,
+          // Tokens from runtime config, with website content override
+          max_completion_tokens: hasWebsiteChannel ? Math.max(aiConfig.max_tokens, 12288) : aiConfig.max_tokens,
+          temperature: aiConfig.temperature,
         }),
       });
 

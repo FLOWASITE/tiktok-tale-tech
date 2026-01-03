@@ -14,6 +14,7 @@ import { fetchUserPreferences, UserPreferencesContext } from "../_shared/user-pr
 import { fetchCrossSessionMemory, CrossSessionMemory } from "../_shared/session-memory.ts";
 import { executeAgenticLoop, createSSEWriter, buildReActPromptSection } from "../_shared/agentic-loop.ts";
 import { buildContextMetadata, serializeContextMetadata, summarizeContext } from "../_shared/context-tracker.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 // Import shared types
 import { ChatMessage, ChatRequest, BrandContext, IndustryMemory, GlossaryTerm, RAGResult } from "../_shared/types/chat-types.ts";
@@ -767,10 +768,14 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
     // ============ LEGACY SINGLE-TURN MODE ============
     console.log('[chat-topics] Using legacy single-turn mode');
     
+    // Fetch AI config from database for runtime configuration
+    const aiConfig = await getAIConfig('chat-topics', organizationId || undefined);
+    console.log(`[ai-config] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
+    
     const requestBody: any = {
-      model: 'google/gemini-2.5-flash',
+      model: aiConfig.model,
       messages: aiMessages,
-      temperature: 0.8,
+      temperature: aiConfig.temperature,
       stream: true,
     };
 

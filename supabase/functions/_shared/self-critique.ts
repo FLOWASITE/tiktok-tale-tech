@@ -14,6 +14,7 @@ import {
   getFocusedRefinePrompt,
   getRefinementStrategy,
 } from './critique-criteria.ts';
+import { getAIConfig } from './ai-config.ts';
 
 // ================== CONFIGURATION ==================
 export const CRITIQUE_CONFIG = {
@@ -460,12 +461,17 @@ export async function critiqueContent(options: {
   mergedRules?: MergedRules;
   additionalContext?: string;
   apiKey: string;
+  organizationId?: string;
 }): Promise<CritiqueResult> {
-  const { content, contentType, brandVoice, mergedRules, additionalContext, apiKey } = options;
+  const { content, contentType, brandVoice, mergedRules, additionalContext, apiKey, organizationId } = options;
   
   const critiquePrompt = buildCritiquePrompt(content, contentType, brandVoice, mergedRules, additionalContext);
   
   console.log(`[Self-Critique] Starting critique for ${contentType}...`);
+  
+  // Fetch AI config for critique function
+  const aiConfig = await getAIConfig('critique-content', organizationId);
+  console.log(`[Self-Critique] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
   
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -475,7 +481,7 @@ export async function critiqueContent(options: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: aiConfig.model,
         messages: [
           { 
             role: "system", 
@@ -483,6 +489,7 @@ export async function critiqueContent(options: {
           },
           { role: "user", content: critiquePrompt }
         ],
+        temperature: aiConfig.temperature,
       }),
     });
 
@@ -512,12 +519,17 @@ export async function refineContent(options: {
   brandVoice?: BrandVoice;
   mergedRules?: MergedRules;
   apiKey: string;
+  organizationId?: string;
 }): Promise<any> {
-  const { originalContent, critiqueResult, contentType, brandVoice, mergedRules, apiKey } = options;
+  const { originalContent, critiqueResult, contentType, brandVoice, mergedRules, apiKey, organizationId } = options;
   
   const refinePrompt = buildRefinePrompt(originalContent, critiqueResult, contentType, brandVoice, mergedRules);
   
   console.log(`[Self-Critique] Starting refinement for ${contentType}...`);
+  
+  // Fetch AI config for refine function
+  const aiConfig = await getAIConfig('refine-content', organizationId);
+  console.log(`[Self-Critique] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
   
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -527,7 +539,7 @@ export async function refineContent(options: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: aiConfig.model,
         messages: [
           { 
             role: "system", 
@@ -535,6 +547,7 @@ export async function refineContent(options: {
           },
           { role: "user", content: refinePrompt }
         ],
+        temperature: aiConfig.temperature,
       }),
     });
 

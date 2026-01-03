@@ -7,6 +7,7 @@ import { executeToolCall } from "./tool-executor.ts";
 import { executeToolsParallel, executeToolsWithMetrics, estimateSpeedup, type ParallelExecutionMetrics } from "./parallel-tool-executor.ts";
 import { withRetry, isRetryableError, RetryableError } from "./error-utils.ts";
 import { estimateTokenCount, MODEL_LIMITS } from "./token-manager.ts";
+import { getAIConfig } from "./ai-config.ts";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
@@ -198,8 +199,12 @@ export async function executeAgenticLoop(
   let taskCompleteSummary: AgentLoopResult['task_complete_summary'] | undefined;
   let finalContent = '';
 
+  // Fetch AI config for agentic loop
+  const aiConfig = await getAIConfig('agentic-loop', options.executionContext.organizationId);
+  console.log(`[AgenticLoop] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
+
   // Token tracking for context window management
-  const modelLimit = MODEL_LIMITS['google/gemini-2.5-flash'];
+  const modelLimit = MODEL_LIMITS[aiConfig.model] || MODEL_LIMITS['google/gemini-2.5-flash'];
   const maxContextTokens = Math.floor(modelLimit.contextWindow * 0.85); // 85% safety margin
   const systemPromptTokens = estimateTokenCount(systemPrompt);
 
@@ -226,7 +231,7 @@ export async function executeAgenticLoop(
 
     // Call AI
     const aiMessages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: aiConfig.custom_system_prompt || systemPrompt },
       ...currentMessages,
     ];
 
@@ -248,11 +253,11 @@ export async function executeAgenticLoop(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            model: aiConfig.model,
             messages: aiMessages,
             tools: CHAT_TOOLS,
             tool_choice: 'auto',
-            temperature: 0.7,
+            temperature: aiConfig.temperature,
             stream: true,
           }),
         });
@@ -405,7 +410,7 @@ export async function executeAgenticLoop(
     };
 
     const finalMessages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: aiConfig.custom_system_prompt || systemPrompt },
       ...currentMessages,
       summaryMessage,
     ];
@@ -417,9 +422,9 @@ export async function executeAgenticLoop(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: aiConfig.model,
         messages: finalMessages,
-        temperature: 0.7,
+        temperature: aiConfig.temperature,
         stream: true,
       }),
     });
