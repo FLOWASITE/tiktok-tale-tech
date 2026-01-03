@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  buildImagePrompt, 
+  getChannelAspectRatio,
+  type Channel,
+  type BrandImageContext,
+} from "../_shared/image-prompt-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,12 +18,8 @@ interface GenerateImageRequest {
   contentSummary: string;
   brandTemplateId: string;
   aspectRatio?: "16:9" | "1:1" | "9:16" | "4:5";
-}
-
-interface BrandColors {
-  primaryColor: string;
-  secondaryColors: string[];
-  imageStyle: string | null;
+  journeyStage?: 'awareness' | 'consideration' | 'decision' | 'retention';
+  contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
 }
 
 serve(async (req) => {
@@ -41,7 +43,9 @@ serve(async (req) => {
       channel,
       contentSummary,
       brandTemplateId,
-      aspectRatio = "16:9",
+      aspectRatio,
+      journeyStage,
+      contentType,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}`);
@@ -49,7 +53,7 @@ serve(async (req) => {
     // Fetch brand template for colors and style
     const { data: brandTemplate, error: brandError } = await supabase
       .from("brand_templates")
-      .select("primary_color, secondary_colors, image_style, logo_url, brand_name")
+      .select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id")
       .eq("id", brandTemplateId)
       .single();
 
@@ -58,47 +62,30 @@ serve(async (req) => {
       throw new Error("Brand template not found");
     }
 
-    const primaryColor = brandTemplate.primary_color || "#6366f1";
-    const secondaryColors = brandTemplate.secondary_colors || [];
-    const imageStyle = brandTemplate.image_style || "professional, modern, clean";
+    // Determine aspect ratio - use provided or get optimal for channel
+    const finalAspectRatio = aspectRatio || getChannelAspectRatio(channel as Channel);
 
-    // Map aspect ratio to size
-    const sizeMap: Record<string, string> = {
-      "16:9": "1920x1080",
-      "1:1": "1024x1024",
-      "9:16": "1080x1920",
-      "4:5": "1080x1350",
+    // Build brand context for enhanced prompt
+    const brandContext: BrandImageContext = {
+      brandName: brandTemplate.brand_name,
+      brandColors: {
+        primary: brandTemplate.primary_color || "#6366f1",
+        secondary: brandTemplate.secondary_colors || [],
+      },
+      imageStyle: brandTemplate.image_style || "professional, modern, clean",
+      logoUrl: brandTemplate.logo_url,
+      industry: brandTemplate.industry || [],
     };
-    const imageSize = sizeMap[aspectRatio] || "1920x1080";
 
-    // Build enhanced prompt with brand colors
-    const colorPalette = [primaryColor, ...secondaryColors.slice(0, 3)].join(", ");
-    
-    const enhancedPrompt = `
-Create a ${aspectRatio} aspect ratio social media image for ${channel} channel.
-
-STRICT COLOR REQUIREMENTS:
-- Primary color that MUST dominate: ${primaryColor}
-- Accent colors to use: ${colorPalette}
-- The image MUST prominently feature these exact colors throughout the composition.
-- Use gradients, overlays, and color blocks with these colors.
-
-STYLE DIRECTION:
-- Visual style: ${imageStyle}
-- Professional, high-quality, suitable for ${channel} social media
-- Clean composition with visual hierarchy
-- Modern aesthetic with depth and dimension
-
-CONTENT THEME:
-${contentSummary}
-
-CRITICAL RULES:
-- DO NOT include any text, words, letters, or typography in the image
-- DO NOT include any logos or brand marks
-- The image should be purely visual/illustrative
-- Focus on abstract shapes, patterns, or conceptual imagery that represents the theme
-- Ultra high resolution, crisp details, professional quality
-`.trim();
+    // Build enhanced prompt using the shared utility
+    const enhancedPrompt = buildImagePrompt({
+      channel: channel as Channel,
+      contentSummary,
+      brand: brandContext,
+      aspectRatio: finalAspectRatio,
+      journeyStage,
+      contentType,
+    });
 
     console.log("[generate-brand-image] Calling Lovable AI Gateway with Gemini 3 Pro Image...");
 
@@ -158,7 +145,7 @@ CRITICAL RULES:
     const fileName = `${contentId}/${channel}-${Date.now()}.png`;
     
     const { error: uploadError } = await supabase.storage
-      .from("carousel-images") // Reusing existing bucket
+      .from("carousel-images")
       .upload(fileName, imageBytes, {
         contentType: "image/png",
         upsert: true,
@@ -177,14 +164,47 @@ CRITICAL RULES:
     const imageUrl = publicUrlData.publicUrl;
     console.log("[generate-brand-image] Image uploaded:", imageUrl);
 
+    // Save to channel_image_history
+    try {
+      // First, unselect any previously selected images for this content/channel
+      await supabase
+        .from("channel_image_history")
+        .update({ is_selected: false })
+        .eq("content_id", contentId)
+        .eq("channel", channel);
+
+      // Insert new image as selected
+      const { error: historyError } = await supabase
+        .from("channel_image_history")
+        .insert({
+          content_id: contentId,
+          channel: channel,
+          image_url: imageUrl,
+          prompt: enhancedPrompt,
+          aspect_ratio: finalAspectRatio,
+          is_selected: true,
+          organization_id: brandTemplate.organization_id,
+        });
+
+      if (historyError) {
+        console.error("[generate-brand-image] Failed to save to history:", historyError);
+        // Don't throw - history save is non-critical
+      } else {
+        console.log("[generate-brand-image] Saved to channel_image_history");
+      }
+    } catch (historyErr) {
+      console.error("[generate-brand-image] History save error:", historyErr);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         imageUrl,
         prompt: enhancedPrompt,
+        aspectRatio: finalAspectRatio,
         brandColors: {
-          primary: primaryColor,
-          secondary: secondaryColors,
+          primary: brandContext.brandColors?.primary,
+          secondary: brandContext.brandColors?.secondary,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

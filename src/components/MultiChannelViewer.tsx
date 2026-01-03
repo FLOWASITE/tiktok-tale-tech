@@ -5,6 +5,7 @@ import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, Ref
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ChannelImageHistory } from '@/components/multichannel/ChannelImageHistory';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
@@ -246,6 +247,8 @@ export function MultiChannelViewer({
   const [showMockupView, setShowMockupView] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showAutoImageGenerator, setShowAutoImageGenerator] = useState(false);
+  const [showImageHistory, setShowImageHistory] = useState(false);
+  const [historyChannel, setHistoryChannel] = useState<Channel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
@@ -1199,16 +1202,83 @@ export function MultiChannelViewer({
                           /* View Mode */
                           showMockupView ? (
                             <div className="space-y-4">
-                              <ContentMockupToggle
-                                channel={channel}
-                                content={channelContent || ''}
-                                brandName={content.brand_name}
-                                logoUrl={undefined}
-                                primaryColor={content.primary_color || undefined}
-                                isLoading={isRegenerating}
-                                seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
-                                channelImage={content.channel_images?.[channel]?.url}
-                              />
+                              <div className="relative group">
+                                <ContentMockupToggle
+                                  channel={channel}
+                                  content={channelContent || ''}
+                                  brandName={content.brand_name}
+                                  logoUrl={undefined}
+                                  primaryColor={content.primary_color || undefined}
+                                  isLoading={isRegenerating}
+                                  seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
+                                  channelImage={content.channel_images?.[channel]?.url}
+                                />
+                                
+                                {/* Quick Image Actions - Floating */}
+                                {content.channel_images?.[channel]?.url && (
+                                  <div className="absolute bottom-3 right-3 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            size="icon" 
+                                            variant="ghost" 
+                                            className="h-8 w-8 text-white hover:bg-white/20"
+                                            onClick={() => {
+                                              setImageEditorChannel(channel);
+                                              setImageEditorOpen(true);
+                                            }}
+                                          >
+                                            <RefreshCw className="w-4 h-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Tạo lại ảnh</TooltipContent>
+                                      </Tooltip>
+                                      
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            size="icon" 
+                                            variant="ghost" 
+                                            className="h-8 w-8 text-white hover:bg-white/20"
+                                            onClick={() => {
+                                              setHistoryChannel(channel);
+                                              setShowImageHistory(true);
+                                            }}
+                                          >
+                                            <Images className="w-4 h-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Lịch sử ảnh</TooltipContent>
+                                      </Tooltip>
+                                      
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            size="icon" 
+                                            variant="ghost" 
+                                            className="h-8 w-8 text-white hover:bg-white/20"
+                                            onClick={() => {
+                                              const imageUrl = content.channel_images?.[channel]?.url;
+                                              if (imageUrl) {
+                                                const link = document.createElement('a');
+                                                link.href = imageUrl;
+                                                link.download = `${channel}-image.png`;
+                                                link.target = '_blank';
+                                                link.click();
+                                              }
+                                            }}
+                                          >
+                                            <Download className="w-4 h-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Tải xuống</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                )}
+                              </div>
+                              
                               {/* SEO Preview for website channel */}
                               {channel === 'website' && (content as any).website_seo_data && (
                                 <WebsiteSEOPreview
@@ -1312,6 +1382,29 @@ export function MultiChannelViewer({
           await onSaveChannelImage(content.id, channel, image);
         } : undefined}
       />
+
+      {/* Channel Image History Dialog */}
+      {historyChannel && (
+        <ChannelImageHistory
+          open={showImageHistory}
+          onOpenChange={setShowImageHistory}
+          contentId={content.id}
+          channel={historyChannel}
+          onSelectImage={onSaveChannelImage ? async (imageUrl) => {
+            await onSaveChannelImage(content.id, historyChannel, {
+              url: imageUrl,
+              provider: 'history',
+              generatedAt: new Date().toISOString(),
+              prompt: 'Selected from history',
+            });
+            setShowImageHistory(false);
+            toast({
+              title: 'Đã chọn ảnh',
+              description: `Đã áp dụng ảnh từ lịch sử cho ${channelConfig[historyChannel].label}`,
+            });
+          } : undefined}
+        />
+      )}
     </Dialog>
   );
 }
