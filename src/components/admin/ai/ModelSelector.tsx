@@ -96,27 +96,27 @@ export function ModelSelector({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-4 sm:p-6">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             Chọn AI Model
           </DialogTitle>
         </DialogHeader>
 
         {/* Search and Filters */}
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Tìm kiếm model..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 h-9 sm:h-10 text-sm"
             />
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <FilterButton 
               active={activeFilter === 'all'} 
               onClick={() => setActiveFilter('all')}
@@ -127,32 +127,35 @@ export function ModelSelector({
               active={activeFilter === 'fast'} 
               onClick={() => setActiveFilter('fast')}
               icon={<Zap className="h-3 w-3" />}
+              hideTextOnMobile
             >
-              Nhanh nhất
+              Nhanh
             </FilterButton>
             <FilterButton 
               active={activeFilter === 'quality'} 
               onClick={() => setActiveFilter('quality')}
               icon={<Star className="h-3 w-3" />}
+              hideTextOnMobile
             >
-              Chất lượng cao
+              Chất lượng
             </FilterButton>
             <FilterButton 
               active={activeFilter === 'cheap'} 
               onClick={() => setActiveFilter('cheap')}
               icon={<DollarSign className="h-3 w-3" />}
+              hideTextOnMobile
             >
               Tiết kiệm
             </FilterButton>
-            <span className="text-xs text-muted-foreground ml-auto">
+            <span className="text-[10px] sm:text-xs text-muted-foreground ml-auto">
               {totalModels} models
             </span>
           </div>
         </div>
 
         {/* Model List */}
-        <ScrollArea className="flex-1 -mx-6 px-6">
-          <div className="space-y-6 py-2">
+        <ScrollArea className="flex-1 -mx-4 sm:-mx-6 px-4 sm:px-6">
+          <div className="space-y-4 sm:space-y-6 py-2">
             {/* Default Option */}
             <div className="space-y-2">
               <ModelCard
@@ -171,15 +174,15 @@ export function ModelSelector({
 
             {/* Lovable AI Models */}
             {filteredModels.lovable.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">Lovable AI</h3>
-                  <Badge variant="secondary" className="text-[10px]">
+                  <h3 className="font-semibold text-xs sm:text-sm">Lovable AI</h3>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] hidden xs:inline-flex">
                     Không cần API Key
                   </Badge>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
                   {filteredModels.lovable.map((modelId) => (
                     <ModelCard
                       key={modelId}
@@ -195,15 +198,15 @@ export function ModelSelector({
 
             {/* OpenRouter Models */}
             {filteredModels.openrouter.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center gap-2">
                   <ExternalLink className="h-4 w-4 text-orange-500" />
-                  <h3 className="font-semibold text-sm">OpenRouter</h3>
-                  <Badge variant="secondary" className="text-[10px] bg-green-500/10 text-green-600">
+                  <h3 className="font-semibold text-xs sm:text-sm">OpenRouter</h3>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-green-500/10 text-green-600">
                     API Key ✓
                   </Badge>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
                   {filteredModels.openrouter.map((modelId) => (
                     <ModelCard
                       key={modelId}
@@ -219,9 +222,9 @@ export function ModelSelector({
 
             {/* No results */}
             {totalModels === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>Không tìm thấy model phù hợp</p>
-                <p className="text-sm">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+              <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                <p className="text-sm">Không tìm thấy model phù hợp</p>
+                <p className="text-xs sm:text-sm">Thử thay đổi bộ lọc hoặc từ khóa</p>
               </div>
             )}
           </div>
@@ -237,21 +240,22 @@ interface FilterButtonProps {
   onClick: () => void;
   icon?: React.ReactNode;
   children: React.ReactNode;
+  hideTextOnMobile?: boolean;
 }
 
-function FilterButton({ active, onClick, icon, children }: FilterButtonProps) {
+function FilterButton({ active, onClick, icon, children, hideTextOnMobile }: FilterButtonProps) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+        "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium transition-all",
         active 
           ? "bg-primary text-primary-foreground" 
           : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
       )}
     >
       {icon}
-      {children}
+      <span className={hideTextOnMobile ? "hidden sm:inline" : ""}>{children}</span>
     </button>
   );
 }
