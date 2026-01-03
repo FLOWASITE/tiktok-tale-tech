@@ -51,7 +51,7 @@ export function useSocialConnections(options: UseSocialConnectionsOptions = {}) 
       const { data, error } = await query.order('platform', { ascending: true });
 
       if (error) throw error;
-      return data as SocialConnection[];
+      return (data || []) as unknown as SocialConnection[];
     },
     enabled: !!organizationId || !!brandTemplateId,
   });

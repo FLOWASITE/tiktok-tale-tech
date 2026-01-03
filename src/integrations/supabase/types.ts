@@ -3185,6 +3185,7 @@ export type Database = {
           is_active: boolean | null
           last_error: string | null
           last_used_at: string | null
+          last_verified_at: string | null
           metadata: Json | null
           organization_id: string | null
           page_id: string | null
@@ -3209,6 +3210,7 @@ export type Database = {
           is_active?: boolean | null
           last_error?: string | null
           last_used_at?: string | null
+          last_verified_at?: string | null
           metadata?: Json | null
           organization_id?: string | null
           page_id?: string | null
@@ -3233,6 +3235,7 @@ export type Database = {
           is_active?: boolean | null
           last_error?: string | null
           last_used_at?: string | null
+          last_verified_at?: string | null
           metadata?: Json | null
           organization_id?: string | null
           page_id?: string | null
