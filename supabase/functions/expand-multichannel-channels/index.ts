@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI } from "../_shared/ai-provider.ts";
+import { getChannelModelConfigs, getAIConfig, ChannelModelConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -323,56 +324,164 @@ QUAN TRỌNG: Chỉ trả về JSON object, không có text khác.`;
       },
     ];
 
-    console.log('[expand-multichannel] Calling AI...');
+    console.log('[expand-multichannel] Fetching per-channel model configs...');
 
-    // Call AI using the multi-provider system
-    const aiResponse = await callAI({
-      functionName: 'expand-multichannel-channels',
-      organizationId: existingContent.organization_id,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      tools,
-      toolChoice: { type: "function", function: { name: "generate_channel_contents" } },
-    });
-
-    if (!aiResponse.success) {
-      console.error('[expand-multichannel] AI call failed:', aiResponse.error);
-      return new Response(
-        JSON.stringify({ error: aiResponse.error || 'AI call failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Parse AI response
-    let generatedContents: Record<string, string> = {};
-    const responseData = aiResponse.data;
+    // ============================================
+    // PER-CHANNEL MODEL ROUTING (Phase 3)
+    // ============================================
     
-    // Handle tool calls from response
-    const toolCalls = responseData?.choices?.[0]?.message?.tool_calls;
-    if (toolCalls && toolCalls.length > 0) {
-      const toolCall = toolCalls[0];
-      if (toolCall.function?.arguments) {
-        try {
-          generatedContents = JSON.parse(toolCall.function.arguments);
-        } catch (e) {
-          console.error('[expand-multichannel] Failed to parse tool call:', e);
-        }
+    // Fetch channel-specific model configurations
+    const channelConfigs = await getChannelModelConfigs(existingContent.organization_id);
+    const defaultConfig = await getAIConfig('expand-multichannel-channels', existingContent.organization_id);
+    const defaultModel = defaultConfig.model || 'google/gemini-2.5-flash';
+    const defaultTemperature = defaultConfig.temperature ?? 0.7;
+    
+    // Group channels by their configured model
+    const channelsByModel = new Map<string, { channels: string[]; config: ChannelModelConfig | undefined }>();
+    
+    for (const channel of newChannels) {
+      const config = channelConfigs.get(channel);
+      const modelKey = config?.model || defaultModel;
+      
+      if (!channelsByModel.has(modelKey)) {
+        channelsByModel.set(modelKey, { channels: [], config });
       }
-    } else {
-      // Fallback: try to parse JSON from content
-      const contentText = responseData?.choices?.[0]?.message?.content;
-      if (contentText) {
-        try {
-          const jsonMatch = contentText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            generatedContents = JSON.parse(jsonMatch[0]);
+      channelsByModel.get(modelKey)!.channels.push(channel);
+    }
+    
+    console.log(`[expand-multichannel] Grouped ${newChannels.length} channels into ${channelsByModel.size} model groups`);
+    
+    // Generate content for each model group
+    let generatedContents: Record<string, string> = {};
+    
+    for (const [modelKey, { channels: groupChannels, config }] of channelsByModel) {
+      console.log(`[expand-multichannel] Generating for model "${modelKey}": ${groupChannels.join(', ')}`);
+      
+      // Build tools for this channel group
+      const groupTools = [
+        {
+          type: "function" as const,
+          function: {
+            name: "generate_channel_contents",
+            description: `Generate content for channels: ${groupChannels.join(', ')}`,
+            parameters: {
+              type: "object",
+              properties: Object.fromEntries(
+                groupChannels.map(ch => [
+                  ch, 
+                  { type: "string", description: `Content for ${ch} channel` }
+                ])
+              ),
+              required: groupChannels,
+            },
+          },
+        },
+      ];
+      
+      // Build channel-specific instructions for this group
+      const groupChannelInstructions = groupChannels.map(channel => {
+        const settings = DEFAULT_CHANNEL_SETTINGS[channel] || DEFAULT_CHANNEL_SETTINGS.facebook;
+        return `
+### ${channel.toUpperCase()}
+- Độ dài: ${settings.min_length}-${settings.max_length} từ
+- Format: ${settings.format}
+`;
+      }).join('\n');
+      
+      const groupSystemPrompt = `Bạn là chuyên gia content marketing đa kênh. 
+Nhiệm vụ: Tạo nội dung cho các kênh mới dựa trên chủ đề và context đã có.
+
+${brandContext}
+
+## CHANNELS CẦN TẠO
+${groupChannelInstructions}
+
+## QUY TẮC
+1. Giữ đúng Brand Voice đã cấu hình
+2. Mỗi kênh có format và độ dài riêng - PHẢI tuân thủ
+3. Nội dung phải nhất quán về message với các kênh đã có
+4. Sử dụng Markdown: **bold**, bullet points, emoji (nếu cho phép)
+5. Luôn có Hook mạnh cho social channels
+`;
+      
+      const groupUserPrompt = `Tạo nội dung cho các kênh: ${groupChannels.join(', ')}
+
+## CHỦ ĐỀ
+${existingContent.topic}
+
+## TIÊU ĐỀ
+${existingContent.title}
+
+## MỤC TIÊU
+${existingContent.content_goal || 'engagement'}
+
+## NỘI DUNG THAM KHẢO (từ kênh đã có)
+${referenceContent ? referenceContent.substring(0, 500) + '...' : 'Không có'}
+
+## YÊU CẦU OUTPUT
+Trả về JSON object với key là tên channel, value là nội dung:
+{
+  ${groupChannels.map(ch => `"${ch}": "nội dung cho ${ch}"`).join(',\n  ')}
+}
+
+QUAN TRỌNG: Chỉ trả về JSON object, không có text khác.`;
+      
+      // Call AI with model override
+      const aiResponse = await callAI({
+        functionName: 'expand-multichannel-channels',
+        organizationId: existingContent.organization_id,
+        messages: [
+          { role: 'system', content: groupSystemPrompt },
+          { role: 'user', content: groupUserPrompt },
+        ],
+        tools: groupTools,
+        toolChoice: { type: "function", function: { name: "generate_channel_contents" } },
+        modelOverride: modelKey,
+        temperatureOverride: config?.temperature ?? defaultTemperature,
+      });
+      
+      if (!aiResponse.success) {
+        console.error(`[expand-multichannel] AI call failed for model ${modelKey}:`, aiResponse.error);
+        // Fill with error placeholders for this group
+        for (const ch of groupChannels) {
+          generatedContents[ch] = `[Lỗi tạo nội dung cho ${ch} - vui lòng thử lại]`;
+        }
+        continue;
+      }
+      
+      // Parse AI response for this group
+      const responseData = aiResponse.data;
+      let groupContents: Record<string, string> = {};
+      
+      // Handle tool calls from response
+      const toolCalls = responseData?.choices?.[0]?.message?.tool_calls;
+      if (toolCalls && toolCalls.length > 0) {
+        const toolCall = toolCalls[0];
+        if (toolCall.function?.arguments) {
+          try {
+            groupContents = JSON.parse(toolCall.function.arguments);
+          } catch (e) {
+            console.error('[expand-multichannel] Failed to parse tool call:', e);
           }
-        } catch (e) {
-          console.error('[expand-multichannel] Failed to parse content JSON:', e);
+        }
+      } else {
+        // Fallback: try to parse JSON from content
+        const contentText = responseData?.choices?.[0]?.message?.content;
+        if (contentText) {
+          try {
+            const jsonMatch = contentText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              groupContents = JSON.parse(jsonMatch[0]);
+            }
+          } catch (e) {
+            console.error('[expand-multichannel] Failed to parse content JSON:', e);
+          }
         }
       }
+      
+      // Merge group contents into main result
+      Object.assign(generatedContents, groupContents);
+      console.log(`[expand-multichannel] Generated ${Object.keys(groupContents).length} contents with model ${modelKey}`);
     }
 
     // Validate we got content for all channels
