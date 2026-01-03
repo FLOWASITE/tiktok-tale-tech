@@ -78,11 +78,23 @@ async function compositeImages(
   logoSizePercent: number,
   padding: number
 ): Promise<Uint8Array> {
-  console.log(`[overlay-logo-canvas] Decoding base image...`);
+  console.log(`[overlay-logo-canvas] Decoding base image (${baseImageBytes.length} bytes)...`);
   const baseImg = await Image.decode(baseImageBytes);
+  console.log(`[overlay-logo-canvas] Base image dimensions: ${baseImg.width}x${baseImg.height}`);
   
-  console.log(`[overlay-logo-canvas] Decoding logo...`);
+  // Validate base image
+  if (baseImg.width === 0 || baseImg.height === 0) {
+    throw new Error(`Invalid base image dimensions: ${baseImg.width}x${baseImg.height}`);
+  }
+  
+  console.log(`[overlay-logo-canvas] Decoding logo (${logoBytes.length} bytes)...`);
   const logoImg = await Image.decode(logoBytes);
+  console.log(`[overlay-logo-canvas] Logo dimensions: ${logoImg.width}x${logoImg.height}`);
+  
+  // Validate logo
+  if (logoImg.width === 0 || logoImg.height === 0) {
+    throw new Error(`Invalid logo dimensions: ${logoImg.width}x${logoImg.height}`);
+  }
   
   // Calculate new logo size based on percentage of base image width
   const targetLogoWidth = Math.floor(baseImg.width * (logoSizePercent / 100));
