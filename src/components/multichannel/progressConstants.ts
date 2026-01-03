@@ -18,17 +18,17 @@ export type ProgressStepId =
   | 'finalize' 
   | 'complete';
 
-// Durations aligned with backend reality (~15-30s total, including retries)
+// Durations aligned with backend reality (~40-60s total, including retries)
 export const GENERATION_STEPS: ProgressStepConfig[] = [
   { id: 'init', label: 'Khởi tạo...', baseDuration: 500 },
   { id: 'brand', label: 'Tải ngữ cảnh thương hiệu', baseDuration: 1500 },
   { id: 'personas', label: 'Phân tích personas & sản phẩm', baseDuration: 1200 },
   { id: 'industry', label: 'Tải dữ liệu ngành', baseDuration: 1000 },
   { id: 'prompt', label: 'Xây dựng prompt AI', baseDuration: 800 },
-  { id: 'ai', label: 'AI đang tạo nội dung', baseDuration: 8000, channelScaling: 2000 },
-  { id: 'retry', label: 'Retry nếu cần...', baseDuration: 5000 },
-  { id: 'critique', label: 'Đánh giá chất lượng', baseDuration: 4000 },
-  { id: 'finalize', label: 'Lưu và hoàn thiện', baseDuration: 2000 },
+  { id: 'ai', label: 'AI đang tạo nội dung', baseDuration: 25000, channelScaling: 5000 },
+  { id: 'retry', label: 'Retry nếu cần...', baseDuration: 8000 },
+  { id: 'critique', label: 'Đánh giá chất lượng', baseDuration: 6000 },
+  { id: 'finalize', label: 'Lưu và hoàn thiện', baseDuration: 3000 },
   { id: 'complete', label: 'Hoàn thành!', baseDuration: 500 },
 ];
 
