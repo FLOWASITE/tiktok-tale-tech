@@ -2139,7 +2139,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           }
           
           lines.push(divider);
-          return lines.join('\n');
+          return lines.join('  \n');
         }
         
         // ======= EMAIL - Professional Signature Block =======
@@ -2166,7 +2166,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           
           if (footer.address) lines.push(`\n*${footer.address}*`);
           
-          return lines.join('\n');
+          return lines.join('  \n');
         }
         
         // ======= WEBSITE - Author Box with Company Branding =======
@@ -2190,7 +2190,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           if (contactParts.length) lines.push(contactParts.join(' | '));
           if (footer.address) lines.push(`\n${useEmoji ? '📍 ' : ''}${footer.address}`);
           
-          return lines.join('\n');
+          return lines.join('  \n');
         }
         
         // ======= TWITTER / TIKTOK / YOUTUBE - Compact CTA =======
@@ -2211,7 +2211,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           if (footer.email) lines.push(`→ Email: ${footer.email}`);
           if (footer.website) lines.push(`→ Website: ${footer.website}`);
           
-          return lines.join('\n');
+          return lines.join('  \n');
         }
         
         return '';

@@ -36,6 +36,7 @@ const mockupMarkdownComponents = {
   em: ({ children }: { children: React.ReactNode }) => <em className="italic">{children}</em>,
   ul: ({ children }: { children: React.ReactNode }) => <ul className="list-none my-2 space-y-1">{children}</ul>,
   li: ({ children }: { children: React.ReactNode }) => <li className="flex items-start gap-1">{children}</li>,
+  br: () => <br className="block" />,
 };
 
 type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general';
