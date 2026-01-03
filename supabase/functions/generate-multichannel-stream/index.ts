@@ -112,7 +112,7 @@ serve(async (req) => {
           body: JSON.stringify(formData),
         });
 
-        // Heartbeat: emit progress updates every 2s while waiting for AI
+        // Heartbeat: emit progress updates every 1.5s while waiting for AI
         // Simulate per-channel progress by cycling through channels
         let currentProgress = 50;
         const maxProgressWhileWaiting = 72;
@@ -152,14 +152,27 @@ serve(async (req) => {
               type: 'progress', 
               step: 'ai', 
               progress: currentProgress, 
-              message: `AI đang xử lý nội dung... (${currentProgress}%)` 
+              message: `AI đang xử lý nội dung... (${currentProgress}%)`,
+              completedChannels: [...completedChannels],
+              totalChannels: channels,
             });
           }
-        }, 2000);
+        }, 1500);
 
         // Wait for AI response
         const response = await aiCallPromise;
         clearInterval(heartbeatInterval);
+        
+        // Emit final AI step with all channels completed
+        emit({ 
+          type: 'progress', 
+          step: 'ai', 
+          progress: 73, 
+          message: 'AI đã tạo xong nội dung...',
+          currentChannel: undefined,
+          completedChannels: channels, // All channels completed
+          totalChannels: channels,
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -181,11 +194,25 @@ serve(async (req) => {
           return;
         }
 
-        // Step 7: Self-critique happening inside main function
-        emit({ type: 'progress', step: 'critique', progress: 75, message: 'Đánh giá chất lượng...' });
+        // Step 7: Self-critique - include channel info
+        emit({ 
+          type: 'progress', 
+          step: 'critique', 
+          progress: 75, 
+          message: 'Đánh giá chất lượng...',
+          completedChannels: channels,
+          totalChannels: channels,
+        });
 
-        // Step 8: Finalize
-        emit({ type: 'progress', step: 'finalize', progress: 90, message: 'Lưu và hoàn thiện...' });
+        // Step 8: Finalize - include channel info
+        emit({ 
+          type: 'progress', 
+          step: 'finalize', 
+          progress: 90, 
+          message: 'Lưu và hoàn thiện...',
+          completedChannels: channels,
+          totalChannels: channels,
+        });
         
         // Parse result
         const result = await response.json();
