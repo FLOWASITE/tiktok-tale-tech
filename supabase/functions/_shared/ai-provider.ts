@@ -38,6 +38,9 @@ export interface AICallOptions {
   toolChoice?: any;
   stream?: boolean;
   maxTokensOverride?: number;
+  // Per-channel model overrides (Admin-configured)
+  modelOverride?: string;
+  temperatureOverride?: number;
 }
 
 export interface AICallResult {
@@ -545,14 +548,26 @@ async function callGeminiDirect(
  * 2. Lovable AI Gateway (fallback)
  */
 export async function callAI(options: AICallOptions): Promise<AICallResult> {
-  const { functionName, organizationId, messages } = options;
+  const { functionName, organizationId, messages, modelOverride, temperatureOverride } = options;
 
   // Get AI config for this function
   const config = await getAIConfig(functionName, organizationId);
-  console.log(`[ai-provider] Function: ${functionName}, Model: ${config.model}`);
+  
+  // Apply per-channel overrides if provided (Admin-configured)
+  const effectiveModel = modelOverride || config.model;
+  const effectiveTemperature = temperatureOverride ?? config.temperature;
+  
+  // Create effective config with overrides
+  const effectiveConfig = {
+    ...config,
+    model: effectiveModel,
+    temperature: effectiveTemperature,
+  };
+  
+  console.log(`[ai-provider] Function: ${functionName}, Model: ${effectiveModel}${modelOverride ? ' (override)' : ''}`);
 
   // Determine provider from model
-  const primaryProvider = getProviderFromModel(config.model);
+  const primaryProvider = getProviderFromModel(effectiveModel);
   console.log(`[ai-provider] Primary provider: ${primaryProvider}`);
 
   // Initialize Supabase client
@@ -561,7 +576,7 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
   
   if (!supabaseUrl || !supabaseKey) {
     console.warn("[ai-provider] Missing Supabase credentials, using Lovable Gateway");
-    return callLovableGateway(messages, config.model, config, options);
+    return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -579,19 +594,19 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
       
       switch (primaryProvider) {
         case "openai":
-          result = await callOpenAI(apiKey, messages, config.model, config, options);
+          result = await callOpenAI(apiKey, messages, effectiveModel, effectiveConfig, options);
           break;
         case "anthropic":
-          result = await callAnthropic(apiKey, messages, config.model, config, options);
+          result = await callAnthropic(apiKey, messages, effectiveModel, effectiveConfig, options);
           break;
         case "gemini":
-          result = await callGeminiDirect(apiKey, messages, config.model, config, options);
+          result = await callGeminiDirect(apiKey, messages, effectiveModel, effectiveConfig, options);
           break;
         case "openrouter":
-          result = await callOpenRouter(apiKey, messages, config.model, config, options);
+          result = await callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
           break;
         default:
-          result = await callLovableGateway(messages, config.model, config, options);
+          result = await callLovableGateway(messages, effectiveModel, effectiveConfig, options);
       }
 
       if (result.success) {
@@ -600,7 +615,7 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
 
       // Fallback to Lovable Gateway on failure
       console.warn(`[ai-provider] ${primaryProvider} failed, falling back to Lovable Gateway`);
-      const fallbackResult = await callLovableGateway(messages, config.model, config, options);
+      const fallbackResult = await callLovableGateway(messages, effectiveModel, effectiveConfig, options);
       fallbackResult.fromFallback = true;
       return fallbackResult;
     }
@@ -608,7 +623,7 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
 
   // Default: Use Lovable Gateway
   console.log("[ai-provider] Using Lovable AI Gateway (default)");
-  return callLovableGateway(messages, config.model, config, options);
+  return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
 }
 
 /**

@@ -1771,26 +1771,108 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
     console.log(`[ai-config] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}, max_tokens: ${aiConfig.max_tokens}`);
 
-    // Fetch channel-specific model configs (for future per-channel generation)
+    // Fetch channel-specific model configs
     const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
     if (channelModelConfigs.size > 0) {
       console.log(`[ai-config] Channel model overrides: ${Array.from(channelModelConfigs.entries()).map(([ch, cfg]) => `${ch}=${cfg.model}`).join(', ')}`);
     }
 
+    // Group channels by model (for per-model generation)
+    const groupChannelsByModel = (channels: string[]): Map<string, { channels: string[]; config: { model: string; temperature: number; maxTokens: number | null } }> => {
+      const groups = new Map<string, { channels: string[]; config: { model: string; temperature: number; maxTokens: number | null } }>();
+      
+      for (const channel of channels) {
+        const channelConfig = channelModelConfigs.get(channel);
+        // Use channel-specific config if available, otherwise use default function config
+        const model = channelConfig?.model || aiConfig.model;
+        const temperature = channelConfig?.temperature ?? aiConfig.temperature;
+        const maxTokens = channelConfig?.maxTokens ?? null;
+        
+        const key = `${model}|${temperature}|${maxTokens ?? 'default'}`;
+        
+        if (!groups.has(key)) {
+          groups.set(key, { channels: [], config: { model, temperature, maxTokens } });
+        }
+        groups.get(key)!.channels.push(channel);
+      }
+      
+      return groups;
+    };
+
+    // Build tools dynamically for a subset of channels
+    const buildToolsForChannels = (channels: string[]) => {
+      const channelProps: Record<string, object> = {};
+      const channelDescs: Record<string, string> = {
+        website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections, conclusion với CTA mềm. Markdown format.",
+        facebook: "Nội dung cho Facebook (120-300 chữ, hook mạnh, chia đoạn ngắn)",
+        instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
+        twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
+        google_maps: "Nội dung cho Google Maps (80-150 chữ, trung tính, không emoji/hashtag)",
+        linkedin: "Nội dung cho LinkedIn (150-400 chữ, B2B authority, insight)",
+        email: "Nội dung Email (150-400 chữ, subject line + body + CTA)",
+        youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
+        zalo_oa: "Nội dung Zalo OA (60-150 chữ, thân thiện, local)",
+        telegram: "Nội dung Telegram (100-500 chữ, bullet, dễ đọc)",
+        tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
+        threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
+      };
+      
+      for (const channel of channels) {
+        if (channel === 'website') {
+          channelProps['website_content'] = channelProperties['website_content'];
+        } else if (channelDescs[channel]) {
+          channelProps[`${channel}_content`] = {
+            type: "string",
+            description: channelDescs[channel],
+          };
+        }
+      }
+      
+      return [{
+        type: "function",
+        function: {
+          name: "generate_multichannel_content",
+          description: "Generate content for multiple marketing channels",
+          parameters: {
+            type: "object",
+            properties: {
+              title: {
+                type: "string",
+                description: "Tiêu đề ngắn gọn cho bộ nội dung (dựa trên chủ đề)",
+              },
+              ...channelProps,
+            },
+            required: ["title", ...Object.keys(channelProps)],
+          },
+        },
+      }];
+    };
+
     // Define the AI generation function with dynamic prompt using callAI (multi-provider support)
-    const generateAIContent = async (currentPrompt: string) => {
-      console.log("Calling AI via multi-provider...");
+    // This now supports per-channel model configuration
+    const generateAIContentForChannels = async (
+      currentPrompt: string, 
+      channelsToGenerate: string[],
+      modelConfig: { model: string; temperature: number; maxTokens: number | null }
+    ) => {
+      const channelTools = buildToolsForChannels(channelsToGenerate);
+      const includesWebsite = channelsToGenerate.includes('website');
+      const effectiveMaxTokens = modelConfig.maxTokens ?? (includesWebsite ? Math.max(aiConfig.max_tokens, 12288) : aiConfig.max_tokens);
+      
+      console.log(`Calling AI (${modelConfig.model}) for channels: ${channelsToGenerate.join(', ')}`);
       
       const result = await callAI({
         functionName: 'generate-multichannel',
         organizationId: organizationId || undefined,
+        modelOverride: modelConfig.model,
+        temperatureOverride: modelConfig.temperature,
         messages: [
           { role: "system", content: aiConfig.custom_system_prompt || systemPrompt },
-          { role: "user", content: currentPrompt },
+          { role: "user", content: currentPrompt + `\n\n[CHỈ TẠO NỘI DUNG CHO CÁC KÊNH: ${channelsToGenerate.join(', ').toUpperCase()}]` },
         ],
-        tools,
+        tools: channelTools,
         toolChoice: { type: "function", function: { name: "generate_multichannel_content" } },
-        maxTokensOverride: hasWebsiteChannel ? Math.max(aiConfig.max_tokens, 12288) : undefined,
+        maxTokensOverride: effectiveMaxTokens,
       });
 
       if (!result.success) {
@@ -1805,7 +1887,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         throw new Error(`AI error: ${result.error}`);
       }
 
-      console.log(`AI response from ${result.provider}${result.fromFallback ? ' (fallback)' : ''}`);
+      console.log(`AI response from ${result.provider}${result.fromFallback ? ' (fallback)' : ''} for ${channelsToGenerate.length} channels`);
 
       const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall || toolCall.function.name !== "generate_multichannel_content") {
@@ -1813,6 +1895,53 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       }
 
       return JSON.parse(toolCall.function.arguments);
+    };
+
+    // Legacy function for backward compatibility (single model for all channels)
+    const generateAIContent = async (currentPrompt: string) => {
+      return generateAIContentForChannels(currentPrompt, formData.channels, {
+        model: aiConfig.model,
+        temperature: aiConfig.temperature,
+        maxTokens: null,
+      });
+    };
+
+    // Multi-model generation: group channels by model and generate in parallel
+    const generateWithMultipleModels = async (currentPrompt: string): Promise<any> => {
+      const modelGroups = groupChannelsByModel(formData.channels);
+      
+      // If all channels use the same model, use single call for efficiency
+      if (modelGroups.size === 1) {
+        console.log('[multi-model] All channels use same model, using single call');
+        return generateAIContent(currentPrompt);
+      }
+      
+      console.log(`[multi-model] Generating with ${modelGroups.size} different model configs`);
+      
+      // Generate for each model group in parallel
+      const groupResults = await Promise.all(
+        Array.from(modelGroups.entries()).map(async ([key, group]) => {
+          console.log(`[multi-model] Group "${key}": channels=${group.channels.join(',')}, model=${group.config.model}`);
+          return {
+            channels: group.channels,
+            data: await generateAIContentForChannels(currentPrompt, group.channels, group.config),
+          };
+        })
+      );
+      
+      // Merge results from all groups
+      const mergedData: any = { title: groupResults[0].data.title };
+      for (const result of groupResults) {
+        for (const channel of result.channels) {
+          const contentKey = `${channel}_content`;
+          if (result.data[contentKey]) {
+            mergedData[contentKey] = result.data[contentKey];
+          }
+        }
+      }
+      
+      console.log(`[multi-model] Merged ${Object.keys(mergedData).length - 1} channel contents`);
+      return mergedData;
     };
 
     // Helper to calculate actual word count
@@ -1853,8 +1982,9 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
 
     try {
       // Generate with retry logic for website content
+      // Uses multi-model generation when Admin has configured per-channel models
       const generateWithRetry = async () => {
-        let data = await generateAIContent(currentUserPrompt);
+        let data = await generateWithMultipleModels(currentUserPrompt);
         
         // Validate and retry if website content is too short
         if (hasWebsiteChannel) {
@@ -1875,7 +2005,7 @@ BẮT BUỘC viết ĐẦY ĐỦ:
 
 KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ mọi section.`;
             
-            data = await generateAIContent(currentUserPrompt);
+            data = await generateWithMultipleModels(currentUserPrompt);
             actualWordCount = getActualWordCount(data);
             console.log(`Retry ${retryCount} word count: ${actualWordCount}`);
           }
