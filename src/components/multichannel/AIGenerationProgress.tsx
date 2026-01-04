@@ -21,6 +21,8 @@ import {
   Send,
   Music2,
   AtSign,
+  ChevronDown,
+  Eye,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,12 +31,24 @@ import {
   calculateTotalDuration,
   PROGRESS_CAP_PERCENT 
 } from './progressConstants';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ProgressStep {
   id: string;
   label: string;
   icon: React.ReactNode;
   duration: number;
+}
+
+interface ChannelContentPreview {
+  channel: string;
+  preview: string;
+  wordCount: number;
 }
 
 interface AIGenerationProgressProps {
@@ -49,6 +63,8 @@ interface AIGenerationProgressProps {
   completedChannels?: string[];
   totalChannels?: string[];
   currentChannel?: string;
+  // Real-time content previews
+  channelContents?: ChannelContentPreview[];
 }
 
 // Map step IDs to icons
@@ -115,6 +131,7 @@ export function AIGenerationProgress({
   completedChannels,
   totalChannels,
   currentChannel,
+  channelContents,
 }: AIGenerationProgressProps) {
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   
@@ -381,6 +398,58 @@ export function AIGenerationProgress({
               })}
             </AnimatePresence>
           </div>
+        </motion.div>
+      )}
+
+      {/* Real-time Content Preview Section */}
+      {channelContents && channelContents.length > 0 && (
+        <motion.div 
+          className="space-y-2"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Collapsible defaultOpen={true}>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full text-xs font-medium text-foreground hover:text-primary transition-colors group">
+              <Eye className="w-3.5 h-3.5" />
+              <span>Xem trước nội dung ({channelContents.length} kênh)</span>
+              <ChevronDown className="w-3.5 h-3.5 ml-auto transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <ScrollArea className="max-h-[200px]">
+                <div className="space-y-2">
+                  <AnimatePresence mode="popLayout">
+                    {channelContents.map((item, index) => {
+                      const ChannelIcon = CHANNEL_ICONS[item.channel] || Globe;
+                      const displayName = CHANNEL_DISPLAY_NAMES[item.channel] || item.channel;
+                      
+                      return (
+                        <motion.div
+                          key={item.channel}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ delay: index * 0.05, duration: 0.2 }}
+                          className="border rounded-lg p-3 bg-muted/30"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <ChannelIcon className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium">{displayName}</span>
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {item.wordCount} từ
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                            {item.preview}
+                          </p>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </ScrollArea>
+            </CollapsibleContent>
+          </Collapsible>
         </motion.div>
       )}
 

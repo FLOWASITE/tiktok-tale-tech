@@ -6,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface ChannelContentPreview {
+  channel: string;
+  preview: string;        // First 200 chars of content
+  wordCount: number;
+}
+
 interface ProgressEvent {
   type: 'progress' | 'result' | 'error';
   step?: string;
@@ -17,6 +23,9 @@ interface ProgressEvent {
   currentChannel?: string;
   completedChannels?: string[];
   totalChannels?: string[];
+  // NEW: Real-time content previews
+  channelContent?: ChannelContentPreview;       // Single channel just completed
+  channelContents?: ChannelContentPreview[];    // All completed so far
 }
 
 serve(async (req) => {
@@ -281,6 +290,39 @@ serve(async (req) => {
           controller.close();
           return;
         }
+
+        // Extract content previews from result for real-time display
+        const channelContents: ChannelContentPreview[] = [];
+        if (result && typeof result === 'object') {
+          for (const channel of channels) {
+            const contentKey = `${channel}_content`;
+            const channelData = result[contentKey];
+            if (channelData) {
+              // Extract text content - handle different formats
+              let textContent = '';
+              if (typeof channelData === 'string') {
+                textContent = channelData;
+              } else if (channelData.content) {
+                textContent = channelData.content;
+              } else if (channelData.body) {
+                textContent = channelData.body;
+              } else if (channelData.caption) {
+                textContent = channelData.caption;
+              } else if (channelData.text) {
+                textContent = channelData.text;
+              }
+              
+              if (textContent) {
+                // Clean up text for preview
+                const cleanText = textContent.replace(/[#*_~`]/g, '').trim();
+                const preview = cleanText.slice(0, 200) + (cleanText.length > 200 ? '...' : '');
+                const wordCount = cleanText.split(/\s+/).filter((w: string) => w.length > 0).length;
+                
+                channelContents.push({ channel, preview, wordCount });
+              }
+            }
+          }
+        }
         
         // Now emit steps with accurate timing AFTER we have the result
         // Backend already did critique + footer + save, so these are just UI updates
@@ -293,6 +335,7 @@ serve(async (req) => {
           message: 'AI đã kiểm tra chất lượng nội dung ✓',
           completedChannels: channels,
           totalChannels: channels,
+          channelContents, // Include content previews
         });
         await delay(300);
 
@@ -304,6 +347,7 @@ serve(async (req) => {
           message: 'Đã chèn Footer Info ✓',
           completedChannels: channels,
           totalChannels: channels,
+          channelContents,
         });
         await delay(200);
 
@@ -315,6 +359,7 @@ serve(async (req) => {
           message: 'Đã lưu vào cơ sở dữ liệu ✓',
           completedChannels: channels,
           totalChannels: channels,
+          channelContents,
         });
         await delay(200);
         
