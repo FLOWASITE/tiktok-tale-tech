@@ -1,6 +1,7 @@
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { Channel, WebsiteSEOData } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
+import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
 
 interface ContentMockupToggleProps {
   channel: Channel;
@@ -44,6 +45,9 @@ export function ContentMockupToggle({
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
+  // Normalize content to prevent react-markdown crashes
+  const safeContent = normalizeMarkdownText(content);
+  
   // Normalize brandName to prevent crashes
   const safeBrandName = typeof brandName === 'string' && brandName.trim() 
     ? brandName.trim() 
@@ -54,7 +58,7 @@ export function ContentMockupToggle({
       <div className="w-full max-w-xl">
         <ChannelMockupFrame
           channel={mockupType}
-          content={content}
+          content={safeContent}
           brandName={safeBrandName}
           logoUrl={logoUrl}
           primaryColor={primaryColor}

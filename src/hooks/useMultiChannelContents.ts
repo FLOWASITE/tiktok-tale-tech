@@ -4,6 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages, ChannelStatuses, calculateMasterStatus, CONTENT_STATUSES } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
+import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
+
+// Helper to normalize content field - ensures string or null
+const normalizeContentField = (value: unknown): string | null => {
+  const normalized = normalizeMarkdownText(value);
+  return normalized || null;
+};
 
 // Helper to transform database data to MultiChannelContent
 const transformContent = (data: any): MultiChannelContent => ({
@@ -17,18 +24,19 @@ const transformContent = (data: any): MultiChannelContent => ({
   brand_name: data.brand_name,
   brand_guideline: data.brand_guideline,
   primary_color: data.primary_color,
-  website_content: data.website_content,
-  facebook_content: data.facebook_content,
-  instagram_content: data.instagram_content,
-  twitter_content: data.twitter_content,
-  google_maps_content: data.google_maps_content,
-  linkedin_content: data.linkedin_content,
-  email_content: data.email_content,
-  youtube_content: data.youtube_content,
-  zalo_oa_content: data.zalo_oa_content,
-  telegram_content: data.telegram_content,
-  tiktok_content: data.tiktok_content,
-  threads_content: data.threads_content,
+  // Normalize all content fields to prevent react-markdown crashes
+  website_content: normalizeContentField(data.website_content),
+  facebook_content: normalizeContentField(data.facebook_content),
+  instagram_content: normalizeContentField(data.instagram_content),
+  twitter_content: normalizeContentField(data.twitter_content),
+  google_maps_content: normalizeContentField(data.google_maps_content),
+  linkedin_content: normalizeContentField(data.linkedin_content),
+  email_content: normalizeContentField(data.email_content),
+  youtube_content: normalizeContentField(data.youtube_content),
+  zalo_oa_content: normalizeContentField(data.zalo_oa_content),
+  telegram_content: normalizeContentField(data.telegram_content),
+  tiktok_content: normalizeContentField(data.tiktok_content),
+  threads_content: normalizeContentField(data.threads_content),
   channel_images:
     data.channel_images && typeof data.channel_images === 'object' && !Array.isArray(data.channel_images)
       ? (data.channel_images as ChannelImages)
