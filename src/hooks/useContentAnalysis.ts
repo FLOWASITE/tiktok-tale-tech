@@ -33,18 +33,21 @@ function countCharacters(text: string): number {
 }
 
 function countEmojis(text: string): number {
+  if (typeof text !== 'string') return 0;
   const emojiRegex = /(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/gu;
   const matches = text.match(emojiRegex);
   return matches ? matches.length : 0;
 }
 
 function countHashtags(text: string): number {
+  if (typeof text !== 'string') return 0;
   const hashtagRegex = /#\w+/g;
   const matches = text.match(hashtagRegex);
   return matches ? matches.length : 0;
 }
 
 function detectHook(text: string): boolean {
+  if (typeof text !== 'string') return false;
   // Check first 2 lines for hook patterns
   const lines = text.split('\n').filter(l => l.trim());
   if (lines.length === 0) return false;
@@ -64,6 +67,7 @@ function detectHook(text: string): boolean {
 }
 
 function detectCTA(text: string): boolean {
+  if (typeof text !== 'string') return false;
   const ctaPatterns = [
     /đăng ký|đăng kí|subscribe/i,
     /liên hệ|contact/i,
