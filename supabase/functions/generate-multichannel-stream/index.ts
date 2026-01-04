@@ -83,13 +83,14 @@ serve(async (req) => {
 
       try {
         const channels: string[] = formData.channels || [];
-        const brandTemplateId = formData.brand_template_id;
-        const organizationId = formData.organization_id;
+        // Support both camelCase (frontend) and snake_case formats
+        const brandTemplateId = formData.brandTemplateId || formData.brand_template_id;
+        const organizationId = formData.organizationId || formData.organization_id;
         const topic = formData.topic || '';
         const hook = formData.hook;
-        const contentGoal = formData.content_goal;
-        const productIds = formData.product_ids;
-        const targetPersonaId = formData.target_persona_id;
+        const contentGoal = formData.contentGoal || formData.content_goal;
+        const productIds = formData.productIds || formData.product_ids;
+        const targetPersonaId = formData.targetPersonaId || formData.target_persona_id;
 
         console.log(`[realtime-stream] Starting for ${channels.length} channels: ${channels.join(', ')}`);
         console.log(`[realtime-stream] Topic: "${topic.slice(0, 50)}..."`);
@@ -324,9 +325,8 @@ serve(async (req) => {
           }
         }
 
-        // Get brand info from context if available
-        // Note: brandGuideline and primaryColor aren't in BrandContext type, so we skip them
-        const brandName = context.brand?.brandName || null;
+        // Get brand info from context with fallback
+        const brandName = context.brand?.brandName || formData.brandName || 'Nội dung mới';
 
         // Insert to database
         const { data: savedContent, error: dbError } = await supabase
