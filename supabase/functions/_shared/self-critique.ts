@@ -22,7 +22,8 @@ export const CRITIQUE_CONFIG = {
   MIN_ACCEPTABLE: 65,           // Score < 65 = flag warning
   MAX_REFINEMENTS: 1,           // Tối đa 1 lần refine (giảm từ 2 để tránh timeout)
   COMPLIANCE_WEIGHT: 2.0,       // Compliance quan trọng gấp đôi
-  TIMEOUT_MS: 15000,            // Timeout cho mỗi critique call
+  CRITIQUE_TIMEOUT_MS: 30000,   // Timeout cho mỗi critique call (30s)
+  REFINE_TIMEOUT_MS: 25000,     // Timeout cho mỗi refine call (25s)
   
   // Enhanced category weights (8 categories, sum = 100)
   CATEGORY_WEIGHTS: {
@@ -453,6 +454,34 @@ export function shouldRefine(critiqueResult: CritiqueResult): boolean {
   return false;
 }
 
+// ================== TIMEOUT WRAPPER ==================
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: T,
+  label: string
+): Promise<{ result: T; timedOut: boolean }> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  
+  const timeoutPromise = new Promise<{ result: T; timedOut: boolean }>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(`[Self-Critique] ${label} timeout after ${timeoutMs}ms, using fallback`);
+      resolve({ result: fallback, timedOut: true });
+    }, timeoutMs);
+  });
+  
+  const wrappedPromise = promise.then(result => {
+    clearTimeout(timeoutId);
+    return { result, timedOut: false };
+  }).catch(err => {
+    clearTimeout(timeoutId);
+    console.error(`[Self-Critique] ${label} error:`, err);
+    return { result: fallback, timedOut: false };
+  });
+  
+  return Promise.race([wrappedPromise, timeoutPromise]);
+}
+
 // ================== MAIN CRITIQUE FUNCTION ==================
 export async function critiqueContent(options: {
   content: any;
@@ -473,7 +502,7 @@ export async function critiqueContent(options: {
   const aiConfig = await getAIConfig('critique-content', organizationId);
   console.log(`[Self-Critique] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
   
-  try {
+  const doFetch = async (): Promise<CritiqueResult> => {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -495,7 +524,7 @@ export async function critiqueContent(options: {
 
     if (!response.ok) {
       console.error(`[Self-Critique] AI error: ${response.status}`);
-      return createDefaultCritiqueResult(true); // Mark for manual review on error
+      return createDefaultCritiqueResult(true);
     }
 
     const data = await response.json();
@@ -505,10 +534,20 @@ export async function critiqueContent(options: {
     console.log(`[Self-Critique] Score: ${result.overall_score}/100, Tier: ${result.quality_tier}, Passed: ${result.passed}, Issues: ${result.issues.length}`);
     
     return result;
-  } catch (err) {
-    console.error('[Self-Critique] Error:', err);
-    return createDefaultCritiqueResult(true); // Mark for manual review on error
+  };
+
+  const { result, timedOut } = await withTimeout(
+    doFetch(),
+    CRITIQUE_CONFIG.CRITIQUE_TIMEOUT_MS,
+    createDefaultCritiqueResult(true),
+    'Critique'
+  );
+  
+  if (timedOut) {
+    result.needs_manual_review = true;
   }
+  
+  return result;
 }
 
 // ================== MAIN REFINEMENT FUNCTION ==================
@@ -531,7 +570,7 @@ export async function refineContent(options: {
   const aiConfig = await getAIConfig('refine-content', organizationId);
   console.log(`[Self-Critique] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
   
-  try {
+  const doFetch = async (): Promise<any> => {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -578,10 +617,16 @@ export async function refineContent(options: {
         return originalContent;
       }
     }
-  } catch (err) {
-    console.error('[Self-Critique] Refinement error:', err);
-    return originalContent;
-  }
+  };
+
+  const { result } = await withTimeout(
+    doFetch(),
+    CRITIQUE_CONFIG.REFINE_TIMEOUT_MS,
+    originalContent,
+    'Refinement'
+  );
+  
+  return result;
 }
 
 // ================== COMPLETE SELF-CRITIQUE LOOP ==================

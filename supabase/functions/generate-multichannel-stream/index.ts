@@ -254,6 +254,10 @@ serve(async (req) => {
             errorMessage = 'Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.';
           } else if (response.status === 402) {
             errorMessage = 'Cần nạp thêm credits để tiếp tục sử dụng.';
+          } else if (response.status === 504 || response.status === 524 || errorText.includes('timeout') || errorText.includes('Timeout')) {
+            errorMessage = 'Model AI phản hồi quá lâu. Vui lòng thử đổi sang model nhanh hơn (ví dụ: gemini-2.5-flash) trong Admin Panel → AI Management → Channels.';
+          } else if (response.status >= 500) {
+            errorMessage = 'Lỗi server khi tạo nội dung. Vui lòng thử lại sau ít phút.';
           } else {
             try {
               const errJson = JSON.parse(errorText);
