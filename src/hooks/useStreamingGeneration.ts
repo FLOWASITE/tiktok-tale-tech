@@ -92,7 +92,13 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const jsonStr = line.slice(6).trim();
-            if (jsonStr === '[DONE]') continue;
+            if (jsonStr === '[DONE]') {
+              // Server signaled end, cancel reader and exit
+              await reader.cancel();
+              setIsGenerating(false);
+              setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
+              return result;
+            }
 
             try {
               const event = JSON.parse(jsonStr) as ProgressEvent;
@@ -102,6 +108,11 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
               if (event.type === 'result') {
                 result = event.data;
                 options.onComplete?.(event.data);
+                // Immediately cancel reader and resolve - don't wait for stream to close
+                await reader.cancel();
+                setIsGenerating(false);
+                setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
+                return result;
               } else if (event.type === 'error') {
                 throw new Error(event.message || 'Lỗi không xác định');
               }
@@ -113,7 +124,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         }
       }
 
-      // Process any remaining buffer
+      // Stream ended without explicit result - check buffer for any remaining data
       if (buffer.trim()) {
         const lines = buffer.split('\n');
         for (const line of lines) {
