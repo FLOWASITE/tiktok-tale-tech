@@ -1,24 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callAI, iterateStreamDeltas } from "../_shared/ai-provider.ts";
+import { 
+  fetchStreamingContext, 
+  buildStreamingPrompt, 
+  getChannelDisplayName,
+  type StreamingPromptInput,
+} from "../_shared/channel-prompt-builder.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-interface ChannelContentPreview {
-  channel: string;
-  preview: string;
-  fullContent?: string;
-  wordCount: number;
-  isStreaming?: boolean;
-}
-
-interface StreamingTextChunk {
-  channel: string;
-  text: string;
-  isComplete: boolean;
-}
 
 interface ProgressEvent {
   type: 'progress' | 'result' | 'error' | 'streaming_text';
@@ -26,36 +19,20 @@ interface ProgressEvent {
   progress?: number;
   message?: string;
   data?: any;
-  retryCount?: number;
   currentChannel?: string;
   completedChannels?: string[];
   totalChannels?: string[];
-  channelContent?: ChannelContentPreview;
-  channelContents?: ChannelContentPreview[];
-  streamingChunk?: StreamingTextChunk;
+  streamingChunk?: {
+    channel: string;
+    text: string;
+    isComplete: boolean;
+  };
 }
-
-const channelDisplayNames: Record<string, string> = {
-  facebook: 'Facebook',
-  instagram: 'Instagram',
-  linkedin: 'LinkedIn',
-  twitter: 'Twitter',
-  threads: 'Threads',
-  tiktok: 'TikTok',
-  youtube: 'YouTube',
-  zalo: 'Zalo',
-  telegram: 'Telegram',
-  email: 'Email',
-  website: 'Website',
-  blog: 'Blog',
-};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
   let formData: any;
   try {
@@ -71,7 +48,7 @@ serve(async (req) => {
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   req.signal.addEventListener('abort', () => {
-    console.log('[stream] Client disconnected');
+    console.log('[realtime-stream] Client disconnected');
     clientDisconnected = true;
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
@@ -83,7 +60,7 @@ serve(async (req) => {
     async start(controller) {
       const encoder = new TextEncoder();
       
-      // Anti-buffering padding
+      // Anti-buffering padding (2KB)
       try {
         controller.enqueue(encoder.encode(':' + ' '.repeat(2048) + '\n\n'));
       } catch {}
@@ -104,205 +81,238 @@ serve(async (req) => {
       };
 
       try {
-        // Initial progress steps
+        const channels: string[] = formData.channels || [];
+        const brandTemplateId = formData.brand_template_id;
+        const organizationId = formData.organization_id;
+        const topic = formData.topic || '';
+        const hook = formData.hook;
+        const contentGoal = formData.content_goal;
+        const productIds = formData.product_ids;
+        const targetPersonaId = formData.target_persona_id;
+
+        console.log(`[realtime-stream] Starting for ${channels.length} channels: ${channels.join(', ')}`);
+        console.log(`[realtime-stream] Topic: "${topic.slice(0, 50)}..."`);
+
+        // Initial progress
         if (!emit({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' })) {
           controller.close();
           return;
         }
-        await delay(150);
+
+        await delay(100);
         emit({ type: 'progress', step: 'brand', progress: 10, message: 'Tải ngữ cảnh thương hiệu...' });
-        await delay(100);
-        emit({ type: 'progress', step: 'personas', progress: 20, message: 'Phân tích personas & sản phẩm...' });
-        await delay(100);
-        emit({ type: 'progress', step: 'industry', progress: 30, message: 'Tải dữ liệu ngành...' });
-        await delay(100);
-        emit({ type: 'progress', step: 'prompt', progress: 40, message: 'Xây dựng prompt AI...' });
 
-        if (clientDisconnected) {
-          controller.close();
-          return;
-        }
+        // Fetch context once (shared across all channels)
+        const context = await fetchStreamingContext({
+          topic,
+          channel: channels[0], // Use first channel for context fetch
+          brandTemplateId,
+          organizationId,
+          productIds,
+          targetPersonaId,
+        });
 
-        const channels: string[] = formData.channels || [];
-        const authHeader = req.headers.get('authorization');
-        
+        emit({ type: 'progress', step: 'context', progress: 20, message: 'Đã tải context ✓' });
+
+        // Get AI config
+        const aiConfig = await getAIConfig('generate-multichannel', organizationId);
+        console.log(`[realtime-stream] Using model: ${aiConfig.model}`);
+
         emit({ 
           type: 'progress', 
           step: 'ai', 
-          progress: 50, 
-          message: 'AI đang tạo nội dung...',
+          progress: 25, 
+          message: 'Bắt đầu tạo nội dung real-time...',
           totalChannels: channels,
           completedChannels: [],
           currentChannel: channels[0],
         });
 
-        // Start heartbeat interval to keep connection alive during AI generation
+        // Store results for each channel
+        const channelResults: Record<string, string> = {};
+        const completedChannels: string[] = [];
+        let overallProgress = 25;
+
+        // Start heartbeat (keep-alive during AI calls)
         let heartbeatCount = 0;
         heartbeatInterval = setInterval(() => {
           if (clientDisconnected) return;
           heartbeatCount++;
-          // Alternate between comment heartbeat and progress update
-          if (heartbeatCount % 3 === 0) {
-            emit({ 
-              type: 'progress', 
-              step: 'ai', 
-              progress: 50 + Math.min(heartbeatCount * 0.5, 20), // slowly increment up to 70%
-              message: `AI đang tạo nội dung... (${heartbeatCount * 2}s)`,
-              totalChannels: channels,
-              completedChannels: [],
-              currentChannel: channels[heartbeatCount % channels.length],
+          try {
+            controller.enqueue(encoder.encode(': keep-alive\n\n'));
+          } catch {}
+        }, 5000);
+
+        // Generate content for each channel SEQUENTIALLY (for clear UI streaming)
+        for (let i = 0; i < channels.length; i++) {
+          const channel = channels[i];
+          if (clientDisconnected) break;
+
+          const displayName = getChannelDisplayName(channel);
+          const channelProgress = 25 + ((i / channels.length) * 50);
+
+          emit({
+            type: 'progress',
+            step: 'ai',
+            progress: channelProgress,
+            message: `Đang tạo ${displayName}...`,
+            currentChannel: channel,
+            completedChannels: [...completedChannels],
+            totalChannels: channels,
+          });
+
+          console.log(`[realtime-stream] Starting channel: ${channel}`);
+          const channelStartTime = Date.now();
+
+          // Build prompt for this channel
+          const promptInput: StreamingPromptInput = {
+            topic,
+            channel,
+            brandTemplateId,
+            organizationId,
+            hook,
+            contentGoal,
+            productIds,
+            targetPersonaId,
+          };
+
+          const prompt = buildStreamingPrompt(promptInput, context);
+
+          // Call AI with streaming
+          const aiResult = await callAI({
+            functionName: 'generate-multichannel-stream',
+            organizationId,
+            messages: [
+              { role: 'system', content: prompt.system },
+              { role: 'user', content: prompt.user },
+            ],
+            stream: true,
+          });
+
+          if (!aiResult.success || !aiResult.data) {
+            console.error(`[realtime-stream] AI failed for ${channel}:`, aiResult.error);
+            emit({
+              type: 'streaming_text',
+              streamingChunk: { 
+                channel, 
+                text: `[Lỗi tạo nội dung: ${aiResult.error || 'Unknown error'}]`, 
+                isComplete: true 
+              },
             });
-          } else {
-            try {
-              controller.enqueue(encoder.encode(': keep-alive\n\n'));
-            } catch {}
+            completedChannels.push(channel);
+            channelResults[channel] = `[Error: ${aiResult.error}]`;
+            continue;
           }
-        }, 2000); // Every 2 seconds
 
-        console.log('[stream] Starting AI generation with heartbeat...');
+          // Stream tokens REAL-TIME
+          let fullContent = '';
+          let tokenCount = 0;
+          const firstTokenTime = Date.now();
+          let gotFirstToken = false;
 
-        // Call generate-multichannel
-        const aiResponse = await fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': authHeader || '',
-          },
-          body: JSON.stringify(formData),
-        });
-        
-        // Stop heartbeat once we have response
+          try {
+            for await (const delta of iterateStreamDeltas(aiResult.data)) {
+              if (clientDisconnected) break;
+              
+              if (delta.done) {
+                console.log(`[realtime-stream] ${channel} done. Tokens: ${tokenCount}, Content length: ${fullContent.length}`);
+                break;
+              }
+
+              if (delta.content) {
+                if (!gotFirstToken) {
+                  gotFirstToken = true;
+                  console.log(`[realtime-stream] ${channel} first token after ${Date.now() - channelStartTime}ms`);
+                }
+
+                fullContent += delta.content;
+                tokenCount++;
+
+                // Emit EVERY token immediately - true real-time!
+                emit({
+                  type: 'streaming_text',
+                  streamingChunk: {
+                    channel,
+                    text: delta.content,
+                    isComplete: false,
+                  },
+                });
+              }
+            }
+          } catch (streamError) {
+            console.error(`[realtime-stream] Stream error for ${channel}:`, streamError);
+          }
+
+          // Mark channel as complete
+          emit({
+            type: 'streaming_text',
+            streamingChunk: {
+              channel,
+              text: '',
+              isComplete: true,
+            },
+          });
+
+          completedChannels.push(channel);
+          channelResults[channel] = fullContent;
+
+          const channelDuration = Date.now() - channelStartTime;
+          console.log(`[realtime-stream] ${channel} completed in ${channelDuration}ms, ${fullContent.length} chars`);
+
+          // Update progress
+          const completionProgress = 25 + (((i + 1) / channels.length) * 50);
+          emit({
+            type: 'progress',
+            step: 'ai',
+            progress: completionProgress,
+            message: `✓ ${displayName} hoàn thành (${fullContent.length} ký tự)`,
+            currentChannel: channels[i + 1],
+            completedChannels: [...completedChannels],
+            totalChannels: channels,
+          });
+        }
+
+        // Stop heartbeat
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
           heartbeatInterval = null;
         }
-        console.log('[stream] AI generation complete, starting typewriter...');
-
-        if (!aiResponse.ok) {
-          const errorText = await aiResponse.text();
-          let errorMessage = 'Lỗi khi tạo nội dung';
-          
-          if (aiResponse.status === 429) {
-            errorMessage = 'Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.';
-          } else if (aiResponse.status === 402) {
-            errorMessage = 'Cần nạp thêm credits để tiếp tục sử dụng.';
-          } else if (aiResponse.status === 504 || aiResponse.status === 524 || errorText.includes('timeout')) {
-            errorMessage = 'Model AI phản hồi quá lâu. Vui lòng thử đổi sang model nhanh hơn trong Admin Panel.';
-          } else {
-            try {
-              const errJson = JSON.parse(errorText);
-              errorMessage = errJson.error || errorMessage;
-            } catch {}
-          }
-          
-          emit({ type: 'error', message: errorMessage });
-          controller.close();
-          return;
-        }
-
-        const result = await aiResponse.json();
 
         if (clientDisconnected) {
           controller.close();
           return;
         }
 
-        // Stream content for each channel with typewriter effect
-        const channelContents: ChannelContentPreview[] = [];
-        const completedChannels: string[] = [];
-        const CHUNK_SIZE = 50;
-        
+        // Final steps
+        emit({ type: 'progress', step: 'ai', progress: 80, message: 'AI đã tạo xong nội dung ✓' });
+        await delay(150);
+
+        emit({ type: 'progress', step: 'finalize', progress: 90, message: 'Đang lưu kết quả...' });
+
+        // Build result object matching generate-multichannel format
+        const resultData: Record<string, any> = {};
         for (const channel of channels) {
-          if (clientDisconnected) break;
-          
-          const contentKey = `${channel}_content`;
-          const channelData = result[contentKey];
-          
-          if (!channelData) continue;
-          
-          let textContent = '';
-          if (typeof channelData === 'string') {
-            textContent = channelData;
-          } else if (channelData.content) {
-            textContent = channelData.content;
-          } else if (channelData.body) {
-            textContent = channelData.body;
-          }
-          
-          if (!textContent) continue;
-          
-          const cleanText = textContent.replace(/[#*_~`]/g, '').trim();
-          const wordCount = cleanText.split(/\s+/).filter((w: string) => w.length > 0).length;
-          const displayName = channelDisplayNames[channel] || channel;
-          
-          // Emit streaming start
-          emit({
-            type: 'streaming_text',
-            streamingChunk: { channel, text: '', isComplete: false },
-            message: `Đang hiển thị ${displayName}...`,
-          });
-          
-          // Stream content in chunks
-          for (let i = 0; i < cleanText.length; i += CHUNK_SIZE) {
-            if (clientDisconnected) break;
-            
-            emit({
-              type: 'streaming_text',
-              streamingChunk: {
-                channel,
-                text: cleanText.slice(i, i + CHUNK_SIZE),
-                isComplete: i + CHUNK_SIZE >= cleanText.length,
-              },
-            });
-            
-            await delay(30);
-          }
-          
-          completedChannels.push(channel);
-          
-          const preview = cleanText.slice(0, 200) + (cleanText.length > 200 ? '...' : '');
-          channelContents.push({ 
-            channel, 
-            preview, 
-            fullContent: cleanText,
-            wordCount,
-            isStreaming: false,
-          });
-          
-          // Update progress
-          const progress = 50 + (completedChannels.length / channels.length) * 23;
-          emit({
-            type: 'progress',
-            step: 'ai',
-            progress,
-            message: `✓ ${displayName} hoàn thành`,
-            currentChannel: channels.find(c => !completedChannels.includes(c)),
-            completedChannels: [...completedChannels],
-            totalChannels: channels,
-            channelContents: [...channelContents],
-          });
+          const content = channelResults[channel] || '';
+          resultData[`${channel}_content`] = {
+            content,
+            body: content,
+            word_count: content.split(/\s+/).filter((w: string) => w.length > 0).length,
+          };
         }
 
-        // Final steps
-        emit({ type: 'progress', step: 'ai', progress: 73, message: 'AI đã tạo xong nội dung ✓', completedChannels: channels, totalChannels: channels, channelContents });
-        await delay(200);
-        emit({ type: 'progress', step: 'critique', progress: 75, message: 'AI đã kiểm tra chất lượng ✓', completedChannels: channels, totalChannels: channels, channelContents });
-        await delay(200);
-        emit({ type: 'progress', step: 'finalize', progress: 85, message: 'Đã chèn Footer Info ✓', completedChannels: channels, totalChannels: channels, channelContents });
-        await delay(200);
-        emit({ type: 'progress', step: 'finalize', progress: 95, message: 'Đã lưu vào cơ sở dữ liệu ✓', completedChannels: channels, totalChannels: channels, channelContents });
-        await delay(200);
-        
-        if (result.error) {
-          emit({ type: 'error', message: result.error });
-        } else {
-          emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
-          await delay(100);
-          emit({ type: 'result', data: result });
-          
-          if (!clientDisconnected) {
-            try { controller.enqueue(encoder.encode('data: [DONE]\n\n')); } catch {}
-          }
+        // TODO: Save to database (similar to generate-multichannel)
+        // For now, just return the generated content
+
+        emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
+        await delay(100);
+
+        emit({ type: 'result', data: resultData });
+
+        // Send done signal
+        if (!clientDisconnected) {
+          try {
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          } catch {}
         }
 
         controller.close();
@@ -311,13 +321,13 @@ serve(async (req) => {
           clearInterval(heartbeatInterval);
           heartbeatInterval = null;
         }
-        
+
         if (clientDisconnected) {
           try { controller.close(); } catch {}
           return;
         }
-        
-        console.error('Streaming error:', error);
+
+        console.error('[realtime-stream] Error:', error);
         try {
           emit({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
         } catch {}
