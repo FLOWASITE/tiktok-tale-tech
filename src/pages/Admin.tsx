@@ -47,6 +47,7 @@ import CacheAnalytics from "@/components/admin/CacheAnalytics";
 import { AIDashboard } from "@/components/admin/ai/AIDashboard";
 import { AIProviderManager } from "@/components/admin/ai/AIProviderManager";
 import { AIFunctionConfigComponent } from "@/components/admin/ai/AIFunctionConfig";
+import { AIChannelModelConfig } from "@/components/admin/ai/AIChannelModelConfig";
 import { Link } from "react-router-dom";
 
 export default function Admin() {
@@ -373,7 +374,7 @@ export default function Admin() {
 
         <TabsContent value="ai" className="mt-6">
           <Tabs value={aiSubTab} onValueChange={setAiSubTab}>
-            <TabsList className="grid grid-cols-5 w-full max-w-2xl mb-6">
+            <TabsList className="grid grid-cols-6 w-full max-w-3xl mb-6">
               <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <LayoutDashboard className="h-4 w-4" />
                 <span className="hidden sm:inline">Dashboard</span>
@@ -385,6 +386,10 @@ export default function Admin() {
               <TabsTrigger value="functions" className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Functions</span>
+              </TabsTrigger>
+              <TabsTrigger value="channels" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Activity className="h-4 w-4" />
+                <span className="hidden sm:inline">Channels</span>
               </TabsTrigger>
               <TabsTrigger value="metrics" className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <BarChart3 className="h-4 w-4" />
@@ -406,6 +411,10 @@ export default function Admin() {
             
             <TabsContent value="functions">
               <AIFunctionConfigComponent />
+            </TabsContent>
+            
+            <TabsContent value="channels">
+              <AIChannelModelConfig />
             </TabsContent>
             
             <TabsContent value="metrics">
