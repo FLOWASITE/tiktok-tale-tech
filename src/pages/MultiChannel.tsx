@@ -90,6 +90,7 @@ export default function MultiChannel() {
     progress: streamProgress, 
     isGenerating: isStreamGenerating,
     cancel: cancelGeneration,
+    streamingTexts, // NEW: accumulated streaming text per channel
   } = useStreamingGeneration({
     onProgress: (event) => {
       setSseProgress(event);
@@ -646,6 +647,7 @@ export default function MultiChannel() {
             initialMarketingFramework={initialMarketingFramework as any}
             generationElapsedMs={generationElapsedMs}
             sseProgress={sseProgress}
+            streamingTexts={streamingTexts}
           />
         </SlidePanel>
 

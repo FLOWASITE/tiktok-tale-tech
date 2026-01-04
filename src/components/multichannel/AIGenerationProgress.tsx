@@ -48,7 +48,9 @@ interface ProgressStep {
 interface ChannelContentPreview {
   channel: string;
   preview: string;
+  fullContent?: string;
   wordCount: number;
+  isStreaming?: boolean;
 }
 
 interface AIGenerationProgressProps {
@@ -65,6 +67,8 @@ interface AIGenerationProgressProps {
   currentChannel?: string;
   // Real-time content previews
   channelContents?: ChannelContentPreview[];
+  // Streaming text for typewriter effect
+  streamingTexts?: Record<string, string>;
 }
 
 // Map step IDs to icons
@@ -132,6 +136,7 @@ export function AIGenerationProgress({
   totalChannels,
   currentChannel,
   channelContents,
+  streamingTexts,
 }: AIGenerationProgressProps) {
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   
@@ -401,8 +406,8 @@ export function AIGenerationProgress({
         </motion.div>
       )}
 
-      {/* Real-time Content Preview Section */}
-      {channelContents && channelContents.length > 0 && (
+      {/* Real-time Content Preview Section - Streaming Text */}
+      {(channelContents && channelContents.length > 0) || (streamingTexts && Object.keys(streamingTexts).length > 0) ? (
         <motion.div 
           className="space-y-2"
           initial={{ opacity: 0, y: 5 }}
@@ -412,14 +417,69 @@ export function AIGenerationProgress({
           <Collapsible defaultOpen={true}>
             <CollapsibleTrigger className="flex items-center gap-2 w-full text-xs font-medium text-foreground hover:text-primary transition-colors group">
               <Eye className="w-3.5 h-3.5" />
-              <span>Xem trước nội dung ({channelContents.length} kênh)</span>
+              <span>
+                Nội dung đang tạo 
+                {streamingTexts && Object.keys(streamingTexts).length > 0 && (
+                  <span className="ml-1 inline-flex items-center">
+                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    {Object.keys(streamingTexts).length} kênh
+                  </span>
+                )}
+                {channelContents && channelContents.length > 0 && !streamingTexts?.length && (
+                  <span className="ml-1">({channelContents.length} kênh)</span>
+                )}
+              </span>
               <ChevronDown className="w-3.5 h-3.5 ml-auto transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
-              <ScrollArea className="max-h-[200px]">
+              <ScrollArea className="max-h-[280px]">
                 <div className="space-y-2">
                   <AnimatePresence mode="popLayout">
-                    {channelContents.map((item, index) => {
+                    {/* Show streaming texts with typewriter effect */}
+                    {streamingTexts && Object.entries(streamingTexts).map(([channel, text], index) => {
+                      const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
+                      const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
+                      const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+                      const isStreaming = !channelContents?.find(c => c.channel === channel && !c.isStreaming);
+                      
+                      return (
+                        <motion.div
+                          key={`streaming-${channel}`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ delay: index * 0.05, duration: 0.2 }}
+                          className={cn(
+                            "border rounded-lg p-3",
+                            isStreaming ? "bg-primary/5 border-primary/20" : "bg-muted/30"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <ChannelIcon className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium">{displayName}</span>
+                            {isStreaming && (
+                              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                            )}
+                            {!isStreaming && (
+                              <Check className="w-3 h-3 text-green-500" />
+                            )}
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {wordCount} từ
+                            </span>
+                          </div>
+                          <div className="text-xs text-foreground/80 leading-relaxed max-h-[100px] overflow-y-auto whitespace-pre-wrap">
+                            {text.slice(0, 500)}
+                            {text.length > 500 && '...'}
+                            {isStreaming && (
+                              <span className="inline-block w-1.5 h-4 bg-primary ml-0.5 animate-pulse" />
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                    
+                    {/* Fallback to channelContents if no streaming texts */}
+                    {(!streamingTexts || Object.keys(streamingTexts).length === 0) && channelContents?.map((item, index) => {
                       const ChannelIcon = CHANNEL_ICONS[item.channel] || Globe;
                       const displayName = CHANNEL_DISPLAY_NAMES[item.channel] || item.channel;
                       
@@ -435,6 +495,11 @@ export function AIGenerationProgress({
                           <div className="flex items-center gap-2 mb-2">
                             <ChannelIcon className="w-4 h-4 text-primary" />
                             <span className="text-sm font-medium">{displayName}</span>
+                            {item.isStreaming ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                            ) : (
+                              <Check className="w-3 h-3 text-green-500" />
+                            )}
                             <span className="text-xs text-muted-foreground ml-auto">
                               {item.wordCount} từ
                             </span>
@@ -451,7 +516,7 @@ export function AIGenerationProgress({
             </CollapsibleContent>
           </Collapsible>
         </motion.div>
-      )}
+      ) : null}
 
       {/* Completion Summary */}
       {completedChannels && totalChannels && completedChannels.length === totalChannels.length && totalChannels.length > 0 && (

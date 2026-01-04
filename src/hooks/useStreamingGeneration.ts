@@ -4,11 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 export interface ChannelContentPreview {
   channel: string;
   preview: string;
+  fullContent?: string;
   wordCount: number;
+  isStreaming?: boolean;
+}
+
+export interface StreamingTextChunk {
+  channel: string;
+  text: string;
+  isComplete: boolean;
 }
 
 export interface ProgressEvent {
-  type: 'progress' | 'result' | 'error';
+  type: 'progress' | 'result' | 'error' | 'streaming_text';
   step?: string;
   progress?: number;
   message?: string;
@@ -21,6 +29,8 @@ export interface ProgressEvent {
   // Real-time content previews
   channelContent?: ChannelContentPreview;
   channelContents?: ChannelContentPreview[];
+  // Streaming text for typewriter effect
+  streamingChunk?: StreamingTextChunk;
 }
 
 interface UseStreamingGenerationOptions {
@@ -35,6 +45,7 @@ type AbortReason = 'user' | 'replaced' | 'watchdog' | null;
 export function useStreamingGeneration(options: UseStreamingGenerationOptions = {}) {
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [streamingTexts, setStreamingTexts] = useState<Record<string, string>>({});
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastEventTimeRef = useRef<number>(Date.now());
   const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -74,6 +85,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     abortReasonRef.current = null; // Reset abort reason for new request
     lastEventTimeRef.current = Date.now();
     setIsGenerating(true);
+    setStreamingTexts({}); // Reset streaming texts
     setProgress({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
 
     try {
@@ -181,6 +193,16 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
 
             try {
               const event = JSON.parse(jsonStr) as ProgressEvent;
+              
+              // Handle streaming text chunks - accumulate for typewriter effect
+              if (event.type === 'streaming_text' && event.streamingChunk) {
+                const { channel, text } = event.streamingChunk;
+                setStreamingTexts(prev => ({
+                  ...prev,
+                  [channel]: (prev[channel] || '') + text,
+                }));
+              }
+              
               setProgress(event);
               options.onProgress?.(event);
 
@@ -268,6 +290,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       abortControllerRef.current.abort();
       setIsGenerating(false);
       setProgress(null);
+      setStreamingTexts({});
     }
   }, [cleanupTimers]);
 
@@ -276,5 +299,6 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     cancel,
     progress,
     isGenerating,
+    streamingTexts, // New: accumulated streaming text per channel
   };
 }
