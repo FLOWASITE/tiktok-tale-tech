@@ -29,9 +29,15 @@ const transformContent = (data: any): MultiChannelContent => ({
   telegram_content: data.telegram_content,
   tiktok_content: data.tiktok_content,
   threads_content: data.threads_content,
-  channel_images: (data.channel_images || {}) as ChannelImages,
-  channel_statuses: (data.channel_statuses || {}) as ChannelStatuses,
-  tags: data.tags || [],
+  channel_images:
+    data.channel_images && typeof data.channel_images === 'object' && !Array.isArray(data.channel_images)
+      ? (data.channel_images as ChannelImages)
+      : ({} as ChannelImages),
+  channel_statuses:
+    data.channel_statuses && typeof data.channel_statuses === 'object' && !Array.isArray(data.channel_statuses)
+      ? (data.channel_statuses as ChannelStatuses)
+      : ({} as ChannelStatuses),
+  tags: Array.isArray(data.tags) ? data.tags : [],
   status: (data.status || 'draft') as ContentStatus,
   priority: data.priority,
   deadline: data.deadline,
