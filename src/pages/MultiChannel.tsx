@@ -59,6 +59,7 @@ export default function MultiChannel() {
     saveChannelImage,
     deleteChannelImage,
     expandChannels,
+    refetch,
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
@@ -294,6 +295,9 @@ export default function MultiChannel() {
     if (result) {
       // Close form panel immediately when result is ready
       setFormSheetOpen(false);
+      
+      // Refetch contents from DB to ensure list is updated with saved content
+      await refetch();
       
       // Link to topic history if applicable
       if (currentTopicHistoryId) {
