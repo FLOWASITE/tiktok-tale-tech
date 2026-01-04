@@ -19,15 +19,6 @@ interface ProgressEvent {
   totalChannels?: string[];
 }
 
-// Helper to create SSE emitter
-function createProgressEmitter(controller: ReadableStreamDefaultController<Uint8Array>) {
-  const encoder = new TextEncoder();
-  return (event: ProgressEvent) => {
-    const data = `data: ${JSON.stringify(event)}\n\n`;
-    controller.enqueue(encoder.encode(data));
-  };
-}
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -49,14 +40,52 @@ serve(async (req) => {
     );
   }
 
+  // Track client disconnect state
+  let clientDisconnected = false;
+  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Listen for client abort signal
+  req.signal.addEventListener('abort', () => {
+    console.log('[stream] Client disconnected, cleaning up...');
+    clientDisconnected = true;
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+  });
+
   // Create streaming response
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const emit = createProgressEmitter(controller);
+      const encoder = new TextEncoder();
+      
+      // Safe emit function that handles client disconnect
+      const emit = (event: ProgressEvent) => {
+        if (clientDisconnected) {
+          console.log('[stream] Skipping emit - client disconnected');
+          return false;
+        }
+        try {
+          const data = `data: ${JSON.stringify(event)}\n\n`;
+          controller.enqueue(encoder.encode(data));
+          return true;
+        } catch (error) {
+          console.log('[stream] Emit failed, client likely disconnected:', error);
+          clientDisconnected = true;
+          if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+          }
+          return false;
+        }
+      };
 
       try {
         // Step 1: Initialize
-        emit({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
+        if (!emit({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' })) {
+          controller.close();
+          return;
+        }
         await delay(200);
 
         // Step 2: Brand Context
@@ -70,6 +99,13 @@ serve(async (req) => {
         
         // Step 5: Build Prompt
         emit({ type: 'progress', step: 'prompt', progress: 40, message: 'Xây dựng prompt AI...' });
+
+        // Check for disconnect before long AI call
+        if (clientDisconnected) {
+          console.log('[stream] Client disconnected before AI call, aborting');
+          controller.close();
+          return;
+        }
 
         // Extract channels from formData for per-channel progress
         const channels: string[] = formData.channels || [];
@@ -112,7 +148,7 @@ serve(async (req) => {
           body: JSON.stringify(formData),
         });
 
-        // Heartbeat: emit progress updates every 1.5s while waiting for AI
+        // Heartbeat: emit progress updates every 1s while waiting for AI
         // Simulate per-channel progress by cycling through channels
         let currentProgress = 50;
         const maxProgressWhileWaiting = 72;
@@ -120,7 +156,15 @@ serve(async (req) => {
         const completedChannels: string[] = [];
         const progressPerChannel = channels.length > 0 ? (maxProgressWhileWaiting - 50) / channels.length : 22;
 
-        const heartbeatInterval = setInterval(() => {
+        heartbeatInterval = setInterval(() => {
+          if (clientDisconnected) {
+            if (heartbeatInterval) {
+              clearInterval(heartbeatInterval);
+              heartbeatInterval = null;
+            }
+            return;
+          }
+          
           if (currentProgress < maxProgressWhileWaiting && channels.length > 0) {
             // Calculate which channel we're "working on" based on progress
             const expectedChannelIndex = Math.floor((currentProgress - 50) / progressPerChannel);
@@ -157,11 +201,23 @@ serve(async (req) => {
               totalChannels: channels,
             });
           }
-        }, 1000); // Heartbeat every 1 second (reduced from 1.5s for better client keepalive)
+        }, 1000); // Heartbeat every 1 second
 
         // Wait for AI response
         const response = await aiCallPromise;
-        clearInterval(heartbeatInterval);
+        
+        // Clear heartbeat immediately after AI response
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+
+        // Check for disconnect after long AI call
+        if (clientDisconnected) {
+          console.log('[stream] Client disconnected after AI call, aborting');
+          controller.close();
+          return;
+        }
         
         // Emit final AI step with all channels completed
         emit({ 
@@ -198,6 +254,13 @@ serve(async (req) => {
         const parseStart = Date.now();
         const result = await response.json();
         console.log(`[timing] Parse result: ${Date.now() - parseStart}ms`);
+
+        // Check for disconnect before final steps
+        if (clientDisconnected) {
+          console.log('[stream] Client disconnected before final steps, aborting');
+          controller.close();
+          return;
+        }
         
         // Now emit steps with accurate timing AFTER we have the result
         // Backend already did critique + footer + save, so these are just UI updates
@@ -246,18 +309,36 @@ serve(async (req) => {
           emit({ type: 'result', data: result });
           
           // Send [DONE] marker for client to close immediately
-          const encoder = new TextEncoder();
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          if (!clientDisconnected) {
+            try {
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            } catch {}
+          }
         }
 
         controller.close();
       } catch (error) {
+        // Clean up heartbeat on error
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+        
+        // Don't log/emit error if client just disconnected
+        if (clientDisconnected) {
+          console.log('[stream] Error after client disconnect, suppressing:', error);
+          try { controller.close(); } catch {}
+          return;
+        }
+        
         console.error('Streaming error:', error);
-        emit({ 
-          type: 'error', 
-          message: error instanceof Error ? error.message : 'Lỗi không xác định' 
-        });
-        controller.close();
+        try {
+          emit({ 
+            type: 'error', 
+            message: error instanceof Error ? error.message : 'Lỗi không xác định' 
+          });
+        } catch {}
+        try { controller.close(); } catch {}
       }
     },
   });
