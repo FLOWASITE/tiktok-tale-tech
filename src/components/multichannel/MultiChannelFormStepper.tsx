@@ -191,7 +191,7 @@ export function MultiChannelFormStepper({
   const generationElapsedMs = externalElapsedMs ?? internalElapsedMs;
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
-    topic: initialTopic || '',
+    topic: typeof initialTopic === 'string' ? initialTopic : '',
     contentGoal: undefined, // Will be auto-derived from journeyStage
     contentAngle: undefined,
     channels: ['facebook', 'instagram'],
@@ -206,8 +206,11 @@ export function MultiChannelFormStepper({
 
   // Handle initialTopic prop changes
   useEffect(() => {
-    if (initialTopic) {
-      setFormData(prev => ({ ...prev, topic: initialTopic }));
+    if (initialTopic !== undefined) {
+      setFormData((prev) => ({
+        ...prev,
+        topic: typeof initialTopic === 'string' ? initialTopic : '',
+      }));
     }
   }, [initialTopic]);
 

@@ -43,8 +43,10 @@ interface AnalyticsResult {
 }
 
 function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResult {
-  const words = content.trim().split(/\s+/).filter(Boolean);
-  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const text = typeof content === 'string' ? content : '';
+
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
   const avgWordsPerSentence = words.length / Math.max(sentences.length, 1);
   
   // Readability Score (simplified Flesch-like)
@@ -57,7 +59,7 @@ function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResu
   // Sentiment (simple positive/negative word matching)
   const positiveWords = ['tuyệt vời', 'xuất sắc', 'tốt', 'đẹp', 'hay', 'thích', 'yêu', 'hạnh phúc', 'vui', 'thành công', 'ưu đãi', 'miễn phí', 'giảm giá', 'chất lượng', 'hoàn hảo'];
   const negativeWords = ['tệ', 'xấu', 'buồn', 'thất bại', 'lỗi', 'không', 'chán', 'khó', 'đắt'];
-  const contentLower = content.toLowerCase();
+  const contentLower = text.toLowerCase();
   const positiveCount = positiveWords.filter(w => contentLower.includes(w)).length;
   const negativeCount = negativeWords.filter(w => contentLower.includes(w)).length;
   const sentimentRaw = ((positiveCount - negativeCount) / Math.max(positiveCount + negativeCount, 1) + 1) * 50;
@@ -80,10 +82,10 @@ function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResu
     .slice(0, 5);
 
   // Engagement score based on content characteristics
-  const hasEmojis = /[\u{1F600}-\u{1F6FF}]/u.test(content);
-  const hasHashtags = /#\w+/.test(content);
-  const hasCTA = /liên hệ|đăng ký|mua ngay|xem thêm|click|nhấn|tham gia/i.test(content);
-  const hasQuestion = /\?/.test(content);
+  const hasEmojis = /[\u{1F600}-\u{1F6FF}]/u.test(text);
+  const hasHashtags = /#\w+/.test(text);
+  const hasCTA = /liên hệ|đăng ký|mua ngay|xem thêm|click|nhấn|tham gia/i.test(text);
+  const hasQuestion = /\?/.test(text);
   const optimalLength = channel === 'twitter' ? (words.length >= 10 && words.length <= 50)
     : channel === 'instagram' ? (words.length >= 30 && words.length <= 150)
     : channel === 'linkedin' ? (words.length >= 100 && words.length <= 400)
@@ -114,10 +116,10 @@ function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResu
   };
 
   // Counts
-  const emojiCount = (content.match(/[\u{1F600}-\u{1F6FF}]/gu) || []).length;
-  const hashtagCount = (content.match(/#\w+/g) || []).length;
-  const mentionCount = (content.match(/@\w+/g) || []).length;
-  const linkCount = (content.match(/https?:\/\/\S+/g) || []).length;
+  const emojiCount = (text.match(/[\u{1F600}-\u{1F6FF}]/gu) || []).length;
+  const hashtagCount = (text.match(/#\w+/g) || []).length;
+  const mentionCount = (text.match(/@\w+/g) || []).length;
+  const linkCount = (text.match(/https?:\/\/\S+/g) || []).length;
 
   // Read time (200 words per minute)
   const minutes = Math.ceil(words.length / 200);
