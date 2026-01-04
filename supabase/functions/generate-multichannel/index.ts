@@ -1897,6 +1897,123 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       return JSON.parse(toolCall.function.arguments);
     };
 
+    // ============================================
+    // PARALLEL CHANNEL GENERATION
+    // Generate each channel independently for maximum speed
+    // ============================================
+    const PARALLEL_GENERATION = true; // Feature flag
+    const MAX_CONCURRENT_CHANNELS = 6; // Limit concurrent requests to avoid rate limits
+
+    // Helper to chunk array for batched parallel execution
+    const chunkArray = <T,>(array: T[], size: number): T[][] => {
+      const chunks: T[][] = [];
+      for (let i = 0; i < array.length; i += size) {
+        chunks.push(array.slice(i, i + size));
+      }
+      return chunks;
+    };
+
+    // Generate content for a single channel
+    const generateSingleChannel = async (
+      currentPrompt: string, 
+      channel: string, 
+      config: { model: string; temperature: number; maxTokens: number | null }
+    ): Promise<{ channel: string; data: any; success: boolean; error?: any; durationMs: number }> => {
+      const startTime = Date.now();
+      console.log(`[parallel] Starting ${channel} with model ${config.model}`);
+      
+      try {
+        const data = await generateAIContentForChannels(currentPrompt, [channel], config);
+        const durationMs = Date.now() - startTime;
+        console.log(`[parallel] ✅ ${channel} completed in ${(durationMs / 1000).toFixed(1)}s`);
+        return { channel, data, success: true, durationMs };
+      } catch (error: any) {
+        const durationMs = Date.now() - startTime;
+        console.error(`[parallel] ❌ ${channel} failed after ${(durationMs / 1000).toFixed(1)}s:`, error?.message || error);
+        return { channel, data: null, success: false, error, durationMs };
+      }
+    };
+
+    // Generate all channels in parallel (chunked to avoid rate limits)
+    const generateChannelsInParallel = async (currentPrompt: string): Promise<any> => {
+      const channels = formData.channels;
+      const totalStart = Date.now();
+      
+      console.log(`[parallel] 🚀 Starting parallel generation for ${channels.length} channels`);
+      
+      // Build channel -> model config map
+      const channelModelMap = new Map<string, { model: string; temperature: number; maxTokens: number | null }>();
+      for (const channel of channels) {
+        const channelConfig = channelModelConfigs.get(channel);
+        // Use channel-specific config if available, otherwise use default function config
+        const model = channelConfig?.model || aiConfig.model;
+        const temperature = channelConfig?.temperature ?? aiConfig.temperature;
+        const maxTokens = channelConfig?.maxTokens ?? null;
+        channelModelMap.set(channel, { model, temperature, maxTokens });
+      }
+      
+      // Log model distribution
+      const modelCounts = new Map<string, number>();
+      channelModelMap.forEach((config, channel) => {
+        modelCounts.set(config.model, (modelCounts.get(config.model) || 0) + 1);
+      });
+      console.log(`[parallel] Model distribution:`, Object.fromEntries(modelCounts));
+      
+      // Chunk channels to avoid rate limiting
+      const chunks = chunkArray(channels, MAX_CONCURRENT_CHANNELS);
+      const allResults: { channel: string; data: any; success: boolean; error?: any; durationMs: number }[] = [];
+      
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        console.log(`[parallel] Processing chunk ${i + 1}/${chunks.length}: ${chunk.join(', ')}`);
+        
+        // Execute chunk in parallel
+        const chunkResults = await Promise.all(
+          chunk.map(channel => {
+            const config = channelModelMap.get(channel)!;
+            return generateSingleChannel(currentPrompt, channel, config);
+          })
+        );
+        
+        allResults.push(...chunkResults);
+        
+        // Small delay between chunks to be safe with rate limits
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      // Calculate statistics
+      const successCount = allResults.filter(r => r.success).length;
+      const failedChannels = allResults.filter(r => !r.success).map(r => r.channel);
+      const durations = allResults.filter(r => r.success).map(r => r.durationMs);
+      const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+      const maxDuration = durations.length > 0 ? Math.max(...durations) : 0;
+      const totalDuration = Date.now() - totalStart;
+      
+      console.log(`[parallel] 📊 Stats: ${successCount}/${channels.length} success, total=${(totalDuration / 1000).toFixed(1)}s, max=${(maxDuration / 1000).toFixed(1)}s, avg=${(avgDuration / 1000).toFixed(1)}s`);
+      
+      if (failedChannels.length > 0) {
+        console.warn(`[parallel] ⚠️ Failed channels: ${failedChannels.join(', ')}`);
+      }
+      
+      // Merge results - get title from first successful result
+      const firstSuccess = allResults.find(r => r.success && r.data?.title);
+      const mergedData: any = { title: firstSuccess?.data?.title || formData.topic };
+      
+      for (const result of allResults) {
+        if (result.success && result.data) {
+          const contentKey = `${result.channel}_content`;
+          if (result.data[contentKey]) {
+            mergedData[contentKey] = result.data[contentKey];
+          }
+        }
+      }
+      
+      console.log(`[parallel] ✅ Merged ${Object.keys(mergedData).length - 1} channel contents`);
+      return mergedData;
+    };
+
     // Legacy function for backward compatibility (single model for all channels)
     const generateAIContent = async (currentPrompt: string) => {
       return generateAIContentForChannels(currentPrompt, formData.channels, {
@@ -1906,21 +2023,30 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       });
     };
 
-    // Multi-model generation: group channels by model and generate in parallel
+    // Multi-model generation: uses parallel by default for speed
     const generateWithMultipleModels = async (currentPrompt: string): Promise<any> => {
-      const modelGroups = groupChannelsByModel(formData.channels);
-      
-      // If all channels use the same model, use single call for efficiency
-      // FIX: Use the channel's model config, not the function's default model
-      if (modelGroups.size === 1) {
-        const [key, group] = Array.from(modelGroups.entries())[0];
-        console.log(`[multi-model] All channels use same model (${group.config.model}), using single call`);
-        return generateAIContentForChannels(currentPrompt, group.channels, group.config);
+      // Use parallel generation for multiple channels
+      if (PARALLEL_GENERATION && formData.channels.length > 1) {
+        return generateChannelsInParallel(currentPrompt);
       }
       
+      // Fallback: single channel or parallel disabled
+      if (formData.channels.length === 1) {
+        const channel = formData.channels[0];
+        const channelConfig = channelModelConfigs.get(channel);
+        const config = {
+          model: channelConfig?.model || aiConfig.model,
+          temperature: channelConfig?.temperature ?? aiConfig.temperature,
+          maxTokens: channelConfig?.maxTokens ?? null,
+        };
+        console.log(`[single] Generating single channel ${channel} with model ${config.model}`);
+        return generateAIContentForChannels(currentPrompt, [channel], config);
+      }
+      
+      // Legacy: group by model (kept for reference but not used)
+      const modelGroups = groupChannelsByModel(formData.channels);
       console.log(`[multi-model] Generating with ${modelGroups.size} different model configs`);
       
-      // Generate for each model group in parallel
       const groupResults = await Promise.all(
         Array.from(modelGroups.entries()).map(async ([key, group]) => {
           console.log(`[multi-model] Group "${key}": channels=${group.channels.join(',')}, model=${group.config.model}`);
@@ -1931,7 +2057,6 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         })
       );
       
-      // Merge results from all groups
       const mergedData: any = { title: groupResults[0].data.title };
       for (const result of groupResults) {
         for (const channel of result.channels) {
