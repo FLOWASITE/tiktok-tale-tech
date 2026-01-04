@@ -214,12 +214,15 @@ export default function MultiChannel() {
     return contents.filter((content) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const matchesTopic = content.topic.toLowerCase().includes(query);
-        const matchesTitle = content.title.toLowerCase().includes(query);
+        const topic = typeof content.topic === 'string' ? content.topic : '';
+        const title = typeof content.title === 'string' ? content.title : '';
+        const matchesTopic = topic.toLowerCase().includes(query);
+        const matchesTitle = title.toLowerCase().includes(query);
         if (!matchesTopic && !matchesTitle) return false;
       }
       if (goalFilter !== 'all' && content.content_goal !== goalFilter) return false;
-      if (channelFilter !== 'all' && !content.selected_channels.includes(channelFilter)) return false;
+      const safeChannels = Array.isArray(content.selected_channels) ? content.selected_channels : [];
+      if (channelFilter !== 'all' && !safeChannels.includes(channelFilter)) return false;
       if (statusFilter !== 'all' && content.status !== statusFilter) return false;
       if (brandFilter !== 'all' && content.brand_template_id !== brandFilter) return false;
       if (dateRange.from) {
@@ -232,7 +235,8 @@ export default function MultiChannel() {
         endOfDay.setHours(23, 59, 59, 999);
         if (contentDate > endOfDay) return false;
       }
-      if (tagFilter !== 'all' && !content.tags?.includes(tagFilter)) return false;
+      const safeTags = Array.isArray(content.tags) ? content.tags : [];
+      if (tagFilter !== 'all' && !safeTags.includes(tagFilter)) return false;
       if (priorityFilter !== 'all') {
         const contentPriority = content.priority || 'normal';
         if (contentPriority !== priorityFilter) return false;
