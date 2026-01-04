@@ -151,24 +151,25 @@ export function AutoImageGenerator({
 
   const contentSummaries = useMemo(() => {
     const summaries: Record<Channel, string> = {} as Record<Channel, string>;
-    selectedChannels.forEach(ch => {
+    const channels = selectedChannels ?? [];
+    channels.forEach(ch => {
       summaries[ch] = getContentSummary(content, ch);
     });
     return summaries;
   }, [content, selectedChannels]);
 
   const options = useMemo(() => ({
-    contentId: content.id,
-    brandTemplateId: content.brand_template_id || '',
-    channels: selectedChannels,
+    contentId: content?.id ?? '',
+    brandTemplateId: content?.brand_template_id || '',
+    channels: selectedChannels ?? [],
     contentSummaries,
     includeLogo: includeLogo && !!brandLogoUrl,
     logoPosition,
     logoUrl: brandLogoUrl || undefined,
     aspectRatio,
     imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
-    negativePrompt: negativePrompt.trim() || undefined,
-  }), [content.id, content.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt]);
+    negativePrompt: typeof negativePrompt === 'string' ? negativePrompt.trim() || undefined : undefined,
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt]);
 
   const handleGenerate = async () => {
     if (!content.brand_template_id) {
