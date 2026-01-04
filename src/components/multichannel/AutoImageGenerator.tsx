@@ -145,8 +145,9 @@ export function AutoImageGenerator({
   } = useAutoImageGeneration();
 
   const channelsWithoutImages = useMemo(() => {
-    return content.selected_channels.filter(ch => !content.channel_images?.[ch]?.url);
-  }, [content.selected_channels, content.channel_images]);
+    const channels = content?.selected_channels ?? [];
+    return channels.filter(ch => !content?.channel_images?.[ch]?.url);
+  }, [content?.selected_channels, content?.channel_images]);
 
   const contentSummaries = useMemo(() => {
     const summaries: Record<Channel, string> = {} as Record<Channel, string>;
@@ -205,11 +206,12 @@ export function AutoImageGenerator({
   };
 
   const handleToggleChannel = (channel: Channel) => {
-    setSelectedChannels(prev =>
-      prev.includes(channel)
-        ? prev.filter(c => c !== channel)
-        : [...prev, channel]
-    );
+    setSelectedChannels((prev) => {
+      const arr = prev ?? [];
+      return arr.includes(channel)
+        ? arr.filter(c => c !== channel)
+        : [...arr, channel];
+    });
   };
 
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
