@@ -180,16 +180,20 @@ serve(async (req) => {
 
           const prompt = buildStreamingPrompt(promptInput, context);
 
-          // Call AI with streaming
+          // Call AI with streaming - use 'generate-multichannel' functionName to inherit correct model config
+          // This ensures OpenRouter models (e.g., anthropic/claude-*) route correctly
           const aiResult = await callAI({
-            functionName: 'generate-multichannel-stream',
+            functionName: 'generate-multichannel',
             organizationId,
+            modelOverride: aiConfig.model, // Force use the model from aiConfig
             messages: [
               { role: 'system', content: prompt.system },
               { role: 'user', content: prompt.user },
             ],
             stream: true,
           });
+          
+          console.log(`[realtime-stream] AI call for ${channel} using model: ${aiConfig.model}, provider: ${aiResult.provider || 'unknown'}`);
 
           if (!aiResult.success || !aiResult.data) {
             console.error(`[realtime-stream] AI failed for ${channel}:`, aiResult.error);
