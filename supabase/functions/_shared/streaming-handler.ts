@@ -35,6 +35,9 @@ export interface StreamingContext {
   channelModelConfigs: Map<string, { model: string; temperature: number; maxTokens: number | null }>;
   defaultModel: string;
   defaultTemperature: number;
+  // Critique context (for post-streaming self-critique)
+  brandVoice?: any;
+  mergedRules?: any;
 }
 
 export interface StreamingProgressEvent {

@@ -1532,15 +1532,109 @@ serve(async (req) => {
         extendedBrandContext
       );
       
-      // Build simplified user prompt for streaming
-      const userPrompt = `Tạo nội dung đa kênh cho chủ đề:
+      // ============================================
+      // TARGETED PRODUCT/PERSONA CONTEXT (Streaming mode)
+      // ============================================
+      let targetedProductContext = '';
+      let targetedPersonaContext = '';
+      
+      if (formData.targetProductId && formData.brandTemplateId) {
+        const { data: targetProduct } = await supabase
+          .from('brand_products')
+          .select('*')
+          .eq('id', formData.targetProductId)
+          .eq('brand_template_id', formData.brandTemplateId)
+          .single();
+        
+        if (targetProduct) {
+          targetedProductContext = `
+## 🎯 SẢN PHẨM/DỊCH VỤ MỤC TIÊU
+**Tên**: ${targetProduct.name}
+${targetProduct.category ? `**Danh mục**: ${targetProduct.category}` : ''}
+${targetProduct.description ? `**Mô tả**: ${targetProduct.description}` : ''}
+${targetProduct.unique_selling_points?.length ? `**USP**: ${targetProduct.unique_selling_points.join(', ')}` : ''}
+${targetProduct.benefits?.length ? `**Lợi ích**: ${targetProduct.benefits.join(', ')}` : ''}
+${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${targetProduct.pain_points_solved.join(', ')}` : ''}
+
+⚡ NỘI DUNG PHẢI TẬP TRUNG vào sản phẩm này, nhấn mạnh USP và cách giải quyết pain points.
+`;
+          console.log("[streaming-mode] Targeted product loaded:", targetProduct.name);
+        }
+      }
+      
+      if (formData.targetPersonaId && formData.brandTemplateId) {
+        const { data: targetPersona } = await supabase
+          .from('customer_personas')
+          .select('*')
+          .eq('id', formData.targetPersonaId)
+          .eq('brand_template_id', formData.brandTemplateId)
+          .single();
+        
+        if (targetPersona) {
+          targetedPersonaContext = `
+## 👤 PERSONA MỤC TIÊU
+**Tên**: ${targetPersona.name} ${targetPersona.avatar_emoji || ''}
+${targetPersona.occupation ? `**Nghề nghiệp**: ${targetPersona.occupation}` : ''}
+${targetPersona.age_range ? `**Độ tuổi**: ${targetPersona.age_range}` : ''}
+${targetPersona.pain_points?.length ? `**Pain points**: ${targetPersona.pain_points.join(', ')}` : ''}
+${targetPersona.desires?.length ? `**Mong muốn**: ${targetPersona.desires.join(', ')}` : ''}
+${targetPersona.buying_triggers?.length ? `**Trigger mua hàng**: ${targetPersona.buying_triggers.join(', ')}` : ''}
+${targetPersona.objections?.length ? `**Objections thường gặp**: ${targetPersona.objections.join(', ')}` : ''}
+${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPersona.communication_style}` : ''}
+
+⚡ NỘI DUNG PHẢI VIẾT CHO PERSONA NÀY:
+- Tone phù hợp với phong cách giao tiếp của họ
+- Giải quyết đúng pain points của họ
+- Trigger buying motivation
+- Phản bác objections nếu phù hợp
+`;
+          console.log("[streaming-mode] Targeted persona loaded:", targetPersona.name);
+        }
+      }
+      
+      // Build base user prompt
+      let userPrompt = `Tạo nội dung đa kênh cho chủ đề:
 "${formData.topic}"
 
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
+${targetedProductContext}
+${targetedPersonaContext}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
 
 Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy ước đã cho.`;
+
+      // ============================================
+      // EDITED PREVIEWS LEARNING (Streaming mode)
+      // ============================================
+      if (formData.editedPreviews && Object.keys(formData.editedPreviews).length > 0) {
+        const editedChannels = Object.entries(formData.editedPreviews)
+          .filter(([_, preview]) => preview.original !== preview.edited)
+          .map(([channel, preview]) => ({ channel, ...preview }));
+
+        if (editedChannels.length > 0) {
+          userPrompt += `\n\n## VÍ DỤ ĐƯỢC NGƯỜI DÙNG CHỈNH SỬA (HỌC THEO PHONG CÁCH NÀY)
+Người dùng đã chỉnh sửa một số preview. Hãy HỌC THEO phong cách, cách diễn đạt, và tone của nội dung đã chỉnh sửa.
+Áp dụng học hỏi này cho TẤT CẢ các kênh, không chỉ những kênh được chỉnh sửa.
+
+`;
+          editedChannels.forEach(({ channel, original, edited }) => {
+            userPrompt += `### Kênh ${channel.toUpperCase()}:
+**Nội dung gốc từ AI:**
+${original.substring(0, 500)}${original.length > 500 ? '...' : ''}
+
+**Nội dung sau khi người dùng chỉnh sửa (HỌC THEO):**
+${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
+
+`;
+          });
+
+          userPrompt += `**QUAN TRỌNG**: Phân tích sự khác biệt và áp dụng phong cách chỉnh sửa của người dùng cho tất cả các kênh.
+Ưu tiên: cách dùng từ, độ dài câu, tone of voice, và cách trình bày mà người dùng thích hơn.`;
+          
+          console.log(`[streaming-mode] User provided ${editedChannels.length} edited preview(s) as examples`);
+        }
+      }
       
       // Prepare streaming context
       const footerInfo = extendedBrandContext?.footerInfo as FooterInfo | null;
@@ -1573,6 +1667,9 @@ Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy
         ),
         defaultModel: aiConfig.model,
         defaultTemperature: aiConfig.temperature,
+        // Critique context
+        brandVoice,
+        mergedRules,
       };
       
       // Track client disconnect
@@ -1700,7 +1797,63 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               return;
             }
             
-            emit({ type: 'progress', step: 'finalize', progress: 85, message: 'Đang lưu kết quả...' });
+            // ============================================
+            // SELF-CRITIQUE LOOP (Post-streaming)
+            // ============================================
+            emit({ type: 'progress', step: 'critique', progress: 78, message: 'Đang đánh giá chất lượng...' });
+            
+            let critiqueResult: CritiqueResult | null = null;
+            let wasRefined = false;
+            let refinementCount = 0;
+            let needsManualReview = false;
+            
+            try {
+              // Prepare content object for critique (match normal mode structure)
+              const contentForCritique: Record<string, any> = {
+                title: formData.topic.slice(0, 100),
+              };
+              for (const [ch, content] of Object.entries(channelResults)) {
+                contentForCritique[`${ch}_content`] = content;
+              }
+              
+              const critiqueLoop = await runSelfCritiqueLoop({
+                content: contentForCritique,
+                contentType: 'multichannel',
+                brandVoice: streamingContext.brandVoice,
+                mergedRules: streamingContext.mergedRules,
+                additionalContext: `Channels: ${channels.join(', ')}`,
+                apiKey: LOVABLE_API_KEY,
+              });
+
+              // Update channelResults with refined content
+              if (critiqueLoop.wasRefined) {
+                for (const channel of channels) {
+                  const key = `${channel}_content`;
+                  if (critiqueLoop.finalContent[key]) {
+                    channelResults[channel] = critiqueLoop.finalContent[key];
+                  }
+                }
+              }
+
+              critiqueResult = critiqueLoop.critiqueResult;
+              wasRefined = critiqueLoop.wasRefined;
+              refinementCount = critiqueLoop.refinementCount;
+              needsManualReview = critiqueLoop.needsManualReview;
+
+              emit({ 
+                type: 'progress', 
+                step: 'critique', 
+                progress: 82, 
+                message: `Đánh giá: ${critiqueResult.overall_score}/100 ${wasRefined ? '(đã tinh chỉnh)' : ''}` 
+              });
+              console.log(`[streaming-mode] Self-Critique: score=${critiqueResult.overall_score}, refined=${wasRefined}, needsReview=${needsManualReview}`);
+            } catch (critiqueError) {
+              console.error('[streaming-mode] Self-critique failed:', critiqueError);
+              needsManualReview = true;
+              emit({ type: 'progress', step: 'critique', progress: 82, message: 'Đánh giá: (đã bỏ qua)' });
+            }
+            
+            emit({ type: 'progress', step: 'finalize', progress: 88, message: 'Đang lưu kết quả...' });
             
             // Check organization's approval settings
             let initialStatus = 'draft';
@@ -1718,7 +1871,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               }
             }
             
-            // Save to database
+            // Save to database with critique metadata
             const { data: savedContent, error: dbError } = await supabase
               .from('multi_channel_contents')
               .insert({
@@ -1729,9 +1882,16 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                 content_goal: contentGoal,
                 selected_channels: channels,
                 brand_template_id: formData.brandTemplateId || null,
+                brand_voice_variant_id: formData.brandVoiceVariantId || null,
                 brand_name: brandName,
                 status: initialStatus,
                 industry_template_version: industryMemory?.version || null,
+                // Self-critique metadata
+                critique_score: critiqueResult?.overall_score || null,
+                critique_details: critiqueResult || null,
+                was_refined: wasRefined,
+                refinement_count: refinementCount,
+                needs_manual_review: needsManualReview,
                 // Channel contents
                 website_content: channelResults.website || null,
                 facebook_content: channelResults.facebook || null,
