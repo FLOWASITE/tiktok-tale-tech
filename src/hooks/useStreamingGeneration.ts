@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ProgressEvent {
   type: 'progress' | 'result' | 'error';
@@ -35,13 +36,21 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     setProgress({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
 
     try {
+      // Get current user's access token for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error('Vui lòng đăng nhập để tạo nội dung');
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-multichannel-stream`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify(formData),
           signal: abortControllerRef.current.signal,
