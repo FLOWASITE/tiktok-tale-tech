@@ -686,3 +686,179 @@ export async function callAISimple(
     ],
   });
 }
+
+// ============================================
+// STREAMING DELTA ITERATOR
+// Real-time token-by-token streaming from AI providers
+// ============================================
+
+export interface StreamDelta {
+  content?: string;
+  toolCall?: {
+    index: number;
+    id?: string;
+    name?: string;
+    arguments?: string;
+  };
+  done: boolean;
+  finishReason?: string;
+}
+
+/**
+ * Async generator to iterate over streaming deltas from OpenAI-compatible APIs
+ * Supports: Lovable Gateway, OpenAI, OpenRouter, Anthropic (SSE mode)
+ * 
+ * Usage:
+ * ```ts
+ * const result = await callAI({ stream: true, ... });
+ * if (result.success && result.data) {
+ *   for await (const delta of iterateStreamDeltas(result.data)) {
+ *     if (delta.content) {
+ *       // Handle content token
+ *       console.log(delta.content);
+ *     }
+ *     if (delta.done) break;
+ *   }
+ * }
+ * ```
+ */
+export async function* iterateStreamDeltas(
+  stream: ReadableStream<Uint8Array>
+): AsyncGenerator<StreamDelta> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) {
+        // Process any remaining buffer
+        if (buffer.trim()) {
+          const deltas = parseSSEBuffer(buffer);
+          for (const delta of deltas) {
+            yield delta;
+          }
+        }
+        yield { done: true };
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Process complete lines
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        const delta = parseSSELine(line);
+        if (delta) {
+          if (delta.done) {
+            yield delta;
+            return; // Exit generator
+          }
+          yield delta;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[iterateStreamDeltas] Stream error:', error);
+    yield { done: true, finishReason: 'error' };
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {}
+  }
+}
+
+/**
+ * Parse a single SSE line into a StreamDelta
+ */
+function parseSSELine(line: string): StreamDelta | null {
+  const trimmed = line.trim();
+  
+  // Skip empty lines and comments
+  if (!trimmed || trimmed.startsWith(':')) {
+    return null;
+  }
+
+  // Check for [DONE] signal
+  if (trimmed === 'data: [DONE]') {
+    return { done: true };
+  }
+
+  // Must be a data line
+  if (!trimmed.startsWith('data: ')) {
+    return null;
+  }
+
+  const jsonStr = trimmed.slice(6).trim();
+  
+  try {
+    const json = JSON.parse(jsonStr);
+    
+    // Handle different response formats
+    const choice = json.choices?.[0];
+    
+    if (!choice) {
+      return null;
+    }
+
+    const delta = choice.delta;
+    const finishReason = choice.finish_reason;
+
+    if (finishReason) {
+      return { done: true, finishReason };
+    }
+
+    if (!delta) {
+      return null;
+    }
+
+    const result: StreamDelta = { done: false };
+
+    // Content delta
+    if (delta.content) {
+      result.content = delta.content;
+    }
+
+    // Tool call delta
+    if (delta.tool_calls?.length) {
+      const tc = delta.tool_calls[0];
+      result.toolCall = {
+        index: tc.index ?? 0,
+        id: tc.id,
+        name: tc.function?.name,
+        arguments: tc.function?.arguments,
+      };
+    }
+
+    // Only yield if we have actual content
+    if (result.content || result.toolCall) {
+      return result;
+    }
+
+    return null;
+  } catch {
+    // Invalid JSON - likely a partial chunk, skip
+    return null;
+  }
+}
+
+/**
+ * Parse multiple SSE lines from a buffer (for final flush)
+ */
+function parseSSEBuffer(buffer: string): StreamDelta[] {
+  const deltas: StreamDelta[] = [];
+  const lines = buffer.split('\n');
+  
+  for (const line of lines) {
+    const delta = parseSSELine(line);
+    if (delta) {
+      deltas.push(delta);
+    }
+  }
+  
+  return deltas;
+}
