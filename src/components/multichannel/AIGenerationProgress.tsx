@@ -10,6 +10,18 @@ import {
   Wand2,
   Check,
   Loader2,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Youtube,
+  Mail,
+  Globe,
+  MessageCircle,
+  Send,
+  Music2,
+  AtSign,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
@@ -36,6 +48,7 @@ interface AIGenerationProgressProps {
   sseMessage?: string;
   completedChannels?: string[];
   totalChannels?: string[];
+  currentChannel?: string;
 }
 
 // Map step IDs to icons
@@ -47,6 +60,38 @@ const STEP_ICONS: Record<string, React.ReactNode> = {
   ai: <Sparkles className="w-4 h-4" />,
   critique: <CheckCircle2 className="w-4 h-4" />,
   finalize: <Wand2 className="w-4 h-4" />,
+};
+
+// Channel display names
+const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  twitter: 'Twitter/X',
+  youtube: 'YouTube',
+  email: 'Email',
+  blog: 'Blog',
+  zalo: 'Zalo',
+  telegram: 'Telegram',
+  tiktok: 'TikTok',
+  threads: 'Threads',
+  website: 'Website',
+};
+
+// Channel icons mapping
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  facebook: Facebook,
+  instagram: Instagram,
+  linkedin: Linkedin,
+  twitter: Twitter,
+  youtube: Youtube,
+  email: Mail,
+  blog: FileText,
+  zalo: MessageCircle,
+  telegram: Send,
+  tiktok: Music2,
+  threads: AtSign,
+  website: Globe,
 };
 
 // Build progress steps with icons from shared constants
@@ -69,6 +114,7 @@ export function AIGenerationProgress({
   sseMessage,
   completedChannels,
   totalChannels,
+  currentChannel,
 }: AIGenerationProgressProps) {
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   
@@ -282,6 +328,74 @@ export function AIGenerationProgress({
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Per-Channel Progress Badges */}
+      {totalChannels && totalChannels.length > 0 && ['ai', 'critique', 'finalize'].includes(sseStep || '') && (
+        <motion.div 
+          className="space-y-2"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="text-xs text-muted-foreground font-medium">
+            Chi tiết từng kênh:
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <AnimatePresence mode="popLayout">
+              {totalChannels.map((channel, index) => {
+                const isCompleted = completedChannels?.includes(channel);
+                const isCurrent = currentChannel === channel && !isCompleted;
+                const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
+                const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
+                
+                return (
+                  <motion.span
+                    key={channel}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ delay: index * 0.05, duration: 0.2 }}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-300',
+                      isCompleted && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                      isCurrent && 'bg-primary/15 text-primary border border-primary/30 shadow-sm',
+                      !isCompleted && !isCurrent && 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {isCompleted ? (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                      >
+                        <Check className="w-3 h-3" />
+                      </motion.div>
+                    ) : isCurrent ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <ChannelIcon className="w-3 h-3 opacity-50" />
+                    )}
+                    {displayName}
+                  </motion.span>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Completion Summary */}
+      {completedChannels && totalChannels && completedChannels.length === totalChannels.length && totalChannels.length > 0 && (
+        <motion.div 
+          className="flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-sm text-green-700 dark:text-green-400 font-medium"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        >
+          <Check className="w-4 h-4" />
+          <span>✓ Đã tạo xong {totalChannels.length} kênh</span>
+        </motion.div>
+      )}
 
       {/* Status message - only show if no SSE message */}
       {!sseMessage && (
