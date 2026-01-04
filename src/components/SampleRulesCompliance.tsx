@@ -35,12 +35,14 @@ function countChars(text: string): number {
 
 // Count emojis in text
 function countEmojis(text: string): number {
+  if (typeof text !== 'string') return 0;
   const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]/gu;
   return (text.match(emojiRegex) || []).length;
 }
 
 // Count hashtags in text
 function countHashtags(text: string): number {
+  if (typeof text !== 'string') return 0;
   const hashtagRegex = /#\w+/g;
   return (text.match(hashtagRegex) || []).length;
 }
