@@ -546,16 +546,16 @@ export function ContentTaskCard({
                     <Avatar className="w-5 h-5 border border-border/50">
                       <AvatarImage src={creator.avatar_url || undefined} />
                       <AvatarFallback className="text-[8px] font-medium bg-muted">
-                        {creator.full_name?.charAt(0) || creator.email.charAt(0).toUpperCase()}
+                        {creator.full_name?.charAt(0) || (creator.email ? creator.email.charAt(0).toUpperCase() : 'U')}
                       </AvatarFallback>
                     </Avatar>
                     <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
-                      {creator.full_name || creator.email.split('@')[0]}
+                      {creator.full_name || (creator.email ? creator.email.split('@')[0] : 'Người dùng')}
                     </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p className="text-xs">Người tạo: {creator.full_name || creator.email}</p>
+                  <p className="text-xs">Người tạo: {creator.full_name || creator.email || 'Không xác định'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

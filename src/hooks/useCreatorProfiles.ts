@@ -5,7 +5,7 @@ export interface CreatorProfile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  email: string;
+  email: string | null;
 }
 
 export function useCreatorProfiles(userIds: (string | null | undefined)[]) {
@@ -36,7 +36,12 @@ export function useCreatorProfiles(userIds: (string | null | undefined)[]) {
 
         const profileMap: Record<string, CreatorProfile> = {};
         data?.forEach(profile => {
-          profileMap[profile.id] = profile;
+          profileMap[profile.id] = {
+            id: profile.id,
+            full_name: typeof profile.full_name === 'string' ? profile.full_name : null,
+            avatar_url: typeof profile.avatar_url === 'string' ? profile.avatar_url : null,
+            email: typeof profile.email === 'string' ? profile.email : null,
+          };
         });
         setProfiles(profileMap);
       } catch (err) {
