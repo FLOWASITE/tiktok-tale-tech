@@ -1911,9 +1911,11 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const modelGroups = groupChannelsByModel(formData.channels);
       
       // If all channels use the same model, use single call for efficiency
+      // FIX: Use the channel's model config, not the function's default model
       if (modelGroups.size === 1) {
-        console.log('[multi-model] All channels use same model, using single call');
-        return generateAIContent(currentPrompt);
+        const [key, group] = Array.from(modelGroups.entries())[0];
+        console.log(`[multi-model] All channels use same model (${group.config.model}), using single call`);
+        return generateAIContentForChannels(currentPrompt, group.channels, group.config);
       }
       
       console.log(`[multi-model] Generating with ${modelGroups.size} different model configs`);
