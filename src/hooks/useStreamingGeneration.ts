@@ -98,14 +98,14 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-multichannel-stream`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-multichannel`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({ ...formData, stream: true }),
           signal: abortControllerRef.current.signal,
         }
       );
