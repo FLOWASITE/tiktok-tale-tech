@@ -30,6 +30,8 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const lastEventTimeRef = useRef<number>(Date.now());
   const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortReasonRef = useRef<AbortReason>(null);
+  // Synchronous guard to prevent double-submit (ref updates immediately, unlike state)
+  const generatingRef = useRef(false);
 
   // Watchdog timeout in ms - cancel if no events received for this duration
   // Increased to 90s to handle slow AI models (e.g., kimi-k2) without false positives
@@ -43,6 +45,13 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   }, []);
 
   const generate = useCallback(async (formData: any): Promise<any> => {
+    // Synchronous guard - block immediately if already generating
+    if (generatingRef.current) {
+      console.log('[streaming] Blocked: generation already in progress (ref guard)');
+      return null;
+    }
+    generatingRef.current = true;
+
     // Cancel any existing generation (mark as "replaced" - no error toast)
     if (abortControllerRef.current) {
       abortReasonRef.current = 'replaced';
@@ -136,6 +145,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
               // Server signaled end, cancel reader and exit
               console.log('[streaming] Received [DONE] marker, closing stream');
               cleanupTimers();
+              generatingRef.current = false;
               await reader.cancel();
               setIsGenerating(false);
               setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -153,6 +163,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
                 // Immediately cancel reader and resolve - don't wait for stream to close
                 console.log('[streaming] Received result event, closing stream');
                 cleanupTimers();
+                generatingRef.current = false;
                 await reader.cancel();
                 setIsGenerating(false);
                 setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -189,6 +200,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
 
       // Clear watchdog timer
       cleanupTimers();
+      generatingRef.current = false;
 
       setIsGenerating(false);
       setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -197,6 +209,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     } catch (error) {
       // Clear watchdog timer on error
       cleanupTimers();
+      generatingRef.current = false;
 
       if (error instanceof Error && error.name === 'AbortError') {
         const reason = abortReasonRef.current;
@@ -223,6 +236,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const cancel = useCallback(() => {
     abortReasonRef.current = 'user';
     cleanupTimers();
+    generatingRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsGenerating(false);

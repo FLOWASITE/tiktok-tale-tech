@@ -321,8 +321,19 @@ export function MultiChannelFormStepper({
     setFormData(prev => ({ ...prev, channels: [] }));
   };
 
+  // Synchronous guard ref to prevent double-submit
+  const submittingRef = useRef(false);
+
   const handleSubmit = async () => {
+    // Synchronous guard - block immediately if already submitting
+    if (submittingRef.current || effectiveLoading) {
+      console.log('[Stepper] Blocked double-submit');
+      return;
+    }
+    submittingRef.current = true;
+
     if (!formData.topic.trim() || formData.channels.length === 0) {
+      submittingRef.current = false;
       toast.error('Vui lòng nhập chủ đề và chọn ít nhất 1 kênh');
       return;
     }
@@ -335,6 +346,7 @@ export function MultiChannelFormStepper({
     try {
       await onSubmit({ ...formData, topicHistoryId });
     } finally {
+      submittingRef.current = false;
       const startedAt = uiLoadingStartedAtRef.current ?? Date.now();
       const elapsed = Date.now() - startedAt;
       const remaining = Math.max(0, MIN_PROGRESS_VISIBLE_MS - elapsed);
