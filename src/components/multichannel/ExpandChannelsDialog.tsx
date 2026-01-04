@@ -55,8 +55,9 @@ export function ExpandChannelsDialog({
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>([]);
 
   // Filter out channels that already have content
+  const contentChannels = Array.isArray(content.selected_channels) ? content.selected_channels : [];
   const availableChannels = ALL_CHANNELS.filter(
-    ch => !content.selected_channels.includes(ch.value)
+    ch => !contentChannels.includes(ch.value)
   );
 
   const handleToggleChannel = (channel: Channel) => {

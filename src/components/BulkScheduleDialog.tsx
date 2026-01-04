@@ -90,9 +90,10 @@ export function BulkScheduleDialog({
   // Get all available channels from selected contents (only approved/published status)
   const availableChannels = useMemo(() => {
     const channelSet = new Set<Channel>();
-    contents.forEach(content => {
-      content.selected_channels.forEach(channel => {
-        const statuses = content.channel_statuses as Record<string, ContentStatus> || {};
+    contents.forEach((content) => {
+      const contentChannels = Array.isArray(content.selected_channels) ? content.selected_channels : [];
+      contentChannels.forEach((channel) => {
+        const statuses = (content.channel_statuses as Record<string, ContentStatus>) || {};
         const status = statuses[channel];
         // Only allow scheduling for approved or published channels
         if (status === 'approved' || status === 'published') {
@@ -114,12 +115,13 @@ export function BulkScheduleDialog({
     const preview: { content: MultiChannelContent; channel: Channel; scheduledAt: Date }[] = [];
     let currentTime = baseDate;
 
-    contents.forEach((content, contentIndex) => {
-      selectedChannels.forEach(channel => {
+    contents.forEach((content) => {
+      const contentChannels = Array.isArray(content.selected_channels) ? content.selected_channels : [];
+      selectedChannels.forEach((channel) => {
         // Check if this content has this channel approved
-        const statuses = content.channel_statuses as Record<string, ContentStatus> || {};
+        const statuses = (content.channel_statuses as Record<string, ContentStatus>) || {};
         const status = statuses[channel];
-        if (content.selected_channels.includes(channel) && (status === 'approved' || status === 'published')) {
+        if (contentChannels.includes(channel) && (status === 'approved' || status === 'published')) {
           preview.push({
             content,
             channel,
