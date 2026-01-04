@@ -44,7 +44,7 @@ type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 
 interface ChannelMockupFrameProps {
   channel: ChannelType;
   content: string;
-  brandName: string;
+  brandName?: string | null;
   logoUrl?: string;
   primaryColor?: string;
   isGenerating?: boolean;
@@ -1163,23 +1163,28 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
 }
 
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
-  const { channel, seoData, channelImage, ...rest } = props;
+  const { channel, seoData, channelImage, brandName: rawBrandName, ...rest } = props;
+  
+  // Normalize brandName to prevent charAt/toLowerCase crashes
+  const safeBrandName = typeof rawBrandName === 'string' && rawBrandName.trim() 
+    ? rawBrandName.trim() 
+    : 'Brand';
 
   switch (channel) {
     case 'facebook':
-      return <FacebookMockup {...rest} channelImage={channelImage} />;
+      return <FacebookMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'linkedin':
-      return <LinkedInMockup {...rest} channelImage={channelImage} />;
+      return <LinkedInMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'instagram':
-      return <InstagramMockup {...rest} channelImage={channelImage} />;
+      return <InstagramMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'tiktok':
-      return <TikTokMockup {...rest} channelImage={channelImage} />;
+      return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'twitter':
-      return <TwitterMockup {...rest} channelImage={channelImage} />;
+      return <TwitterMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'email':
-      return <EmailMockup {...rest} />;
+      return <EmailMockup {...rest} brandName={safeBrandName} />;
     case 'general':
-      return <WebsiteMockup {...rest} seoData={seoData} channelImage={channelImage} />;
+      return <WebsiteMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     default:
       return null;
   }
