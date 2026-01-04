@@ -128,7 +128,7 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
 
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-3">
-          {content.selected_channels.map((channel) => {
+          {(content?.selected_channels ?? []).map((channel) => {
             const status = getChannelStatus(channel);
             const schedule = getScheduleForChannel(channel);
             const isEditing = editingChannel === channel;

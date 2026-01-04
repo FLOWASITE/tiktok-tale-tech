@@ -12,7 +12,7 @@ const transformContent = (data: any): MultiChannelContent => ({
   topic: data.topic,
   industry: data.industry,
   content_goal: data.content_goal as ContentGoal,
-  selected_channels: data.selected_channels as Channel[],
+  selected_channels: Array.isArray(data.selected_channels) ? data.selected_channels : [],
   brand_template_id: data.brand_template_id,
   brand_name: data.brand_name,
   brand_guideline: data.brand_guideline,

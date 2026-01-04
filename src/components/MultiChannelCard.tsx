@@ -112,15 +112,18 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
     locale: vi,
   }) : null;
 
+  // Safe channels array
+  const safeChannels = content?.selected_channels ?? [];
+
   // Count filled channels
-  const filledChannelsCount = content.selected_channels.filter(ch => {
+  const filledChannelsCount = safeChannels.filter(ch => {
     const contentKey = `${ch}_content` as keyof MultiChannelContent;
     return content[contentKey] && (content[contentKey] as string).length > 0;
   }).length;
 
   // Get first channel content preview
   const getFirstChannelContent = (): string | null => {
-    for (const channel of content.selected_channels) {
+    for (const channel of safeChannels) {
       const contentKey = `${channel}_content` as keyof MultiChannelContent;
       const channelContent = content[contentKey] as string | null;
       if (channelContent && channelContent.length > 0) {
@@ -214,7 +217,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
         )}
         <Badge variant="outline" className="text-[8px] xs:text-[10px] px-1 py-0 h-3.5 xs:h-4 bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
           <FileText className="w-2 h-2 xs:w-2.5 xs:h-2.5 mr-0.5" />
-          {filledChannelsCount}/{content.selected_channels.length}
+          {filledChannelsCount}/{safeChannels.length}
         </Badge>
       </div>
 
@@ -223,7 +226,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
         <motion.div 
           className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary to-secondary"
           initial={{ width: 0 }}
-          animate={{ width: `${(filledChannelsCount / content.selected_channels.length) * 100}%` }}
+          animate={{ width: `${safeChannels.length > 0 ? (filledChannelsCount / safeChannels.length) * 100 : 0}%` }}
           transition={{ duration: 0.5, delay: index * 0.05 + 0.2 }}
         />
       </div>
@@ -231,7 +234,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
       {/* Channels with status indicators */}
       <TooltipProvider>
         <div className="relative flex flex-wrap gap-0.5 xs:gap-1 mb-1.5 xs:mb-2">
-          {content.selected_channels.slice(0, 4).map((channel) => {
+          {safeChannels.slice(0, 4).map((channel) => {
             const channelStatus = content.channel_statuses?.[channel] || 'draft';
             const channelStatusLabel = CONTENT_STATUSES.find(s => s.value === channelStatus)?.label || channelStatus;
             return (
@@ -260,9 +263,9 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
               </Tooltip>
             );
           })}
-          {content.selected_channels.length > 4 && (
+          {safeChannels.length > 4 && (
             <div className="flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded border border-border text-[8px] xs:text-[10px] text-muted-foreground">
-              +{content.selected_channels.length - 4}
+              +{safeChannels.length - 4}
             </div>
           )}
         </div>

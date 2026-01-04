@@ -79,7 +79,7 @@ export function EnhancedExportMenu({
     exportContent += `Brand: ${content.brand_name}\n`;
     exportContent += `\n---\n\n`;
 
-    content.selected_channels.forEach((channel) => {
+    (content?.selected_channels ?? []).forEach((channel) => {
       const channelContent = getContentForChannel(content, channel);
       if (channelContent) {
         exportContent += `## ${channelConfig[channel].label}\n\n`;
@@ -101,14 +101,14 @@ export function EnhancedExportMenu({
       content_goal: content.content_goal,
       brand_name: content.brand_name,
       brand_guideline: content.brand_guideline,
-      selected_channels: content.selected_channels,
+      selected_channels: content?.selected_channels ?? [],
       channels: {} as Record<string, string | null>,
       channel_images: content.channel_images,
       created_at: content.created_at,
       updated_at: content.updated_at,
     };
 
-    content.selected_channels.forEach((channel) => {
+    (content?.selected_channels ?? []).forEach((channel) => {
       exportData.channels[channel] = getContentForChannel(content, channel);
     });
 
@@ -128,7 +128,7 @@ export function EnhancedExportMenu({
     copyContent += `🏷️ Brand: ${content.brand_name}\n`;
     copyContent += `\n${'─'.repeat(40)}\n\n`;
 
-    content.selected_channels.forEach((channel) => {
+    (content?.selected_channels ?? []).forEach((channel) => {
       const channelContent = getContentForChannel(content, channel);
       if (channelContent) {
         copyContent += `【${channelConfig[channel].label}】\n\n`;
@@ -163,7 +163,7 @@ export function EnhancedExportMenu({
         },
       };
 
-      content.selected_channels.forEach((channel) => {
+      (content?.selected_channels ?? []).forEach((channel) => {
         exportData.content.channels[channel] = {
           content: getContentForChannel(content, channel),
           image: content.channel_images?.[channel]?.url,

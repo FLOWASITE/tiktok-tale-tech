@@ -104,7 +104,7 @@ export function MultiChannelStats({ contents }: MultiChannelStatsProps) {
     });
     
     contents.forEach(content => {
-      content.selected_channels.forEach(channel => {
+      (content?.selected_channels ?? []).forEach(channel => {
         channelCounts[channel]++;
       });
     });
