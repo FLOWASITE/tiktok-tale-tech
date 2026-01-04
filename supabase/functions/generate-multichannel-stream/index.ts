@@ -9,11 +9,19 @@ const corsHeaders = {
 interface ChannelContentPreview {
   channel: string;
   preview: string;        // First 200 chars of content
+  fullContent?: string;   // Full content for streaming display
   wordCount: number;
+  isStreaming?: boolean;  // True if still receiving tokens
+}
+
+interface StreamingTextChunk {
+  channel: string;
+  text: string;           // New text chunk to append
+  isComplete: boolean;    // True when channel generation is done
 }
 
 interface ProgressEvent {
-  type: 'progress' | 'result' | 'error';
+  type: 'progress' | 'result' | 'error' | 'streaming_text';
   step?: string;
   progress?: number;
   message?: string;
@@ -23,9 +31,11 @@ interface ProgressEvent {
   currentChannel?: string;
   completedChannels?: string[];
   totalChannels?: string[];
-  // NEW: Real-time content previews
+  // Real-time content previews
   channelContent?: ChannelContentPreview;       // Single channel just completed
   channelContents?: ChannelContentPreview[];    // All completed so far
+  // Streaming text for typewriter effect
+  streamingChunk?: StreamingTextChunk;
 }
 
 serve(async (req) => {
@@ -138,12 +148,12 @@ serve(async (req) => {
           blog: 'Blog',
         };
 
-        // Step 6: Call main generate-multichannel function
+        // Step 6: Call main generate-multichannel function with streaming enabled
         emit({ 
           type: 'progress', 
           step: 'ai', 
           progress: 50, 
-          message: 'AI đang tạo nội dung (có thể mất 30-60 giây)...',
+          message: 'AI đang tạo nội dung...',
           totalChannels: channels,
           completedChannels: [],
           currentChannel: channels[0],
@@ -152,25 +162,25 @@ serve(async (req) => {
         // Get auth token from request
         const authHeader = req.headers.get('authorization');
         
-        // Start the AI call as a promise
+        // Store streaming content as it arrives
+        const streamingContents: Map<string, { text: string; wordCount: number }> = new Map();
+        const completedChannels: string[] = [];
+        
+        // Start the AI call
         const aiCallPromise = fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': authHeader || '',
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({ ...formData, enableStreaming: true }),
         });
 
-        // Heartbeat: emit progress updates every 1s while waiting for AI
-        // Simulate per-channel progress by cycling through channels
+        // Heartbeat: emit progress updates while waiting for AI
         let currentProgress = 50;
         const maxProgressWhileWaiting = 72;
         let channelIndex = 0;
-        const completedChannels: string[] = [];
         const progressPerChannel = channels.length > 0 ? (maxProgressWhileWaiting - 50) / channels.length : 22;
-
-        // Keep-alive comment counter for anti-buffering
         let keepAliveCounter = 0;
         
         heartbeatInterval = setInterval(() => {
@@ -182,7 +192,7 @@ serve(async (req) => {
             return;
           }
           
-          // Every 10s, send SSE comment keep-alive to force flush through proxies
+          // Every 10s, send SSE comment keep-alive
           keepAliveCounter++;
           if (keepAliveCounter % 10 === 0) {
             try {
@@ -191,10 +201,8 @@ serve(async (req) => {
           }
           
           if (currentProgress < maxProgressWhileWaiting && channels.length > 0) {
-            // Calculate which channel we're "working on" based on progress
             const expectedChannelIndex = Math.floor((currentProgress - 50) / progressPerChannel);
             
-            // Mark previous channels as completed
             while (channelIndex < expectedChannelIndex && channelIndex < channels.length) {
               if (!completedChannels.includes(channels[channelIndex])) {
                 completedChannels.push(channels[channelIndex]);
@@ -206,6 +214,19 @@ serve(async (req) => {
             const displayName = channelDisplayNames[currentChannel] || currentChannel;
             
             currentProgress += 2;
+            
+            // Build current channel contents from streaming data
+            const channelContents: ChannelContentPreview[] = [];
+            streamingContents.forEach((content, channel) => {
+              const preview = content.text.replace(/[#*_~`]/g, '').trim().slice(0, 200);
+              channelContents.push({
+                channel,
+                preview: preview + (content.text.length > 200 ? '...' : ''),
+                wordCount: content.wordCount,
+                isStreaming: !completedChannels.includes(channel),
+              });
+            });
+            
             emit({ 
               type: 'progress', 
               step: 'ai', 
@@ -214,19 +235,10 @@ serve(async (req) => {
               currentChannel,
               completedChannels: [...completedChannels],
               totalChannels: channels,
-            });
-          } else if (currentProgress < maxProgressWhileWaiting) {
-            currentProgress += 2;
-            emit({ 
-              type: 'progress', 
-              step: 'ai', 
-              progress: currentProgress, 
-              message: `AI đang xử lý nội dung... (${currentProgress}%)`,
-              completedChannels: [...completedChannels],
-              totalChannels: channels,
+              channelContents: channelContents.length > 0 ? channelContents : undefined,
             });
           }
-        }, 1000); // Heartbeat every 1 second
+        }, 1000);
 
         // Wait for AI response
         const response = await aiCallPromise;
@@ -244,17 +256,6 @@ serve(async (req) => {
           return;
         }
         
-        // Emit final AI step with all channels completed
-        emit({ 
-          type: 'progress', 
-          step: 'ai', 
-          progress: 73, 
-          message: 'AI đã tạo xong nội dung...',
-          currentChannel: undefined,
-          completedChannels: channels, // All channels completed
-          totalChannels: channels,
-        });
-
         if (!response.ok) {
           const errorText = await response.text();
           let errorMessage = 'Lỗi khi tạo nội dung';
@@ -279,7 +280,7 @@ serve(async (req) => {
           return;
         }
 
-        // Parse result FIRST - this is when backend is truly done
+        // Parse result
         const parseStart = Date.now();
         const result = await response.json();
         console.log(`[timing] Parse result: ${Date.now() - parseStart}ms`);
@@ -291,43 +292,89 @@ serve(async (req) => {
           return;
         }
 
-        // Extract content previews from result for real-time display
+        // Extract content previews and stream them with typewriter effect
         const channelContents: ChannelContentPreview[] = [];
-        if (result && typeof result === 'object') {
-          for (const channel of channels) {
-            const contentKey = `${channel}_content`;
-            const channelData = result[contentKey];
-            if (channelData) {
-              // Extract text content - handle different formats
-              let textContent = '';
-              if (typeof channelData === 'string') {
-                textContent = channelData;
-              } else if (channelData.content) {
-                textContent = channelData.content;
-              } else if (channelData.body) {
-                textContent = channelData.body;
-              } else if (channelData.caption) {
-                textContent = channelData.caption;
-              } else if (channelData.text) {
-                textContent = channelData.text;
+        
+        for (const channel of channels) {
+          const contentKey = `${channel}_content`;
+          const channelData = result[contentKey];
+          
+          if (channelData) {
+            let textContent = '';
+            if (typeof channelData === 'string') {
+              textContent = channelData;
+            } else if (channelData.content) {
+              textContent = channelData.content;
+            } else if (channelData.body) {
+              textContent = channelData.body;
+            } else if (channelData.caption) {
+              textContent = channelData.caption;
+            } else if (channelData.text) {
+              textContent = channelData.text;
+            }
+            
+            if (textContent) {
+              const cleanText = textContent.replace(/[#*_~`]/g, '').trim();
+              const wordCount = cleanText.split(/\s+/).filter((w: string) => w.length > 0).length;
+              
+              // Stream content in chunks for typewriter effect
+              const CHUNK_SIZE = 50; // characters per chunk
+              const displayName = channelDisplayNames[channel] || channel;
+              
+              // Emit streaming start
+              emit({
+                type: 'streaming_text',
+                streamingChunk: {
+                  channel,
+                  text: '',
+                  isComplete: false,
+                },
+                message: `Đang hiển thị ${displayName}...`,
+              });
+              
+              // Stream content in chunks
+              for (let i = 0; i < cleanText.length; i += CHUNK_SIZE) {
+                if (clientDisconnected) break;
+                
+                const chunk = cleanText.slice(i, i + CHUNK_SIZE);
+                emit({
+                  type: 'streaming_text',
+                  streamingChunk: {
+                    channel,
+                    text: chunk,
+                    isComplete: i + CHUNK_SIZE >= cleanText.length,
+                  },
+                });
+                
+                // Small delay between chunks for visual effect
+                await delay(30);
               }
               
-              if (textContent) {
-                // Clean up text for preview
-                const cleanText = textContent.replace(/[#*_~`]/g, '').trim();
-                const preview = cleanText.slice(0, 200) + (cleanText.length > 200 ? '...' : '');
-                const wordCount = cleanText.split(/\s+/).filter((w: string) => w.length > 0).length;
-                
-                channelContents.push({ channel, preview, wordCount });
-              }
+              const preview = cleanText.slice(0, 200) + (cleanText.length > 200 ? '...' : '');
+              channelContents.push({ 
+                channel, 
+                preview, 
+                fullContent: cleanText,
+                wordCount,
+                isStreaming: false,
+              });
             }
           }
         }
         
-        // Now emit steps with accurate timing AFTER we have the result
-        // Backend already did critique + footer + save, so these are just UI updates
-        
-        // Step 7: Self-critique (already done by backend)
+        // Emit all channels completed with full content
+        emit({ 
+          type: 'progress', 
+          step: 'ai', 
+          progress: 73, 
+          message: 'AI đã tạo xong nội dung ✓',
+          currentChannel: undefined,
+          completedChannels: channels,
+          totalChannels: channels,
+          channelContents,
+        });
+
+        // Step 7: Self-critique
         emit({ 
           type: 'progress', 
           step: 'critique', 
@@ -335,11 +382,11 @@ serve(async (req) => {
           message: 'AI đã kiểm tra chất lượng nội dung ✓',
           completedChannels: channels,
           totalChannels: channels,
-          channelContents, // Include content previews
+          channelContents,
         });
         await delay(300);
 
-        // Step 8: Footer Info (already done by backend)
+        // Step 8: Footer Info
         emit({ 
           type: 'progress', 
           step: 'finalize', 
@@ -351,7 +398,7 @@ serve(async (req) => {
         });
         await delay(200);
 
-        // Step 9: Save to DB (already done by backend)
+        // Step 9: Save to DB
         emit({ 
           type: 'progress', 
           step: 'finalize', 
@@ -366,14 +413,11 @@ serve(async (req) => {
         if (result.error) {
           emit({ type: 'error', message: result.error });
         } else {
-          // Step 10: Complete - emit with small delay to ensure client receives it
           emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
           await delay(100);
           
-          // Emit result and [DONE] marker
           emit({ type: 'result', data: result });
           
-          // Send [DONE] marker for client to close immediately
           if (!clientDisconnected) {
             try {
               controller.enqueue(encoder.encode('data: [DONE]\n\n'));
@@ -383,13 +427,11 @@ serve(async (req) => {
 
         controller.close();
       } catch (error) {
-        // Clean up heartbeat on error
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
           heartbeatInterval = null;
         }
         
-        // Don't log/emit error if client just disconnected
         if (clientDisconnected) {
           console.log('[stream] Error after client disconnect, suppressing:', error);
           try { controller.close(); } catch {}

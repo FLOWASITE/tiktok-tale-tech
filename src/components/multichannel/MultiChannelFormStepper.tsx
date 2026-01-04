@@ -87,11 +87,19 @@ import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
 interface ChannelContentPreview {
   channel: string;
   preview: string;
+  fullContent?: string;
   wordCount: number;
+  isStreaming?: boolean;
+}
+
+interface StreamingTextChunk {
+  channel: string;
+  text: string;
+  isComplete: boolean;
 }
 
 interface ProgressEvent {
-  type: 'progress' | 'result' | 'error';
+  type: 'progress' | 'result' | 'error' | 'streaming_text';
   step?: string;
   progress?: number;
   message?: string;
@@ -99,6 +107,7 @@ interface ProgressEvent {
   completedChannels?: string[];
   totalChannels?: string[];
   channelContents?: ChannelContentPreview[];
+  streamingChunk?: StreamingTextChunk;
 }
 
 interface MultiChannelFormStepperProps {
@@ -115,6 +124,8 @@ interface MultiChannelFormStepperProps {
   generationElapsedMs?: number;
   /** SSE progress events from streaming generation */
   sseProgress?: ProgressEvent | null;
+  /** Streaming text content per channel for typewriter effect */
+  streamingTexts?: Record<string, string>;
 }
 
 // Reduced from 5 to 4 steps - Brand is now compact on Step 1
@@ -162,6 +173,7 @@ export function MultiChannelFormStepper({
   initialPersonaId,
   generationElapsedMs: externalElapsedMs,
   sseProgress,
+  streamingTexts,
 }: MultiChannelFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -931,6 +943,7 @@ export function MultiChannelFormStepper({
                       totalChannels={sseProgress?.totalChannels}
                       currentChannel={sseProgress?.currentChannel}
                       channelContents={sseProgress?.channelContents}
+                      streamingTexts={streamingTexts}
                     />
                   </CardContent>
                 </Card>
