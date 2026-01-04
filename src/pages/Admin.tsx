@@ -283,7 +283,7 @@ export default function Admin() {
                             <Avatar className="h-8 w-8">
                               <AvatarImage src={user.avatar_url || undefined} />
                               <AvatarFallback>
-                                {user.email.charAt(0).toUpperCase()}
+                                {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                               </AvatarFallback>
                             </Avatar>
                             <div>
