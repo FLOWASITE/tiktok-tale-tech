@@ -24,14 +24,24 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastEventTimeRef = useRef<number>(Date.now());
+  const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Watchdog timeout in ms - cancel if no events received for this duration
+  const WATCHDOG_TIMEOUT_MS = 45000; // 45 seconds
 
   const generate = useCallback(async (formData: any): Promise<any> => {
     // Cancel any existing generation
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    if (watchdogTimerRef.current) {
+      clearInterval(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
+    }
 
     abortControllerRef.current = new AbortController();
+    lastEventTimeRef.current = Date.now();
     setIsGenerating(true);
     setProgress({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
 
@@ -75,6 +85,24 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         throw new Error('Không thể đọc response stream');
       }
 
+      // Start watchdog timer to detect stale connections
+      watchdogTimerRef.current = setInterval(() => {
+        const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
+        if (timeSinceLastEvent > WATCHDOG_TIMEOUT_MS) {
+          console.warn(`[streaming] Watchdog triggered: no events for ${timeSinceLastEvent}ms, aborting...`);
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+          }
+          if (watchdogTimerRef.current) {
+            clearInterval(watchdogTimerRef.current);
+            watchdogTimerRef.current = null;
+          }
+          setIsGenerating(false);
+          setProgress({ type: 'error', message: 'Kết nối bị gián đoạn, vui lòng thử lại.' });
+          options.onError?.('Kết nối bị gián đoạn, vui lòng thử lại.');
+        }
+      }, 5000); // Check every 5 seconds
+
       const decoder = new TextDecoder();
       let buffer = '';
       let result = null;
@@ -85,6 +113,9 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
 
         buffer += decoder.decode(value, { stream: true });
 
+        // Update last event time on any data received
+        lastEventTimeRef.current = Date.now();
+
         // Parse SSE events line by line
         const lines = buffer.split('\n');
         buffer = lines.pop() || ''; // Keep incomplete line in buffer
@@ -94,6 +125,11 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
             const jsonStr = line.slice(6).trim();
             if (jsonStr === '[DONE]') {
               // Server signaled end, cancel reader and exit
+              console.log('[streaming] Received [DONE] marker, closing stream');
+              if (watchdogTimerRef.current) {
+                clearInterval(watchdogTimerRef.current);
+                watchdogTimerRef.current = null;
+              }
               await reader.cancel();
               setIsGenerating(false);
               setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -109,6 +145,11 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
                 result = event.data;
                 options.onComplete?.(event.data);
                 // Immediately cancel reader and resolve - don't wait for stream to close
+                console.log('[streaming] Received result event, closing stream');
+                if (watchdogTimerRef.current) {
+                  clearInterval(watchdogTimerRef.current);
+                  watchdogTimerRef.current = null;
+                }
                 await reader.cancel();
                 setIsGenerating(false);
                 setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -143,11 +184,23 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         }
       }
 
+      // Clear watchdog timer
+      if (watchdogTimerRef.current) {
+        clearInterval(watchdogTimerRef.current);
+        watchdogTimerRef.current = null;
+      }
+
       setIsGenerating(false);
       setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
       
       return result;
     } catch (error) {
+      // Clear watchdog timer on error
+      if (watchdogTimerRef.current) {
+        clearInterval(watchdogTimerRef.current);
+        watchdogTimerRef.current = null;
+      }
+
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('Generation cancelled');
         return null;
@@ -162,6 +215,10 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   }, [options]);
 
   const cancel = useCallback(() => {
+    if (watchdogTimerRef.current) {
+      clearInterval(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsGenerating(false);

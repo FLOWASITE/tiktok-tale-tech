@@ -84,6 +84,16 @@ import { JourneyStage } from '@/types/customerPersona';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
 
+interface ProgressEvent {
+  type: 'progress' | 'result' | 'error';
+  step?: string;
+  progress?: number;
+  message?: string;
+  currentChannel?: string;
+  completedChannels?: string[];
+  totalChannels?: string[];
+}
+
 interface MultiChannelFormStepperProps {
   onSubmit: (data: MultiChannelFormData) => Promise<void>;
   isLoading: boolean;
@@ -96,6 +106,8 @@ interface MultiChannelFormStepperProps {
   initialPersonaId?: string;
   /** Elapsed time in ms from parent (for synchronized progress display) */
   generationElapsedMs?: number;
+  /** SSE progress events from streaming generation */
+  sseProgress?: ProgressEvent | null;
 }
 
 // Reduced from 5 to 4 steps - Brand is now compact on Step 1
@@ -142,6 +154,7 @@ export function MultiChannelFormStepper({
   initialProductId,
   initialPersonaId,
   generationElapsedMs: externalElapsedMs,
+  sseProgress,
 }: MultiChannelFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -892,6 +905,11 @@ export function MultiChannelFormStepper({
                       isLoading={effectiveLoading}
                       channelCount={formData.channels.length}
                       elapsedMs={generationElapsedMs}
+                      sseStep={sseProgress?.step}
+                      sseProgress={sseProgress?.progress}
+                      sseMessage={sseProgress?.message}
+                      completedChannels={sseProgress?.completedChannels}
+                      totalChannels={sseProgress?.totalChannels}
                     />
                   </CardContent>
                 </Card>
