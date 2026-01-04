@@ -28,7 +28,8 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Watchdog timeout in ms - cancel if no events received for this duration
-  const WATCHDOG_TIMEOUT_MS = 45000; // 45 seconds
+  // Increased to 90s to handle slow AI models (e.g., kimi-k2) without false positives
+  const WATCHDOG_TIMEOUT_MS = 90000; // 90 seconds
 
   const generate = useCallback(async (formData: any): Promise<any> => {
     // Cancel any existing generation

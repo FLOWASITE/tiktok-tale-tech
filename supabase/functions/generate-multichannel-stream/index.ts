@@ -157,7 +157,7 @@ serve(async (req) => {
               totalChannels: channels,
             });
           }
-        }, 1500);
+        }, 1000); // Heartbeat every 1 second (reduced from 1.5s for better client keepalive)
 
         // Wait for AI response
         const response = await aiCallPromise;
