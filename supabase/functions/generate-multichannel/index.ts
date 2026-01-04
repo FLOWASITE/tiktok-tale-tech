@@ -1914,10 +1914,12 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     };
 
     // Generate content for a single channel
+    // Optional callback for streaming mode - called when channel completes
     const generateSingleChannel = async (
       currentPrompt: string, 
       channel: string, 
-      config: { model: string; temperature: number; maxTokens: number | null }
+      config: { model: string; temperature: number; maxTokens: number | null },
+      onChannelComplete?: (result: { channel: string; content: string; wordCount: number }) => void
     ): Promise<{ channel: string; data: any; success: boolean; error?: any; durationMs: number }> => {
       const startTime = Date.now();
       console.log(`[parallel] Starting ${channel} with model ${config.model}`);
@@ -1926,6 +1928,27 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         const data = await generateAIContentForChannels(currentPrompt, [channel], config);
         const durationMs = Date.now() - startTime;
         console.log(`[parallel] ✅ ${channel} completed in ${(durationMs / 1000).toFixed(1)}s`);
+        
+        // Call streaming callback if provided
+        if (onChannelComplete) {
+          const contentKey = `${channel}_content`;
+          let textContent = '';
+          const channelData = data[contentKey];
+          
+          if (channelData) {
+            if (typeof channelData === 'string') {
+              textContent = channelData;
+            } else if (channelData.content) {
+              textContent = channelData.content;
+            } else if (channelData.body) {
+              textContent = channelData.body;
+            }
+          }
+          
+          const wordCount = textContent.split(/\s+/).filter((w: string) => w.length > 0).length;
+          onChannelComplete({ channel, content: textContent, wordCount });
+        }
+        
         return { channel, data, success: true, durationMs };
       } catch (error: any) {
         const durationMs = Date.now() - startTime;
@@ -1935,7 +1958,11 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     };
 
     // Generate all channels in parallel (chunked to avoid rate limits)
-    const generateChannelsInParallel = async (currentPrompt: string): Promise<any> => {
+    // Optional streaming callback for real-time progress
+    const generateChannelsInParallel = async (
+      currentPrompt: string,
+      onChannelComplete?: (result: { channel: string; content: string; wordCount: number }) => void
+    ): Promise<any> => {
       const channels = formData.channels;
       const totalStart = Date.now();
       
@@ -1971,7 +1998,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         const chunkResults = await Promise.all(
           chunk.map(channel => {
             const config = channelModelMap.get(channel)!;
-            return generateSingleChannel(currentPrompt, channel, config);
+            return generateSingleChannel(currentPrompt, channel, config, onChannelComplete);
           })
         );
         
@@ -2024,10 +2051,14 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     };
 
     // Multi-model generation: uses parallel by default for speed
-    const generateWithMultipleModels = async (currentPrompt: string): Promise<any> => {
+    // Optional streaming callback for real-time progress
+    const generateWithMultipleModels = async (
+      currentPrompt: string,
+      onChannelComplete?: (result: { channel: string; content: string; wordCount: number }) => void
+    ): Promise<any> => {
       // Use parallel generation for multiple channels
       if (PARALLEL_GENERATION && formData.channels.length > 1) {
-        return generateChannelsInParallel(currentPrompt);
+        return generateChannelsInParallel(currentPrompt, onChannelComplete);
       }
       
       // Fallback: single channel or parallel disabled
