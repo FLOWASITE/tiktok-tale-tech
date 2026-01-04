@@ -107,6 +107,8 @@ export function MultiChannelPreviewDialog({
   formData,
   onConfirm,
 }: MultiChannelPreviewDialogProps) {
+  const channels = Array.isArray(formData.channels) ? formData.channels : [];
+
   const [previews, setPreviews] = useState<Record<Channel, ChannelPreview>>({} as Record<Channel, ChannelPreview>);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
@@ -114,9 +116,9 @@ export function MultiChannelPreviewDialog({
 
   // Initialize previews when dialog opens
   useEffect(() => {
-    if (open && formData.channels.length > 0) {
+    if (open && channels.length > 0) {
       const initialPreviews: Record<Channel, ChannelPreview> = {} as Record<Channel, ChannelPreview>;
-      formData.channels.forEach(ch => {
+      channels.forEach((ch) => {
         initialPreviews[ch] = {
           channel: ch,
           content: null,
@@ -127,14 +129,14 @@ export function MultiChannelPreviewDialog({
         };
       });
       setPreviews(initialPreviews);
-      setActiveChannel(formData.channels[0]);
+      setActiveChannel(channels[0]);
     }
-  }, [open, formData.channels]);
+  }, [open, channels]);
 
   const generatePreview = useCallback(async (channel: Channel) => {
-    setPreviews(prev => ({
+    setPreviews((prev) => ({
       ...prev,
-      [channel]: { ...prev[channel], isLoading: true, error: null, isEditing: false }
+      [channel]: { ...prev[channel], isLoading: true, error: null, isEditing: false },
     }));
 
     try {
@@ -151,34 +153,34 @@ export function MultiChannelPreviewDialog({
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
 
-      setPreviews(prev => ({
+      setPreviews((prev) => ({
         ...prev,
-        [channel]: { 
-          ...prev[channel], 
-          content: data.preview, 
+        [channel]: {
+          ...prev[channel],
+          content: data.preview,
           editedContent: null,
-          isLoading: false 
-        }
+          isLoading: false,
+        },
       }));
     } catch (err) {
       console.error("Preview error:", err);
       const message = err instanceof Error ? err.message : "Failed to generate preview";
-      setPreviews(prev => ({
+      setPreviews((prev) => ({
         ...prev,
-        [channel]: { ...prev[channel], error: message, isLoading: false }
+        [channel]: { ...prev[channel], error: message, isLoading: false },
       }));
     }
   }, [formData]);
 
   const generateAllPreviews = useCallback(async () => {
     setIsGeneratingAll(true);
-    
+
     // Generate all previews in parallel
-    await Promise.all(formData.channels.map(ch => generatePreview(ch)));
-    
+    await Promise.all(channels.map((ch) => generatePreview(ch)));
+
     setIsGeneratingAll(false);
     toast.success("Đã tạo preview cho tất cả kênh");
-  }, [formData.channels, generatePreview]);
+  }, [channels, generatePreview]);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -191,11 +193,14 @@ export function MultiChannelPreviewDialog({
 
   const navigateChannel = (direction: 'prev' | 'next') => {
     if (!activeChannel) return;
-    const currentIndex = formData.channels.indexOf(activeChannel);
-    const newIndex = direction === 'prev' 
-      ? (currentIndex - 1 + formData.channels.length) % formData.channels.length
-      : (currentIndex + 1) % formData.channels.length;
-    setActiveChannel(formData.channels[newIndex]);
+    if (channels.length === 0) return;
+
+    const currentIndex = channels.indexOf(activeChannel);
+    const newIndex =
+      direction === 'prev'
+        ? (currentIndex - 1 + channels.length) % channels.length
+        : (currentIndex + 1) % channels.length;
+    setActiveChannel(channels[newIndex]);
   };
 
   // Edit functions
@@ -291,12 +296,11 @@ export function MultiChannelPreviewDialog({
   const selectedGoal = CONTENT_GOALS.find((g) => g.value === formData.contentGoal);
   const GoalIcon = selectedGoal?.icon || Sparkles;
 
-  const hasAnyPreview = Object.values(previews).some(p => p.content);
-  const hasAnyLoading = Object.values(previews).some(p => p.isLoading);
-  const hasAnyEdits = formData.channels.some(ch => isEdited(ch));
-  const allGenerated = formData.channels.every(ch => previews[ch]?.content);
-  const editedCount = formData.channels.filter(ch => isEdited(ch)).length;
-
+  const hasAnyPreview = Object.values(previews).some((p) => p.content);
+  const hasAnyLoading = Object.values(previews).some((p) => p.isLoading);
+  const hasAnyEdits = channels.some((ch) => isEdited(ch));
+  const allGenerated = channels.every((ch) => previews[ch]?.content);
+  const editedCount = channels.filter((ch) => isEdited(ch)).length;
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
@@ -359,7 +363,7 @@ export function MultiChannelPreviewDialog({
                 {allGenerated ? 'Tạo lại tất cả' : 'Tạo preview tất cả kênh'}
               </Button>
               <Badge variant="outline" className="text-xs">
-                {formData.channels.length} kênh
+                {channels.length} kênh
               </Badge>
             </div>
 
@@ -388,13 +392,15 @@ export function MultiChannelPreviewDialog({
           {/* Preview Area */}
           <ScrollArea className="flex-1 h-[400px]">
             {viewMode === 'grid' ? (
-              <div className={cn(
-                "grid gap-4 pr-4",
-                formData.channels.length === 1 && "grid-cols-1",
-                formData.channels.length === 2 && "grid-cols-1 md:grid-cols-2",
-                formData.channels.length >= 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-              )}>
-                {formData.channels.map((ch) => {
+              <div
+                className={cn(
+                  "grid gap-4 pr-4",
+                  channels.length === 1 && "grid-cols-1",
+                  channels.length === 2 && "grid-cols-1 md:grid-cols-2",
+                  channels.length >= 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                )}
+              >
+                {channels.map((ch) => {
                   const preview = previews[ch];
                   const channelInfo = CHANNELS.find((c) => c.value === ch);
                   const edited = isEdited(ch);
@@ -530,14 +536,14 @@ export function MultiChannelPreviewDialog({
                     variant="outline"
                     size="sm"
                     onClick={() => navigateChannel('prev')}
-                    disabled={formData.channels.length <= 1}
+                    disabled={channels.length <= 1}
                   >
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Trước
                   </Button>
                   
                   <div className="flex items-center gap-2 flex-wrap justify-center">
-                    {formData.channels.map((ch) => {
+                    {channels.map((ch) => {
                       const channelInfo = CHANNELS.find((c) => c.value === ch);
                       const isActive = activeChannel === ch;
                       const preview = previews[ch];
@@ -571,7 +577,7 @@ export function MultiChannelPreviewDialog({
                     variant="outline"
                     size="sm"
                     onClick={() => navigateChannel('next')}
-                    disabled={formData.channels.length <= 1}
+                    disabled={channels.length <= 1}
                   >
                     Sau
                     <ArrowRight className="w-4 h-4 ml-1" />
@@ -722,7 +728,7 @@ export function MultiChannelPreviewDialog({
           <div className="text-xs text-muted-foreground space-y-1">
             {hasAnyPreview && (
               <div>
-                Đã tạo {Object.values(previews).filter(p => p.content).length}/{formData.channels.length} preview
+                Đã tạo {Object.values(previews).filter((p) => p.content).length}/{channels.length} preview
               </div>
             )}
             {hasAnyEdits && (
