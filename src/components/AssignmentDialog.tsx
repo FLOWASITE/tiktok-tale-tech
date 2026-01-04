@@ -76,8 +76,8 @@ export const AssignmentDialog = ({
     setNotes('');
   };
 
-  const availableChannels = CHANNELS.filter(c => selectedChannels.includes(c.value as Channel));
-
+  const safeSelectedChannels: Channel[] = Array.isArray(selectedChannels) ? selectedChannels : [];
+  const availableChannels = CHANNELS.filter((c) => safeSelectedChannels.includes(c.value as Channel));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
