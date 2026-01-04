@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 interface ContentMockupToggleProps {
   channel: Channel;
   content: string;
-  brandName: string;
+  brandName?: string | null;
   logoUrl?: string;
   primaryColor?: string;
   isLoading?: boolean;
@@ -43,6 +43,11 @@ export function ContentMockupToggle({
   channelImage,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
+  
+  // Normalize brandName to prevent crashes
+  const safeBrandName = typeof brandName === 'string' && brandName.trim() 
+    ? brandName.trim() 
+    : 'Brand';
 
   return (
     <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
@@ -50,7 +55,7 @@ export function ContentMockupToggle({
         <ChannelMockupFrame
           channel={mockupType}
           content={content}
-          brandName={brandName}
+          brandName={safeBrandName}
           logoUrl={logoUrl}
           primaryColor={primaryColor}
           isGenerating={isLoading}
