@@ -20,28 +20,38 @@ interface UseStreamingGenerationOptions {
   onError?: (error: string) => void;
 }
 
+// Abort reason types for selective error handling
+type AbortReason = 'user' | 'replaced' | 'watchdog' | null;
+
 export function useStreamingGeneration(options: UseStreamingGenerationOptions = {}) {
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastEventTimeRef = useRef<number>(Date.now());
   const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortReasonRef = useRef<AbortReason>(null);
 
   // Watchdog timeout in ms - cancel if no events received for this duration
   // Increased to 90s to handle slow AI models (e.g., kimi-k2) without false positives
   const WATCHDOG_TIMEOUT_MS = 90000; // 90 seconds
 
-  const generate = useCallback(async (formData: any): Promise<any> => {
-    // Cancel any existing generation
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+  const cleanupTimers = useCallback(() => {
     if (watchdogTimerRef.current) {
       clearInterval(watchdogTimerRef.current);
       watchdogTimerRef.current = null;
     }
+  }, []);
+
+  const generate = useCallback(async (formData: any): Promise<any> => {
+    // Cancel any existing generation (mark as "replaced" - no error toast)
+    if (abortControllerRef.current) {
+      abortReasonRef.current = 'replaced';
+      abortControllerRef.current.abort();
+    }
+    cleanupTimers();
 
     abortControllerRef.current = new AbortController();
+    abortReasonRef.current = null; // Reset abort reason for new request
     lastEventTimeRef.current = Date.now();
     setIsGenerating(true);
     setProgress({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
@@ -91,16 +101,14 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
         if (timeSinceLastEvent > WATCHDOG_TIMEOUT_MS) {
           console.warn(`[streaming] Watchdog triggered: no events for ${timeSinceLastEvent}ms, aborting...`);
+          abortReasonRef.current = 'watchdog';
           if (abortControllerRef.current) {
             abortControllerRef.current.abort();
           }
-          if (watchdogTimerRef.current) {
-            clearInterval(watchdogTimerRef.current);
-            watchdogTimerRef.current = null;
-          }
+          cleanupTimers();
           setIsGenerating(false);
-          setProgress({ type: 'error', message: 'Kết nối bị gián đoạn, vui lòng thử lại.' });
-          options.onError?.('Kết nối bị gián đoạn, vui lòng thử lại.');
+          setProgress({ type: 'error', message: 'Kết nối streaming bị ngắt quá lâu. Vui lòng thử lại.' });
+          options.onError?.('Kết nối streaming bị ngắt quá lâu. Vui lòng thử lại.');
         }
       }, 5000); // Check every 5 seconds
 
@@ -127,10 +135,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
             if (jsonStr === '[DONE]') {
               // Server signaled end, cancel reader and exit
               console.log('[streaming] Received [DONE] marker, closing stream');
-              if (watchdogTimerRef.current) {
-                clearInterval(watchdogTimerRef.current);
-                watchdogTimerRef.current = null;
-              }
+              cleanupTimers();
               await reader.cancel();
               setIsGenerating(false);
               setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -147,10 +152,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
                 options.onComplete?.(event.data);
                 // Immediately cancel reader and resolve - don't wait for stream to close
                 console.log('[streaming] Received result event, closing stream');
-                if (watchdogTimerRef.current) {
-                  clearInterval(watchdogTimerRef.current);
-                  watchdogTimerRef.current = null;
-                }
+                cleanupTimers();
                 await reader.cancel();
                 setIsGenerating(false);
                 setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -186,10 +188,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       }
 
       // Clear watchdog timer
-      if (watchdogTimerRef.current) {
-        clearInterval(watchdogTimerRef.current);
-        watchdogTimerRef.current = null;
-      }
+      cleanupTimers();
 
       setIsGenerating(false);
       setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
@@ -197,13 +196,19 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       return result;
     } catch (error) {
       // Clear watchdog timer on error
-      if (watchdogTimerRef.current) {
-        clearInterval(watchdogTimerRef.current);
-        watchdogTimerRef.current = null;
-      }
+      cleanupTimers();
 
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Generation cancelled');
+        const reason = abortReasonRef.current;
+        console.log(`[streaming] Generation aborted, reason: ${reason}`);
+        
+        // Only show error for watchdog timeout, not for user cancel or replaced requests
+        if (reason === 'watchdog') {
+          // Already handled in watchdog interval
+        }
+        // For 'user' and 'replaced' - silent abort, no toast
+        setIsGenerating(false);
+        setProgress(null);
         return null;
       }
 
@@ -213,19 +218,17 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       setIsGenerating(false);
       throw error;
     }
-  }, [options]);
+  }, [options, cleanupTimers]);
 
   const cancel = useCallback(() => {
-    if (watchdogTimerRef.current) {
-      clearInterval(watchdogTimerRef.current);
-      watchdogTimerRef.current = null;
-    }
+    abortReasonRef.current = 'user';
+    cleanupTimers();
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsGenerating(false);
       setProgress(null);
     }
-  }, []);
+  }, [cleanupTimers]);
 
   return {
     generate,

@@ -271,6 +271,12 @@ export default function MultiChannel() {
   };
 
   const handleGenerateContent = async (data: any) => {
+    // Guard: prevent double-submit if already generating
+    if (isGenerating) {
+      console.log('[MultiChannel] Blocked double-submit: generation already in progress');
+      return;
+    }
+    
     setGeneratingChannelCount(data.channels?.length || 3);
     
     // Store topicHistoryId for use in onComplete callback
