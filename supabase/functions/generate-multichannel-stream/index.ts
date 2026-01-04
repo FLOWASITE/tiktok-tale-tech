@@ -5,7 +5,9 @@ import {
   fetchStreamingContext, 
   buildStreamingPrompt, 
   getChannelDisplayName,
+  formatFooterInfo,
   type StreamingPromptInput,
+  type FetchedContext,
 } from "../_shared/channel-prompt-builder.ts";
 import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";
 
@@ -269,6 +271,29 @@ serve(async (req) => {
               isComplete: true,
             },
           });
+
+          // Append footer info to the content
+          const footerText = formatFooterInfo(
+            context.footerInfo,
+            channel,
+            context.brandAllowEmoji,
+            context.channelOverrides,
+            context.companyName,
+            context.tagline
+          );
+          
+          if (footerText) {
+            fullContent += footerText;
+            // Emit footer as final chunk
+            emit({
+              type: 'streaming_text',
+              streamingChunk: {
+                channel,
+                text: footerText,
+                isComplete: false,
+              },
+            });
+          }
 
           completedChannels.push(channel);
           channelResults[channel] = fullContent;
