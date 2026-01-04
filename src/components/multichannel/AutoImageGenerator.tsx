@@ -125,7 +125,7 @@ export function AutoImageGenerator({
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('auto');
   const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
   const [negativePrompt, setNegativePrompt] = useState('');
-  const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content.selected_channels);
+  const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
   const [showPreview, setShowPreview] = useState(false);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
   const [advancedMode, setAdvancedMode] = useState(false);
@@ -352,7 +352,7 @@ export function AutoImageGenerator({
             <div className="space-y-3">
               <Label>Chọn kênh cần tạo ảnh</Label>
               <div className="grid grid-cols-2 gap-2">
-                {content.selected_channels.map(channel => {
+                {(content?.selected_channels ?? []).map(channel => {
                   const hasImage = !!content.channel_images?.[channel]?.url;
                   const isSelected = selectedChannels.includes(channel);
                   const status = progress[channel];

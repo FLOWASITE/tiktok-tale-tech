@@ -38,10 +38,12 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
 }
 
 function countWords(text: string): number {
+  if (typeof text !== 'string') return 0;
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 function countCharacters(text: string): number {
+  if (typeof text !== 'string') return 0;
   return text.length;
 }
 
@@ -89,7 +91,7 @@ export function ChannelComparison({
             <span className="text-sm text-muted-foreground mr-2 self-center">
               Chọn 2-3 kênh để so sánh:
             </span>
-            {content.selected_channels.map((channel) => {
+            {(content?.selected_channels ?? []).map((channel) => {
               const config = channelConfig[channel];
               const isSelected = selectedChannels.includes(channel);
               const isDisabled = !isSelected && selectedChannels.length >= 3;
