@@ -273,19 +273,27 @@ export default function MultiChannel() {
   const handleGenerateContent = async (data: any) => {
     setGeneratingChannelCount(data.channels?.length || 3);
     
+    // Store topicHistoryId for use in onComplete callback
+    const currentTopicHistoryId = data.topicHistoryId;
+    
     // Use streaming API for real-time progress updates
     const result = await streamGenerate(data);
     
+    // When result is available, immediately update UI
     if (result) {
+      // Close form panel immediately when result is ready
       setFormSheetOpen(false);
       
-      if (data.topicHistoryId) {
+      // Link to topic history if applicable
+      if (currentTopicHistoryId) {
         try {
-          await createLink(data.topicHistoryId, result.id, 'multichannel', result.title, result.status);
+          await createLink(currentTopicHistoryId, result.id, 'multichannel', result.title, result.status);
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }
       }
+      
+      // Show post-creation prompt
       setNewlyCreatedContent(result);
       setShowPostCreationPrompt(true);
       setTopicHistoryId(undefined);
@@ -607,32 +615,33 @@ export default function MultiChannel() {
       </div>
 
       {/* Form Panel - Prevent closing while generating */}
-      <SlidePanel
-        open={formSheetOpen}
-        onOpenChange={(open) => {
-          // Prevent closing while generating
-          if (!open && generating) return;
-          setFormSheetOpen(open);
-        }}
-        title={
-          <>
-            <Plus className="w-5 h-5 text-primary" />
-            Tạo nội dung đa kênh mới
-          </>
-        }
-        description="Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc"
-      >
-        <MultiChannelFormStepper
-          onSubmit={handleGenerateContent}
-          isLoading={generating}
-          initialTopic={initialTopic}
-          initialGoal={initialGoal}
-          topicHistoryId={topicHistoryId}
-          initialContentPurpose={initialContentPurpose as any}
-          initialMarketingFramework={initialMarketingFramework as any}
-          generationElapsedMs={generationElapsedMs}
-        />
-      </SlidePanel>
+        <SlidePanel
+          open={formSheetOpen}
+          onOpenChange={(open) => {
+            // Prevent closing while streaming is in progress
+            if (!open && isGenerating) return;
+            setFormSheetOpen(open);
+          }}
+          title={
+            <>
+              <Plus className="w-5 h-5 text-primary" />
+              Tạo nội dung đa kênh mới
+            </>
+          }
+          description="Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc"
+        >
+          <MultiChannelFormStepper
+            onSubmit={handleGenerateContent}
+            isLoading={isGenerating}
+            initialTopic={initialTopic}
+            initialGoal={initialGoal}
+            topicHistoryId={topicHistoryId}
+            initialContentPurpose={initialContentPurpose as any}
+            initialMarketingFramework={initialMarketingFramework as any}
+            generationElapsedMs={generationElapsedMs}
+            sseProgress={sseProgress}
+          />
+        </SlidePanel>
 
       {/* Viewer Dialog */}
       <MultiChannelViewer
