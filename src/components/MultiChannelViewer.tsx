@@ -375,7 +375,8 @@ export function MultiChannelViewer({
   );
 
   // State for selected channel in new layout - must be before early return
-  const [selectedChannel, setSelectedChannel] = useState<Channel>(content?.selected_channels?.[0] || 'facebook');
+  const safeChannels = Array.isArray(content?.selected_channels) ? content.selected_channels : [];
+  const [selectedChannel, setSelectedChannel] = useState<Channel>(safeChannels[0] || 'facebook');
 
   if (!content) return null;
 
@@ -581,7 +582,7 @@ export function MultiChannelViewer({
     exportContent += `Brand: ${content.brand_name}\n`;
     exportContent += `\n---\n\n`;
 
-    content.selected_channels.forEach((channel) => {
+    (content.selected_channels || []).forEach((channel) => {
       const channelContent = getContentForChannel(content, channel);
       if (channelContent) {
         exportContent += `## ${channelConfig[channel].label}\n\n`;
@@ -688,7 +689,7 @@ export function MultiChannelViewer({
               <div className="flex items-center gap-2 shrink-0">
                 {/* Quick Channel Nav */}
                 <QuickChannelNav
-                  channels={content.selected_channels}
+                  channels={content.selected_channels || []}
                   activeChannel={selectedChannel}
                   onChannelChange={setSelectedChannel}
                   className="hidden lg:flex"
@@ -817,7 +818,7 @@ export function MultiChannelViewer({
           <div className="p-6">
             <ChannelImagesGallery
               channelImages={content.channel_images || {}}
-              selectedChannels={content.selected_channels}
+              selectedChannels={content.selected_channels || []}
               onDeleteImage={onDeleteChannelImage ? async (channel) => {
                 setDeletingImageChannel(channel);
                 try {
@@ -1391,7 +1392,7 @@ export function MultiChannelViewer({
         onOpenChange={setAssignmentDialogOpen}
         contentId={content.id}
         contentTitle={content.title}
-        selectedChannels={content.selected_channels}
+        selectedChannels={content.selected_channels || []}
         preselectedChannel={assignmentChannel}
       />
 
