@@ -14,11 +14,12 @@ interface QuickChannelNavProps {
 }
 
 export function QuickChannelNav({
-  channels,
+  channels: rawChannels,
   activeChannel,
   onChannelChange,
   className,
 }: QuickChannelNavProps) {
+  const channels = Array.isArray(rawChannels) ? rawChannels : [];
   const currentIndex = channels.indexOf(activeChannel);
   const canGoPrev = currentIndex > 0;
   const canGoNext = currentIndex < channels.length - 1;

@@ -78,7 +78,7 @@ export const MemberAvatar = forwardRef<HTMLDivElement, MemberAvatarProps>(
           .toUpperCase()
           .slice(0, 2);
       }
-      if (email) {
+      if (email && typeof email === 'string') {
         return email.charAt(0).toUpperCase();
       }
       return 'U';

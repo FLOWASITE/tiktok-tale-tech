@@ -25,7 +25,7 @@ export function CreatorCell({ profile, isLoading }: CreatorCellProps) {
     );
   }
 
-  const displayName = profile.full_name || profile.email?.split('@')[0] || 'Người dùng';
+  const displayName = profile.full_name || (profile.email ? profile.email.split('@')[0] : 'Người dùng');
 
   return (
     <div className="flex items-center gap-2 min-w-0">
