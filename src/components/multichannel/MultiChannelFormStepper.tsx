@@ -84,6 +84,12 @@ import { JourneyStage } from '@/types/customerPersona';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
 
+interface ChannelContentPreview {
+  channel: string;
+  preview: string;
+  wordCount: number;
+}
+
 interface ProgressEvent {
   type: 'progress' | 'result' | 'error';
   step?: string;
@@ -92,6 +98,7 @@ interface ProgressEvent {
   currentChannel?: string;
   completedChannels?: string[];
   totalChannels?: string[];
+  channelContents?: ChannelContentPreview[];
 }
 
 interface MultiChannelFormStepperProps {
@@ -923,6 +930,7 @@ export function MultiChannelFormStepper({
                       completedChannels={sseProgress?.completedChannels}
                       totalChannels={sseProgress?.totalChannels}
                       currentChannel={sseProgress?.currentChannel}
+                      channelContents={sseProgress?.channelContents}
                     />
                   </CardContent>
                 </Card>

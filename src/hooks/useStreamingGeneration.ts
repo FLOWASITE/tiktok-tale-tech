@@ -1,6 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface ChannelContentPreview {
+  channel: string;
+  preview: string;
+  wordCount: number;
+}
+
 export interface ProgressEvent {
   type: 'progress' | 'result' | 'error';
   step?: string;
@@ -12,6 +18,9 @@ export interface ProgressEvent {
   currentChannel?: string;
   completedChannels?: string[];
   totalChannels?: string[];
+  // Real-time content previews
+  channelContent?: ChannelContentPreview;
+  channelContents?: ChannelContentPreview[];
 }
 
 interface UseStreamingGenerationOptions {
