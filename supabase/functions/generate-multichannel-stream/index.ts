@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI, iterateStreamDeltas } from "../_shared/ai-provider.ts";
 import { 
   fetchStreamingContext, 
@@ -289,24 +290,88 @@ serve(async (req) => {
 
         emit({ type: 'progress', step: 'finalize', progress: 90, message: 'Đang lưu kết quả...' });
 
-        // Build result object matching generate-multichannel format
-        const resultData: Record<string, any> = {};
-        for (const channel of channels) {
-          const content = channelResults[channel] || '';
-          resultData[`${channel}_content`] = {
-            content,
-            body: content,
-            word_count: content.split(/\s+/).filter((w: string) => w.length > 0).length,
-          };
+        // ============================================
+        // SAVE TO DATABASE
+        // ============================================
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
+
+        // Get user from JWT
+        const authHeader = req.headers.get('Authorization');
+        const token = authHeader?.replace('Bearer ', '');
+        let userId: string | null = null;
+        
+        if (token) {
+          const { data: { user } } = await supabase.auth.getUser(token);
+          userId = user?.id || null;
         }
 
-        // TODO: Save to database (similar to generate-multichannel)
-        // For now, just return the generated content
+        // Check organization settings for initial status
+        let initialStatus = 'draft';
+        if (organizationId) {
+          const { data: orgSettings } = await supabase
+            .from('organizations')
+            .select('skip_approval, auto_submit_review')
+            .eq('id', organizationId)
+            .single();
+          
+          if (orgSettings?.skip_approval) {
+            initialStatus = 'approved';
+          } else if (orgSettings?.auto_submit_review) {
+            initialStatus = 'review';
+          }
+        }
+
+        // Get brand info from context if available
+        // Note: brandGuideline and primaryColor aren't in BrandContext type, so we skip them
+        const brandName = context.brand?.brandName || null;
+
+        // Insert to database
+        const { data: savedContent, error: dbError } = await supabase
+          .from('multi_channel_contents')
+          .insert({
+            user_id: userId,
+            organization_id: organizationId || null,
+            title: topic.slice(0, 100),
+            topic: topic,
+            content_goal: contentGoal || 'engagement',
+            selected_channels: channels,
+            brand_template_id: brandTemplateId || null,
+            brand_name: brandName,
+            status: initialStatus,
+            // Channel contents
+            website_content: channelResults.website || null,
+            facebook_content: channelResults.facebook || null,
+            instagram_content: channelResults.instagram || null,
+            twitter_content: channelResults.twitter || null,
+            google_maps_content: channelResults.google_maps || null,
+            linkedin_content: channelResults.linkedin || null,
+            email_content: channelResults.email || null,
+            youtube_content: channelResults.youtube || null,
+            zalo_oa_content: channelResults.zalo_oa || null,
+            telegram_content: channelResults.telegram || null,
+            tiktok_content: channelResults.tiktok || null,
+            threads_content: channelResults.threads || null,
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          console.error('[realtime-stream] DB error:', dbError);
+          emit({ type: 'error', message: 'Không thể lưu nội dung: ' + dbError.message });
+          controller.close();
+          return;
+        }
+
+        console.log('[realtime-stream] Saved content with ID:', savedContent.id);
 
         emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
         await delay(100);
 
-        emit({ type: 'result', data: resultData });
+        // Return saved content (includes DB ID for navigation)
+        emit({ type: 'result', data: savedContent });
 
         // Send done signal
         if (!clientDisconnected) {
