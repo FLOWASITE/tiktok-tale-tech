@@ -136,6 +136,31 @@ serve(async (req) => {
           currentChannel: channels[0],
         });
 
+        // Start heartbeat interval to keep connection alive during AI generation
+        let heartbeatCount = 0;
+        heartbeatInterval = setInterval(() => {
+          if (clientDisconnected) return;
+          heartbeatCount++;
+          // Alternate between comment heartbeat and progress update
+          if (heartbeatCount % 3 === 0) {
+            emit({ 
+              type: 'progress', 
+              step: 'ai', 
+              progress: 50 + Math.min(heartbeatCount * 0.5, 20), // slowly increment up to 70%
+              message: `AI đang tạo nội dung... (${heartbeatCount * 2}s)`,
+              totalChannels: channels,
+              completedChannels: [],
+              currentChannel: channels[heartbeatCount % channels.length],
+            });
+          } else {
+            try {
+              controller.enqueue(encoder.encode(': keep-alive\n\n'));
+            } catch {}
+          }
+        }, 2000); // Every 2 seconds
+
+        console.log('[stream] Starting AI generation with heartbeat...');
+
         // Call generate-multichannel
         const aiResponse = await fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
           method: 'POST',
@@ -145,6 +170,13 @@ serve(async (req) => {
           },
           body: JSON.stringify(formData),
         });
+        
+        // Stop heartbeat once we have response
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+        console.log('[stream] AI generation complete, starting typewriter...');
 
         if (!aiResponse.ok) {
           const errorText = await aiResponse.text();
