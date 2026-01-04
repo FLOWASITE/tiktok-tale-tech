@@ -458,7 +458,7 @@ export function KanbanCard({
                     <Avatar className="w-5 h-5 border border-border/50">
                       <AvatarImage src={creator.avatar_url || undefined} />
                       <AvatarFallback className="text-[8px] font-medium bg-muted">
-                        {creator.full_name?.charAt(0) || creator.email.charAt(0).toUpperCase()}
+                        {creator.full_name?.charAt(0) || (creator.email ? creator.email.charAt(0).toUpperCase() : 'U')}
                       </AvatarFallback>
                     </Avatar>
                   </TooltipTrigger>
