@@ -17,17 +17,32 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
 };
 
 // Model prefix to provider mapping
+// IMPORTANT: Lovable Gateway ONLY supports google/gemini-*, openai/gpt-5*, and sonar models
 const MODEL_TO_PROVIDER: Record<string, string> = {
-  "google/": "lovable", // Gemini models via Lovable Gateway
-  "openai/": "lovable", // OpenAI models via Lovable Gateway
-  "gpt-": "openai",     // Direct OpenAI
-  "claude-": "anthropic", // Direct Anthropic
-  "gemini-": "gemini",  // Direct Gemini (without prefix)
-  "openrouter/": "openrouter", // OpenRouter explicit prefix
-  "anthropic/": "openrouter", // Claude via OpenRouter
-  "meta-llama/": "openrouter", // Llama via OpenRouter
-  "mistralai/": "openrouter", // Mistral via OpenRouter
-  "deepseek/": "openrouter", // DeepSeek via OpenRouter
+  // Lovable Gateway models (ONLY these work with Lovable)
+  "google/gemini-": "lovable",   // Gemini models via Lovable Gateway
+  "google/gemini-3": "lovable",  // Gemini 3 models
+  "openai/gpt-5": "lovable",     // GPT-5 models via Lovable Gateway
+  "sonar": "lovable",            // Perplexity sonar models
+  
+  // Direct provider models (user's own API key)
+  "gpt-": "openai",              // Direct OpenAI
+  "claude-": "anthropic",        // Direct Anthropic
+  "gemini-": "gemini",           // Direct Gemini (without prefix)
+  
+  // OpenRouter models (200+ third-party models)
+  "openrouter/": "openrouter",   // OpenRouter explicit prefix
+  "anthropic/": "openrouter",    // Claude via OpenRouter
+  "meta-llama/": "openrouter",   // Llama via OpenRouter
+  "mistralai/": "openrouter",    // Mistral via OpenRouter
+  "deepseek/": "openrouter",     // DeepSeek via OpenRouter
+  "moonshotai/": "openrouter",   // Kimi models via OpenRouter
+  "qwen/": "openrouter",         // Qwen models via OpenRouter
+  "cohere/": "openrouter",       // Cohere models via OpenRouter
+  "perplexity/": "openrouter",   // Perplexity models via OpenRouter
+  "x-ai/": "openrouter",         // xAI/Grok models via OpenRouter
+  "nvidia/": "openrouter",       // NVIDIA models via OpenRouter
+  "01-ai/": "openrouter",        // Yi models via OpenRouter
 };
 
 export interface AICallOptions {
@@ -62,19 +77,40 @@ interface ProviderConfig {
   baseUrl: string | null;
 }
 
+// Known Lovable Gateway model patterns
+const LOVABLE_MODEL_PATTERNS = ["google/gemini-", "openai/gpt-5", "sonar"];
+
+/**
+ * Check if model is supported by Lovable Gateway
+ */
+function isLovableCompatibleModel(model: string): boolean {
+  return LOVABLE_MODEL_PATTERNS.some(pattern => model.startsWith(pattern));
+}
+
 /**
  * Get provider from model name
  */
 function getProviderFromModel(model: string): string {
+  // Check explicit prefixes first
   for (const [prefix, provider] of Object.entries(MODEL_TO_PROVIDER)) {
     if (model.startsWith(prefix)) {
       return provider;
     }
   }
-  // Default to Lovable Gateway for any model with / prefix
-  if (model.includes("/")) {
+  
+  // Check if it's a known Lovable-supported model
+  if (isLovableCompatibleModel(model)) {
     return "lovable";
   }
+  
+  // For any other model with provider prefix (e.g., "xyz/model-name"),
+  // route to OpenRouter as it supports 200+ models
+  if (model.includes("/")) {
+    console.log(`[ai-provider] Unknown model prefix "${model}", routing to OpenRouter`);
+    return "openrouter";
+  }
+  
+  // Models without prefix default to Lovable
   return "lovable";
 }
 
@@ -613,11 +649,17 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
         return result;
       }
 
-      // Fallback to Lovable Gateway on failure
-      console.warn(`[ai-provider] ${primaryProvider} failed, falling back to Lovable Gateway`);
-      const fallbackResult = await callLovableGateway(messages, effectiveModel, effectiveConfig, options);
-      fallbackResult.fromFallback = true;
-      return fallbackResult;
+      // Fallback to Lovable Gateway ONLY if model is Lovable-compatible
+      if (isLovableCompatibleModel(effectiveModel)) {
+        console.warn(`[ai-provider] ${primaryProvider} failed, falling back to Lovable Gateway`);
+        const fallbackResult = await callLovableGateway(messages, effectiveModel, effectiveConfig, options);
+        fallbackResult.fromFallback = true;
+        return fallbackResult;
+      } else {
+        // Don't fallback - Lovable won't support this model anyway
+        console.error(`[ai-provider] ${primaryProvider} failed, no fallback for model: ${effectiveModel}`);
+        return result;
+      }
     }
   }
 
