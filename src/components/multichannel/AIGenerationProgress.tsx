@@ -132,12 +132,16 @@ export function AIGenerationProgress({
   sseStep,
   sseProgress,
   sseMessage,
-  completedChannels,
-  totalChannels,
+  completedChannels: completedChannelsProp,
+  totalChannels: totalChannelsProp,
   currentChannel,
   channelContents,
   streamingTexts,
 }: AIGenerationProgressProps) {
+  // Ensure arrays are always arrays (handle undefined from SSE events)
+  const completedChannels = completedChannelsProp ?? [];
+  const totalChannels = totalChannelsProp ?? [];
+  
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   
   // Use external elapsed if provided, otherwise track internally

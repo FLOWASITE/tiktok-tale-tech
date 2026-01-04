@@ -101,10 +101,14 @@ export function GeneratingBanner({
   sseMessage,
   retryCount = 0,
   currentChannel,
-  completedChannels = [],
-  totalChannels = [],
+  completedChannels: completedChannelsProp,
+  totalChannels: totalChannelsProp,
   streamingTexts,
 }: GeneratingBannerProps) {
+  // Ensure arrays are always arrays (handle undefined from SSE events)
+  const completedChannels = completedChannelsProp ?? [];
+  const totalChannels = totalChannelsProp ?? [];
+  
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [lastProgressChangeTime, setLastProgressChangeTime] = useState(Date.now());
