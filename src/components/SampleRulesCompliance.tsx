@@ -24,6 +24,7 @@ interface SampleRulesComplianceProps {
 
 // Count words in text
 function countWords(text: string): number {
+  if (typeof text !== 'string') return 0;
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 
