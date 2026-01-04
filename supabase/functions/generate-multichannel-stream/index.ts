@@ -59,6 +59,11 @@ serve(async (req) => {
     async start(controller) {
       const encoder = new TextEncoder();
       
+      // Anti-buffering: Send 2KB padding comment to force proxy flush
+      try {
+        controller.enqueue(encoder.encode(':' + ' '.repeat(2048) + '\n\n'));
+      } catch {}
+      
       // Safe emit function that handles client disconnect
       const emit = (event: ProgressEvent) => {
         if (clientDisconnected) {
@@ -156,6 +161,9 @@ serve(async (req) => {
         const completedChannels: string[] = [];
         const progressPerChannel = channels.length > 0 ? (maxProgressWhileWaiting - 50) / channels.length : 22;
 
+        // Keep-alive comment counter for anti-buffering
+        let keepAliveCounter = 0;
+        
         heartbeatInterval = setInterval(() => {
           if (clientDisconnected) {
             if (heartbeatInterval) {
@@ -163,6 +171,14 @@ serve(async (req) => {
               heartbeatInterval = null;
             }
             return;
+          }
+          
+          // Every 10s, send SSE comment keep-alive to force flush through proxies
+          keepAliveCounter++;
+          if (keepAliveCounter % 10 === 0) {
+            try {
+              controller.enqueue(encoder.encode(': keep-alive\n\n'));
+            } catch {}
           }
           
           if (currentProgress < maxProgressWhileWaiting && channels.length > 0) {
@@ -346,9 +362,10 @@ serve(async (req) => {
   return new Response(stream, {
     headers: {
       ...corsHeaders,
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   });
 });

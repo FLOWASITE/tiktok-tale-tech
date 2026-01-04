@@ -34,12 +34,14 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const generatingRef = useRef(false);
 
   // Watchdog timeout in ms - cancel if no events received for this duration
-  // Increased to 90s to handle slow AI models (e.g., kimi-k2) without false positives
-  const WATCHDOG_TIMEOUT_MS = 90000; // 90 seconds
+  // Increased to 150s to handle slow AI models and buffering without false positives
+  const WATCHDOG_TIMEOUT_MS = 150000; // 150 seconds
+  // Grace period for first byte - shorter timeout for initial connection
+  const FIRST_BYTE_TIMEOUT_MS = 30000; // 30 seconds
 
   const cleanupTimers = useCallback(() => {
     if (watchdogTimerRef.current) {
-      clearInterval(watchdogTimerRef.current);
+      clearTimeout(watchdogTimerRef.current);
       watchdogTimerRef.current = null;
     }
   }, []);
@@ -105,21 +107,32 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         throw new Error('Không thể đọc response stream');
       }
 
-      // Start watchdog timer to detect stale connections
-      watchdogTimerRef.current = setInterval(() => {
-        const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
-        if (timeSinceLastEvent > WATCHDOG_TIMEOUT_MS) {
-          console.warn(`[streaming] Watchdog triggered: no events for ${timeSinceLastEvent}ms, aborting...`);
+      // Track if we've received the first byte
+      let receivedFirstByte = false;
+      
+      // Sliding-window watchdog: reset timer on each chunk received
+      const resetWatchdog = (isFirstByte = false) => {
+        cleanupTimers();
+        const timeout = isFirstByte ? WATCHDOG_TIMEOUT_MS : (receivedFirstByte ? WATCHDOG_TIMEOUT_MS : FIRST_BYTE_TIMEOUT_MS);
+        watchdogTimerRef.current = setTimeout(() => {
+          const errorMsg = receivedFirstByte 
+            ? 'Kết nối streaming bị ngắt quá lâu. Vui lòng thử lại.'
+            : 'Không nhận được dữ liệu từ máy chủ. Kiểm tra mạng và thử lại.';
+          console.warn(`[streaming] Watchdog triggered: no events for ${timeout}ms, aborting...`);
           abortReasonRef.current = 'watchdog';
           if (abortControllerRef.current) {
             abortControllerRef.current.abort();
           }
           cleanupTimers();
+          generatingRef.current = false;
           setIsGenerating(false);
-          setProgress({ type: 'error', message: 'Kết nối streaming bị ngắt quá lâu. Vui lòng thử lại.' });
-          options.onError?.('Kết nối streaming bị ngắt quá lâu. Vui lòng thử lại.');
-        }
-      }, 5000); // Check every 5 seconds
+          setProgress({ type: 'error', message: errorMsg });
+          options.onError?.(errorMsg);
+        }, timeout);
+      };
+      
+      // Start initial watchdog (waiting for first byte)
+      resetWatchdog();
 
       const decoder = new TextDecoder();
       let buffer = '';
@@ -131,8 +144,13 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Update last event time on any data received
+        // Update last event time and reset watchdog on any data received
         lastEventTimeRef.current = Date.now();
+        if (!receivedFirstByte) {
+          receivedFirstByte = true;
+          console.log('[streaming] First byte received');
+        }
+        resetWatchdog(true);
 
         // Parse SSE events line by line
         const lines = buffer.split('\n');
