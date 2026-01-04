@@ -191,12 +191,13 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
               return result;
             }
 
-            try {
+              try {
               const event = JSON.parse(jsonStr) as ProgressEvent;
               
               // Handle streaming text chunks - accumulate for typewriter effect
               if (event.type === 'streaming_text' && event.streamingChunk) {
-                const { channel, text } = event.streamingChunk;
+                const { channel, text, isComplete } = event.streamingChunk;
+                console.log(`[streaming_text] ${channel}: +${text.length} chars, complete: ${isComplete}`);
                 setStreamingTexts(prev => ({
                   ...prev,
                   [channel]: (prev[channel] || '') + text,
