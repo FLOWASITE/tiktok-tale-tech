@@ -103,8 +103,8 @@ export default function MultiChannel() {
     },
   });
 
-  // Combined generating state
-  const isGenerating = generating || isStreamGenerating;
+  // Use streaming state as primary generating indicator
+  const isGenerating = isStreamGenerating;
 
   // Track elapsed time while generating
   useEffect(() => {
@@ -272,12 +272,11 @@ export default function MultiChannel() {
 
   const handleGenerateContent = async (data: any) => {
     setGeneratingChannelCount(data.channels?.length || 3);
-    // Don't close the panel immediately - let user see progress in Step 4
-    // Panel will close after generation completes successfully
-    const result = await generateContent(data);
+    
+    // Use streaming API for real-time progress updates
+    const result = await streamGenerate(data);
     
     if (result) {
-      // Close panel only after successful generation
       setFormSheetOpen(false);
       
       if (data.topicHistoryId) {
