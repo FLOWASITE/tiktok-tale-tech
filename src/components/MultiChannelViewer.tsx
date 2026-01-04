@@ -209,11 +209,13 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
   }
 }
 
-function countWords(text: string): number {
+function countWords(text: string | null | undefined): number {
+  if (!text || typeof text !== 'string') return 0;
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-function countCharacters(text: string): number {
+function countCharacters(text: string | null | undefined): number {
+  if (!text || typeof text !== 'string') return 0;
   return text.length;
 }
 
