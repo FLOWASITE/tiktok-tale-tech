@@ -7,7 +7,7 @@ import {
   getChannelDisplayName,
   type StreamingPromptInput,
 } from "../_shared/channel-prompt-builder.ts";
-import { getAIConfig } from "../_shared/ai-config.ts";
+import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,9 +116,13 @@ serve(async (req) => {
 
         emit({ type: 'progress', step: 'context', progress: 20, message: 'Đã tải context ✓' });
 
-        // Get AI config
+        // Get AI config (fallback for channels without specific config)
         const aiConfig = await getAIConfig('generate-multichannel', organizationId);
-        console.log(`[realtime-stream] Using model: ${aiConfig.model}`);
+        console.log(`[realtime-stream] Default function model: ${aiConfig.model}`);
+
+        // Get per-channel model configs
+        const channelConfigs = await getChannelModelConfigs(organizationId);
+        console.log(`[realtime-stream] Channel configs loaded: ${channelConfigs.size} channels configured`);
 
         emit({ 
           type: 'progress', 
@@ -180,12 +184,19 @@ serve(async (req) => {
 
           const prompt = buildStreamingPrompt(promptInput, context);
 
-          // Call AI with streaming - use 'generate-multichannel' functionName to inherit correct model config
-          // This ensures OpenRouter models (e.g., anthropic/claude-*) route correctly
+          // Determine model for this channel: Channel Config > Function Config > Default
+          const channelConfig = channelConfigs.get(channel);
+          const effectiveModel = channelConfig?.model || aiConfig.model;
+          const effectiveTemperature = channelConfig?.temperature ?? aiConfig.temperature ?? 0.7;
+          
+          console.log(`[realtime-stream] Channel ${channel} using model: ${effectiveModel}${channelConfig ? ' (from channel config)' : ' (fallback from function)'}`);
+
+          // Call AI with streaming
           const aiResult = await callAI({
             functionName: 'generate-multichannel',
             organizationId,
-            modelOverride: aiConfig.model, // Force use the model from aiConfig
+            modelOverride: effectiveModel, // Per-channel model
+            temperatureOverride: effectiveTemperature,
             messages: [
               { role: 'system', content: prompt.system },
               { role: 'user', content: prompt.user },
@@ -193,7 +204,7 @@ serve(async (req) => {
             stream: true,
           });
           
-          console.log(`[realtime-stream] AI call for ${channel} using model: ${aiConfig.model}, provider: ${aiResult.provider || 'unknown'}`);
+          console.log(`[realtime-stream] AI call for ${channel} completed, provider: ${aiResult.provider || 'unknown'}`);
 
           if (!aiResult.success || !aiResult.data) {
             console.error(`[realtime-stream] AI failed for ${channel}:`, aiResult.error);
