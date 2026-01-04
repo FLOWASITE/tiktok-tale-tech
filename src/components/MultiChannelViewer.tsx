@@ -864,7 +864,7 @@ export function MultiChannelViewer({
               </div>
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
-                  {content.selected_channels.map((channel) => {
+                  {(content?.selected_channels ?? []).map((channel) => {
                     const config = channelConfig[channel];
                     const isRegenerating = regeneratingChannel === channel;
                     const hasImage = !!(content.channel_images?.[channel]?.url);
