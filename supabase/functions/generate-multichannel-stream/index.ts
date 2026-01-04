@@ -194,35 +194,60 @@ serve(async (req) => {
           return;
         }
 
-        // Step 7: Self-critique - include channel info
+        // Parse result FIRST - this is when backend is truly done
+        const parseStart = Date.now();
+        const result = await response.json();
+        console.log(`[timing] Parse result: ${Date.now() - parseStart}ms`);
+        
+        // Now emit steps with accurate timing AFTER we have the result
+        // Backend already did critique + footer + save, so these are just UI updates
+        
+        // Step 7: Self-critique (already done by backend)
         emit({ 
           type: 'progress', 
           step: 'critique', 
           progress: 75, 
-          message: 'Đánh giá chất lượng...',
+          message: 'AI đã kiểm tra chất lượng nội dung ✓',
           completedChannels: channels,
           totalChannels: channels,
         });
+        await delay(300);
 
-        // Step 8: Finalize - include channel info
+        // Step 8: Footer Info (already done by backend)
         emit({ 
           type: 'progress', 
           step: 'finalize', 
-          progress: 90, 
-          message: 'Lưu và hoàn thiện...',
+          progress: 85, 
+          message: 'Đã chèn Footer Info ✓',
           completedChannels: channels,
           totalChannels: channels,
         });
-        
-        // Parse result
-        const result = await response.json();
+        await delay(200);
+
+        // Step 9: Save to DB (already done by backend)
+        emit({ 
+          type: 'progress', 
+          step: 'finalize', 
+          progress: 95, 
+          message: 'Đã lưu vào cơ sở dữ liệu ✓',
+          completedChannels: channels,
+          totalChannels: channels,
+        });
+        await delay(200);
         
         if (result.error) {
           emit({ type: 'error', message: result.error });
         } else {
-          // Step 9: Complete
+          // Step 10: Complete - emit with small delay to ensure client receives it
           emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
+          await delay(100);
+          
+          // Emit result and [DONE] marker
           emit({ type: 'result', data: result });
+          
+          // Send [DONE] marker for client to close immediately
+          const encoder = new TextEncoder();
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         }
 
         controller.close();
