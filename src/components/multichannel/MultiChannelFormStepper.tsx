@@ -910,6 +910,7 @@ export function MultiChannelFormStepper({
                       sseMessage={sseProgress?.message}
                       completedChannels={sseProgress?.completedChannels}
                       totalChannels={sseProgress?.totalChannels}
+                      currentChannel={sseProgress?.currentChannel}
                     />
                   </CardContent>
                 </Card>
