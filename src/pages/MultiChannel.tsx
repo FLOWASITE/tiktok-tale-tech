@@ -466,6 +466,7 @@ export default function MultiChannel() {
             currentChannel={sseProgress?.currentChannel}
             completedChannels={sseProgress?.completedChannels}
             totalChannels={sseProgress?.totalChannels}
+            streamingTexts={streamingTexts}
           />
         )}
 

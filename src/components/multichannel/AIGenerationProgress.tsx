@@ -425,7 +425,7 @@ export function AIGenerationProgress({
                     {Object.keys(streamingTexts).length} kênh
                   </span>
                 )}
-                {channelContents && channelContents.length > 0 && !streamingTexts?.length && (
+                {channelContents && channelContents.length > 0 && Object.keys(streamingTexts ?? {}).length === 0 && (
                   <span className="ml-1">({channelContents.length} kênh)</span>
                 )}
               </span>

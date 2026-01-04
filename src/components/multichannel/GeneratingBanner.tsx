@@ -1,6 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2, ChevronDown, ChevronUp, Bot, RefreshCw, Check } from 'lucide-react';
+import { 
+  Sparkles, 
+  Loader2, 
+  ChevronDown, 
+  ChevronUp, 
+  Bot, 
+  RefreshCw, 
+  Check,
+  Eye,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Youtube,
+  Mail,
+  Globe,
+  MessageCircle,
+  Send,
+  Music2,
+  AtSign,
+  FileText,
+  type LucideIcon,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,22 +34,12 @@ import {
   STEP_PROGRESS_MAP,
   type ProgressStepId,
 } from './progressConstants';
-
-interface GeneratingBannerProps {
-  isGenerating: boolean;
-  channelCount: number;
-  elapsedMs?: number;
-  className?: string;
-  // Real-time progress from SSE streaming
-  sseStep?: string;
-  sseProgress?: number;
-  sseMessage?: string;
-  retryCount?: number;
-  // Per-channel progress
-  currentChannel?: string;
-  completedChannels?: string[];
-  totalChannels?: string[];
-}
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Channel display names mapping
 const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
@@ -45,6 +57,40 @@ const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
   blog: 'Blog',
 };
 
+// Channel icons mapping
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  facebook: Facebook,
+  instagram: Instagram,
+  linkedin: Linkedin,
+  twitter: Twitter,
+  youtube: Youtube,
+  email: Mail,
+  blog: FileText,
+  zalo: MessageCircle,
+  telegram: Send,
+  tiktok: Music2,
+  threads: AtSign,
+  website: Globe,
+};
+
+interface GeneratingBannerProps {
+  isGenerating: boolean;
+  channelCount: number;
+  elapsedMs?: number;
+  className?: string;
+  // Real-time progress from SSE streaming
+  sseStep?: string;
+  sseProgress?: number;
+  sseMessage?: string;
+  retryCount?: number;
+  // Per-channel progress
+  currentChannel?: string;
+  completedChannels?: string[];
+  totalChannels?: string[];
+  // Streaming text for typewriter effect
+  streamingTexts?: Record<string, string>;
+}
+
 export function GeneratingBanner({
   isGenerating,
   channelCount,
@@ -57,6 +103,7 @@ export function GeneratingBanner({
   currentChannel,
   completedChannels = [],
   totalChannels = [],
+  streamingTexts,
 }: GeneratingBannerProps) {
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -379,6 +426,73 @@ export function GeneratingBanner({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Streaming Text Preview Section */}
+            {streamingTexts && Object.keys(streamingTexts).length > 0 && (
+              <Collapsible defaultOpen={true} className="mt-4">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full text-xs font-medium text-foreground hover:text-primary transition-colors group">
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>
+                    Nội dung đang tạo
+                    <span className="ml-1 inline-flex items-center">
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                      {Object.keys(streamingTexts).length} kênh
+                    </span>
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 ml-auto transition-transform group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <ScrollArea className="max-h-[200px]">
+                    <div className="space-y-2">
+                      <AnimatePresence mode="popLayout">
+                        {Object.entries(streamingTexts).map(([channel, text], index) => {
+                          const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
+                          const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
+                          const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+                          const isCompleted = completedChannels.includes(channel);
+                          const isStreaming = !isCompleted;
+                          
+                          return (
+                            <motion.div
+                              key={`streaming-${channel}`}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 10 }}
+                              transition={{ delay: index * 0.05, duration: 0.2 }}
+                              className={cn(
+                                "border rounded-lg p-2.5",
+                                isStreaming ? "bg-primary/5 border-primary/20" : "bg-muted/30 border-border"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <ChannelIcon className="w-3.5 h-3.5 text-primary" />
+                                <span className="text-xs font-medium">{displayName}</span>
+                                {isStreaming && (
+                                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                                )}
+                                {!isStreaming && (
+                                  <Check className="w-3 h-3 text-green-500" />
+                                )}
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  {wordCount} từ
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-foreground/80 leading-relaxed max-h-[60px] overflow-y-auto whitespace-pre-wrap">
+                                {text.slice(0, 300)}
+                                {text.length > 300 && '...'}
+                                {isStreaming && (
+                                  <span className="inline-block w-1 h-3 bg-primary ml-0.5 animate-pulse" />
+                                )}
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </div>
+                  </ScrollArea>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </CardContent>
         </Card>
       </motion.div>
