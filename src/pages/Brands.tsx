@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useBrandAnalytics } from '@/hooks/useBrandAnalytics';
 import { useBrandCounts } from '@/hooks/useBrandCounts';
 import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { BrandCard } from '@/components/BrandCard';
-import { BrandForm } from '@/components/BrandForm';
 import { BrandBulkActionsBar } from '@/components/BrandBulkActionsBar';
 import { BrandHeroSection } from '@/components/brand/BrandHeroSection';
 import { BrandEmptyState } from '@/components/brand/BrandEmptyState';
@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SlidePanel } from '@/components/ui/slide-panel';
 import { 
   Search, 
   Loader2, 
@@ -41,7 +40,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
 import { motion, AnimatePresence } from 'framer-motion';
 type SortOption = 'name' | 'created_at' | 'is_default';
@@ -50,21 +48,16 @@ type ViewMode = 'grid' | 'list';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
-// Type for form data without ownership fields
-type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
-
 export default function Brands() {
+  const navigate = useNavigate();
   const { currentOrganization } = useOrganizationContext();
   const { 
     templates, 
     loading, 
-    saveTemplate, 
-    updateTemplate, 
+    saveTemplate,
     deleteTemplate, 
     duplicateTemplate,
     setDefaultTemplate, 
-    uploadLogo, 
-    deleteLogo,
     refetch
   } = useBrandTemplates();
 
@@ -97,9 +90,6 @@ export default function Brands() {
     return set;
   }, [allSocialConnections]);
   
-  const [editingTemplate, setEditingTemplate] = useState<BrandTemplate | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('is_default');
   const [filterScope, setFilterScope] = useState<FilterScope>('all');
@@ -127,64 +117,11 @@ export default function Brands() {
   }, []);
 
   const handleCreate = () => {
-    setEditingTemplate(null);
-    setDialogOpen(true);
+    navigate('/brands/new');
   };
 
   const handleEdit = (template: BrandTemplate) => {
-    setEditingTemplate(template);
-    setDialogOpen(true);
-  };
-
-  const handleCancel = () => {
-    setEditingTemplate(null);
-    setDialogOpen(false);
-  };
-
-  const handleSubmit = async (
-    data: BrandFormData,
-    scope: BrandScope,
-    logoFile?: File | null,
-    shouldDeleteLogo?: boolean
-  ): Promise<BrandTemplate | null> => {
-    setSaving(true);
-    try {
-      let logoUrl = data.logo_url;
-
-      if (shouldDeleteLogo && editingTemplate?.logo_url) {
-        await deleteLogo(editingTemplate.logo_url);
-        logoUrl = null;
-      }
-
-      if (logoFile) {
-        if (editingTemplate?.logo_url) {
-          await deleteLogo(editingTemplate.logo_url);
-        }
-        logoUrl = await uploadLogo(logoFile);
-      }
-
-      const templateData = { ...data, logo_url: logoUrl };
-
-      if (editingTemplate) {
-        // Avoid "phantom saves" when user didn't change anything
-        if (!logoFile && !shouldDeleteLogo && !isBrandTemplateChanged(editingTemplate, templateData)) {
-          setDialogOpen(false);
-          setEditingTemplate(null);
-          return null;
-        }
-        await updateTemplate(editingTemplate.id, templateData);
-        setDialogOpen(false);
-        setEditingTemplate(null);
-        return null;
-      } else {
-        const newTemplate = await saveTemplate(templateData, scope);
-        setDialogOpen(false);
-        setEditingTemplate(null);
-        return newTemplate;
-      }
-    } finally {
-      setSaving(false);
-    }
+    navigate('/brands/new', { state: { editTemplate: template } });
   };
 
   const handleExport = () => {
@@ -734,35 +671,6 @@ export default function Brands() {
         onBulkExport={handleBulkExport}
         isDeleting={isDeleting}
       />
-
-      {/* Create/Edit Panel - Below Header */}
-      <SlidePanel
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        title={
-          <>
-            <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
-            {editingTemplate ? 'Chỉnh sửa Brand' : 'Tạo Brand mới'}
-          </>
-        }
-        fullScreen={!editingTemplate}
-        description={editingTemplate
-          ? 'Cập nhật thông tin thương hiệu của bạn' 
-          : 'Điền thông tin để tạo brand mới cho nội dung'}
-        className={editingTemplate ? "md:max-w-xl lg:max-w-2xl" : undefined}
-      >
-        <BrandForm
-          template={editingTemplate}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          isLoading={saving}
-        />
-      </SlidePanel>
-
       {/* Mobile FAB - Only visible on mobile when hero is scrolled out */}
       <AnimatePresence>
         {showFab && (

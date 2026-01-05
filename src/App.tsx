@@ -16,6 +16,7 @@ import Index from "./pages/Index";
 import Carousel from "./pages/Carousel";
 import Brands from "./pages/Brands";
 import BrandView from "./pages/BrandView";
+import BrandCreate from "./pages/BrandCreate";
 import MultiChannel from "./pages/MultiChannel";
 import Tasks from "./pages/Tasks";
 import Auth from "./pages/Auth";
@@ -126,6 +127,15 @@ const App = () => (
                     <AppLayout>
                       <BrandView />
                     </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              {/* Brand Create/Edit - Full screen, no AppLayout */}
+              <Route
+                path="/brands/new"
+                element={
+                  <ProtectedRoute>
+                    <BrandCreate />
                   </ProtectedRoute>
                 }
               />
