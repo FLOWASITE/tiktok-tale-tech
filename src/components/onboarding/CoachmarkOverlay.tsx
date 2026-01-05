@@ -123,16 +123,54 @@ export function CoachmarkOverlay() {
     }
 
     const padding = step.spotlightPadding || 12;
-    const tooltipOffset = 12;
-    const tooltipWidth = window.innerWidth < 640 ? 280 : 320;
-    // Estimate height based on whether step has action button
-    const tooltipHeight = step.action ? 320 : 220;
+    const tooltipOffset = 8;
+    const isMobile = window.innerWidth < 640;
+    const tooltipWidth = isMobile ? 280 : 320;
+    // More accurate height estimation
+    const tooltipHeight = step.action ? 280 : 200;
+    
+    // Check available space
+    const spaceAbove = targetRect.top - padding;
+    const spaceBelow = window.innerHeight - (targetRect.top + targetRect.height + padding);
+    const spaceLeft = targetRect.left - padding;
+    const spaceRight = window.innerWidth - (targetRect.left + targetRect.width + padding);
+
+    // If target is very tall (like QuickActionGrid), position overlay on top of it
+    const targetIsTall = targetRect.height > window.innerHeight * 0.5;
+    
+    // On mobile with tall targets, show tooltip at fixed bottom position
+    if (isMobile && targetIsTall) {
+      return {
+        bottom: 16,
+        left: 16,
+        right: 16,
+        width: 'auto',
+      };
+    }
 
     let position: CSSProperties = {};
-    let finalPlacement = step.placement;
 
-    // Calculate base position
-    switch (step.placement) {
+    // Determine best placement - use string type to allow 'center'
+    let bestPlacement: string = step.placement;
+    
+    // Auto-adjust placement based on available space
+    if (step.placement === 'bottom' && spaceBelow < tooltipHeight + tooltipOffset) {
+      bestPlacement = spaceAbove > tooltipHeight + tooltipOffset ? 'top' : 'center';
+    } else if (step.placement === 'top' && spaceAbove < tooltipHeight + tooltipOffset) {
+      bestPlacement = spaceBelow > tooltipHeight + tooltipOffset ? 'bottom' : 'center';
+    }
+
+    // If no good placement found, use center
+    if (bestPlacement === 'center') {
+      return {
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+      };
+    }
+
+    // Calculate position based on final placement
+    switch (bestPlacement) {
       case 'bottom':
         position = {
           top: targetRect.top + targetRect.height + padding + tooltipOffset,
@@ -141,25 +179,15 @@ export function CoachmarkOverlay() {
             window.innerWidth - tooltipWidth - 12
           )),
         };
-        // Check if goes off screen bottom
-        if ((position.top as number) + tooltipHeight > window.innerHeight - 20) {
-          finalPlacement = 'top';
-          position.top = targetRect.top - padding - tooltipOffset - tooltipHeight;
-        }
         break;
       case 'top':
         position = {
-          top: targetRect.top - padding - tooltipOffset - tooltipHeight,
+          top: Math.max(12, targetRect.top - padding - tooltipOffset - tooltipHeight),
           left: Math.max(12, Math.min(
             targetRect.left + targetRect.width / 2 - tooltipWidth / 2,
             window.innerWidth - tooltipWidth - 12
           )),
         };
-        // Check if goes off screen top
-        if ((position.top as number) < 20) {
-          finalPlacement = 'bottom';
-          position.top = targetRect.top + targetRect.height + padding + tooltipOffset;
-        }
         break;
       case 'left':
         position = {
@@ -167,13 +195,8 @@ export function CoachmarkOverlay() {
             targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
             window.innerHeight - tooltipHeight - 20
           )),
-          left: targetRect.left - padding - tooltipOffset - tooltipWidth,
+          left: Math.max(12, targetRect.left - padding - tooltipOffset - tooltipWidth),
         };
-        // Check if goes off screen left
-        if ((position.left as number) < 20) {
-          finalPlacement = 'right';
-          position.left = targetRect.left + targetRect.width + padding + tooltipOffset;
-        }
         break;
       case 'right':
         position = {
@@ -183,12 +206,15 @@ export function CoachmarkOverlay() {
           )),
           left: targetRect.left + targetRect.width + padding + tooltipOffset,
         };
-        // Check if goes off screen right
-        if ((position.left as number) + tooltipWidth > window.innerWidth - 20) {
-          finalPlacement = 'left';
-          position.left = targetRect.left - padding - tooltipOffset - tooltipWidth;
-        }
         break;
+    }
+
+    // Final safety check - ensure tooltip is within viewport
+    if (position.top !== undefined && (position.top as number) < 12) {
+      position.top = 12;
+    }
+    if (position.top !== undefined && (position.top as number) + tooltipHeight > window.innerHeight - 12) {
+      position.top = window.innerHeight - tooltipHeight - 12;
     }
 
     return position;
