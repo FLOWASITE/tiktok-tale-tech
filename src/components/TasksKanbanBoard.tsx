@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, memo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -11,6 +11,7 @@ import {
   DragOverEvent,
 } from '@dnd-kit/core';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { MultiChannelContent, ContentStatus } from '@/types/multichannel';
 import { ContentAssignment, AssignmentStatus } from '@/types/assignment';
 import { KanbanColumn } from './KanbanColumn';
@@ -18,6 +19,7 @@ import { KanbanCard } from './KanbanCard';
 import { FileEdit, Clock, CheckCircle, Send } from 'lucide-react';
 import { useConfetti } from '@/hooks/useConfetti';
 import { OrgRole } from '@/types/organization';
+import { CreatorProfile } from '@/hooks/useCreatorProfiles';
 
 export interface ContentTask {
   content: MultiChannelContent;
@@ -29,6 +31,7 @@ interface TasksKanbanBoardProps {
   tasks: ContentTask[];
   currentUserId?: string;
   currentRole?: OrgRole | null;
+  creatorProfiles?: Record<string, CreatorProfile>;
   onContentStatusChange: (contentId: string, status: ContentStatus) => Promise<any>;
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
@@ -72,6 +75,7 @@ export function TasksKanbanBoard({
   tasks,
   currentUserId,
   currentRole,
+  creatorProfiles,
   onContentStatusChange,
   onAssignmentStatusChange,
   onRefresh,
@@ -160,61 +164,65 @@ export function TasksKanbanBoard({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragOver={handleDragOver}
-    >
-      <ScrollArea className="w-full">
-        <div className="flex gap-3 sm:gap-4 pb-4 min-w-max">
-          {KANBAN_COLUMNS.map(column => (
-            <KanbanColumn
-              key={column.id}
-              id={column.id}
-              label={column.label}
-              color={column.color}
-              count={columnTasks[column.id].length}
-              icon={column.icon}
-            >
-              {columnTasks[column.id].map(task => (
-                <KanbanCard
-                  key={task.content.id}
-                  task={task}
-                  currentUserId={currentUserId}
-                  currentRole={currentRole}
-                  onAssignmentStatusChange={onAssignmentStatusChange}
-                  onRefresh={onRefresh}
-                  onStatusChange={onContentStatusChange}
-                  onDelete={onDelete}
-                  onSubmitForReview={onSubmitForReview}
-                  onApprove={onApprove}
-                  onReject={onReject}
-                  isSelected={selectedIds.has(task.content.id)}
-                  onToggleSelect={() => handleToggleSelect(task.content.id)}
-                />
-              ))}
-            </KanbanColumn>
-          ))}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+    <TooltipProvider delayDuration={200}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+      >
+        <ScrollArea className="w-full">
+          <div className="flex gap-3 sm:gap-4 pb-4 min-w-max">
+            {KANBAN_COLUMNS.map(column => (
+              <KanbanColumn
+                key={column.id}
+                id={column.id}
+                label={column.label}
+                color={column.color}
+                count={columnTasks[column.id].length}
+                icon={column.icon}
+              >
+                {columnTasks[column.id].map(task => (
+                  <KanbanCard
+                    key={task.content.id}
+                    task={task}
+                    currentUserId={currentUserId}
+                    currentRole={currentRole}
+                    creatorProfiles={creatorProfiles}
+                    onAssignmentStatusChange={onAssignmentStatusChange}
+                    onRefresh={onRefresh}
+                    onStatusChange={onContentStatusChange}
+                    onDelete={onDelete}
+                    onSubmitForReview={onSubmitForReview}
+                    onApprove={onApprove}
+                    onReject={onReject}
+                    isSelected={selectedIds.has(task.content.id)}
+                    onToggleSelect={() => handleToggleSelect(task.content.id)}
+                  />
+                ))}
+              </KanbanColumn>
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
-      <DragOverlay>
-        {activeTask && (
-          <KanbanCard
-            task={activeTask}
-            currentUserId={currentUserId}
-            currentRole={currentRole}
-            onAssignmentStatusChange={onAssignmentStatusChange}
-            onRefresh={onRefresh}
-            isDragging
-            isSelected={selectedIds.has(activeTask.content.id)}
-            onToggleSelect={() => {}}
-          />
-        )}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeTask && (
+            <KanbanCard
+              task={activeTask}
+              currentUserId={currentUserId}
+              currentRole={currentRole}
+              creatorProfiles={creatorProfiles}
+              onAssignmentStatusChange={onAssignmentStatusChange}
+              onRefresh={onRefresh}
+              isDragging
+              isSelected={selectedIds.has(activeTask.content.id)}
+              onToggleSelect={() => {}}
+            />
+          )}
+        </DragOverlay>
+      </DndContext>
+    </TooltipProvider>
   );
 }

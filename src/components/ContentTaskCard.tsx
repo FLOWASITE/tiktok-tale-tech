@@ -35,7 +35,7 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { getChannelColorClasses } from '@/utils/channelColors';
 import { OrgRole, canApproveContent, canSubmitForReview } from '@/types/organization';
 import { ApprovalDialog } from './ApprovalDialog';
-import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorProfile } from '@/hooks/useCreatorProfiles';
 
 interface ContentTaskCardProps {
   content: MultiChannelContent;
@@ -43,6 +43,7 @@ interface ContentTaskCardProps {
   schedules: ContentSchedule[];
   currentUserId?: string;
   currentRole?: OrgRole | null;
+  creatorProfiles?: Record<string, CreatorProfile>;
   onAssignmentStatusChange: (assignmentId: string, newStatus: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
   onStatusChange?: (contentId: string, status: ContentStatus) => Promise<any>;
@@ -60,6 +61,7 @@ export function ContentTaskCard({
   schedules,
   currentUserId,
   currentRole,
+  creatorProfiles = {},
   onAssignmentStatusChange,
   onRefresh,
   onStatusChange,
@@ -74,9 +76,7 @@ export function ContentTaskCard({
   const [isUpdating, setIsUpdating] = useState(false);
   const { fireConfetti } = useConfetti();
   
-  // Get creator profile
-  const creatorIds = content.user_id ? [content.user_id] : [];
-  const { profiles: creatorProfiles } = useCreatorProfiles(creatorIds);
+  // Get creator profile from props instead of hook
   const creator = content.user_id ? creatorProfiles[content.user_id] : null;
 
   // Approval dialog state
