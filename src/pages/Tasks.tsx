@@ -39,6 +39,7 @@ import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useContentAssignments } from '@/hooks/useContentAssignments';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
+import { useCreatorProfiles, CreatorProfile } from '@/hooks/useCreatorProfiles';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,6 +55,19 @@ export default function Tasks() {
   const { allSchedules, fetchAllSchedules, isLoading: loadingSchedules } = useContentSchedules();
   const { fireConfetti } = useConfetti();
   const { currentRole } = useOrganizationContext();
+
+  // Collect all user IDs once and fetch profiles at parent level
+  const allUserIds = useMemo(() => {
+    const ids = new Set<string>();
+    contents.forEach(c => c.user_id && ids.add(c.user_id));
+    assignments.forEach(a => {
+      if (a.assigned_to) ids.add(a.assigned_to);
+      if (a.assigned_by) ids.add(a.assigned_by);
+    });
+    return Array.from(ids);
+  }, [contents, assignments]);
+
+  const { profiles: creatorProfiles, isLoading: loadingProfiles } = useCreatorProfiles(allUserIds);
 
   const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
   const [activeTab, setActiveTab] = useState('all');
@@ -856,6 +870,7 @@ export default function Tasks() {
               tasks={filteredTasks}
               currentUserId={user?.id}
               currentRole={currentRole}
+              creatorProfiles={creatorProfiles}
               onContentStatusChange={updateStatus}
               onAssignmentStatusChange={updateAssignmentStatus}
               onRefresh={handleRefresh}
@@ -876,6 +891,7 @@ export default function Tasks() {
                     schedules={schedules}
                     currentUserId={user?.id}
                     currentRole={currentRole}
+                    creatorProfiles={creatorProfiles}
                     onAssignmentStatusChange={updateAssignmentStatus}
                     onRefresh={handleRefresh}
                     onStatusChange={updateStatus}

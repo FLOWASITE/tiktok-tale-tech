@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Eye, GripVertical, Calendar, User, Clock, AlertCircle, CheckCircle2, Sparkles, Edit3, Send, Trash2, XCircle } from 'lucide-react';
 import { ContentStatus, CONTENT_STATUSES, MultiChannelContent } from '@/types/multichannel';
 import { format, isPast, formatDistanceToNow } from 'date-fns';
@@ -19,12 +19,13 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { getChannelColorClasses } from '@/utils/channelColors';
 import { OrgRole, canApproveContent, canSubmitForReview } from '@/types/organization';
 import { ApprovalDialog } from './ApprovalDialog';
-import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { CreatorProfile } from '@/hooks/useCreatorProfiles';
 
 interface KanbanCardProps {
   task: ContentTask;
   currentUserId?: string;
   currentRole?: OrgRole | null;
+  creatorProfiles?: Record<string, CreatorProfile>;
   onAssignmentStatusChange: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
   onStatusChange?: (contentId: string, status: ContentStatus) => Promise<any>;
@@ -37,10 +38,11 @@ interface KanbanCardProps {
   onToggleSelect?: () => void;
 }
 
-export function KanbanCard({
+function KanbanCardComponent({
   task,
   currentUserId,
   currentRole,
+  creatorProfiles = {},
   onAssignmentStatusChange,
   onRefresh,
   onStatusChange,
@@ -55,9 +57,7 @@ export function KanbanCard({
   const { content, assignments, schedules } = task;
   const { fireConfetti } = useConfetti();
   
-  // Get creator profile
-  const creatorIds = content.user_id ? [content.user_id] : [];
-  const { profiles: creatorProfiles } = useCreatorProfiles(creatorIds);
+  // Get creator profile from props instead of hook
   const creator = content.user_id ? creatorProfiles[content.user_id] : null;
   
   // Approval dialog state
@@ -80,11 +80,13 @@ export function KanbanCard({
       }
     : undefined;
 
-  // Get unique assignees
-  const assignees = assignments.map(a => a.assignee).filter(Boolean);
-  const uniqueAssignees = assignees.filter(
-    (a, i, arr) => arr.findIndex(x => x?.id === a?.id) === i
-  );
+  // Get unique assignees - memoized
+  const uniqueAssignees = useMemo(() => {
+    const assignees = assignments.map(a => a.assignee).filter(Boolean);
+    return assignees.filter(
+      (a, i, arr) => arr.findIndex(x => x?.id === a?.id) === i
+    );
+  }, [assignments]);
 
   // Get next scheduled date
   const activeSchedules = schedules.filter(s => s.publish_status === 'scheduled');
@@ -192,94 +194,92 @@ export function KanbanCard({
 
       {/* Quick action buttons on hover */}
       <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
-        <TooltipProvider delayDuration={200}>
-          {/* Submit for review - only for draft and if user can submit */}
-          {content.status === 'draft' && canSubmit && (
+        {/* Submit for review - only for draft and if user can submit */}
+        {content.status === 'draft' && canSubmit && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-amber-500/20 hover:text-amber-600"
+                onClick={(e) => handleOpenApprovalDialog(e, 'submit')}
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Gửi duyệt</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+        
+        {/* Approve - only for review status and if user can approve */}
+        {content.status === 'review' && canApprove && (
+          <>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-amber-500/20 hover:text-amber-600"
-                  onClick={(e) => handleOpenApprovalDialog(e, 'submit')}
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
+                  onClick={(e) => handleOpenApprovalDialog(e, 'approve')}
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Gửi duyệt</p>
+                <p className="text-xs">Phê duyệt</p>
               </TooltipContent>
             </Tooltip>
-          )}
-          
-          {/* Approve - only for review status and if user can approve */}
-          {content.status === 'review' && canApprove && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-green-500/20 hover:text-green-600"
-                    onClick={(e) => handleOpenApprovalDialog(e, 'approve')}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p className="text-xs">Phê duyệt</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
-                    onClick={(e) => handleOpenApprovalDialog(e, 'reject')}
-                  >
-                    <XCircle className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p className="text-xs">Từ chối</p>
-                </TooltipContent>
-              </Tooltip>
-            </>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-primary/20 hover:text-primary"
-                asChild
-              >
-                <Link to={`/multichannel?edit=${content.id}`} onClick={(e) => e.stopPropagation()}>
-                  <Edit3 className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p className="text-xs">Chỉnh sửa</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
-                onClick={handleQuickDelete}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p className="text-xs">Xóa</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
+                  onClick={(e) => handleOpenApprovalDialog(e, 'reject')}
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">Từ chối</p>
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-primary/20 hover:text-primary"
+              asChild
+            >
+              <Link to={`/multichannel?edit=${content.id}`} onClick={(e) => e.stopPropagation()}>
+                <Edit3 className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs">Chỉnh sửa</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm hover:bg-red-500/20 hover:text-red-600"
+              onClick={handleQuickDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs">Xóa</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Gradient overlay on hover */}
@@ -331,46 +331,42 @@ export function KanbanCard({
           <div className="flex items-center gap-2">
             <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <div className="flex items-center gap-1 flex-wrap">
-              <TooltipProvider>
-                {uniqueAssignees.slice(0, 2).map(assignee => (
-                  <Tooltip key={assignee?.id}>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1 bg-muted/50 rounded-full pl-0.5 pr-2 py-0.5 border border-border/50 hover:bg-muted transition-colors">
-                        <Avatar className="w-5 h-5 border border-background">
-                          <AvatarImage src={assignee?.avatar_url || ''} />
-                          <AvatarFallback className="text-[8px] font-medium bg-primary/10 text-primary">
-                            {(assignee?.full_name || assignee?.email || '?')[0].toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[50px]">
-                          {assignee?.full_name?.split(' ').pop() || assignee?.email?.split('@')[0]}
-                        </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p className="text-xs font-medium">{assignee?.full_name || assignee?.email}</p>
-                      <p className="text-[10px] text-muted-foreground">Người được giao</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </TooltipProvider>
+              {uniqueAssignees.slice(0, 2).map(assignee => (
+                <Tooltip key={assignee?.id}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 bg-muted/50 rounded-full pl-0.5 pr-2 py-0.5 border border-border/50 hover:bg-muted transition-colors">
+                      <Avatar className="w-5 h-5 border border-background">
+                        <AvatarImage src={assignee?.avatar_url || ''} />
+                        <AvatarFallback className="text-[8px] font-medium bg-primary/10 text-primary">
+                          {(assignee?.full_name || assignee?.email || '?')[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[50px]">
+                        {assignee?.full_name?.split(' ').pop() || assignee?.email?.split('@')[0]}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs font-medium">{assignee?.full_name || assignee?.email}</p>
+                    <p className="text-[10px] text-muted-foreground">Người được giao</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
               {uniqueAssignees.length > 2 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="h-5 px-1.5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground border border-border/50">
-                        +{uniqueAssignees.length - 2}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="space-y-1">
-                        {uniqueAssignees.slice(2).map(assignee => (
-                          <p key={assignee?.id} className="text-xs">{assignee?.full_name || assignee?.email}</p>
-                        ))}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="h-5 px-1.5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground border border-border/50">
+                      +{uniqueAssignees.length - 2}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <div className="space-y-1">
+                      {uniqueAssignees.slice(2).map(assignee => (
+                        <p key={assignee?.id} className="text-xs">{assignee?.full_name || assignee?.email}</p>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>
@@ -405,43 +401,41 @@ export function KanbanCard({
                   assignment.status !== 'completed' && assignment.status !== 'cancelled';
                 
                 return (
-                  <TooltipProvider key={assignment.id}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] py-0.5 px-1.5 cursor-default flex items-center gap-1 ${statusConfig?.color} ${isOverdue ? 'border-red-500/50' : ''}`}
-                        >
-                          {isOverdue && <AlertCircle className="w-2.5 h-2.5 text-red-500" />}
-                          {assignment.status === 'completed' && <CheckCircle2 className="w-2.5 h-2.5" />}
-                          {channel?.label}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[200px]">
-                        <div className="text-xs space-y-1.5 p-1">
-                          <div className="flex items-center gap-1.5">
-                            <Sparkles className="w-3 h-3 text-primary" />
-                            <span className="font-medium">{statusConfig?.label}</span>
-                          </div>
-                          <p className="text-muted-foreground">
-                            Ưu tiên: {priorityConfig?.label}
-                          </p>
-                          {assignment.due_date && (
-                            <p className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-                              <Clock className="w-3 h-3" />
-                              {isOverdue ? 'Quá hạn: ' : 'Hạn: '}
-                              {format(new Date(assignment.due_date), 'dd/MM/yyyy HH:mm', { locale: vi })}
-                            </p>
-                          )}
-                          {assignment.notes && (
-                            <p className="text-muted-foreground border-t pt-1.5 mt-1.5">
-                              {assignment.notes}
-                            </p>
-                          )}
+                  <Tooltip key={assignment.id}>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] py-0.5 px-1.5 cursor-default flex items-center gap-1 ${statusConfig?.color} ${isOverdue ? 'border-red-500/50' : ''}`}
+                      >
+                        {isOverdue && <AlertCircle className="w-2.5 h-2.5 text-red-500" />}
+                        {assignment.status === 'completed' && <CheckCircle2 className="w-2.5 h-2.5" />}
+                        {channel?.label}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px]">
+                      <div className="text-xs space-y-1.5 p-1">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3 text-primary" />
+                          <span className="font-medium">{statusConfig?.label}</span>
                         </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                        <p className="text-muted-foreground">
+                          Ưu tiên: {priorityConfig?.label}
+                        </p>
+                        {assignment.due_date && (
+                          <p className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                            <Clock className="w-3 h-3" />
+                            {isOverdue ? 'Quá hạn: ' : 'Hạn: '}
+                            {format(new Date(assignment.due_date), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                          </p>
+                        )}
+                        {assignment.notes && (
+                          <p className="text-muted-foreground border-t pt-1.5 mt-1.5">
+                            {assignment.notes}
+                          </p>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 );
               })}
             </div>
@@ -452,21 +446,19 @@ export function KanbanCard({
         <div className="flex items-center justify-between pt-2 border-t border-border/50">
           <div className="flex items-center gap-2">
             {creator && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Avatar className="w-5 h-5 border border-border/50">
-                      <AvatarImage src={creator.avatar_url || undefined} />
-                      <AvatarFallback className="text-[8px] font-medium bg-muted">
-                        {creator.full_name?.charAt(0) || (creator.email ? creator.email.charAt(0).toUpperCase() : 'U')}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">Người tạo: {creator.full_name || creator.email}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Avatar className="w-5 h-5 border border-border/50">
+                    <AvatarImage src={creator.avatar_url || undefined} />
+                    <AvatarFallback className="text-[8px] font-medium bg-muted">
+                      {creator.full_name?.charAt(0) || (creator.email ? creator.email.charAt(0).toUpperCase() : 'U')}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Người tạo: {creator.full_name || creator.email}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
           </div>
@@ -496,3 +488,15 @@ export function KanbanCard({
     </Card>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export const KanbanCard = memo(KanbanCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.task.content.id === nextProps.task.content.id &&
+    prevProps.task.content.status === nextProps.task.content.status &&
+    prevProps.task.content.title === nextProps.task.content.title &&
+    prevProps.task.assignments.length === nextProps.task.assignments.length &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isDragging === nextProps.isDragging
+  );
+});
