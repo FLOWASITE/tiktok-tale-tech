@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, Settings, Sparkles, Palette, HelpCircle, Check, Shield, Building2, Plus, ExternalLink } from 'lucide-react';
+import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -31,9 +31,6 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAdmin } from '@/hooks/useAdmin';
-import { useAIProviders } from '@/hooks/useAIProviders';
-import { AI_PROVIDERS, AIProviderType } from '@/types/aiProvider';
-import { AIProviderSettings } from './AIProviderSettings';
 import { Badge } from '@/components/ui/badge';
 import { ORG_ROLE_LABELS, ORG_ROLE_COLORS } from '@/types/organization';
 import { Input } from '@/components/ui/input';
@@ -46,13 +43,9 @@ export function UserAvatar() {
   const { createOrganization } = useOrganization();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
-  const { config, getProviderConfig, setSelectedProvider } = useAIProviders();
-  const activeProvider = AI_PROVIDERS.find(p => p.id === config.selectedProvider);
-  const isConfigured = !!getProviderConfig(config.selectedProvider);
 
   const handleSignOut = async () => {
     await signOut();
@@ -92,16 +85,6 @@ export function UserAvatar() {
       return user.user_metadata.full_name;
     }
     return user?.email?.split('@')[0] || 'User';
-  };
-
-  const handleQuickSwitch = (providerId: AIProviderType) => {
-    if (!getProviderConfig(providerId)) {
-      toast.error(`${AI_PROVIDERS.find(p => p.id === providerId)?.name} chưa được cấu hình`);
-      setSettingsOpen(true);
-      return;
-    }
-    setSelectedProvider(providerId);
-    toast.success(`Đã chuyển sang ${AI_PROVIDERS.find(p => p.id === providerId)?.name}`);
   };
 
   const handleSwitchOrg = (orgId: string) => {
@@ -195,17 +178,22 @@ export function UserAvatar() {
           
           <DropdownMenuSeparator />
           
+          {/* Hồ sơ cá nhân */}
+          <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
+            Hồ sơ cá nhân
+          </DropdownMenuLabel>
           <DropdownMenuItem onClick={() => navigate('/account')}>
             <User className="mr-2 h-4 w-4" />
             Tài khoản
           </DropdownMenuItem>
           
-          {currentOrganization && (
-            <DropdownMenuItem onClick={() => navigate('/organization')}>
-              <Settings className="mr-2 h-4 w-4" />
-              Cài đặt tổ chức
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuSeparator />
+          
+          {/* Tổ chức */}
+          <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
+            Tổ chức
+          </DropdownMenuLabel>
+          
           {/* Organization Switcher */}
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="gap-2">
@@ -254,74 +242,32 @@ export function UserAvatar() {
             </DropdownMenuPortal>
           </DropdownMenuSub>
           
-          {isAdmin && (
-            <DropdownMenuItem onClick={() => navigate('/admin')}>
-              <Shield className="mr-2 h-4 w-4 text-red-500" />
-              Admin Panel
+          {currentOrganization && (
+            <DropdownMenuItem onClick={() => navigate('/organization')}>
+              <Building2 className="mr-2 h-4 w-4" />
+              Cài đặt tổ chức
             </DropdownMenuItem>
           )}
           
-          <DropdownMenuSeparator />
-          
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            AI Provider
-          </DropdownMenuLabel>
-          
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="gap-2">
-              <span className="text-base">{activeProvider?.icon || '🤖'}</span>
-              <span className="flex-1">
-                {activeProvider?.name.split(' ')[0] || 'Chọn Provider'}
-              </span>
-              {isConfigured && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              )}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent className="w-56 bg-popover">
-                {AI_PROVIDERS.map((provider) => {
-                  const providerConfig = getProviderConfig(provider.id);
-                  const isActive = config.selectedProvider === provider.id;
-                  
-                  return (
-                    <DropdownMenuItem
-                      key={provider.id}
-                      onClick={() => handleQuickSwitch(provider.id)}
-                      className="gap-2"
-                    >
-                      <span className="text-base">{provider.icon}</span>
-                      <div className="flex-1">
-                        <p className="text-sm">{provider.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {providerConfig ? provider.description : 'Chưa cấu hình'}
-                        </p>
-                      </div>
-                      {isActive && <Check className="w-4 h-4 text-primary" />}
-                      {providerConfig && !isActive && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      )}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-          
-          <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-            <Settings className="mr-2 h-4 w-4" />
-            Cài đặt API
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => navigate('/brands')}>
-            <Palette className="mr-2 h-4 w-4" />
-            Quản lý Brand
-          </DropdownMenuItem>
+          {/* Admin */}
+          {isAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
+                Quản trị
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
+                <Shield className="mr-2 h-4 w-4 text-destructive" />
+                Admin Dashboard
+              </DropdownMenuItem>
+            </>
+          )}
           
           <DropdownMenuSeparator />
           
           <DropdownMenuItem onClick={handleSupportClick}>
             <HelpCircle className="mr-2 h-4 w-4" />
-            Hỗ trợ
+            Trợ giúp
             <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
           </DropdownMenuItem>
           
@@ -333,19 +279,6 @@ export function UserAvatar() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* AI Settings Dialog */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Cài đặt AI Providers
-            </DialogTitle>
-          </DialogHeader>
-          <AIProviderSettings />
-        </DialogContent>
-      </Dialog>
 
       {/* Create Organization Dialog */}
       <Dialog open={createOrgDialogOpen} onOpenChange={setCreateOrgDialogOpen}>
