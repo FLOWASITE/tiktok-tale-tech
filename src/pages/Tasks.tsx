@@ -41,6 +41,7 @@ import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useContentAssignments } from '@/hooks/useContentAssignments';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
 import { useCreatorProfiles, CreatorProfile } from '@/hooks/useCreatorProfiles';
+import { useCampaignIntegration } from '@/hooks/useCampaignIntegration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -56,6 +57,7 @@ export default function Tasks() {
   const { allSchedules, fetchAllSchedules, isLoading: loadingSchedules } = useContentSchedules();
   const { fireConfetti } = useConfetti();
   const { currentRole } = useOrganizationContext();
+  const { campaigns, contentCampaignMapping, getCampaignForContent, isLoading: loadingCampaigns } = useCampaignIntegration();
 
   // Collect all user IDs once and fetch profiles at parent level
   const allUserIds = useMemo(() => {
@@ -899,27 +901,31 @@ export default function Tasks() {
           ) : (
             <>
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedTasks.map(({ content, assignments, schedules }, index) => (
-                  <div key={content.id} className="stagger-item" style={{ animationDelay: `${index * 50}ms` }}>
-                    <ContentTaskCard
-                      content={content}
-                      assignments={assignments}
-                      schedules={schedules}
-                      currentUserId={user?.id}
-                      currentRole={currentRole}
-                      creatorProfiles={creatorProfiles}
-                      onAssignmentStatusChange={updateAssignmentStatus}
-                      onRefresh={handleRefresh}
-                      onStatusChange={updateStatus}
-                      onDelete={deleteContent}
-                      onSubmitForReview={submitForReview}
-                      onApprove={approveContent}
-                      onReject={rejectContent}
-                      isSelected={selectedIds.has(content.id)}
-                      onToggleSelect={() => handleToggleSelect(content.id)}
-                    />
-                  </div>
-                ))}
+                {paginatedTasks.map(({ content, assignments, schedules }, index) => {
+                  const campaignInfo = getCampaignForContent(content.id);
+                  return (
+                    <div key={content.id} className="stagger-item" style={{ animationDelay: `${index * 50}ms` }}>
+                      <ContentTaskCard
+                        content={content}
+                        assignments={assignments}
+                        schedules={schedules}
+                        currentUserId={user?.id}
+                        currentRole={currentRole}
+                        creatorProfiles={creatorProfiles}
+                        campaignInfo={campaignInfo ? { campaign_id: campaignInfo.campaign_id, campaign_name: campaignInfo.campaign_name } : null}
+                        onAssignmentStatusChange={updateAssignmentStatus}
+                        onRefresh={handleRefresh}
+                        onStatusChange={updateStatus}
+                        onDelete={deleteContent}
+                        onSubmitForReview={submitForReview}
+                        onApprove={approveContent}
+                        onReject={rejectContent}
+                        isSelected={selectedIds.has(content.id)}
+                        onToggleSelect={() => handleToggleSelect(content.id)}
+                      />
+                    </div>
+                  );
+                })}
               </div>
               
               {/* Pagination */}

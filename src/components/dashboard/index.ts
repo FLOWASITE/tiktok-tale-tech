@@ -8,3 +8,5 @@ export { TodayFocus } from './TodayFocus';
 export { EmptyState } from './EmptyState';
 export { SkeletonCard } from './SkeletonCard';
 export { PulseIndicator } from './PulseIndicator';
+export { ActiveCampaignsWidget } from './ActiveCampaignsWidget';
+export { CampaignMilestoneReminder } from './CampaignMilestoneReminder';

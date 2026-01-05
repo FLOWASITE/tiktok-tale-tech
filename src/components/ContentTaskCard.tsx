@@ -44,6 +44,7 @@ interface ContentTaskCardProps {
   currentUserId?: string;
   currentRole?: OrgRole | null;
   creatorProfiles?: Record<string, CreatorProfile>;
+  campaignInfo?: { campaign_id: string; campaign_name: string } | null;
   onAssignmentStatusChange: (assignmentId: string, newStatus: AssignmentStatus) => Promise<void>;
   onRefresh: () => void;
   onStatusChange?: (contentId: string, status: ContentStatus) => Promise<any>;
@@ -62,6 +63,7 @@ export function ContentTaskCard({
   currentUserId,
   currentRole,
   creatorProfiles = {},
+  campaignInfo,
   onAssignmentStatusChange,
   onRefresh,
   onStatusChange,
@@ -379,7 +381,23 @@ export function ContentTaskCard({
       <CardHeader className="pb-2 sm:pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className={`flex-1 min-w-0 ${isSelected ? 'ml-6' : ''}`}>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {/* Campaign badge */}
+              {campaignInfo && (
+                <Link 
+                  to={`/campaigns/${campaignInfo.campaign_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="shrink-0"
+                >
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] sm:text-xs font-medium bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 transition-colors gap-1"
+                  >
+                    <Target className="w-2.5 h-2.5" />
+                    {campaignInfo.campaign_name}
+                  </Badge>
+                </Link>
+              )}
               <Badge 
                 variant="outline" 
                 className={`text-[10px] sm:text-xs shrink-0 font-medium ${statusConfig.bgClass} ${statusConfig.textClass} ${statusConfig.borderClass}`}
