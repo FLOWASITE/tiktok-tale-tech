@@ -40,6 +40,9 @@ interface AIGenerationProgressProps {
     isStreaming?: boolean;
   }[];
   streamingTexts?: Record<string, string>;
+  errorChannels?: { channel: string; message: string }[];
+  onRetryChannel?: (channel: string) => void;
+  retryingChannel?: string;
 }
 
 export function AIGenerationProgress({ 
@@ -54,6 +57,9 @@ export function AIGenerationProgress({
   totalChannels: totalChannelsProp,
   currentChannel,
   streamingTexts,
+  errorChannels = [],
+  onRetryChannel,
+  retryingChannel,
 }: AIGenerationProgressProps) {
   // Ensure arrays are always arrays
   const completedChannels = completedChannelsProp ?? [];
@@ -212,18 +218,41 @@ export function AIGenerationProgress({
 
       {/* === STREAMING TEXT GRID - MAIN FOCUS === */}
       {(() => {
-        // Convert streamingTexts to ChannelStreamData array
-        const streamingChannels: ChannelStreamData[] = Object.entries(streamingTexts || {}).map(([channel, text]) => ({
-          channel,
-          text: typeof text === 'string' ? text : '',
-          isComplete: completedChannels.includes(channel),
-          isStreaming: !completedChannels.includes(channel),
-        }));
+        // Convert streamingTexts to ChannelStreamData array with error handling
+        const errorChannelNames = errorChannels.map(e => e.channel);
+        
+        const streamingChannels: ChannelStreamData[] = Object.entries(streamingTexts || {}).map(([channel, text]) => {
+          const errorInfo = errorChannels.find(e => e.channel === channel);
+          return {
+            channel,
+            text: typeof text === 'string' ? text : '',
+            isComplete: completedChannels.includes(channel),
+            isStreaming: !completedChannels.includes(channel) && !errorInfo,
+            hasError: !!errorInfo,
+            errorMessage: errorInfo?.message,
+          };
+        });
+
+        // Also add error channels that might not be in streamingTexts yet
+        errorChannels.forEach(err => {
+          if (!streamingChannels.find(ch => ch.channel === err.channel)) {
+            streamingChannels.push({
+              channel: err.channel,
+              text: '',
+              isComplete: false,
+              isStreaming: false,
+              hasError: true,
+              errorMessage: err.message,
+            });
+          }
+        });
 
         return (
           <StreamingTextGrid
             streamingChannels={streamingChannels}
             pendingChannels={pendingChannels}
+            onRetryChannel={onRetryChannel}
+            retryingChannel={retryingChannel}
             className="max-h-[320px] overflow-y-auto"
           />
         );
