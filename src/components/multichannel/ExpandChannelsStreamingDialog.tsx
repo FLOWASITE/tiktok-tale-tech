@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, CheckCircle2, X, Loader2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Music2, AtSign, Sparkles } from 'lucide-react';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useExpandChannelsStreaming } from '@/hooks/useExpandChannelsStreaming';
 import { StreamingTextGrid, ChannelStreamData } from '@/components/multichannel/streaming/StreamingTextGrid';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ExpandChannelsStreamingDialogProps {
   open: boolean;
@@ -58,6 +59,8 @@ export function ExpandChannelsStreamingDialog({
 }: ExpandChannelsStreamingDialogProps) {
   const [phase, setPhase] = useState<Phase>('select');
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>([]);
+  const [freshSelectedChannels, setFreshSelectedChannels] = useState<Channel[]>([]);
+  const [isLoadingChannels, setIsLoadingChannels] = useState(false);
 
   const { 
     expand, 
@@ -78,8 +81,29 @@ export function ExpandChannelsStreamingDialog({
     },
   });
 
-  // Filter out channels that already have content
-  const contentChannels = Array.isArray(content.selected_channels) ? content.selected_channels : [];
+  // Fetch fresh selected_channels from DB when dialog opens
+  useEffect(() => {
+    if (open && content?.id) {
+      setIsLoadingChannels(true);
+      supabase
+        .from('multi_channel_contents')
+        .select('selected_channels')
+        .eq('id', content.id)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data?.selected_channels) {
+            setFreshSelectedChannels(data.selected_channels as Channel[]);
+          } else {
+            // Fallback to prop value
+            setFreshSelectedChannels(Array.isArray(content.selected_channels) ? content.selected_channels : []);
+          }
+          setIsLoadingChannels(false);
+        });
+    }
+  }, [open, content?.id]);
+
+  // Filter out channels that already have content - use fresh data
+  const contentChannels = freshSelectedChannels.length > 0 ? freshSelectedChannels : (Array.isArray(content.selected_channels) ? content.selected_channels : []);
   const availableChannels = ALL_CHANNELS.filter(
     ch => !contentChannels.includes(ch.value)
   );
@@ -174,7 +198,12 @@ export function ExpandChannelsStreamingDialog({
               </DialogDescription>
             </DialogHeader>
 
-            {availableChannels.length === 0 ? (
+            {isLoadingChannels ? (
+              <div className="py-8 flex items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Đang tải...
+              </div>
+            ) : availableChannels.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 Tất cả các kênh đã được tạo nội dung.
               </div>
