@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { QuickSearch } from '@/components/QuickSearch';
-
+import { HelpChatWidget } from '@/components/help/HelpChatWidget';
 interface AppLayoutProps {
   children: React.ReactNode;
 }
@@ -38,6 +38,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             {children}
           </main>
         </div>
+        
+        {/* Help Chat Widget - Floating */}
+        <HelpChatWidget />
       </div>
     </SidebarProvider>
   );

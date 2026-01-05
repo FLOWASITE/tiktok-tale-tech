@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.expand-multichannel-channels]
 verify_jwt = false
+
+[functions.help-chatbot]
+verify_jwt = false
