@@ -18,10 +18,15 @@ export interface CoachmarkContextValue {
   isActive: boolean;
   currentStep: number;
   steps: CoachmarkStep[];
+  showWelcomeModal: boolean;
+  showCompletionModal: boolean;
   start: () => void;
+  startWithWelcome: () => void;
   next: () => void;
   prev: () => void;
   skip: () => void;
+  skipWelcome: (neverShow: boolean) => void;
   complete: () => void;
+  closeCompletionModal: () => void;
   goToStep: (index: number) => void;
 }

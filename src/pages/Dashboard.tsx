@@ -16,6 +16,8 @@ import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { 
   CoachmarkProvider, 
   CoachmarkOverlay, 
+  WelcomeModal,
+  CompletionModal,
   useCoachmark,
   DASHBOARD_STEPS, 
   COACHMARK_STORAGE_KEY 
@@ -38,7 +40,15 @@ function DashboardContent() {
   const { carousels, loading: carouselsLoading } = useCarousels();
   const { contents: multiChannelContents, loading: multiChannelLoading } = useMultiChannelContents();
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
-  const { start, isActive } = useCoachmark();
+  const { 
+    start, 
+    startWithWelcome, 
+    isActive, 
+    showWelcomeModal, 
+    showCompletionModal, 
+    skipWelcome,
+    closeCompletionModal 
+  } = useCoachmark();
 
   const loading = scriptsLoading || carouselsLoading || multiChannelLoading || brandsLoading;
 
@@ -133,22 +143,35 @@ function DashboardContent() {
     },
   ];
 
-  // Auto-start onboarding for new users
+  // Auto-start onboarding for new users with welcome modal
   useEffect(() => {
     if (loading) return;
     
     const completed = localStorage.getItem(COACHMARK_STORAGE_KEY);
     const isNewUser = !completed && stats.scripts === 0 && stats.carousels === 0 && stats.multiChannel === 0;
     
-    if (isNewUser && !isActive) {
+    if (isNewUser && !isActive && !showWelcomeModal && !showCompletionModal) {
       // Delay to let UI render
-      const timer = setTimeout(() => start(), 800);
+      const timer = setTimeout(() => startWithWelcome(), 800);
       return () => clearTimeout(timer);
     }
-  }, [loading, stats, start, isActive]);
+  }, [loading, stats, startWithWelcome, isActive, showWelcomeModal, showCompletionModal]);
 
   return (
     <div className="relative">
+      {/* Welcome Modal */}
+      <WelcomeModal 
+        isOpen={showWelcomeModal} 
+        onStart={start} 
+        onSkip={skipWelcome} 
+      />
+
+      {/* Completion Modal */}
+      <CompletionModal 
+        isOpen={showCompletionModal} 
+        onClose={closeCompletionModal} 
+      />
+
       {/* Coachmark Overlay */}
       <CoachmarkOverlay />
 
