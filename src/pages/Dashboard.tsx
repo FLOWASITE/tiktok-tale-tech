@@ -10,12 +10,15 @@ import {
   QuickActionGrid, 
   AIInsightsCard, 
   ActivityTimeline,
-  TodayFocus 
+  TodayFocus,
+  ActiveCampaignsWidget,
+  CampaignMilestoneReminder
 } from '@/components/dashboard';
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCampaignIntegration } from '@/hooks/useCampaignIntegration';
 import { 
   CoachmarkProvider, 
   CoachmarkOverlay, 
@@ -33,6 +36,13 @@ function DashboardContent() {
   const { carousels, loading: carouselsLoading } = useCarousels();
   const { contents: multiChannelContents, loading: multiChannelLoading } = useMultiChannelContents();
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
+  const { 
+    activeCampaigns, 
+    upcomingMilestones, 
+    overdueMilestones,
+    todayMilestones,
+    isLoading: campaignsLoading 
+  } = useCampaignIntegration();
   const { 
     start, 
     startWithWelcome, 
@@ -206,7 +216,7 @@ function DashboardContent() {
             transition={{ delay: 0.4 }}
             className="lg:col-span-3"
           >
-            <TodayFocus scheduledCount={0} pendingReviewCount={0} />
+            <TodayFocus scheduledCount={0} pendingReviewCount={0} todayMilestones={todayMilestones} />
           </motion.div>
 
           {/* AI Insights (spans 4 cols on lg) */}
@@ -240,6 +250,32 @@ function DashboardContent() {
           >
             <PerformanceReminderWidget />
           </motion.div>
+
+          {/* Active Campaigns Widget (spans 6 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.75 }}
+            className="lg:col-span-6"
+          >
+            <ActiveCampaignsWidget campaigns={activeCampaigns} isLoading={campaignsLoading} />
+          </motion.div>
+
+          {/* Campaign Milestone Reminder (spans 6 cols on lg) */}
+          {(upcomingMilestones.length > 0 || overdueMilestones.length > 0) && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.78 }}
+              className="lg:col-span-6"
+            >
+              <CampaignMilestoneReminder 
+                milestones={upcomingMilestones} 
+                overdueMilestones={overdueMilestones}
+                isLoading={campaignsLoading} 
+              />
+            </motion.div>
+          )}
 
           {/* My Assignments (spans 6 cols on lg) */}
           <motion.div 
