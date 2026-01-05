@@ -1,12 +1,14 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { ORG_ROLE_LABELS } from '@/types/organization';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -15,6 +17,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
   Collapsible,
@@ -156,6 +163,7 @@ export function AppSidebar() {
   const { isAdmin } = useAdmin();
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
+  const { organizations, currentOrganization, switchOrganization } = useOrganizationContext();
   const navigate = useNavigate();
   const location = useLocation();
   const isCollapsed = state === 'collapsed';
@@ -163,6 +171,15 @@ export function AppSidebar() {
   // Admin section mặc định đóng, mở nếu đang ở trang admin
   const isOnAdminPage = location.pathname.startsWith('/admin');
   const [adminOpen, setAdminOpen] = useState(isOnAdminPage);
+
+  const handleSwitchOrg = (orgId: string) => {
+    switchOrganization(orgId);
+    toast.success('Đã chuyển tổ chức');
+  };
+
+  const handleSupportClick = () => {
+    window.open('https://docs.lovable.dev', '_blank');
+  };
 
   const getAvatarUrl = () => {
     return profile?.avatar_url || user?.user_metadata?.avatar_url;
@@ -380,17 +397,94 @@ export function AppSidebar() {
                 <DropdownMenuContent
                   side="top"
                   align="start"
-                  className="w-56 glass-card border-border/30 shadow-xl"
+                  className="w-64 glass-card border-border/30 shadow-xl bg-popover"
                 >
+                  {/* Hồ sơ cá nhân */}
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Hồ sơ cá nhân
+                  </DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => navigate('/account')} className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     Tài khoản
                   </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator className="bg-border/30" />
+                  
+                  {/* Tổ chức */}
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Tổ chức
+                  </DropdownMenuLabel>
+                  
+                  {/* Organization Switcher */}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2 cursor-pointer">
+                      <Building2 className="h-4 w-4" />
+                      <span className="flex-1 truncate">
+                        {currentOrganization?.name || 'Chọn Tổ chức'}
+                      </span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="w-56 bg-popover">
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                          Tổ chức của bạn
+                        </DropdownMenuLabel>
+                        
+                        {organizations.length === 0 ? (
+                          <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                            Chưa có tổ chức nào
+                          </div>
+                        ) : (
+                          organizations.map((org) => (
+                            <DropdownMenuItem
+                              key={org.id}
+                              onClick={() => handleSwitchOrg(org.id)}
+                              className="gap-2 cursor-pointer"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{org.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {ORG_ROLE_LABELS[org.role]}
+                                </p>
+                              </div>
+                              {org.id === currentOrganization?.id && (
+                                <Check className="w-4 h-4 text-primary shrink-0" />
+                              )}
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                  
                   <DropdownMenuItem onClick={() => navigate('/organization')} className="cursor-pointer">
                     <Building2 className="mr-2 h-4 w-4" />
                     Cài đặt tổ chức
                   </DropdownMenuItem>
+                  
+                  {/* Admin */}
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator className="bg-border/30" />
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        Quản trị
+                      </DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="cursor-pointer">
+                        <Shield className="mr-2 h-4 w-4 text-destructive" />
+                        Admin Dashboard
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  
                   <DropdownMenuSeparator className="bg-border/30" />
+                  
+                  <DropdownMenuItem onClick={handleSupportClick} className="cursor-pointer">
+                    <HelpCircle className="mr-2 h-4 w-4" />
+                    Trợ giúp
+                    <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator className="bg-border/30" />
+                  
                   <DropdownMenuItem
                     onClick={handleSignOut}
                     className="text-destructive focus:text-destructive cursor-pointer"
