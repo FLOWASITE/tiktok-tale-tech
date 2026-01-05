@@ -1,0 +1,326 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { toast } from 'sonner';
+import type { 
+  Campaign, 
+  CampaignFormData, 
+  CampaignMilestone, 
+  CampaignContent,
+  MilestoneFormData,
+  CampaignGoal,
+  CampaignStatus
+} from '@/types/campaign';
+import type { Json } from '@/integrations/supabase/types';
+
+// Helper to safely parse goals from JSON
+function parseGoals(goals: Json | null): CampaignGoal[] {
+  if (!goals || !Array.isArray(goals)) return [];
+  return goals as unknown as CampaignGoal[];
+}
+
+// Helper to convert CampaignGoal[] to Json
+function goalsToJson(goals: CampaignGoal[]): Json {
+  return goals as unknown as Json;
+}
+
+export function useCampaigns() {
+  const { currentOrganization } = useOrganizationContext();
+  const queryClient = useQueryClient();
+  const orgId = currentOrganization?.id;
+
+  // Fetch all campaigns
+  const { data: campaigns = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['campaigns', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      return (data || []).map(campaign => ({
+        ...campaign,
+        goals: parseGoals(campaign.goals),
+        target_channels: campaign.target_channels || [],
+        tags: campaign.tags || [],
+      })) as Campaign[];
+    },
+    enabled: !!orgId,
+  });
+
+  // Create campaign mutation
+  const createMutation = useMutation({
+    mutationFn: async (formData: CampaignFormData) => {
+      if (!orgId) throw new Error('No organization selected');
+      
+      const { data: userData } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .insert({
+          organization_id: orgId,
+          name: formData.name,
+          description: formData.description || null,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          campaign_type: formData.campaign_type,
+          brand_template_id: formData.brand_template_id || null,
+          goals: goalsToJson(formData.goals || []),
+          budget_total: formData.budget_total || null,
+          budget_currency: formData.budget_currency || 'VND',
+          target_channels: formData.target_channels || [],
+          tags: formData.tags || [],
+          created_by: userData.user?.id || null,
+          status: 'draft',
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        ...data,
+        goals: parseGoals(data.goals),
+        target_channels: data.target_channels || [],
+        tags: data.tags || [],
+      } as Campaign;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', orgId] });
+      toast.success('Đã tạo chiến dịch mới');
+    },
+    onError: (error) => {
+      console.error('Create campaign error:', error);
+      toast.error('Không thể tạo chiến dịch');
+    },
+  });
+
+  // Update campaign mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data: updateData }: { id: string; data: Partial<CampaignFormData> }) => {
+      const updatePayload: Record<string, unknown> = { ...updateData };
+      if (updateData.goals) {
+        updatePayload.goals = goalsToJson(updateData.goals);
+      }
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        ...data,
+        goals: parseGoals(data.goals),
+        target_channels: data.target_channels || [],
+        tags: data.tags || [],
+      } as Campaign;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', orgId] });
+      toast.success('Đã cập nhật chiến dịch');
+    },
+    onError: (error) => {
+      console.error('Update campaign error:', error);
+      toast.error('Không thể cập nhật chiến dịch');
+    },
+  });
+
+  // Delete campaign mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', orgId] });
+      toast.success('Đã xóa chiến dịch');
+    },
+    onError: (error) => {
+      console.error('Delete campaign error:', error);
+      toast.error('Không thể xóa chiến dịch');
+    },
+  });
+
+  // Update campaign status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: CampaignStatus }) => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        ...data,
+        goals: parseGoals(data.goals),
+        target_channels: data.target_channels || [],
+        tags: data.tags || [],
+      } as Campaign;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', orgId] });
+      toast.success('Đã cập nhật trạng thái');
+    },
+    onError: (error) => {
+      console.error('Update status error:', error);
+      toast.error('Không thể cập nhật trạng thái');
+    },
+  });
+
+  return {
+    campaigns,
+    isLoading,
+    error,
+    refetch,
+    createCampaign: createMutation.mutateAsync,
+    updateCampaign: updateMutation.mutateAsync,
+    deleteCampaign: deleteMutation.mutateAsync,
+    updateStatus: updateStatusMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
+}
+
+// Hook for single campaign with details
+export function useCampaignDetail(campaignId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  const { data: campaign, isLoading, error } = useQuery({
+    queryKey: ['campaign', campaignId],
+    queryFn: async () => {
+      if (!campaignId) return null;
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('id', campaignId)
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        ...data,
+        goals: parseGoals(data.goals),
+        target_channels: data.target_channels || [],
+        tags: data.tags || [],
+      } as Campaign;
+    },
+    enabled: !!campaignId,
+  });
+
+  // Fetch milestones
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['campaign-milestones', campaignId],
+    queryFn: async () => {
+      if (!campaignId) return [];
+      
+      const { data, error } = await supabase
+        .from('campaign_milestones')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('due_date', { ascending: true });
+      
+      if (error) throw error;
+      return data as CampaignMilestone[];
+    },
+    enabled: !!campaignId,
+  });
+
+  // Fetch contents
+  const { data: contents = [] } = useQuery({
+    queryKey: ['campaign-contents', campaignId],
+    queryFn: async () => {
+      if (!campaignId) return [];
+      
+      const { data, error } = await supabase
+        .from('campaign_contents')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('planned_publish_date', { ascending: true });
+      
+      if (error) throw error;
+      return data as CampaignContent[];
+    },
+    enabled: !!campaignId,
+  });
+
+  // Add milestone mutation
+  const addMilestoneMutation = useMutation({
+    mutationFn: async (milestone: MilestoneFormData) => {
+      if (!campaignId) throw new Error('No campaign');
+      
+      const { data, error } = await supabase
+        .from('campaign_milestones')
+        .insert({
+          campaign_id: campaignId,
+          title: milestone.title,
+          description: milestone.description || null,
+          due_date: milestone.due_date,
+          status: milestone.status || 'pending',
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as CampaignMilestone;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-milestones', campaignId] });
+      toast.success('Đã thêm milestone');
+    },
+  });
+
+  // Update KPIs mutation
+  const updateKPIsMutation = useMutation({
+    mutationFn: async (goals: CampaignGoal[]) => {
+      if (!campaignId) throw new Error('No campaign');
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update({ goals: goalsToJson(goals) })
+        .eq('id', campaignId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        ...data,
+        goals: parseGoals(data.goals),
+        target_channels: data.target_channels || [],
+        tags: data.tags || [],
+      } as Campaign;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign', campaignId] });
+      toast.success('Đã cập nhật KPIs');
+    },
+  });
+
+  return {
+    campaign,
+    milestones,
+    contents,
+    isLoading,
+    error,
+    addMilestone: addMilestoneMutation.mutateAsync,
+    updateKPIs: updateKPIsMutation.mutateAsync,
+  };
+}
