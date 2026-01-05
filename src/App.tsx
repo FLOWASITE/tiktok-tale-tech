@@ -42,6 +42,7 @@ import MultiChannelCreate from "./pages/MultiChannelCreate";
 import AdminHelpArticles from "./pages/AdminHelpArticles";
 import Campaigns from "./pages/Campaigns";
 import CampaignCreate from "./pages/CampaignCreate";
+import CampaignDetail from "./pages/CampaignDetail";
 
 const queryClient = new QueryClient();
 
@@ -180,6 +181,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <CampaignCreate />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/campaigns/:id"
+                element={
+                  <ProtectedRoute>
+                    <CampaignDetail />
                   </ProtectedRoute>
                 }
               />
