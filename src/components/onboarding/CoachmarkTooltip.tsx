@@ -116,44 +116,43 @@ export function CoachmarkTooltip({
         </div>
       )}
 
-      {/* Progress + Navigation */}
-      <div className="flex items-center justify-between">
-        {/* Progress dots */}
-        <div className="flex gap-1.5">
-          {Array.from({ length: totalSteps }).map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-1.5 rounded-full transition-all duration-300",
-                i === currentIndex 
-                  ? "w-4 bg-primary" 
-                  : i < currentIndex
-                    ? "w-1.5 bg-primary/50"
-                    : "w-1.5 bg-muted"
-              )}
-            />
-          ))}
-        </div>
+      {/* Sticky footer to ALWAYS keep Next visible */}
+      <div className="sticky bottom-0 -mx-3 sm:-mx-4 px-3 sm:px-4 pt-3 bg-card border-t">
+        {/* Progress + Navigation */}
+        <div className="flex items-center justify-between">
+          {/* Progress dots */}
+          <div className="flex gap-1.5">
+            {Array.from({ length: totalSteps }).map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-300",
+                  i === currentIndex ? "w-4 bg-primary" : i < currentIndex ? "w-1.5 bg-primary/50" : "w-1.5 bg-muted"
+                )}
+              />
+            ))}
+          </div>
 
-        {/* Navigation buttons */}
-        <div className="flex gap-2">
-          {!isFirst && (
-            <Button variant="ghost" size="sm" onClick={onPrev} className="h-8 px-2">
-              <ChevronLeft className="w-4 h-4" />
+          {/* Navigation buttons */}
+          <div className="flex gap-2">
+            {!isFirst && (
+              <Button variant="ghost" size="sm" onClick={onPrev} className="h-8 px-2">
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+            )}
+            <Button size="sm" onClick={onNext} className="h-8">
+              {isLast ? 'Hoàn thành' : 'Tiếp'}
+              {!isLast && <ChevronRight className="w-4 h-4 ml-1" />}
             </Button>
-          )}
-          <Button size="sm" onClick={onNext} className="h-8">
-            {isLast ? 'Hoàn thành' : 'Tiếp'}
-            {!isLast && <ChevronRight className="w-4 h-4 ml-1" />}
-          </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Keyboard hints */}
-      <div className="mt-3 pt-3 border-t text-[10px] text-muted-foreground/70 flex items-center justify-center gap-3">
-        <span>← → để chuyển</span>
-        <span>•</span>
-        <span>ESC để bỏ qua</span>
+        {/* Keyboard hints */}
+        <div className="mt-3 pb-3 text-[10px] text-muted-foreground/70 flex items-center justify-center gap-3">
+          <span>← → để chuyển</span>
+          <span>•</span>
+          <span>ESC để bỏ qua</span>
+        </div>
       </div>
     </motion.div>
   );
