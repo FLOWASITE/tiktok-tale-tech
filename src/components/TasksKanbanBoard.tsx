@@ -172,8 +172,8 @@ export function TasksKanbanBoard({
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
       >
-        <ScrollArea className="w-full overflow-hidden">
-          <div className="flex gap-3 sm:gap-4 pb-4" style={{ minWidth: 'fit-content' }}>
+        <div className="w-full overflow-x-auto" style={{ contain: 'strict' }}>
+          <div className="flex gap-3 sm:gap-4 pb-4 min-w-max">
             {KANBAN_COLUMNS.map(column => (
               <KanbanColumn
                 key={column.id}
@@ -204,8 +204,7 @@ export function TasksKanbanBoard({
               </KanbanColumn>
             ))}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
 
         <DragOverlay>
           {activeTask && (

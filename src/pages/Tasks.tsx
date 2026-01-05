@@ -399,13 +399,13 @@ export default function Tasks() {
   };
 
   return (
-    <div className="space-y-5 sm:space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
+    <div className="space-y-5 sm:space-y-6 w-full max-w-full overflow-x-hidden" style={{ contain: 'layout style' }}>
       {/* Header with animated gradient background */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/3 p-4 sm:p-6 border border-border/50">
-        {/* Animated background orbs */}
+        {/* Static background orbs - no animation to prevent layout shifts */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-pulse-glow" />
-          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-secondary/10 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl opacity-60" />
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-secondary/10 rounded-full blur-3xl opacity-50" />
         </div>
 
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -561,7 +561,7 @@ export default function Tasks() {
                   <span className="text-sm font-medium">Tiến độ hoàn thành</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-primary animate-pulse-glow" />
+                  <Sparkles className="w-4 h-4 text-primary" />
                   <span className="text-lg font-bold text-gradient">{stats.completionRate}%</span>
                 </div>
               </div>

@@ -33,8 +33,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
           </header>
 
-          {/* Main Content */}
-          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
+          {/* Main Content - contain: layout isolates from sidebar animations */}
+          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6" style={{ contain: 'layout' }}>
             {children}
           </main>
         </div>
