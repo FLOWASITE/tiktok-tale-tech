@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -71,6 +71,7 @@ const adminItems = [
   { title: 'Memory Packs', url: '/admin/packs', icon: Package },
   { title: 'Version History', url: '/admin/versions', icon: GitBranch },
   { title: 'Help Articles', url: '/admin/help-articles', icon: BookOpen },
+  { title: 'Curated News', url: '/admin/industry-news', icon: Newspaper },
 ];
 
 // Menu Item Component với premium styling
