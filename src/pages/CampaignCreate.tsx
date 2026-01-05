@@ -15,7 +15,8 @@ import {
   Layers,
   Flag,
   X,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCampaigns, useCampaignDetail } from '@/hooks/useCampaigns';
@@ -40,6 +41,13 @@ import {
 import { CampaignFormStepper } from '@/components/campaign/CampaignFormStepper';
 import { CampaignMilestoneEditor } from '@/components/campaign/CampaignMilestoneEditor';
 import { CampaignCreatePreviewPanel } from '@/components/campaign/CampaignCreatePreviewPanel';
+import { CampaignTemplateSelector } from '@/components/campaign/CampaignTemplateSelector';
+import { 
+  CampaignTemplate, 
+  generateGoalsFromTemplate, 
+  generateMilestonesFromTemplate,
+  calculateEndDate 
+} from '@/data/campaignTemplates';
 import { toast } from 'sonner';
 
 const CHANNELS = [
@@ -80,6 +88,29 @@ export default function CampaignCreate() {
   const [milestones, setMilestones] = useState<MilestoneFormData[]>([]);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(!isEditMode);
+  const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null);
+
+  // Handle template selection
+  const handleTemplateSelect = (template: CampaignTemplate) => {
+    const today = new Date().toISOString().split('T')[0];
+    const endDate = calculateEndDate(today, template);
+    
+    setFormData({
+      ...formData,
+      name: template.name + ' ' + new Date().getFullYear(),
+      description: template.description,
+      campaign_type: template.campaign_type,
+      start_date: today,
+      end_date: endDate,
+      goals: generateGoalsFromTemplate(template),
+      target_channels: template.suggested_channels,
+    });
+    
+    setMilestones(generateMilestonesFromTemplate(template, today));
+    setSelectedTemplate(template);
+    toast.success(`Đã áp dụng mẫu "${template.name}"`);
+  };
 
   // Populate form data in edit mode
   useEffect(() => {
@@ -299,13 +330,41 @@ export default function CampaignCreate() {
             {step === 1 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-primary" />
-                    Thông tin cơ bản
-                  </CardTitle>
-                  <CardDescription>
-                    Đặt tên và chọn loại chiến dịch phù hợp với mục tiêu
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Target className="h-5 w-5 text-primary" />
+                        Thông tin cơ bản
+                      </CardTitle>
+                      <CardDescription>
+                        Đặt tên và chọn loại chiến dịch phù hợp với mục tiêu
+                      </CardDescription>
+                    </div>
+                    {!isEditMode && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTemplateSelector(true)}
+                        className="shrink-0"
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        {selectedTemplate ? 'Đổi mẫu' : 'Dùng mẫu có sẵn'}
+                      </Button>
+                    )}
+                  </div>
+                  {selectedTemplate && (
+                    <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{selectedTemplate.icon}</span>
+                        <div>
+                          <p className="text-sm font-medium">Đang dùng mẫu: {selectedTemplate.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedTemplate.duration_days} ngày • {selectedTemplate.milestones.length} mốc thời gian
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
@@ -584,6 +643,13 @@ export default function CampaignCreate() {
           </div>
         </div>
       </div>
+
+      {/* Template Selector Dialog */}
+      <CampaignTemplateSelector
+        open={showTemplateSelector}
+        onOpenChange={setShowTemplateSelector}
+        onSelect={handleTemplateSelect}
+      />
     </div>
   );
 }
