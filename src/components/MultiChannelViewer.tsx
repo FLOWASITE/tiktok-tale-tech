@@ -610,36 +610,64 @@ export function MultiChannelViewer({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl w-[98vw] h-[95vh] max-h-[95vh] p-0 overflow-hidden flex flex-col">
-        {/* Compact Header */}
-        <DialogHeader className="px-4 py-3 border-b border-border/50 bg-card/50 backdrop-blur-sm shrink-0">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              {isEditingHeader ? (
-                <div className="flex items-center gap-3 flex-1">
-                  <Input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    placeholder="Tiêu đề..."
-                    className="max-w-xs h-8 text-sm font-semibold"
-                    autoFocus
-                  />
-                  <Input
-                    value={editTopic}
-                    onChange={(e) => setEditTopic(e.target.value)}
-                    placeholder="Chủ đề..."
-                    className="max-w-md h-8 text-sm"
-                  />
-                  <Button size="sm" onClick={handleSaveHeader} disabled={isSavingHeader || !editTitle.trim()} className="h-8">
-                    {isSavingHeader ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={handleCancelEditHeader} disabled={isSavingHeader} className="h-8">
-                    <X className="w-4 h-4" />
-                  </Button>
+        {/* Premium 2-Row Header */}
+        <DialogHeader className="shrink-0">
+          {/* Row 1: Primary Info Bar */}
+          <div className="px-4 py-3 border-b border-border/30 bg-gradient-to-r from-card via-card to-muted/20 backdrop-blur-sm relative">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {/* Close Button */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => onOpenChange(false)}
+                  className="h-8 w-8 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+
+                {/* Brand Identity Card */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border/30 shrink-0">
+                  {brandLogoUrl ? (
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-primary/20 blur-md rounded-md" />
+                      <img src={brandLogoUrl} alt="" className="w-6 h-6 rounded-md object-cover relative z-10" />
+                    </div>
+                  ) : (
+                    <Briefcase className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <span className="font-medium text-sm hidden sm:inline">{content.brand_name}</span>
                 </div>
-              ) : (
-                <>
+
+                {/* Separator */}
+                <div className="h-6 w-px bg-border/50 hidden sm:block" />
+
+                {/* Title with edit */}
+                {isEditingHeader ? (
+                  <div className="flex items-center gap-3 flex-1">
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Tiêu đề..."
+                      className="max-w-xs h-8 text-sm font-semibold"
+                      autoFocus
+                    />
+                    <Input
+                      value={editTopic}
+                      onChange={(e) => setEditTopic(e.target.value)}
+                      placeholder="Chủ đề..."
+                      className="max-w-md h-8 text-sm"
+                    />
+                    <Button size="sm" onClick={handleSaveHeader} disabled={isSavingHeader || !editTitle.trim()} className="h-8">
+                      {isSavingHeader ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={handleCancelEditHeader} disabled={isSavingHeader} className="h-8">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
                   <div className="flex items-center gap-2 group min-w-0">
-                    <DialogTitle className="text-base font-bold truncate max-w-[300px]">
+                    <DialogTitle className="text-base font-bold truncate max-w-[300px] lg:max-w-[400px]">
                       {content.title}
                     </DialogTitle>
                     {onUpdateTitleTopic && (
@@ -653,8 +681,19 @@ export function MultiChannelViewer({
                       </Button>
                     )}
                   </div>
-                  <Badge variant="outline" className="text-xs shrink-0">{goalLabel}</Badge>
-                  {/* Quality Score Badge */}
+                )}
+              </div>
+              
+              {/* Right: Badges */}
+              {!isEditingHeader && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Goal Badge - Prominent */}
+                  <Badge className="bg-primary/10 text-primary border-primary/20 gap-1.5 shrink-0">
+                    <Target className="w-3 h-3" />
+                    {goalLabel}
+                  </Badge>
+
+                  {/* Quality Score */}
                   {content.critique_score && (
                     <ContentQualityScore
                       score={content.critique_score}
@@ -664,15 +703,14 @@ export function MultiChannelViewer({
                       variant="badge"
                     />
                   )}
-                  <Badge variant="outline" className="bg-muted/50 text-xs shrink-0 hidden sm:inline-flex">
-                    {content.brand_name}
-                  </Badge>
-                  {/* Industry Guardrail Badge - compact */}
+
+                  {/* Industry Badge - Compact */}
                   <IndustryGuardrailBadge 
                     industryMemory={industryMemory} 
                     isLoading={isLoadingIndustry}
                     className="hidden md:flex"
                   />
+
                   {/* Version Upgrade Badge */}
                   {hasVersionUpgrade && latestVersion && (
                     <VersionOutdatedBadge
@@ -681,35 +719,110 @@ export function MultiChannelViewer({
                       className="hidden md:flex"
                     />
                   )}
-                </>
+                </div>
               )}
             </div>
-            
-            {!isEditingHeader && (
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Quick Channel Nav */}
+            {/* Gradient bottom border */}
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          </div>
+
+          {/* Row 2: Actions & Navigation Bar */}
+          {!isEditingHeader && (
+            <div className="px-4 py-2 border-b border-border/50 bg-muted/10 flex items-center justify-between gap-3">
+              {/* Left: Quick Channel Navigation */}
+              <div className="flex items-center gap-3">
                 <QuickChannelNav
                   channels={content.selected_channels || []}
                   activeChannel={selectedChannel}
                   onChannelChange={setSelectedChannel}
-                  className="hidden lg:flex"
                 />
                 
-                {/* Channel Comparison */}
-                <ChannelComparison content={content} channelConfig={channelConfig} />
-                
-                {/* Team Panel Toggle */}
-                <Button 
-                  variant={showTeamPanel ? "default" : "outline"} 
-                  size="sm" 
-                  onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); }}
-                  className="h-8 gap-1.5"
-                >
-                  <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Team</span>
-                </Button>
-                
-                {/* Auto Generate Images Button */}
+                {/* Channel count indicator */}
+                <Badge variant="outline" className="text-xs hidden sm:inline-flex">
+                  {(content.selected_channels || []).indexOf(selectedChannel) + 1} / {(content.selected_channels || []).length} kênh
+                </Badge>
+              </div>
+
+              {/* Right: Grouped Actions */}
+              <div className="flex items-center gap-1">
+                {/* Secondary Actions Group */}
+                <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50 border border-border/30">
+                  {/* Channel Comparison */}
+                  <ChannelComparison content={content} channelConfig={channelConfig} />
+                  
+                  {/* Team Panel Toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant={showTeamPanel ? "secondary" : "ghost"} 
+                        size="icon"
+                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); }}
+                        className="h-8 w-8"
+                      >
+                        <Users className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Team</TooltipContent>
+                  </Tooltip>
+                  
+                  {/* Gallery Toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant={showGallery ? "secondary" : "ghost"} 
+                        size="icon"
+                        onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); }}
+                        className="h-8 w-8 relative"
+                      >
+                        <Images className="w-4 h-4" />
+                        {Object.keys(content.channel_images || {}).length > 0 && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 text-[10px] bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+                            {Object.keys(content.channel_images || {}).length}
+                          </span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Gallery</TooltipContent>
+                  </Tooltip>
+                  
+                  {/* Schedule Button */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant={showSchedule ? "secondary" : "ghost"} 
+                        size="icon"
+                        onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); }}
+                        className="h-8 w-8"
+                      >
+                        <CalendarClock className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Lịch đăng</TooltipContent>
+                  </Tooltip>
+
+                  {/* Performance Tracking */}
+                  {content.status === 'published' && (
+                    <TopicPerformanceUpdater
+                      contentId={content.id}
+                      onUpdate={() => {}}
+                      trigger={
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <TrendingUp className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Hiệu suất</TooltipContent>
+                        </Tooltip>
+                      }
+                    />
+                  )}
+                </div>
+
+                {/* Separator */}
+                <div className="h-6 w-px bg-border/30 mx-1" />
+
+                {/* AI Actions */}
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -717,10 +830,10 @@ export function MultiChannelViewer({
                   className="h-8 gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/5"
                 >
                   <Wand2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Tạo ảnh AI</span>
+                  <span className="hidden lg:inline">Tạo ảnh AI</span>
                 </Button>
-                
-                {/* Expand Channels Button */}
+
+                {/* Expand Channels */}
                 {onExpandChannels && (() => {
                   const ALL_CHANNELS: Channel[] = ['website', 'facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'email', 'google_maps', 'zalo_oa', 'telegram', 'tiktok', 'threads'];
                   const safeSelectedChannels = content?.selected_channels ?? [];
@@ -739,62 +852,19 @@ export function MultiChannelViewer({
                       ) : (
                         <Plus className="w-4 h-4" />
                       )}
-                      <span className="hidden sm:inline">Thêm kênh</span>
+                      <span className="hidden lg:inline">Thêm kênh</span>
                       <Badge variant="secondary" className="h-5 px-1.5 text-xs">
                         {availableChannelsCount}
                       </Badge>
                     </Button>
                   ) : null;
                 })()}
-                
-                {/* Gallery Toggle */}
-                <Button 
-                  variant={showGallery ? "default" : "outline"} 
-                  size="sm" 
-                  onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); }}
-                  className="h-8 gap-1.5"
-                >
-                  <Images className="w-4 h-4" />
-                  {Object.keys(content.channel_images || {}).length > 0 && (
-                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-                      {Object.keys(content.channel_images || {}).length}
-                    </Badge>
-                  )}
-                </Button>
-                
-                {/* Schedule Button */}
-                <Button 
-                  variant={showSchedule ? "default" : "outline"} 
-                  size="sm" 
-                  onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); }}
-                  className="h-8 gap-1.5"
-                >
-                  <CalendarClock className="w-4 h-4" />
-                </Button>
-                
-                {/* Performance Tracking - only when status is published */}
-                {content.status === 'published' && (
-                  <TopicPerformanceUpdater
-                    contentId={content.id}
-                    onUpdate={() => {}}
-                    trigger={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-1.5 border-border hover:border-emerald-500 hover:bg-emerald-500/10"
-                      >
-                        <TrendingUp className="w-4 h-4" />
-                        <span className="hidden sm:inline">Hiệu suất</span>
-                      </Button>
-                    }
-                  />
-                )}
-                
-                {/* Export Menu */}
+
+                {/* Export Menu - Primary */}
                 <EnhancedExportMenu content={content} channelConfig={channelConfig} currentChannel={selectedChannel} />
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </DialogHeader>
 
         {showTeamPanel ? (
