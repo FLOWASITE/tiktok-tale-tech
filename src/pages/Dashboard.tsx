@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardStats } from '@/components/DashboardStats';
 import { RecentActivity, ActivityItem } from '@/components/RecentActivity';
@@ -14,6 +14,13 @@ import { useCarousels } from '@/hooks/useCarousels';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { 
+  CoachmarkProvider, 
+  CoachmarkOverlay, 
+  useCoachmark,
+  DASHBOARD_STEPS, 
+  COACHMARK_STORAGE_KEY 
+} from '@/components/onboarding';
+import { 
   Sparkles, 
   FileVideo, 
   Images, 
@@ -21,14 +28,17 @@ import {
   Bookmark,
   ArrowRight,
   Zap,
-  Users
+  Users,
+  HelpCircle
 } from 'lucide-react';
 
-const Dashboard = () => {
+// Inner component that uses the coachmark context
+function DashboardContent() {
   const { scripts, loading: scriptsLoading } = useScripts();
   const { carousels, loading: carouselsLoading } = useCarousels();
   const { contents: multiChannelContents, loading: multiChannelLoading } = useMultiChannelContents();
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
+  const { start, isActive } = useCoachmark();
 
   const loading = scriptsLoading || carouselsLoading || multiChannelLoading || brandsLoading;
 
@@ -123,8 +133,25 @@ const Dashboard = () => {
     },
   ];
 
+  // Auto-start onboarding for new users
+  useEffect(() => {
+    if (loading) return;
+    
+    const completed = localStorage.getItem(COACHMARK_STORAGE_KEY);
+    const isNewUser = !completed && stats.scripts === 0 && stats.carousels === 0 && stats.multiChannel === 0;
+    
+    if (isNewUser && !isActive) {
+      // Delay to let UI render
+      const timer = setTimeout(() => start(), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, stats, start, isActive]);
+
   return (
     <div className="relative">
+      {/* Coachmark Overlay */}
+      <CoachmarkOverlay />
+
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-primary/5 rounded-full blur-3xl" />
@@ -133,28 +160,42 @@ const Dashboard = () => {
 
       <div className="px-3 xs:px-4 sm:container py-4 sm:py-6 lg:py-8 relative space-y-4 sm:space-y-6 lg:space-y-8">
         {/* Header */}
-        <div className="flex flex-col gap-1 sm:gap-2">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl gradient-primary">
-              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
+        <div className="flex flex-col gap-1 sm:gap-2" data-coachmark="header">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl gradient-primary">
+                <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">Dashboard</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Tổng quan về nội dung của bạn
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Tổng quan về nội dung của bạn
-              </p>
-            </div>
+            {/* Help button to restart onboarding */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => start()}
+              className="h-8 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <HelpCircle className="w-4 h-4 mr-1" />
+              Hướng dẫn
+            </Button>
           </div>
         </div>
 
         {/* Stats */}
-        <DashboardStats stats={stats} loading={loading} />
+        <div data-coachmark="stats">
+          <DashboardStats stats={stats} loading={loading} />
+        </div>
 
         {/* Main Content - Responsive columns layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
           {/* Column 1: Quick Actions & Tips */}
           <div className="space-y-4 sm:space-y-5 lg:space-y-6">
-            <Card className="gradient-card border-border/50">
+            <Card className="gradient-card border-border/50" data-coachmark="quick-actions">
               <CardHeader className="pb-3 sm:pb-4">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
@@ -171,6 +212,7 @@ const Dashboard = () => {
                         to={action.href}
                         className="stagger-item"
                         style={{ animationDelay: `${index * 100}ms` }}
+                        data-coachmark={action.href === '/multichannel' ? 'multichannel-action' : undefined}
                       >
                         <Card className="gradient-card border-border/50 card-animated group">
                           <CardContent className="p-2.5 sm:p-3 flex items-center gap-2 sm:gap-3">
@@ -196,7 +238,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Tips Section */}
-            <Card className="gradient-card border-border/50 overflow-hidden">
+            <Card className="gradient-card border-border/50 overflow-hidden" data-coachmark="brand-tip">
               <div className="relative">
                 <div className="absolute inset-0 gradient-primary opacity-10" />
                 <CardContent className="p-3 sm:p-4 lg:p-5 relative">
@@ -231,10 +273,14 @@ const Dashboard = () => {
 
           {/* Column 2: Topics, My Assignments & Today Schedules */}
           <div className="space-y-4 sm:space-y-5 lg:space-y-6">
-            <TopicQuickAccess />
+            <div data-coachmark="topics">
+              <TopicQuickAccess />
+            </div>
             <PerformanceReminderWidget />
             <MyAssignments />
-            <TodaySchedules />
+            <div data-coachmark="schedules">
+              <TodaySchedules />
+            </div>
           </div>
 
           {/* Column 3: Pending Reviews (Admin only) */}
@@ -248,6 +294,15 @@ const Dashboard = () => {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrapper component with CoachmarkProvider
+const Dashboard = () => {
+  return (
+    <CoachmarkProvider steps={DASHBOARD_STEPS}>
+      <DashboardContent />
+    </CoachmarkProvider>
   );
 };
 
