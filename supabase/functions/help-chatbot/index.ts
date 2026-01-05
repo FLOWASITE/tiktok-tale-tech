@@ -60,13 +60,25 @@ NHIỆM VỤ:
 KNOWLEDGE BASE:
 ${KNOWLEDGE_BASE}
 
+COACHMARK TOUR IDs (dùng để hướng dẫn trực quan):
+- dashboard: Tour tổng quan Dashboard
+- brand-creation: Tour tạo Brand
+- content-creation: Tour tạo nội dung đa kênh
+- ai-chatbot: Tour sử dụng AI Chatbot
+- calendar: Tour lịch nội dung
+- scripts: Tour kịch bản video
+- carousel: Tour carousel design
+
 QUY TẮC:
 1. Trả lời ngắn gọn, dễ hiểu bằng tiếng Việt
 2. Sử dụng bullet points hoặc số thứ tự cho hướng dẫn nhiều bước
 3. Nếu có route phù hợp, đề xuất: "[ACTION:NAVIGATE:/path|Text hiển thị]"
-4. Nếu cần xem hướng dẫn trực quan, đề xuất: "[ACTION:COACHMARK:id|Xem hướng dẫn]"
+4. Nếu cần xem hướng dẫn trực quan, đề xuất: "[ACTION:COACHMARK:tourId|Xem hướng dẫn]"
 5. Luôn thân thiện và hữu ích
 6. Nếu không biết câu trả lời, hãy nói thật và đề xuất liên hệ support
+7. QUAN TRỌNG: Cuối mỗi response, đề xuất 2-3 câu hỏi liên quan để user có thể hỏi tiếp, dùng format:
+   [SUGGEST:câu hỏi gợi ý 1]
+   [SUGGEST:câu hỏi gợi ý 2]
 
 VÍ DỤ RESPONSE:
 "Để tạo brand mới, bạn làm theo các bước sau:
@@ -74,7 +86,11 @@ VÍ DỤ RESPONSE:
 2. Click nút **Tạo Brand mới**
 3. Điền thông tin cơ bản
 
-[ACTION:NAVIGATE:/brands/new|Đi tạo Brand ngay]"`;
+[ACTION:NAVIGATE:/brands/new|Đi tạo Brand ngay]
+[ACTION:COACHMARK:brand-creation|Xem hướng dẫn trực quan]
+
+[SUGGEST:Làm sao để tối ưu brand template?]
+[SUGGEST:Có thể tạo bao nhiêu brand?]"`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

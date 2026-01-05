@@ -1,15 +1,27 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircleQuestion, X, Minimize2, Send, Trash2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { useHelpChat, HelpMessage, HelpAction } from '@/hooks/useHelpChat';
+import { useHelpChat } from '@/hooks/useHelpChat';
 import { HelpMessageBubble } from './HelpMessageBubble';
 import { HelpQuickActions } from './HelpQuickActions';
+import { HelpSuggestions } from './HelpSuggestions';
+import { getTourById } from '@/data/coachmark-tours';
+import { useCoachmark } from '@/components/onboarding/CoachmarkContext';
 
 export function HelpChatWidget() {
+  const coachmark = useCoachmark();
+  
+  const startTour = useCallback((tourId: string) => {
+    const steps = getTourById(tourId);
+    if (steps && steps.length > 0) {
+      coachmark.start();
+    }
+  }, [coachmark]);
+
   const {
     messages,
     isOpen,
@@ -19,12 +31,42 @@ export function HelpChatWidget() {
     handleAction,
     clearMessages,
     currentRoute
-  } = useHelpChat();
+  } = useHelpChat(startTour);
 
   const [input, setInput] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, setIsOpen]);
+
+  // Clear unread when opened
+  useEffect(() => {
+    if (isOpen) {
+      setHasUnread(false);
+    }
+  }, [isOpen]);
+
+  // Set unread when new message arrives and widget is closed
+  useEffect(() => {
+    if (!isOpen && messages.length > 1) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.id !== 'welcome') {
+        setHasUnread(true);
+      }
+    }
+  }, [messages, isOpen]);
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -51,6 +93,10 @@ export function HelpChatWidget() {
     sendMessage(question);
   };
 
+  // Get suggestions from the last assistant message
+  const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
+  const suggestions = lastAssistantMessage?.suggestions || [];
+
   // Only show welcome message
   const showQuickActions = messages.length === 1 && messages[0].id === 'welcome';
 
@@ -68,9 +114,12 @@ export function HelpChatWidget() {
             <Button
               onClick={() => setIsOpen(true)}
               size="lg"
-              className="h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground relative"
             >
               <MessageCircleQuestion className="h-6 w-6" />
+              {hasUnread && (
+                <span className="absolute top-0 right-0 h-3 w-3 bg-destructive rounded-full animate-pulse" />
+              )}
             </Button>
           </motion.div>
         )}
@@ -159,6 +208,14 @@ export function HelpChatWidget() {
                     )}
                   </div>
                 </ScrollArea>
+
+                {/* Suggestions */}
+                {suggestions.length > 0 && !isStreaming && (
+                  <HelpSuggestions 
+                    suggestions={suggestions} 
+                    onSelect={handleQuickAction} 
+                  />
+                )}
 
                 {/* Input */}
                 <form onSubmit={handleSubmit} className="p-3 border-t border-border">
