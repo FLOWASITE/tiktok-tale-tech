@@ -40,6 +40,8 @@ import NotFound from "./pages/NotFound";
 
 import MultiChannelCreate from "./pages/MultiChannelCreate";
 import AdminHelpArticles from "./pages/AdminHelpArticles";
+import Campaigns from "./pages/Campaigns";
+import CampaignCreate from "./pages/CampaignCreate";
 
 const queryClient = new QueryClient();
 
@@ -161,6 +163,27 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              
+              {/* Campaign Management */}
+              <Route
+                path="/campaigns"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Campaigns />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/campaigns/new"
+                element={
+                  <ProtectedRoute>
+                    <CampaignCreate />
+                  </ProtectedRoute>
+                }
+              />
+              
               <Route
                 path="/calendar"
                 element={
