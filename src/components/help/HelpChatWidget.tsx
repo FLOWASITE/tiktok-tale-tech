@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircleQuestion, X, Minimize2, Send, Trash2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,14 +10,24 @@ import { HelpMessageBubble } from './HelpMessageBubble';
 import { HelpQuickActions } from './HelpQuickActions';
 import { HelpSuggestions } from './HelpSuggestions';
 import { getTourById } from '@/data/coachmark-tours';
-import { useCoachmark } from '@/components/onboarding/CoachmarkContext';
+
+// Safe hook that returns null if not in provider
+function useSafeCoachmark() {
+  try {
+    // Dynamic import to avoid hard dependency
+    const { useCoachmark } = require('@/components/onboarding/CoachmarkContext');
+    return useCoachmark();
+  } catch {
+    return null;
+  }
+}
 
 export function HelpChatWidget() {
-  const coachmark = useCoachmark();
+  const coachmark = useSafeCoachmark();
   
   const startTour = useCallback((tourId: string) => {
     const steps = getTourById(tourId);
-    if (steps && steps.length > 0) {
+    if (steps && steps.length > 0 && coachmark) {
       coachmark.start();
     }
   }, [coachmark]);
