@@ -62,8 +62,9 @@ export function CoachmarkTooltip({
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       className={cn(
-        "fixed z-[10001] w-[280px] sm:w-80 p-4 rounded-xl",
-        "bg-card border shadow-2xl shadow-primary/20"
+        "fixed z-[10001] w-[280px] sm:w-80 p-3 sm:p-4 rounded-xl",
+        "bg-card border shadow-2xl shadow-primary/20",
+        "max-h-[85vh] overflow-y-auto"
       )}
       style={position}
     >
