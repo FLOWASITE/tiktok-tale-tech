@@ -36,6 +36,7 @@ import { ContentTaskCard } from '@/components/ContentTaskCard';
 import { TasksFAB } from '@/components/TasksFAB';
 import { TasksKanbanBoard, ContentTask } from '@/components/TasksKanbanBoard';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
+import { TasksPagination } from '@/components/TasksPagination';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useContentAssignments } from '@/hooks/useContentAssignments';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
@@ -78,6 +79,10 @@ export default function Tasks() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isUpdating, setIsUpdating] = useState(false);
@@ -87,9 +92,10 @@ export default function Tasks() {
     fetchAllSchedules();
   }, []);
 
-  // Clear selection when filters or tab changes
+  // Clear selection and reset page when filters or tab changes
   useEffect(() => {
     setSelectedIds(new Set());
+    setCurrentPage(1);
   }, [activeTab, statusFilter, approvalFilter, channelFilter, priorityFilter, deadlineFilter, searchQuery]);
 
   const handleRefresh = () => {
@@ -180,6 +186,33 @@ export default function Tasks() {
       return true;
     });
   }, [filteredByTab, searchQuery, statusFilter, approvalFilter, channelFilter, priorityFilter, deadlineFilter, getDeadlineDateRange]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
+  const paginatedTasks = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTasks.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTasks, currentPage, itemsPerPage]);
+
+  // Reset to page 1 if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+    setSelectedIds(new Set());
+    // Scroll to top of content
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleItemsPerPageChange = useCallback((newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, []);
 
   const isLoading = loadingContents || loadingAssignments || loadingSchedules;
 
@@ -882,29 +915,41 @@ export default function Tasks() {
               onSelectionChange={setSelectedIds}
             />
           ) : (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredTasks.map(({ content, assignments, schedules }, index) => (
-                <div key={content.id} className="stagger-item" style={{ animationDelay: `${index * 50}ms` }}>
-                  <ContentTaskCard
-                    content={content}
-                    assignments={assignments}
-                    schedules={schedules}
-                    currentUserId={user?.id}
-                    currentRole={currentRole}
-                    creatorProfiles={creatorProfiles}
-                    onAssignmentStatusChange={updateAssignmentStatus}
-                    onRefresh={handleRefresh}
-                    onStatusChange={updateStatus}
-                    onDelete={deleteContent}
-                    onSubmitForReview={submitForReview}
-                    onApprove={approveContent}
-                    onReject={rejectContent}
-                    isSelected={selectedIds.has(content.id)}
-                    onToggleSelect={() => handleToggleSelect(content.id)}
-                  />
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {paginatedTasks.map(({ content, assignments, schedules }, index) => (
+                  <div key={content.id} className="stagger-item" style={{ animationDelay: `${index * 50}ms` }}>
+                    <ContentTaskCard
+                      content={content}
+                      assignments={assignments}
+                      schedules={schedules}
+                      currentUserId={user?.id}
+                      currentRole={currentRole}
+                      creatorProfiles={creatorProfiles}
+                      onAssignmentStatusChange={updateAssignmentStatus}
+                      onRefresh={handleRefresh}
+                      onStatusChange={updateStatus}
+                      onDelete={deleteContent}
+                      onSubmitForReview={submitForReview}
+                      onApprove={approveContent}
+                      onReject={rejectContent}
+                      isSelected={selectedIds.has(content.id)}
+                      onToggleSelect={() => handleToggleSelect(content.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              <TasksPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredTasks.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={handlePageChange}
+                onItemsPerPageChange={handleItemsPerPageChange}
+              />
+            </>
           )}
         </TabsContent>
       </Tabs>
