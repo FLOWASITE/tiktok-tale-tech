@@ -261,6 +261,24 @@ export function useCampaignDetail(campaignId: string | undefined) {
     enabled: !!campaignId,
   });
 
+  // Fetch KPI logs
+  const { data: kpiLogs = [] } = useQuery({
+    queryKey: ['campaign-kpi-logs', campaignId],
+    queryFn: async () => {
+      if (!campaignId) return [];
+      
+      const { data, error } = await supabase
+        .from('campaign_kpi_logs')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('logged_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as unknown as import('@/types/campaign').CampaignKPILog[];
+    },
+    enabled: !!campaignId,
+  });
+
   // Add milestone mutation
   const addMilestoneMutation = useMutation({
     mutationFn: async (milestone: MilestoneFormData) => {
@@ -284,6 +302,43 @@ export function useCampaignDetail(campaignId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaign-milestones', campaignId] });
       toast.success('Đã thêm milestone');
+    },
+  });
+
+  // Update milestone mutation
+  const updateMilestoneMutation = useMutation({
+    mutationFn: async (data: { id: string; title?: string; description?: string; due_date?: string; status?: string; completed_at?: string | null }) => {
+      const { id, ...updateData } = data;
+      
+      const { data: result, error } = await supabase
+        .from('campaign_milestones')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result as CampaignMilestone;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-milestones', campaignId] });
+      toast.success('Đã cập nhật milestone');
+    },
+  });
+
+  // Delete milestone mutation
+  const deleteMilestoneMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('campaign_milestones')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-milestones', campaignId] });
+      toast.success('Đã xóa milestone');
     },
   });
 
@@ -314,13 +369,89 @@ export function useCampaignDetail(campaignId: string | undefined) {
     },
   });
 
+  // Link content mutation
+  const linkContentMutation = useMutation({
+    mutationFn: async (data: { content_type: string; content_id: string; planned_publish_date?: string; notes?: string }) => {
+      if (!campaignId) throw new Error('No campaign');
+      
+      const { data: result, error } = await supabase
+        .from('campaign_contents')
+        .insert({
+          campaign_id: campaignId,
+          content_type: data.content_type,
+          content_id: data.content_id,
+          planned_publish_date: data.planned_publish_date || null,
+          notes: data.notes || null,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result as CampaignContent;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-contents', campaignId] });
+      toast.success('Đã liên kết nội dung');
+    },
+  });
+
+  // Unlink content mutation
+  const unlinkContentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('campaign_contents')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-contents', campaignId] });
+      toast.success('Đã hủy liên kết nội dung');
+    },
+  });
+
+  // Add KPI log mutation
+  const addKPILogMutation = useMutation({
+    mutationFn: async (data: { logged_at: string; metrics: Record<string, number>; notes?: string }) => {
+      if (!campaignId) throw new Error('No campaign');
+      
+      const { data: userData } = await supabase.auth.getUser();
+      
+      const { data: result, error } = await supabase
+        .from('campaign_kpi_logs')
+        .insert({
+          campaign_id: campaignId,
+          logged_at: data.logged_at,
+          metrics: data.metrics as unknown as Json,
+          notes: data.notes || null,
+          created_by: userData.user?.id || null,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-kpi-logs', campaignId] });
+      toast.success('Đã ghi nhận KPI');
+    },
+  });
+
   return {
     campaign,
     milestones,
     contents,
+    kpiLogs,
     isLoading,
     error,
     addMilestone: addMilestoneMutation.mutateAsync,
+    updateMilestone: updateMilestoneMutation.mutateAsync,
+    deleteMilestone: deleteMilestoneMutation.mutateAsync,
     updateKPIs: updateKPIsMutation.mutateAsync,
+    linkContent: linkContentMutation.mutateAsync,
+    unlinkContent: unlinkContentMutation.mutateAsync,
+    addKPILog: addKPILogMutation.mutateAsync,
   };
 }
