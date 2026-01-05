@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useCuratedNews } from '@/hooks/useCuratedNews';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -32,18 +47,46 @@ import {
   ExternalLink,
   ArrowLeft,
   Clock,
+  MoreHorizontal,
+  Link2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
+  FileText,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { CuratedNews } from '@/types/curatedData';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+
+type StatusFilter = 'all' | 'active' | 'inactive' | 'expired';
+type RelevanceFilter = 'all' | 'high' | 'medium' | 'low';
+type SortOption = 'news_date' | 'expires_at' | 'relevance_score';
 
 export default function AdminIndustryNews() {
-  const { news, isLoading, createNews, updateNews, deleteNews } = useCuratedNews();
+  const { 
+    news, 
+    isLoading, 
+    createNews, 
+    updateNews, 
+    deleteNews,
+    bulkDelete,
+    bulkUpdateStatus,
+    isDeleting 
+  } = useCuratedNews();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingNews, setEditingNews] = useState<CuratedNews | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [relevanceFilter, setRelevanceFilter] = useState<RelevanceFilter>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('news_date');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -56,6 +99,59 @@ export default function AdminIndustryNews() {
     suggested_angles: [''],
     is_active: true,
   });
+
+  // Stats calculations
+  const stats = useMemo(() => {
+    const now = new Date();
+    const active = news.filter(n => n.is_active && new Date(n.expires_at) > now);
+    const expiringSoon = active.filter(n => differenceInDays(new Date(n.expires_at), now) <= 2);
+    const avgScore = news.length 
+      ? Math.round(news.reduce((sum, n) => sum + (n.relevance_score || 0), 0) / news.length) 
+      : 0;
+    
+    return {
+      total: news.length,
+      active: active.length,
+      expiringSoon: expiringSoon.length,
+      avgScore
+    };
+  }, [news]);
+
+  // Filtered and sorted news
+  const filteredNews = useMemo(() => {
+    const now = new Date();
+    
+    return news
+      .filter(item => {
+        // Search filter
+        if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false;
+        }
+        
+        // Status filter
+        const isExpired = new Date(item.expires_at) < now;
+        if (statusFilter === 'active' && (!item.is_active || isExpired)) return false;
+        if (statusFilter === 'inactive' && item.is_active) return false;
+        if (statusFilter === 'expired' && !isExpired) return false;
+        
+        // Relevance filter
+        const score = item.relevance_score || 0;
+        if (relevanceFilter === 'high' && score < 70) return false;
+        if (relevanceFilter === 'medium' && (score < 40 || score >= 70)) return false;
+        if (relevanceFilter === 'low' && score >= 40) return false;
+        
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'news_date') {
+          return new Date(b.news_date).getTime() - new Date(a.news_date).getTime();
+        }
+        if (sortBy === 'expires_at') {
+          return new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime();
+        }
+        return (b.relevance_score || 0) - (a.relevance_score || 0);
+      });
+  }, [news, searchQuery, statusFilter, relevanceFilter, sortBy]);
 
   const resetForm = () => {
     setFormData({
@@ -105,9 +201,63 @@ export default function AdminIndustryNews() {
     resetForm();
   };
 
-  const filteredNews = news.filter(item =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleFetchUrl = async () => {
+    if (!formData.source_url) {
+      toast.error('Vui lòng nhập URL');
+      return;
+    }
+
+    setIsFetchingUrl(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-news-url', {
+        body: { url: formData.source_url }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setFormData(prev => ({
+          ...prev,
+          title: data.title || prev.title,
+          summary: data.summary || prev.summary,
+        }));
+        toast.success('Đã lấy thông tin từ URL');
+      } else {
+        toast.error(data?.error || 'Không thể lấy thông tin');
+      }
+    } catch (error) {
+      console.error('Error fetching URL:', error);
+      toast.error('Lỗi khi lấy thông tin từ URL');
+    } finally {
+      setIsFetchingUrl(false);
+    }
+  };
+
+  const handleToggleStatus = (item: CuratedNews) => {
+    updateNews({ id: item.id, is_active: !item.is_active });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredNews.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredNews.map(n => n.id));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    if (confirm(`Xóa ${selectedIds.length} tin tức đã chọn?`)) {
+      bulkDelete(selectedIds);
+      setSelectedIds([]);
+    }
+  };
+
+  const handleBulkStatus = (status: boolean) => {
+    if (selectedIds.length === 0) return;
+    bulkUpdateStatus({ ids: selectedIds, is_active: status });
+    setSelectedIds([]);
+  };
 
   const getExpiryStatus = (expiresAt: string) => {
     const daysLeft = differenceInDays(new Date(expiresAt), new Date());
@@ -124,8 +274,9 @@ export default function AdminIndustryNews() {
 
   return (
     <div className="container py-8 space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <Link to="/admin">
+        <Link to="/admin/dashboard">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -139,10 +290,70 @@ export default function AdminIndustryNews() {
         </div>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Newspaper className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">Tổng tin tức</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/10">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.active}</p>
+                <p className="text-sm text-muted-foreground">Đang active</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-500/10">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.expiringSoon}</p>
+                <p className="text-sm text-muted-foreground">Sắp hết hạn</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <TrendingUp className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.avgScore}%</p>
+                <p className="text-sm text-muted-foreground">Điểm TB</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Danh sách tin tức ({news.length})</CardTitle>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <CardTitle>Danh sách tin tức ({filteredNews.length})</CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
               setIsDialogOpen(open);
               if (!open) resetForm();
@@ -160,6 +371,35 @@ export default function AdminIndustryNews() {
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  {/* URL Import */}
+                  <div className="space-y-2">
+                    <Label>URL nguồn</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="url"
+                        value={formData.source_url}
+                        onChange={(e) => setFormData({ ...formData, source_url: e.target.value })}
+                        placeholder="https://example.com/article"
+                        className="flex-1"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={handleFetchUrl}
+                        disabled={isFetchingUrl || !formData.source_url}
+                      >
+                        {isFetchingUrl ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Link2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Nhập URL và bấm nút để tự động lấy tiêu đề và tóm tắt
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Tiêu đề *</Label>
                     <Input
@@ -176,16 +416,6 @@ export default function AdminIndustryNews() {
                       onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
                       placeholder="Tóm tắt nội dung chính của tin tức..."
                       rows={3}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>URL nguồn</Label>
-                    <Input
-                      type="url"
-                      value={formData.source_url}
-                      onChange={(e) => setFormData({ ...formData, source_url: e.target.value })}
-                      placeholder="https://example.com/article"
                     />
                   </div>
 
@@ -258,99 +488,188 @@ export default function AdminIndustryNews() {
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="mb-4">
+        <CardContent className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
             <Input
               placeholder="Tìm kiếm tin tức..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-sm"
+              className="w-full md:w-64"
             />
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="expired">Hết hạn</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={relevanceFilter} onValueChange={(v) => setRelevanceFilter(v as RelevanceFilter)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Độ liên quan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="high">Cao (≥70%)</SelectItem>
+                <SelectItem value="medium">TB (40-69%)</SelectItem>
+                <SelectItem value="low">Thấp (&lt;40%)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Sắp xếp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="news_date">Ngày tin</SelectItem>
+                <SelectItem value="expires_at">Hết hạn</SelectItem>
+                <SelectItem value="relevance_score">Độ liên quan</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
+          {/* Bulk Actions */}
+          {selectedIds.length > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <span className="text-sm font-medium">Đã chọn {selectedIds.length} mục</span>
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" size="sm" onClick={() => handleBulkStatus(true)}>
+                  Bật tất cả
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleBulkStatus(false)}>
+                  Tắt tất cả
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isDeleting}>
+                  Xóa
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Table */}
           {isLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
+            </div>
+          ) : filteredNews.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="p-4 rounded-full bg-muted mb-4">
+                <FileText className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium mb-1">Chưa có tin tức nào</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Thêm tin tức để AI có thể tham khảo khi tạo nội dung
+              </p>
+              <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Thêm tin tức đầu tiên
+              </Button>
             </div>
           ) : (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedIds.length === filteredNews.length && filteredNews.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead>Tiêu đề</TableHead>
                     <TableHead>Ngày</TableHead>
                     <TableHead>Hết hạn</TableHead>
-                    <TableHead>Độ liên quan</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Điểm</TableHead>
+                    <TableHead>Active</TableHead>
+                    <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredNews.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        Không có tin tức nào
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredNews.map((item) => {
-                      const expiryStatus = getExpiryStatus(item.expires_at);
-                      
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div className="max-w-md">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium line-clamp-1">{item.title}</p>
-                                {item.source_url && (
-                                  <a 
-                                    href={item.source_url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-muted-foreground hover:text-primary"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                )}
-                              </div>
-                              {item.summary && (
-                                <p className="text-xs text-muted-foreground line-clamp-1">
-                                  {item.summary}
-                                </p>
+                  {filteredNews.map((item) => {
+                    const expiryStatus = getExpiryStatus(item.expires_at);
+                    const isSelected = selectedIds.includes(item.id);
+                    
+                    return (
+                      <TableRow key={item.id} className={cn(isSelected && "bg-muted/50")}>
+                        <TableCell>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedIds([...selectedIds, item.id]);
+                              } else {
+                                setSelectedIds(selectedIds.filter(id => id !== item.id));
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-md">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium line-clamp-1">{item.title}</p>
+                              {item.source_url && (
+                                <a 
+                                  href={item.source_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-primary"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
                               )}
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            {format(new Date(item.news_date), 'dd/MM', { locale: vi })}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={expiryStatus.badge} className="gap-1">
-                              <Clock className="h-3 w-3" />
-                              {expiryStatus.text}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className={cn('font-medium', getScoreColor(item.relevance_score))}>
-                              {item.relevance_score}%
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={item.is_active ? 'default' : 'secondary'}>
-                              {item.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEditDialog(item)}
-                              >
-                                <Pencil className="h-4 w-4" />
+                            {item.summary && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {item.summary}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(item.news_date), 'dd/MM', { locale: vi })}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={expiryStatus.badge} className="gap-1">
+                            <Clock className="h-3 w-3" />
+                            {expiryStatus.text}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn('font-medium', getScoreColor(item.relevance_score))}>
+                            {item.relevance_score}%
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={item.is_active}
+                            onCheckedChange={() => handleToggleStatus(item)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(item)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Chỉnh sửa
+                              </DropdownMenuItem>
+                              {item.source_url && (
+                                <DropdownMenuItem asChild>
+                                  <a href={item.source_url} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Xem nguồn
+                                  </a>
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
                                 className="text-destructive"
                                 onClick={() => {
                                   if (confirm('Xóa tin tức này?')) {
@@ -358,14 +677,15 @@ export default function AdminIndustryNews() {
                                   }
                                 }}
                               >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
