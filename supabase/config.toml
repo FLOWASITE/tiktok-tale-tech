@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.help-article-search]
 verify_jwt = false
+
+[functions.fetch-news-url]
+verify_jwt = false

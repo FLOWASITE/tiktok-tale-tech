@@ -97,6 +97,42 @@ export function useCuratedNews() {
     },
   });
 
+  const bulkDelete = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('curated_news')
+        .delete()
+        .in('id', ids);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ['curated-news'] });
+      toast.success(`Đã xóa ${ids.length} tin tức`);
+    },
+    onError: (error) => {
+      toast.error('Không thể xóa: ' + error.message);
+    },
+  });
+
+  const bulkUpdateStatus = useMutation({
+    mutationFn: async ({ ids, is_active }: { ids: string[]; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('curated_news')
+        .update({ is_active })
+        .in('id', ids);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, { ids, is_active }) => {
+      queryClient.invalidateQueries({ queryKey: ['curated-news'] });
+      toast.success(`Đã ${is_active ? 'bật' : 'tắt'} ${ids.length} tin tức`);
+    },
+    onError: (error) => {
+      toast.error('Không thể cập nhật: ' + error.message);
+    },
+  });
+
   // Get active news (not expired)
   const getActiveNews = useCallback(() => {
     const now = new Date();
@@ -115,9 +151,12 @@ export function useCuratedNews() {
     createNews: createNews.mutate,
     updateNews: updateNews.mutate,
     deleteNews: deleteNews.mutate,
+    bulkDelete: bulkDelete.mutate,
+    bulkUpdateStatus: bulkUpdateStatus.mutate,
     isCreating: createNews.isPending,
     isUpdating: updateNews.isPending,
     isDeleting: deleteNews.isPending,
+    isBulkDeleting: bulkDelete.isPending,
     getActiveNews,
   };
 }
