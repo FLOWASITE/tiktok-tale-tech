@@ -1,6 +1,6 @@
 import { CoachmarkStep } from '@/components/onboarding/types';
 import { DASHBOARD_STEPS } from '@/components/onboarding/dashboardSteps';
-import { Sparkles, FileText, MessageSquare, Calendar, Video, Layers } from 'lucide-react';
+import { Sparkles, FileText, MessageSquare, Calendar, Video, Layers, Users, Package, Route, Settings } from 'lucide-react';
 
 // Tour configurations by ID
 export const TOUR_CONFIGS: Record<string, CoachmarkStep[]> = {
@@ -13,6 +13,36 @@ export const TOUR_CONFIGS: Record<string, CoachmarkStep[]> = {
       description: 'Đây là nơi quản lý tất cả Brand Templates của bạn. Click để bắt đầu tạo brand mới.',
       icon: Sparkles,
       placement: 'right'
+    }
+  ],
+  'brand-personas': [
+    {
+      id: 'personas-step',
+      target: '[data-coachmark="brand-personas"]',
+      title: 'Customer Personas',
+      description: 'Thiết lập chân dung khách hàng mục tiêu với demographics, pain points, desires.',
+      icon: Users,
+      placement: 'bottom'
+    }
+  ],
+  'brand-products': [
+    {
+      id: 'products-step',
+      target: '[data-coachmark="brand-products"]',
+      title: 'Products',
+      description: 'Thêm sản phẩm/dịch vụ với USP, benefits và best channels.',
+      icon: Package,
+      placement: 'bottom'
+    }
+  ],
+  'brand-journey': [
+    {
+      id: 'journey-step',
+      target: '[data-coachmark="brand-journey"]',
+      title: 'Journey Stage Messaging',
+      description: 'Thiết lập nội dung theo từng giai đoạn funnel: Awareness → Consideration → Decision → Loyalty.',
+      icon: Route,
+      placement: 'bottom'
     }
   ],
   'content-creation': [
@@ -33,6 +63,16 @@ export const TOUR_CONFIGS: Record<string, CoachmarkStep[]> = {
       description: 'AI Chatbot giúp bạn brainstorm ý tưởng và phân tích trending topics.',
       icon: MessageSquare,
       placement: 'right'
+    }
+  ],
+  'topic-bank': [
+    {
+      id: 'topic-bank-nav',
+      target: '[data-coachmark="topic-bank"]',
+      title: 'Topic Bank',
+      description: 'Lưu và quản lý ý tưởng: draft, suggested, used, rejected.',
+      icon: MessageSquare,
+      placement: 'bottom'
     }
   ],
   'calendar': [
@@ -63,6 +103,16 @@ export const TOUR_CONFIGS: Record<string, CoachmarkStep[]> = {
       description: 'Thiết kế carousel đẹp cho Instagram và LinkedIn.',
       icon: Layers,
       placement: 'right'
+    }
+  ],
+  'admin-ai': [
+    {
+      id: 'admin-ai-nav',
+      target: '[data-coachmark="admin-ai-management"]',
+      title: 'AI Management Center',
+      description: 'Cấu hình AI providers, models, parameters và theo dõi metrics.',
+      icon: Settings,
+      placement: 'bottom'
     }
   ]
 };
