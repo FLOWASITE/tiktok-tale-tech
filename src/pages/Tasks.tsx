@@ -953,9 +953,6 @@ export default function Tasks() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Floating Action Button */}
-      <TasksFAB />
     </div>
   );
 }
