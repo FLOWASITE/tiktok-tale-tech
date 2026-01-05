@@ -1802,6 +1802,62 @@ export type Database = {
           },
         ]
       }
+      help_articles: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          created_by: string | null
+          embedding: string | null
+          id: string
+          is_published: boolean | null
+          keywords: string[] | null
+          organization_id: string | null
+          priority: number | null
+          route_context: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          is_published?: boolean | null
+          keywords?: string[] | null
+          organization_id?: string | null
+          priority?: number | null
+          route_context?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          is_published?: boolean | null
+          keywords?: string[] | null
+          organization_id?: string | null
+          priority?: number | null
+          route_context?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_articles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hook_templates: {
         Row: {
           compatible_formality: string[] | null
@@ -4252,6 +4308,23 @@ export type Database = {
           id: string
           metadata: Json
           similarity: number
+        }[]
+      }
+      search_help_articles: {
+        Args: {
+          match_category?: string
+          match_count?: number
+          match_route?: string
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          keywords: string[]
+          similarity: number
+          title: string
         }[]
       }
     }
