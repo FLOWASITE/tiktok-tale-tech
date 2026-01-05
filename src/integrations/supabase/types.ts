@@ -735,6 +735,210 @@ export type Database = {
           },
         ]
       }
+      campaign_contents: {
+        Row: {
+          campaign_id: string
+          content_id: string
+          content_type: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          planned_publish_date: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          campaign_id: string
+          content_id: string
+          content_type: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          planned_publish_date?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          campaign_id?: string
+          content_id?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          planned_publish_date?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_contents_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_kpi_logs: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          logged_at: string
+          metrics: Json
+          notes: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          logged_at: string
+          metrics?: Json
+          notes?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          logged_at?: string
+          metrics?: Json
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_kpi_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_milestones: {
+        Row: {
+          campaign_id: string
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string
+          id: string
+          sort_order: number | null
+          status: string
+          title: string
+        }
+        Insert: {
+          campaign_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date: string
+          id?: string
+          sort_order?: number | null
+          status?: string
+          title: string
+        }
+        Update: {
+          campaign_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          sort_order?: number | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_milestones_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          brand_template_id: string | null
+          budget_currency: string | null
+          budget_spent: number | null
+          budget_total: number | null
+          campaign_type: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string
+          goals: Json | null
+          id: string
+          name: string
+          organization_id: string
+          start_date: string
+          status: string
+          tags: string[] | null
+          target_channels: string[] | null
+          thumbnail_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          budget_currency?: string | null
+          budget_spent?: number | null
+          budget_total?: number | null
+          campaign_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date: string
+          goals?: Json | null
+          id?: string
+          name: string
+          organization_id: string
+          start_date: string
+          status?: string
+          tags?: string[] | null
+          target_channels?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          budget_currency?: string | null
+          budget_spent?: number | null
+          budget_total?: number | null
+          campaign_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string
+          goals?: Json | null
+          id?: string
+          name?: string
+          organization_id?: string
+          start_date?: string
+          status?: string
+          tags?: string[] | null
+          target_channels?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carousels: {
         Row: {
           ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]
