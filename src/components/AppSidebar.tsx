@@ -63,15 +63,17 @@ const settingsItems = [
 
 // Nhóm 5: Admin - Quản trị hệ thống
 const adminItems = [
-  { title: 'Admin Panel', url: '/admin', icon: Shield, isMain: true },
   { title: 'Dashboard', url: '/admin/dashboard', icon: BarChart3 },
+  { title: 'Users', url: '/admin/users', icon: User },
+  { title: 'AI Management', url: '/admin/ai', icon: Sparkles },
   { title: 'Industry Memory', url: '/admin/industries', icon: Globe },
   { title: 'Countries', url: '/admin/countries', icon: Flag },
   { title: 'Categories', url: '/admin/categories', icon: Layers },
   { title: 'Memory Packs', url: '/admin/packs', icon: Package },
-  { title: 'Version History', url: '/admin/versions', icon: GitBranch },
-  { title: 'Help Articles', url: '/admin/help-articles', icon: BookOpen },
+  { title: 'Curated Events', url: '/admin/events', icon: CalendarDays },
   { title: 'Curated News', url: '/admin/industry-news', icon: Newspaper },
+  { title: 'Help Articles', url: '/admin/help-articles', icon: BookOpen },
+  { title: 'Version History', url: '/admin/versions', icon: GitBranch },
 ];
 
 // Menu Item Component với premium styling

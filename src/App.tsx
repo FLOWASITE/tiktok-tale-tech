@@ -24,6 +24,8 @@ import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
+import AdminAIManagement from "./pages/AdminAIManagement";
 import AdminIndustries from "./pages/AdminIndustries";
 import AdminIndustryVersions from "./pages/AdminIndustryVersions";
 import AdminIndustryPacks from "./pages/AdminIndustryPacks";
@@ -199,6 +201,30 @@ const App = () => (
                     <AdminProtectedRoute>
                       <AppLayout>
                         <AdminDashboard />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminUsers />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/ai"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminAIManagement />
                       </AppLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
