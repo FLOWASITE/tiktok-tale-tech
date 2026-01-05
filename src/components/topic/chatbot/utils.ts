@@ -107,7 +107,7 @@ export function calculateDynamicWidth(messages: ChatMessage[]): 'compact' | 'nor
   
   if (hasTables || hasCode) return 'wide';
   if (hasLongContent) return 'normal';
-  if (messages.length <= 3) return 'compact';
+  // Mặc định 'normal' thay vì 'compact' để chatbot đủ rộng trên Desktop
   return 'normal';
 }
 

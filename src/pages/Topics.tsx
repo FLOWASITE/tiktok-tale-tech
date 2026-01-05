@@ -302,7 +302,7 @@ const Topics = () => {
         {!isMobile && selectedBrandId && (
           <div className={cn(
             'flex-shrink-0 transition-all duration-300',
-            leftPanelCollapsed ? 'w-12' : 'w-64'
+            leftPanelCollapsed ? 'w-12' : 'w-60'
           )}>
             <ContextBankPanel
               favorites={sidebarFavorites}
@@ -355,13 +355,13 @@ const Topics = () => {
               ) : (
                 <>
                   {/* Chatbot - Desktop */}
-                  <div className="flex-1 flex flex-col min-h-0 p-2 sm:p-4">
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-0 p-2 sm:p-4 lg:p-6">
                     <TopicAIChatbot
                       brandTemplateId={selectedBrandId}
                       contentGoal={selectedGoal}
                       onNavigate={(path, state) => navigate(path, { state })}
                       isExpanded={leftPanelCollapsed && rightPanelCollapsed}
-                      className="flex-1 min-h-0"
+                      className="flex-1 min-h-0 w-full"
                     />
                   </div>
 
@@ -388,7 +388,7 @@ const Topics = () => {
                         </TabsTrigger>
                       </TabsList>
 
-                      <div className="max-h-[35vh] overflow-auto">
+                      <div className="max-h-[28vh] overflow-auto">
                         <TabsContent value="bank" className="m-0 p-4">
                           <TopicBankGrid
                             brandTemplateId={selectedBrandId}
@@ -438,7 +438,7 @@ const Topics = () => {
         {!isMobile && selectedBrandId && (
           <div className={cn(
             'flex-shrink-0 transition-all duration-300',
-            rightPanelCollapsed ? 'w-12' : 'w-64'
+            rightPanelCollapsed ? 'w-12' : 'w-60'
           )}>
             <DiscoveryFeedPanel
               brandTemplateId={selectedBrandId}
