@@ -184,16 +184,18 @@ export const HELP_GLOSSARY: Record<string, string> = {
 // Route to feature mapping for context-aware suggestions
 export const ROUTE_FEATURES: Record<string, string[]> = {
   '/': ['create-brand', 'create-content', 'ai-chatbot'],
-  '/brands': ['create-brand'],
+  '/dashboard': ['create-brand', 'create-content', 'ai-chatbot'],
+  '/brands': ['create-brand', 'create-content'],
   '/brands/new': ['create-brand'],
-  '/multichannel': ['create-content'],
+  '/multichannel': ['create-content', 'view-calendar', 'ai-chatbot'],
   '/multichannel/new': ['create-content'],
-  '/topics': ['ai-chatbot'],
-  '/calendar': ['view-calendar'],
-  '/scripts': ['manage-scripts'],
-  '/carousel': ['carousel-design'],
+  '/topics': ['ai-chatbot', 'create-content'],
+  '/calendar': ['view-calendar', 'create-content'],
+  '/scripts': ['manage-scripts', 'ai-chatbot'],
+  '/carousel': ['carousel-design', 'ai-chatbot'],
   '/organization': ['organization-settings'],
-  '/account': ['account-settings']
+  '/account': ['account-settings'],
+  '/admin': ['organization-settings', 'account-settings'],
 };
 
 // Quick action suggestions based on current route
