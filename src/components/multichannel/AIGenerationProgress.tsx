@@ -1,27 +1,8 @@
-// REDESIGNED v2.0 - Content First, Progress Secondary
+// REDESIGNED v2.1 - Content First, Progress Secondary
 // UI Focus: Streaming text grid is primary, progress steps are collapsed by default
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Sparkles, 
-  Check,
-  Loader2,
-  Facebook,
-  Instagram,
-  Linkedin,
-  Twitter,
-  Youtube,
-  Mail,
-  Globe,
-  MessageCircle,
-  Send,
-  Music2,
-  AtSign,
-  FileText,
-  ChevronDown,
-  Bot,
-  type LucideIcon,
-} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Check, Loader2, ChevronDown, Bot, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   calculateTotalDuration,
@@ -33,6 +14,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { 
+  StreamingTextGrid, 
+  ChannelIcon, 
+  getChannelLabel,
+  type ChannelStreamData 
+} from './streaming';
 
 interface AIGenerationProgressProps {
   isLoading: boolean;
@@ -54,38 +41,6 @@ interface AIGenerationProgressProps {
   }[];
   streamingTexts?: Record<string, string>;
 }
-
-// Channel display names
-const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
-  facebook: 'Facebook',
-  instagram: 'Instagram',
-  linkedin: 'LinkedIn',
-  twitter: 'Twitter/X',
-  youtube: 'YouTube',
-  email: 'Email',
-  blog: 'Blog',
-  zalo: 'Zalo',
-  telegram: 'Telegram',
-  tiktok: 'TikTok',
-  threads: 'Threads',
-  website: 'Website',
-};
-
-// Channel icons mapping
-const CHANNEL_ICONS: Record<string, LucideIcon> = {
-  facebook: Facebook,
-  instagram: Instagram,
-  linkedin: Linkedin,
-  twitter: Twitter,
-  youtube: Youtube,
-  email: Mail,
-  blog: FileText,
-  zalo: MessageCircle,
-  telegram: Send,
-  tiktok: Music2,
-  threads: AtSign,
-  website: Globe,
-};
 
 export function AIGenerationProgress({ 
   isLoading, 
@@ -212,7 +167,6 @@ export function AIGenerationProgress({
           {totalChannels.slice(0, 5).map((channel) => {
             const isCompleted = completedChannels.includes(channel);
             const isCurrent = currentChannel === channel && !isCompleted;
-            const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
             
             return (
               <div
@@ -223,14 +177,14 @@ export function AIGenerationProgress({
                   isCurrent && 'bg-primary/20 text-primary',
                   !isCompleted && !isCurrent && 'bg-muted text-muted-foreground'
                 )}
-                title={CHANNEL_DISPLAY_NAMES[channel] || channel}
+                title={getChannelLabel(channel)}
               >
                 {isCompleted ? (
                   <Check className="w-3 h-3" />
                 ) : isCurrent ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
                 ) : (
-                  <ChannelIcon className="w-3 h-3" />
+                  <ChannelIcon channel={channel} size="sm" />
                 )}
               </div>
             );
@@ -257,87 +211,23 @@ export function AIGenerationProgress({
       </div>
 
       {/* === STREAMING TEXT GRID - MAIN FOCUS === */}
-      {(streamingTexts && Object.keys(streamingTexts).length > 0) || pendingChannels.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
-          {/* Active/Completed streaming cards */}
-          {Object.entries(streamingTexts || {}).map(([channel, text]) => {
-            const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
-            const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
-            const safeText = typeof text === 'string' ? text : '';
-            const wordCount = safeText.split(/\s+/).filter(w => w.length > 0).length;
-            const isCompleted = completedChannels.includes(channel);
-            
-            return (
-              <motion.div
-                key={channel}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  'rounded-lg border p-2.5 min-h-[90px] flex flex-col',
-                  isCompleted 
-                    ? 'bg-muted/30 border-green-200 dark:border-green-800/50' 
-                    : 'bg-primary/5 border-primary/20'
-                )}
-              >
-                {/* Card Header */}
-                <div className="flex items-center gap-2 mb-1.5">
-                  <ChannelIcon className={cn(
-                    'w-4 h-4',
-                    isCompleted ? 'text-green-600 dark:text-green-400' : 'text-primary'
-                  )} />
-                  <span className="text-xs font-medium flex-1">{displayName}</span>
-                  {isCompleted ? (
-                    <Check className="w-3.5 h-3.5 text-green-500" />
-                  ) : (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                  )}
-                  <span className="text-[10px] text-muted-foreground">{wordCount} từ</span>
-                </div>
+      {(() => {
+        // Convert streamingTexts to ChannelStreamData array
+        const streamingChannels: ChannelStreamData[] = Object.entries(streamingTexts || {}).map(([channel, text]) => ({
+          channel,
+          text: typeof text === 'string' ? text : '',
+          isComplete: completedChannels.includes(channel),
+          isStreaming: !completedChannels.includes(channel),
+        }));
 
-                {/* Streaming Content */}
-                <div className="flex-1 text-xs text-foreground/80 leading-relaxed overflow-hidden">
-                  <p className="whitespace-pre-wrap break-words">
-                    {safeText.slice(0, 200)}
-                    {safeText.length > 200 && '...'}
-                    {!isCompleted && (
-                      <span className="inline-block w-0.5 h-3 bg-primary ml-0.5 animate-pulse" />
-                    )}
-                  </p>
-                </div>
-              </motion.div>
-            );
-          })}
-
-          {/* Pending channel skeletons */}
-          {pendingChannels.slice(0, 4).map((channel) => {
-            const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
-            const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
-            
-            return (
-              <div
-                key={`pending-${channel}`}
-                className="rounded-lg border border-dashed border-muted-foreground/20 bg-muted/20 p-2.5 min-h-[90px] flex flex-col"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <ChannelIcon className="w-4 h-4 text-muted-foreground/50" />
-                  <span className="text-xs font-medium text-muted-foreground/70">{displayName}</span>
-                  <span className="text-[10px] text-muted-foreground/50 ml-auto">Đang chờ...</span>
-                </div>
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-2 bg-muted-foreground/10 rounded animate-pulse w-full" />
-                  <div className="h-2 bg-muted-foreground/10 rounded animate-pulse w-4/5" />
-                  <div className="h-2 bg-muted-foreground/10 rounded animate-pulse w-3/5" />
-                </div>
-              </div>
-            );
-          })}
-          {pendingChannels.length > 4 && (
-            <div className="rounded-lg border border-dashed border-muted-foreground/20 bg-muted/10 p-2.5 flex items-center justify-center">
-              <span className="text-xs text-muted-foreground">+{pendingChannels.length - 4} kênh khác...</span>
-            </div>
-          )}
-        </div>
-      ) : null}
+        return (
+          <StreamingTextGrid
+            streamingChannels={streamingChannels}
+            pendingChannels={pendingChannels}
+            className="max-h-[320px] overflow-y-auto"
+          />
+        );
+      })()}
 
       {/* Collapsed Progress Steps */}
       <Collapsible className="mt-2">
