@@ -586,139 +586,121 @@ export default function Tasks() {
         )}
       </div>
 
-      {/* Quick Deadline Filters with enhanced styling */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground mr-2">
-          <Filter className="w-4 h-4" />
-          <span className="hidden sm:inline font-medium">Deadline:</span>
+      {/* Combined Filters Row */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {/* Deadline Group */}
+        <div className="flex items-center gap-1.5">
+          <CalendarDays className="w-4 h-4 text-muted-foreground hidden sm:block" />
+          <div className="flex gap-1">
+            <Button
+              variant={deadlineFilter === 'today' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDeadlineFilter(deadlineFilter === 'today' ? 'all' : 'today')}
+              className={`h-7 text-xs rounded-full px-2.5 transition-all ${
+                deadlineFilter === 'today' ? 'bg-primary hover:bg-primary/90 shadow-sm' : 'hover:border-primary/30'
+              }`}
+            >
+              <Clock className="w-3 h-3 mr-1" />
+              Hôm nay
+            </Button>
+            <Button
+              variant={deadlineFilter === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDeadlineFilter(deadlineFilter === 'week' ? 'all' : 'week')}
+              className={`h-7 text-xs rounded-full px-2.5 transition-all ${
+                deadlineFilter === 'week' ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-sm' : 'hover:border-blue-500/30'
+              }`}
+            >
+              <CalendarRange className="w-3 h-3 mr-1" />
+              Tuần này
+            </Button>
+            <Button
+              variant={deadlineFilter === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDeadlineFilter(deadlineFilter === 'month' ? 'all' : 'month')}
+              className={`h-7 text-xs rounded-full px-2.5 transition-all ${
+                deadlineFilter === 'month' ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-sm' : 'hover:border-purple-500/30'
+              }`}
+            >
+              <CalendarCheck className="w-3 h-3 mr-1" />
+              Tháng này
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Button
-            variant={deadlineFilter === 'all' ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setDeadlineFilter('all')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              deadlineFilter === 'all' ? 'bg-primary/10 text-primary border-primary/20' : 'hover:border-primary/30'
-            }`}
-          >
-            <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
-            Tất cả
-          </Button>
-          <Button
-            variant={deadlineFilter === 'today' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDeadlineFilter('today')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              deadlineFilter === 'today' ? 'bg-primary hover:bg-primary/90 shadow-md glow-primary' : 'hover:border-primary/30'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5 mr-1.5" />
-            Hôm nay
-          </Button>
-          <Button
-            variant={deadlineFilter === 'week' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDeadlineFilter('week')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              deadlineFilter === 'week' ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md' : 'hover:border-blue-500/30'
-            }`}
-          >
-            <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
-            Tuần này
-          </Button>
-          <Button
-            variant={deadlineFilter === 'month' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDeadlineFilter('month')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              deadlineFilter === 'month' ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-md' : 'hover:border-purple-500/30'
-            }`}
-          >
-            <CalendarCheck className="w-3.5 h-3.5 mr-1.5" />
-            Tháng này
-          </Button>
+
+        {/* Separator */}
+        <div className="h-5 w-px bg-border/60 hidden sm:block" />
+
+        {/* Approval Status Group */}
+        <div className="flex items-center gap-1.5">
+          <Eye className="w-4 h-4 text-muted-foreground hidden sm:block" />
+          <div className="flex gap-1">
+            <Button
+              variant={approvalFilter === 'review' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setApprovalFilter(approvalFilter === 'review' ? 'all' : 'review')}
+              className={`h-7 text-xs rounded-full px-2.5 transition-all ${
+                approvalFilter === 'review' ? 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-sm' : 'hover:border-yellow-500/30'
+              }`}
+            >
+              Chờ duyệt
+              {stats.inReview > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                  approvalFilter === 'review' ? 'bg-white/20' : 'bg-yellow-500/10 text-yellow-600'
+                }`}>
+                  {stats.inReview}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant={approvalFilter === 'approved' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setApprovalFilter(approvalFilter === 'approved' ? 'all' : 'approved')}
+              className={`h-7 text-xs rounded-full px-2.5 transition-all ${
+                approvalFilter === 'approved' ? 'bg-green-500 hover:bg-green-600 text-white shadow-sm' : 'hover:border-green-500/30'
+              }`}
+            >
+              Đã duyệt
+              {stats.approved > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                  approvalFilter === 'approved' ? 'bg-white/20' : 'bg-green-500/10 text-green-600'
+                }`}>
+                  {stats.approved}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant={approvalFilter === 'draft' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setApprovalFilter(approvalFilter === 'draft' ? 'all' : 'draft')}
+              className={`h-7 text-xs rounded-full px-2.5 transition-all ${
+                approvalFilter === 'draft' ? 'bg-muted-foreground hover:bg-muted-foreground/90 text-white shadow-sm' : 'hover:border-muted-foreground/30'
+              }`}
+            >
+              Nháp
+              {stats.draft > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                  approvalFilter === 'draft' ? 'bg-white/20' : 'bg-muted-foreground/10 text-muted-foreground'
+                }`}>
+                  {stats.draft}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
-        
-        {/* Active filters counter and clear button */}
+
+        {/* Clear Filters */}
         {activeFiltersCount > 0 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={clearAllFilters}
-            className="h-8 text-xs rounded-full px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto"
+            className="h-7 text-xs rounded-full px-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto"
           >
-            <X className="w-3.5 h-3.5 mr-1" />
-            Xóa {activeFiltersCount} bộ lọc
+            <X className="w-3 h-3 mr-1" />
+            Xóa bộ lọc
           </Button>
         )}
-      </div>
-
-      {/* Quick Approval Status Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground mr-2">
-          <Eye className="w-4 h-4" />
-          <span className="hidden sm:inline font-medium">Phê duyệt:</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Button
-            variant={approvalFilter === 'all' ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setApprovalFilter('all')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              approvalFilter === 'all' ? 'bg-primary/10 text-primary border-primary/20' : 'hover:border-primary/30'
-            }`}
-          >
-            Tất cả
-          </Button>
-          <Button
-            variant={approvalFilter === 'review' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setApprovalFilter('review')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              approvalFilter === 'review' ? 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-md' : 'hover:border-yellow-500/30'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5 mr-1.5" />
-            Chờ duyệt
-            {stats.inReview > 0 && (
-              <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                {stats.inReview}
-              </span>
-            )}
-          </Button>
-          <Button
-            variant={approvalFilter === 'approved' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setApprovalFilter('approved')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              approvalFilter === 'approved' ? 'bg-green-500 hover:bg-green-600 text-white shadow-md' : 'hover:border-green-500/30'
-            }`}
-          >
-            <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
-            Đã duyệt
-            {stats.approved > 0 && (
-              <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                {stats.approved}
-              </span>
-            )}
-          </Button>
-          <Button
-            variant={approvalFilter === 'draft' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setApprovalFilter('draft')}
-            className={`h-8 text-xs sm:text-sm rounded-full px-3 transition-all ${
-              approvalFilter === 'draft' ? 'bg-muted-foreground hover:bg-muted-foreground/90 text-white shadow-md' : 'hover:border-muted-foreground/30'
-            }`}
-          >
-            <FileEdit className="w-3.5 h-3.5 mr-1.5" />
-            Nháp/Từ chối
-            {stats.draft > 0 && (
-              <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                {stats.draft}
-              </span>
-            )}
-          </Button>
-        </div>
       </div>
 
       {/* Filters with enhanced styling */}
