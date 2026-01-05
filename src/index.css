@@ -1153,9 +1153,9 @@ All colors MUST be HSL.
     box-shadow: 0 10px 40px -10px hsl(var(--primary) / 0.15);
   }
 
-  /* Kanban column styling */
+  /* Kanban column styling - optimized for no layout shift */
   .kanban-column {
-    transition: all 0.3s ease;
+    contain: layout style;
   }
 
   .kanban-column-drop-active {
@@ -1164,16 +1164,18 @@ All colors MUST be HSL.
     box-shadow: 0 0 30px hsl(var(--primary) / 0.2);
   }
 
-  /* Task card effects */
+  /* Task card effects - optimized: no scale transforms */
   .task-card-hover {
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    will-change: box-shadow, border-color;
+    contain: layout style paint;
   }
 
   .task-card-hover:hover {
-    transform: translateY(-4px) scale(1.01);
     box-shadow: 
-      0 20px 40px -15px hsl(var(--foreground) / 0.1),
-      0 0 0 1px hsl(var(--primary) / 0.1);
+      0 12px 24px -8px hsl(var(--foreground) / 0.12),
+      0 0 0 1px hsl(var(--primary) / 0.15);
+    border-color: hsl(var(--primary) / 0.3);
   }
 
   /* Priority left border */

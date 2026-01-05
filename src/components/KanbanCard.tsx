@@ -183,7 +183,7 @@ function KanbanCardComponent({
     >
       {/* Selection checkbox */}
       <div 
-        className={`absolute top-2.5 left-2.5 z-10 transition-all duration-200 ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'}`}
+        className={`absolute top-2.5 left-2.5 z-10 transition-opacity duration-150 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
         onClick={handleCheckboxClick}
       >
         <Checkbox 
@@ -193,7 +193,7 @@ function KanbanCardComponent({
       </div>
 
       {/* Quick action buttons on hover */}
-      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
+      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         {/* Submit for review - only for draft and if user can submit */}
         {content.status === 'draft' && canSubmit && (
           <Tooltip>

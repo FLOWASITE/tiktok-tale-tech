@@ -21,10 +21,10 @@ export function KanbanColumn({ id, label, color, count, children, icon }: Kanban
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-[300px] sm:w-[320px] rounded-2xl border-2 transition-all duration-300 ${
+      className={`flex-shrink-0 min-w-[300px] w-[300px] max-w-[300px] sm:min-w-[320px] sm:w-[320px] sm:max-w-[320px] rounded-2xl border-2 transition-colors duration-200 kanban-column ${
         isOver 
-          ? 'border-primary bg-primary/5 shadow-xl shadow-primary/15 scale-[1.02] kanban-column-drop-active' 
-          : 'border-border/40 bg-gradient-to-b from-background to-muted/10 hover:border-border/60 hover:shadow-lg'
+          ? 'border-primary bg-primary/5 shadow-xl shadow-primary/20 kanban-column-drop-active' 
+          : 'border-border/40 bg-gradient-to-b from-background to-muted/10 hover:border-border/60'
       }`}
     >
       {/* Column Header */}
