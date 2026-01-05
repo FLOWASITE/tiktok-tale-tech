@@ -97,18 +97,18 @@ export function CoachmarkTooltip({
         {step.description}
       </p>
 
-      {/* Action button if provided */}
+      {/* Action button if provided - as secondary option */}
       {step.action && (
         <div className="mb-4">
           {step.action.href ? (
-            <Button asChild size="sm" className="w-full" onClick={handleAction}>
+            <Button asChild variant="outline" size="sm" className="w-full" onClick={handleAction}>
               <Link to={step.action.href}>
                 {step.action.label}
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
             </Button>
           ) : (
-            <Button size="sm" className="w-full">
+            <Button variant="outline" size="sm" className="w-full">
               {step.action.label}
             </Button>
           )}
