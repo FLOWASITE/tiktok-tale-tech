@@ -399,7 +399,7 @@ export default function Tasks() {
   };
 
   return (
-    <div className="space-y-5 sm:space-y-6 animate-fade-in">
+    <div className="space-y-5 sm:space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
       {/* Header with animated gradient background */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/3 p-4 sm:p-6 border border-border/50">
         {/* Animated background orbs */}
