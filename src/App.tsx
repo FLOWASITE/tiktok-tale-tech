@@ -37,7 +37,7 @@ import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
 import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
-import AdminAI from "./pages/AdminAI";
+
 import MultiChannelCreate from "./pages/MultiChannelCreate";
 import AdminHelpArticles from "./pages/AdminHelpArticles";
 
@@ -315,15 +315,6 @@ const App = () => (
                 }
               />
 
-              {/* AI Management (accessible by org admins) */}
-              <Route
-                path="/admin/ai"
-                element={
-                  <ProtectedRoute>
-                    <AdminAI />
-                  </ProtectedRoute>
-                }
-              />
               
               {/* Help Articles Management */}
               <Route
