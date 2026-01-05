@@ -1,8 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const HELP_CHAT_STORAGE_KEY = 'help-chat-messages';
+const RECENT_PAGES_KEY = 'help-chat-recent-pages';
+const MAX_RECENT_PAGES = 5;
 
 export interface HelpMessage {
   id: string;
@@ -64,12 +67,39 @@ const WELCOME_MESSAGE: HelpMessage = {
   timestamp: new Date()
 };
 
+// Rich context for the help chatbot
+interface HelpContext {
+  currentRoute: string;
+  userRole?: string;
+  hasBrandSelected?: boolean;
+  brandInfo?: {
+    name: string;
+    industry?: string;
+  } | null;
+  recentPages?: string[];
+}
+
 export function useHelpChat(onStartTour?: (tourId: string) => void) {
   const [messages, setMessages] = useState<HelpMessage[]>([WELCOME_MESSAGE]);
   const [isOpen, setIsOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const recentPagesRef = useRef<string[]>([]);
+
+  // Track page visits for context
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const stored = localStorage.getItem(RECENT_PAGES_KEY);
+    let pages: string[] = stored ? JSON.parse(stored) : [];
+    
+    // Add current page if different from last
+    if (pages[0] !== currentPath) {
+      pages = [currentPath, ...pages.slice(0, MAX_RECENT_PAGES - 1)];
+      localStorage.setItem(RECENT_PAGES_KEY, JSON.stringify(pages));
+    }
+    recentPagesRef.current = pages;
+  }, [location.pathname]);
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -100,6 +130,50 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
     }
   }, [messages]);
 
+  // Build rich context for the chatbot
+  const buildContext = useCallback(async (): Promise<HelpContext> => {
+    const context: HelpContext = {
+      currentRoute: location.pathname,
+      recentPages: recentPagesRef.current.slice(1, 4), // Exclude current, take last 3
+    };
+
+    try {
+      // Get user session and role
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        
+        context.userRole = roleData?.role || 'member';
+      }
+
+      // Get selected brand from localStorage
+      const selectedBrandId = localStorage.getItem('selectedBrandId');
+      if (selectedBrandId) {
+        const { data: brand } = await supabase
+          .from('brand_templates')
+          .select('brand_name, industry')
+          .eq('id', selectedBrandId)
+          .maybeSingle();
+        
+        if (brand) {
+          context.hasBrandSelected = true;
+          context.brandInfo = {
+            name: brand.brand_name,
+            industry: brand.industry?.[0] || undefined
+          };
+        }
+      }
+    } catch (e) {
+      console.error('[useHelpChat] Error building context:', e);
+    }
+
+    return context;
+  }, [location.pathname]);
+
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim() || isStreaming) return;
 
@@ -117,6 +191,9 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
     const assistantId = `assistant-${Date.now()}`;
 
     try {
+      // Build rich context
+      const context = await buildContext();
+
       // Prepare conversation history (exclude welcome message for API)
       const conversationHistory = messages
         .filter(m => m.id !== 'welcome')
@@ -130,7 +207,8 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
         },
         body: JSON.stringify({
           messages: [...conversationHistory, { role: 'user', content: userMessage }],
-          currentRoute: location.pathname
+          currentRoute: location.pathname,
+          context
         }),
       });
 
@@ -207,7 +285,7 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
     } finally {
       setIsStreaming(false);
     }
-  }, [messages, location.pathname, isStreaming]);
+  }, [messages, location.pathname, isStreaming, buildContext]);
 
   const handleAction = useCallback((action: HelpAction) => {
     if (action.type === 'navigate') {

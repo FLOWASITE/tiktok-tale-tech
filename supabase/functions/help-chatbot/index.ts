@@ -5,48 +5,194 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Knowledge base for system guidance
+// Comprehensive Knowledge Base for system guidance
 const KNOWLEDGE_BASE = `
 ## TÍNH NĂNG CHÍNH
 
-### 1. Tạo Brand Template
-- Đường dẫn: /brands/new
-- Bước: Vào Brands → "Tạo Brand mới" → Điền thông tin → Thiết lập Tone of Voice → Thêm Personas/Products → Hoàn tất
-- Lưu ý: Brand Template là nền tảng cho mọi nội dung, cần điền đầy đủ thông tin
+### 1. Brand Template (Bộ quy chuẩn thương hiệu)
+- **Đường dẫn**: /brands, /brands/new
+- **Thành phần**:
+  - **Identity**: Tên thương hiệu, positioning, industry, logo, màu sắc
+  - **Brand DNA**: Mission (sứ mệnh), Vision (tầm nhìn), UVP (giá trị độc đáo), Tagline
+  - **Tone of Voice**: Phong cách giao tiếp, formality level (formal/casual), từ ngữ ưu tiên/cấm
+  - **Content Pillars**: Các chủ đề nội dung chính của thương hiệu
+  - **Customer Personas**: Chân dung khách hàng với demographics, pain points, desires
+  - **Products**: Sản phẩm với USP, benefits, best channels
+  - **Product-Persona Mapping**: Liên kết sản phẩm với persona phù hợp (relevance score, custom pitch)
+  - **Journey Stage Messaging**: Nội dung theo giai đoạn funnel (Awareness → Consideration → Decision → Loyalty)
+  - **Brand Voice Variants**: Nhiều biến thể giọng văn cho cùng brand
+  - **Footer Info**: Thông tin chân trang (hotline, địa chỉ, disclaimer)
+- **Bước tạo**: Vào Brands → "Tạo Brand mới" → Quick Start (paste URL để AI phân tích) hoặc điền thủ công 6 bước
+- **Brand Completeness**: Hệ thống tính điểm hoàn thiện 0-100%, cần ít nhất 25% để AI hoạt động
 
-### 2. Tạo Nội dung Đa kênh
-- Đường dẫn: /multichannel/new
-- Bước: Chọn Brand → "Tạo nội dung mới" → Chọn kênh → Nhập chủ đề → Xem preview → Xuất bản
-- Hỗ trợ: Facebook, Instagram, LinkedIn, TikTok, Twitter, Threads, YouTube
+### 2. AI Kho Ý Tưởng (Topics Hub)
+- **Đường dẫn**: /topics
+- **Tính năng cơ bản**:
+  - AI Chatbot để brainstorm ý tưởng
+  - Phân tích trends ngành
+  - Tạo content ideas theo brand guidelines
+- **Tính năng nâng cao**:
+  - **RAG**: AI tìm kiếm ngữ nghĩa trong lịch sử hội thoại
+  - **Web Search**: Tích hợp tìm kiếm trending, tin tức ngành real-time
+  - **Session Learning**: AI học từ phản hồi và chỉnh sửa của bạn
+  - **Context Bank**: Favorites, top performers, upcoming events
+  - **Discovery Feed**: Trend alerts, seasonal events, gợi ý theo lịch
+  - **Performance Dashboard**: Theo dõi hiệu suất topic
+  - **Topic Bank**: Lưu và quản lý ý tưởng (draft/suggested/used/rejected)
+  - **Industry Memory**: Kiến thức ngành tự động inject vào AI
 
-### 3. AI Chatbot (Kho Ý Tưởng)
-- Đường dẫn: /topics
-- Tính năng: Brainstorm ý tưởng, phân tích trends, tạo content ideas, tư vấn chiến lược
-- AI sử dụng brand guidelines để đưa ra gợi ý phù hợp
+### 3. Tạo Nội dung Đa kênh (Multi-Channel)
+- **Đường dẫn**: /multichannel, /multichannel/new
+- **Kênh hỗ trợ**: Facebook, Instagram, LinkedIn, TikTok, Twitter, Threads, YouTube, Website, Email, Zalo
+- **Tính năng**:
+  - Chọn persona và journey stage để AI tạo nội dung phù hợp
+  - **Streaming generation**: Xem nội dung tạo real-time
+  - **Image generation**: Tạo hình AI với overlay logo
+  - **Marketing Frameworks**: AIDA, PAS, BAB, 4Ps, FAB, v.v.
+  - **Content Purpose**: Educate, Entertain, Inspire, Promote, Engage
+- **Bước tạo**: Chọn Brand → Chọn kênh → Nhập chủ đề → (tùy chọn) persona, journey stage → Generate → Edit → Schedule/Publish
 
-### 4. Lịch Nội dung
-- Đường dẫn: /calendar
-- Tính năng: Xem lịch đăng bài, drag & drop thay đổi lịch, quản lý schedule
+### 4. Scripts (Kịch bản Video)
+- **Đường dẫn**: /scripts
+- **Tính năng**:
+  - Tạo kịch bản cho TikTok, Reels, Shorts, YouTube
+  - Chọn duration (15s, 30s, 60s, 90s+)
+  - **Storyboard**: Visual prompts cho từng scene
+  - **Hook Templates**: Thư viện câu mở đầu thu hút
+  - **Script Analysis**: Phân tích điểm mạnh/yếu
+  - Tích hợp persona và journey stage
 
-### 5. Kịch bản Video
-- Đường dẫn: /scripts
-- Tính năng: Tạo kịch bản cho TikTok, Reels, Shorts với AI hỗ trợ
+### 5. Carousel Design
+- **Đường dẫn**: /carousel
+- **Tính năng**:
+  - Thiết kế carousel cho Instagram, LinkedIn
+  - AI generate nội dung slides từ topic
+  - Apply brand colors và fonts tự động
+  - Export nhiều format (PNG, PDF)
+  - Chọn số slides (3-10)
 
-### 6. Carousel Design
-- Đường dẫn: /carousel
-- Tính năng: Thiết kế carousel cho Instagram, LinkedIn với templates đẹp
+### 6. Content Calendar
+- **Đường dẫn**: /calendar
+- **Tính năng**:
+  - Xem lịch theo ngày/tuần/tháng
+  - **Drag & drop** thay đổi lịch đăng
+  - Bulk scheduling từ Topics
+  - Publishing status: scheduled/published/failed
+  - Filter theo kênh và trạng thái
+
+### 7. Organization Settings
+- **Đường dẫn**: /organization
+- **Tính năng**: 
+  - Mời thành viên vào team
+  - Phân quyền: Admin/Creator/Viewer
+  - Quản lý billing và subscription
+
+### 8. Account Settings
+- **Đường dẫn**: /account
+- **Tính năng**: Đổi mật khẩu, cập nhật profile, preferences
+
+---
+
+## ADMIN FEATURES (chỉ dành cho Admin)
+
+### AI Management Center (/admin → AI Management tab)
+- **Dashboard**: Tổng quan chi phí, usage, trends
+- **Providers**: Cấu hình API keys (OpenAI, Anthropic, Gemini, OpenRouter)
+- **Functions**: Model và parameters cho từng chức năng AI
+- **Channels**: Cấu hình AI model riêng cho từng kênh social (priority system)
+- **Metrics**: Analytics chi tiết về AI calls
+- **Cache**: Quản lý AI response cache
+
+### Industry Templates (/admin/industries)
+- Quản lý industry templates với compliance rules
+- Multi-language support (translations)
+- Industry glossary và personas mẫu
+- Forbidden/preferred words theo ngành
+
+### Countries & Categories
+- Quản lý danh sách quốc gia active
+- Phân loại industry categories
+
+---
+
+## WORKFLOWS THƯỜNG GẶP
+
+### Workflow 1: Tạo brand mới hoàn chỉnh
+1. /brands/new → Quick Start với website URL (AI phân tích tự động)
+2. Hoặc điền thủ công: Identity → Personas → Products → Voice → Channels → Hoàn tất
+3. Thiết lập Product-Persona Mapping (quan trọng!)
+4. Thêm Journey Stage Messaging cho từng mapping
+5. Tạo Brand Voice Variants nếu cần đa dạng
+
+### Workflow 2: Từ ý tưởng đến nội dung
+1. /topics → Chat với AI để brainstorm
+2. Lưu topic vào Bank hoặc "Tạo nội dung" trực tiếp
+3. /multichannel/new → Chọn kênh, persona, journey stage
+4. AI tạo content với context đầy đủ
+5. Edit nếu cần → /calendar → Lên lịch đăng
+
+### Workflow 3: Tối ưu AI theo ngành
+1. Brand Template → Chọn Industry Template phù hợp
+2. Industry Memory được inject vào AI prompts tự động
+3. Compliance rules và preferred words tự động áp dụng
+4. Có thể tùy chỉnh thêm forbidden words riêng
+
+### Workflow 4: Tạo video script nhanh
+1. /scripts → "Tạo kịch bản mới"
+2. Chọn brand, platform, duration
+3. Nhập topic/hook → AI generate storyboard
+4. Review và edit từng scene
+5. Export hoặc copy script
+
+---
 
 ## THUẬT NGỮ
-- Brand Template: Bộ quy chuẩn thương hiệu
-- Content Pillars: Chủ đề nội dung chính
-- Tone of Voice: Phong cách giao tiếp
-- Personas: Chân dung khách hàng mục tiêu
-- Multi-Channel: Tạo nội dung cho nhiều kênh
+
+### Cơ bản
+- **Brand Template**: Bộ quy chuẩn thương hiệu
+- **Content Pillars**: Chủ đề nội dung chính
+- **Tone of Voice**: Phong cách giao tiếp
+- **Personas**: Chân dung khách hàng mục tiêu
+- **Multi-Channel**: Tạo nội dung cho nhiều kênh
+
+### Nâng cao
+- **RAG**: Retrieval Augmented Generation - AI tìm kiếm ngữ nghĩa trong lịch sử
+- **Journey Stage**: Giai đoạn hành trình khách hàng (Awareness → Consideration → Decision → Loyalty)
+- **Product-Persona Mapping**: Liên kết sản phẩm với đối tượng khách hàng phù hợp
+- **Brand Voice Variant**: Biến thể giọng văn cho các ngữ cảnh khác nhau
+- **Industry Memory**: Kiến thức ngành được inject vào AI (compliance, preferred words)
+- **Streaming Generation**: Tạo nội dung real-time, xem từng phần khi AI viết
+- **Storyboard**: Kịch bản video với visual prompts cho từng scene
+- **Hook**: Câu mở đầu thu hút cho video ngắn
+- **Content Purpose**: Mục đích nội dung (educate, entertain, inspire, promote)
+- **Marketing Framework**: Công thức viết content (AIDA, PAS, BAB, v.v.)
+
+---
 
 ## FAQ
-- AI không đúng tone? → Kiểm tra Brand Template, thêm Sample Texts
-- Muốn tạo nhiều kênh cùng lúc? → Dùng Multi-Channel Content
-- Mời thành viên? → Vào Organization Settings → Mời thành viên
+
+### Tổng quan
+- **Hệ thống này làm gì?** → Quản lý content marketing với AI hỗ trợ: từ branding, ý tưởng, đến tạo nội dung đa kênh
+- **Bắt đầu từ đâu?** → Tạo Brand Template trước, sau đó dùng AI Kho Ý Tưởng để brainstorm
+
+### Brand Template
+- **Tại sao cần Brand Template?** → Đây là "bộ não" cho AI, giúp tạo nội dung đúng tone và target audience
+- **Brand Completeness thấp thì sao?** → AI sẽ không hoạt động nếu dưới 25%, cần điền thêm thông tin
+- **Muốn AI viết đúng giọng hơn?** → Thêm Sample Texts (ví dụ bài viết mẫu) vào Brand Template
+
+### AI Chatbot
+- **AI không đúng tone?** → Kiểm tra Brand Template, đặc biệt là Tone of Voice và Sample Texts
+- **AI không biết tin tức mới?** → Dùng lệnh "search" hoặc hỏi về trending để AI tìm kiếm web
+- **Muốn AI nhớ preferences?** → AI tự động học từ phản hồi, hoặc vào User Preferences để thiết lập
+
+### Multi-Channel
+- **Muốn tạo nhiều kênh cùng lúc?** → Chọn nhiều kênh trong Multi-Channel Content
+- **Nội dung không phù hợp kênh?** → Chọn đúng Journey Stage và Persona
+- **Muốn thêm ảnh AI?** → Bật Image Generation khi tạo nội dung
+
+### Tổ chức
+- **Mời thành viên?** → Vào Organization Settings → Mời thành viên
+- **Phân quyền thế nào?** → Admin (full), Creator (tạo/edit), Viewer (chỉ xem)
 `;
 
 const SYSTEM_PROMPT = `Bạn là Trợ lý Hướng dẫn của hệ thống quản lý content marketing.
@@ -62,12 +208,17 @@ ${KNOWLEDGE_BASE}
 
 COACHMARK TOUR IDs (dùng để hướng dẫn trực quan):
 - dashboard: Tour tổng quan Dashboard
-- brand-creation: Tour tạo Brand
+- brand-creation: Tour tạo Brand (6 bước)
+- brand-personas: Tour thiết lập Personas
+- brand-products: Tour thêm Products
+- brand-journey: Tour Journey Stage Messaging
 - content-creation: Tour tạo nội dung đa kênh
 - ai-chatbot: Tour sử dụng AI Chatbot
+- topic-bank: Tour quản lý Topic Bank
 - calendar: Tour lịch nội dung
 - scripts: Tour kịch bản video
 - carousel: Tour carousel design
+- admin-ai: Tour AI Management (admin only)
 
 QUY TẮC:
 1. Trả lời ngắn gọn, dễ hiểu bằng tiếng Việt
@@ -98,7 +249,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, currentRoute } = await req.json();
+    const { messages, currentRoute, context } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -107,11 +258,43 @@ serve(async (req) => {
 
     // Build context-aware system prompt
     let contextPrompt = SYSTEM_PROMPT;
+    
+    // Add route context
     if (currentRoute) {
-      contextPrompt += `\n\nNGỮ CẢNH: User đang ở trang ${currentRoute}. Hãy ưu tiên đề xuất các tính năng liên quan đến trang này.`;
+      contextPrompt += `\n\nNGỮ CẢNH TRANG: User đang ở trang ${currentRoute}.`;
+      
+      // Route-specific guidance
+      if (currentRoute.includes('/brands')) {
+        contextPrompt += ' Ưu tiên hướng dẫn về Brand Template, Personas, Products, Voice settings.';
+      } else if (currentRoute.includes('/multichannel')) {
+        contextPrompt += ' Ưu tiên hướng dẫn về tạo nội dung, chọn kênh, personas, journey stages.';
+      } else if (currentRoute.includes('/topics')) {
+        contextPrompt += ' Ưu tiên hướng dẫn về AI Chatbot, brainstorm, Topic Bank, web search.';
+      } else if (currentRoute.includes('/scripts')) {
+        contextPrompt += ' Ưu tiên hướng dẫn về tạo kịch bản video, hooks, storyboard.';
+      } else if (currentRoute.includes('/carousel')) {
+        contextPrompt += ' Ưu tiên hướng dẫn về thiết kế carousel, slides, export.';
+      } else if (currentRoute.includes('/calendar')) {
+        contextPrompt += ' Ưu tiên hướng dẫn về scheduling, drag & drop, publishing.';
+      } else if (currentRoute.includes('/admin')) {
+        contextPrompt += ' User là Admin. Có thể hỏi về AI Management, Industry Templates, system settings.';
+      }
+    }
+    
+    // Add rich context if available
+    if (context) {
+      if (context.userRole === 'admin') {
+        contextPrompt += '\n\nUSER ROLE: Admin - có quyền truy cập AI Management, Industry Templates.';
+      }
+      if (context.hasBrandSelected && context.brandInfo) {
+        contextPrompt += `\n\nBRAND ĐANG CHỌN: "${context.brandInfo.name}"${context.brandInfo.industry ? ` (ngành: ${context.brandInfo.industry})` : ''}. Có thể đề cập đến brand này khi hướng dẫn.`;
+      }
+      if (context.recentPages && context.recentPages.length > 0) {
+        contextPrompt += `\n\nTRANG VỪA XEM: ${context.recentPages.join(' → ')}`;
+      }
     }
 
-    console.log(`[help-chatbot] Processing request from route: ${currentRoute}`);
+    console.log(`[help-chatbot] Processing request from route: ${currentRoute}, context:`, context ? JSON.stringify(context) : 'none');
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
