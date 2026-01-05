@@ -77,69 +77,63 @@ export default function Campaigns() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Target className="h-6 w-6 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Target className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             Quản lý Chiến dịch
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground text-sm mt-1 hidden sm:block">
             Theo dõi và quản lý các chiến dịch marketing của bạn
           </p>
         </div>
-        <Button onClick={() => navigate('/campaigns/new')} className="gap-2">
+        <Button onClick={() => navigate('/campaigns/new')} className="gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
-          Tạo chiến dịch
+          <span className="sm:inline">Tạo chiến dịch</span>
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-          <div className="p-2 rounded-lg bg-green-500/20">
-            <Flame className="h-5 w-5 text-green-500" />
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 p-3 sm:p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+          <div className="p-1.5 sm:p-2 rounded-lg bg-green-500/20">
+            <Flame className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
           </div>
-          <div>
-            <p className="text-2xl font-bold">{stats.active}</p>
-            <p className="text-sm text-muted-foreground">Đang chạy</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-          <div className="p-2 rounded-lg bg-blue-500/20">
-            <Clock className="h-5 w-5 text-blue-500" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{stats.planning}</p>
-            <p className="text-sm text-muted-foreground">Đang lên kế hoạch</p>
+          <div className="text-center sm:text-left">
+            <p className="text-xl sm:text-2xl font-bold">{stats.active}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Đang chạy</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-          <div className="p-2 rounded-lg bg-purple-500/20">
-            <CheckCircle2 className="h-5 w-5 text-purple-500" />
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 p-3 sm:p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+          <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/20">
+            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
           </div>
-          <div>
-            <p className="text-2xl font-bold">{stats.completed}</p>
-            <p className="text-sm text-muted-foreground">Hoàn thành</p>
+          <div className="text-center sm:text-left">
+            <p className="text-xl sm:text-2xl font-bold">{stats.planning}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Đang lên kế hoạch</p>
+            <p className="text-xs text-muted-foreground sm:hidden">Kế hoạch</p>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 p-3 sm:p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+          <div className="p-1.5 sm:p-2 rounded-lg bg-purple-500/20">
+            <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+          </div>
+          <div className="text-center sm:text-left">
+            <p className="text-xl sm:text-2xl font-bold">{stats.completed}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Hoàn thành</p>
+            <p className="text-xs text-muted-foreground sm:hidden">Xong</p>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)}>
-          <TabsList>
-            <TabsTrigger value="all">Tất cả ({campaigns.length})</TabsTrigger>
-            <TabsTrigger value="active">Đang chạy ({stats.active})</TabsTrigger>
-            <TabsTrigger value="planning">Lên kế hoạch ({stats.planning})</TabsTrigger>
-            <TabsTrigger value="completed">Hoàn thành ({stats.completed})</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        
-        <div className="relative w-full sm:w-64">
+      <div className="flex flex-col gap-3">
+        {/* Search - Mobile first */}
+        <div className="relative w-full sm:hidden">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Tìm chiến dịch..." 
@@ -147,6 +141,47 @@ export default function Campaigns() {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
+        </div>
+        
+        <div className="flex items-center justify-between gap-4">
+          {/* Tabs - scrollable on mobile */}
+          <div className="flex-1 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+            <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)}>
+              <TabsList className="inline-flex w-auto">
+                <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">
+                  <span className="hidden sm:inline">Tất cả</span>
+                  <span className="sm:hidden">Tất cả</span>
+                  <span className="ml-1">({campaigns.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="active" className="text-xs sm:text-sm px-2 sm:px-3">
+                  <span className="hidden sm:inline">Đang chạy</span>
+                  <span className="sm:hidden">Chạy</span>
+                  <span className="ml-1">({stats.active})</span>
+                </TabsTrigger>
+                <TabsTrigger value="planning" className="text-xs sm:text-sm px-2 sm:px-3">
+                  <span className="hidden sm:inline">Lên kế hoạch</span>
+                  <span className="sm:hidden">KH</span>
+                  <span className="ml-1">({stats.planning})</span>
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="text-xs sm:text-sm px-2 sm:px-3">
+                  <span className="hidden sm:inline">Hoàn thành</span>
+                  <span className="sm:hidden">Xong</span>
+                  <span className="ml-1">({stats.completed})</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          
+          {/* Search - Desktop */}
+          <div className="relative hidden sm:block w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Tìm chiến dịch..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
       </div>
 
