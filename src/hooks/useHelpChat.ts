@@ -1,6 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+
+const HELP_CHAT_STORAGE_KEY = 'help-chat-messages';
 
 export interface HelpMessage {
   id: string;
@@ -8,6 +10,7 @@ export interface HelpMessage {
   content: string;
   timestamp: Date;
   actions?: HelpAction[];
+  suggestions?: string[];
 }
 
 export interface HelpAction {
@@ -18,12 +21,19 @@ export interface HelpAction {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/help-chatbot`;
 
-// Parse action tags from message content
-function parseActions(content: string): { cleanContent: string; actions: HelpAction[] } {
+// Parse action tags and suggestions from message content
+function parseMessageContent(content: string): { 
+  cleanContent: string; 
+  actions: HelpAction[];
+  suggestions: string[];
+} {
   const actions: HelpAction[] = [];
-  const actionPattern = /\[ACTION:(NAVIGATE|COACHMARK):([^\|]+)\|([^\]]+)\]/g;
+  const suggestions: string[] = [];
   
   let cleanContent = content;
+  
+  // Parse action tags
+  const actionPattern = /\[ACTION:(NAVIGATE|COACHMARK):([^\|]+)\|([^\]]+)\]/g;
   let match;
   
   while ((match = actionPattern.exec(content)) !== null) {
@@ -36,22 +46,59 @@ function parseActions(content: string): { cleanContent: string; actions: HelpAct
     cleanContent = cleanContent.replace(fullMatch, '');
   }
   
-  return { cleanContent: cleanContent.trim(), actions };
+  // Parse suggestion tags
+  const suggestPattern = /\[SUGGEST:([^\]]+)\]/g;
+  while ((match = suggestPattern.exec(content)) !== null) {
+    const [fullMatch, suggestion] = match;
+    suggestions.push(suggestion.trim());
+    cleanContent = cleanContent.replace(fullMatch, '');
+  }
+  
+  return { cleanContent: cleanContent.trim(), actions, suggestions };
 }
 
-export function useHelpChat() {
-  const [messages, setMessages] = useState<HelpMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: 'Xin chào! 👋 Tôi là trợ lý hướng dẫn. Bạn cần giúp gì về cách sử dụng hệ thống?',
-      timestamp: new Date()
-    }
-  ]);
+const WELCOME_MESSAGE: HelpMessage = {
+  id: 'welcome',
+  role: 'assistant',
+  content: 'Xin chào! 👋 Tôi là trợ lý hướng dẫn. Bạn cần giúp gì về cách sử dụng hệ thống?',
+  timestamp: new Date()
+};
+
+export function useHelpChat(onStartTour?: (tourId: string) => void) {
+  const [messages, setMessages] = useState<HelpMessage[]>([WELCOME_MESSAGE]);
   const [isOpen, setIsOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Load messages from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(HELP_CHAT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed.map((m: HelpMessage) => ({
+            ...m,
+            timestamp: new Date(m.timestamp)
+          })));
+        }
+      }
+    } catch (e) {
+      console.error('[useHelpChat] Failed to load messages:', e);
+    }
+  }, []);
+
+  // Save messages to localStorage when they change
+  useEffect(() => {
+    if (messages.length > 1 || messages[0]?.id !== 'welcome') {
+      try {
+        localStorage.setItem(HELP_CHAT_STORAGE_KEY, JSON.stringify(messages));
+      } catch (e) {
+        console.error('[useHelpChat] Failed to save messages:', e);
+      }
+    }
+  }, [messages]);
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim() || isStreaming) return;
@@ -142,12 +189,12 @@ export function useHelpChat() {
         }
       }
 
-      // Parse actions from final content
-      const { cleanContent, actions } = parseActions(assistantContent);
+      // Parse actions and suggestions from final content
+      const { cleanContent, actions, suggestions } = parseMessageContent(assistantContent);
       
       setMessages(prev => prev.map(m => 
         m.id === assistantId 
-          ? { ...m, content: cleanContent, actions }
+          ? { ...m, content: cleanContent, actions, suggestions }
           : m
       ));
 
@@ -167,18 +214,16 @@ export function useHelpChat() {
       navigate(action.payload);
       setIsOpen(false);
     } else if (action.type === 'coachmark') {
-      // Will be handled by parent component
-      console.log('Coachmark action:', action.payload);
+      if (onStartTour) {
+        onStartTour(action.payload);
+        setIsOpen(false);
+      }
     }
-  }, [navigate]);
+  }, [navigate, onStartTour]);
 
   const clearMessages = useCallback(() => {
-    setMessages([{
-      id: 'welcome',
-      role: 'assistant',
-      content: 'Xin chào! 👋 Tôi là trợ lý hướng dẫn. Bạn cần giúp gì về cách sử dụng hệ thống?',
-      timestamp: new Date()
-    }]);
+    setMessages([WELCOME_MESSAGE]);
+    localStorage.removeItem(HELP_CHAT_STORAGE_KEY);
   }, []);
 
   return {
