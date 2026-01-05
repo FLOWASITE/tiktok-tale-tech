@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useCallback, ReactNode, useEffect 
 import { CoachmarkContextValue, CoachmarkStep } from './types';
 import { COACHMARK_STORAGE_KEY, COACHMARK_PROGRESS_KEY } from './dashboardSteps';
 
+const NEVER_SHOW_KEY = 'coachmark-never-show';
+
 const CoachmarkContext = createContext<CoachmarkContextValue | null>(null);
 
 interface CoachmarkProviderProps {
@@ -17,6 +19,8 @@ export function CoachmarkProvider({
 }: CoachmarkProviderProps) {
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
 
   // Check for saved progress on mount
   useEffect(() => {
@@ -36,7 +40,16 @@ export function CoachmarkProvider({
     }
   }, [currentStep, isActive]);
 
+  const startWithWelcome = useCallback(() => {
+    const neverShow = localStorage.getItem(NEVER_SHOW_KEY);
+    if (neverShow === 'true') {
+      return;
+    }
+    setShowWelcomeModal(true);
+  }, []);
+
   const start = useCallback(() => {
+    setShowWelcomeModal(false);
     setCurrentStep(0);
     setIsActive(true);
     localStorage.removeItem(COACHMARK_PROGRESS_KEY);
@@ -46,10 +59,11 @@ export function CoachmarkProvider({
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
-      // Complete the onboarding
+      // Complete the onboarding - show completion modal
       setIsActive(false);
       localStorage.setItem(storageKey, 'true');
       localStorage.removeItem(COACHMARK_PROGRESS_KEY);
+      setShowCompletionModal(true);
     }
   }, [currentStep, steps.length, storageKey]);
 
@@ -65,11 +79,24 @@ export function CoachmarkProvider({
     localStorage.removeItem(COACHMARK_PROGRESS_KEY);
   }, [storageKey]);
 
+  const skipWelcome = useCallback((neverShow: boolean) => {
+    setShowWelcomeModal(false);
+    if (neverShow) {
+      localStorage.setItem(NEVER_SHOW_KEY, 'true');
+      localStorage.setItem(storageKey, 'true');
+    }
+  }, [storageKey]);
+
   const complete = useCallback(() => {
     setIsActive(false);
     localStorage.setItem(storageKey, 'true');
     localStorage.removeItem(COACHMARK_PROGRESS_KEY);
+    setShowCompletionModal(true);
   }, [storageKey]);
+
+  const closeCompletionModal = useCallback(() => {
+    setShowCompletionModal(false);
+  }, []);
 
   const goToStep = useCallback((index: number) => {
     if (index >= 0 && index < steps.length) {
@@ -82,11 +109,16 @@ export function CoachmarkProvider({
       isActive,
       currentStep,
       steps,
+      showWelcomeModal,
+      showCompletionModal,
       start,
+      startWithWelcome,
       next,
       prev,
       skip,
+      skipWelcome,
       complete,
+      closeCompletionModal,
       goToStep,
     }}>
       {children}

@@ -62,7 +62,7 @@ export function CoachmarkTooltip({
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       className={cn(
-        "fixed z-[10001] w-80 p-4 rounded-xl",
+        "fixed z-[10001] w-[280px] sm:w-80 p-4 rounded-xl",
         "bg-card border shadow-2xl shadow-primary/20"
       )}
       style={position}
@@ -74,12 +74,18 @@ export function CoachmarkTooltip({
       <button
         onClick={onSkip}
         className="absolute top-2 right-2 p-1 rounded-md hover:bg-muted transition-colors"
+        aria-label="Đóng hướng dẫn"
       >
         <X className="w-4 h-4 text-muted-foreground" />
       </button>
 
+      {/* Step counter */}
+      <div className="absolute top-3 right-10 text-xs text-muted-foreground">
+        Bước {currentIndex + 1}/{totalSteps}
+      </div>
+
       {/* Icon + Title */}
-      <div className="flex items-center gap-2 mb-2 pr-6">
+      <div className="flex items-center gap-2 mb-2 pr-16">
         <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
           <Icon className="w-4 h-4 text-primary" />
         </div>
@@ -140,6 +146,13 @@ export function CoachmarkTooltip({
             {!isLast && <ChevronRight className="w-4 h-4 ml-1" />}
           </Button>
         </div>
+      </div>
+
+      {/* Keyboard hints */}
+      <div className="mt-3 pt-3 border-t text-[10px] text-muted-foreground/70 flex items-center justify-center gap-3">
+        <span>← → để chuyển</span>
+        <span>•</span>
+        <span>ESC để bỏ qua</span>
       </div>
     </motion.div>
   );

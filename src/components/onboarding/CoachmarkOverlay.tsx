@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCoachmark } from './CoachmarkContext';
 import { CoachmarkTooltip } from './CoachmarkTooltip';
-import confetti from 'canvas-confetti';
 
 interface TargetRect {
   top: number;
@@ -14,40 +13,85 @@ interface TargetRect {
 export function CoachmarkOverlay() {
   const { isActive, currentStep, steps, next, prev, skip, complete } = useCoachmark();
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
 
   const step = steps[currentStep];
   const isLast = currentStep === steps.length - 1;
 
-  // Find and measure target element
-  const measureTarget = useCallback(() => {
+  // Scroll element into view and measure
+  const scrollAndMeasure = useCallback(() => {
     if (!step) return;
 
     const element = document.querySelector(step.target);
     if (element) {
+      // Check if element is in viewport
       const rect = element.getBoundingClientRect();
-      setTargetRect({
-        top: rect.top,
-        left: rect.left,
-        width: rect.width,
-        height: rect.height,
-      });
+      const isInViewport = 
+        rect.top >= 0 &&
+        rect.bottom <= window.innerHeight;
+
+      if (!isInViewport) {
+        setIsScrolling(true);
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        // Wait for scroll to finish
+        setTimeout(() => {
+          const newRect = element.getBoundingClientRect();
+          setTargetRect({
+            top: newRect.top,
+            left: newRect.left,
+            width: newRect.width,
+            height: newRect.height,
+          });
+          setIsScrolling(false);
+        }, 400);
+      } else {
+        setTargetRect({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
     } else {
-      // If element not found, center the tooltip
       setTargetRect(null);
     }
   }, [step]);
 
+  // Measure on step change
   useEffect(() => {
     if (isActive) {
-      measureTarget();
-      window.addEventListener('resize', measureTarget);
-      window.addEventListener('scroll', measureTarget);
-      return () => {
-        window.removeEventListener('resize', measureTarget);
-        window.removeEventListener('scroll', measureTarget);
-      };
+      scrollAndMeasure();
     }
-  }, [isActive, measureTarget]);
+  }, [isActive, currentStep, scrollAndMeasure]);
+
+  // Update position on resize/scroll
+  useEffect(() => {
+    if (!isActive) return;
+
+    const handleUpdate = () => {
+      if (!step) return;
+      const element = document.querySelector(step.target);
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        setTargetRect({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleUpdate);
+    window.addEventListener('scroll', handleUpdate, true);
+    return () => {
+      window.removeEventListener('resize', handleUpdate);
+      window.removeEventListener('scroll', handleUpdate, true);
+    };
+  }, [isActive, step]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -68,28 +112,7 @@ export function CoachmarkOverlay() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isActive, next, prev, skip]);
 
-  // Confetti on complete
-  const handleNext = useCallback(() => {
-    if (isLast) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-    }
-    next();
-  }, [isLast, next]);
-
-  const handleComplete = useCallback(() => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
-    complete();
-  }, [complete]);
-
-  // Calculate tooltip position
+  // Calculate tooltip position with viewport bounds checking
   const getTooltipPosition = (): CSSProperties => {
     if (!targetRect || step.placement === 'center') {
       return {
@@ -101,51 +124,83 @@ export function CoachmarkOverlay() {
 
     const padding = step.spotlightPadding || 12;
     const tooltipOffset = 16;
-    const tooltipWidth = 320;
-    const tooltipHeight = 200; // Approximate
+    const tooltipWidth = window.innerWidth < 640 ? 280 : 320;
+    const tooltipHeight = 220;
 
+    let position: CSSProperties = {};
+    let finalPlacement = step.placement;
+
+    // Calculate base position
     switch (step.placement) {
       case 'bottom':
-        return {
+        position = {
           top: targetRect.top + targetRect.height + padding + tooltipOffset,
-          left: Math.max(16, Math.min(
+          left: Math.max(12, Math.min(
             targetRect.left + targetRect.width / 2 - tooltipWidth / 2,
-            window.innerWidth - tooltipWidth - 16
+            window.innerWidth - tooltipWidth - 12
           )),
         };
+        // Check if goes off screen bottom
+        if ((position.top as number) + tooltipHeight > window.innerHeight - 20) {
+          finalPlacement = 'top';
+          position.top = targetRect.top - padding - tooltipOffset - tooltipHeight;
+        }
+        break;
       case 'top':
-        return {
+        position = {
           top: targetRect.top - padding - tooltipOffset - tooltipHeight,
-          left: Math.max(16, Math.min(
+          left: Math.max(12, Math.min(
             targetRect.left + targetRect.width / 2 - tooltipWidth / 2,
-            window.innerWidth - tooltipWidth - 16
+            window.innerWidth - tooltipWidth - 12
           )),
         };
+        // Check if goes off screen top
+        if ((position.top as number) < 20) {
+          finalPlacement = 'bottom';
+          position.top = targetRect.top + targetRect.height + padding + tooltipOffset;
+        }
+        break;
       case 'left':
-        return {
-          top: targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
+        position = {
+          top: Math.max(20, Math.min(
+            targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
+            window.innerHeight - tooltipHeight - 20
+          )),
           left: targetRect.left - padding - tooltipOffset - tooltipWidth,
         };
+        // Check if goes off screen left
+        if ((position.left as number) < 20) {
+          finalPlacement = 'right';
+          position.left = targetRect.left + targetRect.width + padding + tooltipOffset;
+        }
+        break;
       case 'right':
-        return {
-          top: targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
+        position = {
+          top: Math.max(20, Math.min(
+            targetRect.top + targetRect.height / 2 - tooltipHeight / 2,
+            window.innerHeight - tooltipHeight - 20
+          )),
           left: targetRect.left + targetRect.width + padding + tooltipOffset,
         };
-      default:
-        return {
-          top: targetRect.top + targetRect.height + padding + tooltipOffset,
-          left: targetRect.left,
-        };
+        // Check if goes off screen right
+        if ((position.left as number) + tooltipWidth > window.innerWidth - 20) {
+          finalPlacement = 'left';
+          position.left = targetRect.left - padding - tooltipOffset - tooltipWidth;
+        }
+        break;
     }
+
+    return position;
   };
 
-  if (!isActive || !step) return null;
+  if (!isActive || !step || isScrolling) return null;
 
   const padding = step.spotlightPadding || 12;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       <motion.div
+        key={currentStep}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -157,7 +212,9 @@ export function CoachmarkOverlay() {
             <mask id="spotlight-mask">
               <rect fill="white" width="100%" height="100%" />
               {targetRect && (
-                <rect
+                <motion.rect
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   fill="black"
                   x={targetRect.left - padding}
                   y={targetRect.top - padding}
@@ -169,20 +226,21 @@ export function CoachmarkOverlay() {
             </mask>
           </defs>
           <rect
-            fill="rgba(0,0,0,0.7)"
+            fill="rgba(0,0,0,0.75)"
             width="100%"
             height="100%"
             mask="url(#spotlight-mask)"
-            className="backdrop-blur-sm"
           />
         </svg>
 
         {/* Spotlight border glow */}
         {targetRect && (
           <motion.div
+            layoutId="spotlight-border"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute rounded-xl border-2 border-primary/50 shadow-lg shadow-primary/20"
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="absolute rounded-xl border-2 border-primary shadow-lg shadow-primary/30"
             style={{
               top: targetRect.top - padding,
               left: targetRect.left - padding,
@@ -191,7 +249,7 @@ export function CoachmarkOverlay() {
             }}
           >
             {/* Pulse animation */}
-            <div className="absolute inset-0 rounded-xl border-2 border-primary/30 animate-pulse" />
+            <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
           </motion.div>
         )}
 
@@ -202,10 +260,10 @@ export function CoachmarkOverlay() {
           totalSteps={steps.length}
           position={getTooltipPosition()}
           placement={step.placement}
-          onNext={handleNext}
+          onNext={next}
           onPrev={prev}
           onSkip={skip}
-          onComplete={handleComplete}
+          onComplete={complete}
         />
       </motion.div>
     </AnimatePresence>
