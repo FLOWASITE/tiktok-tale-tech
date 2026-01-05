@@ -9,6 +9,7 @@ import { useHelpChat } from '@/hooks/useHelpChat';
 import { HelpMessageBubble } from './HelpMessageBubble';
 import { HelpQuickActions } from './HelpQuickActions';
 import { HelpSuggestions } from './HelpSuggestions';
+import { HelpTypingIndicator } from './HelpTypingIndicator';
 import { getTourById } from '@/data/coachmark-tours';
 
 // Safe hook that returns null if not in provider
@@ -248,6 +249,13 @@ export function HelpChatWidget() {
                         isStreaming={isStreaming && message.id === messages[messages.length - 1]?.id && message.role === 'assistant'}
                       />
                     ))}
+
+                    {/* Typing Indicator - show when streaming starts but no content yet */}
+                    <AnimatePresence>
+                      {isStreaming && messages[messages.length - 1]?.role === 'user' && (
+                        <HelpTypingIndicator />
+                      )}
+                    </AnimatePresence>
 
                     {/* Quick Actions */}
                     {showQuickActions && (
