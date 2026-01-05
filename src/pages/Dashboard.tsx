@@ -1,14 +1,17 @@
 import { useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { DashboardStats } from '@/components/DashboardStats';
-import { RecentActivity, ActivityItem } from '@/components/RecentActivity';
 import { MyAssignments } from '@/components/MyAssignments';
 import { TodaySchedules } from '@/components/TodaySchedules';
 import { PendingReviews } from '@/components/PendingReviews';
 import { TopicQuickAccess } from '@/components/TopicQuickAccess';
 import { PerformanceReminderWidget } from '@/components/PerformanceReminderWidget';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { 
+  DashboardHeader, 
+  QuickActionGrid, 
+  AIInsightsCard, 
+  ActivityTimeline,
+  TodayFocus 
+} from '@/components/dashboard';
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
@@ -22,17 +25,7 @@ import {
   DASHBOARD_STEPS, 
   COACHMARK_STORAGE_KEY 
 } from '@/components/onboarding';
-import { 
-  Sparkles, 
-  FileVideo, 
-  Images, 
-  Layers, 
-  Bookmark,
-  ArrowRight,
-  Zap,
-  Users,
-  HelpCircle
-} from 'lucide-react';
+import { motion } from 'framer-motion';
 
 // Inner component that uses the coachmark context
 function DashboardContent() {
@@ -60,8 +53,18 @@ function DashboardContent() {
   }), [scripts, carousels, multiChannelContents, brands]);
 
   // Combine all activities and sort by date
-  const recentActivities = useMemo((): ActivityItem[] => {
-    const activities: ActivityItem[] = [];
+  const recentActivities = useMemo(() => {
+    const activities: Array<{
+      id: string;
+      type: 'script' | 'carousel' | 'multichannel';
+      title: string;
+      createdAt: string;
+      metadata?: {
+        topic?: string;
+        platform?: string;
+        channels?: string[];
+      };
+    }> = [];
 
     scripts.forEach((script) => {
       activities.push({
@@ -105,44 +108,6 @@ function DashboardContent() {
       .slice(0, 10);
   }, [scripts, carousels, multiChannelContents]);
 
-  const quickActions = [
-    { 
-      title: 'Tạo nội dung đa kênh', 
-      description: 'Facebook, Instagram, LinkedIn...',
-      icon: Layers,
-      href: '/multichannel',
-      gradient: 'from-violet-500 to-purple-500',
-    },
-    { 
-      title: 'Tạo kịch bản video', 
-      description: 'TikTok, YouTube Shorts, Reels',
-      icon: FileVideo,
-      href: '/scripts',
-      gradient: 'from-rose-500 to-pink-500',
-    },
-    { 
-      title: 'Tạo Carousel', 
-      description: 'Thiết kế slides hấp dẫn',
-      icon: Images,
-      href: '/carousel',
-      gradient: 'from-cyan-500 to-blue-500',
-    },
-    { 
-      title: 'Quản lý Brand', 
-      description: 'Brand voice & templates',
-      icon: Bookmark,
-      href: '/brands',
-      gradient: 'from-amber-500 to-orange-500',
-    },
-    { 
-      title: 'Quản lý tổ chức', 
-      description: 'Thành viên & phân quyền',
-      icon: Users,
-      href: '/organization',
-      gradient: 'from-emerald-500 to-teal-500',
-    },
-  ];
-
   // Auto-start onboarding for new users with welcome modal
   useEffect(() => {
     if (loading) return;
@@ -158,7 +123,7 @@ function DashboardContent() {
   }, [loading, stats, startWithWelcome, isActive, showWelcomeModal, showCompletionModal]);
 
   return (
-    <div className="relative">
+    <div className="relative min-h-screen">
       {/* Welcome Modal */}
       <WelcomeModal 
         isOpen={showWelcomeModal} 
@@ -177,36 +142,32 @@ function DashboardContent() {
 
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-secondary/5 rounded-full blur-3xl" />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.1, 1],
+            opacity: [0.03, 0.06, 0.03],
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary rounded-full blur-3xl" 
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.15, 1],
+            opacity: [0.03, 0.05, 0.03],
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-secondary rounded-full blur-3xl" 
+        />
       </div>
 
       <div className="px-3 xs:px-4 sm:container py-4 sm:py-6 lg:py-8 relative space-y-4 sm:space-y-6 lg:space-y-8">
-        {/* Header */}
-        <div className="flex flex-col gap-1 sm:gap-2" data-coachmark="header">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl gradient-primary">
-                <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">Dashboard</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Tổng quan về nội dung của bạn
-                </p>
-              </div>
-            </div>
-            {/* Help button to restart onboarding */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => start()}
-              className="h-8 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <HelpCircle className="w-4 h-4 mr-1" />
-              Hướng dẫn
-            </Button>
-          </div>
+        {/* Hero Header */}
+        <div data-coachmark="header">
+          <DashboardHeader 
+            pendingCount={0}
+            todayScheduleCount={0}
+            onStartOnboarding={start}
+          />
         </div>
 
         {/* Stats */}
@@ -214,106 +175,101 @@ function DashboardContent() {
           <DashboardStats stats={stats} loading={loading} />
         </div>
 
-        {/* Main Content - Responsive columns layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
-          {/* Column 1: Quick Actions & Tips */}
-          <div className="space-y-4 sm:space-y-5 lg:space-y-6">
-            <Card className="gradient-card border-border/50" data-coachmark="quick-actions">
-              <CardHeader className="pb-3 sm:pb-4">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                  Bắt đầu nhanh
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid gap-2 sm:gap-3">
-                  {quickActions.map((action, index) => {
-                    const Icon = action.icon;
-                    return (
-                      <Link 
-                        key={action.href} 
-                        to={action.href}
-                        className="stagger-item"
-                        style={{ animationDelay: `${index * 100}ms` }}
-                        data-coachmark={action.href === '/multichannel' ? 'multichannel-action' : undefined}
-                      >
-                        <Card className="gradient-card border-border/50 card-animated group">
-                          <CardContent className="p-2.5 sm:p-3 flex items-center gap-2 sm:gap-3">
-                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br ${action.gradient} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform`}>
-                              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-xs sm:text-sm text-foreground group-hover:text-primary transition-colors">
-                                {action.title}
-                              </p>
-                              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                                {action.description}
-                              </p>
-                            </div>
-                            <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+        {/* Bento Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6">
+          {/* Large card - Quick Actions (spans 5 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="lg:col-span-5"
+            data-coachmark="quick-actions"
+          >
+            <QuickActionGrid />
+          </motion.div>
 
-            {/* Tips Section */}
-            <Card className="gradient-card border-border/50 overflow-hidden" data-coachmark="brand-tip">
-              <div className="relative">
-                <div className="absolute inset-0 gradient-primary opacity-10" />
-                <CardContent className="p-3 sm:p-4 lg:p-5 relative">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="p-2 sm:p-2.5 rounded-lg bg-background/80 backdrop-blur flex-shrink-0">
-                      <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-foreground mb-1 text-xs sm:text-sm">
-                        Mẹo sử dụng hiệu quả
-                      </h3>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground mb-2 sm:mb-3">
-                        Tạo Brand Template với đầy đủ Brand Voice để AI tạo nội dung nhất quán hơn.
-                      </p>
-                      <Button variant="secondary" size="sm" asChild className="h-7 sm:h-8 text-xs">
-                        <Link to="/brands">
-                          Quản lý Brand
-                          <ArrowRight className="w-3 h-3 ml-1" />
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </div>
-            </Card>
+          {/* Medium card - Topics (spans 4 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="lg:col-span-4"
+            data-coachmark="topics"
+          >
+            <TopicQuickAccess />
+          </motion.div>
 
-            {/* Recent Activity - Hide on mobile, show on lg */}
-            <div className="hidden lg:block">
-              <RecentActivity activities={recentActivities} loading={loading} />
-            </div>
-          </div>
+          {/* Small card - Today Focus (spans 3 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="lg:col-span-3"
+          >
+            <TodayFocus scheduledCount={0} pendingReviewCount={0} />
+          </motion.div>
 
-          {/* Column 2: Topics, My Assignments & Today Schedules */}
-          <div className="space-y-4 sm:space-y-5 lg:space-y-6">
-            <div data-coachmark="topics">
-              <TopicQuickAccess />
-            </div>
+          {/* AI Insights (spans 4 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="lg:col-span-4"
+            data-coachmark="brand-tip"
+          >
+            <AIInsightsCard />
+          </motion.div>
+
+          {/* Today Schedules (spans 4 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="lg:col-span-4"
+            data-coachmark="schedules"
+          >
+            <TodaySchedules />
+          </motion.div>
+
+          {/* Performance Reminder (spans 4 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="lg:col-span-4"
+          >
             <PerformanceReminderWidget />
-            <MyAssignments />
-            <div data-coachmark="schedules">
-              <TodaySchedules />
-            </div>
-          </div>
+          </motion.div>
 
-          {/* Column 3: Pending Reviews (Admin only) */}
-          <div className="space-y-4 sm:space-y-5 lg:space-y-6 md:col-span-2 lg:col-span-1">
+          {/* My Assignments (spans 6 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="lg:col-span-6"
+          >
+            <MyAssignments />
+          </motion.div>
+
+          {/* Activity Timeline (spans 6 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+            className="lg:col-span-6"
+          >
+            <ActivityTimeline activities={recentActivities} loading={loading} />
+          </motion.div>
+
+          {/* Pending Reviews - Full width */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1 }}
+            className="lg:col-span-12"
+          >
             <PendingReviews />
-            {/* Recent Activity - Show on mobile/tablet, hide on lg */}
-            <div className="lg:hidden">
-              <RecentActivity activities={recentActivities} loading={loading} />
-            </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
