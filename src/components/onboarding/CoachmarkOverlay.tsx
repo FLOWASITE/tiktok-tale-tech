@@ -123,9 +123,10 @@ export function CoachmarkOverlay() {
     }
 
     const padding = step.spotlightPadding || 12;
-    const tooltipOffset = 16;
+    const tooltipOffset = 12;
     const tooltipWidth = window.innerWidth < 640 ? 280 : 320;
-    const tooltipHeight = 220;
+    // Estimate height based on whether step has action button
+    const tooltipHeight = step.action ? 320 : 220;
 
     let position: CSSProperties = {};
     let finalPlacement = step.placement;
