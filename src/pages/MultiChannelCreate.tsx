@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { MultiChannelFormWizard } from '@/components/multichannel/MultiChannelFormWizard';
 import { CreatePreviewPanel } from '@/components/multichannel/CreatePreviewPanel';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
+import { MobileGenerationSheet } from '@/components/multichannel/MobileGenerationSheet';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
@@ -12,7 +13,6 @@ import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { MultiChannelFormData, ContentGoal, Channel } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { toast } from 'sonner';
-
 interface LocationState {
   prefillTopic?: string;
   prefillGoal?: ContentGoal;
@@ -268,6 +268,21 @@ export default function MultiChannelCreate() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Generation Sheet - only visible on mobile/tablet */}
+      <MobileGenerationSheet
+        open={generationState !== 'idle'}
+        generationState={generationState}
+        streamingTexts={streamingTexts}
+        sseProgress={sseProgress}
+        elapsedMs={generationElapsedMs}
+        channels={formData.channels || []}
+        completedChannels={sseProgress?.completedChannels || []}
+        currentChannel={sseProgress?.currentChannel}
+        onViewContent={handleViewContent}
+        onCreateAnother={handleCreateAnother}
+        onClose={() => setGenerationState('idle')}
+      />
     </div>
   );
 }
