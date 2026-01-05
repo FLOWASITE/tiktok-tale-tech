@@ -22,6 +22,7 @@ import { CampaignDetailOverview } from '@/components/campaign/detail/CampaignDet
 import { CampaignDetailMilestones } from '@/components/campaign/detail/CampaignDetailMilestones';
 import { CampaignDetailContents } from '@/components/campaign/detail/CampaignDetailContents';
 import { CampaignDetailKPIs } from '@/components/campaign/detail/CampaignDetailKPIs';
+import { CampaignAnalyticsDashboard } from '@/components/campaign/analytics/CampaignAnalyticsDashboard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +44,7 @@ import {
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { campaign, milestones, contents, isLoading, error } = useCampaignDetail(id);
+  const { campaign, milestones, contents, kpiLogs, isLoading, error } = useCampaignDetail(id);
   const { deleteCampaign, updateStatus, isDeleting } = useCampaigns();
   
   const [activeTab, setActiveTab] = useState('overview');
@@ -175,13 +176,15 @@ export default function CampaignDetail() {
           </TabsContent>
 
           <TabsContent value="kpis">
-            <CampaignDetailKPIs campaignId={id!} campaign={campaign} />
+            <CampaignDetailKPIs campaignId={id!} campaign={campaign} kpiLogs={kpiLogs} />
           </TabsContent>
 
           <TabsContent value="analytics">
-            <div className="text-center py-12 text-muted-foreground">
-              Analytics coming soon...
-            </div>
+            <CampaignAnalyticsDashboard 
+              campaign={campaign} 
+              milestones={milestones} 
+              kpiLogs={kpiLogs} 
+            />
           </TabsContent>
         </Tabs>
       </div>
