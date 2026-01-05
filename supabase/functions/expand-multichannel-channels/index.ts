@@ -3,6 +3,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI } from "../_shared/ai-provider.ts";
 import { getChannelModelConfigs, getAIConfig, ChannelModelConfig } from "../_shared/ai-config.ts";
+import { 
+  generateChannelStreaming, 
+  createSSEResponse,
+  type StreamingContext,
+  type StreamingProgressEvent,
+} from "../_shared/streaming-handler.ts";
+import { formatFooterInfo, type FooterInfo } from "../_shared/channel-prompt-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,14 +51,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, { min_length: number; max_length:
 interface ExpandRequest {
   contentId: string;
   newChannels: string[];
-}
-
-interface FooterInfo {
-  phone?: string;
-  email?: string;
-  website?: string;
-  address?: string;
-  company_name?: string;
+  stream?: boolean; // Enable SSE streaming mode
 }
 
 interface ChannelOverride {
@@ -65,8 +65,8 @@ serve(async (req) => {
   }
 
   try {
-    const { contentId, newChannels } = await req.json() as ExpandRequest;
-    console.log(`[expand-multichannel] Starting expansion for content ${contentId}, channels: ${newChannels.join(', ')}`);
+    const { contentId, newChannels, stream } = await req.json() as ExpandRequest;
+    console.log(`[expand-multichannel] Starting expansion for content ${contentId}, channels: ${newChannels.join(', ')}, stream: ${stream}`);
 
     if (!contentId || !newChannels || newChannels.length === 0) {
       return new Response(
@@ -138,7 +138,184 @@ ${brand.forbidden_words?.length ? `- Từ cấm: ${brand.forbidden_words.join(',
       }
     }
 
-// Helper to replace footer template variables
+    // ============================================
+    // STREAMING MODE HANDLER
+    // ============================================
+    if (stream) {
+      console.log('[expand-multichannel] Using streaming mode');
+      
+      // Fetch channel model configs
+      const channelConfigs = await getChannelModelConfigs(existingContent.organization_id);
+      const defaultConfig = await getAIConfig('expand-multichannel-channels', existingContent.organization_id);
+      const defaultModel = defaultConfig.model || 'google/gemini-2.5-flash';
+      const defaultTemperature = defaultConfig.temperature ?? 0.7;
+      
+      // Convert channelConfigs to the expected format
+      const channelModelConfigs = new Map<string, { model: string; temperature: number; maxTokens: number | null }>();
+      for (const [channel, config] of channelConfigs.entries()) {
+        channelModelConfigs.set(channel, {
+          model: config.model || defaultModel,
+          temperature: config.temperature ?? defaultTemperature,
+          maxTokens: config.maxTokens || null,
+        });
+      }
+      
+      // Build streaming context
+      const streamingContext: StreamingContext = {
+        organizationId: existingContent.organization_id,
+        userId: existingContent.user_id,
+        channels: newChannels,
+        topic: existingContent.topic,
+        contentGoal: existingContent.content_goal || 'engagement',
+        brandTemplateId: existingContent.brand_template_id,
+        brandName: companyName || 'Brand',
+        footerInfo: footerInfo as any,
+        channelOverrides: channelOverrides as any,
+        brandAllowEmoji,
+        companyName: companyName || null,
+        tagline: null,
+        channelModelConfigs,
+        defaultModel,
+        defaultTemperature,
+      };
+      
+      // Reference content for context
+      const referenceContent = existingContent.facebook_content || existingContent.website_content || existingContent.instagram_content || '';
+      
+      // Create SSE stream
+      const stream = new TransformStream();
+      const writer = stream.writable.getWriter();
+      const encoder = new TextEncoder();
+      
+      // Emit function
+      const emit = (event: StreamingProgressEvent): boolean => {
+        try {
+          const data = `data: ${JSON.stringify(event)}\n\n`;
+          writer.write(encoder.encode(data));
+          return true;
+        } catch (e) {
+          console.error('[expand-multichannel-stream] Emit error:', e);
+          return false;
+        }
+      };
+      
+      // Send initial padding for anti-buffering
+      const padding = `: ${'x'.repeat(2048)}\n\n`;
+      writer.write(encoder.encode(padding));
+      
+      // Start async generation
+      (async () => {
+        try {
+          emit({ type: 'progress', step: 'init', progress: 5, message: 'Đang chuẩn bị...', totalChannels: newChannels });
+          
+          const generatedContents: Record<string, string> = {};
+          const completedChannels: string[] = [];
+          
+          // Generate content for each channel sequentially (for streaming)
+          for (let i = 0; i < newChannels.length; i++) {
+            const channel = newChannels[i];
+            const settings = DEFAULT_CHANNEL_SETTINGS[channel] || DEFAULT_CHANNEL_SETTINGS.facebook;
+            
+            const progressBase = 10 + (i / newChannels.length) * 80;
+            emit({ 
+              type: 'progress', 
+              step: 'ai', 
+              progress: progressBase,
+              message: `Đang tạo ${channel}...`,
+              currentChannel: channel,
+              completedChannels,
+              totalChannels: newChannels,
+            });
+            
+            // Build prompts for this channel
+            const systemPrompt = `Bạn là chuyên gia content marketing đa kênh.
+${brandContext}
+
+## YÊU CẦU CHO ${channel.toUpperCase()}
+- Độ dài: ${settings.min_length}-${settings.max_length} từ
+- Format: ${settings.format}
+- Sử dụng Markdown: **bold**, bullet points${brandAllowEmoji ? ', emoji' : ''}
+- Viết trực tiếp nội dung, KHÔNG có giải thích`;
+            
+            const userPrompt = `Tạo nội dung ${channel.toUpperCase()} cho chủ đề: "${existingContent.topic}"
+
+Tiêu đề: ${existingContent.title}
+Mục tiêu: ${existingContent.content_goal || 'engagement'}
+${referenceContent ? `\nNội dung tham khảo:\n${referenceContent.substring(0, 300)}...` : ''}
+
+Viết nội dung ${channel} ngay:`;
+            
+            const result = await generateChannelStreaming({
+              channel,
+              systemPrompt,
+              userPrompt,
+              context: streamingContext,
+              emit,
+            });
+            
+            if (result.success) {
+              generatedContents[channel] = result.content;
+              completedChannels.push(channel);
+            } else {
+              generatedContents[channel] = `[Lỗi: ${result.error || 'Unknown'}]`;
+            }
+          }
+          
+          emit({ type: 'progress', step: 'finalize', progress: 90, message: 'Đang lưu...', completedChannels, totalChannels: newChannels });
+          
+          // Build update payload
+          const updatePayload: Record<string, any> = {
+            selected_channels: [...existingChannels, ...newChannels],
+          };
+          
+          for (const channel of newChannels) {
+            const columnName = CHANNEL_COLUMN_MAP[channel];
+            if (columnName && generatedContents[channel]) {
+              updatePayload[columnName] = generatedContents[channel];
+            }
+          }
+          
+          // Update channel_statuses
+          const currentStatuses = existingContent.channel_statuses || {};
+          const updatedStatuses = { ...currentStatuses };
+          for (const channel of newChannels) {
+            updatedStatuses[channel] = 'draft';
+          }
+          updatePayload.channel_statuses = updatedStatuses;
+          
+          // Save to database
+          const { data: updatedContent, error: updateError } = await supabase
+            .from('multi_channel_contents')
+            .update(updatePayload)
+            .eq('id', contentId)
+            .select()
+            .single();
+          
+          if (updateError) {
+            console.error('[expand-multichannel-stream] Update error:', updateError);
+            emit({ type: 'error', message: 'Lỗi lưu dữ liệu' });
+          } else {
+            emit({ type: 'result', data: updatedContent });
+          }
+          
+          writer.write(encoder.encode('data: [DONE]\n\n'));
+          await writer.close();
+          
+        } catch (error) {
+          console.error('[expand-multichannel-stream] Error:', error);
+          emit({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' });
+          writer.write(encoder.encode('data: [DONE]\n\n'));
+          await writer.close();
+        }
+      })();
+      
+      return createSSEResponse(stream.readable, corsHeaders);
+    }
+
+    // ============================================
+    // NON-STREAMING MODE (original logic)
+    // ============================================
+
     const replaceFooterVariables = (
       template: string, 
       footer: FooterInfo | null,
@@ -152,8 +329,8 @@ ${brand.forbidden_words?.length ? `- Từ cấm: ${brand.forbidden_words.join(',
         .replace(/\{company\}/g, compName || footer?.company_name || '');
     };
 
-    // Format footer info for each channel (copied from generate-multichannel)
-    const formatFooterInfo = (
+    // Format footer info for each channel (local version for non-streaming mode)
+    const formatFooterInfoLocal = (
       footer: FooterInfo | null,
       channel: string,
       useEmoji: boolean
@@ -505,7 +682,7 @@ console.log('[expand-multichannel] AI generated contents for:', Object.keys(gene
       console.log('[expand-multichannel] Appending footer info to generated contents');
       for (const channel of newChannels) {
         if (generatedContents[channel]) {
-          generatedContents[channel] += formatFooterInfo(footerInfo, channel, brandAllowEmoji);
+          generatedContents[channel] += formatFooterInfoLocal(footerInfo, channel, brandAllowEmoji);
         }
       }
     }

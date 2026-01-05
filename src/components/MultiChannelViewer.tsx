@@ -61,7 +61,7 @@ import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
 import { AutoImageGenerator } from '@/components/multichannel/AutoImageGenerator';
-import { ExpandChannelsDialog } from '@/components/multichannel/ExpandChannelsDialog';
+import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -1512,18 +1512,16 @@ export function MultiChannelViewer({
         />
       )}
 
-      {/* Expand Channels Dialog */}
-      {onExpandChannels && (
-        <ExpandChannelsDialog
-          open={showExpandDialog}
-          onOpenChange={setShowExpandDialog}
-          content={content}
-          onExpand={async (newChannels) => {
-            await onExpandChannels(content.id, newChannels);
-          }}
-          isExpanding={expandingChannels || false}
-        />
-      )}
+      {/* Expand Channels Streaming Dialog */}
+      <ExpandChannelsStreamingDialog
+        open={showExpandDialog}
+        onOpenChange={setShowExpandDialog}
+        content={content}
+        onComplete={(updatedContent) => {
+          // Optionally refresh parent state
+          setShowExpandDialog(false);
+        }}
+      />
     </Dialog>
   );
 }
