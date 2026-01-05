@@ -318,3 +318,51 @@ export function formatMetricValue(value: number, unit?: string): string {
   
   return value.toLocaleString('vi-VN');
 }
+
+// =============================================
+// Milestone Generation
+// =============================================
+
+export function generateDefaultMilestones(startDate: string, endDate: string): MilestoneFormData[] {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const durationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  
+  const milestones: MilestoneFormData[] = [];
+  
+  // Campaign Launch
+  milestones.push({
+    title: 'Khởi động chiến dịch',
+    description: 'Bắt đầu triển khai content theo kế hoạch',
+    due_date: startDate,
+  });
+  
+  // Mid-campaign review (if > 7 days)
+  if (durationDays > 7) {
+    const midDate = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2);
+    milestones.push({
+      title: 'Đánh giá giữa kỳ',
+      description: 'Review hiệu suất và điều chỉnh nếu cần',
+      due_date: midDate.toISOString().split('T')[0],
+    });
+  }
+  
+  // Peak moment (if > 14 days)
+  if (durationDays > 14) {
+    const peakDate = new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000);
+    milestones.push({
+      title: 'Cao điểm chiến dịch',
+      description: 'Đẩy mạnh content và promotion',
+      due_date: peakDate.toISOString().split('T')[0],
+    });
+  }
+  
+  // Campaign wrap-up
+  milestones.push({
+    title: 'Tổng kết chiến dịch',
+    description: 'Đánh giá kết quả và báo cáo',
+    due_date: endDate,
+  });
+  
+  return milestones;
+}
