@@ -1,13 +1,9 @@
+// REDESIGNED v2.0 - Content First, Progress Secondary
+// UI Focus: Streaming text grid is primary, progress steps are collapsed by default
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Building2, 
-  Users, 
-  Package, 
-  FileText, 
   Sparkles, 
-  CheckCircle2, 
-  Wand2,
   Check,
   Loader2,
   Facebook,
@@ -21,14 +17,15 @@ import {
   Send,
   Music2,
   AtSign,
+  FileText,
   ChevronDown,
-  Eye,
+  Bot,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
-  GENERATION_STEPS, 
   calculateTotalDuration,
+  calculateStepDurations,
   PROGRESS_CAP_PERCENT 
 } from './progressConstants';
 import {
@@ -36,51 +33,27 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-interface ProgressStep {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  duration: number;
-}
-
-interface ChannelContentPreview {
-  channel: string;
-  preview: string;
-  fullContent?: string;
-  wordCount: number;
-  isStreaming?: boolean;
-}
 
 interface AIGenerationProgressProps {
   isLoading: boolean;
   channelCount: number;
   elapsedMs?: number;
   className?: string;
-  // SSE progress props for real-time updates
   sseStep?: string;
   sseProgress?: number;
   sseMessage?: string;
   completedChannels?: string[];
   totalChannels?: string[];
   currentChannel?: string;
-  // Real-time content previews
-  channelContents?: ChannelContentPreview[];
-  // Streaming text for typewriter effect
+  channelContents?: {
+    channel: string;
+    preview: string;
+    fullContent?: string;
+    wordCount: number;
+    isStreaming?: boolean;
+  }[];
   streamingTexts?: Record<string, string>;
 }
-
-// Map step IDs to icons
-const STEP_ICONS: Record<string, React.ReactNode> = {
-  brand: <Building2 className="w-4 h-4" />,
-  personas: <Users className="w-4 h-4" />,
-  industry: <Package className="w-4 h-4" />,
-  prompt: <FileText className="w-4 h-4" />,
-  ai: <Sparkles className="w-4 h-4" />,
-  critique: <CheckCircle2 className="w-4 h-4" />,
-  finalize: <Wand2 className="w-4 h-4" />,
-};
 
 // Channel display names
 const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
@@ -114,16 +87,6 @@ const CHANNEL_ICONS: Record<string, LucideIcon> = {
   website: Globe,
 };
 
-// Build progress steps with icons from shared constants
-const getProgressSteps = (channelCount: number): ProgressStep[] => {
-  return GENERATION_STEPS.map(step => ({
-    id: step.id,
-    label: step.label,
-    icon: STEP_ICONS[step.id] || <Sparkles className="w-4 h-4" />,
-    duration: step.baseDuration + (step.channelScaling || 0) * Math.max(0, channelCount - 1)
-  }));
-};
-
 export function AIGenerationProgress({ 
   isLoading, 
   channelCount, 
@@ -135,17 +98,17 @@ export function AIGenerationProgress({
   completedChannels: completedChannelsProp,
   totalChannels: totalChannelsProp,
   currentChannel,
-  channelContents,
   streamingTexts,
 }: AIGenerationProgressProps) {
-  // Ensure arrays are always arrays (handle undefined from SSE events)
+  // Ensure arrays are always arrays
   const completedChannels = completedChannelsProp ?? [];
   const totalChannels = totalChannelsProp ?? [];
   
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
-  
-  // Use external elapsed if provided, otherwise track internally
   const elapsed = externalElapsedMs ?? internalElapsedMs;
+
+  const steps = useMemo(() => calculateStepDurations(channelCount), [channelCount]);
+  const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
 
   useEffect(() => {
     if (!isLoading || externalElapsedMs !== undefined) {
@@ -161,369 +124,271 @@ export function AIGenerationProgress({
     return () => clearInterval(interval);
   }, [isLoading, externalElapsedMs]);
 
-  const steps = useMemo(() => getProgressSteps(channelCount), [channelCount]);
-  
-  // Calculate cumulative thresholds
-  const stepThresholds = useMemo(() => {
-    let cumulative = 0;
-    return steps.map(step => {
-      cumulative += step.duration;
-      return cumulative;
-    });
-  }, [steps]);
-
-  const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
-
-  // Determine step statuses - prioritize SSE data when available
-  const stepsWithStatus = useMemo(() => {
-    // If we have SSE step data, use it to determine status
+  // Calculate current step and progress
+  const { currentStepIndex, activeStep } = useMemo(() => {
     if (sseStep) {
-      const sseStepIndex = steps.findIndex(s => s.id === sseStep);
-      return steps.map((step, index) => {
-        let status: 'pending' | 'active' | 'complete';
-        if (index < sseStepIndex) {
-          status = 'complete';
-        } else if (index === sseStepIndex) {
-          status = sseStep === 'complete' ? 'complete' : 'active';
-        } else {
-          status = 'pending';
-        }
-        return { ...step, status };
-      });
-    }
-    
-    // Fallback to time-based calculation
-    return steps.map((step, index) => {
-      const stepStart = index === 0 ? 0 : stepThresholds[index - 1];
-      const stepEnd = stepThresholds[index];
-      
-      let status: 'pending' | 'active' | 'complete';
-      if (elapsed >= stepEnd) {
-        status = 'complete';
-      } else if (elapsed >= stepStart) {
-        status = 'active';
-      } else {
-        status = 'pending';
+      const sseIndex = steps.findIndex(s => s.id === sseStep);
+      if (sseIndex >= 0) {
+        return { currentStepIndex: sseIndex, activeStep: steps[sseIndex] };
       }
-      
-      return { ...step, status };
-    });
-  }, [steps, stepThresholds, elapsed, sseStep]);
+    }
 
-  // Calculate remaining time - use SSE progress if available
-  const effectiveProgress = sseProgress ?? Math.min(PROGRESS_CAP_PERCENT, (elapsed / totalDuration) * 100);
-  const remainingMs = Math.max(0, totalDuration - elapsed);
-  const remainingSeconds = Math.ceil(remainingMs / 1000);
+    let accumulated = 0;
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      if (elapsed < accumulated + step.duration) {
+        return { currentStepIndex: i, activeStep: step };
+      }
+      accumulated += step.duration;
+    }
+    return { currentStepIndex: steps.length - 1, activeStep: steps[steps.length - 1] };
+  }, [elapsed, steps, sseStep]);
 
-  // Display message - prioritize SSE message
-  const displayMessage = sseMessage || (
-    remainingSeconds > 5 
-      ? `Còn khoảng ${remainingSeconds} giây...` 
-      : remainingSeconds > 0
-        ? 'Sắp hoàn thành...'
-        : 'Đang hoàn thiện, vui lòng chờ...'
-  );
-
-  // Channel progress display
-  const channelProgressText = completedChannels && totalChannels 
-    ? `${completedChannels.length}/${totalChannels.length} kênh`
-    : `${channelCount} kênh`;
+  const progressPercent = useMemo(() => {
+    if (sseProgress !== undefined) {
+      return Math.min(PROGRESS_CAP_PERCENT, sseProgress);
+    }
+    const rawPercent = (elapsed / totalDuration) * 100;
+    return Math.min(PROGRESS_CAP_PERCENT, rawPercent);
+  }, [sseProgress, elapsed, totalDuration]);
 
   if (!isLoading) return null;
 
+  const displayMessage = sseMessage || activeStep?.label || 'Đang xử lý...';
+
+  // Get pending channels
+  const streamingChannelKeys = Object.keys(streamingTexts || {});
+  const pendingChannels = totalChannels.filter(ch => !streamingChannelKeys.includes(ch));
+
+  // Consolidated progress groups
+  const progressGroups = [
+    { id: 'context', label: 'Ngữ cảnh', steps: ['init', 'brand', 'personas', 'industry', 'prompt'] },
+    { id: 'ai', label: 'AI tạo nội dung', steps: ['ai', 'retry'] },
+    { id: 'finalize', label: 'Hoàn thiện', steps: ['critique', 'finalize', 'complete'] },
+  ];
+
+  const getGroupStatus = (groupSteps: string[]) => {
+    const currentStepId = activeStep?.id;
+    const currentIdx = steps.findIndex(s => s.id === currentStepId);
+    
+    const groupStartIdx = steps.findIndex(s => groupSteps.includes(s.id));
+    const groupEndIdx = steps.length - 1 - [...steps].reverse().findIndex(s => groupSteps.includes(s.id));
+    
+    if (currentIdx > groupEndIdx) return 'complete';
+    if (currentIdx >= groupStartIdx && currentIdx <= groupEndIdx) return 'current';
+    return 'pending';
+  };
+
   return (
     <motion.div 
-      className={cn("space-y-4", className)}
+      className={cn("space-y-3", className)}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      data-testid="ai-generation-progress-v2"
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10">
-          <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
+      {/* Compact Header */}
+      <div className="flex items-center gap-3">
+        {/* AI Icon */}
+        <motion.div
+          className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0"
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <Bot className="w-4 h-4 text-primary-foreground" />
+        </motion.div>
+
+        {/* Title + Status */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">AI đang tạo nội dung</span>
+            <span className="text-sm font-semibold text-primary">{Math.round(progressPercent)}%</span>
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{displayMessage}</p>
         </div>
-        <span>Đang tạo nội dung cho {channelProgressText}</span>
+
+        {/* Mini Channel Badges */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {totalChannels.slice(0, 5).map((channel) => {
+            const isCompleted = completedChannels.includes(channel);
+            const isCurrent = currentChannel === channel && !isCompleted;
+            const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
+            
+            return (
+              <div
+                key={channel}
+                className={cn(
+                  'w-6 h-6 rounded-md flex items-center justify-center transition-colors',
+                  isCompleted && 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
+                  isCurrent && 'bg-primary/20 text-primary',
+                  !isCompleted && !isCurrent && 'bg-muted text-muted-foreground'
+                )}
+                title={CHANNEL_DISPLAY_NAMES[channel] || channel}
+              >
+                {isCompleted ? (
+                  <Check className="w-3 h-3" />
+                ) : isCurrent ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <ChannelIcon className="w-3 h-3" />
+                )}
+              </div>
+            );
+          })}
+          {totalChannels.length > 5 && (
+            <span className="text-[10px] text-muted-foreground">+{totalChannels.length - 5}</span>
+          )}
+        </div>
       </div>
 
-      {/* SSE Message Display */}
-      {sseMessage && (
-        <motion.div 
-          className="px-3 py-2 bg-primary/10 rounded-lg text-sm text-primary font-medium"
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          key={sseMessage} // Re-animate on message change
-        >
-          {sseMessage}
-        </motion.div>
-      )}
-
-      {/* Progress Timeline */}
-      <div className="relative pl-6">
-        {/* Vertical line */}
-        <div className="absolute left-[11px] top-2 bottom-2 w-[2px] bg-border" />
-        
-        {/* Progress fill */}
-        <motion.div 
-          className="absolute left-[11px] top-2 w-[2px] bg-primary"
-          initial={{ height: 0 }}
-          animate={{ 
-            height: `${effectiveProgress}%` 
-          }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+      {/* Progress Bar */}
+      <div className="h-1.5 bg-muted rounded-full relative overflow-hidden">
+        <motion.div
+          className="h-full bg-gradient-to-r from-primary to-secondary rounded-full"
+          initial={{ width: '0%' }}
+          animate={{ width: `${progressPercent}%` }}
+          transition={{ duration: 0.3 }}
         />
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+          animate={{ x: ['-100%', '200%'] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+        />
+      </div>
 
-        {/* Steps */}
-        <div className="space-y-3">
-          <AnimatePresence mode="sync">
-            {stepsWithStatus.map((step, index) => (
+      {/* === STREAMING TEXT GRID - MAIN FOCUS === */}
+      {(streamingTexts && Object.keys(streamingTexts).length > 0) || pendingChannels.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+          {/* Active/Completed streaming cards */}
+          {Object.entries(streamingTexts || {}).map(([channel, text]) => {
+            const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
+            const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
+            const safeText = typeof text === 'string' ? text : '';
+            const wordCount = safeText.split(/\s+/).filter(w => w.length > 0).length;
+            const isCompleted = completedChannels.includes(channel);
+            
+            return (
               <motion.div
-                key={step.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.3 }}
-                className="relative flex items-center gap-3"
+                key={channel}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  'rounded-lg border p-2.5 min-h-[90px] flex flex-col',
+                  isCompleted 
+                    ? 'bg-muted/30 border-green-200 dark:border-green-800/50' 
+                    : 'bg-primary/5 border-primary/20'
+                )}
               >
-                {/* Status indicator */}
-                <div 
-                  className={cn(
-                    "relative z-10 flex items-center justify-center w-6 h-6 rounded-full border-2 transition-all duration-300",
-                    step.status === 'complete' && "bg-primary border-primary",
-                    step.status === 'active' && "bg-background border-primary",
-                    step.status === 'pending' && "bg-background border-muted-foreground/30"
-                  )}
-                >
-                  {step.status === 'complete' ? (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    >
-                      <Check className="w-3.5 h-3.5 text-primary-foreground" />
-                    </motion.div>
-                  ) : step.status === 'active' ? (
-                    <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                {/* Card Header */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <ChannelIcon className={cn(
+                    'w-4 h-4',
+                    isCompleted ? 'text-green-600 dark:text-green-400' : 'text-primary'
+                  )} />
+                  <span className="text-xs font-medium flex-1">{displayName}</span>
+                  {isCompleted ? (
+                    <Check className="w-3.5 h-3.5 text-green-500" />
                   ) : (
-                    <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
                   )}
+                  <span className="text-[10px] text-muted-foreground">{wordCount} từ</span>
                 </div>
 
-                {/* Step content */}
-                <div className="flex-1 flex items-center gap-2">
-                  <span 
-                    className={cn(
-                      "transition-colors duration-300",
-                      step.status === 'complete' && "text-primary",
-                      step.status === 'active' && "text-foreground",
-                      step.status === 'pending' && "text-muted-foreground"
+                {/* Streaming Content */}
+                <div className="flex-1 text-xs text-foreground/80 leading-relaxed overflow-hidden">
+                  <p className="whitespace-pre-wrap break-words">
+                    {safeText.slice(0, 200)}
+                    {safeText.length > 200 && '...'}
+                    {!isCompleted && (
+                      <span className="inline-block w-0.5 h-3 bg-primary ml-0.5 animate-pulse" />
                     )}
-                  >
-                    {step.icon}
-                  </span>
-                  <span 
-                    className={cn(
-                      "text-sm transition-colors duration-300",
-                      step.status === 'complete' && "text-foreground",
-                      step.status === 'active' && "text-foreground font-medium",
-                      step.status === 'pending' && "text-muted-foreground"
-                    )}
-                  >
-                    {step.label}
-                  </span>
-                  
-                  {/* Active shimmer */}
-                  {step.status === 'active' && (
-                    <motion.div
-                      className="ml-auto h-1 w-12 rounded-full bg-gradient-to-r from-primary/20 via-primary/50 to-primary/20"
-                      animate={{
-                        backgroundPosition: ['200% 0', '-200% 0'],
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        ease: 'linear',
-                      }}
-                      style={{
-                        backgroundSize: '200% 100%',
-                      }}
-                    />
-                  )}
+                  </p>
                 </div>
               </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      </div>
+            );
+          })}
 
-      {/* Per-Channel Progress Badges */}
-      {totalChannels && totalChannels.length > 0 && ['ai', 'critique', 'finalize'].includes(sseStep || '') && (
-        <motion.div 
-          className="space-y-2"
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div className="text-xs text-muted-foreground font-medium">
-            Chi tiết từng kênh:
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <AnimatePresence mode="popLayout">
-              {totalChannels.map((channel, index) => {
-                const isCompleted = completedChannels?.includes(channel);
-                const isCurrent = currentChannel === channel && !isCompleted;
-                const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
-                const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
-                
-                return (
-                  <motion.span
-                    key={channel}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ delay: index * 0.05, duration: 0.2 }}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-300',
-                      isCompleted && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                      isCurrent && 'bg-primary/15 text-primary border border-primary/30 shadow-sm',
-                      !isCompleted && !isCurrent && 'bg-muted text-muted-foreground'
-                    )}
-                  >
-                    {isCompleted ? (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                      >
-                        <Check className="w-3 h-3" />
-                      </motion.div>
-                    ) : isCurrent ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <ChannelIcon className="w-3 h-3 opacity-50" />
-                    )}
-                    {displayName}
-                  </motion.span>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Real-time Content Preview Section - Streaming Text */}
-      {(channelContents && channelContents.length > 0) || (streamingTexts && Object.keys(streamingTexts).length > 0) ? (
-        <motion.div 
-          className="space-y-2"
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Collapsible defaultOpen={true}>
-            <CollapsibleTrigger className="flex items-center gap-2 w-full text-xs font-medium text-foreground hover:text-primary transition-colors group">
-              <Eye className="w-3.5 h-3.5" />
-              <span>
-                Nội dung đang tạo 
-                {streamingTexts && Object.keys(streamingTexts).length > 0 && (
-                  <span className="ml-1 inline-flex items-center">
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    {Object.keys(streamingTexts).length} kênh
-                  </span>
-                )}
-                {channelContents && channelContents.length > 0 && Object.keys(streamingTexts ?? {}).length === 0 && (
-                  <span className="ml-1">({channelContents.length} kênh)</span>
-                )}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 ml-auto transition-transform group-data-[state=open]:rotate-180" />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <ScrollArea className="max-h-[280px]">
-                <div className="space-y-2">
-                  <AnimatePresence mode="popLayout">
-                    {/* Show streaming texts with typewriter effect */}
-                    {streamingTexts && Object.entries(streamingTexts).map(([channel, text], index) => {
-                      const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
-                      const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
-                      const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-                      const isStreaming = !channelContents?.find(c => c.channel === channel && !c.isStreaming);
-                      
-                      return (
-                        <motion.div
-                          key={`streaming-${channel}`}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          transition={{ delay: index * 0.05, duration: 0.2 }}
-                          className={cn(
-                            "border rounded-lg p-3",
-                            isStreaming ? "bg-primary/5 border-primary/20" : "bg-muted/30"
-                          )}
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <ChannelIcon className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium">{displayName}</span>
-                            {isStreaming && (
-                              <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                            )}
-                            {!isStreaming && (
-                              <Check className="w-3 h-3 text-green-500" />
-                            )}
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              {wordCount} từ
-                            </span>
-                          </div>
-                          <div className="text-xs text-foreground/80 leading-relaxed max-h-[100px] overflow-y-auto whitespace-pre-wrap">
-                            {text.slice(0, 500)}
-                            {text.length > 500 && '...'}
-                            {isStreaming && (
-                              <span className="inline-block w-1.5 h-4 bg-primary ml-0.5 animate-pulse" />
-                            )}
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                    
-                    {/* Fallback to channelContents if no streaming texts */}
-                    {(!streamingTexts || Object.keys(streamingTexts).length === 0) && channelContents?.map((item, index) => {
-                      const ChannelIcon = CHANNEL_ICONS[item.channel] || Globe;
-                      const displayName = CHANNEL_DISPLAY_NAMES[item.channel] || item.channel;
-                      
-                      return (
-                        <motion.div
-                          key={item.channel}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          transition={{ delay: index * 0.05, duration: 0.2 }}
-                          className="border rounded-lg p-3 bg-muted/30"
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <ChannelIcon className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium">{displayName}</span>
-                            {item.isStreaming ? (
-                              <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                            ) : (
-                              <Check className="w-3 h-3 text-green-500" />
-                            )}
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              {item.wordCount} từ
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
-                            {item.preview}
-                          </p>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
+          {/* Pending channel skeletons */}
+          {pendingChannels.slice(0, 4).map((channel) => {
+            const ChannelIcon = CHANNEL_ICONS[channel] || Globe;
+            const displayName = CHANNEL_DISPLAY_NAMES[channel] || channel;
+            
+            return (
+              <div
+                key={`pending-${channel}`}
+                className="rounded-lg border border-dashed border-muted-foreground/20 bg-muted/20 p-2.5 min-h-[90px] flex flex-col"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <ChannelIcon className="w-4 h-4 text-muted-foreground/50" />
+                  <span className="text-xs font-medium text-muted-foreground/70">{displayName}</span>
+                  <span className="text-[10px] text-muted-foreground/50 ml-auto">Đang chờ...</span>
                 </div>
-              </ScrollArea>
-            </CollapsibleContent>
-          </Collapsible>
-        </motion.div>
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-2 bg-muted-foreground/10 rounded animate-pulse w-full" />
+                  <div className="h-2 bg-muted-foreground/10 rounded animate-pulse w-4/5" />
+                  <div className="h-2 bg-muted-foreground/10 rounded animate-pulse w-3/5" />
+                </div>
+              </div>
+            );
+          })}
+          {pendingChannels.length > 4 && (
+            <div className="rounded-lg border border-dashed border-muted-foreground/20 bg-muted/10 p-2.5 flex items-center justify-center">
+              <span className="text-xs text-muted-foreground">+{pendingChannels.length - 4} kênh khác...</span>
+            </div>
+          )}
+        </div>
       ) : null}
 
+      {/* Collapsed Progress Steps */}
+      <Collapsible className="mt-2">
+        <CollapsibleTrigger className="flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors w-full group">
+          <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180" />
+          <span>Chi tiết tiến trình</span>
+          <div className="flex-1 h-px bg-border/50" />
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent>
+          <div className="flex items-center gap-2 mt-2 px-1">
+            {progressGroups.map((group, idx) => {
+              const status = getGroupStatus(group.steps);
+              
+              return (
+                <div key={group.id} className="flex items-center gap-2 flex-1">
+                  {/* Step dot */}
+                  <div
+                    className={cn(
+                      'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium flex-shrink-0',
+                      status === 'complete' && 'bg-primary text-primary-foreground',
+                      status === 'current' && 'bg-primary/20 text-primary border border-primary/50',
+                      status === 'pending' && 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {status === 'complete' ? '✓' : idx + 1}
+                  </div>
+                  <span className={cn(
+                    'text-[11px] whitespace-nowrap',
+                    status === 'current' && 'text-primary font-medium',
+                    status === 'pending' && 'text-muted-foreground/60'
+                  )}>
+                    {group.label}
+                  </span>
+                  
+                  {/* Connector line (except last) */}
+                  {idx < progressGroups.length - 1 && (
+                    <div className={cn(
+                      'flex-1 h-0.5 rounded-full',
+                      status === 'complete' ? 'bg-primary' : 'bg-muted'
+                    )} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
       {/* Completion Summary */}
-      {completedChannels && totalChannels && completedChannels.length === totalChannels.length && totalChannels.length > 0 && (
+      {completedChannels.length === totalChannels.length && totalChannels.length > 0 && (
         <motion.div 
           className="flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-sm text-green-700 dark:text-green-400 font-medium"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -532,19 +397,6 @@ export function AIGenerationProgress({
         >
           <Check className="w-4 h-4" />
           <span>✓ Đã tạo xong {totalChannels.length} kênh</span>
-        </motion.div>
-      )}
-
-      {/* Status message - only show if no SSE message */}
-      {!sseMessage && (
-        <motion.div 
-          className="flex items-center justify-center gap-2 text-xs text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Sparkles className="w-3 h-3" />
-          <span>{displayMessage}</span>
         </motion.div>
       )}
     </motion.div>
