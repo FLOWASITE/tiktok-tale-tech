@@ -13,19 +13,23 @@ import {
 import { 
   Campaign, 
   CampaignGoal,
+  CampaignKPILog,
   getKPIMetricConfig, 
   formatMetricValue 
 } from '@/types/campaign';
 import { cn } from '@/lib/utils';
 import { useCampaignDetail } from '@/hooks/useCampaigns';
 import { KPILogFormDialog } from '@/components/campaign/kpi/KPILogFormDialog';
+import { KPILogTable } from '@/components/campaign/kpi/KPILogTable';
+import { KPISparkline } from '@/components/campaign/kpi/KPISparkline';
 
 interface CampaignDetailKPIsProps {
   campaignId: string;
   campaign: Campaign;
+  kpiLogs?: CampaignKPILog[];
 }
 
-export function CampaignDetailKPIs({ campaignId, campaign }: CampaignDetailKPIsProps) {
+export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [] }: CampaignDetailKPIsProps) {
   const { updateKPIs } = useCampaignDetail(campaignId);
   
   const [isEditing, setIsEditing] = useState(false);
@@ -163,14 +167,17 @@ export function CampaignDetailKPIs({ campaignId, campaign }: CampaignDetailKPIsP
                             className={cn("h-2", isCompleted && "[&>div]:bg-green-500")}
                           />
                           
-                          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                            <span>{Math.round(progress)}% hoàn thành</span>
-                            {goal.target > 0 && goal.current < goal.target && (
-                              <span>
-                                Còn thiếu: {formatMetricValue(goal.target - goal.current, goal.unit)}
-                              </span>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-xs text-muted-foreground">{Math.round(progress)}% hoàn thành</span>
+                            {kpiLogs.length > 0 && (
+                              <KPISparkline kpiLogs={kpiLogs} metric={goal.metric} />
                             )}
                           </div>
+                          {goal.target > 0 && goal.current < goal.target && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Còn thiếu: {formatMetricValue(goal.target - goal.current, goal.unit)}
+                            </p>
+                          )}
                         </>
                       )}
                     </div>
@@ -206,6 +213,9 @@ export function CampaignDetailKPIs({ campaignId, campaign }: CampaignDetailKPIsP
             </p>
           </Card>
         </div>
+
+        {/* KPI History Table */}
+        <KPILogTable kpiLogs={kpiLogs} goals={campaign.goals} />
       </div>
 
       {/* Log KPI Dialog */}
