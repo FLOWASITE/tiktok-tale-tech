@@ -22,7 +22,8 @@ import {
   Sparkles,
   CreditCard,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Brain
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
@@ -735,10 +736,22 @@ export default function AdminDashboard() {
                 Events
               </Button>
             </Link>
-            <Link to="/admin/news">
+            <Link to="/admin/industry-news">
               <Button variant="outline" size="sm">
                 <Newspaper className="h-4 w-4 mr-2" />
                 News
+              </Button>
+            </Link>
+            <Link to="/admin/users">
+              <Button variant="outline" size="sm">
+                <Users className="h-4 w-4 mr-2" />
+                Users
+              </Button>
+            </Link>
+            <Link to="/admin/ai">
+              <Button variant="outline" size="sm">
+                <Brain className="h-4 w-4 mr-2" />
+                AI Management
               </Button>
             </Link>
           </div>
