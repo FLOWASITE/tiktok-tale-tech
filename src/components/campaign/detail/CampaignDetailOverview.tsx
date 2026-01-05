@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -13,6 +14,9 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Target, Flag, FileText, Calendar } from 'lucide-react';
+import { CampaignChannelStatus } from './CampaignChannelStatus';
+import { useCampaignChannelIntegration } from '@/hooks/useCampaignChannelIntegration';
+import { useContentDetails } from '@/hooks/useContentDetails';
 
 interface CampaignDetailOverviewProps {
   campaign: Campaign;
@@ -21,12 +25,41 @@ interface CampaignDetailOverviewProps {
 }
 
 export function CampaignDetailOverview({ campaign, milestones, contents }: CampaignDetailOverviewProps) {
+  // Fetch content details to get selected_channels
+  const { data: contentDetailsMap } = useContentDetails(contents);
+  
+  // Build content channels map for integration hook
+  const contentChannelsMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (contentDetailsMap) {
+      contentDetailsMap.forEach((detail, id) => {
+        if (detail.selected_channels) {
+          map.set(id, detail.selected_channels);
+        }
+      });
+    }
+    return map;
+  }, [contentDetailsMap]);
+  
+  // Get channel integration data
+  const { channelStatuses, isLoading: isLoadingChannels } = useCampaignChannelIntegration({
+    campaign,
+    contents,
+    contentChannelsMap,
+  });
+
   const upcomingMilestones = milestones
     .filter(m => m.status !== 'completed')
     .slice(0, 3);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Channel Status - NEW */}
+      <CampaignChannelStatus
+        channelStatuses={channelStatuses}
+        brandTemplateId={campaign.brand_template_id}
+        isLoading={isLoadingChannels}
+      />
       {/* KPI Summary */}
       <Card>
         <CardHeader className="pb-3">
