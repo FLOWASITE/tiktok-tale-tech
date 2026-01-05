@@ -858,6 +858,38 @@ export type Database = {
           },
         ]
       }
+      campaign_notification_logs: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          id: string
+          notification_key: string
+          notification_type: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          id?: string
+          notification_key: string
+          notification_type: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          id?: string
+          notification_key?: string
+          notification_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_notification_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           brand_template_id: string | null
