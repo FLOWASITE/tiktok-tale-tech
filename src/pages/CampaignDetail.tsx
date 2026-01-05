@@ -45,7 +45,12 @@ export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { campaign, milestones, contents, kpiLogs, isLoading, error } = useCampaignDetail(id);
-  const { deleteCampaign, updateStatus, isDeleting } = useCampaigns();
+  const { deleteCampaign, updateStatus, updateBudgetSpent, isDeleting } = useCampaigns();
+  
+  const handleUpdateBudgetSpent = async (newSpent: number) => {
+    if (!id) return;
+    await updateBudgetSpent({ id, budgetSpent: newSpent });
+  };
   
   const [activeTab, setActiveTab] = useState('overview');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -183,7 +188,8 @@ export default function CampaignDetail() {
             <CampaignAnalyticsDashboard 
               campaign={campaign} 
               milestones={milestones} 
-              kpiLogs={kpiLogs} 
+              kpiLogs={kpiLogs}
+              onUpdateBudgetSpent={handleUpdateBudgetSpent}
             />
           </TabsContent>
         </Tabs>

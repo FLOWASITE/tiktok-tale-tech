@@ -12,7 +12,8 @@ import {
   Clock,
   PanelLeftClose,
   PanelLeft,
-  History
+  History,
+  Flag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,7 @@ import { PublishingQueue } from '@/components/PublishingQueue';
 import { PublishingHistoryTab } from '@/components/PublishingHistoryTab';
 import { CalendarDayView } from '@/components/CalendarDayView';
 import { Calendar } from '@/components/ui/calendar';
+import { CalendarMilestoneItem } from '@/components/CalendarMilestoneItem';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData, ContentGoal } from '@/types/multichannel';
 import { ScheduleTopicDialog, ScheduleTopicData } from '@/components/topic/ScheduleTopicDialog';
@@ -40,6 +42,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
+import { useCampaignIntegration, CampaignMilestone } from '@/hooks/useCampaignIntegration';
 import { toast } from '@/hooks/use-toast';
 import { 
   format, 
@@ -168,11 +171,13 @@ function DroppableDayCell({
   date, 
   isCurrentMonth,
   schedules,
+  milestones = [],
   onScheduleClick,
 }: { 
   date: Date;
   isCurrentMonth: boolean;
   schedules: ScheduleWithContent[];
+  milestones?: CampaignMilestone[];
   onScheduleClick: (schedule: ScheduleWithContent) => void;
 }) {
   const dateStr = format(date, 'yyyy-MM-dd');
@@ -183,6 +188,10 @@ function DroppableDayCell({
 
   const daySchedules = schedules.filter(s => 
     format(parseISO(s.scheduled_at), 'yyyy-MM-dd') === dateStr
+  );
+  
+  const dayMilestones = milestones.filter(m => 
+    format(parseISO(m.due_date), 'yyyy-MM-dd') === dateStr
   );
 
   return (
@@ -203,16 +212,31 @@ function DroppableDayCell({
         {format(date, 'd')}
       </div>
       <div className="space-y-1">
-        {daySchedules.slice(0, 3).map((schedule) => (
+        {/* Milestones first */}
+        {dayMilestones.slice(0, 1).map((milestone) => (
+          <CalendarMilestoneItem
+            key={milestone.id}
+            milestone={milestone}
+            compact
+          />
+        ))}
+        {dayMilestones.length > 1 && (
+          <div className="text-xs text-amber-600 px-1 flex items-center gap-1">
+            <Flag className="h-3 w-3" />
+            +{dayMilestones.length - 1} milestones
+          </div>
+        )}
+        {/* Schedules */}
+        {daySchedules.slice(0, dayMilestones.length > 0 ? 2 : 3).map((schedule) => (
           <DraggableScheduleItem
             key={schedule.id}
             schedule={schedule}
             onClick={() => onScheduleClick(schedule)}
           />
         ))}
-        {daySchedules.length > 3 && (
+        {daySchedules.length > (dayMilestones.length > 0 ? 2 : 3) && (
           <div className="text-xs text-muted-foreground px-1">
-            +{daySchedules.length - 3} more
+            +{daySchedules.length - (dayMilestones.length > 0 ? 2 : 3)} more
           </div>
         )}
       </div>
@@ -274,6 +298,18 @@ export default function ContentCalendar() {
     updateChannelStatus,
     expandChannels,
   } = useMultiChannelContents();
+  
+  // Campaign milestones integration
+  const { 
+    upcomingMilestones,
+    todayMilestones,
+    overdueMilestones,
+  } = useCampaignIntegration();
+  
+  // Combine all milestones for calendar display
+  const allMilestones = useMemo(() => {
+    return [...upcomingMilestones, ...todayMilestones, ...overdueMilestones];
+  }, [upcomingMilestones, todayMilestones, overdueMilestones]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -844,6 +880,7 @@ export default function ContentCalendar() {
                           date={date}
                           isCurrentMonth={isSameMonth(date, currentDate)}
                           schedules={filteredSchedules}
+                          milestones={allMilestones}
                           onScheduleClick={handleScheduleClick}
                         />
                       ))}

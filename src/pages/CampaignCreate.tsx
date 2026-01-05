@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,11 +14,13 @@ import {
   DollarSign,
   Layers,
   Flag,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useCampaigns } from '@/hooks/useCampaigns';
+import { useCampaigns, useCampaignDetail } from '@/hooks/useCampaigns';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   CAMPAIGN_TYPES, 
   KPI_METRICS,
@@ -38,6 +40,7 @@ import {
 import { CampaignFormStepper } from '@/components/campaign/CampaignFormStepper';
 import { CampaignMilestoneEditor } from '@/components/campaign/CampaignMilestoneEditor';
 import { CampaignCreatePreviewPanel } from '@/components/campaign/CampaignCreatePreviewPanel';
+import { toast } from 'sonner';
 
 const CHANNELS = [
   { value: 'facebook', label: 'Facebook' },
@@ -54,7 +57,11 @@ const TOTAL_STEPS = 4;
 
 export default function CampaignCreate() {
   const navigate = useNavigate();
-  const { createCampaign, isCreating } = useCampaigns();
+  const { id: campaignId } = useParams<{ id: string }>();
+  const isEditMode = !!campaignId;
+  
+  const { createCampaign, updateCampaign, isCreating, isUpdating } = useCampaigns();
+  const { campaign: existingCampaign, milestones: existingMilestones, isLoading: isLoadingCampaign } = useCampaignDetail(campaignId);
   const { templates: brands } = useBrandTemplates();
   
   const [step, setStep] = useState(1);
@@ -72,6 +79,37 @@ export default function CampaignCreate() {
   });
   const [milestones, setMilestones] = useState<MilestoneFormData[]>([]);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Populate form data in edit mode
+  useEffect(() => {
+    if (isEditMode && existingCampaign && !isInitialized) {
+      setFormData({
+        name: existingCampaign.name,
+        description: existingCampaign.description || '',
+        campaign_type: existingCampaign.campaign_type,
+        start_date: existingCampaign.start_date,
+        end_date: existingCampaign.end_date,
+        goals: existingCampaign.goals || [],
+        budget_total: existingCampaign.budget_total || undefined,
+        budget_currency: existingCampaign.budget_currency || 'VND',
+        target_channels: existingCampaign.target_channels || [],
+        brand_template_id: existingCampaign.brand_template_id || undefined,
+      });
+      
+      // Convert existing milestones to form data
+      if (existingMilestones.length > 0) {
+        setMilestones(existingMilestones.map(m => ({
+          title: m.title,
+          description: m.description || '',
+          due_date: m.due_date,
+          status: m.status as MilestoneFormData['status'],
+        })));
+      }
+      
+      setIsInitialized(true);
+    }
+  }, [isEditMode, existingCampaign, existingMilestones, isInitialized]);
 
   const selectedType = CAMPAIGN_TYPES.find(t => t.value === formData.campaign_type);
 
@@ -102,11 +140,13 @@ export default function CampaignCreate() {
     const typeConfig = CAMPAIGN_TYPES.find(t => t.value === type);
     const defaultGoals: CampaignGoal[] = (typeConfig?.defaultMetrics || []).map(metric => {
       const metricConfig = KPI_METRICS.find(m => m.value === metric);
+      // Preserve existing target values if they exist
+      const existingGoal = formData.goals?.find(g => g.metric === metric);
       return {
         metric,
         label: metricConfig?.label || metric,
-        target: 0,
-        current: 0,
+        target: existingGoal?.target || 0,
+        current: existingGoal?.current || 0,
         unit: metricConfig?.unit,
       };
     });
@@ -160,10 +200,62 @@ export default function CampaignCreate() {
       return;
     }
     
-    await createCampaign(formData as CampaignFormData);
-    // TODO: Create milestones after campaign is created
-    navigate('/campaigns');
+    try {
+      let savedCampaignId: string;
+      
+      if (isEditMode && campaignId) {
+        // Update existing campaign
+        await updateCampaign({ id: campaignId, data: formData as CampaignFormData });
+        savedCampaignId = campaignId;
+        
+        // Delete existing milestones and recreate them
+        await supabase
+          .from('campaign_milestones')
+          .delete()
+          .eq('campaign_id', campaignId);
+      } else {
+        // Create new campaign
+        const newCampaign = await createCampaign(formData as CampaignFormData);
+        savedCampaignId = newCampaign.id;
+      }
+      
+      // Insert milestones
+      if (milestones.length > 0) {
+        const milestonesData = milestones.map((m, index) => ({
+          campaign_id: savedCampaignId,
+          title: m.title,
+          description: m.description || null,
+          due_date: m.due_date,
+          status: m.status || 'pending',
+          sort_order: index,
+        }));
+        
+        const { error: milestonesError } = await supabase
+          .from('campaign_milestones')
+          .insert(milestonesData);
+        
+        if (milestonesError) {
+          console.error('Error saving milestones:', milestonesError);
+          toast.error('Không thể lưu milestones');
+        }
+      }
+      
+      navigate('/campaigns');
+    } catch (error) {
+      console.error('Error saving campaign:', error);
+    }
   };
+
+  // Show loading state for edit mode
+  if (isEditMode && isLoadingCampaign) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const isSubmitting = isCreating || isUpdating;
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,7 +267,9 @@ export default function CampaignCreate() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-semibold">Tạo chiến dịch mới</h1>
+              <h1 className="text-xl font-semibold">
+                {isEditMode ? 'Chỉnh sửa chiến dịch' : 'Tạo chiến dịch mới'}
+              </h1>
               <p className="text-sm text-muted-foreground">Bước {step} / {TOTAL_STEPS}</p>
             </div>
           </div>
@@ -470,9 +564,9 @@ export default function CampaignCreate() {
               ) : (
                 <Button
                   onClick={handleSubmit}
-                  disabled={!canProceed() || isCreating}
+                  disabled={!canProceed() || isSubmitting}
                 >
-                  {isCreating ? 'Đang tạo...' : 'Tạo chiến dịch'}
+                  {isSubmitting ? 'Đang lưu...' : isEditMode ? 'Cập nhật' : 'Tạo chiến dịch'}
                   <Check className="h-4 w-4 ml-2" />
                 </Button>
               )}
