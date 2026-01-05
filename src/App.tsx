@@ -35,6 +35,7 @@ import ContentCalendar from "./pages/ContentCalendar";
 import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
 import AdminAI from "./pages/AdminAI";
+import MultiChannelCreate from "./pages/MultiChannelCreate";
 
 const queryClient = new QueryClient();
 
@@ -135,6 +136,15 @@ const App = () => (
                     <AppLayout>
                       <MultiChannel />
                     </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              {/* MultiChannel Create - Full screen, no AppLayout */}
+              <Route
+                path="/multichannel/new"
+                element={
+                  <ProtectedRoute>
+                    <MultiChannelCreate />
                   </ProtectedRoute>
                 }
               />

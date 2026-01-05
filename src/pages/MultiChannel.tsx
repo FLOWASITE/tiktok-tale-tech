@@ -1,8 +1,7 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Sparkles, X, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { MultiChannelFormStepper } from '@/components/multichannel/MultiChannelFormStepper';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { MultiChannelListView } from '@/components/MultiChannelListView';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
@@ -11,19 +10,15 @@ import { MultiChannelHeroSection } from '@/components/multichannel/MultiChannelH
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
 import { CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
-import { GeneratingBanner } from '@/components/multichannel/GeneratingBanner';
 import { PostCreationPrompt } from '@/components/PostCreationPrompt';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { SlidePanel } from '@/components/ui/slide-panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
-import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
-import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
@@ -44,11 +39,9 @@ export default function MultiChannel() {
   const { 
     contents, 
     loading, 
-    generating, 
     regeneratingChannel, 
     aiEditingChannel, 
     expandingChannels,
-    generateContent, 
     regenerateChannel, 
     updateChannelContent, 
     aiEditChannel, 
@@ -59,7 +52,6 @@ export default function MultiChannel() {
     saveChannelImage,
     deleteChannelImage,
     expandChannels,
-    refetch,
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
@@ -70,88 +62,14 @@ export default function MultiChannel() {
   
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [generatingChannelCount, setGeneratingChannelCount] = useState(0);
-  const [formSheetOpen, setFormSheetOpen] = useState(false);
-  const [initialTopic, setInitialTopic] = useState<string>('');
-  const [initialGoal, setInitialGoal] = useState<ContentGoal | undefined>();
-  const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
-  const [initialContentPurpose, setInitialContentPurpose] = useState<string | undefined>();
-  const [initialMarketingFramework, setInitialMarketingFramework] = useState<string | undefined>();
 
-  // Elapsed time tracking for generating progress
-  const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
-  const generationStartRef = useRef<number | null>(null);
-
-  // SSE streaming progress state
-  const [sseProgress, setSseProgress] = useState<ProgressEvent | null>(null);
-  
-  // Streaming generation hook
-  const { 
-    generate: streamGenerate, 
-    progress: streamProgress, 
-    isGenerating: isStreamGenerating,
-    cancel: cancelGeneration,
-    streamingTexts, // NEW: accumulated streaming text per channel
-  } = useStreamingGeneration({
-    onProgress: (event) => {
-      setSseProgress(event);
-    },
-    onComplete: () => {
-      setSseProgress(null);
-    },
-    onError: (error) => {
-      toast.error(error);
-      setSseProgress(null);
-    },
-  });
-
-  // Use streaming state as primary generating indicator
-  const isGenerating = isStreamGenerating;
-
-  // Track elapsed time while generating
-  useEffect(() => {
-    if (!isGenerating) {
-      setGenerationElapsedMs(0);
-      generationStartRef.current = null;
-      setSseProgress(null);
-      return;
-    }
-
-    generationStartRef.current = Date.now();
-    const interval = setInterval(() => {
-      if (generationStartRef.current) {
-        setGenerationElapsedMs(Date.now() - generationStartRef.current);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isGenerating]);
-
-  // Topic Content Links hook
-  const { createLink } = useTopicContentLinks({ enabled: false });
-
-  // Handle prefill from Topics Hub
+  // Handle prefill from Topics Hub - redirect to create page
   useEffect(() => {
     if (prefillData?.prefillTopic || prefillData?.prefillGoal || prefillData?.contentPurpose) {
-      if (prefillData.prefillTopic) {
-        setInitialTopic(prefillData.prefillTopic);
-      }
-      if (prefillData.prefillGoal) {
-        setInitialGoal(prefillData.prefillGoal);
-      }
-      if (prefillData.topicHistoryId) {
-        setTopicHistoryId(prefillData.topicHistoryId);
-      }
-      if (prefillData.contentPurpose) {
-        setInitialContentPurpose(prefillData.contentPurpose);
-      }
-      if (prefillData.marketingFramework) {
-        setInitialMarketingFramework(prefillData.marketingFramework);
-      }
-      setFormSheetOpen(true);
+      navigate('/multichannel/new', { state: prefillData });
       window.history.replaceState({}, document.title);
     }
-  }, [prefillData]);
+  }, [prefillData, navigate]);
   
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -276,43 +194,9 @@ export default function MultiChannel() {
     setViewerOpen(true);
   };
 
-  const handleGenerateContent = async (data: any) => {
-    // Guard: prevent double-submit if already generating
-    if (isGenerating) {
-      console.log('[MultiChannel] Blocked double-submit: generation already in progress');
-      return;
-    }
-    
-    setGeneratingChannelCount(data.channels?.length || 3);
-    
-    // Store topicHistoryId for use in onComplete callback
-    const currentTopicHistoryId = data.topicHistoryId;
-    
-    // Use streaming API for real-time progress updates
-    const result = await streamGenerate(data);
-    
-    // When result is available, immediately update UI
-    if (result) {
-      // Close form panel immediately when result is ready
-      setFormSheetOpen(false);
-      
-      // Refetch contents from DB to ensure list is updated with saved content
-      await refetch();
-      
-      // Link to topic history if applicable
-      if (currentTopicHistoryId) {
-        try {
-          await createLink(currentTopicHistoryId, result.id, 'multichannel', result.title, result.status);
-        } catch (error) {
-          console.error('Failed to create topic-content link:', error);
-        }
-      }
-      
-      // Show post-creation prompt
-      setNewlyCreatedContent(result);
-      setShowPostCreationPrompt(true);
-      setTopicHistoryId(undefined);
-    }
+  // Navigate to create page
+  const handleAddNew = () => {
+    navigate('/multichannel/new');
   };
 
   const handleRegenerate = async (contentId: string, channel: Channel) => {
@@ -422,7 +306,7 @@ export default function MultiChannel() {
           contents={contents}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onAddNew={() => setFormSheetOpen(true)}
+          onAddNew={handleAddNew}
           isLoading={loading}
         />
 
@@ -461,22 +345,6 @@ export default function MultiChannel() {
           isUpdating={isBulkUpdating}
         />
 
-        {/* Generating Banner - Show progress card when AI is generating */}
-        {isGenerating && (
-          <GeneratingBanner
-            isGenerating={isGenerating}
-            channelCount={generatingChannelCount}
-            elapsedMs={generationElapsedMs}
-            sseStep={sseProgress?.step}
-            sseProgress={sseProgress?.progress}
-            sseMessage={sseProgress?.message}
-            retryCount={sseProgress?.retryCount}
-            currentChannel={sseProgress?.currentChannel}
-            completedChannels={sseProgress?.completedChannels}
-            totalChannels={sseProgress?.totalChannels}
-            streamingTexts={streamingTexts}
-          />
-        )}
 
         {/* Content Grid/List */}
         {loading ? (
@@ -507,7 +375,7 @@ export default function MultiChannel() {
                 : 'Thử thay đổi bộ lọc để tìm nội dung phù hợp.'}
             </p>
             {contents.length === 0 && (
-              <Button onClick={() => setFormSheetOpen(true)} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+              <Button onClick={handleAddNew} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
                 <Plus className="w-4 h-4" />
                 Tạo nội dung đầu tiên
               </Button>
@@ -630,35 +498,6 @@ export default function MultiChannel() {
         )}
       </div>
 
-      {/* Form Panel - Prevent closing while generating */}
-        <SlidePanel
-          open={formSheetOpen}
-          onOpenChange={(open) => {
-            // Prevent closing while streaming is in progress
-            if (!open && isGenerating) return;
-            setFormSheetOpen(open);
-          }}
-          title={
-            <>
-              <Plus className="w-5 h-5 text-primary" />
-              Tạo nội dung đa kênh mới
-            </>
-          }
-          description="Điền thông tin để AI tạo nội dung cho nhiều kênh cùng lúc"
-        >
-          <MultiChannelFormStepper
-            onSubmit={handleGenerateContent}
-            isLoading={isGenerating}
-            initialTopic={initialTopic}
-            initialGoal={initialGoal}
-            topicHistoryId={topicHistoryId}
-            initialContentPurpose={initialContentPurpose as any}
-            initialMarketingFramework={initialMarketingFramework as any}
-            generationElapsedMs={generationElapsedMs}
-            sseProgress={sseProgress}
-            streamingTexts={streamingTexts}
-          />
-        </SlidePanel>
 
       {/* Viewer Dialog */}
       <MultiChannelViewer
