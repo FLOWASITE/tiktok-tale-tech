@@ -191,10 +191,10 @@ export function TopicAIChatbot({
   
   const isMobileFullscreen = className?.includes('border-0') || className?.includes('rounded-none');
   const widthClasses = {
-    compact: 'w-full max-w-sm',
-    normal: 'w-full max-w-lg',
-    wide: 'w-full max-w-2xl',
-    full: 'w-full max-w-4xl',
+    compact: 'w-full max-w-xl',
+    normal: 'w-full max-w-2xl',
+    wide: 'w-full max-w-3xl',
+    full: 'w-full max-w-5xl',
   };
 
   return (
