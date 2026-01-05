@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.help-chatbot]
 verify_jwt = false
+
+[functions.help-article-search]
+verify_jwt = false

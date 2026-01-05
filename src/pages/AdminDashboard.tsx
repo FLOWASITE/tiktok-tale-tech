@@ -12,7 +12,8 @@ import {
   FileText,
   ArrowRight,
   CheckCircle2,
-  XCircle
+  XCircle,
+  BookOpen
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
@@ -341,6 +342,12 @@ export default function AdminDashboard() {
               <Button variant="outline">
                 <Users className="h-4 w-4 mr-2" />
                 Quản lý Users
+              </Button>
+            </Link>
+            <Link to="/admin/help-articles">
+              <Button variant="outline">
+                <BookOpen className="h-4 w-4 mr-2" />
+                Help Articles
               </Button>
             </Link>
           </div>
