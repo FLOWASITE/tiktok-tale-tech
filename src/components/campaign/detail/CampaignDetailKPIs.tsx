@@ -8,7 +8,8 @@ import {
   Plus,
   Edit2,
   Save,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { 
   Campaign, 
@@ -22,19 +23,23 @@ import { useCampaignDetail } from '@/hooks/useCampaigns';
 import { KPILogFormDialog } from '@/components/campaign/kpi/KPILogFormDialog';
 import { KPILogTable } from '@/components/campaign/kpi/KPILogTable';
 import { KPISparkline } from '@/components/campaign/kpi/KPISparkline';
+import { KPISuggestionDialog } from '@/components/campaign/kpi/KPISuggestionDialog';
+import { canGenerateSuggestions } from '@/lib/kpi-suggestions';
 
 interface CampaignDetailKPIsProps {
   campaignId: string;
   campaign: Campaign;
   kpiLogs?: CampaignKPILog[];
+  industries?: string[] | null;
 }
 
-export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [] }: CampaignDetailKPIsProps) {
+export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [], industries }: CampaignDetailKPIsProps) {
   const { updateKPIs } = useCampaignDetail(campaignId);
   
   const [isEditing, setIsEditing] = useState(false);
   const [editedGoals, setEditedGoals] = useState<CampaignGoal[]>([]);
   const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
+  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
 
   const handleStartEdit = () => {
     setEditedGoals([...campaign.goals]);
@@ -84,6 +89,17 @@ export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [] }: Campa
                 </>
               ) : (
                 <>
+                  {canGenerateSuggestions(campaign.budget_total) && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setIsSuggestionDialogOpen(true)}
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Gợi ý AI
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={handleStartEdit}>
                     <Edit2 className="h-4 w-4 mr-2" />
                     Chỉnh sửa
@@ -224,6 +240,15 @@ export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [] }: Campa
         onOpenChange={setIsLogDialogOpen}
         campaignId={campaignId}
         goals={campaign.goals}
+      />
+
+      {/* KPI Suggestion Dialog */}
+      <KPISuggestionDialog
+        open={isSuggestionDialogOpen}
+        onOpenChange={setIsSuggestionDialogOpen}
+        campaignId={campaignId}
+        campaign={campaign}
+        industries={industries}
       />
     </>
   );

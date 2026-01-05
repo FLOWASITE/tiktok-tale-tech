@@ -44,7 +44,7 @@ import {
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { campaign, milestones, contents, kpiLogs, isLoading, error } = useCampaignDetail(id);
+  const { campaign, industries, milestones, contents, kpiLogs, isLoading, error } = useCampaignDetail(id);
   const { deleteCampaign, updateStatus, updateBudgetSpent, isDeleting } = useCampaigns();
   
   const handleUpdateBudgetSpent = async (newSpent: number) => {
@@ -181,7 +181,7 @@ export default function CampaignDetail() {
           </TabsContent>
 
           <TabsContent value="kpis">
-            <CampaignDetailKPIs campaignId={id!} campaign={campaign} kpiLogs={kpiLogs} />
+            <CampaignDetailKPIs campaignId={id!} campaign={campaign} kpiLogs={kpiLogs} industries={industries} />
           </TabsContent>
 
           <TabsContent value="analytics">

@@ -232,28 +232,42 @@ export function useCampaigns() {
 export function useCampaignDetail(campaignId: string | undefined) {
   const queryClient = useQueryClient();
 
-  const { data: campaign, isLoading, error } = useQuery({
+  const { data: campaignData, isLoading, error } = useQuery({
     queryKey: ['campaign', campaignId],
     queryFn: async () => {
       if (!campaignId) return null;
       
       const { data, error } = await supabase
         .from('campaigns')
-        .select('*')
+        .select(`
+          *,
+          brand_template:brand_templates (
+            id,
+            industry
+          )
+        `)
         .eq('id', campaignId)
         .single();
       
       if (error) throw error;
       
+      const brandTemplate = data.brand_template as { id: string; industry: string[] | null } | null;
+      
       return {
-        ...data,
-        goals: parseGoals(data.goals),
-        target_channels: data.target_channels || [],
-        tags: data.tags || [],
-      } as Campaign;
+        campaign: {
+          ...data,
+          goals: parseGoals(data.goals),
+          target_channels: data.target_channels || [],
+          tags: data.tags || [],
+        } as Campaign,
+        industries: brandTemplate?.industry ?? null,
+      };
     },
     enabled: !!campaignId,
   });
+
+  const campaign = campaignData?.campaign ?? null;
+  const industries = campaignData?.industries ?? null;
 
   // Fetch milestones
   const { data: milestones = [] } = useQuery({
@@ -471,6 +485,7 @@ export function useCampaignDetail(campaignId: string | undefined) {
 
   return {
     campaign,
+    industries,
     milestones,
     contents,
     kpiLogs,
