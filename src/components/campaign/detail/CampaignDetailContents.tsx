@@ -10,13 +10,15 @@ import {
   ExternalLink,
   Layers,
   Video,
-  Images
+  Images,
+  Loader2
 } from 'lucide-react';
 import { CampaignContent, CampaignContentType } from '@/types/campaign';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useCampaignDetail } from '@/hooks/useCampaigns';
+import { useContentDetails } from '@/hooks/useContentDetails';
 import { LinkContentDialog } from '@/components/campaign/content/LinkContentDialog';
 import {
   AlertDialog,
@@ -54,6 +56,7 @@ const CONTENT_TYPE_CONFIG: Record<CampaignContentType, { label: string; icon: Re
 
 export function CampaignDetailContents({ campaignId, contents }: CampaignDetailContentsProps) {
   const { unlinkContent } = useCampaignDetail(campaignId);
+  const { data: contentDetailsMap, isLoading: isLoadingDetails } = useContentDetails(contents);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [unlinkId, setUnlinkId] = useState<string | null>(null);
@@ -98,6 +101,7 @@ export function CampaignDetailContents({ campaignId, contents }: CampaignDetailC
             <div className="space-y-3">
               {sortedContents.map((content) => {
                 const typeConfig = CONTENT_TYPE_CONFIG[content.content_type];
+                const details = contentDetailsMap?.get(content.content_id);
                 
                 return (
                   <div 
@@ -113,13 +117,33 @@ export function CampaignDetailContents({ campaignId, contents }: CampaignDetailC
                         <Badge variant="outline" className="text-xs">
                           {typeConfig.label}
                         </Badge>
-                        <span className="text-sm font-medium text-muted-foreground">
-                          #{content.content_id.slice(0, 8)}
-                        </span>
+                        {isLoadingDetails ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        ) : details?.status && (
+                          <Badge 
+                            variant="secondary" 
+                            className={cn(
+                              "text-xs",
+                              details.status === 'published' && "bg-green-500/10 text-green-600",
+                              details.status === 'draft' && "bg-yellow-500/10 text-yellow-600"
+                            )}
+                          >
+                            {details.status === 'published' ? 'Đã xuất bản' : 
+                             details.status === 'draft' ? 'Bản nháp' : details.status}
+                          </Badge>
+                        )}
                       </div>
                       
+                      <p className="font-medium text-sm truncate">
+                        {isLoadingDetails ? (
+                          <span className="text-muted-foreground">Đang tải...</span>
+                        ) : (
+                          details?.title || `#${content.content_id.slice(0, 8)}`
+                        )}
+                      </p>
+                      
                       {content.notes && (
-                        <p className="text-sm text-muted-foreground truncate">
+                        <p className="text-sm text-muted-foreground truncate mt-1">
                           {content.notes}
                         </p>
                       )}

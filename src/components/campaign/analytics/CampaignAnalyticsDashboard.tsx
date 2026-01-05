@@ -9,12 +9,14 @@ interface CampaignAnalyticsDashboardProps {
   campaign: Campaign;
   milestones: CampaignMilestone[];
   kpiLogs: CampaignKPILog[];
+  onUpdateBudgetSpent?: (newSpent: number) => Promise<void>;
 }
 
 export function CampaignAnalyticsDashboard({ 
   campaign, 
   milestones, 
-  kpiLogs 
+  kpiLogs,
+  onUpdateBudgetSpent 
 }: CampaignAnalyticsDashboardProps) {
   return (
     <div className="space-y-6">
@@ -31,6 +33,7 @@ export function CampaignAnalyticsDashboard({
           budgetTotal={campaign.budget_total} 
           budgetSpent={campaign.budget_spent}
           currency={campaign.budget_currency}
+          onUpdateSpent={onUpdateBudgetSpent}
         />
         <MilestoneProgressCard milestones={milestones} />
       </div>

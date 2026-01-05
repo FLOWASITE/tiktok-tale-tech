@@ -1,15 +1,37 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Wallet, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface BudgetUsageCardProps {
   budgetTotal?: number | null;
   budgetSpent?: number | null;
   currency?: string | null;
+  onUpdateSpent?: (newSpent: number) => Promise<void>;
 }
 
-export function BudgetUsageCard({ budgetTotal, budgetSpent, currency = 'VND' }: BudgetUsageCardProps) {
+export function BudgetUsageCard({ 
+  budgetTotal, 
+  budgetSpent, 
+  currency = 'VND',
+  onUpdateSpent 
+}: BudgetUsageCardProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newSpent, setNewSpent] = useState<string>('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  
   const total = budgetTotal ?? 0;
   const spent = budgetSpent ?? 0;
   const remaining = Math.max(0, total - spent);
@@ -31,6 +53,26 @@ export function BudgetUsageCard({ budgetTotal, budgetSpent, currency = 'VND' }: 
 
   const isOverBudget = spent > total && total > 0;
   const isNearLimit = percentage >= 80 && percentage < 100;
+  
+  const handleOpenDialog = () => {
+    setNewSpent(spent.toString());
+    setIsDialogOpen(true);
+  };
+  
+  const handleUpdateSpent = async () => {
+    if (!onUpdateSpent) return;
+    
+    const value = Number(newSpent);
+    if (isNaN(value) || value < 0) return;
+    
+    setIsUpdating(true);
+    try {
+      await onUpdateSpent(value);
+      setIsDialogOpen(false);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (!budgetTotal || budgetTotal === 0) {
     return (
@@ -51,64 +93,117 @@ export function BudgetUsageCard({ budgetTotal, budgetSpent, currency = 'VND' }: 
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Wallet className="h-4 w-4" />
-          Ngân sách
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Đã chi</span>
-            <span className={cn(
-              "font-medium",
-              isOverBudget && "text-destructive",
-              isNearLimit && "text-yellow-600"
-            )}>
-              {formatCurrency(spent)} {currency}
+    <>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center justify-between text-base">
+            <span className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              Ngân sách
             </span>
-          </div>
-          
-          <Progress 
-            value={percentage} 
-            className={cn(
-              "h-3",
-              isOverBudget && "[&>div]:bg-destructive",
-              isNearLimit && "[&>div]:bg-yellow-500"
+            {onUpdateSpent && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={handleOpenDialog}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
             )}
-          />
-          
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{percentage}% sử dụng</span>
-            <span>Tổng: {formatCurrency(total)} {currency}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Đã chi</span>
+              <span className={cn(
+                "font-medium",
+                isOverBudget && "text-destructive",
+                isNearLimit && "text-yellow-600"
+              )}>
+                {formatCurrency(spent)} {currency}
+              </span>
+            </div>
+            
+            <Progress 
+              value={percentage} 
+              className={cn(
+                "h-3",
+                isOverBudget && "[&>div]:bg-destructive",
+                isNearLimit && "[&>div]:bg-yellow-500"
+              )}
+            />
+            
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{percentage}% sử dụng</span>
+              <span>Tổng: {formatCurrency(total)} {currency}</span>
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <div className="bg-muted/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Còn lại</p>
-            <p className={cn(
-              "font-bold",
-              isOverBudget ? "text-destructive" : "text-green-600"
-            )}>
-              {isOverBudget ? '-' : ''}{formatCurrency(isOverBudget ? spent - total : remaining)}
-            </p>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Còn lại</p>
+              <p className={cn(
+                "font-bold",
+                isOverBudget ? "text-destructive" : "text-green-600"
+              )}>
+                {isOverBudget ? '-' : ''}{formatCurrency(isOverBudget ? spent - total : remaining)}
+              </p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Trạng thái</p>
+              <p className={cn(
+                "font-medium text-sm",
+                isOverBudget && "text-destructive",
+                isNearLimit && "text-yellow-600",
+                !isOverBudget && !isNearLimit && "text-green-600"
+              )}>
+                {isOverBudget ? 'Vượt ngân sách' : isNearLimit ? 'Gần hết' : 'Bình thường'}
+              </p>
+            </div>
           </div>
-          <div className="bg-muted/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Trạng thái</p>
-            <p className={cn(
-              "font-medium text-sm",
-              isOverBudget && "text-destructive",
-              isNearLimit && "text-yellow-600",
-              !isOverBudget && !isNearLimit && "text-green-600"
-            )}>
-              {isOverBudget ? 'Vượt ngân sách' : isNearLimit ? 'Gần hết' : 'Bình thường'}
-            </p>
+        </CardContent>
+      </Card>
+      
+      {/* Update Budget Spent Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cập nhật chi tiêu</DialogTitle>
+            <DialogDescription>
+              Nhập số tiền đã chi cho chiến dịch này
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="spent">Số tiền đã chi ({currency})</Label>
+              <Input
+                id="spent"
+                type="number"
+                value={newSpent}
+                onChange={(e) => setNewSpent(e.target.value)}
+                placeholder="0"
+                min="0"
+              />
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              Ngân sách tổng: {formatCurrency(total)} {currency}
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleUpdateSpent} disabled={isUpdating}>
+              {isUpdating ? 'Đang lưu...' : 'Lưu'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

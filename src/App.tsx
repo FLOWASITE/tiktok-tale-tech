@@ -185,6 +185,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/campaigns/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <CampaignCreate />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/campaigns/:id"
                 element={
                   <ProtectedRoute>

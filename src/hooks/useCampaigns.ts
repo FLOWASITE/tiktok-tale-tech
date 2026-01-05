@@ -183,6 +183,35 @@ export function useCampaigns() {
     },
   });
 
+  // Update budget spent
+  const updateBudgetSpentMutation = useMutation({
+    mutationFn: async ({ id, budgetSpent }: { id: string; budgetSpent: number }) => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update({ budget_spent: budgetSpent })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        ...data,
+        goals: parseGoals(data.goals),
+        target_channels: data.target_channels || [],
+        tags: data.tags || [],
+      } as Campaign;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns', orgId] });
+      toast.success('Đã cập nhật chi tiêu');
+    },
+    onError: (error) => {
+      console.error('Update budget spent error:', error);
+      toast.error('Không thể cập nhật chi tiêu');
+    },
+  });
+
   return {
     campaigns,
     isLoading,
@@ -192,6 +221,7 @@ export function useCampaigns() {
     updateCampaign: updateMutation.mutateAsync,
     deleteCampaign: deleteMutation.mutateAsync,
     updateStatus: updateStatusMutation.mutateAsync,
+    updateBudgetSpent: updateBudgetSpentMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
