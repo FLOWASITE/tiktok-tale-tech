@@ -9,6 +9,26 @@ import { CHANNELS } from '@/types/multichannel';
 import { format, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Calendar, Clock, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { SkeletonCard } from '@/components/dashboard/SkeletonCard';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { type: 'spring' as const, stiffness: 300, damping: 24 },
+  },
+};
 
 export const TodaySchedules = () => {
   const { allSchedules, fetchAllSchedules, isLoading } = useContentSchedules();
@@ -49,57 +69,66 @@ export const TodaySchedules = () => {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="gradient-card border-border/50 overflow-hidden">
         <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 bg-muted rounded-lg" />
-            ))}
-          </div>
+          <SkeletonCard lines={3} />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className="gradient-card border-border/50 overflow-hidden">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/20">
+              <Calendar className="h-4 w-4 text-primary" />
+            </div>
             Lịch đăng hôm nay
             {todaySchedules.length > 0 && (
-              <Badge variant="secondary">{todaySchedules.length}</Badge>
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
+                {todaySchedules.length}
+              </Badge>
             )}
           </CardTitle>
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild className="group">
             <Link to="/calendar">
               Xem lịch
-              <ArrowRight className="h-3 w-3 ml-1" />
+              <ArrowRight className="h-3 w-3 ml-1 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {todaySchedules.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            Không có bài đăng nào trong hôm nay
-          </div>
+          <EmptyState
+            icon={Calendar}
+            title="Không có lịch đăng"
+            description="Không có bài đăng nào trong hôm nay"
+          />
         ) : (
-          <div className="space-y-3">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-2"
+          >
             {todaySchedules.slice(0, 5).map((schedule) => {
               const channel = getChannel(schedule.channel);
               const statusConfig = getStatusConfig(schedule.publish_status || 'scheduled');
               const StatusIcon = statusConfig.icon;
 
               return (
-                <div
+                <motion.div
                   key={schedule.id}
-                  className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  variants={itemVariants}
+                  className="p-3 rounded-xl bg-muted/30 border border-border/50 
+                           hover:bg-muted/50 hover:border-primary/20 hover:shadow-md 
+                           transition-all duration-300 cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-sm truncate flex-1">
+                    <span className="font-medium text-sm truncate flex-1 group-hover:text-primary transition-colors">
                       {getContentTitle(schedule.content_id)}
                     </span>
                     <Badge variant={statusConfig.variant} className="ml-2">
@@ -119,18 +148,21 @@ export const TodaySchedules = () => {
                       {format(new Date(schedule.scheduled_at), 'HH:mm', { locale: vi })}
                     </span>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
             
             {todaySchedules.length > 5 && (
-              <Button variant="ghost" size="sm" className="w-full" asChild>
-                <Link to="/calendar">
-                  Xem thêm {todaySchedules.length - 5} bài đăng khác
-                </Link>
-              </Button>
+              <motion.div variants={itemVariants}>
+                <Button variant="ghost" size="sm" className="w-full group" asChild>
+                  <Link to="/calendar">
+                    Xem thêm {todaySchedules.length - 5} bài đăng khác
+                    <ArrowRight className="h-3 w-3 ml-1 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                </Button>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         )}
       </CardContent>
     </Card>
