@@ -37,6 +37,7 @@ import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
 import AdminAI from "./pages/AdminAI";
 import MultiChannelCreate from "./pages/MultiChannelCreate";
+import AdminHelpArticles from "./pages/AdminHelpArticles";
 
 const queryClient = new QueryClient();
 
@@ -294,6 +295,20 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <AdminAI />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Help Articles Management */}
+              <Route
+                path="/admin/help-articles"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminHelpArticles />
+                      </AppLayout>
+                    </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
               />

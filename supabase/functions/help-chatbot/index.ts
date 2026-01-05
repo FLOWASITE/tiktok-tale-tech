@@ -1,9 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper function to search help articles
+async function searchHelpArticles(query: string, currentRoute?: string): Promise<{ title: string; content: string }[]> {
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.log("[help-chatbot] Missing Supabase config for article search");
+      return [];
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // Call the help-article-search edge function
+    const { data, error } = await supabase.functions.invoke('help-article-search', {
+      body: { 
+        query, 
+        currentRoute,
+        limit: 3 
+      }
+    });
+
+    if (error) {
+      console.error("[help-chatbot] Article search error:", error);
+      return [];
+    }
+
+    return data?.articles || [];
+  } catch (err) {
+    console.error("[help-chatbot] Failed to search articles:", err);
+    return [];
+  }
+}
 
 // Comprehensive Knowledge Base for system guidance
 const KNOWLEDGE_BASE = `
@@ -256,8 +291,24 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Get the latest user message for article search
+    const latestUserMessage = [...messages].reverse().find((m: { role: string }) => m.role === 'user')?.content || '';
+    
+    // Search for relevant help articles
+    const relevantArticles = await searchHelpArticles(latestUserMessage, currentRoute);
+    console.log(`[help-chatbot] Found ${relevantArticles.length} relevant articles`);
+
     // Build context-aware system prompt
     let contextPrompt = SYSTEM_PROMPT;
+    
+    // Add dynamic help articles if found
+    if (relevantArticles.length > 0) {
+      contextPrompt += `\n\n## BÀI VIẾT HƯỚNG DẪN LIÊN QUAN:\n`;
+      relevantArticles.forEach((article, i) => {
+        contextPrompt += `### ${i + 1}. ${article.title}\n${article.content}\n\n`;
+      });
+      contextPrompt += `**Ưu tiên** sử dụng thông tin từ các bài viết trên nếu phù hợp với câu hỏi của user.\n`;
+    }
     
     // Add route context
     if (currentRoute) {
