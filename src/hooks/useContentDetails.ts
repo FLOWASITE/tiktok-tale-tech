@@ -7,6 +7,7 @@ export interface ContentDetailInfo {
   title: string;
   status?: string;
   type: 'multichannel' | 'script' | 'carousel';
+  selected_channels?: string[];
 }
 
 export function useContentDetails(contents: CampaignContent[]) {
@@ -29,7 +30,7 @@ export function useContentDetails(contents: CampaignContent[]) {
         multichannelIds.length > 0 
           ? supabase
               .from('multi_channel_contents')
-              .select('id, title, status')
+              .select('id, title, status, selected_channels')
               .in('id', multichannelIds)
           : { data: [] },
         scriptIds.length > 0 
@@ -41,7 +42,7 @@ export function useContentDetails(contents: CampaignContent[]) {
         carouselIds.length > 0 
           ? supabase
               .from('carousels')
-              .select('id, title, status')
+              .select('id, title, status, platform')
               .in('id', carouselIds)
           : { data: [] },
       ]);
@@ -54,6 +55,7 @@ export function useContentDetails(contents: CampaignContent[]) {
           title: item.title,
           status: item.status || undefined,
           type: 'multichannel',
+          selected_channels: (item as any).selected_channels || undefined,
         });
       });
       
@@ -67,11 +69,13 @@ export function useContentDetails(contents: CampaignContent[]) {
       });
       
       (carouselResult.data || []).forEach(item => {
+        const carouselItem = item as any;
         detailsMap.set(item.id, {
           id: item.id,
           title: item.title,
           status: item.status || undefined,
           type: 'carousel',
+          selected_channels: carouselItem.platform ? [carouselItem.platform] : undefined,
         });
       });
       

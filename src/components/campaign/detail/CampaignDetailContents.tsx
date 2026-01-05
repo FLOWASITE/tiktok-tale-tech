@@ -146,6 +146,26 @@ export function CampaignDetailContents({ campaignId, contents }: CampaignDetailC
                         )}
                       </p>
                       
+                      {/* Channel badges */}
+                      {details?.selected_channels && details.selected_channels.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {details.selected_channels.slice(0, 4).map(ch => (
+                            <Badge 
+                              key={ch} 
+                              variant="outline" 
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {ch}
+                            </Badge>
+                          ))}
+                          {details.selected_channels.length > 4 && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              +{details.selected_channels.length - 4}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      
                       {content.notes && (
                         <p className="text-sm text-muted-foreground truncate mt-1">
                           {content.notes}

@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Layers, Video, Images, Search, Check } from 'lucide-react';
+import { Layers, Video, Images, Search, Check, Sparkles } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -21,6 +23,15 @@ import { CampaignContentType } from '@/types/campaign';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+interface ContentWithChannels {
+  id: string;
+  title: string;
+  status?: string | null;
+  created_at: string;
+  selected_channels?: string[];
+  platform?: string;
+}
+
 interface LinkContentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,33 +40,36 @@ interface LinkContentDialogProps {
 
 export function LinkContentDialog({ open, onOpenChange, campaignId }: LinkContentDialogProps) {
   const { currentOrganization } = useOrganizationContext();
-  const { linkContent } = useCampaignDetail(campaignId);
+  const { linkContent, campaign } = useCampaignDetail(campaignId);
   
   const [activeTab, setActiveTab] = useState<CampaignContentType>('multichannel');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [plannedDate, setPlannedDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLinking, setIsLinking] = useState(false);
+  const [showMatchingOnly, setShowMatchingOnly] = useState(false);
+
+  const targetChannels = campaign?.target_channels || [];
 
   // Fetch multichannel contents
   const { data: multichannelContents = [] } = useQuery({
-    queryKey: ['multichannel-contents', currentOrganization?.id],
+    queryKey: ['multichannel-contents-with-channels', currentOrganization?.id],
     queryFn: async () => {
       if (!currentOrganization?.id) return [];
       const { data } = await supabase
         .from('multi_channel_contents')
-        .select('id, title, status, created_at')
+        .select('id, title, status, created_at, selected_channels')
         .eq('organization_id', currentOrganization.id)
         .order('created_at', { ascending: false })
         .limit(50);
-      return data || [];
+      return (data || []) as ContentWithChannels[];
     },
     enabled: open && !!currentOrganization?.id,
   });
 
   // Fetch scripts
   const { data: scripts = [] } = useQuery({
-    queryKey: ['scripts', currentOrganization?.id],
+    queryKey: ['scripts-for-campaign', currentOrganization?.id],
     queryFn: async () => {
       if (!currentOrganization?.id) return [];
       const { data } = await supabase
@@ -64,28 +78,31 @@ export function LinkContentDialog({ open, onOpenChange, campaignId }: LinkConten
         .eq('organization_id', currentOrganization.id)
         .order('created_at', { ascending: false })
         .limit(50);
-      return data || [];
+      return (data || []) as ContentWithChannels[];
     },
     enabled: open && !!currentOrganization?.id,
   });
 
   // Fetch carousels
   const { data: carousels = [] } = useQuery({
-    queryKey: ['carousels', currentOrganization?.id],
+    queryKey: ['carousels-for-campaign', currentOrganization?.id],
     queryFn: async () => {
       if (!currentOrganization?.id) return [];
       const { data } = await supabase
         .from('carousels')
-        .select('id, title, status, created_at')
+        .select('id, title, status, created_at, platform')
         .eq('organization_id', currentOrganization.id)
         .order('created_at', { ascending: false })
         .limit(50);
-      return data || [];
+      return (data || []).map(c => ({
+        ...c,
+        selected_channels: c.platform ? [c.platform] : [],
+      })) as ContentWithChannels[];
     },
     enabled: open && !!currentOrganization?.id,
   });
 
-  const getContentList = () => {
+  const getContentList = (): ContentWithChannels[] => {
     switch (activeTab) {
       case 'multichannel': return multichannelContents;
       case 'script': return scripts;
@@ -94,9 +111,33 @@ export function LinkContentDialog({ open, onOpenChange, campaignId }: LinkConten
     }
   };
 
-  const filteredContents = getContentList().filter(content => 
-    content.title?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Check if content channels match any of the campaign's target channels
+  const hasMatchingChannels = (content: ContentWithChannels) => {
+    if (!targetChannels.length) return true;
+    const contentChannels = content.selected_channels || [];
+    return contentChannels.some(ch => 
+      targetChannels.some(tc => tc.toLowerCase() === ch.toLowerCase())
+    );
+  };
+
+  const filteredContents = useMemo(() => {
+    let list = getContentList().filter(content => 
+      content.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    if (showMatchingOnly && targetChannels.length > 0) {
+      list = list.filter(hasMatchingChannels);
+    }
+    
+    // Sort matching contents first
+    return list.sort((a, b) => {
+      const aMatches = hasMatchingChannels(a);
+      const bMatches = hasMatchingChannels(b);
+      if (aMatches && !bMatches) return -1;
+      if (!aMatches && bMatches) return 1;
+      return 0;
+    });
+  }, [getContentList(), searchQuery, showMatchingOnly, targetChannels]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => 
@@ -157,8 +198,8 @@ export function LinkContentDialog({ open, onOpenChange, campaignId }: LinkConten
             </TabsTrigger>
           </TabsList>
 
-          <div className="mt-4">
-            <div className="relative">
+          <div className="mt-4 flex items-center gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Tìm kiếm..."
@@ -167,6 +208,20 @@ export function LinkContentDialog({ open, onOpenChange, campaignId }: LinkConten
                 className="pl-9"
               />
             </div>
+            
+            {targetChannels.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-matching"
+                  checked={showMatchingOnly}
+                  onCheckedChange={setShowMatchingOnly}
+                />
+                <Label htmlFor="show-matching" className="text-sm cursor-pointer">
+                  <Sparkles className="h-3.5 w-3.5 inline mr-1" />
+                  Phù hợp
+                </Label>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex-1 overflow-y-auto min-h-0 border rounded-lg">
@@ -178,13 +233,17 @@ export function LinkContentDialog({ open, onOpenChange, campaignId }: LinkConten
               <div className="divide-y">
                 {filteredContents.map((content) => {
                   const isSelected = selectedIds.includes(content.id);
+                  const isMatching = hasMatchingChannels(content);
+                  const contentChannels = content.selected_channels || [];
+                  
                   return (
                     <div
                       key={content.id}
                       onClick={() => toggleSelect(content.id)}
                       className={cn(
                         "p-3 cursor-pointer transition-colors flex items-center gap-3",
-                        isSelected ? "bg-primary/10" : "hover:bg-muted/50"
+                        isSelected ? "bg-primary/10" : "hover:bg-muted/50",
+                        isMatching && targetChannels.length > 0 && !isSelected && "bg-green-500/5"
                       )}
                     >
                       <div className={cn(
@@ -195,10 +254,26 @@ export function LinkContentDialog({ open, onOpenChange, campaignId }: LinkConten
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{content.title || 'Không có tiêu đề'}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(content.created_at), 'dd/MM/yyyy', { locale: vi })}
-                          {content.status && ` • ${content.status}`}
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(content.created_at), 'dd/MM/yyyy', { locale: vi })}
+                            {content.status && ` • ${content.status}`}
+                          </span>
+                          {contentChannels.slice(0, 3).map(ch => (
+                            <Badge 
+                              key={ch} 
+                              variant={targetChannels.some(tc => tc.toLowerCase() === ch.toLowerCase()) ? "default" : "outline"}
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {ch}
+                            </Badge>
+                          ))}
+                          {contentChannels.length > 3 && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              +{contentChannels.length - 3}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
