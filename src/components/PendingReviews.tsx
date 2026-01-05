@@ -13,6 +13,28 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Eye, CheckCircle, XCircle, ArrowRight, ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import confetti from 'canvas-confetti';
+import { SkeletonCard } from '@/components/dashboard/SkeletonCard';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { PulseIndicator } from '@/components/dashboard/PulseIndicator';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: 'spring' as const, stiffness: 300, damping: 24 },
+  },
+};
 
 export const PendingReviews = () => {
   const { contents, updateStatus, loading } = useMultiChannelContents();
@@ -21,22 +43,16 @@ export const PendingReviews = () => {
   const { approverRoles, useSpecificApprovers, loading: settingsLoading } = useOrganizationSettings();
   const { assignments, loading: assignmentsLoading } = useApprovalAssignments();
 
-  // Check if current user can review based on role (for showing the component)
   const canReviewByRole = currentRole ? canApproveContent(currentRole, approverRoles) : false;
 
-  // Filter pending contents based on approval mode
   const pendingContents = useMemo(() => {
     const reviewContents = contents.filter(content => content.status === 'review');
     
     if (!user?.id || !currentRole) return [];
     
-    // If using specific approvers mode, filter by assignments
     if (useSpecificApprovers) {
       return reviewContents.filter(content => {
-        // Owner can always approve
         if (currentRole === 'owner') return true;
-        
-        // Check if current user is assigned to approve this creator's content
         return canApproveSpecificContent(
           user.id,
           content.user_id || '',
@@ -48,30 +64,32 @@ export const PendingReviews = () => {
       });
     }
     
-    // Role-based mode: return all if user has approver role
     return canReviewByRole ? reviewContents : [];
   }, [contents, user?.id, currentRole, useSpecificApprovers, assignments, approverRoles, canReviewByRole]);
 
-  // Determine if component should show
   const shouldShow = useMemo(() => {
     if (!currentRole) return false;
-    
-    // Owner always sees the review panel
     if (currentRole === 'owner') return true;
-    
-    // In specific approvers mode, show if user has any assignments
     if (useSpecificApprovers) {
       return assignments.some(a => a.approver_id === user?.id);
     }
-    
-    // Role-based mode
     return canReviewByRole;
   }, [currentRole, useSpecificApprovers, assignments, user?.id, canReviewByRole]);
 
   const handleApprove = async (contentId: string) => {
     try {
       await updateStatus(contentId, 'approved');
-      toast.success('Đã duyệt nội dung');
+      
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#22c55e', '#10b981', '#34d399'],
+      });
+      
+      toast.success('Đã duyệt nội dung', {
+        icon: <CheckCircle className="h-4 w-4 text-emerald-500" />,
+      });
     } catch {
       toast.error('Không thể duyệt nội dung');
     }
@@ -92,55 +110,69 @@ export const PendingReviews = () => {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="gradient-card border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5 overflow-hidden">
         <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            {[1, 2].map(i => (
-              <div key={i} className="h-20 bg-muted rounded-lg" />
-            ))}
-          </div>
+          <SkeletonCard lines={2} />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-amber-500/20 bg-amber-500/5">
+    <Card className="gradient-card border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5 overflow-hidden relative">
+      {/* Animated border glow for urgent reviews */}
+      {pendingContents.length > 0 && (
+        <motion.div
+          className="absolute inset-0 rounded-lg border-2 border-amber-500/50 pointer-events-none"
+          animate={{ opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+      
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-amber-500" />
+            <div className="relative p-1.5 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20">
+              <ClipboardCheck className="h-4 w-4 text-amber-600" />
+              <PulseIndicator count={pendingContents.length} variant="warning" />
+            </div>
             Chờ duyệt
-            {pendingContents.length > 0 && (
-              <Badge variant="secondary" className="bg-amber-500/20 text-amber-700">
-                {pendingContents.length}
-              </Badge>
-            )}
           </CardTitle>
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild className="group">
             <Link to="/tasks?tab=review">
               Xem tất cả
-              <ArrowRight className="h-3 w-3 ml-1" />
+              <ArrowRight className="h-3 w-3 ml-1 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {pendingContents.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            <ClipboardCheck className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            Không có nội dung nào chờ duyệt
-          </div>
+          <EmptyState
+            icon={ClipboardCheck}
+            title="Không có nội dung chờ duyệt"
+            description="Tất cả nội dung đã được xử lý"
+          />
         ) : (
-          <div className="space-y-3">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-2"
+          >
             {pendingContents.slice(0, 3).map((content) => (
-              <div
+              <motion.div
                 key={content.id}
-                className="p-3 border rounded-lg bg-background"
+                variants={itemVariants}
+                className="p-3 rounded-xl bg-background/80 border border-border/50 
+                         hover:bg-background hover:border-amber-500/30 hover:shadow-md 
+                         transition-all duration-300 group"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm truncate">{content.title}</h4>
+                    <h4 className="font-medium text-sm truncate group-hover:text-amber-600 transition-colors">
+                      {content.title}
+                    </h4>
                     <p className="text-xs text-muted-foreground truncate">
                       {content.topic}
                     </p>
@@ -159,7 +191,7 @@ export const PendingReviews = () => {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 text-xs"
+                    className="h-7 text-xs hover:bg-muted"
                     asChild
                   >
                     <Link to={`/multichannel?view=${content.id}`}>
@@ -170,7 +202,7 @@ export const PendingReviews = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs text-destructive hover:text-destructive"
+                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/50"
                     onClick={() => handleReject(content.id)}
                   >
                     <XCircle className="h-3 w-3 mr-1" />
@@ -178,25 +210,27 @@ export const PendingReviews = () => {
                   </Button>
                   <Button
                     size="sm"
-                    variant="default"
-                    className="h-7 text-xs"
+                    className="h-7 text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
                     onClick={() => handleApprove(content.id)}
                   >
                     <CheckCircle className="h-3 w-3 mr-1" />
                     Duyệt
                   </Button>
                 </div>
-              </div>
+              </motion.div>
             ))}
             
             {pendingContents.length > 3 && (
-              <Button variant="ghost" size="sm" className="w-full" asChild>
-                <Link to="/tasks?tab=review">
-                  Xem thêm {pendingContents.length - 3} nội dung khác
-                </Link>
-              </Button>
+              <motion.div variants={itemVariants}>
+                <Button variant="ghost" size="sm" className="w-full group" asChild>
+                  <Link to="/tasks?tab=review">
+                    Xem thêm {pendingContents.length - 3} nội dung khác
+                    <ArrowRight className="h-3 w-3 ml-1 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                </Button>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         )}
       </CardContent>
     </Card>

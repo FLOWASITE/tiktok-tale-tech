@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Layers, 
@@ -19,6 +20,7 @@ interface QuickAction {
   href: string;
   gradient: string;
   shortcut?: string;
+  shortcutKey?: string;
   badge?: string;
 }
 
@@ -30,6 +32,7 @@ const quickActions: QuickAction[] = [
     href: '/multichannel',
     gradient: 'from-violet-500 to-purple-600',
     shortcut: '⌘N',
+    shortcutKey: 'n',
   },
   { 
     title: 'Kịch bản Video', 
@@ -38,6 +41,7 @@ const quickActions: QuickAction[] = [
     href: '/scripts',
     gradient: 'from-rose-500 to-pink-600',
     shortcut: '⌘V',
+    shortcutKey: 'v',
   },
   { 
     title: 'Carousel', 
@@ -46,6 +50,7 @@ const quickActions: QuickAction[] = [
     href: '/carousel',
     gradient: 'from-cyan-500 to-blue-600',
     shortcut: '⌘C',
+    shortcutKey: 'c',
   },
   { 
     title: 'Quản lý Brand', 
@@ -53,6 +58,8 @@ const quickActions: QuickAction[] = [
     icon: Bookmark,
     href: '/brands',
     gradient: 'from-amber-500 to-orange-600',
+    shortcut: '⌘B',
+    shortcutKey: 'b',
   },
   { 
     title: 'Tổ chức', 
@@ -60,6 +67,8 @@ const quickActions: QuickAction[] = [
     icon: Users,
     href: '/organization',
     gradient: 'from-emerald-500 to-teal-600',
+    shortcut: '⌘O',
+    shortcutKey: 'o',
   },
 ];
 
@@ -92,6 +101,25 @@ interface QuickActionGridProps {
 }
 
 export function QuickActionGrid({ className }: QuickActionGridProps) {
+  const navigate = useNavigate();
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      // Check for Cmd/Ctrl key
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        const action = quickActions.find(a => a.shortcutKey === e.key.toLowerCase());
+        if (action) {
+          e.preventDefault();
+          navigate(action.href);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [navigate]);
+
   return (
     <motion.div
       variants={containerVariants}
@@ -105,12 +133,12 @@ export function QuickActionGrid({ className }: QuickActionGridProps) {
         </h2>
         <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
           <Keyboard className="w-3 h-3" />
-          <span>Phím tắt</span>
+          <span>Phím tắt hoạt động</span>
         </div>
       </div>
 
       <div className="grid gap-2 sm:gap-3">
-        {quickActions.map((action, index) => {
+        {quickActions.map((action) => {
           const Icon = action.icon;
           return (
             <motion.div key={action.href} variants={itemVariants}>
@@ -147,7 +175,7 @@ export function QuickActionGrid({ className }: QuickActionGridProps) {
                     {/* Shortcut & Arrow */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {action.shortcut && (
-                        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 px-1.5 rounded border border-border bg-muted/50 text-[10px] font-mono text-muted-foreground">
+                        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 px-1.5 rounded border border-border bg-muted/50 text-[10px] font-mono text-muted-foreground group-hover:border-primary/30 group-hover:bg-primary/5 transition-colors">
                           {action.shortcut}
                         </kbd>
                       )}
