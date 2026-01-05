@@ -172,8 +172,8 @@ export function TasksKanbanBoard({
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
       >
-        <ScrollArea className="w-full">
-          <div className="flex gap-3 sm:gap-4 pb-4 min-w-max">
+        <ScrollArea className="w-full overflow-hidden">
+          <div className="flex gap-3 sm:gap-4 pb-4" style={{ minWidth: 'fit-content' }}>
             {KANBAN_COLUMNS.map(column => (
               <KanbanColumn
                 key={column.id}
