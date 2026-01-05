@@ -116,7 +116,23 @@ export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [], industr
             {currentGoals.length === 0 ? (
               <div className="text-center py-8">
                 <BarChart3 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">Chưa có mục tiêu KPI nào</p>
+                <p className="text-muted-foreground font-medium mb-2">Chưa thiết lập mục tiêu đo lường</p>
+                <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                  💡 <strong>Mẹo:</strong> Thiết lập mục tiêu giúp bạn theo dõi hiệu quả chiến dịch. 
+                  Ví dụ: Reach 100.000 người, Engagement rate 5%...
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <Button variant="outline" onClick={handleStartEdit}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Thêm mục tiêu đầu tiên
+                  </Button>
+                  {canGenerateSuggestions(campaign.budget_total) && (
+                    <Button onClick={() => setIsSuggestionDialogOpen(true)} className="gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      Gợi ý AI
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
