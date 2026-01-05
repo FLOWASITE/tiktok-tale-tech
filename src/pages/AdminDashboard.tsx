@@ -321,7 +321,7 @@ export default function AdminDashboard() {
       icon: Newspaper,
       color: "text-cyan-500",
       bgColor: "bg-cyan-500/10",
-      href: "/admin/news"
+      href: "/admin/industry-news"
     }
   ];
 
