@@ -23,6 +23,7 @@ import { CampaignDetailMilestones } from '@/components/campaign/detail/CampaignD
 import { CampaignDetailContents } from '@/components/campaign/detail/CampaignDetailContents';
 import { CampaignDetailKPIs } from '@/components/campaign/detail/CampaignDetailKPIs';
 import { CampaignAnalyticsDashboard } from '@/components/campaign/analytics/CampaignAnalyticsDashboard';
+import { CampaignStatusGuide } from '@/components/campaign/CampaignStatusGuide';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -143,28 +144,36 @@ export default function CampaignDetail() {
         {/* Hero Section */}
         <CampaignDetailHero campaign={campaign} milestones={milestones} />
 
+        {/* Status Guide */}
+        <CampaignStatusGuide campaign={campaign} />
+
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full max-w-2xl grid-cols-5">
-            <TabsTrigger value="overview" className="gap-2">
+            <TabsTrigger value="overview" className="gap-1.5">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Tổng quan</span>
+              <span className="sm:hidden text-[10px]">Tổng</span>
             </TabsTrigger>
-            <TabsTrigger value="milestones" className="gap-2">
+            <TabsTrigger value="milestones" className="gap-1.5">
               <Flag className="h-4 w-4" />
-              <span className="hidden sm:inline">Milestones</span>
+              <span className="hidden sm:inline">Mốc thời gian</span>
+              <span className="sm:hidden text-[10px]">Mốc</span>
             </TabsTrigger>
-            <TabsTrigger value="content" className="gap-2">
+            <TabsTrigger value="content" className="gap-1.5">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Nội dung</span>
+              <span className="sm:hidden text-[10px]">N.dung</span>
             </TabsTrigger>
-            <TabsTrigger value="kpis" className="gap-2">
+            <TabsTrigger value="kpis" className="gap-1.5">
               <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">KPIs</span>
+              <span className="hidden sm:inline">Chỉ số</span>
+              <span className="sm:hidden text-[10px]">KPI</span>
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
+            <TabsTrigger value="analytics" className="gap-1.5">
               <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Analytics</span>
+              <span className="hidden sm:inline">Phân tích</span>
+              <span className="sm:hidden text-[10px]">B.cáo</span>
             </TabsTrigger>
           </TabsList>
 

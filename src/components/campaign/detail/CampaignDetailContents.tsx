@@ -91,7 +91,11 @@ export function CampaignDetailContents({ campaignId, contents }: CampaignDetailC
           {sortedContents.length === 0 ? (
             <div className="text-center py-8">
               <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground mb-4">Chưa có nội dung nào được liên kết</p>
+              <p className="text-muted-foreground font-medium mb-2">Chưa có nội dung nào được liên kết</p>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                💡 <strong>Mẹo:</strong> Liên kết nội dung đã tạo (bài viết đa kênh, kịch bản, carousel) 
+                vào chiến dịch để quản lý tập trung và theo dõi tiến độ.
+              </p>
               <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Liên kết nội dung đầu tiên

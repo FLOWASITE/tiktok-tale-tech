@@ -103,21 +103,25 @@ export function CampaignDetailMilestones({ campaignId, milestones }: CampaignDet
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle className="flex items-center gap-2">
             <Flag className="h-5 w-5 text-primary" />
-            Milestones ({milestones.length})
+            Mốc thời gian ({milestones.length})
           </CardTitle>
           <Button onClick={handleAdd} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Thêm milestone
+            Thêm mốc
           </Button>
         </CardHeader>
         <CardContent>
           {sortedMilestones.length === 0 ? (
             <div className="text-center py-8">
               <Flag className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground mb-4">Chưa có milestone nào</p>
+              <p className="text-muted-foreground font-medium mb-2">Chưa có mốc thời gian nào</p>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                💡 <strong>Mẹo:</strong> Thêm các mốc quan trọng như ngày ra mắt, đánh giá giữa kỳ, 
+                hoặc deadline nộp nội dung để theo dõi tiến độ.
+              </p>
               <Button variant="outline" onClick={handleAdd}>
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm milestone đầu tiên
+                Thêm mốc đầu tiên
               </Button>
             </div>
           ) : (
