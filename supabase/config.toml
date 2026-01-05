@@ -143,3 +143,6 @@ verify_jwt = false
 
 [functions.fetch-news-url]
 verify_jwt = false
+
+[functions.campaign-notifications]
+verify_jwt = false

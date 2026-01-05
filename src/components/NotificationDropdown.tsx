@@ -1,4 +1,4 @@
-import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2, Flag, Calendar, Target, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -37,6 +37,26 @@ const notificationTypeConfig: Record<string, {
     bgColor: 'bg-green-500/10',
     textColor: 'text-green-500',
   },
+  milestone_due_soon: {
+    icon: <Flag className="h-4 w-4" />,
+    bgColor: 'bg-orange-500/10',
+    textColor: 'text-orange-500',
+  },
+  campaign_ending_soon: {
+    icon: <Calendar className="h-4 w-4" />,
+    bgColor: 'bg-red-500/10',
+    textColor: 'text-red-500',
+  },
+  kpi_target_reached: {
+    icon: <Target className="h-4 w-4" />,
+    bgColor: 'bg-green-500/10',
+    textColor: 'text-green-500',
+  },
+  kpi_target_exceeded: {
+    icon: <TrendingUp className="h-4 w-4" />,
+    bgColor: 'bg-emerald-500/10',
+    textColor: 'text-emerald-500',
+  },
 };
 export const NotificationDropdown = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
@@ -49,7 +69,9 @@ export const NotificationDropdown = () => {
 
     // Handle navigation based on notification type
     const data = notification.data as Record<string, any> | null;
-    if (data?.upgrade_url) {
+    if (data?.campaign_id) {
+      navigate(`/campaigns/${data.campaign_id}`);
+    } else if (data?.upgrade_url) {
       navigate(data.upgrade_url);
     } else if (data?.content_id) {
       navigate(`/multichannel?content=${data.content_id}`);
