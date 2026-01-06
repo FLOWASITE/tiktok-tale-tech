@@ -50,6 +50,13 @@ export function HelpChatWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Listen for open-help-chat event from header button
+  useEffect(() => {
+    const handleOpenChat = () => setIsOpen(true);
+    window.addEventListener('open-help-chat', handleOpenChat);
+    return () => window.removeEventListener('open-help-chat', handleOpenChat);
+  }, [setIsOpen]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

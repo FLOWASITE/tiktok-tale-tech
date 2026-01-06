@@ -7,6 +7,8 @@ import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { QuickSearch } from '@/components/QuickSearch';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
+import { HelpHeaderButton } from '@/components/help/HelpHeaderButton';
+
 interface AppLayoutProps {
   children: React.ReactNode;
 }
@@ -27,6 +29,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             
             <div className="flex items-center gap-2">
               <QuickSearch />
+              <HelpHeaderButton />
               <NotificationDropdown />
               <ThemeToggle />
               <UserAvatar />
