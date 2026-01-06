@@ -292,21 +292,65 @@ serve(async (req) => {
       });
     }
 
-    // Get organization
+    // Get organization - try membership first, fallback to content tables
+    let organizationId: string | null = null;
+    
     const { data: membership } = await supabase
       .from("organization_members")
       .select("organization_id")
       .eq("user_id", user.id)
+      .limit(1)
       .single();
 
-    if (!membership) {
-      return new Response(JSON.stringify({ error: "No organization found" }), {
-        status: 400,
+    if (membership) {
+      organizationId = membership.organization_id;
+    } else {
+      // Fallback: check brand_templates for organization
+      const { data: brand } = await supabase
+        .from("brand_templates")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single();
+      
+      organizationId = brand?.organization_id || null;
+    }
+
+    // If still no org, return starter insights for new users
+    if (!organizationId) {
+      console.log(`[analyze-dashboard-insights] No organization found for user ${user.id}, returning starter insights`);
+      
+      const starterInsights = [
+        {
+          id: "starter-1",
+          type: "tip",
+          title: "Bắt đầu với Brand của bạn",
+          description: "Setup Brand Voice để AI tạo nội dung phù hợp với phong cách thương hiệu.",
+          priority: "high",
+          action: { label: "Setup Brand", href: "/brands" }
+        },
+        {
+          id: "starter-2",
+          type: "trend",
+          title: "Thử tạo nội dung đầu tiên",
+          description: "Multi-channel giúp bạn tạo content cho nhiều kênh cùng lúc, tiết kiệm 80% thời gian.",
+          priority: "high",
+          action: { label: "Tạo nội dung", href: "/multichannel" }
+        },
+        {
+          id: "starter-3",
+          type: "tip",
+          title: "Khám phá gợi ý Topics",
+          description: "AI sẽ gợi ý topics trending và phù hợp với ngành của bạn.",
+          priority: "medium",
+          action: { label: "Xem Topics", href: "/topics" }
+        }
+      ];
+
+      return new Response(JSON.stringify({ insights: starterInsights, fromCache: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const organizationId = membership.organization_id;
 
     console.log(`[analyze-dashboard-insights] Fetching stats for org: ${organizationId}`);
 
