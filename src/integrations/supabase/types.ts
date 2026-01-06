@@ -2743,6 +2743,50 @@ export type Database = {
           },
         ]
       }
+      insight_analytics: {
+        Row: {
+          action_href: string | null
+          action_type: string
+          created_at: string | null
+          id: string
+          insight_id: string
+          insight_type: string
+          organization_id: string | null
+          time_spent_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          action_href?: string | null
+          action_type: string
+          created_at?: string | null
+          id?: string
+          insight_id: string
+          insight_type: string
+          organization_id?: string | null
+          time_spent_ms?: number | null
+          user_id: string
+        }
+        Update: {
+          action_href?: string | null
+          action_type?: string
+          created_at?: string | null
+          id?: string
+          insight_id?: string
+          insight_type?: string
+          organization_id?: string | null
+          time_spent_ms?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_analytics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journey_stage_messaging: {
         Row: {
           avoid_messages: string[] | null
