@@ -289,6 +289,146 @@ export type Database = {
           },
         ]
       }
+      ad_copy_ai_insights: {
+        Row: {
+          action_impact_estimate: number | null
+          ad_copy_id: string | null
+          created_at: string | null
+          description: string
+          id: string
+          insight_type: string
+          is_dismissed: boolean | null
+          metrics_context: Json | null
+          organization_id: string
+          severity: string | null
+          suggested_action: string | null
+          title: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          action_impact_estimate?: number | null
+          ad_copy_id?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          insight_type: string
+          is_dismissed?: boolean | null
+          metrics_context?: Json | null
+          organization_id: string
+          severity?: string | null
+          suggested_action?: string | null
+          title: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          action_impact_estimate?: number | null
+          ad_copy_id?: string | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          insight_type?: string
+          is_dismissed?: boolean | null
+          metrics_context?: Json | null
+          organization_id?: string
+          severity?: string | null
+          suggested_action?: string | null
+          title?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_ai_insights_ad_copy_id_fkey"
+            columns: ["ad_copy_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_ai_insights_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_copy_analytics_snapshots: {
+        Row: {
+          active_ad_copies: number | null
+          avg_conversion_rate: number | null
+          avg_cpc: number | null
+          avg_cpm: number | null
+          avg_ctr: number | null
+          created_at: string | null
+          id: string
+          objective_breakdown: Json | null
+          organization_id: string
+          overall_roas: number | null
+          platform_breakdown: Json | null
+          snapshot_date: string
+          top_performers: Json | null
+          total_ad_copies: number | null
+          total_clicks: number | null
+          total_conversions: number | null
+          total_impressions: number | null
+          total_revenue: number | null
+          total_spend: number | null
+        }
+        Insert: {
+          active_ad_copies?: number | null
+          avg_conversion_rate?: number | null
+          avg_cpc?: number | null
+          avg_cpm?: number | null
+          avg_ctr?: number | null
+          created_at?: string | null
+          id?: string
+          objective_breakdown?: Json | null
+          organization_id: string
+          overall_roas?: number | null
+          platform_breakdown?: Json | null
+          snapshot_date: string
+          top_performers?: Json | null
+          total_ad_copies?: number | null
+          total_clicks?: number | null
+          total_conversions?: number | null
+          total_impressions?: number | null
+          total_revenue?: number | null
+          total_spend?: number | null
+        }
+        Update: {
+          active_ad_copies?: number | null
+          avg_conversion_rate?: number | null
+          avg_cpc?: number | null
+          avg_cpm?: number | null
+          avg_ctr?: number | null
+          created_at?: string | null
+          id?: string
+          objective_breakdown?: Json | null
+          organization_id?: string
+          overall_roas?: number | null
+          platform_breakdown?: Json | null
+          snapshot_date?: string
+          top_performers?: Json | null
+          total_ad_copies?: number | null
+          total_clicks?: number | null
+          total_conversions?: number | null
+          total_impressions?: number | null
+          total_revenue?: number | null
+          total_spend?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_analytics_snapshots_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_copy_benchmarks: {
         Row: {
           avg_conversion_rate: number | null
