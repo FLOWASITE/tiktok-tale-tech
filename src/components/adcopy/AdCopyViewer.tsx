@@ -36,6 +36,9 @@ import {
   InstagramStoryMockup, 
   InstagramReelsMockup 
 } from './AdCopyMockups';
+import { GoogleRSAMockup, GoogleDisplayMockup } from './GoogleAdsMockups';
+import { TikTokAdMockup } from './TikTokMockup';
+import { LinkedInSponsoredMockup } from './LinkedInMockup';
 
 interface AdCopyViewerProps {
   open: boolean;
@@ -409,9 +412,12 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
   );
 
   const renderGoogleRSAVariation = (variation: AdCopyVariation) => (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Google RSA Mockup */}
+      <GoogleRSAMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
+      
       {/* Headlines */}
-      <div>
+      <div className="pt-4 border-t">
         <div className="flex items-center justify-between mb-2">
           <Label>Headlines ({variation.headlines?.length || 0}/15)</Label>
           <Button 
@@ -481,9 +487,12 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
   );
 
   const renderGoogleDisplayVariation = (variation: AdCopyVariation) => (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Google Display Mockup */}
+      <GoogleDisplayMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
+      
       {/* Short Headlines */}
-      <div>
+      <div className="pt-4 border-t">
         <div className="flex items-center justify-between mb-2">
           <Label>Short Headlines ({variation.headlines?.length || 0}/5)</Label>
           <Button 
@@ -582,32 +591,12 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
   );
 
   const renderTikTokVariation = (variation: AdCopyVariation) => (
-    <div className="space-y-4">
-      {/* TikTok Preview Mockup */}
-      <div className="bg-black rounded-xl p-4 text-white max-w-[280px] mx-auto aspect-[9/16] relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-        <div className="absolute bottom-4 left-4 right-12 z-10">
-          <p className="text-sm mb-2">{variation.primary_text || 'Primary text...'}</p>
-          <p className="font-bold text-xs">{variation.headline || 'Headline...'}</p>
-        </div>
-        <div className="absolute right-3 bottom-20 flex flex-col items-center gap-4 text-white">
-          <div className="text-center">
-            <div className="w-8 h-8 rounded-full bg-white/20" />
-            <span className="text-[10px]">❤️</span>
-          </div>
-          <div className="text-center">
-            <div className="w-8 h-8 rounded-full bg-white/20" />
-            <span className="text-[10px]">💬</span>
-          </div>
-          <div className="text-center">
-            <div className="w-8 h-8 rounded-full bg-white/20" />
-            <span className="text-[10px]">↗️</span>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-6">
+      {/* TikTok Premium Mockup */}
+      <TikTokAdMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
 
       {/* Fields */}
-      <div>
+      <div className="pt-4 border-t">
         <div className="flex items-center justify-between mb-1">
           <Label>Primary Text (Overlay)</Label>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.primary_text || '', 'Primary Text')}>
@@ -709,33 +698,12 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
   );
 
   const renderLinkedInVariation = (variation: AdCopyVariation) => (
-    <div className="space-y-4">
-      {/* LinkedIn Preview Mockup */}
-      <div className="bg-background rounded-xl border max-w-[400px] mx-auto overflow-hidden">
-        <div className="p-4 flex items-center gap-3 border-b">
-          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-xl">💼</div>
-          <div className="flex-1">
-            <p className="font-medium text-sm">Company Name</p>
-            <p className="text-xs text-muted-foreground">Được tài trợ</p>
-          </div>
-        </div>
-        <div className="p-4">
-          <p className="text-sm mb-3">{variation.primary_text || 'Primary text...'}</p>
-        </div>
-        <div className="aspect-video bg-muted flex items-center justify-center text-4xl">🖼️</div>
-        <div className="p-4 border-t">
-          <p className="font-medium">{variation.headline || 'Headline...'}</p>
-          <p className="text-sm text-muted-foreground mt-1">{variation.description || 'Description...'}</p>
-        </div>
-        <div className="px-4 pb-4">
-          <Button size="sm" variant="outline" className="font-medium">
-            {CTA_BUTTONS.find(c => c.value === variation.cta_button)?.label || 'Learn more'}
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      {/* LinkedIn Premium Mockup */}
+      <LinkedInSponsoredMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
 
       {/* Fields */}
-      <div>
+      <div className="pt-4 border-t">
         <div className="flex items-center justify-between mb-1">
           <Label>Primary Text (Intro)</Label>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.primary_text || '', 'Primary Text')}>
