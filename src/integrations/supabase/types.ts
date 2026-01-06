@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           audience_brief: string | null
           brand_template_id: string | null
+          campaign_id: string | null
           created_at: string | null
           funnel_stage: Database["public"]["Enums"]["ad_funnel_stage"] | null
           id: string
@@ -38,6 +39,7 @@ export type Database = {
         Insert: {
           audience_brief?: string | null
           brand_template_id?: string | null
+          campaign_id?: string | null
           created_at?: string | null
           funnel_stage?: Database["public"]["Enums"]["ad_funnel_stage"] | null
           id?: string
@@ -58,6 +60,7 @@ export type Database = {
         Update: {
           audience_brief?: string | null
           brand_template_id?: string | null
+          campaign_id?: string | null
           created_at?: string | null
           funnel_stage?: Database["public"]["Enums"]["ad_funnel_stage"] | null
           id?: string
@@ -81,6 +84,13 @@ export type Database = {
             columns: ["brand_template_id"]
             isOneToOne: false
             referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
           {

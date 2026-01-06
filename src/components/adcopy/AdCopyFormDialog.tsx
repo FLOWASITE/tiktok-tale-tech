@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCampaigns } from '@/hooks/useCampaigns';
 import { 
   AD_PLATFORMS, 
   AD_OBJECTIVES, 
@@ -24,17 +25,27 @@ interface AdCopyFormDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: AdCopyFormData) => Promise<void>;
   isGenerating: boolean;
+  defaultCampaignId?: string;
 }
 
-export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating }: AdCopyFormDialogProps) {
+export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, defaultCampaignId }: AdCopyFormDialogProps) {
   const { templates: brandTemplates } = useBrandTemplates();
+  const { campaigns } = useCampaigns();
   const [formData, setFormData] = useState<AdCopyFormData>({
     topic: '',
     platform: 'meta_feed',
     objective: 'traffic',
     funnelStage: 'awareness',
     variationCount: 3,
+    campaignId: defaultCampaignId,
   });
+
+  // Update campaignId when defaultCampaignId changes
+  useEffect(() => {
+    if (defaultCampaignId) {
+      setFormData(prev => ({ ...prev, campaignId: defaultCampaignId }));
+    }
+  }, [defaultCampaignId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,23 +173,48 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating }:
           </div>
 
           {/* Brand Template */}
-          <div className="space-y-2">
-            <Label>Brand Template (tùy chọn)</Label>
-            <Select 
-              value={formData.brandTemplateId || ''} 
-              onValueChange={(value) => updateField('brandTemplateId', value || undefined)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn brand template..." />
-              </SelectTrigger>
-              <SelectContent>
-                {brandTemplates.map((brand) => (
-                  <SelectItem key={brand.id} value={brand.id}>
-                    {brand.brand_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Brand Template (tùy chọn)</Label>
+              <Select 
+                value={formData.brandTemplateId || ''} 
+                onValueChange={(value) => updateField('brandTemplateId', value || undefined)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn brand..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {brandTemplates.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.id}>
+                      {brand.brand_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Campaign */}
+            <div className="space-y-2">
+              <Label>Chiến dịch (tùy chọn)</Label>
+              <Select 
+                value={formData.campaignId || ''} 
+                onValueChange={(value) => updateField('campaignId', value || undefined)}
+                disabled={!!defaultCampaignId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn chiến dịch..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {campaigns
+                    .filter(c => c.status !== 'completed' && c.status !== 'cancelled')
+                    .map((campaign) => (
+                      <SelectItem key={campaign.id} value={campaign.id}>
+                        {campaign.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Landing URL */}

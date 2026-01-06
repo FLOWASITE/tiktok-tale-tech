@@ -13,7 +13,8 @@ import {
   Edit,
   Trash2,
   Play,
-  Pause
+  Pause,
+  Megaphone
 } from 'lucide-react';
 import { useCampaignDetail, useCampaigns } from '@/hooks/useCampaigns';
 import { AppLayout } from '@/components/AppLayout';
@@ -21,6 +22,7 @@ import { CampaignDetailHero } from '@/components/campaign/detail/CampaignDetailH
 import { CampaignDetailOverview } from '@/components/campaign/detail/CampaignDetailOverview';
 import { CampaignDetailMilestones } from '@/components/campaign/detail/CampaignDetailMilestones';
 import { CampaignDetailContents } from '@/components/campaign/detail/CampaignDetailContents';
+import { CampaignDetailAdCopies } from '@/components/campaign/detail/CampaignDetailAdCopies';
 import { CampaignDetailKPIs } from '@/components/campaign/detail/CampaignDetailKPIs';
 import { CampaignAnalyticsDashboard } from '@/components/campaign/analytics/CampaignAnalyticsDashboard';
 import { CampaignStatusGuide } from '@/components/campaign/CampaignStatusGuide';
@@ -149,7 +151,7 @@ export default function CampaignDetail() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-5">
+          <TabsList className="grid w-full max-w-3xl grid-cols-6">
             <TabsTrigger value="overview" className="gap-1.5">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Tổng quan</span>
@@ -164,6 +166,11 @@ export default function CampaignDetail() {
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Nội dung</span>
               <span className="sm:hidden text-[10px]">N.dung</span>
+            </TabsTrigger>
+            <TabsTrigger value="adcopies" className="gap-1.5">
+              <Megaphone className="h-4 w-4" />
+              <span className="hidden sm:inline">Ad Copies</span>
+              <span className="sm:hidden text-[10px]">Ads</span>
             </TabsTrigger>
             <TabsTrigger value="kpis" className="gap-1.5">
               <BarChart3 className="h-4 w-4" />
@@ -187,6 +194,10 @@ export default function CampaignDetail() {
 
           <TabsContent value="content">
             <CampaignDetailContents campaignId={id!} contents={contents} />
+          </TabsContent>
+
+          <TabsContent value="adcopies">
+            <CampaignDetailAdCopies campaignId={id!} />
           </TabsContent>
 
           <TabsContent value="kpis">
