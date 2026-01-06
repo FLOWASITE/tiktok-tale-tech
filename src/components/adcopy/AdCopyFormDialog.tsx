@@ -23,8 +23,11 @@ import {
   Briefcase,
   Flag,
   Wand2,
-  CheckCircle2
+  CheckCircle2,
+  MessageSquare
 } from 'lucide-react';
+import { AdCopyBrainstormSheet } from './AdCopyBrainstormSheet';
+import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { 
@@ -50,6 +53,7 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
   const { templates: brandTemplates } = useBrandTemplates();
   const { campaigns } = useCampaigns();
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
   const [formData, setFormData] = useState<AdCopyFormData>({
     topic: '',
     platform: 'meta_feed',
@@ -131,9 +135,22 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
                 required
                 className="bg-background/60 backdrop-blur-sm border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 resize-none"
               />
-              <p className="text-xs text-muted-foreground">
-                Mô tả càng chi tiết, AI sẽ tạo ad copy càng chất lượng
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Mô tả càng chi tiết, AI sẽ tạo ad copy càng chất lượng
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBrainstormSheet(true)}
+                  disabled={isGenerating}
+                  className="gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Brainstorm với AI
+                </Button>
+              </div>
             </motion.div>
 
             {/* Platform Selection - Visual Grid */}
@@ -454,6 +471,20 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
             </div>
           </form>
         </ScrollArea>
+
+        {/* Brainstorm Sheet */}
+        <AdCopyBrainstormSheet
+          open={showBrainstormSheet}
+          onOpenChange={setShowBrainstormSheet}
+          brandTemplateId={formData.brandTemplateId}
+          platform={formData.platform}
+          objective={formData.objective}
+          funnelStage={formData.funnelStage}
+          onSelectTopic={(topic) => {
+            updateField('topic', topic);
+            toast.success('Đã chọn chủ đề từ AI!');
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
