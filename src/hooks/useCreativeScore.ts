@@ -78,7 +78,7 @@ export function useCreativeScore(variationId?: string) {
           clarity_score: scoreData.clarity_score,
           urgency_score: scoreData.urgency_score,
           relevance_score: scoreData.relevance_score,
-          score_breakdown: scoreData.score_breakdown,
+          score_breakdown: scoreData.score_breakdown as unknown as null,
           strengths: scoreData.strengths,
           weaknesses: scoreData.weaknesses,
           optimization_priority: scoreData.optimization_priority,

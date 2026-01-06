@@ -1,6 +1,6 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const GOOGLE_GEN_AI_URL = Deno.env.get("GOOGLE_GEN_AI_URL");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +17,7 @@ interface ScoreRequest {
   objective?: string;
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -102,22 +102,35 @@ Grade mapping:
 
 Chỉ trả về JSON, không có text khác.`;
 
-    // Use Lovable AI
-    const aiResponse = await fetch(`${GOOGLE_GEN_AI_URL}/models/gemini-2.5-flash:generateContent`, {
+    // Use Lovable AI Gateway
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2000 },
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are an expert ad copy analyst. Always respond with valid JSON only." },
+          { role: "user", content: prompt }
+        ],
       }),
     });
 
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("AI Gateway error:", aiResponse.status, errorText);
+      throw new Error(`AI call failed: ${aiResponse.status}`);
+    }
+
     const result = await aiResponse.json();
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const text = result.choices?.[0]?.message?.content || "";
     
     // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      console.error('Failed to parse AI response:', text);
       throw new Error('Failed to parse AI response');
     }
 
@@ -128,10 +141,11 @@ Chỉ trả về JSON, không có text khác.`;
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Score creative error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
