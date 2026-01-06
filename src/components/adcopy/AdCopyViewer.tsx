@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield, TrendingUp, Pencil, ClipboardCopy } from 'lucide-react';
+import { 
+  Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield, 
+  TrendingUp, Pencil, ClipboardCopy, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight 
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAdCopies } from '@/hooks/useAdCopies';
@@ -39,6 +42,9 @@ import {
 import { GoogleRSAMockup, GoogleDisplayMockup } from './GoogleAdsMockups';
 import { TikTokAdMockup } from './TikTokMockup';
 import { LinkedInSponsoredMockup } from './LinkedInMockup';
+import { FullscreenMockup } from './FullscreenMockup';
+import { ComparisonMode } from './ComparisonMode';
+import { RichTextHighlight, useKeyboardNavigation } from './RichTextHighlight';
 
 interface AdCopyViewerProps {
   open: boolean;
@@ -55,6 +61,27 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
   const [showABTestSetup, setShowABTestSetup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
+  const [showFullscreen, setShowFullscreen] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [fullscreenVariation, setFullscreenVariation] = useState<AdCopyVariation | null>(null);
+
+  // Keyboard navigation
+  useKeyboardNavigation({
+    variations: adCopy?.variations || [],
+    activeTab,
+    setActiveTab,
+    mainTab,
+    setMainTab: (tab) => setMainTab(tab as typeof mainTab),
+    onClose: () => onOpenChange(false),
+    isOpen: open,
+  });
+
+  // Update activeTab when adCopy changes
+  useEffect(() => {
+    if (adCopy?.variations?.[0]) {
+      setActiveTab(adCopy.variations[0].variation_label);
+    }
+  }, [adCopy?.id]);
   
   const platformConfig = adCopy ? getPlatformConfig(adCopy.platform) : null;
   const objectiveConfig = adCopy ? getObjectiveConfig(adCopy.objective) : null;
@@ -178,7 +205,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
     </div>
   );
 
-  // Extract common fields rendering
+  // Extract common fields rendering with RichTextHighlight
   const renderMetaFields = (variation: AdCopyVariation) => (
     <div className="space-y-4 pt-4 border-t">
       {/* Primary Text */}
@@ -195,7 +222,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
           </Button>
         </div>
         <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">
-          {variation.primary_text || '-'}
+          <RichTextHighlight text={variation.primary_text || ''} />
         </div>
         {renderCharCounter(variation.primary_text, 'primary_text')}
       </div>
@@ -829,6 +856,23 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
               </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
+              {/* Comparison Mode Button */}
+              {(adCopy.variations?.length || 0) >= 2 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowComparison(true)}
+                      className="gap-1"
+                    >
+                      <ArrowLeftRight className="h-4 w-4" />
+                      So sánh
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>So sánh 2 variations cạnh nhau</TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -850,18 +894,56 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
           {/* Variations Tab */}
           <TabsContent value="variations" className="mt-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid" style={{ gridTemplateColumns: `repeat(${adCopy.variations?.length || 1}, 1fr)` }}>
-                {adCopy.variations?.map((v) => (
-                  <TabsTrigger 
-                    key={v.variation_label} 
-                    value={v.variation_label}
-                    className="gap-2"
-                  >
-                    <span>Variation {v.variation_label}</span>
-                    {v.is_approved && <CheckCircle className="h-3 w-3 text-green-500" />}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+              {/* Navigation Header */}
+              <div className="flex items-center gap-2 mb-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!adCopy.variations?.length || activeTab === adCopy.variations[0]?.variation_label}
+                  onClick={() => {
+                    const labels = adCopy.variations?.map(v => v.variation_label) || [];
+                    const idx = labels.indexOf(activeTab);
+                    if (idx > 0) setActiveTab(labels[idx - 1]);
+                  }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <TabsList className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${adCopy.variations?.length || 1}, 1fr)` }}>
+                  {adCopy.variations?.map((v) => (
+                    <TabsTrigger 
+                      key={v.variation_label} 
+                      value={v.variation_label}
+                      className="gap-2"
+                    >
+                      <span>Variation {v.variation_label}</span>
+                      {v.is_approved && <CheckCircle className="h-3 w-3 text-green-500" />}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!adCopy.variations?.length || activeTab === adCopy.variations[adCopy.variations.length - 1]?.variation_label}
+                  onClick={() => {
+                    const labels = adCopy.variations?.map(v => v.variation_label) || [];
+                    const idx = labels.indexOf(activeTab);
+                    if (idx < labels.length - 1) setActiveTab(labels[idx + 1]);
+                  }}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Keyboard hints */}
+              <div className="text-[10px] text-muted-foreground flex items-center justify-center gap-3 mb-3">
+                <span><kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">←</kbd> <kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">→</kbd> Chuyển variation</span>
+                <span><kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">1-5</kbd> Chuyển tab</span>
+                <span><kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">Esc</kbd> Đóng</span>
+              </div>
 
               {adCopy.variations?.map((variation) => (
                 <TabsContent key={variation.variation_label} value={variation.variation_label} className="mt-4">
@@ -870,6 +952,25 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">Variation {variation.variation_label}</CardTitle>
                         <div className="flex items-center gap-2">
+                          {/* Fullscreen button */}
+                          {editingVariationId !== variation.id && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setFullscreenVariation(variation);
+                                    setShowFullscreen(true);
+                                  }}
+                                  className="gap-1"
+                                >
+                                  <Maximize2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Xem mockup toàn màn hình</TooltipContent>
+                            </Tooltip>
+                          )}
                           {editingVariationId !== variation.id && (
                             <Button
                               variant="outline"
@@ -1008,6 +1109,28 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
         adCopyId={adCopy.id}
         variations={adCopy.variations || []}
       />
+
+      {/* Fullscreen Mockup Preview */}
+      {fullscreenVariation && (
+        <FullscreenMockup
+          open={showFullscreen}
+          onOpenChange={setShowFullscreen}
+          variation={fullscreenVariation}
+          platform={adCopy.platform}
+          brandName={brandName}
+          logoUrl={logoUrl}
+        />
+      )}
+
+      {/* Comparison Mode */}
+      {(adCopy.variations?.length || 0) >= 2 && (
+        <ComparisonMode
+          open={showComparison}
+          onOpenChange={setShowComparison}
+          variations={adCopy.variations || []}
+          platform={adCopy.platform}
+        />
+      )}
     </Dialog>
   );
 }
