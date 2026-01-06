@@ -4,9 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   LandingNav,
   HeroSection,
+  PainPointsSection,
+  HowItWorksSection,
   FeaturesSection,
-  TestimonialsSection,
+  SocialProofSection,
   PricingSection,
+  FAQSection,
   CTASection,
   FooterSection,
 } from "@/components/landing";
@@ -41,9 +44,12 @@ export default function Landing() {
       <LandingNav />
       <main>
         <HeroSection />
+        <PainPointsSection />
+        <HowItWorksSection />
         <FeaturesSection />
-        <TestimonialsSection />
+        <SocialProofSection />
         <PricingSection />
+        <FAQSection />
         <CTASection />
       </main>
       <FooterSection />

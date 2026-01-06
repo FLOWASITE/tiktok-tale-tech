@@ -1,7 +1,10 @@
 export { LandingNav } from "./LandingNav";
 export { HeroSection } from "./HeroSection";
+export { PainPointsSection } from "./PainPointsSection";
+export { HowItWorksSection } from "./HowItWorksSection";
 export { FeaturesSection } from "./FeaturesSection";
-export { TestimonialsSection } from "./TestimonialsSection";
+export { SocialProofSection } from "./SocialProofSection";
 export { PricingSection } from "./PricingSection";
+export { FAQSection } from "./FAQSection";
 export { CTASection } from "./CTASection";
 export { FooterSection } from "./FooterSection";
