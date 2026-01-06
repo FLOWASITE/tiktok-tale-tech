@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Megaphone, Plus, LayoutGrid, List, RefreshCw, Send, Clock, TrendingUp, 
-  CheckCircle, FileText, Target, Layers
+  CheckCircle, FileText, Target, Layers, Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -17,6 +17,7 @@ interface AdCopyHeroSectionProps {
   onAddNew: () => void;
   onRefresh?: () => void;
   isLoading?: boolean;
+  onFilterByStatus?: (status: string) => void;
 }
 
 export function AdCopyHeroSection({
@@ -25,7 +26,8 @@ export function AdCopyHeroSection({
   onViewModeChange,
   onAddNew,
   onRefresh,
-  isLoading
+  isLoading,
+  onFilterByStatus
 }: AdCopyHeroSectionProps) {
   const stats = useMemo(() => {
     const total = adCopies.length;
@@ -73,6 +75,8 @@ export function AdCopyHeroSection({
       color: 'text-primary',
       bgColor: 'bg-primary/10',
       borderColor: 'border-primary/20',
+      hoverBorderColor: 'hover:border-primary/50',
+      filterValue: 'all',
     },
     {
       label: 'Đã xuất bản',
@@ -81,6 +85,8 @@ export function AdCopyHeroSection({
       color: 'text-green-500',
       bgColor: 'bg-green-500/10',
       borderColor: 'border-green-500/20',
+      hoverBorderColor: 'hover:border-green-500/50',
+      filterValue: 'published',
     },
     {
       label: 'Đang duyệt',
@@ -89,6 +95,8 @@ export function AdCopyHeroSection({
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-500/10',
       borderColor: 'border-yellow-500/20',
+      hoverBorderColor: 'hover:border-yellow-500/50',
+      filterValue: 'review',
     },
   ];
 
@@ -204,27 +212,43 @@ export function AdCopyHeroSection({
         {/* Stats Grid - 5 columns on large screens */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {statItems.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 + index * 0.05 }}
-              className={cn(
-                "group relative p-4 rounded-xl border bg-background/60 backdrop-blur-sm",
-                "hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 transition-all duration-300",
-                stat.borderColor
-              )}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className={cn("p-2 rounded-lg", stat.bgColor)}>
-                  <stat.icon className={cn("h-4 w-4", stat.color)} />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className={cn("text-2xl font-bold", stat.color)}>{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </div>
-            </motion.div>
+            <Tooltip key={stat.label}>
+              <TooltipTrigger asChild>
+                <motion.button
+                  type="button"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 + index * 0.05 }}
+                  onClick={() => onFilterByStatus?.(stat.filterValue)}
+                  className={cn(
+                    "group relative p-4 rounded-xl border bg-background/60 backdrop-blur-sm text-left w-full",
+                    "hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer",
+                    stat.borderColor,
+                    stat.hoverBorderColor
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={cn("p-2 rounded-lg transition-transform group-hover:scale-110", stat.bgColor)}>
+                      <stat.icon className={cn("h-4 w-4", stat.color)} />
+                    </div>
+                    {/* Hover indicator */}
+                    <motion.div
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      initial={false}
+                    >
+                      <Filter className="h-3 w-3 text-muted-foreground" />
+                    </motion.div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className={cn("text-2xl font-bold", stat.color)}>{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                </motion.button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Click để lọc theo "{stat.label}"</p>
+              </TooltipContent>
+            </Tooltip>
           ))}
 
           {/* Approval Rate Ring */}
