@@ -128,133 +128,141 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
 
         <ScrollArea className="max-h-[70vh]">
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Topic - Highlighted */}
-            <motion.div 
-              className="space-y-3"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Label htmlFor="topic" className="flex items-center gap-2 text-base font-semibold">
-                <Megaphone className="h-4 w-4 text-primary" />
-                Chủ đề / Mô tả sản phẩm
-                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Bắt buộc</Badge>
-              </Label>
-              <Textarea
-                id="topic"
-                placeholder="VD: Khóa học Digital Marketing cho người mới bắt đầu, giảm 50% trong tuần này. Học viên sẽ được cấp chứng chỉ sau khóa học..."
-                value={formData.topic}
-                onChange={(e) => updateField('topic', e.target.value)}
-                rows={4}
-                required
-                className="bg-background/60 backdrop-blur-sm border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 resize-none"
-              />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Mô tả càng chi tiết, AI sẽ tạo ad copy càng chất lượng
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBrainstormSheet(true)}
-                  disabled={isGenerating}
-                  className="gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all"
+            {/* Two Column Layout: Left (Main Fields) | Right (Brand) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Main Form Fields */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Topic - Highlighted */}
+                <motion.div 
+                  className="space-y-3"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  Brainstorm với AI
-                </Button>
+                  <Label htmlFor="topic" className="flex items-center gap-2 text-base font-semibold">
+                    <Megaphone className="h-4 w-4 text-primary" />
+                    Chủ đề / Mô tả sản phẩm
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Bắt buộc</Badge>
+                  </Label>
+                  <Textarea
+                    id="topic"
+                    placeholder="VD: Khóa học Digital Marketing cho người mới bắt đầu, giảm 50% trong tuần này. Học viên sẽ được cấp chứng chỉ sau khóa học..."
+                    value={formData.topic}
+                    onChange={(e) => updateField('topic', e.target.value)}
+                    rows={4}
+                    required
+                    className="bg-background/60 backdrop-blur-sm border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 resize-none"
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Mô tả càng chi tiết, AI sẽ tạo ad copy càng chất lượng
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBrainstormSheet(true)}
+                      disabled={isGenerating}
+                      className="gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Brainstorm với AI
+                    </Button>
+                  </div>
+                </motion.div>
               </div>
-            </motion.div>
 
-            {/* Brand Template - Primary Field */}
-            <motion.div 
-              className="space-y-3"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 }}
-            >
-              <Label className="flex items-center gap-2 text-base font-semibold">
-                <Briefcase className="h-4 w-4 text-primary" />
-                Brand Template
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-600 bg-amber-50">
-                  Khuyến nghị
-                </Badge>
-              </Label>
-              
-              <Select 
-                value={formData.brandTemplateId || ''} 
-                onValueChange={(value) => updateField('brandTemplateId', value || undefined)}
-              >
-                <SelectTrigger className={cn(
-                  "bg-background/60 backdrop-blur-sm border-2 transition-all",
-                  formData.brandTemplateId 
-                    ? "border-primary/30 focus:border-primary/50" 
-                    : "border-amber-500/30 focus:border-amber-500/50"
-                )}>
-                  <SelectValue placeholder="Chọn brand template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {brandTemplates.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id}>
-                      <div className="flex items-center gap-2">
-                        {brand.logo_url && (
-                          <img src={brand.logo_url} alt="" className="w-5 h-5 rounded object-cover" />
+              {/* Right Column - Brand Template */}
+              <div className="lg:col-span-1">
+                <motion.div 
+                  className="space-y-3 p-4 rounded-xl border border-border/50 bg-muted/20 sticky top-0"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.12 }}
+                >
+                  <Label className="flex items-center gap-2 text-base font-semibold">
+                    <Briefcase className="h-4 w-4 text-primary" />
+                    Brand Template
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-600 bg-amber-50">
+                      Khuyến nghị
+                    </Badge>
+                  </Label>
+                  
+                  <Select 
+                    value={formData.brandTemplateId || ''} 
+                    onValueChange={(value) => updateField('brandTemplateId', value || undefined)}
+                  >
+                    <SelectTrigger className={cn(
+                      "bg-background/60 backdrop-blur-sm border-2 transition-all",
+                      formData.brandTemplateId 
+                        ? "border-primary/30 focus:border-primary/50" 
+                        : "border-amber-500/30 focus:border-amber-500/50"
+                    )}>
+                      <SelectValue placeholder="Chọn brand..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brandTemplates.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          <div className="flex items-center gap-2">
+                            {brand.logo_url && (
+                              <img src={brand.logo_url} alt="" className="w-5 h-5 rounded object-cover" />
+                            )}
+                            {brand.primary_color && !brand.logo_url && (
+                              <div 
+                                className="w-4 h-4 rounded-full border border-border/50" 
+                                style={{ backgroundColor: brand.primary_color }} 
+                              />
+                            )}
+                            <span>{brand.brand_name}</span>
+                            {brand.is_default && (
+                              <Badge variant="secondary" className="text-[9px] px-1 py-0">Mặc định</Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Brand Preview or Warning */}
+                  {selectedBrand ? (
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        {selectedBrand.logo_url && (
+                          <img src={selectedBrand.logo_url} alt="" className="w-8 h-8 rounded object-cover" />
                         )}
-                        {brand.primary_color && !brand.logo_url && (
-                          <div 
-                            className="w-4 h-4 rounded-full border border-border/50" 
-                            style={{ backgroundColor: brand.primary_color }} 
-                          />
-                        )}
-                        <span>{brand.brand_name}</span>
-                        {brand.is_default && (
-                          <Badge variant="secondary" className="text-[9px] px-1 py-0">Mặc định</Badge>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-sm block truncate">{selectedBrand.brand_name}</span>
+                          {selectedBrand.tagline && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">{selectedBrand.tagline}</p>
+                          )}
+                        </div>
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Brand Preview or Warning */}
-              {selectedBrand ? (
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    {selectedBrand.logo_url && (
-                      <img src={selectedBrand.logo_url} alt="" className="w-8 h-8 rounded object-cover" />
-                    )}
-                    <div>
-                      <span className="font-medium text-sm">{selectedBrand.brand_name}</span>
-                      {selectedBrand.tagline && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{selectedBrand.tagline}</p>
+                      {selectedBrand.tone_of_voice && selectedBrand.tone_of_voice.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedBrand.tone_of_voice.slice(0, 3).map((tone: string) => (
+                            <Badge key={tone} variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {tone}
+                            </Badge>
+                          ))}
+                          {selectedBrand.tone_of_voice.length > 3 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              +{selectedBrand.tone_of_voice.length - 3}
+                            </Badge>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
-                  {selectedBrand.tone_of_voice && selectedBrand.tone_of_voice.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedBrand.tone_of_voice.slice(0, 4).map((tone: string) => (
-                        <Badge key={tone} variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {tone}
-                        </Badge>
-                      ))}
-                      {selectedBrand.tone_of_voice.length > 4 && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          +{selectedBrand.tone_of_voice.length - 4}
-                        </Badge>
-                      )}
+                  ) : (
+                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
+                      <span className="text-sm">⚠️</span>
+                      <p className="text-xs">
+                        Chọn Brand để AI tạo nội dung đúng giọng nói thương hiệu
+                      </p>
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
-                  <span className="text-sm">⚠️</span>
-                  <p className="text-xs">
-                    Chọn Brand để AI tạo nội dung đúng giọng nói thương hiệu, sử dụng từ khóa phù hợp
-                  </p>
-                </div>
-              )}
-            </motion.div>
+                </motion.div>
+              </div>
+            </div>
 
             {/* Platform Selection - Visual Grid */}
             <motion.div 
