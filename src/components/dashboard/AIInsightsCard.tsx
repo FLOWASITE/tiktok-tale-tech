@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import {
   ChevronRight,
   RefreshCw,
   Bell,
-  Trophy
+  Trophy,
+  Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { Link } from 'react-router-dom';
 
 interface Insight {
   id: string;
@@ -32,10 +34,17 @@ interface Insight {
   };
 }
 
+interface InsightMetadata {
+  currentStreak: number;
+  longestStreak: number;
+  weeklyProgress: number;
+}
+
 interface AIInsightsResponse {
   insights: Insight[];
   fromCache: boolean;
   cachedAt?: string;
+  metadata?: InsightMetadata;
 }
 
 interface AIInsightsCardProps {
@@ -67,6 +76,7 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
   });
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const viewStartTime = useRef<number>(Date.now());
   const { toast } = useToast();
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -130,11 +140,47 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     }
   }, [currentInsight?.id, celebratedIds]);
 
-  const handleDismiss = (id: string) => {
+  // Reset view timer when insight changes
+  useEffect(() => {
+    viewStartTime.current = Date.now();
+  }, [currentInsight?.id]);
+
+  // Track analytics
+  const trackAnalytics = async (
+    insightId: string, 
+    insightType: string, 
+    actionType: 'viewed' | 'clicked' | 'dismissed' | 'acted',
+    actionHref?: string
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const timeSpent = Date.now() - viewStartTime.current;
+      
+      await supabase.from('insight_analytics').insert({
+        user_id: user.id,
+        insight_id: insightId,
+        insight_type: insightType,
+        action_type: actionType,
+        time_spent_ms: timeSpent,
+        action_href: actionHref
+      });
+    } catch (error) {
+      console.error('Error tracking insight analytics:', error);
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    await trackAnalytics(id, currentInsight?.type || 'unknown', 'dismissed');
     setDismissedIds(prev => new Set([...prev, id]));
     if (currentIndex >= visibleInsights.length - 1) {
       setCurrentIndex(Math.max(0, currentIndex - 1));
     }
+  };
+
+  const handleActionClick = async (insight: Insight) => {
+    await trackAnalytics(insight.id, insight.type, 'acted', insight.action?.href);
   };
 
   const handleRefresh = async (forceRefresh = false) => {
@@ -275,6 +321,13 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
             <span className="text-xs font-medium text-muted-foreground">
               AI Insights
             </span>
+            {/* Streak badge */}
+            {data?.metadata?.currentStreak && data.metadata.currentStreak >= 2 && (
+              <div className="flex items-center gap-0.5 text-[10px] text-orange-500 font-medium">
+                <Flame className="w-3 h-3" />
+                <span>{data.metadata.currentStreak}</span>
+              </div>
+            )}
             {data?.fromCache && data?.cachedAt && (
               <span className="text-[10px] text-muted-foreground/70">
                 • {formatDistanceToNow(new Date(data.cachedAt), { locale: vi, addSuffix: true })}
@@ -348,11 +401,17 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
             {/* Actions */}
             <div className="flex items-center justify-between">
               {currentInsight.action ? (
-                <Button variant="secondary" size="sm" className="h-8 text-xs" asChild>
-                  <a href={currentInsight.action.href}>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="h-8 text-xs" 
+                  asChild
+                  onClick={() => handleActionClick(currentInsight)}
+                >
+                  <Link to={currentInsight.action.href}>
                     {currentInsight.action.label}
                     <ChevronRight className="w-3 h-3 ml-1" />
-                  </a>
+                  </Link>
                 </Button>
               ) : (
                 <div />

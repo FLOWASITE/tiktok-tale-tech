@@ -26,6 +26,14 @@ interface ContentStats {
     activeBrand: string | null;
     contentPillars: string[];
   };
+  comparison: {
+    scripts: { thisWeek: number; lastWeek: number };
+    carousels: { thisWeek: number; lastWeek: number };
+    multiChannel: { thisWeek: number; lastWeek: number };
+    performanceChange: number;
+    streak: number;
+    longestStreak: number;
+  };
 }
 
 const insightsTool = {
@@ -67,6 +75,7 @@ const insightsTool = {
 
 async function fetchContentStats(supabase: any, organizationId: string, userId: string): Promise<ContentStats> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   // Fetch all data in parallel
@@ -188,6 +197,75 @@ async function fetchContentStats(supabase: any, organizationId: string, userId: 
         : [])
     : [];
 
+  // Week-over-week comparison
+  const thisWeekScripts = scripts.filter((s: any) => s.created_at >= sevenDaysAgo).length;
+  const lastWeekScripts = scripts.filter((s: any) => 
+    s.created_at >= fourteenDaysAgo && s.created_at < sevenDaysAgo
+  ).length;
+  const thisWeekCarousels = carousels.filter((c: any) => c.created_at >= sevenDaysAgo).length;
+  const lastWeekCarousels = carousels.filter((c: any) => 
+    c.created_at >= fourteenDaysAgo && c.created_at < sevenDaysAgo
+  ).length;
+  const thisWeekMulti = multiChannel.filter((m: any) => m.created_at >= sevenDaysAgo).length;
+  const lastWeekMulti = multiChannel.filter((m: any) => 
+    m.created_at >= fourteenDaysAgo && m.created_at < sevenDaysAgo
+  ).length;
+
+  // Calculate performance change
+  const thisWeekTopics = topicHistory.filter((t: any) => t.created_at >= sevenDaysAgo);
+  const lastWeekTopics = topicHistory.filter((t: any) => 
+    t.created_at >= fourteenDaysAgo && t.created_at < sevenDaysAgo
+  );
+  const thisWeekAvg = thisWeekTopics.length > 0 
+    ? thisWeekTopics.reduce((sum: number, t: any) => sum + (t.performance_score || 0), 0) / thisWeekTopics.length 
+    : 0;
+  const lastWeekAvg = lastWeekTopics.length > 0 
+    ? lastWeekTopics.reduce((sum: number, t: any) => sum + (t.performance_score || 0), 0) / lastWeekTopics.length 
+    : 0;
+  const performanceChange = lastWeekAvg > 0 ? Math.round((thisWeekAvg - lastWeekAvg) / lastWeekAvg * 100) : 0;
+
+  // Calculate streak (consecutive days with content)
+  const sortedDates = [...new Set(allContents.map(c => 
+    new Date(c.date).toISOString().split('T')[0]
+  ))].sort().reverse();
+  
+  let currentStreak = 0;
+  let longestStreak = 0;
+  let tempStreak = 0;
+  const today = new Date().toISOString().split('T')[0];
+  
+  for (let i = 0; i < sortedDates.length; i++) {
+    const date = sortedDates[i];
+    const expectedDate = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    if (i === 0 && date === today) {
+      currentStreak = 1;
+    } else if (date === expectedDate || (i === 0 && date === new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0])) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+  
+  // Calculate longest streak
+  for (let i = 0; i < sortedDates.length; i++) {
+    if (i === 0) {
+      tempStreak = 1;
+    } else {
+      const prevDate = new Date(sortedDates[i - 1]);
+      const currDate = new Date(sortedDates[i]);
+      const diffDays = Math.round((prevDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        tempStreak++;
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 1;
+      }
+    }
+  }
+  longestStreak = Math.max(longestStreak, tempStreak);
+
   return {
     scripts: { total: scripts.length, recent: recentScripts.length },
     carousels: { total: carousels.length, recent: recentCarousels.length, avgSlides: Math.round(avgSlides * 10) / 10 },
@@ -207,6 +285,14 @@ async function fetchContentStats(supabase: any, organizationId: string, userId: 
     brandContext: {
       activeBrand: brand?.brand_name || null,
       contentPillars
+    },
+    comparison: {
+      scripts: { thisWeek: thisWeekScripts, lastWeek: lastWeekScripts },
+      carousels: { thisWeek: thisWeekCarousels, lastWeek: lastWeekCarousels },
+      multiChannel: { thisWeek: thisWeekMulti, lastWeek: lastWeekMulti },
+      performanceChange,
+      streak: currentStreak,
+      longestStreak
     }
   };
 }
@@ -214,6 +300,11 @@ async function fetchContentStats(supabase: any, organizationId: string, userId: 
 function buildPrompt(stats: ContentStats): string {
   const topTopics = stats.topicHistory.topPerformers.map(t => `${t.topic} (${t.score}đ)`).join(', ');
   const channelGapsText = stats.postingPatterns.channelGaps.map(g => `${g.channel}: ${g.days} ngày`).join(', ');
+  
+  // Format comparison data
+  const scriptsChange = stats.comparison.scripts.thisWeek - stats.comparison.scripts.lastWeek;
+  const carouselsChange = stats.comparison.carousels.thisWeek - stats.comparison.carousels.lastWeek;
+  const multiChange = stats.comparison.multiChannel.thisWeek - stats.comparison.multiChannel.lastWeek;
   
   return `Bạn là AI Content Strategist. Phân tích dữ liệu hoạt động của user và đưa ra 3-5 insights cá nhân hóa bằng tiếng Việt.
 
@@ -224,6 +315,16 @@ function buildPrompt(stats: ContentStats): string {
 - Carousels: ${stats.carousels.total} tổng, trung bình ${stats.carousels.avgSlides} slides/carousel
 - Multi-channel: ${stats.multiChannel.total} tổng, ${stats.multiChannel.recent} bài trong 7 ngày qua
 - Kênh hay dùng nhất: ${stats.multiChannel.topChannels.join(', ') || 'Chưa có'}
+
+### So sánh tuần này vs tuần trước:
+- Scripts: ${stats.comparison.scripts.thisWeek} vs ${stats.comparison.scripts.lastWeek} (${scriptsChange >= 0 ? '+' : ''}${scriptsChange})
+- Carousels: ${stats.comparison.carousels.thisWeek} vs ${stats.comparison.carousels.lastWeek} (${carouselsChange >= 0 ? '+' : ''}${carouselsChange})
+- Multi-channel: ${stats.comparison.multiChannel.thisWeek} vs ${stats.comparison.multiChannel.lastWeek} (${multiChange >= 0 ? '+' : ''}${multiChange})
+- Performance change: ${stats.comparison.performanceChange >= 0 ? '+' : ''}${stats.comparison.performanceChange}%
+
+### Streak & Consistency:
+- Current streak: ${stats.comparison.streak} ngày liên tục
+- Longest streak: ${stats.comparison.longestStreak} ngày
 
 ### Performance:
 - Điểm performance trung bình: ${stats.topicHistory.avgPerformance}/100
@@ -243,20 +344,29 @@ function buildPrompt(stats: ContentStats): string {
 ## Quy tắc generate insights:
 
 1. **Ưu tiên actionable insights** - Mỗi insight phải có action cụ thể
-2. **Achievement type** dùng khi có thành tích đáng khen (performance cao, đăng đều)
+2. **Achievement type** dùng khi:
+   - Streak >= 3 ngày
+   - Performance tăng > 10%
+   - Tuần này tạo nhiều content hơn tuần trước
+   - Đạt milestone (10, 25, 50, 100 content)
 3. **Reminder type** dùng khi có gaps rõ ràng (lâu không đăng, kênh bị bỏ quên)
 4. **Tip type** cho suggestions cải thiện (tăng slides, thử content pillar mới)
 5. **Trend type** cho topics đang hot hoặc có engagement cao
 
-## Action hrefs hợp lệ:
-- /scripts - Tạo video script
-- /carousels - Tạo carousel
-- /multichannel - Tạo nội dung đa kênh
-- /topics - Xem gợi ý topics
+## Action hrefs nâng cao (với query params):
+- /scripts?topic={encoded_topic} - Tạo script với topic gợi ý
+- /carousels?topic={encoded_topic}&slides=8 - Carousel với số slides recommend
+- /multichannel?channel={channel}&topic={topic} - Nội dung cho kênh cụ thể
+- /topics?category={category} - Filter topics theo category
 - /brands - Quản lý brand
 
+Ví dụ:
+- Nếu user chưa đăng LinkedIn 5 ngày: href="/multichannel?channel=linkedin"
+- Nếu topic "AI Marketing" performance cao: href="/multichannel?topic=AI%20Marketing"
+- Nếu carousel ít slides: href="/carousels?slides=10"
+
 ## Priority guidelines:
-- high: Cần action ngay (gaps > 5 ngày, achievements mới)
+- high: Cần action ngay (gaps > 5 ngày, achievements mới, streak milestones)
 - medium: Nên làm sớm (tips cải thiện, trends)
 - low: Nice to have (suggestions dài hạn)
 
@@ -511,7 +621,14 @@ serve(async (req) => {
       hit_count: 0
     }, { onConflict: 'cache_key' });
 
-    return new Response(JSON.stringify({ insights, fromCache: false }), {
+    // Include metadata in response
+    const metadata = {
+      currentStreak: stats.comparison.streak,
+      longestStreak: stats.comparison.longestStreak,
+      weeklyProgress: Math.round((stats.comparison.scripts.thisWeek + stats.comparison.carousels.thisWeek + stats.comparison.multiChannel.thisWeek) / 7 * 100) // % of weekly goal (7 content)
+    };
+
+    return new Response(JSON.stringify({ insights, fromCache: false, metadata }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
