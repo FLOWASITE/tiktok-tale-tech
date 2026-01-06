@@ -1,4 +1,5 @@
-import { Eye, Trash2, Clock, Target, Layers, Megaphone } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Eye, Trash2, Clock, Target, Layers, Megaphone, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,39 +28,70 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
   const statusConfig = getStatusConfig(adCopy.status);
   const funnelConfig = getFunnelStageConfig(adCopy.funnel_stage);
 
+  const variationCount = adCopy.variations?.length || 0;
+
   if (viewMode === 'list') {
     return (
-      <Card className="hover:shadow-md transition-shadow">
+      <Card className="group hover:shadow-md hover:border-primary/30 transition-all duration-200 bg-background/60 backdrop-blur-sm">
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
+            {/* Platform Icon */}
+            <div className="shrink-0 p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+              <span className="text-xl">{platformConfig.icon}</span>
+            </div>
+            
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">{platformConfig.icon}</span>
                 <h3 className="font-semibold truncate">{adCopy.title}</h3>
+                {variationCount > 0 && (
+                  <Badge variant="secondary" className="shrink-0 gap-1 text-xs">
+                    <FileText className="h-3 w-3" />
+                    {variationCount}
+                  </Badge>
+                )}
               </div>
               <p className="text-sm text-muted-foreground truncate">{adCopy.topic}</p>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={cn(statusConfig.color, statusConfig.bgColor)}>
+            <div className="hidden sm:flex items-center gap-2">
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs",
+                  statusConfig.color, 
+                  statusConfig.bgColor,
+                  adCopy.status === 'review' && "animate-pulse"
+                )}
+              >
                 {statusConfig.label}
               </Badge>
-              <Badge variant="secondary">
-                {objectiveConfig.icon} {objectiveConfig.label}
+              <Badge variant="secondary" className="gap-1 text-xs">
+                <Target className="h-3 w-3" />
+                {objectiveConfig.label}
               </Badge>
             </div>
             
-            <div className="text-sm text-muted-foreground">
+            <div className="hidden md:block text-sm text-muted-foreground">
               {format(new Date(adCopy.created_at), 'dd/MM/yyyy', { locale: vi })}
             </div>
             
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={onView}>
-                <Eye className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onDelete}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={onView} className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Xem chi tiết</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Xóa</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </CardContent>
@@ -68,35 +100,58 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
   }
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-200 overflow-hidden">
+    <Card className="group relative hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 transition-all duration-300 overflow-hidden bg-background/60 backdrop-blur-sm">
       <CardContent className="p-0">
         {/* Header with platform icon */}
-        <div className="p-4 pb-3 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
+        <div className="p-4 pb-3 border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-accent/5">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">{platformConfig.icon}</span>
+              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 shadow-sm">
+                <span className="text-xl">{platformConfig.icon}</span>
+              </div>
               <div>
                 <Badge variant="secondary" className="text-xs">
                   {platformConfig.label}
                 </Badge>
               </div>
             </div>
-            <Badge variant="outline" className={cn(statusConfig.color, statusConfig.bgColor, 'text-xs')}>
-              {statusConfig.label}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {variationCount > 0 && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Badge variant="outline" className="gap-1 text-xs">
+                      <FileText className="h-3 w-3" />
+                      {variationCount}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>{variationCount} biến thể</TooltipContent>
+                </Tooltip>
+              )}
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs font-medium",
+                  statusConfig.color, 
+                  statusConfig.bgColor,
+                  adCopy.status === 'review' && "animate-pulse"
+                )}
+              >
+                {statusConfig.label}
+              </Badge>
+            </div>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-4">
-          <h3 className="font-semibold mb-2 line-clamp-2">{adCopy.title}</h3>
+          <h3 className="font-semibold mb-2 line-clamp-2 group-hover:text-primary transition-colors">{adCopy.title}</h3>
           <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{adCopy.topic}</p>
 
           {/* Meta info */}
           <div className="flex flex-wrap gap-2 mb-4">
             <Tooltip>
               <TooltipTrigger>
-                <Badge variant="outline" className="gap-1 text-xs">
+                <Badge variant="outline" className="gap-1 text-xs hover:bg-muted transition-colors">
                   <Target className="h-3 w-3" />
                   {objectiveConfig.label}
                 </Badge>
@@ -125,18 +180,16 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
               {adCopy.campaign && (
                 <Tooltip>
                   <TooltipTrigger>
-                    <Badge variant="outline" className="gap-1 text-xs">
-                      <Megaphone className="h-3 w-3" />
-                      {adCopy.campaign.name.length > 15 
-                        ? adCopy.campaign.name.slice(0, 15) + '...' 
-                        : adCopy.campaign.name}
+                    <Badge variant="outline" className="gap-1 text-xs max-w-[100px]">
+                      <Megaphone className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{adCopy.campaign.name}</span>
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>{adCopy.campaign.name}</TooltipContent>
                 </Tooltip>
               )}
               {adCopy.brand_template && (
-                <span className="truncate max-w-[100px]">
+                <span className="truncate max-w-[80px]">
                   {adCopy.brand_template.brand_name}
                 </span>
               )}
@@ -144,17 +197,30 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="px-4 py-3 border-t border-border/50 bg-muted/30 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="ghost" size="sm" onClick={onView} className="gap-1">
+        {/* Actions - Always visible */}
+        <div className="px-4 py-3 border-t border-border/50 bg-gradient-to-r from-muted/30 to-muted/10 flex items-center justify-between">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onView} 
+            className="gap-1 hover:bg-primary/10 hover:text-primary"
+          >
             <Eye className="h-4 w-4" />
             Xem chi tiết
           </Button>
-          <Button variant="ghost" size="icon" onClick={onDelete}>
-            <Trash2 className="h-4 w-4 text-destructive" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onDelete}
+            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </CardContent>
+
+      {/* Hover gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
     </Card>
   );
 }
