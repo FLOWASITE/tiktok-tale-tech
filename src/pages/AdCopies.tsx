@@ -26,7 +26,7 @@ const ITEMS_PER_PAGE = 12;
 
 export default function AdCopies() {
   const navigate = useNavigate();
-  const { adCopies, isLoading, generating, generateAdCopy, deleteAdCopy, fetchAdCopyDetail, duplicateAdCopy } = useAdCopies();
+  const { adCopies, isLoading, generating, generateAdCopy, deleteAdCopy, fetchAdCopyDetail, duplicateAdCopy, updateStatus } = useAdCopies();
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,6 +168,10 @@ export default function AdCopies() {
   const handleDuplicate = useCallback((id: string) => {
     duplicateAdCopy(id);
   }, [duplicateAdCopy]);
+
+  const handleStatusChange = useCallback((id: string, status: string) => {
+    updateStatus({ id, status });
+  }, [updateStatus]);
 
   // Bulk actions handlers
   const handleBulkDelete = () => {
@@ -311,6 +315,7 @@ export default function AdCopies() {
                       onView={() => handleView(adCopy)}
                       onDelete={() => handleDelete(adCopy.id)}
                       onDuplicate={() => handleDuplicate(adCopy.id)}
+                      onStatusChange={handleStatusChange}
                     />
                   </motion.div>
                 ))}
