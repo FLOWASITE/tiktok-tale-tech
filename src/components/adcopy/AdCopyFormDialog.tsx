@@ -56,7 +56,7 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
   const [formData, setFormData] = useState<AdCopyFormData>({
     topic: '',
-    platform: 'meta_feed',
+    platform: 'facebook_feed',
     objective: 'traffic',
     funnelStage: 'awareness',
     variationCount: 3,

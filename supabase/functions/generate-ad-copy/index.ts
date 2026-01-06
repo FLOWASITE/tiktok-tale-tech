@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface AdCopyRequest {
   topic: string;
-  platform: 'meta_feed' | 'meta_story' | 'google_rsa' | 'tiktok' | 'zalo_oa' | 'zalo_message' | 'zalo_article' | 'linkedin';
+  platform: 'facebook_feed' | 'facebook_story' | 'instagram_feed' | 'instagram_story' | 'instagram_reels' | 'google_rsa' | 'tiktok' | 'zalo_oa' | 'zalo_message' | 'zalo_article' | 'linkedin';
   objective: string;
   landingUrl?: string;
   audienceBrief?: string;
@@ -36,12 +36,25 @@ interface PlatformLimits {
 
 // Character limits per platform
 const CHAR_LIMITS: Record<string, PlatformLimits> = {
-  meta_feed: {
+  facebook_feed: {
     primary_text: { ideal: 125, max: 500 },
     headline: { ideal: 40, max: 60 },
     description: { ideal: 25, max: 30 },
   },
-  meta_story: {
+  facebook_story: {
+    primary_text: { ideal: 90, max: 200 },
+    headline: { ideal: 30, max: 40 },
+  },
+  instagram_feed: {
+    primary_text: { ideal: 125, max: 2200 },
+    headline: { ideal: 40, max: 60 },
+    description: { ideal: 25, max: 30 },
+  },
+  instagram_story: {
+    primary_text: { ideal: 90, max: 200 },
+    headline: { ideal: 30, max: 40 },
+  },
+  instagram_reels: {
     primary_text: { ideal: 90, max: 200 },
     headline: { ideal: 30, max: 40 },
   },
@@ -265,7 +278,7 @@ Objections: ${(persona.objections || []).join(', ')}
     }
 
     // Build platform-specific prompt
-    const limits = CHAR_LIMITS[platform] || CHAR_LIMITS.meta_feed;
+    const limits = CHAR_LIMITS[platform] || CHAR_LIMITS.facebook_feed;
     let platformInstructions = '';
     let outputFormat = '';
 
@@ -357,25 +370,51 @@ Return JSON array with ${variationCount} variations:
   "description": "...",
   "cta_button": "learn_more|sign_up|download|get_quote|contact_us"
 }]`;
-    } else {
-      const metaType = platform === 'meta_story' ? 'Story' : 'Feed';
+    } else if (platform === 'facebook_feed' || platform === 'facebook_story') {
+      const formatType = platform === 'facebook_story' ? 'Story' : 'Feed';
       const ptLimits = limits.primary_text || { ideal: 125, max: 500 };
       const hlLimits = limits.headline || { ideal: 40, max: 60 };
       const descLimits = limits.description || { ideal: 25, max: 30 };
       
       platformInstructions = `
-Platform: Meta ${metaType} Ads (Facebook & Instagram)
-- Primary Text: ${ptLimits.ideal || 125} chars ideal, max ${ptLimits.max || 500}
-- Headline: ${hlLimits.ideal || 40} chars ideal, max ${hlLimits.max || 60}
-- Link Description: ${descLimits.ideal || 25} chars ideal, max ${descLimits.max || 30}
-- Optimize for mobile-first viewing
+Platform: Facebook ${formatType} Ads
+- Primary Text: ${ptLimits.ideal} chars ideal, max ${ptLimits.max}
+- Headline: ${hlLimits.ideal} chars ideal, max ${hlLimits.max}
+${descLimits ? `- Link Description: ${descLimits.ideal} chars ideal, max ${descLimits.max}` : ''}
+- Tone: Thân thiện, informal, có thể dùng emoji phổ biến
+- ${platform === 'facebook_story' ? 'Optimize for vertical format, urgent/ephemeral messaging' : 'Optimize for mobile feed scrolling'}
 `;
       outputFormat = `
 Return JSON array with ${variationCount} variations:
 [{
   "primary_text": "...",
   "headline": "...",
-  "description": "...",
+  ${platform === 'facebook_feed' ? '"description": "...",' : ''}
+  "cta_button": "learn_more|shop_now|sign_up|get_offer|contact_us|book_now"
+}]`;
+    } else {
+      // Instagram platforms
+      const formatType = platform === 'instagram_story' ? 'Story' : platform === 'instagram_reels' ? 'Reels' : 'Feed';
+      const ptLimits = limits.primary_text || { ideal: 125, max: 2200 };
+      const hlLimits = limits.headline || { ideal: 40, max: 60 };
+      const descLimits = limits.description || { ideal: 25, max: 30 };
+      
+      platformInstructions = `
+Platform: Instagram ${formatType} Ads
+- Primary Text: ${ptLimits.ideal} chars ideal, max ${ptLimits.max}
+- Headline: ${hlLimits.ideal} chars ideal, max ${hlLimits.max}
+${formatType === 'Feed' && descLimits ? `- Link Description: ${descLimits.ideal} chars ideal, max ${descLimits.max}` : ''}
+- Tone: Visual-first, aesthetic, có thể dùng hashtags và emoji
+- ${platform === 'instagram_reels' ? 'Hook mạnh trong 3 giây đầu, trending/viral format' : ''}
+- ${platform === 'instagram_story' ? 'Urgent messaging, vertical format optimized' : ''}
+- ${platform === 'instagram_feed' ? 'Caption dài OK, storytelling format' : ''}
+`;
+      outputFormat = `
+Return JSON array with ${variationCount} variations:
+[{
+  "primary_text": "...",
+  "headline": "...",
+  ${platform === 'instagram_feed' ? '"description": "...",' : ''}
   "cta_button": "learn_more|shop_now|sign_up|get_offer|contact_us|book_now"
 }]`;
     }

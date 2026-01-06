@@ -44,7 +44,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   // === Content Policy ===
   {
     id: 'no_misleading_claims',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'legal',
     name: 'Tuyên bố gây hiểu lầm',
     description: 'Không được dùng "100%", "đảm bảo", "cam kết" không có căn cứ',
@@ -54,7 +54,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'no_medical_claims',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'legal',
     name: 'Tuyên bố y tế',
     description: 'Không được tuyên bố chữa bệnh, điều trị',
@@ -64,7 +64,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'no_weight_loss_claims',
-    platform: ['meta_feed', 'meta_story', 'tiktok', 'zalo_oa', 'zalo_message'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'tiktok', 'zalo_oa', 'zalo_message'],
     category: 'legal',
     name: 'Tuyên bố giảm cân',
     description: 'Không được hứa giảm X kg trong Y ngày',
@@ -74,7 +74,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'no_income_claims',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'linkedin', 'zalo_oa', 'zalo_message'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'google_rsa', 'linkedin', 'zalo_oa', 'zalo_message'],
     category: 'legal',
     name: 'Tuyên bố thu nhập',
     description: 'Không được hứa kiếm X triệu/ngày',
@@ -86,7 +86,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   // === Format Policy ===
   {
     id: 'excessive_caps',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'format',
     name: 'Quá nhiều chữ hoa',
     description: 'Hơn 50% là chữ viết hoa',
@@ -100,7 +100,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'excessive_punctuation',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'format',
     name: 'Dấu câu thừa',
     description: 'Quá nhiều !!! hoặc ???',
@@ -125,7 +125,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   // === Engagement Policy ===
   {
     id: 'weak_cta',
-    platform: ['meta_feed', 'meta_story', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article'],
     category: 'engagement',
     name: 'CTA yếu',
     description: 'Thiếu lời kêu gọi hành động rõ ràng',
@@ -138,7 +138,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'clickbait',
-    platform: ['meta_feed', 'meta_story', 'tiktok', 'linkedin', 'zalo_article'],
+    platform: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels', 'tiktok', 'linkedin', 'zalo_article'],
     category: 'content',
     name: 'Clickbait',
     description: 'Nội dung câu view có thể bị hạn chế reach',
@@ -148,7 +148,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'urgency_overuse',
-    platform: ['meta_feed', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message'],
+    platform: ['facebook_feed', 'instagram_feed', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message'],
     category: 'content',
     name: 'Lạm dụng urgency',
     description: 'Quá nhiều cụm từ tạo khẩn cấp giả',

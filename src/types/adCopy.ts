@@ -1,4 +1,4 @@
-export type AdPlatform = 'meta_feed' | 'meta_story' | 'meta_reels' | 'google_rsa' | 'google_display' | 'tiktok' | 'zalo_oa' | 'zalo_message' | 'zalo_article' | 'linkedin';
+export type AdPlatform = 'facebook_feed' | 'facebook_story' | 'instagram_feed' | 'instagram_story' | 'instagram_reels' | 'google_rsa' | 'google_display' | 'tiktok' | 'zalo_oa' | 'zalo_message' | 'zalo_article' | 'linkedin';
 export type AdObjective = 'traffic' | 'conversions' | 'engagement' | 'awareness' | 'leads' | 'app_installs' | 'video_views' | 'messages';
 export type AdFunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retention';
 export type AdCopyStatus = 'draft' | 'review' | 'approved' | 'published';
@@ -73,16 +73,25 @@ export interface AdCopyFormData {
 
 // Character limits per platform
 export const AD_CHAR_LIMITS = {
-  meta_feed: {
+  facebook_feed: {
     primary_text: { ideal: 125, max: 500 },
     headline: { ideal: 40, max: 60 },
     description: { ideal: 25, max: 30 },
   },
-  meta_story: {
+  facebook_story: {
     primary_text: { ideal: 90, max: 200 },
     headline: { ideal: 30, max: 40 },
   },
-  meta_reels: {
+  instagram_feed: {
+    primary_text: { ideal: 125, max: 2200 },
+    headline: { ideal: 40, max: 60 },
+    description: { ideal: 25, max: 30 },
+  },
+  instagram_story: {
+    primary_text: { ideal: 90, max: 200 },
+    headline: { ideal: 30, max: 40 },
+  },
+  instagram_reels: {
     primary_text: { ideal: 90, max: 200 },
     headline: { ideal: 30, max: 40 },
   },
@@ -134,8 +143,11 @@ export const CTA_BUTTONS = [
 ] as const;
 
 export const AD_PLATFORMS = [
-  { value: 'meta_feed', label: 'Meta Feed', description: 'Facebook & Instagram Feed', icon: '📱' },
-  { value: 'meta_story', label: 'Meta Story', description: 'Facebook & Instagram Story', icon: '📸' },
+  { value: 'facebook_feed', label: 'Facebook Feed', description: 'Bài viết quảng cáo Facebook', icon: '📘' },
+  { value: 'facebook_story', label: 'Facebook Story', description: 'Story quảng cáo Facebook 24h', icon: '📖' },
+  { value: 'instagram_feed', label: 'Instagram Feed', description: 'Bài viết quảng cáo Instagram', icon: '📷' },
+  { value: 'instagram_story', label: 'Instagram Story', description: 'Story quảng cáo Instagram 24h', icon: '📸' },
+  { value: 'instagram_reels', label: 'Instagram Reels', description: 'Video ngắn Reels', icon: '🎬' },
   { value: 'google_rsa', label: 'Google RSA', description: 'Responsive Search Ads', icon: '🔍' },
   { value: 'tiktok', label: 'TikTok Ads', description: 'Quảng cáo video ngắn', icon: '🎵' },
   { value: 'zalo_oa', label: 'Zalo OA', description: 'Zalo Official Account Post', icon: '💬' },
@@ -184,5 +196,5 @@ export function getStatusConfig(status: AdCopyStatus) {
 }
 
 export function getCharLimits(platform: AdPlatform) {
-  return AD_CHAR_LIMITS[platform] || AD_CHAR_LIMITS.meta_feed;
+  return AD_CHAR_LIMITS[platform] || AD_CHAR_LIMITS.facebook_feed;
 }

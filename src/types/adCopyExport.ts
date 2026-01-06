@@ -54,9 +54,9 @@ export const EXPORT_FORMATS: ExportFormatConfig[] = [
   { 
     value: 'meta_bulk', 
     label: 'Meta Bulk Upload', 
-    description: 'Import vào Facebook Ads Manager',
+    description: 'Import vào Facebook/Instagram Ads Manager',
     icon: '📱',
-    platforms: ['meta_feed', 'meta_story', 'meta_reels']
+    platforms: ['facebook_feed', 'facebook_story', 'instagram_feed', 'instagram_story', 'instagram_reels']
   },
   { 
     value: 'tiktok_bulk', 

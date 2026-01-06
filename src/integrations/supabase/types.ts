@@ -5281,6 +5281,11 @@ export type Database = {
         | "zalo_oa"
         | "zalo_message"
         | "zalo_article"
+        | "facebook_feed"
+        | "facebook_story"
+        | "instagram_feed"
+        | "instagram_story"
+        | "instagram_reels"
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok"
@@ -5454,6 +5459,11 @@ export const Constants = {
         "zalo_oa",
         "zalo_message",
         "zalo_article",
+        "facebook_feed",
+        "facebook_story",
+        "instagram_feed",
+        "instagram_story",
+        "instagram_reels",
       ],
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
