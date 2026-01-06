@@ -70,7 +70,7 @@ const DEFAULT_FILTERS: AnalyticsFilters = {
 };
 
 export function useAdCopyAnalytics(initialFilters?: Partial<AnalyticsFilters>) {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useOrganizationContext();
   const [filters, setFilters] = useState<AnalyticsFilters>({
     ...DEFAULT_FILTERS,
     ...initialFilters,
@@ -106,7 +106,7 @@ export function useAdCopyAnalytics(initialFilters?: Partial<AnalyticsFilters>) {
 
       // Apply optional filters
       if (filters.platforms?.length) {
-        query = query.in('ad_copies.platform', filters.platforms);
+        query = query.in('ad_copies.platform', filters.platforms as any);
       }
       if (filters.brands?.length) {
         query = query.in('ad_copies.brand_template_id', filters.brands);

@@ -20,7 +20,7 @@ export interface AIInsight {
 }
 
 export function useAIInsights() {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useOrganizationContext();
   const queryClient = useQueryClient();
 
   const { data: insights, isLoading } = useQuery({

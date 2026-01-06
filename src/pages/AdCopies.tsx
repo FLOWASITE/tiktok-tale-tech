@@ -13,6 +13,7 @@ import { LazyAdCopyViewer } from '@/components/adcopy/LazyAdCopyViewer';
 import { SwipeFileLibrary } from '@/components/adcopy/swipe/SwipeFileLibrary';
 import { TrendAlertBanner } from '@/components/adcopy/trend/TrendAlertBanner';
 import { SequenceListView, AddToSequenceDialog } from '@/components/adcopy/sequences';
+import { AdCopyAnalyticsDashboard } from '@/components/adcopy/analytics';
 import type { AdCopy } from '@/types/adCopy';
 import type { MarketingEvent } from '@/types/marketingCalendar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,7 +49,7 @@ export default function AdCopies() {
   // View states
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<'ads' | 'swipe' | 'sequences'>('ads');
+  const [activeTab, setActiveTab] = useState<'ads' | 'swipe' | 'sequences' | 'analytics'>('ads');
   
   // Add to Sequence states
   const [showAddToSequenceDialog, setShowAddToSequenceDialog] = useState(false);
@@ -242,12 +243,17 @@ export default function AdCopies() {
         />
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ads' | 'swipe' | 'sequences')}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ads' | 'swipe' | 'sequences' | 'analytics')}>
           <TabsList>
             <TabsTrigger value="ads">Ad Copies ({adCopies.length})</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="sequences">Sequences</TabsTrigger>
-            <TabsTrigger value="swipe">Swipe File Library</TabsTrigger>
+            <TabsTrigger value="swipe">Swipe File</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="analytics" className="mt-4">
+            <AdCopyAnalyticsDashboard />
+          </TabsContent>
 
           <TabsContent value="sequences" className="mt-4">
             <SequenceListView />
