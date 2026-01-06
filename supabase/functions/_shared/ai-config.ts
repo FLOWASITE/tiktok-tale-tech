@@ -153,6 +153,15 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
+  // Ad copy generation
+  'generate-ad-copy': {
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.8,
+    max_tokens: 4000,
+    cache_ttl_seconds: 1800,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
 };
 
 // In-memory cache with short TTL to reduce DB calls
