@@ -18,6 +18,7 @@ interface AdCopyRequest {
   brandTemplateId?: string;
   productId?: string;
   personaId?: string;
+  campaignId?: string;
   organizationId: string;
   userId: string;
 }
@@ -185,7 +186,7 @@ serve(async (req) => {
     const { 
       topic, platform, objective, landingUrl, audienceBrief, 
       funnelStage, variationCount, brandTemplateId, productId, 
-      personaId, organizationId 
+      personaId, campaignId, organizationId 
     } = body;
     const userId = claimsData.user.id;
 
@@ -461,6 +462,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
         objective,
         landing_url: landingUrl || null,
         brand_template_id: brandTemplateId || null,
+        campaign_id: campaignId || null,
         organization_id: organizationId,
         user_id: userId,
         audience_brief: audienceBrief || null,

@@ -39,6 +39,7 @@ export interface AdCopy {
   brand_template_id: string | null;
   organization_id: string | null;
   user_id: string | null;
+  campaign_id: string | null;
   status: AdCopyStatus;
   audience_brief: string | null;
   product_id: string | null;
@@ -53,6 +54,7 @@ export interface AdCopy {
   brand_template?: { name: string; brand_name: string } | null;
   product?: { name: string } | null;
   persona?: { name: string } | null;
+  campaign?: { id: string; name: string } | null;
 }
 
 export interface AdCopyFormData {
@@ -66,6 +68,7 @@ export interface AdCopyFormData {
   brandTemplateId?: string;
   productId?: string;
   personaId?: string;
+  campaignId?: string;
 }
 
 // Character limits per platform

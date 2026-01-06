@@ -22,7 +22,8 @@ export function useAdCopies() {
           *,
           brand_template:brand_templates(name, brand_name),
           product:brand_products(name),
-          persona:customer_personas(name)
+          persona:customer_personas(name),
+          campaign:campaigns(id, name)
         `)
         .eq('organization_id', currentOrganization.id)
         .order('created_at', { ascending: false });
@@ -60,6 +61,7 @@ export function useAdCopies() {
           brandTemplateId: formData.brandTemplateId,
           productId: formData.productId,
           personaId: formData.personaId,
+          campaignId: formData.campaignId,
           organizationId: currentOrganization.id,
           userId: session.user.id,
         },
@@ -92,7 +94,8 @@ export function useAdCopies() {
         *,
         brand_template:brand_templates(name, brand_name),
         product:brand_products(name),
-        persona:customer_personas(name)
+        persona:customer_personas(name),
+        campaign:campaigns(id, name)
       `)
       .eq('id', id)
       .single();

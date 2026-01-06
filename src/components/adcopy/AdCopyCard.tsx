@@ -1,4 +1,4 @@
-import { Eye, Trash2, Clock, Target, Layers } from 'lucide-react';
+import { Eye, Trash2, Clock, Target, Layers, Megaphone } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -115,17 +115,32 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
             </Tooltip>
           </div>
 
-          {/* Brand & timestamp */}
+          {/* Brand, Campaign & timestamp */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {format(new Date(adCopy.created_at), 'dd/MM/yyyy', { locale: vi })}
             </div>
-            {adCopy.brand_template && (
-              <span className="truncate max-w-[120px]">
-                {adCopy.brand_template.brand_name}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {adCopy.campaign && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Badge variant="outline" className="gap-1 text-xs">
+                      <Megaphone className="h-3 w-3" />
+                      {adCopy.campaign.name.length > 15 
+                        ? adCopy.campaign.name.slice(0, 15) + '...' 
+                        : adCopy.campaign.name}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>{adCopy.campaign.name}</TooltipContent>
+                </Tooltip>
+              )}
+              {adCopy.brand_template && (
+                <span className="truncate max-w-[100px]">
+                  {adCopy.brand_template.brand_name}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
