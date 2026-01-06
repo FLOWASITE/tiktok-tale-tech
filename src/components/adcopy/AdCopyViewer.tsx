@@ -165,9 +165,9 @@ export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: 
     setEditingVariationId(null);
   };
 
-  // Get brand info for mockups
-  const brandName = adCopy.brand_template?.brand_name || 'Brand';
-  const logoUrl = (adCopy.brand_template as { logo_url?: string })?.logo_url || undefined;
+  // Get brand info for mockups - safely handle null adCopy
+  const brandName = adCopy?.brand_template?.brand_name || 'Brand';
+  const logoUrl = (adCopy?.brand_template as { logo_url?: string } | undefined)?.logo_url || undefined;
 
   // Render Facebook/Instagram mockups with fields
   const renderFacebookFeedVariation = (variation: AdCopyVariation) => (
