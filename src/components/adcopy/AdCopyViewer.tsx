@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield } from 'lucide-react';
+import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAdCopies } from '@/hooks/useAdCopies';
@@ -24,6 +24,8 @@ import {
 import { ABTestSetupDialog, ABTestCard, ABTestResultsView } from './ab-testing';
 import { PerformanceDashboard } from './performance';
 import { PolicyChecker } from './PolicyChecker';
+import { PredictionPanel } from './prediction/PredictionPanel';
+import { AdCopyExportMenu } from './AdCopyExportMenu';
 
 interface AdCopyViewerProps {
   open: boolean;
@@ -35,7 +37,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
   const { toggleVariationApproval } = useAdCopies();
   const { abTests, updateStatus, deleteTest } = useAdCopyABTests(adCopy.id);
   const [activeTab, setActiveTab] = useState(adCopy.variations?.[0]?.variation_label || 'A');
-  const [mainTab, setMainTab] = useState<'variations' | 'ab-tests' | 'performance' | 'policy'>('variations');
+  const [mainTab, setMainTab] = useState<'variations' | 'ab-tests' | 'performance' | 'policy' | 'prediction'>('variations');
   const [showABTestSetup, setShowABTestSetup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   
@@ -491,22 +493,29 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
         </div>
 
         {/* Main Tabs: Variations / A/B Tests */}
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'variations' | 'ab-tests' | 'performance' | 'policy')}>
-          <TabsList className="grid grid-cols-4 w-fit">
-            <TabsTrigger value="variations">Variations</TabsTrigger>
-            <TabsTrigger value="ab-tests" className="gap-1">
-              <FlaskConical className="h-4 w-4" />
-              A/B Tests
-              {abTests.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{abTests.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="policy" className="gap-1">
-              <Shield className="h-4 w-4" />
-              Policy
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as typeof mainTab)}>
+          <div className="flex items-center justify-between mb-2">
+            <TabsList className="grid grid-cols-5 w-fit">
+              <TabsTrigger value="variations">Variations</TabsTrigger>
+              <TabsTrigger value="ab-tests" className="gap-1">
+                <FlaskConical className="h-4 w-4" />
+                A/B Tests
+                {abTests.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{abTests.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="performance">Performance</TabsTrigger>
+              <TabsTrigger value="prediction" className="gap-1">
+                <TrendingUp className="h-4 w-4" />
+                Dự đoán
+              </TabsTrigger>
+              <TabsTrigger value="policy" className="gap-1">
+                <Shield className="h-4 w-4" />
+                Policy
+              </TabsTrigger>
+            </TabsList>
+            <AdCopyExportMenu adCopy={adCopy} />
+          </div>
 
           {/* Variations Tab */}
           <TabsContent value="variations" className="mt-4">
@@ -554,7 +563,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                         ? renderGoogleRSAVariation(variation)
                         : adCopy.platform === 'tiktok'
                         ? renderTikTokVariation(variation)
-                        : adCopy.platform === 'zalo'
+                        : adCopy.platform === 'zalo_oa' || adCopy.platform === 'zalo_message' || adCopy.platform === 'zalo_article'
                         ? renderZaloVariation(variation)
                         : adCopy.platform === 'linkedin'
                         ? renderLinkedInVariation(variation)
@@ -618,6 +627,14 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
             <PerformanceDashboard 
               adCopyId={adCopy.id} 
               variations={adCopy.variations || []}
+            />
+          </TabsContent>
+
+          {/* Prediction Tab */}
+          <TabsContent value="prediction" className="mt-4">
+            <PredictionPanel 
+              adCopy={adCopy} 
+              selectedVariation={adCopy.variations?.find(v => v.variation_label === activeTab)}
             />
           </TabsContent>
 
