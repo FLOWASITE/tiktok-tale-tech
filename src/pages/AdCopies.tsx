@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useAdCopies } from '@/hooks/useAdCopies';
 import { AdCopyCard } from '@/components/adcopy/AdCopyCard';
 import { AdCopyHeroSection } from '@/components/adcopy/AdCopyHeroSection';
-import { AdCopyFilters, DatePreset } from '@/components/adcopy/AdCopyFilters';
+import { AdCopyFilters, DatePreset, SortOption } from '@/components/adcopy/AdCopyFilters';
 import { AdCopyFormDialog } from '@/components/adcopy/AdCopyFormDialog';
 import { AdCopyViewer } from '@/components/adcopy/AdCopyViewer';
 import type { AdCopy } from '@/types/adCopy';
@@ -37,6 +37,8 @@ export default function AdCopies() {
   const [datePreset, setDatePreset] = useState<DatePreset>('all');
   const [campaignFilter, setCampaignFilter] = useState<string>('all');
   const [brandFilter, setBrandFilter] = useState<string>('all');
+  const [sortOption, setSortOption] = useState<SortOption>('created_desc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // View states
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -86,11 +88,11 @@ export default function AdCopies() {
     }
   };
 
-  // Filter ad copies
+  // Filter and sort ad copies
   const filteredAdCopies = useMemo(() => {
     const dateCutoff = getDateCutoff(datePreset);
     
-    return adCopies.filter(ad => {
+    let result = adCopies.filter(ad => {
       const matchesSearch = ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            ad.topic.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesPlatform = platformFilter === 'all' || ad.platform === platformFilter;
@@ -103,7 +105,32 @@ export default function AdCopies() {
       
       return matchesSearch && matchesPlatform && matchesStatus && matchesObjective && matchesFunnel && matchesCampaign && matchesBrand && matchesDate;
     });
-  }, [adCopies, searchQuery, platformFilter, statusFilter, objectiveFilter, funnelFilter, datePreset, campaignFilter, brandFilter]);
+    
+    // Sort
+    result.sort((a, b) => {
+      switch (sortOption) {
+        case 'created_desc':
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        case 'created_asc':
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        case 'title_asc':
+          return a.title.localeCompare(b.title);
+        case 'title_desc':
+          return b.title.localeCompare(a.title);
+        case 'status':
+          const statusOrder = ['published', 'approved', 'review', 'draft'];
+          return statusOrder.indexOf(a.status || 'draft') - statusOrder.indexOf(b.status || 'draft');
+        case 'platform':
+          return a.platform.localeCompare(b.platform);
+        case 'variations':
+          return (b.variations?.length || 0) - (a.variations?.length || 0);
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  }, [adCopies, searchQuery, platformFilter, statusFilter, objectiveFilter, funnelFilter, datePreset, campaignFilter, brandFilter, sortOption]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAdCopies.length / ITEMS_PER_PAGE);
@@ -141,6 +168,23 @@ export default function AdCopies() {
     duplicateAdCopy(id);
   };
 
+  // Bulk actions handlers
+  const handleBulkDelete = () => {
+    if (confirm(`Bạn có chắc muốn xóa ${selectedIds.size} ad copy?`)) {
+      selectedIds.forEach(id => deleteAdCopy(id));
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Handle filter by status from HeroSection
+  const handleFilterByStatus = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
+  };
   return (
     <div className="h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Close Button */}
@@ -161,6 +205,7 @@ export default function AdCopies() {
           onViewModeChange={setViewMode}
           onAddNew={() => setFormOpen(true)}
           isLoading={isLoading}
+          onFilterByStatus={handleFilterByStatus}
         />
 
         {/* Filters */}
@@ -183,6 +228,11 @@ export default function AdCopies() {
           brandFilter={brandFilter}
           onBrandFilterChange={handleFilterChange(setBrandFilter)}
           brands={brands}
+          sortOption={sortOption}
+          onSortChange={setSortOption}
+          selectedCount={selectedIds.size}
+          onBulkDelete={handleBulkDelete}
+          onClearSelection={handleClearSelection}
         />
 
         {/* Content */}

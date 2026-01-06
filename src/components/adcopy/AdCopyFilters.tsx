@@ -1,15 +1,27 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, X, ChevronDown, Zap, Calendar } from 'lucide-react';
+import { Search, Filter, X, ChevronDown, Zap, Calendar, ArrowUpDown, SortAsc, SortDesc, Trash2, CheckSquare, Download, MoreHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { AD_PLATFORMS, AD_COPY_STATUSES, AD_OBJECTIVES, FUNNEL_STAGES, LEGACY_PLATFORMS } from '@/types/adCopy';
 
 export type DatePreset = 'all' | 'today' | '7days' | '30days' | '90days';
+export type SortOption = 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc' | 'status' | 'platform' | 'variations';
+
+const SORT_OPTIONS = [
+  { value: 'created_desc', label: 'Mới nhất', icon: SortDesc },
+  { value: 'created_asc', label: 'Cũ nhất', icon: SortAsc },
+  { value: 'title_asc', label: 'Tên A-Z', icon: SortAsc },
+  { value: 'title_desc', label: 'Tên Z-A', icon: SortDesc },
+  { value: 'status', label: 'Trạng thái', icon: ArrowUpDown },
+  { value: 'platform', label: 'Platform', icon: ArrowUpDown },
+  { value: 'variations', label: 'Số variations', icon: SortDesc },
+];
 
 interface AdCopyFiltersProps {
   searchQuery: string;
@@ -30,6 +42,14 @@ interface AdCopyFiltersProps {
   brandFilter?: string;
   onBrandFilterChange?: (value: string) => void;
   brands?: Array<{ id: string; brand_name: string }>;
+  // New Phase 5 props
+  sortOption?: SortOption;
+  onSortChange?: (value: SortOption) => void;
+  selectedCount?: number;
+  onBulkDelete?: () => void;
+  onBulkStatusChange?: (status: string) => void;
+  onBulkExport?: () => void;
+  onClearSelection?: () => void;
 }
 
 const STATUS_CHIPS = [
@@ -64,9 +84,19 @@ export function AdCopyFilters({
   brandFilter = 'all',
   onBrandFilterChange,
   brands = [],
+  // New Phase 5 props
+  sortOption = 'created_desc',
+  onSortChange,
+  selectedCount = 0,
+  onBulkDelete,
+  onBulkStatusChange,
+  onBulkExport,
+  onClearSelection,
 }: AdCopyFiltersProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+
+  const currentSort = SORT_OPTIONS.find(s => s.value === sortOption) || SORT_OPTIONS[0];
 
   const hasActiveFilters = statusFilter !== 'all' || 
                            platformFilter !== 'all' || 
@@ -100,6 +130,84 @@ export function AdCopyFilters({
 
   return (
     <div className="space-y-3">
+      {/* Bulk Actions Bar */}
+      <AnimatePresence>
+        {selectedCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">{selectedCount} đã chọn</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClearSelection}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Bỏ chọn
+                </Button>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Status Change Dropdown */}
+                {onBulkStatusChange && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs">
+                        <ArrowUpDown className="h-3 w-3" />
+                        Đổi trạng thái
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel className="text-xs">Chọn trạng thái mới</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {AD_COPY_STATUSES.map(status => (
+                        <DropdownMenuItem 
+                          key={status.value} 
+                          onClick={() => onBulkStatusChange(status.value)}
+                          className="text-xs"
+                        >
+                          <div className={cn("w-2 h-2 rounded-full mr-2", status.bgColor)} />
+                          {status.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                {/* Export Button */}
+                {onBulkExport && (
+                  <Button variant="outline" size="sm" onClick={onBulkExport} className="gap-1 text-xs">
+                    <Download className="h-3 w-3" />
+                    Export
+                  </Button>
+                )}
+
+                {/* Delete Button */}
+                {onBulkDelete && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={onBulkDelete}
+                    className="gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Xóa
+                  </Button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Search Input */}
@@ -175,6 +283,38 @@ export function AdCopyFilters({
             )}
           </SelectContent>
         </Select>
+
+        {/* Sort Dropdown */}
+        {onSortChange && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 bg-background/60 backdrop-blur-sm border-border/50"
+              >
+                <currentSort.icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{currentSort.label}</span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel className="text-xs">Sắp xếp theo</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {SORT_OPTIONS.map(option => (
+                <DropdownMenuItem 
+                  key={option.value}
+                  onClick={() => onSortChange(option.value as SortOption)}
+                  className={cn("text-xs gap-2", sortOption === option.value && "bg-primary/10")}
+                >
+                  <option.icon className="h-3 w-3" />
+                  {option.label}
+                  {sortOption === option.value && <Zap className="h-3 w-3 ml-auto text-primary" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Advanced Filter Toggle */}
         <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
