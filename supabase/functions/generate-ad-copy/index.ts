@@ -2,6 +2,11 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Import shared modules
+import { getAIConfig } from "../_shared/ai-config.ts";
+import { fetchIndustryMemory } from "../_shared/data-fetchers/industry-fetcher.ts";
+import { buildIndustryContextSection } from "../_shared/context-builders/industry-context.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -23,7 +28,7 @@ function normalizePlatform(platform: string): string {
 
 interface AdCopyRequest {
   topic: string;
-  platform: string; // Accept any string for backward compatibility
+  platform: string;
   objective: string;
   landingUrl?: string;
   audienceBrief?: string;
@@ -129,7 +134,7 @@ interface PolicyWarning {
   severity: string;
 }
 
-function checkPolicyViolations(text: string, field: string): PolicyWarning[] {
+function checkPolicyViolations(text: string, field: string, industryForbiddenTerms?: string[]): PolicyWarning[] {
   const warnings: PolicyWarning[] = [];
   
   // Check forbidden patterns
@@ -142,6 +147,21 @@ function checkPolicyViolations(text: string, field: string): PolicyWarning[] {
         severity: 'warning',
       });
       break;
+    }
+  }
+  
+  // Check industry forbidden terms
+  if (industryForbiddenTerms?.length) {
+    const lowerText = text.toLowerCase();
+    for (const term of industryForbiddenTerms) {
+      if (lowerText.includes(term.toLowerCase())) {
+        warnings.push({
+          field,
+          type: 'industry_violation',
+          message: `Chứa từ cấm ngành: "${term}"`,
+          severity: 'error',
+        });
+      }
     }
   }
   
@@ -219,7 +239,7 @@ async function callAIWithRetry(
       // Retry on server errors or timeouts
       if (response.status >= 500 || response.status === 408) {
         if (attempt < maxRetries) {
-          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          const delay = Math.pow(2, attempt) * 1000;
           console.log(`[generate-ad-copy] Retry attempt ${attempt + 1} after ${delay}ms`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
@@ -241,10 +261,51 @@ async function callAIWithRetry(
   throw lastError || new Error('All retry attempts failed');
 }
 
+// ============================================
+// AI Metrics Logging
+// ============================================
+async function logAIMetrics(
+  supabase: any,
+  traceId: string,
+  functionName: string,
+  totalDurationMs: number,
+  options: {
+    organizationId?: string;
+    brandTemplateId?: string;
+    inputTokensEstimated?: number;
+    outputTokensEstimated?: number;
+    contextSources?: string[];
+    hadError?: boolean;
+    errorType?: string;
+    errorMessage?: string;
+  }
+) {
+  try {
+    await supabase.from('ai_metrics').insert({
+      trace_id: traceId,
+      function_name: functionName,
+      total_duration_ms: totalDurationMs,
+      organization_id: options.organizationId || null,
+      brand_template_id: options.brandTemplateId || null,
+      input_tokens_estimated: options.inputTokensEstimated || null,
+      output_tokens_estimated: options.outputTokensEstimated || null,
+      context_sources: options.contextSources || [],
+      had_error: options.hadError || false,
+      error_type: options.errorType || null,
+      error_message: options.errorMessage || null,
+    });
+  } catch (error) {
+    console.error('[generate-ad-copy] Failed to log metrics:', error);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const startTime = Date.now();
+  const traceId = crypto.randomUUID();
 
   try {
     const authHeader = req.headers.get('Authorization');
@@ -283,6 +344,7 @@ serve(async (req) => {
     platform = normalizePlatform(platform);
     
     console.log('[generate-ad-copy] Request:', { 
+      traceId,
       topic, 
       platform, 
       originalPlatform: originalPlatform !== platform ? originalPlatform : undefined,
@@ -290,16 +352,26 @@ serve(async (req) => {
       variationCount 
     });
 
+    // Get AI config from centralized system
+    const aiConfig = await getAIConfig('generate-ad-copy', organizationId);
+    console.log('[generate-ad-copy] Using AI config:', { model: aiConfig.model, temperature: aiConfig.temperature });
+
+    // Context sources for metrics
+    const contextSources: string[] = [];
+
     // Fetch brand context
     let brandContext = '';
+    let industryTemplateId: string | null = null;
     if (brandTemplateId) {
       const { data: brand } = await supabase
         .from('brand_templates')
-        .select('brand_name, brand_guideline, tone_of_voice, preferred_words, forbidden_words, cta_templates')
+        .select('brand_name, brand_guideline, tone_of_voice, preferred_words, forbidden_words, cta_templates, industry_template_id')
         .eq('id', brandTemplateId)
         .single();
       
       if (brand) {
+        contextSources.push('brand_template');
+        industryTemplateId = brand.industry_template_id;
         brandContext = `
 Brand: ${brand.brand_name}
 Guideline: ${brand.brand_guideline || ''}
@@ -308,6 +380,21 @@ Preferred Words: ${(brand.preferred_words || []).join(', ')}
 Forbidden Words: ${(brand.forbidden_words || []).join(', ')}
 CTA Templates: ${(brand.cta_templates || []).join(', ')}
 `.trim();
+      }
+    }
+
+    // Fetch industry memory context
+    let industryContext = '';
+    let industryForbiddenTerms: string[] = [];
+    if (industryTemplateId) {
+      const industryMemory = await fetchIndustryMemory(supabase, industryTemplateId, 'vi');
+      if (industryMemory) {
+        contextSources.push('industry_memory');
+        industryContext = buildIndustryContextSection(industryMemory);
+        industryForbiddenTerms = [
+          ...(industryMemory.forbidden_terms || []),
+          ...(industryMemory.forbidden_words || []),
+        ];
       }
     }
 
@@ -321,6 +408,7 @@ CTA Templates: ${(brand.cta_templates || []).join(', ')}
         .single();
       
       if (product) {
+        contextSources.push('product');
         productContext = `
 Product: ${product.name}
 Description: ${product.description || ''}
@@ -336,11 +424,12 @@ Solves: ${(product.pain_points_solved || []).join(', ')}
     if (personaId) {
       const { data: persona } = await supabase
         .from('customer_personas')
-        .select('name, age_range, pain_points, desires, buying_motivation, objections')
+        .select('name, age_range, pain_points, desires, buying_motivation, objections, tech_savviness, device_usage')
         .eq('id', personaId)
         .single();
       
       if (persona) {
+        contextSources.push('persona');
         personaContext = `
 Target Persona: ${persona.name}
 Age: ${persona.age_range || ''}
@@ -348,6 +437,8 @@ Pain Points: ${(persona.pain_points || []).join(', ')}
 Desires: ${(persona.desires || []).join(', ')}
 Buying Motivation: ${(persona.buying_motivation || []).join(', ')}
 Objections: ${(persona.objections || []).join(', ')}
+Tech Savviness: ${persona.tech_savviness || ''}
+Device Usage: ${(persona.device_usage || []).join(', ')}
 `.trim();
       }
     }
@@ -539,6 +630,7 @@ Guidance: ${objectiveGuidance[objective] || objectiveGuidance.traffic}
 Funnel Stage: ${funnelStage}
 Guidance: ${funnelGuidance[funnelStage] || funnelGuidance.awareness}
 
+${industryContext ? industryContext : ''}
 ${brandContext ? `\n--- BRAND CONTEXT ---\n${brandContext}` : ''}
 ${productContext ? `\n--- PRODUCT CONTEXT ---\n${productContext}` : ''}
 ${personaContext ? `\n--- TARGET PERSONA ---\n${personaContext}` : ''}
@@ -551,12 +643,16 @@ RULES:
 3. Avoid policy-violating language (misleading claims, excessive caps, sensational terms)
 4. Each variation must have a unique angle/approach
 5. Use emojis sparingly and appropriately for the platform
+6. ${industryForbiddenTerms.length > 0 ? `NEVER use these industry forbidden terms: ${industryForbiddenTerms.join(', ')}` : ''}
 
 ${outputFormat}
 
 IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
 
     const userPrompt = `Generate ${variationCount} ad copy variations for: ${topic}`;
+
+    // Estimate input tokens
+    const inputTokensEstimated = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
 
     // Call Lovable AI Gateway with retry logic
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -573,13 +669,13 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
           'Authorization': `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: aiConfig.model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          temperature: 0.8,
-          max_tokens: 4000,
+          temperature: aiConfig.temperature,
+          max_tokens: aiConfig.max_tokens,
         }),
       }
     );
@@ -587,6 +683,16 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error('[generate-ad-copy] AI error:', aiResponse.status, errorText);
+      
+      // Log error metrics
+      await logAIMetrics(supabase, traceId, 'generate-ad-copy', Date.now() - startTime, {
+        organizationId,
+        brandTemplateId,
+        contextSources,
+        hadError: true,
+        errorType: `http_${aiResponse.status}`,
+        errorMessage: errorText.substring(0, 500),
+      });
       
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ 
@@ -612,6 +718,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || '';
     
+    // Estimate output tokens
+    const outputTokensEstimated = Math.ceil(content.length / 4);
+    
     // Parse JSON response
     let variations: any[];
     try {
@@ -620,6 +729,16 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       variations = JSON.parse(cleanContent);
     } catch (e) {
       console.error('[generate-ad-copy] Parse error:', content);
+      
+      await logAIMetrics(supabase, traceId, 'generate-ad-copy', Date.now() - startTime, {
+        organizationId,
+        brandTemplateId,
+        contextSources,
+        hadError: true,
+        errorType: 'parse_error',
+        errorMessage: 'Failed to parse AI response as JSON',
+      });
+      
       throw new Error('Không thể xử lý phản hồi từ AI. Vui lòng thử lại.');
     }
 
@@ -629,7 +748,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       .insert({
         title: topic.substring(0, 100),
         topic,
-        platform, // Use normalized platform
+        platform,
         objective,
         landing_url: landingUrl || null,
         brand_template_id: brandTemplateId || null,
@@ -641,6 +760,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
         persona_id: personaId || null,
         funnel_stage: funnelStage,
         status: 'draft',
+        industry_template_id: industryTemplateId || null,
       })
       .select()
       .single();
@@ -676,7 +796,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
               severity: 'error',
             });
           }
-          policyWarnings.push(...checkPolicyViolations(h, `headline_${idx}`));
+          policyWarnings.push(...checkPolicyViolations(h, `headline_${idx}`, industryForbiddenTerms));
         });
         
         v.descriptions?.forEach((d: string, idx: number) => {
@@ -689,7 +809,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
               severity: 'error',
             });
           }
-          policyWarnings.push(...checkPolicyViolations(d, `description_${idx}`));
+          policyWarnings.push(...checkPolicyViolations(d, `description_${idx}`, industryForbiddenTerms));
         });
       } else if (platform === 'google_display') {
         // Process Google Display variations
@@ -712,7 +832,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
               severity: 'error',
             });
           }
-          policyWarnings.push(...checkPolicyViolations(h, `short_headline_${idx}`));
+          policyWarnings.push(...checkPolicyViolations(h, `short_headline_${idx}`, industryForbiddenTerms));
         });
         
         // Check long headline (max 90 chars)
@@ -724,7 +844,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
             severity: 'error',
           });
         }
-        policyWarnings.push(...checkPolicyViolations(longHeadline, 'long_headline'));
+        policyWarnings.push(...checkPolicyViolations(longHeadline, 'long_headline', industryForbiddenTerms));
         
         // Check descriptions (max 90 chars)
         descriptions.forEach((d: string, idx: number) => {
@@ -737,7 +857,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
               severity: 'error',
             });
           }
-          policyWarnings.push(...checkPolicyViolations(d, `description_${idx}`));
+          policyWarnings.push(...checkPolicyViolations(d, `description_${idx}`, industryForbiddenTerms));
         });
       } else {
         // Process Meta/Social variations
@@ -755,9 +875,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
           policyWarnings.push(...checkCharLimits(v.description, 'description', limits.description));
         }
         
-        // Policy checks
-        if (v.primary_text) policyWarnings.push(...checkPolicyViolations(v.primary_text, 'primary_text'));
-        if (v.headline) policyWarnings.push(...checkPolicyViolations(v.headline, 'headline'));
+        // Policy checks with industry terms
+        if (v.primary_text) policyWarnings.push(...checkPolicyViolations(v.primary_text, 'primary_text', industryForbiddenTerms));
+        if (v.headline) policyWarnings.push(...checkPolicyViolations(v.headline, 'headline', industryForbiddenTerms));
       }
 
       // Build variation data based on platform
@@ -770,10 +890,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       };
 
       if (platform === 'google_display') {
-        // Store Google Display data in headlines/descriptions arrays
         variationData.headlines = v.short_headlines || [];
         variationData.descriptions = v.descriptions || [];
-        variationData.headline = v.long_headline || null; // Store long headline in headline field
+        variationData.headline = v.long_headline || null;
         variationData.primary_text = null;
         variationData.description = null;
         variationData.cta_button = 'learn_more';
@@ -806,6 +925,16 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       console.error('[generate-ad-copy] Variations insert error:', varError);
     }
 
+    // Log success metrics
+    await logAIMetrics(supabase, traceId, 'generate-ad-copy', Date.now() - startTime, {
+      organizationId,
+      brandTemplateId,
+      inputTokensEstimated,
+      outputTokensEstimated,
+      contextSources,
+      hadError: false,
+    });
+
     const response = {
       ...adCopy,
       variations: savedVariations || [],
@@ -817,7 +946,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       },
     };
 
-    console.log('[generate-ad-copy] Success:', { id: adCopy.id, variations: savedVariations?.length });
+    console.log('[generate-ad-copy] Success:', { id: adCopy.id, variations: savedVariations?.length, durationMs: Date.now() - startTime });
 
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
