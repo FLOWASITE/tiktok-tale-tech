@@ -82,9 +82,18 @@ export function HelpChatWidget() {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant' && lastMessage.id !== 'welcome') {
         setHasUnread(true);
+        // Notify header button about unread status
+        window.dispatchEvent(new CustomEvent('help-chat-unread', { detail: { hasUnread: true } }));
       }
     }
   }, [messages, isOpen]);
+
+  // Clear unread notification when opened
+  useEffect(() => {
+    if (isOpen) {
+      window.dispatchEvent(new CustomEvent('help-chat-unread', { detail: { hasUnread: false } }));
+    }
+  }, [isOpen]);
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -120,68 +129,6 @@ export function HelpChatWidget() {
 
   return (
     <>
-      {/* Premium FAB Button */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-6 right-6 z-50"
-          >
-            {/* Outer glow ring */}
-            <motion.div
-              animate={{ 
-                scale: [1, 1.15, 1],
-                opacity: [0.5, 0.2, 0.5]
-              }}
-              transition={{ 
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="absolute inset-0 rounded-full bg-gradient-to-r from-primary via-primary/80 to-primary blur-xl"
-            />
-            
-            {/* Glass border ring */}
-            <div className="relative p-[2px] rounded-full bg-gradient-to-br from-primary/60 via-primary to-primary/60">
-              <motion.button
-                onClick={() => setIsOpen(true)}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.95 }}
-                className={cn(
-                  "relative h-14 w-14 rounded-full",
-                  "bg-gradient-to-br from-primary via-primary to-primary/80",
-                  "shadow-[0_8px_32px_-4px_hsl(var(--primary)/0.5)]",
-                  "hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.6)]",
-                  "transition-shadow duration-300",
-                  "flex items-center justify-center",
-                  "text-primary-foreground"
-                )}
-              >
-                {/* Inner shine */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-white/10 to-white/20 pointer-events-none" />
-                
-                {/* Icon with float animation */}
-                <motion.div
-                  animate={{ y: [0, -2, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <MessageCircleQuestion className="h-6 w-6 relative z-10" />
-                </motion.div>
-                
-                {/* Premium notification badge */}
-                {hasUnread && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-gradient-to-br from-destructive to-destructive/80 border-2 border-background shadow-lg" />
-                  </span>
-                )}
-              </motion.button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Chat Widget */}
       <AnimatePresence>
