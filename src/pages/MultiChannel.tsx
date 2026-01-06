@@ -293,7 +293,7 @@ export default function MultiChannel() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="min-h-full bg-gradient-to-br from-background via-background to-muted/20">
       {/* Close Button - Fixed top right */}
       <Button
         variant="ghost"
@@ -305,7 +305,7 @@ export default function MultiChannel() {
         <X className="h-4 w-4" />
       </Button>
 
-      <div className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 space-y-4">
+      <div className="p-3 sm:p-4 lg:p-6 space-y-4">
         {/* Hero Section with Stats */}
         <MultiChannelHeroSection
           contents={contents}
