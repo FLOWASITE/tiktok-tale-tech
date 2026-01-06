@@ -8,28 +8,10 @@ import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { QuickSearch } from '@/components/QuickSearch';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
 import { HelpHeaderButton } from '@/components/help/HelpHeaderButton';
-import { Menu } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useSidebar } from '@/components/ui/sidebar';
+import { MobileSidebarTrigger } from '@/components/MobileSidebarTrigger';
 
 interface AppLayoutProps {
   children: React.ReactNode;
-}
-
-function MobileSidebarTrigger() {
-  const { toggleSidebar } = useSidebar();
-  
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleSidebar}
-      className="h-9 w-9 md:hidden shrink-0"
-    >
-      <Menu className="h-5 w-5" />
-      <span className="sr-only">Toggle Menu</span>
-    </Button>
-  );
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
