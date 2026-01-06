@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useAdCopies } from '@/hooks/useAdCopies';
 import { AdCopyCard } from '@/components/adcopy/AdCopyCard';
 import { AdCopyHeroSection } from '@/components/adcopy/AdCopyHeroSection';
-import { AdCopyFilters } from '@/components/adcopy/AdCopyFilters';
+import { AdCopyFilters, DatePreset } from '@/components/adcopy/AdCopyFilters';
 import { AdCopyFormDialog } from '@/components/adcopy/AdCopyFormDialog';
 import { AdCopyViewer } from '@/components/adcopy/AdCopyViewer';
 import type { AdCopy } from '@/types/adCopy';
@@ -20,6 +20,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { subDays, isAfter, startOfDay } from 'date-fns';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -33,6 +34,9 @@ export default function AdCopies() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [objectiveFilter, setObjectiveFilter] = useState<string>('all');
   const [funnelFilter, setFunnelFilter] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [campaignFilter, setCampaignFilter] = useState<string>('all');
+  const [brandFilter, setBrandFilter] = useState<string>('all');
   
   // View states
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -43,8 +47,48 @@ export default function AdCopies() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedAdCopy, setSelectedAdCopy] = useState<AdCopy | null>(null);
 
+  // Get unique campaigns and brands for filter dropdowns
+  const { campaigns, brands } = useMemo(() => {
+    const campaignMap = new Map<string, string>();
+    const brandMap = new Map<string, string>();
+    
+    adCopies.forEach(ad => {
+      if (ad.campaign?.id && ad.campaign?.name) {
+        campaignMap.set(ad.campaign.id, ad.campaign.name);
+      }
+      // Use brand_template_id as the key since id isn't selected
+      if (ad.brand_template_id && ad.brand_template?.brand_name) {
+        brandMap.set(ad.brand_template_id, ad.brand_template.brand_name);
+      }
+    });
+    
+    return {
+      campaigns: Array.from(campaignMap.entries()).map(([id, name]) => ({ id, name })),
+      brands: Array.from(brandMap.entries()).map(([id, brand_name]) => ({ id, brand_name })),
+    };
+  }, [adCopies]);
+
+  // Get date filter cutoff
+  const getDateCutoff = (preset: DatePreset): Date | null => {
+    const now = new Date();
+    switch (preset) {
+      case 'today':
+        return startOfDay(now);
+      case '7days':
+        return subDays(now, 7);
+      case '30days':
+        return subDays(now, 30);
+      case '90days':
+        return subDays(now, 90);
+      default:
+        return null;
+    }
+  };
+
   // Filter ad copies
   const filteredAdCopies = useMemo(() => {
+    const dateCutoff = getDateCutoff(datePreset);
+    
     return adCopies.filter(ad => {
       const matchesSearch = ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            ad.topic.toLowerCase().includes(searchQuery.toLowerCase());
@@ -52,9 +96,13 @@ export default function AdCopies() {
       const matchesStatus = statusFilter === 'all' || ad.status === statusFilter;
       const matchesObjective = objectiveFilter === 'all' || ad.objective === objectiveFilter;
       const matchesFunnel = funnelFilter === 'all' || ad.funnel_stage === funnelFilter;
-      return matchesSearch && matchesPlatform && matchesStatus && matchesObjective && matchesFunnel;
+      const matchesCampaign = campaignFilter === 'all' || ad.campaign?.id === campaignFilter;
+      const matchesBrand = brandFilter === 'all' || ad.brand_template_id === brandFilter;
+      const matchesDate = !dateCutoff || (ad.created_at && isAfter(new Date(ad.created_at), dateCutoff));
+      
+      return matchesSearch && matchesPlatform && matchesStatus && matchesObjective && matchesFunnel && matchesCampaign && matchesBrand && matchesDate;
     });
-  }, [adCopies, searchQuery, platformFilter, statusFilter, objectiveFilter, funnelFilter]);
+  }, [adCopies, searchQuery, platformFilter, statusFilter, objectiveFilter, funnelFilter, datePreset, campaignFilter, brandFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAdCopies.length / ITEMS_PER_PAGE);
@@ -117,6 +165,14 @@ export default function AdCopies() {
           onObjectiveFilterChange={handleFilterChange(setObjectiveFilter)}
           funnelFilter={funnelFilter}
           onFunnelFilterChange={handleFilterChange(setFunnelFilter)}
+          datePreset={datePreset}
+          onDatePresetChange={handleFilterChange(setDatePreset)}
+          campaignFilter={campaignFilter}
+          onCampaignFilterChange={handleFilterChange(setCampaignFilter)}
+          campaigns={campaigns}
+          brandFilter={brandFilter}
+          onBrandFilterChange={handleFilterChange(setBrandFilter)}
+          brands={brands}
         />
 
         {/* Content */}
