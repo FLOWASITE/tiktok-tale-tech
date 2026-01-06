@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -24,7 +24,11 @@ import { KPILogFormDialog } from '@/components/campaign/kpi/KPILogFormDialog';
 import { KPILogTable } from '@/components/campaign/kpi/KPILogTable';
 import { KPISparkline } from '@/components/campaign/kpi/KPISparkline';
 import { KPISuggestionDialog } from '@/components/campaign/kpi/KPISuggestionDialog';
+import { KPIAdjustmentAlert } from '@/components/campaign/kpi/KPIAdjustmentAlert';
+import { KPIAdjustmentDialog } from '@/components/campaign/kpi/KPIAdjustmentDialog';
+import { useKPIAdjustmentSuggestions } from '@/hooks/useKPIAdjustmentSuggestions';
 import { canGenerateSuggestions } from '@/lib/kpi-suggestions';
+import { toast } from 'sonner';
 
 interface CampaignDetailKPIsProps {
   campaignId: string;
@@ -40,6 +44,60 @@ export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [], industr
   const [editedGoals, setEditedGoals] = useState<CampaignGoal[]>([]);
   const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
+  const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false);
+
+  // KPI Adjustment suggestions hook
+  const {
+    suggestions: adjustmentSuggestions,
+    needsAdjustment,
+    overallAssessment,
+    actionItems,
+    isLoading: isCheckingAdjustments,
+    lastChecked,
+    checkNow: checkForAdjustments,
+    dismissSuggestion,
+    dismissAll,
+  } = useKPIAdjustmentSuggestions({
+    campaignId,
+    campaign: {
+      id: campaign.id,
+      name: campaign.name,
+      organization_id: campaign.organization_id,
+      campaign_type: campaign.campaign_type,
+      start_date: campaign.start_date,
+      end_date: campaign.end_date,
+      goals: campaign.goals,
+    },
+    kpiLogs: kpiLogs.map(log => ({
+      logged_at: log.logged_at,
+      metrics: log.metrics as Record<string, number>,
+    })),
+    enabled: campaign.status === 'active',
+    autoCheck: true,
+  });
+
+  // Calculate time progress for adjustment dialog
+  const calculateTimeProgress = useCallback(() => {
+    const now = new Date();
+    const start = new Date(campaign.start_date);
+    const end = new Date(campaign.end_date);
+    const total = end.getTime() - start.getTime();
+    const elapsed = now.getTime() - start.getTime();
+    return Math.min(100, Math.max(0, (elapsed / total) * 100));
+  }, [campaign.start_date, campaign.end_date]);
+
+  const handleApplyAdjustments = useCallback(async (selectedMetrics: string[]) => {
+    const updatedGoals = campaign.goals.map(goal => {
+      const suggestion = adjustmentSuggestions.find(s => s.metric === goal.metric);
+      if (suggestion && selectedMetrics.includes(goal.metric)) {
+        return { ...goal, target: suggestion.suggestedTarget };
+      }
+      return goal;
+    });
+
+    await updateKPIs(updatedGoals);
+    toast.success(`Đã cập nhật ${selectedMetrics.length} mục tiêu KPI`);
+  }, [campaign.goals, adjustmentSuggestions, updateKPIs]);
 
   const handleStartEdit = () => {
     setEditedGoals([...campaign.goals]);
@@ -68,6 +126,20 @@ export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [], industr
   return (
     <>
       <div className="space-y-6">
+        {/* KPI Adjustment Alert */}
+        {needsAdjustment && adjustmentSuggestions.length > 0 && (
+          <KPIAdjustmentAlert
+            suggestions={adjustmentSuggestions}
+            overallAssessment={overallAssessment}
+            isLoading={isCheckingAdjustments}
+            onViewDetails={() => setIsAdjustmentDialogOpen(true)}
+            onApplyAll={() => handleApplyAdjustments(adjustmentSuggestions.map(s => s.metric))}
+            onDismissAll={() => dismissAll(24)}
+            onCheckNow={checkForAdjustments}
+            lastChecked={lastChecked}
+          />
+        )}
+
         {/* KPI Cards */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -265,6 +337,19 @@ export function CampaignDetailKPIs({ campaignId, campaign, kpiLogs = [], industr
         campaignId={campaignId}
         campaign={campaign}
         industries={industries}
+      />
+
+      {/* KPI Adjustment Dialog */}
+      <KPIAdjustmentDialog
+        open={isAdjustmentDialogOpen}
+        onOpenChange={setIsAdjustmentDialogOpen}
+        suggestions={adjustmentSuggestions}
+        overallAssessment={overallAssessment}
+        actionItems={actionItems}
+        onApply={handleApplyAdjustments}
+        onDismiss={dismissSuggestion}
+        campaignName={campaign.name}
+        timeProgress={calculateTimeProgress()}
       />
     </>
   );

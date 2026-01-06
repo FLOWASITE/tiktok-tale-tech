@@ -62,6 +62,9 @@ export function KPILogFormDialog({
       setNotes('');
       setLogDate(new Date().toISOString().split('T')[0]);
       onOpenChange(false);
+      
+      // Note: KPI adjustment check will be triggered automatically via useKPIAdjustmentSuggestions
+      // when kpiLogs change in the parent component
     } finally {
       setIsSaving(false);
     }
