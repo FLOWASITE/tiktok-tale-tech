@@ -354,10 +354,54 @@ serve(async (req) => {
 
     console.log(`[analyze-dashboard-insights] Fetching stats for org: ${organizationId}`);
 
-    // Fetch content stats
+    // Parse request body for forceRefresh flag
+    const { forceRefresh } = await req.json().catch(() => ({ forceRefresh: false }));
+
+    // Fetch content stats first to generate hash
     const stats = await fetchContentStats(supabase, organizationId, user.id);
     
     console.log(`[analyze-dashboard-insights] Stats:`, JSON.stringify(stats, null, 2));
+
+    // Generate hash from stats to detect data changes
+    const statsHash = btoa(`${stats.scripts.total}-${stats.carousels.total}-${stats.multiChannel.total}-${stats.topicHistory.total}`);
+
+    // Check cache (unless force refresh)
+    if (!forceRefresh) {
+      const { data: cached } = await supabase
+        .from("ai_response_cache")
+        .select("id, response_data, created_at, input_hash, hit_count")
+        .eq("function_name", "analyze-dashboard-insights")
+        .eq("organization_id", organizationId)
+        .gt("expires_at", new Date().toISOString())
+        .single();
+
+      if (cached) {
+        // Check if data has changed
+        if (cached.input_hash === statsHash) {
+          // Data unchanged - extend cache and return cached result
+          console.log(`[analyze-dashboard-insights] Cache hit, extending TTL`);
+          
+          await supabase
+            .from("ai_response_cache")
+            .update({ 
+              hit_count: (cached.hit_count || 0) + 1, 
+              last_hit_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // Extend 2 hours
+            })
+            .eq("id", cached.id);
+
+          return new Response(JSON.stringify({ 
+            insights: cached.response_data.insights, 
+            fromCache: true,
+            cachedAt: cached.created_at
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } else {
+          console.log(`[analyze-dashboard-insights] Data changed (hash mismatch), regenerating insights`);
+        }
+      }
+    }
 
     // Check if user has any content - provide starter insights if new user
     const totalContent = stats.scripts.total + stats.carousels.total + stats.multiChannel.total;
@@ -452,7 +496,20 @@ serve(async (req) => {
       ...insight
     }));
 
-    console.log(`[analyze-dashboard-insights] Generated ${insights.length} insights`);
+    console.log(`[analyze-dashboard-insights] Generated ${insights.length} insights, caching result`);
+
+    // Store in cache
+    await supabase.from("ai_response_cache").upsert({
+      function_name: "analyze-dashboard-insights",
+      organization_id: organizationId,
+      cache_key: `insights-${organizationId}`,
+      cache_scope: "org",
+      input_hash: statsHash,
+      response_data: { insights },
+      response_schema_version: "1.0",
+      expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours
+      hit_count: 0
+    }, { onConflict: 'cache_key' });
 
     return new Response(JSON.stringify({ insights, fromCache: false }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

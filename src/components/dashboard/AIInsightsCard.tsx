@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { InsightsSkeleton } from './InsightsSkeleton';
 import { useToast } from '@/hooks/use-toast';
+import confetti from 'canvas-confetti';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface Insight {
   id: string;
@@ -29,18 +32,46 @@ interface Insight {
   };
 }
 
+interface AIInsightsResponse {
+  insights: Insight[];
+  fromCache: boolean;
+  cachedAt?: string;
+}
+
 interface AIInsightsCardProps {
   className?: string;
 }
 
+const DISMISSED_STORAGE_KEY = 'dashboard-insights-dismissed';
+const CELEBRATED_STORAGE_KEY = 'dashboard-insights-celebrated';
+
 export function AIInsightsCard({ className }: AIInsightsCardProps) {
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  // Load dismissed IDs from localStorage
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(DISMISSED_STORAGE_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Load celebrated achievement IDs
+  const [celebratedIds, setCelebratedIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(CELEBRATED_STORAGE_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const { toast } = useToast();
 
-  const { data: insights = [], isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-insights'],
-    queryFn: async () => {
+    queryFn: async (): Promise<AIInsightsResponse> => {
       const { data, error } = await supabase.functions.invoke('analyze-dashboard-insights');
       
       if (error) {
@@ -48,15 +79,56 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
         throw error;
       }
       
-      return (data?.insights || []) as Insight[];
+      return {
+        insights: (data?.insights || []) as Insight[],
+        fromCache: data?.fromCache || false,
+        cachedAt: data?.cachedAt
+      };
     },
-    staleTime: 5 * 60 * 1000, // Cache 5 minutes
+    staleTime: 5 * 60 * 1000, // Cache 5 minutes in React Query
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
+  const insights = data?.insights || [];
   const visibleInsights = insights.filter(i => !dismissedIds.has(i.id));
   const currentInsight = visibleInsights[currentIndex];
+
+  // Sync dismissed to localStorage
+  useEffect(() => {
+    localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...dismissedIds]));
+  }, [dismissedIds]);
+
+  // Sync celebrated to localStorage
+  useEffect(() => {
+    localStorage.setItem(CELEBRATED_STORAGE_KEY, JSON.stringify([...celebratedIds]));
+  }, [celebratedIds]);
+
+  // Clean up old dismissed IDs when insights change
+  useEffect(() => {
+    if (insights.length > 0) {
+      const currentIds = new Set(insights.map(i => i.id));
+      const validDismissed = [...dismissedIds].filter(id => currentIds.has(id)).slice(-20);
+      if (validDismissed.length !== dismissedIds.size) {
+        setDismissedIds(new Set(validDismissed));
+      }
+    }
+  }, [insights]);
+
+  // Confetti for achievements
+  useEffect(() => {
+    if (currentInsight?.type === 'achievement' && !celebratedIds.has(currentInsight.id)) {
+      // Fire confetti
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#8B5CF6', '#EC4899', '#F59E0B']
+      });
+      
+      setCelebratedIds(prev => new Set([...prev, currentInsight.id]));
+    }
+  }, [currentInsight?.id, celebratedIds]);
 
   const handleDismiss = (id: string) => {
     setDismissedIds(prev => new Set([...prev, id]));
@@ -65,14 +137,25 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     }
   };
 
-  const handleRefresh = async () => {
-    setDismissedIds(new Set());
+  const handleRefresh = async (forceRefresh = false) => {
+    if (forceRefresh) {
+      setDismissedIds(new Set());
+    }
     setCurrentIndex(0);
     try {
-      await refetch();
+      // Force refresh bypasses cache
+      if (forceRefresh) {
+        const { data: freshData, error } = await supabase.functions.invoke('analyze-dashboard-insights', {
+          body: { forceRefresh: true }
+        });
+        if (error) throw error;
+        await refetch();
+      } else {
+        await refetch();
+      }
       toast({
         title: "Đã cập nhật insights",
-        description: "AI đã phân tích dữ liệu mới nhất của bạn",
+        description: forceRefresh ? "AI đã phân tích dữ liệu mới nhất" : "Insights đã được làm mới",
       });
     } catch {
       toast({
@@ -164,7 +247,7 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
           <p className="text-sm text-muted-foreground mb-3">
             Không có insights mới
           </p>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching}>
+          <Button variant="outline" size="sm" onClick={() => handleRefresh(true)} disabled={isFetching}>
             <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
             Làm mới
           </Button>
@@ -192,6 +275,11 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
             <span className="text-xs font-medium text-muted-foreground">
               AI Insights
             </span>
+            {data?.fromCache && data?.cachedAt && (
+              <span className="text-[10px] text-muted-foreground/70">
+                • {formatDistanceToNow(new Date(data.cachedAt), { locale: vi, addSuffix: true })}
+              </span>
+            )}
             {currentInsight.priority === 'high' && (
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${getPriorityBadge(currentInsight.priority)}`}>
                 Quan trọng
@@ -234,8 +322,18 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
             transition={{ duration: 0.2 }}
           >
             <div className="flex items-start gap-3 mb-3">
-              <div className={`p-2 rounded-lg bg-background ${getIconColor(currentInsight.type)}`}>
+              <div className={`relative p-2 rounded-lg bg-background ${getIconColor(currentInsight.type)}`}>
                 <Icon className="w-4 h-4" />
+                {/* Achievement celebration indicator */}
+                {currentInsight.type === 'achievement' && (
+                  <motion.span
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="absolute -top-1 -right-1 text-sm"
+                  >
+                    🎉
+                  </motion.span>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-sm text-foreground mb-1">
@@ -265,8 +363,9 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={handleRefresh}
+                  onClick={() => handleRefresh(true)}
                   disabled={isFetching}
+                  title="Force refresh insights"
                 >
                   <RefreshCw className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} />
                 </Button>
