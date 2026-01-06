@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield, TrendingUp } from 'lucide-react';
+import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield, TrendingUp, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAdCopies } from '@/hooks/useAdCopies';
@@ -27,6 +27,14 @@ import { PerformanceDashboard } from './performance';
 import { PolicyChecker } from './PolicyChecker';
 import { PredictionPanel } from './prediction/PredictionPanel';
 import { AdCopyExportMenu } from './AdCopyExportMenu';
+import { EditVariationForm } from './EditVariationForm';
+import { 
+  FacebookFeedMockup, 
+  FacebookStoryMockup, 
+  InstagramFeedMockup, 
+  InstagramStoryMockup, 
+  InstagramReelsMockup 
+} from './AdCopyMockups';
 
 interface AdCopyViewerProps {
   open: boolean;
@@ -35,12 +43,13 @@ interface AdCopyViewerProps {
 }
 
 export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) {
-  const { toggleVariationApproval } = useAdCopies();
+  const { toggleVariationApproval, updateVariation } = useAdCopies();
   const { abTests, updateStatus, deleteTest } = useAdCopyABTests(adCopy.id);
   const [activeTab, setActiveTab] = useState(adCopy.variations?.[0]?.variation_label || 'A');
   const [mainTab, setMainTab] = useState<'variations' | 'ab-tests' | 'performance' | 'policy' | 'prediction'>('variations');
   const [showABTestSetup, setShowABTestSetup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+  const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
   
   const platformConfig = getPlatformConfig(adCopy.platform);
   const objectiveConfig = getObjectiveConfig(adCopy.objective);
@@ -55,6 +64,167 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
 
   const handleApprove = (variation: AdCopyVariation) => {
     toggleVariationApproval({ variationId: variation.id, isApproved: !variation.is_approved });
+  };
+
+  // Handle apply suggestion from PolicyChecker
+  const handleApplySuggestion = (variationId: string, field: string, value: string) => {
+    const fieldMap: Record<string, 'primary_text' | 'headline' | 'description'> = {
+      'primary_text': 'primary_text',
+      'headline': 'headline',
+      'description': 'description',
+    };
+    
+    const dbField = fieldMap[field];
+    if (!dbField) {
+      toast.error('Không thể áp dụng cho field này');
+      return;
+    }
+    
+    updateVariation({ 
+      variationId, 
+      updates: { [dbField]: value } 
+    });
+    toast.success(`Đã áp dụng gợi ý cho ${field}`);
+  };
+
+  // Handle save variation edit
+  const handleSaveVariation = (variationId: string, updates: Partial<AdCopyVariation>) => {
+    updateVariation({ variationId, updates });
+    toast.success('Đã cập nhật variation');
+    setEditingVariationId(null);
+  };
+
+  // Get brand info for mockups
+  const brandName = adCopy.brand_template?.brand_name || 'Brand';
+  const logoUrl = (adCopy.brand_template as { logo_url?: string })?.logo_url || undefined;
+
+  // Render Facebook/Instagram mockups with fields
+  const renderFacebookFeedVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      <FacebookFeedMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
+      {renderMetaFields(variation)}
+    </div>
+  );
+
+  const renderFacebookStoryVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      <FacebookStoryMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
+      {renderMetaFields(variation)}
+    </div>
+  );
+
+  const renderInstagramFeedVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      <InstagramFeedMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
+      {renderMetaFields(variation)}
+    </div>
+  );
+
+  const renderInstagramStoryVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      <InstagramStoryMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
+      {renderMetaFields(variation)}
+    </div>
+  );
+
+  const renderInstagramReelsVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      <InstagramReelsMockup variation={variation} brandName={brandName} logoUrl={logoUrl} />
+      {renderMetaFields(variation)}
+    </div>
+  );
+
+  // Extract common fields rendering
+  const renderMetaFields = (variation: AdCopyVariation) => (
+    <div className="space-y-4 pt-4 border-t">
+      {/* Primary Text */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Primary Text</Label>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={() => copyToClipboard(variation.primary_text || '', 'Primary Text')}
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">
+          {variation.primary_text || '-'}
+        </div>
+        {renderCharCounter(variation.primary_text, 'primary_text')}
+      </div>
+
+      {/* Headline */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Headline</Label>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={() => copyToClipboard(variation.headline || '', 'Headline')}
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm font-medium">
+          {variation.headline || '-'}
+        </div>
+        {renderCharCounter(variation.headline, 'headline')}
+      </div>
+
+      {/* Description */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Link Description</Label>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={() => copyToClipboard(variation.description || '', 'Description')}
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">
+          {variation.description || '-'}
+        </div>
+        {renderCharCounter(variation.description, 'description')}
+      </div>
+
+      {/* CTA Button */}
+      <div>
+        <Label>CTA Button</Label>
+        <div className="mt-1">
+          <Badge variant="outline" className="text-sm">
+            {CTA_BUTTONS.find(c => c.value === variation.cta_button)?.label || variation.cta_button}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Helper to determine which render function to use
+  const getPlatformRenderer = (platform: string) => {
+    switch (platform) {
+      case 'facebook_feed':
+      case 'meta_feed':
+        return renderFacebookFeedVariation;
+      case 'facebook_story':
+      case 'meta_story':
+        return renderFacebookStoryVariation;
+      case 'instagram_feed':
+        return renderInstagramFeedVariation;
+      case 'instagram_story':
+        return renderInstagramStoryVariation;
+      case 'instagram_reels':
+      case 'meta_reels':
+        return renderInstagramReelsVariation;
+      default:
+        return null;
+    }
   };
 
   const renderCharCounter = (text: string | null, field: 'primary_text' | 'headline' | 'description') => {
@@ -645,6 +815,17 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">Variation {variation.variation_label}</CardTitle>
                         <div className="flex items-center gap-2">
+                          {editingVariationId !== variation.id && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingVariationId(variation.id)}
+                              className="gap-1"
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Sửa
+                            </Button>
+                          )}
                           <Button
                             variant={variation.is_approved ? "default" : "outline"}
                             size="sm"
@@ -664,19 +845,31 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {adCopy.platform === 'google_rsa' 
-                        ? renderGoogleRSAVariation(variation)
-                        : adCopy.platform === 'google_display'
-                        ? renderGoogleDisplayVariation(variation)
-                        : adCopy.platform === 'tiktok'
-                        ? renderTikTokVariation(variation)
-                        : adCopy.platform === 'zalo_oa' || adCopy.platform === 'zalo_message' || adCopy.platform === 'zalo_article'
-                        ? renderZaloVariation(variation)
-                        : adCopy.platform === 'linkedin'
-                        ? renderLinkedInVariation(variation)
-                        : renderMetaVariation(variation)
-                      }
-                      {renderPolicyWarnings(variation.policy_warnings)}
+                      {editingVariationId === variation.id ? (
+                        <EditVariationForm
+                          variation={variation}
+                          charLimits={charLimits}
+                          onSave={(updates) => handleSaveVariation(variation.id, updates)}
+                          onCancel={() => setEditingVariationId(null)}
+                        />
+                      ) : (
+                        <>
+                          {(() => {
+                            const platformRenderer = getPlatformRenderer(adCopy.platform);
+                            if (platformRenderer) {
+                              return platformRenderer(variation);
+                            }
+                            // Fallback to existing platform-specific renderers
+                            if (adCopy.platform === 'google_rsa') return renderGoogleRSAVariation(variation);
+                            if (adCopy.platform === 'google_display') return renderGoogleDisplayVariation(variation);
+                            if (adCopy.platform === 'tiktok') return renderTikTokVariation(variation);
+                            if (adCopy.platform === 'zalo_oa' || adCopy.platform === 'zalo_message' || adCopy.platform === 'zalo_article') return renderZaloVariation(variation);
+                            if (adCopy.platform === 'linkedin') return renderLinkedInVariation(variation);
+                            return renderMetaVariation(variation);
+                          })()}
+                          {renderPolicyWarnings(variation.policy_warnings)}
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -748,7 +941,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
 
           {/* Policy Tab */}
           <TabsContent value="policy" className="mt-4">
-            <PolicyChecker adCopy={adCopy} />
+            <PolicyChecker adCopy={adCopy} onApplySuggestion={handleApplySuggestion} />
           </TabsContent>
         </Tabs>
       </DialogContent>
