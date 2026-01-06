@@ -1388,7 +1388,7 @@ serve(async (req) => {
   }
 
   try {
-    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId } = await req.json();
+    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId, campaignId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -1771,6 +1771,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
         brand_voice_variant_id: brandVoiceVariantId || null,
         industry_template_id: industryMemory?.id || null,
         industry_template_version: industryMemory?.version || null,
+        campaign_id: campaignId || null,
         // Self-critique metadata
         critique_score: critiqueResult?.overall_score || null,
         critique_details: critiqueResult || null,

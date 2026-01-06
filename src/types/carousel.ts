@@ -30,6 +30,7 @@ export interface Carousel {
   user_id: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
+  campaign_id?: string | null;
   // Self-Critique fields
   critique_score?: number | null;
   critique_details?: Record<string, unknown> | null;
@@ -58,6 +59,7 @@ export interface CarouselFormData {
   logoUrl?: string | null;
   brandTemplateId?: string;
   topicHistoryId?: string;
+  campaignId?: string;
 }
 
 export const DEFAULT_BRAND_GUIDELINE = '';

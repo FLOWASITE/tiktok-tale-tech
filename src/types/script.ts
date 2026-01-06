@@ -118,6 +118,7 @@ export interface Script {
   organization_id?: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
+  campaign_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -165,6 +166,7 @@ export interface ScriptFormData {
   hook?: HookDetails;
   angle?: TopicAngle;
   topicHistoryId?: string;
+  campaignId?: string;
 }
 
 // ============================================

@@ -1538,6 +1538,7 @@ export type Database = {
           ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]
           brand_guideline: string | null
           brand_name: string
+          campaign_id: string | null
           caption_suggestion: string | null
           created_at: string
           critique_details: Json | null
@@ -1565,6 +1566,7 @@ export type Database = {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
           brand_guideline?: string | null
           brand_name?: string
+          campaign_id?: string | null
           caption_suggestion?: string | null
           created_at?: string
           critique_details?: Json | null
@@ -1592,6 +1594,7 @@ export type Database = {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
           brand_guideline?: string | null
           brand_name?: string
+          campaign_id?: string | null
           caption_suggestion?: string | null
           created_at?: string
           critique_details?: Json | null
@@ -1616,6 +1619,13 @@ export type Database = {
           was_refined?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "carousels_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "carousels_industry_template_id_fkey"
             columns: ["industry_template_id"]
@@ -4218,6 +4228,7 @@ export type Database = {
         Row: {
           brand_template_id: string | null
           brand_voice_variant_id: string | null
+          campaign_id: string | null
           character_type: string
           content: string
           created_at: string
@@ -4244,6 +4255,7 @@ export type Database = {
         Insert: {
           brand_template_id?: string | null
           brand_voice_variant_id?: string | null
+          campaign_id?: string | null
           character_type?: string
           content: string
           created_at?: string
@@ -4270,6 +4282,7 @@ export type Database = {
         Update: {
           brand_template_id?: string | null
           brand_voice_variant_id?: string | null
+          campaign_id?: string | null
           character_type?: string
           content?: string
           created_at?: string
@@ -4306,6 +4319,13 @@ export type Database = {
             columns: ["brand_voice_variant_id"]
             isOneToOne: false
             referencedRelation: "brand_voice_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scripts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
           {
@@ -4596,6 +4616,7 @@ export type Database = {
         Row: {
           actual_engagement: Json | null
           brand_template_id: string | null
+          campaign_id: string | null
           category: string
           content_goal: string
           content_id: string | null
@@ -4623,6 +4644,7 @@ export type Database = {
         Insert: {
           actual_engagement?: Json | null
           brand_template_id?: string | null
+          campaign_id?: string | null
           category: string
           content_goal: string
           content_id?: string | null
@@ -4650,6 +4672,7 @@ export type Database = {
         Update: {
           actual_engagement?: Json | null
           brand_template_id?: string | null
+          campaign_id?: string | null
           category?: string
           content_goal?: string
           content_id?: string | null
@@ -4680,6 +4703,13 @@ export type Database = {
             columns: ["brand_template_id"]
             isOneToOne: false
             referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_history_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
           {

@@ -218,6 +218,8 @@ export interface MultiChannelFormData {
   journeyStage?: JourneyStage;
   // AI suggestion context from topic refinement
   aiSuggestion?: AiSuggestionContext;
+  // Campaign linking
+  campaignId?: string;
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [
