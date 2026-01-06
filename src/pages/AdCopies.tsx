@@ -26,7 +26,7 @@ const ITEMS_PER_PAGE = 12;
 
 export default function AdCopies() {
   const navigate = useNavigate();
-  const { adCopies, isLoading, generating, generateAdCopy, deleteAdCopy, fetchAdCopyDetail } = useAdCopies();
+  const { adCopies, isLoading, generating, generateAdCopy, deleteAdCopy, fetchAdCopyDetail, duplicateAdCopy } = useAdCopies();
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +46,7 @@ export default function AdCopies() {
   const [formOpen, setFormOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedAdCopy, setSelectedAdCopy] = useState<AdCopy | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // Get unique campaigns and brands for filter dropdowns
   const { campaigns, brands } = useMemo(() => {
@@ -118,10 +119,15 @@ export default function AdCopies() {
   };
 
   const handleView = async (adCopy: AdCopy) => {
-    const detail = await fetchAdCopyDetail(adCopy.id);
-    if (detail) {
-      setSelectedAdCopy(detail);
-      setViewerOpen(true);
+    setIsLoadingDetail(true);
+    setViewerOpen(true);
+    try {
+      const detail = await fetchAdCopyDetail(adCopy.id);
+      if (detail) {
+        setSelectedAdCopy(detail);
+      }
+    } finally {
+      setIsLoadingDetail(false);
     }
   };
 
@@ -129,6 +135,10 @@ export default function AdCopies() {
     if (confirm('Bạn có chắc muốn xóa ad copy này?')) {
       deleteAdCopy(id);
     }
+  };
+
+  const handleDuplicate = (id: string) => {
+    duplicateAdCopy(id);
   };
 
   return (
@@ -249,6 +259,7 @@ export default function AdCopies() {
                       viewMode={viewMode}
                       onView={() => handleView(adCopy)}
                       onDelete={() => handleDelete(adCopy.id)}
+                      onDuplicate={() => handleDuplicate(adCopy.id)}
                     />
                   </motion.div>
                 ))}
@@ -318,13 +329,12 @@ export default function AdCopies() {
       />
 
       {/* Viewer Dialog */}
-      {selectedAdCopy && (
-        <AdCopyViewer
-          open={viewerOpen}
-          onOpenChange={setViewerOpen}
-          adCopy={selectedAdCopy}
-        />
-      )}
+      <AdCopyViewer
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        adCopy={selectedAdCopy}
+        isLoading={isLoadingDetail}
+      />
     </div>
   );
 }

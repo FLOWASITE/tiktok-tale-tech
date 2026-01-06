@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield, TrendingUp, Pencil } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield, TrendingUp, Pencil, ClipboardCopy } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAdCopies } from '@/hooks/useAdCopies';
@@ -39,27 +40,67 @@ import {
 interface AdCopyViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  adCopy: AdCopy;
+  adCopy: AdCopy | null;
+  isLoading?: boolean;
 }
 
-export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) {
+export function AdCopyViewer({ open, onOpenChange, adCopy, isLoading = false }: AdCopyViewerProps) {
   const { toggleVariationApproval, updateVariation } = useAdCopies();
-  const { abTests, updateStatus, deleteTest } = useAdCopyABTests(adCopy.id);
-  const [activeTab, setActiveTab] = useState(adCopy.variations?.[0]?.variation_label || 'A');
+  const { abTests, updateStatus, deleteTest } = useAdCopyABTests(adCopy?.id || '');
+  const [activeTab, setActiveTab] = useState(adCopy?.variations?.[0]?.variation_label || 'A');
   const [mainTab, setMainTab] = useState<'variations' | 'ab-tests' | 'performance' | 'policy' | 'prediction'>('variations');
   const [showABTestSetup, setShowABTestSetup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
   
-  const platformConfig = getPlatformConfig(adCopy.platform);
-  const objectiveConfig = getObjectiveConfig(adCopy.objective);
-  const funnelConfig = getFunnelStageConfig(adCopy.funnel_stage);
-  const statusConfig = getStatusConfig(adCopy.status);
-  const charLimits = getCharLimits(adCopy.platform);
+  const platformConfig = adCopy ? getPlatformConfig(adCopy.platform) : null;
+  const objectiveConfig = adCopy ? getObjectiveConfig(adCopy.objective) : null;
+  const funnelConfig = adCopy ? getFunnelStageConfig(adCopy.funnel_stage) : null;
+  const statusConfig = adCopy ? getStatusConfig(adCopy.status) : null;
+  const charLimits = adCopy ? getCharLimits(adCopy.platform) : { primary_text: { max: 125 }, headline: { max: 40 }, description: { max: 30 } };
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`Đã copy ${label}`);
+  };
+
+  // Copy all variations to clipboard
+  const copyAllVariations = () => {
+    if (!adCopy?.variations?.length) return;
+    
+    const formatted = adCopy.variations.map((v) => {
+      const lines = [
+        `=== VARIATION ${v.variation_label} ===`,
+        '',
+      ];
+      
+      // Platform-specific formatting
+      if (adCopy.platform === 'google_rsa') {
+        lines.push('HEADLINES:');
+        v.headlines?.forEach((h, i) => lines.push(`${i + 1}. ${h}`));
+        lines.push('', 'DESCRIPTIONS:');
+        v.descriptions?.forEach((d, i) => lines.push(`${i + 1}. ${d}`));
+      } else if (adCopy.platform === 'google_display') {
+        lines.push('SHORT HEADLINES:');
+        v.headlines?.forEach((h, i) => lines.push(`${i + 1}. ${h}`));
+        lines.push('', `LONG HEADLINE: ${v.headline || ''}`);
+        lines.push('', 'DESCRIPTIONS:');
+        v.descriptions?.forEach((d, i) => lines.push(`${i + 1}. ${d}`));
+      } else {
+        // Meta, TikTok, LinkedIn, Zalo
+        lines.push(`PRIMARY TEXT: ${v.primary_text || ''}`);
+        lines.push(`HEADLINE: ${v.headline || ''}`);
+        if (v.description) lines.push(`DESCRIPTION: ${v.description}`);
+        lines.push(`CTA: ${v.cta_button || ''}`);
+      }
+      
+      lines.push('', `Approved: ${v.is_approved ? 'Yes' : 'No'}`);
+      lines.push('');
+      return lines.join('\n');
+    }).join('\n');
+    
+    navigator.clipboard.writeText(formatted);
+    toast.success(`Đã copy ${adCopy.variations.length} variations!`);
   };
 
   const handleApprove = (variation: AdCopyVariation) => {
@@ -738,12 +779,36 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
     </div>
   );
 
+  // Loading skeleton
+  if (isLoading || !adCopy) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="space-y-4 p-2">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-lg" />
+              <Skeleton className="h-8 w-3/4" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-2xl">{platformConfig.icon}</span>
+            <span className="text-2xl">{platformConfig?.icon}</span>
             {adCopy.title}
             <Badge variant="outline" className="ml-2 text-xs">
               {getPlatformLabel(adCopy.platform)}
@@ -753,15 +818,21 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
 
         {/* Meta info */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <Badge variant="outline" className={cn(statusConfig.color, statusConfig.bgColor)}>
-            {statusConfig.label}
-          </Badge>
-          <Badge variant="secondary">
-            {objectiveConfig.icon} {objectiveConfig.label}
-          </Badge>
-          <Badge variant="secondary" className={funnelConfig.color.replace('bg-', 'text-')}>
-            {funnelConfig.label}
-          </Badge>
+          {statusConfig && (
+            <Badge variant="outline" className={cn(statusConfig.color, statusConfig.bgColor)}>
+              {statusConfig.label}
+            </Badge>
+          )}
+          {objectiveConfig && (
+            <Badge variant="secondary">
+              {objectiveConfig.icon} {objectiveConfig.label}
+            </Badge>
+          )}
+          {funnelConfig && (
+            <Badge variant="secondary" className={funnelConfig.color.replace('bg-', 'text-')}>
+              {funnelConfig.label}
+            </Badge>
+          )}
           {adCopy.brand_template && (
             <Badge variant="outline">{adCopy.brand_template.brand_name}</Badge>
           )}
@@ -789,7 +860,23 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                 Policy
               </TabsTrigger>
             </TabsList>
-            <AdCopyExportMenu adCopy={adCopy} />
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copyAllVariations}
+                    className="gap-1"
+                  >
+                    <ClipboardCopy className="h-4 w-4" />
+                    Copy tất cả
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy tất cả variations vào clipboard</TooltipContent>
+              </Tooltip>
+              <AdCopyExportMenu adCopy={adCopy} />
+            </div>
           </div>
 
           {/* Variations Tab */}

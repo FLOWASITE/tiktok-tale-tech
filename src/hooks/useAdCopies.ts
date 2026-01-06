@@ -144,6 +144,79 @@ export function useAdCopies() {
     },
   });
 
+  // Duplicate ad copy
+  const duplicateAdCopy = useMutation({
+    mutationFn: async (adCopyId: string) => {
+      // 1. Fetch original ad copy with variations
+      const { data: original, error: fetchError } = await supabase
+        .from('ad_copies')
+        .select('*')
+        .eq('id', adCopyId)
+        .single();
+      
+      if (fetchError || !original) throw new Error('Không tìm thấy ad copy');
+
+      // Fetch variations separately
+      const { data: originalVariations } = await supabase
+        .from('ad_copy_variations')
+        .select('*')
+        .eq('ad_copy_id', adCopyId);
+      
+      // 2. Create new ad copy with "(Copy)" suffix
+      const { data: newAdCopy, error: createError } = await supabase
+        .from('ad_copies')
+        .insert({
+          organization_id: original.organization_id,
+          user_id: original.user_id,
+          title: `${original.title} (Copy)`,
+          topic: original.topic,
+          platform: original.platform,
+          objective: original.objective,
+          funnel_stage: original.funnel_stage,
+          landing_url: original.landing_url,
+          audience_brief: original.audience_brief,
+          brand_template_id: original.brand_template_id,
+          product_id: original.product_id,
+          persona_id: original.persona_id,
+          campaign_id: original.campaign_id,
+          status: 'draft',
+        })
+        .select()
+        .single();
+      
+      if (createError) throw createError;
+      
+      // 3. Duplicate variations with new ad_copy_id
+      if (originalVariations?.length) {
+        const newVariations = originalVariations.map((v) => ({
+          ad_copy_id: newAdCopy.id,
+          variation_label: v.variation_label,
+          primary_text: v.primary_text,
+          headline: v.headline,
+          description: v.description,
+          cta_button: v.cta_button,
+          headlines: v.headlines,
+          descriptions: v.descriptions,
+          char_counts: v.char_counts,
+          policy_warnings: v.policy_warnings,
+          is_approved: false,
+        }));
+        
+        await supabase.from('ad_copy_variations').insert(newVariations);
+      }
+      
+      return newAdCopy;
+    },
+    onSuccess: () => {
+      toast.success('Đã nhân bản ad copy');
+      queryClient.invalidateQueries({ queryKey: ['ad-copies'] });
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể nhân bản';
+      toast.error(errorMessage);
+    },
+  });
+
   // Update ad copy status
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -204,6 +277,8 @@ export function useAdCopies() {
     updateStatus: updateStatus.mutate,
     toggleVariationApproval: toggleVariationApproval.mutate,
     updateVariation: updateVariation.mutate,
+    duplicateAdCopy: duplicateAdCopy.mutate,
+    isDuplicating: duplicateAdCopy.isPending,
     refetch,
   };
 }

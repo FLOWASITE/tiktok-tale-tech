@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Eye, Trash2, Clock, Target, Layers, Megaphone, FileText } from 'lucide-react';
+import { Eye, Trash2, Clock, Target, Layers, Megaphone, FileText, Copy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,9 +21,10 @@ interface AdCopyCardProps {
   viewMode: 'grid' | 'list';
   onView: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }
 
-export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardProps) {
+export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: AdCopyCardProps) {
   const platformConfig = getPlatformConfig(adCopy.platform);
   const objectiveConfig = getObjectiveConfig(adCopy.objective);
   const statusConfig = getStatusConfig(adCopy.status);
@@ -84,6 +85,14 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Xem chi tiết</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={onDuplicate} className="h-8 w-8 hover:bg-blue-500/10 hover:text-blue-500">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Nhân bản</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -209,14 +218,29 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
             <Eye className="h-4 w-4" />
             Xem chi tiết
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onDelete}
-            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onDuplicate}
+                  className="h-8 w-8 hover:bg-blue-500/10 hover:text-blue-500"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Nhân bản</TooltipContent>
+            </Tooltip>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onDelete}
+              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardContent>
 
