@@ -20,6 +20,7 @@ import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
@@ -91,6 +92,7 @@ export default function MultiChannel() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -115,8 +117,9 @@ export default function MultiChannel() {
     if (dateRange.from || dateRange.to) count++;
     if (tagFilter !== 'all') count++;
     if (priorityFilter !== 'all') count++;
+    if (campaignFilter) count++;
     return count;
-  }, [goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
+  }, [goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter, campaignFilter]);
 
   const clearFilters = () => {
     setGoalFilter('all');
@@ -126,6 +129,7 @@ export default function MultiChannel() {
     setDateRange({ from: undefined, to: undefined });
     setTagFilter('all');
     setPriorityFilter('all');
+    setCampaignFilter(undefined);
     setSearchQuery('');
   };
 
@@ -160,9 +164,10 @@ export default function MultiChannel() {
         const contentPriority = content.priority || 'normal';
         if (contentPriority !== priorityFilter) return false;
       }
+      if (campaignFilter && content.campaign_id !== campaignFilter) return false;
       return true;
     });
-  }, [contents, searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
+  }, [contents, searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter, campaignFilter]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredContents.length / itemsPerPage);
@@ -172,7 +177,7 @@ export default function MultiChannel() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter]);
+  }, [searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter, campaignFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -311,26 +316,36 @@ export default function MultiChannel() {
         />
 
         {/* Filters */}
-        <MultiChannelFilters
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          goalFilter={goalFilter}
-          onGoalFilterChange={setGoalFilter}
-          channelFilter={channelFilter}
-          onChannelFilterChange={setChannelFilter}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          brandFilter={brandFilter}
-          onBrandFilterChange={setBrandFilter}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          tagFilter={tagFilter}
-          onTagFilterChange={setTagFilter}
-          brandTemplates={brandTemplates}
-          availableTags={availableTags}
-          onClearFilters={clearFilters}
-          activeFilterCount={activeFilterCount}
-        />
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="flex-1">
+            <MultiChannelFilters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              goalFilter={goalFilter}
+              onGoalFilterChange={setGoalFilter}
+              channelFilter={channelFilter}
+              onChannelFilterChange={setChannelFilter}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              brandFilter={brandFilter}
+              onBrandFilterChange={setBrandFilter}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              tagFilter={tagFilter}
+              onTagFilterChange={setTagFilter}
+              brandTemplates={brandTemplates}
+              availableTags={availableTags}
+              onClearFilters={clearFilters}
+              activeFilterCount={activeFilterCount}
+            />
+          </div>
+          <CampaignSelector
+            value={campaignFilter}
+            onValueChange={setCampaignFilter}
+            placeholder="Lọc theo chiến dịch"
+            className="w-full lg:w-56"
+          />
+        </div>
 
         {/* Bulk Actions Bar */}
         <BulkActionsBar

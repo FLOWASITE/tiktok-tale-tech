@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileVideo, Sparkles, Plus, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
 type ViewMode = 'grid' | 'list';
 
@@ -82,6 +83,7 @@ const Index = () => {
     characterType: 'all',
     duration: 'all',
   });
+  const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -99,9 +101,10 @@ const Index = () => {
       if (filters.videoType !== 'all' && script.video_type !== filters.videoType) return false;
       if (filters.characterType !== 'all' && script.character_type !== filters.characterType) return false;
       if (filters.duration !== 'all' && script.duration !== filters.duration) return false;
+      if (campaignFilter && script.campaign_id !== campaignFilter) return false;
       return true;
     });
-  }, [scripts, filters]);
+  }, [scripts, filters, campaignFilter]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredScripts.length / itemsPerPage);
@@ -207,7 +210,17 @@ const Index = () => {
         )}
 
         {/* Filters */}
-        <ScriptFilters filters={filters} onFiltersChange={setFilters} />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <ScriptFilters filters={filters} onFiltersChange={setFilters} />
+          </div>
+          <CampaignSelector
+            value={campaignFilter}
+            onValueChange={setCampaignFilter}
+            placeholder="Lọc theo chiến dịch"
+            className="w-full sm:w-56"
+          />
+        </div>
 
         {/* Content Grid/List */}
         {loading ? (

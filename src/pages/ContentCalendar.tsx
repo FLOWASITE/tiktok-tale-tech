@@ -13,7 +13,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   History,
-  Flag
+  Flag,
+  Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ import { PublishingHistoryTab } from '@/components/PublishingHistoryTab';
 import { CalendarDayView } from '@/components/CalendarDayView';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarMilestoneItem } from '@/components/CalendarMilestoneItem';
+import { CampaignTimelineBar } from '@/components/calendar/CampaignTimelineBar';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData, ContentGoal } from '@/types/multichannel';
 import { ScheduleTopicDialog, ScheduleTopicData } from '@/components/topic/ScheduleTopicDialog';
@@ -265,6 +267,7 @@ export default function ContentCalendar() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [showMiniCalendar, setShowMiniCalendar] = useState(true);
+  const [showCampaignTimeline, setShowCampaignTimeline] = useState(true);
   
   // Schedule Topic Dialog state
   const [scheduleTopicDialogOpen, setScheduleTopicDialogOpen] = useState(false);
@@ -578,6 +581,17 @@ export default function ContentCalendar() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {(viewMode === 'month' || viewMode === 'week') && (
+            <Button
+              variant={showCampaignTimeline ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowCampaignTimeline(!showCampaignTimeline)}
+              className="gap-2"
+            >
+              <Target className="w-4 h-4" />
+              <span className="hidden sm:inline">Chiến dịch</span>
+            </Button>
+          )}
           {viewMode !== 'queue' && (
             <Button
               variant="outline"
@@ -797,6 +811,14 @@ export default function ContentCalendar() {
 
           {/* Main Calendar View */}
           <div className="flex-1 min-w-0">
+            {/* Campaign Timeline Bar */}
+            {showCampaignTimeline && (viewMode === 'month' || viewMode === 'week') && (
+              <CampaignTimelineBar
+                currentDate={currentDate}
+                viewMode={viewMode}
+              />
+            )}
+            
             {viewMode === 'day' ? (
               <Card className="overflow-hidden">
                 <CardContent className="p-0 h-[600px]">
