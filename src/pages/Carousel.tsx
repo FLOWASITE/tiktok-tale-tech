@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CarouselForm } from '@/components/CarouselForm';
@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SlidePanel } from '@/components/ui/slide-panel';
+import { MobileFAB } from '@/components/ui/mobile-fab';
 import { Images, Sparkles, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -89,6 +90,21 @@ const CarouselPage = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+  
+  // Mobile FAB visibility
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [showFab, setShowFab] = useState(false);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      if (heroRef.current) {
+        const heroBottom = heroRef.current.getBoundingClientRect().bottom;
+        setShowFab(heroBottom < 0);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, []);
 
   const filteredCarousels = useMemo(() => {
     return carousels.filter((carousel) => {
@@ -173,14 +189,16 @@ const CarouselPage = () => {
     <div className="min-h-screen relative bg-gradient-to-b from-background via-background to-muted/20">
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Hero Section */}
-        <CarouselHeroSection
-          carousels={carousels}
-          loading={loading}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onRefresh={refetch}
-          onCreateNew={() => setFormSheetOpen(true)}
-        />
+        <div ref={heroRef}>
+          <CarouselHeroSection
+            carousels={carousels}
+            loading={loading}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onRefresh={refetch}
+            onCreateNew={() => setFormSheetOpen(true)}
+          />
+        </div>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
@@ -434,6 +452,12 @@ const CarouselPage = () => {
           updateCarousel(updated);
           setSelectedCarousel(updated);
         }}
+      />
+      
+      {/* Mobile FAB */}
+      <MobileFAB 
+        visible={showFab && !formSheetOpen} 
+        onClick={() => setFormSheetOpen(true)}
       />
     </div>
   );
