@@ -26,6 +26,7 @@ interface AdCopyCardProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onStatusChange?: (id: string, status: string) => void;
+  onAddToSequence?: () => void;
 }
 
 // Memoized card component with custom comparison
@@ -35,7 +36,8 @@ export const AdCopyCard = memo(function AdCopyCard({
   onView, 
   onDelete, 
   onDuplicate,
-  onStatusChange 
+  onStatusChange,
+  onAddToSequence
 }: AdCopyCardProps) {
   const [showQuickPreview, setShowQuickPreview] = useState(false);
   
@@ -115,6 +117,7 @@ export const AdCopyCard = memo(function AdCopyCard({
                 onDuplicate={handleDuplicate}
                 onDelete={handleDelete}
                 onStatusChange={onStatusChange ? handleStatusChange : undefined}
+                onAddToSequence={onAddToSequence}
               />
             </div>
           </CardContent>
@@ -168,6 +171,7 @@ export const AdCopyCard = memo(function AdCopyCard({
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onStatusChange={onStatusChange ? handleStatusChange : undefined}
+                  onAddToSequence={onAddToSequence}
                 />
               </div>
             </div>

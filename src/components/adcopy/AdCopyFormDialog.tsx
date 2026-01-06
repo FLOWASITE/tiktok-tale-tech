@@ -30,6 +30,8 @@ import { AdCopyBrainstormSheet } from './AdCopyBrainstormSheet';
 import { GroupedPlatformSelector } from './GroupedPlatformSelector';
 import { TemplateQuickStart, type QuickTemplate } from './TemplateQuickStart';
 import { AISuggestionsPanel } from './AISuggestionsPanel';
+import { AudienceBuilder } from './audience/AudienceBuilder';
+import { formatAudienceSummary } from '@/types/audience';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCampaigns } from '@/hooks/useCampaigns';
@@ -494,19 +496,18 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
                     />
                   </div>
 
-                  {/* Audience Brief */}
+                  {/* Audience Targeting - Visual Builder */}
                   <div className="space-y-2">
-                    <Label htmlFor="audienceBrief" className="flex items-center gap-2 text-sm">
+                    <Label className="flex items-center gap-2 text-sm">
                       <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      Mô tả đối tượng
+                      Đối tượng mục tiêu
                     </Label>
-                    <Textarea
-                      id="audienceBrief"
-                      placeholder="VD: Nữ 25-35 tuổi, quan tâm đến marketing, thu nhập trung bình khá"
-                      value={formData.audienceBrief || ''}
-                      onChange={(e) => updateField('audienceBrief', e.target.value || undefined)}
-                      rows={2}
-                      className="bg-background border-border/50 resize-none"
+                    <AudienceBuilder
+                      value={{}}
+                      onChange={(data) => {
+                        updateField('audienceBrief', formatAudienceSummary(data));
+                      }}
+                      compact={true}
                     />
                   </div>
                 </motion.div>
