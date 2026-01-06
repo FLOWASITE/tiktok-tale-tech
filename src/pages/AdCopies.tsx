@@ -12,6 +12,7 @@ import { AdCopyFormDialog } from '@/components/adcopy/AdCopyFormDialog';
 import { LazyAdCopyViewer } from '@/components/adcopy/LazyAdCopyViewer';
 import { SwipeFileLibrary } from '@/components/adcopy/swipe/SwipeFileLibrary';
 import { TrendAlertBanner } from '@/components/adcopy/trend/TrendAlertBanner';
+import { SequenceListView, AddToSequenceDialog } from '@/components/adcopy/sequences';
 import type { AdCopy } from '@/types/adCopy';
 import type { MarketingEvent } from '@/types/marketingCalendar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,7 +48,11 @@ export default function AdCopies() {
   // View states
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<'ads' | 'swipe'>('ads');
+  const [activeTab, setActiveTab] = useState<'ads' | 'swipe' | 'sequences'>('ads');
+  
+  // Add to Sequence states
+  const [showAddToSequenceDialog, setShowAddToSequenceDialog] = useState(false);
+  const [adCopyForSequence, setAdCopyForSequence] = useState<AdCopy | null>(null);
   
   // Dialog states
   const [formOpen, setFormOpen] = useState(false);
@@ -204,6 +209,12 @@ export default function AdCopies() {
     setFormOpen(true);
   };
 
+  // Handle add to sequence
+  const handleAddToSequence = useCallback((adCopy: AdCopy) => {
+    setAdCopyForSequence(adCopy);
+    setShowAddToSequenceDialog(true);
+  }, []);
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Close Button */}
@@ -231,11 +242,16 @@ export default function AdCopies() {
         />
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ads' | 'swipe')}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ads' | 'swipe' | 'sequences')}>
           <TabsList>
             <TabsTrigger value="ads">Ad Copies ({adCopies.length})</TabsTrigger>
+            <TabsTrigger value="sequences">Sequences</TabsTrigger>
             <TabsTrigger value="swipe">Swipe File Library</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="sequences" className="mt-4">
+            <SequenceListView />
+          </TabsContent>
 
           <TabsContent value="swipe" className="mt-4">
             <SwipeFileLibrary
@@ -351,6 +367,7 @@ export default function AdCopies() {
                       onDelete={() => handleDelete(adCopy.id)}
                       onDuplicate={() => handleDuplicate(adCopy.id)}
                       onStatusChange={handleStatusChange}
+                      onAddToSequence={() => handleAddToSequence(adCopy)}
                     />
                   </motion.div>
                 ))}
@@ -427,6 +444,13 @@ export default function AdCopies() {
         onOpenChange={setViewerOpen}
         adCopy={selectedAdCopy}
         isLoading={isLoadingDetail}
+      />
+
+      {/* Add to Sequence Dialog */}
+      <AddToSequenceDialog
+        open={showAddToSequenceDialog}
+        onOpenChange={setShowAddToSequenceDialog}
+        adCopy={adCopyForSequence}
       />
     </div>
   );

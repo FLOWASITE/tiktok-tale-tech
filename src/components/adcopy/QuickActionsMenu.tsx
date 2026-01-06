@@ -9,7 +9,8 @@ import {
   FileEdit,
   Send,
   CheckCircle,
-  Clock
+  Clock,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +34,7 @@ interface QuickActionsMenuProps {
   onDuplicate: () => void;
   onDelete: () => void;
   onStatusChange?: (status: AdStatus) => void;
+  onAddToSequence?: () => void;
 }
 
 const STATUS_OPTIONS: { value: AdStatus; label: string; icon: React.ElementType; color: string }[] = [
@@ -49,6 +51,7 @@ export const QuickActionsMenu = memo(function QuickActionsMenu({
   onDuplicate,
   onDelete,
   onStatusChange,
+  onAddToSequence,
 }: QuickActionsMenuProps) {
   const [open, setOpen] = useState(false);
 
@@ -124,6 +127,13 @@ export const QuickActionsMenu = memo(function QuickActionsMenu({
           <Copy className="h-4 w-4" />
           Nhân bản
         </DropdownMenuItem>
+
+        {onAddToSequence && (
+          <DropdownMenuItem onClick={onAddToSequence} className="gap-2 cursor-pointer">
+            <Layers className="h-4 w-4" />
+            Thêm vào Sequence
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
 
