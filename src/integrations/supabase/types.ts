@@ -14,6 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_copies: {
+        Row: {
+          audience_brief: string | null
+          brand_template_id: string | null
+          created_at: string | null
+          funnel_stage: Database["public"]["Enums"]["ad_funnel_stage"] | null
+          id: string
+          industry_template_id: string | null
+          industry_template_version: string | null
+          landing_url: string | null
+          objective: Database["public"]["Enums"]["ad_objective"]
+          organization_id: string | null
+          persona_id: string | null
+          platform: Database["public"]["Enums"]["ad_platform"]
+          product_id: string | null
+          status: string | null
+          title: string
+          topic: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          audience_brief?: string | null
+          brand_template_id?: string | null
+          created_at?: string | null
+          funnel_stage?: Database["public"]["Enums"]["ad_funnel_stage"] | null
+          id?: string
+          industry_template_id?: string | null
+          industry_template_version?: string | null
+          landing_url?: string | null
+          objective?: Database["public"]["Enums"]["ad_objective"]
+          organization_id?: string | null
+          persona_id?: string | null
+          platform?: Database["public"]["Enums"]["ad_platform"]
+          product_id?: string | null
+          status?: string | null
+          title: string
+          topic: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          audience_brief?: string | null
+          brand_template_id?: string | null
+          created_at?: string | null
+          funnel_stage?: Database["public"]["Enums"]["ad_funnel_stage"] | null
+          id?: string
+          industry_template_id?: string | null
+          industry_template_version?: string | null
+          landing_url?: string | null
+          objective?: Database["public"]["Enums"]["ad_objective"]
+          organization_id?: string | null
+          persona_id?: string | null
+          platform?: Database["public"]["Enums"]["ad_platform"]
+          product_id?: string | null
+          status?: string | null
+          title?: string
+          topic?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copies_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_memory_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_industry_template_id_fkey"
+            columns: ["industry_template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "customer_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "brand_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_copy_variations: {
+        Row: {
+          ad_copy_id: string
+          char_counts: Json | null
+          created_at: string | null
+          cta_button: string | null
+          description: string | null
+          descriptions: Json | null
+          headline: string | null
+          headlines: Json | null
+          id: string
+          is_approved: boolean | null
+          policy_warnings: Json | null
+          primary_text: string | null
+          variation_label: string
+        }
+        Insert: {
+          ad_copy_id: string
+          char_counts?: Json | null
+          created_at?: string | null
+          cta_button?: string | null
+          description?: string | null
+          descriptions?: Json | null
+          headline?: string | null
+          headlines?: Json | null
+          id?: string
+          is_approved?: boolean | null
+          policy_warnings?: Json | null
+          primary_text?: string | null
+          variation_label?: string
+        }
+        Update: {
+          ad_copy_id?: string
+          char_counts?: Json | null
+          created_at?: string | null
+          cta_button?: string | null
+          description?: string | null
+          descriptions?: Json | null
+          headline?: string | null
+          headlines?: Json | null
+          id?: string
+          is_approved?: boolean | null
+          policy_warnings?: Json | null
+          primary_text?: string | null
+          variation_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_variations_ad_copy_id_fkey"
+            columns: ["ad_copy_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_channel_model_configs: {
         Row: {
           channel: string
@@ -4647,6 +4809,29 @@ export type Database = {
       }
     }
     Enums: {
+      ad_funnel_stage:
+        | "awareness"
+        | "consideration"
+        | "conversion"
+        | "retention"
+      ad_objective:
+        | "traffic"
+        | "conversions"
+        | "engagement"
+        | "awareness"
+        | "leads"
+        | "app_installs"
+        | "video_views"
+        | "messages"
+      ad_platform:
+        | "meta_feed"
+        | "meta_story"
+        | "meta_reels"
+        | "google_rsa"
+        | "google_display"
+        | "tiktok"
+        | "zalo"
+        | "linkedin"
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok"
@@ -4792,6 +4977,32 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ad_funnel_stage: [
+        "awareness",
+        "consideration",
+        "conversion",
+        "retention",
+      ],
+      ad_objective: [
+        "traffic",
+        "conversions",
+        "engagement",
+        "awareness",
+        "leads",
+        "app_installs",
+        "video_views",
+        "messages",
+      ],
+      ad_platform: [
+        "meta_feed",
+        "meta_story",
+        "meta_reels",
+        "google_rsa",
+        "google_display",
+        "tiktok",
+        "zalo",
+        "linkedin",
+      ],
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
       carousel_platform: ["facebook", "tiktok"],
