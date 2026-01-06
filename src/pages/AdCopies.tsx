@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Megaphone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAdCopies } from '@/hooks/useAdCopies';
 import { AdCopyCard } from '@/components/adcopy/AdCopyCard';
 import { AdCopyHeroSection } from '@/components/adcopy/AdCopyHeroSection';
 import { AdCopyFilters, DatePreset, SortOption } from '@/components/adcopy/AdCopyFilters';
 import { AdCopyFormDialog } from '@/components/adcopy/AdCopyFormDialog';
 import { LazyAdCopyViewer } from '@/components/adcopy/LazyAdCopyViewer';
+import { SwipeFileLibrary } from '@/components/adcopy/swipe/SwipeFileLibrary';
+import { TrendAlertBanner } from '@/components/adcopy/trend/TrendAlertBanner';
 import type { AdCopy } from '@/types/adCopy';
+import type { MarketingEvent } from '@/types/marketingCalendar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
@@ -43,11 +47,13 @@ export default function AdCopies() {
   // View states
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'ads' | 'swipe'>('ads');
   
   // Dialog states
   const [formOpen, setFormOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedAdCopy, setSelectedAdCopy] = useState<AdCopy | null>(null);
+  const [initialTopic, setInitialTopic] = useState('');
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // Get unique campaigns and brands for filter dropdowns
@@ -190,6 +196,14 @@ export default function AdCopies() {
     setStatusFilter(status);
     setCurrentPage(1);
   };
+
+  // Handle trend event click
+  const handleTrendClick = (event: MarketingEvent & { daysUntil: number }) => {
+    const theme = event.suggested_themes?.[0] || '';
+    setInitialTopic(`[${event.event_name_vi || event.event_name}] ${theme}`);
+    setFormOpen(true);
+  };
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Close Button */}
@@ -203,6 +217,9 @@ export default function AdCopies() {
       </Button>
 
       <div className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 space-y-4">
+        {/* Trend Alert Banner */}
+        <TrendAlertBanner onCreateAd={handleTrendClick} />
+
         {/* Hero Section */}
         <AdCopyHeroSection
           adCopies={adCopies}
@@ -212,6 +229,24 @@ export default function AdCopies() {
           isLoading={isLoading}
           onFilterByStatus={handleFilterByStatus}
         />
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ads' | 'swipe')}>
+          <TabsList>
+            <TabsTrigger value="ads">Ad Copies ({adCopies.length})</TabsTrigger>
+            <TabsTrigger value="swipe">Swipe File Library</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="swipe" className="mt-4">
+            <SwipeFileLibrary
+              onSelectForInspiration={(file) => {
+                setInitialTopic(`[Inspired by: ${file.headline || 'swipe file'}] `);
+                setFormOpen(true);
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="ads" className="mt-4">
 
         {/* Filters */}
         <AdCopyFilters
@@ -367,6 +402,8 @@ export default function AdCopies() {
             </motion.div>
           )}
         </AnimatePresence>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Form Dialog */}
