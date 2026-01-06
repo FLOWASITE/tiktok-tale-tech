@@ -158,10 +158,10 @@ export function CampaignCard({
 
       <CardContent className="space-y-2 sm:space-y-4 px-2.5 sm:px-6 pb-2.5 sm:pb-6">
         {/* Date range */}
-        <div className="flex items-center justify-between text-[11px] sm:text-sm">
-          <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground">
+        <div className="flex items-center justify-between text-[11px] sm:text-sm min-w-0">
+          <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground min-w-0">
             <Calendar className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-            <span className="truncate">
+            <span className="truncate min-w-0">
               {format(startDate, 'dd/MM', { locale: vi })} - {format(endDate, 'dd/MM', { locale: vi })}
             </span>
           </div>
@@ -200,10 +200,10 @@ export function CampaignCard({
         )}
 
         {/* Channels & Budget */}
-        <div className="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-border/50">
-          <div className="flex gap-0.5 sm:gap-1 flex-wrap">
+        <div className="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-border/50 min-w-0">
+          <div className="flex gap-0.5 sm:gap-1 flex-wrap min-w-0 max-w-[60%]">
             {campaign.target_channels.slice(0, 2).map(channel => (
-              <Badge key={channel} variant="secondary" className="text-[9px] sm:text-xs px-1 sm:px-2 h-5 sm:h-auto">
+              <Badge key={channel} variant="secondary" className="text-[9px] sm:text-xs px-1 sm:px-2 h-5 sm:h-auto max-w-[80px] sm:max-w-none truncate">
                 {channel}
               </Badge>
             ))}

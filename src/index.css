@@ -186,9 +186,17 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    @apply overflow-x-hidden;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
     font-family: var(--font-sans);
+  }
+
+  #root {
+    @apply overflow-x-hidden;
   }
 }
 

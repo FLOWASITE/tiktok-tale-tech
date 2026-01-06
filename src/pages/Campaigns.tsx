@@ -77,7 +77,7 @@ export default function Campaigns() {
   };
 
   return (
-    <div className="space-y-3 sm:space-y-6 max-w-full overflow-hidden">
+    <div className="min-w-0 space-y-3 sm:space-y-6 max-w-full overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
@@ -141,7 +141,7 @@ export default function Campaigns() {
           />
         </div>
         
-        <div className="flex items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0 overflow-hidden">
           {/* Tabs - wrap on mobile */}
           <div className="flex-1 min-w-0">
             <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)}>
