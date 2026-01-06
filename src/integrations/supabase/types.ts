@@ -5278,6 +5278,9 @@ export type Database = {
         | "tiktok"
         | "zalo"
         | "linkedin"
+        | "zalo_oa"
+        | "zalo_message"
+        | "zalo_article"
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok"
@@ -5448,6 +5451,9 @@ export const Constants = {
         "tiktok",
         "zalo",
         "linkedin",
+        "zalo_oa",
+        "zalo_message",
+        "zalo_article",
       ],
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
