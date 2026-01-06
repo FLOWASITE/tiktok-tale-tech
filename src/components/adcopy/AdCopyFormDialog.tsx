@@ -27,6 +27,9 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { AdCopyBrainstormSheet } from './AdCopyBrainstormSheet';
+import { GroupedPlatformSelector } from './GroupedPlatformSelector';
+import { TemplateQuickStart, type QuickTemplate } from './TemplateQuickStart';
+import { AISuggestionsPanel } from './AISuggestionsPanel';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCampaigns } from '@/hooks/useCampaigns';
@@ -54,6 +57,7 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
   const { campaigns } = useCampaigns();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  const [showAISuggestions, setShowAISuggestions] = useState(true);
   const [formData, setFormData] = useState<AdCopyFormData>({
     topic: '',
     platform: 'facebook_feed',
@@ -62,6 +66,34 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
     variationCount: 3,
     campaignId: defaultCampaignId,
   });
+
+  // Handle template quick start
+  const handleSelectTemplate = (template: QuickTemplate) => {
+    setFormData(prev => ({
+      ...prev,
+      platform: template.preset.platform || prev.platform,
+      objective: template.preset.objective || prev.objective,
+      funnelStage: template.preset.funnelStage || prev.funnelStage,
+      topic: template.preset.topicHint ? `[${template.name}] ` : prev.topic,
+    }));
+    toast.success(`Đã áp dụng template "${template.name}"`);
+  };
+
+  // Handle AI suggestion apply
+  const handleApplySuggestion = (suggestion: Partial<{
+    platform: AdPlatform;
+    objective: AdObjective;
+    funnelStage: AdFunnelStage;
+  }>) => {
+    setFormData(prev => ({
+      ...prev,
+      ...(suggestion.platform && { platform: suggestion.platform }),
+      ...(suggestion.objective && { objective: suggestion.objective }),
+      ...(suggestion.funnelStage && { funnelStage: suggestion.funnelStage }),
+    }));
+    setShowAISuggestions(false);
+    toast.success('Đã áp dụng gợi ý từ AI');
+  };
 
   // Update campaignId when defaultCampaignId changes
   useEffect(() => {
@@ -153,22 +185,37 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
                     required
                     className="bg-background/60 backdrop-blur-sm border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 resize-none"
                   />
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <p className="text-xs text-muted-foreground">
                       Mô tả càng chi tiết, AI sẽ tạo ad copy càng chất lượng
                     </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowBrainstormSheet(true)}
-                      disabled={isGenerating}
-                      className="gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      Brainstorm với AI
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <TemplateQuickStart onSelectTemplate={handleSelectTemplate} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowBrainstormSheet(true)}
+                        disabled={isGenerating}
+                        className="gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        Brainstorm với AI
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* AI Suggestions Panel - appears when topic is long enough */}
+                  {showAISuggestions && formData.topic.length >= 20 && (
+                    <AISuggestionsPanel
+                      topic={formData.topic}
+                      currentPlatform={formData.platform}
+                      currentObjective={formData.objective}
+                      currentFunnelStage={formData.funnelStage}
+                      onApplySuggestion={handleApplySuggestion}
+                      onDismiss={() => setShowAISuggestions(false)}
+                    />
+                  )}
                 </motion.div>
               </div>
 
@@ -275,43 +322,10 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
                 <Target className="h-4 w-4 text-primary" />
                 Nền tảng quảng cáo
               </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {AD_PLATFORMS.map((platform, index) => (
-                  <motion.button
-                    key={platform.value}
-                    type="button"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2 + index * 0.03 }}
-                    onClick={() => updateField('platform', platform.value as AdPlatform)}
-                    className={cn(
-                      "group relative p-4 rounded-xl border-2 text-left transition-all duration-200 overflow-hidden",
-                      formData.platform === platform.value
-                        ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                        : "border-border/50 bg-background/60 hover:border-primary/50 hover:bg-muted/30"
-                    )}
-                  >
-                    {formData.platform === platform.value && (
-                      <motion.div
-                        layoutId="platform-selected"
-                        className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent"
-                        initial={false}
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                      />
-                    )}
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-2xl">{platform.icon}</span>
-                        {formData.platform === platform.value && (
-                          <CheckCircle2 className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
-                      <div className="font-medium text-sm">{platform.label}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-1">{platform.description}</div>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
+              <GroupedPlatformSelector
+                value={formData.platform}
+                onChange={(platform) => updateField('platform', platform)}
+              />
             </motion.div>
 
             {/* Objective Selection - Chips */}
