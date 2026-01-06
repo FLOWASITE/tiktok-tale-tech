@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.analyze-dashboard-insights]
 verify_jwt = false
+
+[functions.suggest-campaign-kpis]
+verify_jwt = false
