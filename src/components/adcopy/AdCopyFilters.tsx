@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import { AD_PLATFORMS, AD_COPY_STATUSES, AD_OBJECTIVES, FUNNEL_STAGES } from '@/types/adCopy';
+import { AD_PLATFORMS, AD_COPY_STATUSES, AD_OBJECTIVES, FUNNEL_STAGES, LEGACY_PLATFORMS } from '@/types/adCopy';
 
 interface AdCopyFiltersProps {
   searchQuery: string;
@@ -115,16 +115,29 @@ export function AdCopyFilters({
 
         {/* Platform Filter */}
         <Select value={platformFilter} onValueChange={onPlatformFilterChange}>
-          <SelectTrigger className="w-[140px] bg-background/60 backdrop-blur-sm border-border/50">
+          <SelectTrigger className="w-[160px] bg-background/60 backdrop-blur-sm border-border/50">
             <SelectValue placeholder="Platform" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="all">Tất cả Platform</SelectItem>
             {AD_PLATFORMS.map(p => (
               <SelectItem key={p.value} value={p.value}>
                 {p.icon} {p.label}
               </SelectItem>
             ))}
+            {/* Legacy platforms for filtering old data */}
+            {LEGACY_PLATFORMS.length > 0 && (
+              <>
+                <div className="px-2 py-1.5 text-xs text-muted-foreground border-t mt-1 pt-2">
+                  Legacy Platforms
+                </div>
+                {LEGACY_PLATFORMS.map(p => (
+                  <SelectItem key={p.value} value={p.value} className="text-muted-foreground">
+                    📦 {p.label}
+                  </SelectItem>
+                ))}
+              </>
+            )}
           </SelectContent>
         </Select>
 

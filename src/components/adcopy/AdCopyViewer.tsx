@@ -19,7 +19,8 @@ import {
   getFunnelStageConfig,
   getStatusConfig,
   getCharLimits,
-  CTA_BUTTONS
+  CTA_BUTTONS,
+  getPlatformLabel
 } from '@/types/adCopy';
 import { ABTestSetupDialog, ABTestCard, ABTestResultsView } from './ab-testing';
 import { PerformanceDashboard } from './performance';
@@ -268,6 +269,107 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
     </div>
   );
 
+  const renderGoogleDisplayVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      {/* Short Headlines */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label>Short Headlines ({variation.headlines?.length || 0}/5)</Label>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => copyToClipboard(variation.headlines?.join('\n') || '', 'Short Headlines')}
+          >
+            <Copy className="h-3 w-3 mr-1" />
+            Copy tất cả
+          </Button>
+        </div>
+        <div className="grid gap-2">
+          {variation.headlines?.map((headline, i) => (
+            <div key={i} className="flex items-center gap-2 group">
+              <span className="text-xs text-muted-foreground w-5">{i + 1}.</span>
+              <div className={cn(
+                "flex-1 p-2 rounded-lg bg-muted/50 border text-sm",
+                headline.length > 25 ? "border-destructive" : "border-border"
+              )}>
+                {headline}
+              </div>
+              <span className={cn(
+                "text-xs font-mono",
+                headline.length > 25 ? "text-destructive" : "text-muted-foreground"
+              )}>
+                {headline.length}/25
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Long Headline */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Long Headline</Label>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={() => copyToClipboard(variation.headline || '', 'Long Headline')}
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className={cn(
+          "p-3 rounded-lg bg-muted/50 border text-sm font-medium",
+          (variation.headline?.length || 0) > 90 ? "border-destructive" : "border-border"
+        )}>
+          {variation.headline || '-'}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <span className={cn(
+            "text-xs font-mono",
+            (variation.headline?.length || 0) > 90 ? "text-destructive" : "text-muted-foreground"
+          )}>
+            {variation.headline?.length || 0}/90
+          </span>
+        </div>
+      </div>
+
+      {/* Descriptions */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label>Descriptions ({variation.descriptions?.length || 0}/5)</Label>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => copyToClipboard(variation.descriptions?.join('\n') || '', 'Descriptions')}
+          >
+            <Copy className="h-3 w-3 mr-1" />
+            Copy tất cả
+          </Button>
+        </div>
+        <div className="grid gap-2">
+          {variation.descriptions?.map((desc, i) => (
+            <div key={i} className="flex items-start gap-2 group">
+              <span className="text-xs text-muted-foreground w-5 pt-2">{i + 1}.</span>
+              <div className={cn(
+                "flex-1 p-2 rounded-lg bg-muted/50 border text-sm",
+                desc.length > 90 ? "border-destructive" : "border-border"
+              )}>
+                {desc}
+              </div>
+              <span className={cn(
+                "text-xs font-mono pt-2",
+                desc.length > 90 ? "text-destructive" : "text-muted-foreground"
+              )}>
+                {desc.length}/90
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderTikTokVariation = (variation: AdCopyVariation) => (
     <div className="space-y-4">
       {/* TikTok Preview Mockup */}
@@ -473,6 +575,9 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
           <DialogTitle className="flex items-center gap-2">
             <span className="text-2xl">{platformConfig.icon}</span>
             {adCopy.title}
+            <Badge variant="outline" className="ml-2 text-xs">
+              {getPlatformLabel(adCopy.platform)}
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -561,6 +666,8 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                     <CardContent>
                       {adCopy.platform === 'google_rsa' 
                         ? renderGoogleRSAVariation(variation)
+                        : adCopy.platform === 'google_display'
+                        ? renderGoogleDisplayVariation(variation)
                         : adCopy.platform === 'tiktok'
                         ? renderTikTokVariation(variation)
                         : adCopy.platform === 'zalo_oa' || adCopy.platform === 'zalo_message' || adCopy.platform === 'zalo_article'

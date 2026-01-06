@@ -12,7 +12,8 @@ import {
   getPlatformConfig, 
   getObjectiveConfig, 
   getStatusConfig,
-  getFunnelStageConfig
+  getFunnelStageConfig,
+  getPlatformLabel
 } from '@/types/adCopy';
 
 interface AdCopyCardProps {
@@ -111,7 +112,7 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete }: AdCopyCardPro
               </div>
               <div>
                 <Badge variant="secondary" className="text-xs">
-                  {platformConfig.label}
+                  {getPlatformLabel(adCopy.platform)}
                 </Badge>
               </div>
             </div>
