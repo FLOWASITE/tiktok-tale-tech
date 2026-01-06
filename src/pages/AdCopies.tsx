@@ -90,7 +90,7 @@ export default function AdCopies() {
         variant="ghost"
         size="icon"
         onClick={() => navigate('/')}
-        className="fixed top-3 right-3 z-50 h-9 w-9 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-muted"
+        className="fixed top-3 right-3 z-[60] h-9 w-9 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-muted shadow-md"
       >
         <X className="h-4 w-4" />
       </Button>
