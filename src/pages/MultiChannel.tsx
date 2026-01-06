@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Sparkles, X, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { MultiChannelCard } from '@/components/MultiChannelCard';
@@ -21,9 +21,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
-
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
-
 interface LocationState {
   prefillTopic?: string;
   prefillGoal?: ContentGoal;
@@ -31,47 +29,51 @@ interface LocationState {
   contentPurpose?: string;
   marketingFramework?: string;
 }
-
 export default function MultiChannel() {
   const navigate = useNavigate();
   const location = useLocation();
   const prefillData = location.state as LocationState | null;
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const { 
-    contents, 
-    loading, 
-    regeneratingChannel, 
-    aiEditingChannel, 
+  const {
+    contents,
+    loading,
+    regeneratingChannel,
+    aiEditingChannel,
     expandingChannels,
-    regenerateChannel, 
-    updateChannelContent, 
-    aiEditChannel, 
+    regenerateChannel,
+    updateChannelContent,
+    aiEditChannel,
     deleteContent,
     updateStatus,
     updateChannelStatus,
     updateTitleTopic,
     saveChannelImage,
     deleteChannelImage,
-    expandChannels,
+    expandChannels
   } = useMultiChannelContents();
-  
-  const { templates: brandTemplates } = useBrandTemplates();
-  
+  const {
+    templates: brandTemplates
+  } = useBrandTemplates();
+
   // Fetch creator profiles for all contents
   const userIds = useMemo(() => contents.map(c => c.user_id), [contents]);
-  const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
-  
+  const {
+    profiles: creatorProfiles,
+    isLoading: isLoadingProfiles
+  } = useCreatorProfiles(userIds);
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
 
   // Handle prefill from Topics Hub - redirect to create page
   useEffect(() => {
     if (prefillData?.prefillTopic || prefillData?.prefillGoal || prefillData?.contentPurpose) {
-      navigate('/multichannel/new', { state: prefillData });
+      navigate('/multichannel/new', {
+        state: prefillData
+      });
       window.history.replaceState({}, document.title);
     }
   }, [prefillData, navigate]);
-  
+
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -82,14 +84,17 @@ export default function MultiChannel() {
   const [showPostCreationPrompt, setShowPostCreationPrompt] = useState(false);
   const [newlyCreatedContent, setNewlyCreatedContent] = useState<MultiChannelContent | null>(null);
   const [showAssignmentDialog, setShowAssignmentDialog] = useState(false);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState<ContentGoal | 'all'>('all');
   const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<ContentStatus | 'all'>('all');
   const [brandFilter, setBrandFilter] = useState<string | 'all'>('all');
-  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: undefined,
+    to: undefined
+  });
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
@@ -120,21 +125,22 @@ export default function MultiChannel() {
     if (campaignFilter) count++;
     return count;
   }, [goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter, campaignFilter]);
-
   const clearFilters = () => {
     setGoalFilter('all');
     setChannelFilter('all');
     setStatusFilter('all');
     setBrandFilter('all');
-    setDateRange({ from: undefined, to: undefined });
+    setDateRange({
+      from: undefined,
+      to: undefined
+    });
     setTagFilter('all');
     setPriorityFilter('all');
     setCampaignFilter(undefined);
     setSearchQuery('');
   };
-
   const filteredContents = useMemo(() => {
-    return contents.filter((content) => {
+    return contents.filter(content => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const topic = typeof content.topic === 'string' ? content.topic : '';
@@ -174,26 +180,21 @@ export default function MultiChannel() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedContents = filteredContents.slice(startIndex, endIndex);
-
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, goalFilter, channelFilter, statusFilter, brandFilter, dateRange, tagFilter, priorityFilter, campaignFilter]);
-
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
-
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
-
   const handleItemsPerPageChange = (value: string) => {
     setItemsPerPage(Number(value));
     setCurrentPage(1);
   };
-
   const handleView = (content: MultiChannelContent) => {
     setSelectedContent(content);
     setViewerOpen(true);
@@ -203,41 +204,34 @@ export default function MultiChannel() {
   const handleAddNew = () => {
     navigate('/multichannel/new');
   };
-
   const handleRegenerate = async (contentId: string, channel: Channel) => {
     const updated = await regenerateChannel(contentId, channel);
     if (updated) setSelectedContent(updated);
     return updated;
   };
-
   const handleUpdateContent = async (contentId: string, channel: Channel, newContent: string) => {
     const updated = await updateChannelContent(contentId, channel, newContent);
     if (updated) setSelectedContent(updated);
     return updated;
   };
-
   const handleAIEdit = async (contentId: string, channel: Channel, instruction: string, currentContent: string) => {
     return await aiEditChannel(contentId, channel, instruction, currentContent);
   };
-
   const handleUpdateTitleTopic = async (contentId: string, title: string, topic: string) => {
     const updated = await updateTitleTopic(contentId, title, topic);
     if (updated) setSelectedContent(updated);
     return updated;
   };
-
   const handleUpdateChannelStatus = async (contentId: string, channel: Channel, status: ContentStatus) => {
     const updated = await updateChannelStatus(contentId, channel, status);
     if (updated) setSelectedContent(updated);
     return updated;
   };
-
   const handleExpandChannels = async (contentId: string, newChannels: Channel[]) => {
     const updated = await expandChannels(contentId, newChannels);
     if (updated) setSelectedContent(updated);
     return updated;
   };
-
   const handleDelete = async (id: string) => {
     await deleteContent(id);
     selectedIds.delete(id);
@@ -254,10 +248,8 @@ export default function MultiChannel() {
     }
     setSelectedIds(newSelected);
   };
-
   const selectAll = () => setSelectedIds(new Set(filteredContents.map(c => c.id)));
   const clearSelection = () => setSelectedIds(new Set());
-
   const handleBulkDelete = async () => {
     setIsBulkDeleting(true);
     const idsToDelete = Array.from(selectedIds);
@@ -274,7 +266,6 @@ export default function MultiChannel() {
     setIsBulkDeleting(false);
     toast.success(`Đã xóa ${successCount}/${idsToDelete.length} nội dung`);
   };
-
   const handleBulkStatusChange = async (status: ContentStatus) => {
     setIsBulkUpdating(true);
     const idsToUpdate = Array.from(selectedIds);
@@ -291,93 +282,34 @@ export default function MultiChannel() {
     setIsBulkUpdating(false);
     toast.success(`Đã cập nhật ${successCount}/${idsToUpdate.length} nội dung`);
   };
-
-  return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+  return <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Close Button - Fixed top right */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate('/')}
-        className="fixed top-3 right-3 z-50 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm"
-        title="Đóng"
-      >
-        <X className="h-4 w-4" />
+      <Button variant="ghost" size="icon" onClick={() => navigate('/')} className="fixed top-3 right-3 z-50 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm" title="Đóng">
+        
       </Button>
 
       <div className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 space-y-4">
         {/* Hero Section with Stats */}
-        <MultiChannelHeroSection
-          contents={contents}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onAddNew={handleAddNew}
-          isLoading={loading}
-        />
+        <MultiChannelHeroSection contents={contents} viewMode={viewMode} onViewModeChange={setViewMode} onAddNew={handleAddNew} isLoading={loading} />
 
         {/* Filters */}
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="flex-1">
-            <MultiChannelFilters
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              goalFilter={goalFilter}
-              onGoalFilterChange={setGoalFilter}
-              channelFilter={channelFilter}
-              onChannelFilterChange={setChannelFilter}
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              brandFilter={brandFilter}
-              onBrandFilterChange={setBrandFilter}
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              tagFilter={tagFilter}
-              onTagFilterChange={setTagFilter}
-              brandTemplates={brandTemplates}
-              availableTags={availableTags}
-              onClearFilters={clearFilters}
-              activeFilterCount={activeFilterCount}
-            />
+            <MultiChannelFilters searchQuery={searchQuery} onSearchChange={setSearchQuery} goalFilter={goalFilter} onGoalFilterChange={setGoalFilter} channelFilter={channelFilter} onChannelFilterChange={setChannelFilter} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} brandFilter={brandFilter} onBrandFilterChange={setBrandFilter} dateRange={dateRange} onDateRangeChange={setDateRange} tagFilter={tagFilter} onTagFilterChange={setTagFilter} brandTemplates={brandTemplates} availableTags={availableTags} onClearFilters={clearFilters} activeFilterCount={activeFilterCount} />
           </div>
-          <CampaignSelector
-            value={campaignFilter}
-            onValueChange={setCampaignFilter}
-            placeholder="Lọc theo chiến dịch"
-            className="w-full lg:w-56"
-          />
+          <CampaignSelector value={campaignFilter} onValueChange={setCampaignFilter} placeholder="Lọc theo chiến dịch" className="w-full lg:w-56" />
         </div>
 
         {/* Bulk Actions Bar */}
-        <BulkActionsBar
-          selectedCount={selectedIds.size}
-          totalCount={filteredContents.length}
-          onSelectAll={selectAll}
-          onClearSelection={clearSelection}
-          onBulkDelete={handleBulkDelete}
-          onBulkStatusChange={handleBulkStatusChange}
-          onBulkSchedule={() => setBulkScheduleOpen(true)}
-          isDeleting={isBulkDeleting}
-          isUpdating={isBulkUpdating}
-        />
+        <BulkActionsBar selectedCount={selectedIds.size} totalCount={filteredContents.length} onSelectAll={selectAll} onClearSelection={clearSelection} onBulkDelete={handleBulkDelete} onBulkStatusChange={handleBulkStatusChange} onBulkSchedule={() => setBulkScheduleOpen(true)} isDeleting={isBulkDeleting} isUpdating={isBulkUpdating} />
 
 
         {/* Content Grid/List */}
-        {loading ? (
-          viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-              {[...Array(8)].map((_, i) => (
-                <CardLoadingSkeleton key={i} />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-xl" />
-              ))}
-            </div>
-          )
-        ) : filteredContents.length === 0 ? (
-          <div className="text-center py-16 animate-fade-in">
+        {loading ? viewMode === 'grid' ? <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              {[...Array(8)].map((_, i) => <CardLoadingSkeleton key={i} />)}
+            </div> : <div className="space-y-2">
+              {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+            </div> : filteredContents.length === 0 ? <div className="text-center py-16 animate-fade-in">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 mb-4">
               <Sparkles className="w-8 h-8 text-primary" />
             </div>
@@ -385,56 +317,23 @@ export default function MultiChannel() {
               {contents.length === 0 ? 'Chưa có nội dung nào' : 'Không tìm thấy nội dung'}
             </h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
-              {contents.length === 0
-                ? 'Bắt đầu tạo nội dung đa kênh với AI để tiếp cận khách hàng trên mọi nền tảng.'
-                : 'Thử thay đổi bộ lọc để tìm nội dung phù hợp.'}
+              {contents.length === 0 ? 'Bắt đầu tạo nội dung đa kênh với AI để tiếp cận khách hàng trên mọi nền tảng.' : 'Thử thay đổi bộ lọc để tìm nội dung phù hợp.'}
             </p>
-            {contents.length === 0 && (
-              <Button onClick={handleAddNew} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+            {contents.length === 0 && <Button onClick={handleAddNew} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
                 <Plus className="w-4 h-4" />
                 Tạo nội dung đầu tiên
-              </Button>
-            )}
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {paginatedContents.map((content, index) => (
-              <div key={content.id} className="relative">
+              </Button>}
+          </div> : viewMode === 'grid' ? <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+            {paginatedContents.map((content, index) => <div key={content.id} className="relative">
                 <div className="absolute top-2 left-2 z-20">
-                  <Checkbox
-                    checked={selectedIds.has(content.id)}
-                    onCheckedChange={() => toggleSelection(content.id)}
-                    className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
-                  />
+                  <Checkbox checked={selectedIds.has(content.id)} onCheckedChange={() => toggleSelection(content.id)} className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm" />
                 </div>
-                <MultiChannelCard
-                  content={content}
-                  onView={handleView}
-                  onDelete={handleDelete}
-                  onScheduleComplete={() => toast.success('Đã lên lịch thành công')}
-                  creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
-                  isLoadingProfile={isLoadingProfiles}
-                  index={index}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <MultiChannelListView
-            contents={paginatedContents}
-            selectedIds={selectedIds}
-            onToggleSelection={toggleSelection}
-            onView={handleView}
-            onDelete={handleDelete}
-            onChannelStatusChange={updateChannelStatus}
-            priorityFilter={priorityFilter}
-            onPriorityFilterChange={setPriorityFilter}
-          />
-        )}
+                <MultiChannelCard content={content} onView={handleView} onDelete={handleDelete} onScheduleComplete={() => toast.success('Đã lên lịch thành công')} creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined} isLoadingProfile={isLoadingProfiles} index={index} />
+              </div>)}
+          </div> : <MultiChannelListView contents={paginatedContents} selectedIds={selectedIds} onToggleSelection={toggleSelection} onView={handleView} onDelete={handleDelete} onChannelStatusChange={updateChannelStatus} priorityFilter={priorityFilter} onPriorityFilterChange={setPriorityFilter} />}
 
         {/* Pagination */}
-        {!loading && filteredContents.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-border/50">
+        {!loading && filteredContents.length > 0 && <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-border/50">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Hiển thị</span>
               <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
@@ -442,63 +341,40 @@ export default function MultiChannel() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ITEMS_PER_PAGE_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option.toString()}>
+                  {ITEMS_PER_PAGE_OPTIONS.map(option => <SelectItem key={option} value={option.toString()}>
                       {option}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
               <span className="text-muted-foreground">/ trang</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="h-9 px-3 bg-background/60 border-border/50"
-              >
+              <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="h-9 px-3 bg-background/60 border-border/50">
                 <ChevronLeft className="w-4 h-4" />
                 <span className="hidden sm:inline ml-1">Trước</span>
               </Button>
 
               <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((page) => {
-                    if (page === 1 || page === totalPages) return true;
-                    if (Math.abs(page - currentPage) <= 1) return true;
-                    return false;
-                  })
-                  .map((page, index, array) => {
-                    const prevPage = array[index - 1];
-                    const showEllipsis = prevPage && page - prevPage > 1;
-                    return (
-                      <div key={page} className="flex items-center gap-1">
-                        {showEllipsis && (
-                          <span className="px-2 text-muted-foreground">...</span>
-                        )}
-                        <Button
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handlePageChange(page)}
-                          className={`h-9 w-9 p-0 ${currentPage === page ? 'bg-gradient-to-r from-primary to-secondary border-0' : 'bg-background/60 border-border/50'}`}
-                        >
+                {Array.from({
+              length: totalPages
+            }, (_, i) => i + 1).filter(page => {
+              if (page === 1 || page === totalPages) return true;
+              if (Math.abs(page - currentPage) <= 1) return true;
+              return false;
+            }).map((page, index, array) => {
+              const prevPage = array[index - 1];
+              const showEllipsis = prevPage && page - prevPage > 1;
+              return <div key={page} className="flex items-center gap-1">
+                        {showEllipsis && <span className="px-2 text-muted-foreground">...</span>}
+                        <Button variant={currentPage === page ? "default" : "outline"} size="sm" onClick={() => handlePageChange(page)} className={`h-9 w-9 p-0 ${currentPage === page ? 'bg-gradient-to-r from-primary to-secondary border-0' : 'bg-background/60 border-border/50'}`}>
                           {page}
                         </Button>
-                      </div>
-                    );
-                  })}
+                      </div>;
+            })}
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="h-9 px-3 bg-background/60 border-border/50"
-              >
+              <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="h-9 px-3 bg-background/60 border-border/50">
                 <span className="hidden sm:inline mr-1">Sau</span>
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -509,65 +385,26 @@ export default function MultiChannel() {
               <span className="font-medium text-foreground">{currentPage}</span>/{totalPages}
               <span className="hidden sm:inline ml-1">({filteredContents.length} nội dung)</span>
             </div>
-          </div>
-        )}
+          </div>}
       </div>
 
 
       {/* Viewer Dialog */}
-      <MultiChannelViewer
-        content={selectedContent}
-        open={viewerOpen}
-        onOpenChange={setViewerOpen}
-        onRegenerate={handleRegenerate}
-        onUpdateContent={handleUpdateContent}
-        onAIEdit={handleAIEdit}
-        onUpdateTitleTopic={handleUpdateTitleTopic}
-        onSaveChannelImage={saveChannelImage}
-        onDeleteChannelImage={deleteChannelImage}
-        onUpdateChannelStatus={handleUpdateChannelStatus}
-        onExpandChannels={handleExpandChannels}
-        regeneratingChannel={regeneratingChannel}
-        aiEditingChannel={aiEditingChannel}
-        expandingChannels={expandingChannels}
-      />
+      <MultiChannelViewer content={selectedContent} open={viewerOpen} onOpenChange={setViewerOpen} onRegenerate={handleRegenerate} onUpdateContent={handleUpdateContent} onAIEdit={handleAIEdit} onUpdateTitleTopic={handleUpdateTitleTopic} onSaveChannelImage={saveChannelImage} onDeleteChannelImage={deleteChannelImage} onUpdateChannelStatus={handleUpdateChannelStatus} onExpandChannels={handleExpandChannels} regeneratingChannel={regeneratingChannel} aiEditingChannel={aiEditingChannel} expandingChannels={expandingChannels} />
 
       {/* Bulk Schedule Dialog */}
-      <BulkScheduleDialog
-        open={bulkScheduleOpen}
-        onOpenChange={setBulkScheduleOpen}
-        contents={filteredContents.filter(c => selectedIds.has(c.id))}
-        onScheduleComplete={() => {
-          clearSelection();
-          toast.success('Đã lên lịch hàng loạt thành công!');
-        }}
-      />
+      <BulkScheduleDialog open={bulkScheduleOpen} onOpenChange={setBulkScheduleOpen} contents={filteredContents.filter(c => selectedIds.has(c.id))} onScheduleComplete={() => {
+      clearSelection();
+      toast.success('Đã lên lịch hàng loạt thành công!');
+    }} />
 
       {/* Post-creation prompt */}
-      {newlyCreatedContent && (
-        <PostCreationPrompt
-          open={showPostCreationPrompt}
-          onOpenChange={setShowPostCreationPrompt}
-          contentTitle={newlyCreatedContent.title}
-          contentId={newlyCreatedContent.id}
-          onAssign={() => setShowAssignmentDialog(true)}
-          onSkip={() => {
-            setSelectedContent(newlyCreatedContent);
-            setViewerOpen(true);
-          }}
-        />
-      )}
+      {newlyCreatedContent && <PostCreationPrompt open={showPostCreationPrompt} onOpenChange={setShowPostCreationPrompt} contentTitle={newlyCreatedContent.title} contentId={newlyCreatedContent.id} onAssign={() => setShowAssignmentDialog(true)} onSkip={() => {
+      setSelectedContent(newlyCreatedContent);
+      setViewerOpen(true);
+    }} />}
 
       {/* Assignment dialog */}
-      {newlyCreatedContent && (
-        <AssignmentDialog
-          open={showAssignmentDialog}
-          onOpenChange={setShowAssignmentDialog}
-          contentId={newlyCreatedContent.id}
-          contentTitle={newlyCreatedContent.title}
-          selectedChannels={newlyCreatedContent.selected_channels}
-        />
-      )}
-    </div>
-  );
+      {newlyCreatedContent && <AssignmentDialog open={showAssignmentDialog} onOpenChange={setShowAssignmentDialog} contentId={newlyCreatedContent.id} contentTitle={newlyCreatedContent.title} selectedChannels={newlyCreatedContent.selected_channels} />}
+    </div>;
 }
