@@ -17,7 +17,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className="min-h-screen flex w-full overflow-x-hidden bg-background">
         <AppSidebar />
         
-        <div className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 min-w-0 flex flex-col min-h-screen">
           {/* Top Header Bar */}
           <header className="sticky top-0 z-40 h-14 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 gap-4">
             <SidebarTrigger className="h-8 w-8" />
@@ -34,7 +34,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           </header>
 
           {/* Main Content - contain: layout isolates from sidebar animations */}
-          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6" style={{ contain: 'layout' }}>
+          <main className="flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto p-4 sm:p-6" style={{ contain: 'layout' }}>
             {children}
           </main>
         </div>
