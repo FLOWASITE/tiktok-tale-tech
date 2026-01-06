@@ -24,6 +24,7 @@ export interface TopicHistoryItem {
   pillar?: string;
   contentId?: string;
   contentType?: 'carousel' | 'script' | 'multichannel';
+  campaignId?: string;
   scores?: TopicScores;
   relatedKeywords?: string[];
   reasoning?: string;
@@ -59,13 +60,14 @@ interface UseTopicHistoryOptions {
   contentGoal?: ContentGoal;
   format?: TopicFormat;
   formats?: TopicFormat[]; // Filter by multiple formats
+  campaignId?: string; // Filter by campaign
   limit?: number;
   enabled?: boolean;
   excludeDrafts?: boolean; // Exclude draft status topics
 }
 
 export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
-  const { brandTemplateId, contentGoal, format, formats, limit = 50, enabled = true, excludeDrafts = false } = options;
+  const { brandTemplateId, contentGoal, format, formats, campaignId, limit = 50, enabled = true, excludeDrafts = false } = options;
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
   
@@ -111,6 +113,11 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         query = query.in('format', formats);
       }
 
+      // Filter by campaign
+      if (campaignId) {
+        query = query.eq('campaign_id', campaignId);
+      }
+
       // Exclude draft status if specified
       if (excludeDrafts) {
         query = query.neq('usage_status', 'draft');
@@ -129,6 +136,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         pillar: item.pillar,
         contentId: item.content_id,
         contentType: item.content_type as 'carousel' | 'script' | 'multichannel' | undefined,
+        campaignId: item.campaign_id || undefined,
         scores: item.scores as unknown as TopicScores | undefined,
         relatedKeywords: item.related_keywords,
         reasoning: item.reasoning,
@@ -151,7 +159,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format, limit, enabled]);
+  }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format, campaignId, limit, enabled]);
 
   useEffect(() => {
     fetchHistory();
@@ -371,6 +379,27 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     }
   }, []);
 
+  // Link topic to campaign
+  const linkToCampaign = useCallback(async (topicId: string, campaignIdToLink: string | null) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('topic_history')
+        .update({ campaign_id: campaignIdToLink })
+        .eq('id', topicId);
+
+      if (updateError) throw updateError;
+
+      setHistory(prev => prev.map(h =>
+        h.id === topicId ? { ...h, campaignId: campaignIdToLink || undefined } : h
+      ));
+
+      toast.success(campaignIdToLink ? 'Đã liên kết với chiến dịch' : 'Đã bỏ liên kết chiến dịch');
+    } catch (err) {
+      console.error('Error linking to campaign:', err);
+      toast.error('Không thể cập nhật liên kết chiến dịch');
+    }
+  }, []);
+
   // Save bulk topics (for auto-saving AI suggestions as drafts)
   const saveBulkTopics = useCallback(async (
     topics: EnhancedTopicSuggestion[],
@@ -583,6 +612,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     toggleFavorite,
     submitFeedback,
     deleteTopic,
+    linkToCampaign,
     refresh: fetchHistory,
     getLearningContext,
   };

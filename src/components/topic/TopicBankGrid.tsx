@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
   Search, Star, TrendingUp, Filter, History, X, 
-  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck
+  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck, Target, Link
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -27,7 +28,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { TopicHistoryCard } from './TopicHistoryCard';
+import { LinkToCampaignDialog } from './LinkToCampaignDialog';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useTopicHistory, TopicHistoryItem, FeedbackType } from '@/hooks/useTopicHistory';
+import { useCampaigns } from '@/hooks/useCampaigns';
 import { TopicCategory, TOPIC_CATEGORIES } from '@/types/topicDiscovery';
 import { ContentGoal } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
@@ -49,8 +53,12 @@ export function TopicBankGrid({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterView, setFilterView] = useState<FilterView>('all');
   const [categoryFilter, setCategoryFilter] = useState<TopicCategory | 'all'>('all');
+  const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [linkCampaignTopic, setLinkCampaignTopic] = useState<TopicHistoryItem | null>(null);
+
+  const { campaigns } = useCampaigns();
 
   const {
     history,
@@ -64,9 +72,11 @@ export function TopicBankGrid({
     submitFeedback,
     deleteTopic,
     confirmDraft,
+    linkToCampaign,
   } = useTopicHistory({
     brandTemplateId,
     contentGoal,
+    campaignId: campaignFilter,
     enabled: true,
   });
 
@@ -127,6 +137,19 @@ export function TopicBankGrid({
       deleteTopic(deleteId);
       setDeleteId(null);
     }
+  };
+
+  const handleLinkToCampaign = async (campaignIdToLink: string | null) => {
+    if (linkCampaignTopic) {
+      await linkToCampaign(linkCampaignTopic.id, campaignIdToLink);
+      setLinkCampaignTopic(null);
+    }
+  };
+
+  // Helper to get campaign name
+  const getCampaignName = (campaignIdValue?: string) => {
+    if (!campaignIdValue) return null;
+    return campaigns?.find(c => c.id === campaignIdValue)?.name;
   };
 
   if (isLoading) {
@@ -232,8 +255,8 @@ export function TopicBankGrid({
       </div>
 
       {/* Search and category filter */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Tìm kiếm topic, keywords..."
@@ -266,6 +289,12 @@ export function TopicBankGrid({
             ))}
           </SelectContent>
         </Select>
+        <CampaignSelector
+          value={campaignFilter}
+          onValueChange={setCampaignFilter}
+          placeholder="Chiến dịch"
+          className="w-44"
+        />
       </div>
 
       {/* Results */}
@@ -349,6 +378,11 @@ export function TopicBankGrid({
                             {item.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích'}
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setLinkCampaignTopic(item); }}>
+                          <Target className="h-4 w-4 mr-2" />
+                          {item.campaignId ? 'Đổi chiến dịch' : 'Liên kết chiến dịch'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem 
                           className="text-destructive"
                           onClick={(e) => { e.stopPropagation(); setDeleteId(item.id); }}
@@ -367,6 +401,12 @@ export function TopicBankGrid({
                     {item.pillar && (
                       <Badge variant="secondary" className="text-[10px]">
                         {item.pillar}
+                      </Badge>
+                    )}
+                    {item.campaignId && (
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                        <Target className="h-2.5 w-2.5 mr-1" />
+                        {getCampaignName(item.campaignId) || 'Chiến dịch'}
                       </Badge>
                     )}
                     {item.isFavorite && (
@@ -415,6 +455,18 @@ export function TopicBankGrid({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Link to Campaign Dialog */}
+      {linkCampaignTopic && (
+        <LinkToCampaignDialog
+          open={!!linkCampaignTopic}
+          onOpenChange={(open) => !open && setLinkCampaignTopic(null)}
+          topicId={linkCampaignTopic.id}
+          topicTitle={linkCampaignTopic.topic}
+          currentCampaignId={linkCampaignTopic.campaignId}
+          onLink={handleLinkToCampaign}
+        />
+      )}
     </div>
   );
 }

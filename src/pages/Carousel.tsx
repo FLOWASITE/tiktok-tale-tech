@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
 interface LocationState {
   prefillTopic?: string;
@@ -83,6 +84,7 @@ const CarouselPage = () => {
     platform: 'all',
     aiTool: 'all',
   });
+  const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,9 +108,13 @@ const CarouselPage = () => {
         return false;
       }
 
+      if (campaignFilter && carousel.campaign_id !== campaignFilter) {
+        return false;
+      }
+
       return true;
     });
-  }, [carousels, filters]);
+  }, [carousels, filters, campaignFilter]);
 
   // Paginated carousels
   const paginatedCarousels = useMemo(() => {
@@ -177,7 +183,17 @@ const CarouselPage = () => {
         />
 
         {/* Filters */}
-        <CarouselFilters filters={filters} onFiltersChange={setFilters} />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <CarouselFilters filters={filters} onFiltersChange={setFilters} />
+          </div>
+          <CampaignSelector
+            value={campaignFilter}
+            onValueChange={setCampaignFilter}
+            placeholder="Lọc theo chiến dịch"
+            className="w-full sm:w-56"
+          />
+        </div>
 
         {/* Bulk Actions Bar */}
         {selectedIds.length > 0 && (

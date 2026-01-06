@@ -139,6 +139,7 @@ export interface MultiChannelContent {
   status: ContentStatus;
   priority: string | null;
   deadline: string | null;
+  campaign_id: string | null;
   user_id: string | null;
   industry_template_version: string | null;
   // Self-Critique fields
