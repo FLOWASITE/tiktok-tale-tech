@@ -1,8 +1,14 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Megaphone, Plus, LayoutGrid, List, RefreshCw, CheckCircle2, Clock, Send, TrendingUp } from 'lucide-react';
+import { 
+  Megaphone, Plus, LayoutGrid, List, RefreshCw, Send, Clock, TrendingUp, 
+  CheckCircle, FileText, Target, Layers
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { AdCopy } from '@/types/adCopy';
+import { AD_PLATFORMS, getPlatformLabel } from '@/types/adCopy';
 
 interface AdCopyHeroSectionProps {
   adCopies: AdCopy[];
@@ -21,17 +27,43 @@ export function AdCopyHeroSection({
   onRefresh,
   isLoading
 }: AdCopyHeroSectionProps) {
-  const stats = {
-    total: adCopies.length,
-    published: adCopies.filter(a => a.status === 'published').length,
-    review: adCopies.filter(a => a.status === 'review').length,
-    approved: adCopies.filter(a => a.status === 'approved').length,
-    draft: adCopies.filter(a => a.status === 'draft').length,
-  };
-
-  const completionRate = stats.total > 0 
-    ? Math.round((stats.published / stats.total) * 100) 
-    : 0;
+  const stats = useMemo(() => {
+    const total = adCopies.length;
+    const published = adCopies.filter(a => a.status === 'published').length;
+    const review = adCopies.filter(a => a.status === 'review').length;
+    const approved = adCopies.filter(a => a.status === 'approved').length;
+    const draft = adCopies.filter(a => a.status === 'draft').length;
+    
+    // Count approved variations
+    const totalVariations = adCopies.reduce((acc, ad) => acc + (ad.variations?.length || 0), 0);
+    const approvedVariations = adCopies.reduce((acc, ad) => 
+      acc + (ad.variations?.filter(v => v.is_approved).length || 0), 0
+    );
+    
+    // Platform distribution
+    const platformCounts: Record<string, number> = {};
+    adCopies.forEach(ad => {
+      platformCounts[ad.platform] = (platformCounts[ad.platform] || 0) + 1;
+    });
+    
+    // Top 4 platforms
+    const topPlatforms = Object.entries(platformCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+    
+    return {
+      total,
+      published,
+      review,
+      approved,
+      draft,
+      totalVariations,
+      approvedVariations,
+      approvalRate: totalVariations > 0 ? Math.round((approvedVariations / totalVariations) * 100) : 0,
+      completionRate: total > 0 ? Math.round((published / total) * 100) : 0,
+      topPlatforms,
+    };
+  }, [adCopies]);
 
   const statItems = [
     {
@@ -86,19 +118,6 @@ export function AdCopyHeroSection({
           }}
           transition={{
             duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-1/2 w-1/2 h-1/2 bg-gradient-to-br from-secondary/15 to-transparent rounded-full blur-3xl"
-          animate={{
-            x: [0, 40, 0],
-            y: [0, -40, 0],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 12,
             repeat: Infinity,
             ease: "easeInOut",
           }}
@@ -182,8 +201,8 @@ export function AdCopyHeroSection({
           </motion.div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Stats Grid - 5 columns on large screens */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {statItems.map((stat, index) => (
             <motion.div
               key={stat.label}
@@ -205,26 +224,66 @@ export function AdCopyHeroSection({
                 <p className={cn("text-2xl font-bold", stat.color)}>{stat.value}</p>
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
               </div>
-              <div className={cn(
-                "absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none",
-                "bg-gradient-to-br from-primary/5 to-transparent"
-              )} />
             </motion.div>
           ))}
 
-          {/* Completion Rate Ring */}
+          {/* Approval Rate Ring */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.25 }}
+            className="group relative p-4 rounded-xl border border-blue-500/20 bg-background/60 backdrop-blur-sm hover:shadow-lg hover:border-blue-500/30 transition-all duration-300"
+          >
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Variations đã duyệt</p>
+                <p className="text-2xl font-bold text-blue-500">{stats.approvalRate}%</p>
+                <p className="text-[10px] text-muted-foreground">{stats.approvedVariations}/{stats.totalVariations}</p>
+              </div>
+              <div className="relative w-12 h-12">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="hsl(var(--muted))"
+                    strokeWidth="3"
+                  />
+                  <motion.circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="hsl(217 91% 60%)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${stats.approvalRate}, 100`}
+                    initial={{ strokeDasharray: "0, 100" }}
+                    animate={{ strokeDasharray: `${stats.approvalRate}, 100` }}
+                    transition={{ duration: 1, delay: 0.5 }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <CheckCircle className="h-4 w-4 text-blue-500" />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Publish Rate Ring */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
             className="group relative p-4 rounded-xl border border-accent/20 bg-background/60 backdrop-blur-sm hover:shadow-lg hover:shadow-accent/5 hover:border-accent/30 transition-all duration-300"
           >
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Tỷ lệ xuất bản</p>
-                <p className="text-2xl font-bold text-accent-foreground">{completionRate}%</p>
+                <p className="text-2xl font-bold text-accent-foreground">{stats.completionRate}%</p>
               </div>
-              <div className="relative w-14 h-14">
+              <div className="relative w-12 h-12">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                   <circle
                     cx="18"
@@ -242,9 +301,9 @@ export function AdCopyHeroSection({
                     stroke="hsl(var(--primary))"
                     strokeWidth="3"
                     strokeLinecap="round"
-                    strokeDasharray={`${completionRate}, 100`}
+                    strokeDasharray={`${stats.completionRate}, 100`}
                     initial={{ strokeDasharray: "0, 100" }}
-                    animate={{ strokeDasharray: `${completionRate}, 100` }}
+                    animate={{ strokeDasharray: `${stats.completionRate}, 100` }}
                     transition={{ duration: 1, delay: 0.5 }}
                   />
                 </svg>
@@ -255,6 +314,64 @@ export function AdCopyHeroSection({
             </div>
           </motion.div>
         </div>
+
+        {/* Platform Distribution Bar */}
+        {stats.topPlatforms.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.35 }}
+            className="mt-4 p-3 rounded-xl border border-border/50 bg-background/40 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">Phân bố Platform</span>
+            </div>
+            <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-muted/30">
+              {stats.topPlatforms.map(([platform, count], index) => {
+                const percentage = (count / stats.total) * 100;
+                const colors = [
+                  'bg-blue-500',
+                  'bg-pink-500', 
+                  'bg-green-500',
+                  'bg-yellow-500',
+                ];
+                return (
+                  <Tooltip key={platform}>
+                    <TooltipTrigger asChild>
+                      <motion.div
+                        className={cn("h-full", colors[index % colors.length])}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percentage}%` }}
+                        transition={{ duration: 0.6, delay: 0.5 + index * 0.1 }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{getPlatformLabel(platform)}: {count} ({Math.round(percentage)}%)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {stats.topPlatforms.map(([platform, count], index) => {
+                const colors = [
+                  'bg-blue-500',
+                  'bg-pink-500', 
+                  'bg-green-500',
+                  'bg-yellow-500',
+                ];
+                return (
+                  <div key={platform} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <div className={cn("w-2 h-2 rounded-full", colors[index % colors.length])} />
+                    <span>{getPlatformLabel(platform)}</span>
+                    <span className="font-medium text-foreground">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

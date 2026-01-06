@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, X, ChevronDown, Zap } from 'lucide-react';
+import { Search, Filter, X, ChevronDown, Zap, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { AD_PLATFORMS, AD_COPY_STATUSES, AD_OBJECTIVES, FUNNEL_STAGES, LEGACY_PLATFORMS } from '@/types/adCopy';
+
+export type DatePreset = 'all' | 'today' | '7days' | '30days' | '90days';
 
 interface AdCopyFiltersProps {
   searchQuery: string;
@@ -20,11 +22,27 @@ interface AdCopyFiltersProps {
   onObjectiveFilterChange: (value: string) => void;
   funnelFilter: string;
   onFunnelFilterChange: (value: string) => void;
+  datePreset?: DatePreset;
+  onDatePresetChange?: (value: DatePreset) => void;
+  campaignFilter?: string;
+  onCampaignFilterChange?: (value: string) => void;
+  campaigns?: Array<{ id: string; name: string }>;
+  brandFilter?: string;
+  onBrandFilterChange?: (value: string) => void;
+  brands?: Array<{ id: string; brand_name: string }>;
 }
 
 const STATUS_CHIPS = [
   { value: 'all', label: 'Tất cả' },
   ...AD_COPY_STATUSES.map(s => ({ value: s.value, label: s.label }))
+];
+
+const DATE_PRESETS = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'today', label: 'Hôm nay' },
+  { value: '7days', label: '7 ngày' },
+  { value: '30days', label: '30 ngày' },
+  { value: '90days', label: '90 ngày' },
 ];
 
 export function AdCopyFilters({
@@ -38,6 +56,14 @@ export function AdCopyFilters({
   onObjectiveFilterChange,
   funnelFilter,
   onFunnelFilterChange,
+  datePreset = 'all',
+  onDatePresetChange,
+  campaignFilter = 'all',
+  onCampaignFilterChange,
+  campaigns = [],
+  brandFilter = 'all',
+  onBrandFilterChange,
+  brands = [],
 }: AdCopyFiltersProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -46,6 +72,9 @@ export function AdCopyFilters({
                            platformFilter !== 'all' || 
                            objectiveFilter !== 'all' || 
                            funnelFilter !== 'all' ||
+                           datePreset !== 'all' ||
+                           campaignFilter !== 'all' ||
+                           brandFilter !== 'all' ||
                            searchQuery.length > 0;
 
   const activeFilterCount = [
@@ -53,6 +82,9 @@ export function AdCopyFilters({
     platformFilter !== 'all',
     objectiveFilter !== 'all',
     funnelFilter !== 'all',
+    datePreset !== 'all',
+    campaignFilter !== 'all',
+    brandFilter !== 'all',
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -61,6 +93,9 @@ export function AdCopyFilters({
     onPlatformFilterChange('all');
     onObjectiveFilterChange('all');
     onFunnelFilterChange('all');
+    onDatePresetChange?.('all');
+    onCampaignFilterChange?.('all');
+    onBrandFilterChange?.('all');
   };
 
   return (
@@ -196,7 +231,7 @@ export function AdCopyFilters({
             animate={{ opacity: 1, y: 0 }}
             className="p-4 rounded-xl bg-background/60 backdrop-blur-sm border border-border/50 space-y-4"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Objective Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Mục tiêu</label>
@@ -233,23 +268,69 @@ export function AdCopyFilters({
                 </Select>
               </div>
 
-              {/* Quick Date Presets */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                  <Zap className="h-3 w-3 text-yellow-500" />
-                  Lọc nhanh
-                </label>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 text-xs">
-                    Hôm nay
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1 text-xs">
-                    7 ngày
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1 text-xs">
-                    30 ngày
-                  </Button>
+              {/* Campaign Filter */}
+              {campaigns.length > 0 && onCampaignFilterChange && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Chiến dịch</label>
+                  <Select value={campaignFilter} onValueChange={onCampaignFilterChange}>
+                    <SelectTrigger className="bg-background border-border/50">
+                      <SelectValue placeholder="Chọn chiến dịch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      {campaigns.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+              )}
+
+              {/* Brand Filter */}
+              {brands.length > 0 && onBrandFilterChange && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Brand Template</label>
+                  <Select value={brandFilter} onValueChange={onBrandFilterChange}>
+                    <SelectTrigger className="bg-background border-border/50">
+                      <SelectValue placeholder="Chọn brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      {brands.map(b => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.brand_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Date Presets */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Thời gian tạo
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DATE_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.value}
+                    variant={datePreset === preset.value ? "secondary" : "outline"}
+                    size="sm"
+                    className={cn(
+                      "text-xs",
+                      datePreset === preset.value && "bg-primary/10 border-primary/30 text-primary"
+                    )}
+                    onClick={() => onDatePresetChange?.(preset.value as DatePreset)}
+                  >
+                    {preset.value === datePreset && <Zap className="h-3 w-3 mr-1 text-yellow-500" />}
+                    {preset.label}
+                  </Button>
+                ))}
               </div>
             </div>
           </motion.div>
