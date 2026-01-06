@@ -1,20 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { X, Target, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  Plus, 
-  Search, 
-  Target,
-  Flame,
-  Clock,
-  CheckCircle2,
-  LayoutGrid,
-  List
-} from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CampaignCard } from '@/components/campaign/CampaignCard';
+import { CampaignHeroSection } from '@/components/campaign/CampaignHeroSection';
+import { CampaignFilters, DateRange } from '@/components/campaign/CampaignFilters';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { type Campaign, type CampaignStatus } from '@/types/campaign';
 import {
@@ -30,32 +22,109 @@ import {
 
 type FilterStatus = 'all' | 'active' | 'planning' | 'completed';
 
+const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
+
 export default function Campaigns() {
   const navigate = useNavigate();
   const { campaigns, isLoading, deleteCampaign, updateStatus } = useCampaigns();
   
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
-
-  // Filter campaigns
-  const filteredCampaigns = campaigns.filter(campaign => {
-    const matchesSearch = campaign.name.toLowerCase().includes(search.toLowerCase()) ||
-      campaign.description?.toLowerCase().includes(search.toLowerCase());
-    
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'active' && campaign.status === 'active') ||
-      (filterStatus === 'planning' && (campaign.status === 'draft' || campaign.status === 'planning')) ||
-      (filterStatus === 'completed' && (campaign.status === 'completed' || campaign.status === 'cancelled'));
-    
-    return matchesSearch && matchesStatus;
-  });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   // Stats
-  const stats = {
+  const stats = useMemo(() => ({
+    total: campaigns.length,
     active: campaigns.filter(c => c.status === 'active').length,
     planning: campaigns.filter(c => c.status === 'draft' || c.status === 'planning').length,
     completed: campaigns.filter(c => c.status === 'completed').length,
+  }), [campaigns]);
+
+  // Calculate active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterStatus !== 'all') count++;
+    if (typeFilter !== 'all') count++;
+    if (dateRange.from || dateRange.to) count++;
+    return count;
+  }, [filterStatus, typeFilter, dateRange]);
+
+  const clearFilters = () => {
+    setFilterStatus('all');
+    setTypeFilter('all');
+    setDateRange({ from: undefined, to: undefined });
+    setSearch('');
+  };
+
+  // Filter campaigns
+  const filteredCampaigns = useMemo(() => {
+    return campaigns.filter(campaign => {
+      // Search filter
+      if (search) {
+        const query = search.toLowerCase();
+        const matchesName = campaign.name.toLowerCase().includes(query);
+        const matchesDesc = campaign.description?.toLowerCase().includes(query);
+        if (!matchesName && !matchesDesc) return false;
+      }
+      
+      // Status filter
+      if (filterStatus !== 'all') {
+        if (filterStatus === 'active' && campaign.status !== 'active') return false;
+        if (filterStatus === 'planning' && campaign.status !== 'draft' && campaign.status !== 'planning') return false;
+        if (filterStatus === 'completed' && campaign.status !== 'completed' && campaign.status !== 'cancelled') return false;
+      }
+
+      // Type filter
+      if (typeFilter !== 'all' && campaign.campaign_type !== typeFilter) return false;
+
+      // Date filter
+      if (dateRange.from) {
+        const startDate = new Date(campaign.start_date);
+        if (startDate < dateRange.from) return false;
+      }
+      if (dateRange.to) {
+        const endDate = new Date(campaign.end_date);
+        const filterEnd = new Date(dateRange.to);
+        filterEnd.setHours(23, 59, 59, 999);
+        if (endDate > filterEnd) return false;
+      }
+      
+      return true;
+    });
+  }, [campaigns, search, filterStatus, typeFilter, dateRange]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredCampaigns.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCampaigns = filteredCampaigns.slice(startIndex, endIndex);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, typeFilter, dateRange]);
+
+  // Adjust page if out of bounds
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
   };
 
   const handleView = (campaign: Campaign) => {
@@ -76,150 +145,165 @@ export default function Campaigns() {
     await updateStatus({ id: campaign.id, status });
   };
 
+  const handleAddNew = () => {
+    navigate('/campaigns/new');
+  };
+
   return (
-    <div className="min-w-0 space-y-3 sm:space-y-6 max-w-full overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-2xl font-bold flex items-center gap-2">
-            <Target className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
-            <span className="truncate">Quản lý Chiến dịch</span>
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1 hidden sm:block">
-            Theo dõi và quản lý các chiến dịch marketing của bạn
-          </p>
-        </div>
-        <Button onClick={() => navigate('/campaigns/new')} className="gap-2 w-full sm:w-auto shrink-0">
-          <Plus className="h-4 w-4" />
-          <span>Tạo chiến dịch</span>
-        </Button>
-      </div>
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Close Button - Fixed top right */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate('/')}
+        className="fixed top-3 right-3 z-50 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm"
+        title="Đóng"
+      >
+        <X className="h-4 w-4" />
+      </Button>
 
-      {/* Stats - Compact on mobile */}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-4">
-        <div className="flex items-center gap-1.5 sm:flex-col sm:items-center sm:gap-3 p-2 sm:p-4 rounded-lg sm:rounded-xl bg-green-500/10 border border-green-500/20">
-          <div className="p-1 sm:p-2 rounded-md sm:rounded-lg bg-green-500/20 shrink-0">
-            <Flame className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-green-500" />
-          </div>
-          <div className="flex items-baseline gap-1 sm:flex-col sm:items-center min-w-0">
-            <p className="text-base sm:text-2xl font-bold">{stats.active}</p>
-            <p className="text-[10px] sm:text-sm text-muted-foreground truncate">Chạy</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-1.5 sm:flex-col sm:items-center sm:gap-3 p-2 sm:p-4 rounded-lg sm:rounded-xl bg-blue-500/10 border border-blue-500/20">
-          <div className="p-1 sm:p-2 rounded-md sm:rounded-lg bg-blue-500/20 shrink-0">
-            <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-blue-500" />
-          </div>
-          <div className="flex items-baseline gap-1 sm:flex-col sm:items-center min-w-0">
-            <p className="text-base sm:text-2xl font-bold">{stats.planning}</p>
-            <p className="text-[10px] sm:text-sm text-muted-foreground truncate">KH</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-1.5 sm:flex-col sm:items-center sm:gap-3 p-2 sm:p-4 rounded-lg sm:rounded-xl bg-purple-500/10 border border-purple-500/20">
-          <div className="p-1 sm:p-2 rounded-md sm:rounded-lg bg-purple-500/20 shrink-0">
-            <CheckCircle2 className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-purple-500" />
-          </div>
-          <div className="flex items-baseline gap-1 sm:flex-col sm:items-center min-w-0">
-            <p className="text-base sm:text-2xl font-bold">{stats.completed}</p>
-            <p className="text-[10px] sm:text-sm text-muted-foreground truncate">Xong</p>
-          </div>
-        </div>
-      </div>
+      <div className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 space-y-4">
+        {/* Hero Section with Stats */}
+        <CampaignHeroSection
+          campaigns={campaigns}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onAddNew={handleAddNew}
+          isLoading={isLoading}
+        />
 
-      {/* Filters */}
-      <div className="flex flex-col gap-2 sm:gap-3">
-        {/* Search - Mobile */}
-        <div className="relative w-full sm:hidden">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input 
-            placeholder="Tìm..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 h-8 text-sm"
-          />
-        </div>
-        
-        <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0 overflow-hidden">
-          {/* Tabs - wrap on mobile */}
-          <div className="flex-1 min-w-0">
-            <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)}>
-              <TabsList className="grid w-full grid-cols-2 gap-1 h-auto sm:inline-flex sm:w-auto sm:min-w-max sm:h-10">
-                <TabsTrigger value="all" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
-                  Tất cả ({campaigns.length})
-                </TabsTrigger>
-                <TabsTrigger value="active" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
-                  <span className="hidden sm:inline">Đang chạy</span>
-                  <span className="sm:hidden">Chạy</span>
-                  <span className="ml-0.5 sm:ml-1">({stats.active})</span>
-                </TabsTrigger>
-                <TabsTrigger value="planning" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
-                  <span className="hidden sm:inline">Lên kế hoạch</span>
-                  <span className="sm:hidden">KH</span>
-                  <span className="ml-0.5 sm:ml-1">({stats.planning})</span>
-                </TabsTrigger>
-                <TabsTrigger value="completed" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
-                  <span className="hidden sm:inline">Hoàn thành</span>
-                  <span className="sm:hidden">Xong</span>
-                  <span className="ml-0.5 sm:ml-1">({stats.completed})</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          
-          {/* Search - Desktop */}
-          <div className="relative hidden sm:block w-64 shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Tìm chiến dịch..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-      </div>
+        {/* Filters */}
+        <CampaignFilters
+          searchQuery={search}
+          onSearchChange={setSearch}
+          statusFilter={filterStatus}
+          onStatusFilterChange={setFilterStatus}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          stats={stats}
+        />
 
-      {/* Campaign Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-48 sm:h-64 rounded-lg sm:rounded-xl" />
-          ))}
-        </div>
-      ) : filteredCampaigns.length === 0 ? (
-        <div className="text-center py-12">
-          <Target className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-          <h3 className="text-lg font-medium mb-2">
-            {search || filterStatus !== 'all' ? 'Không tìm thấy chiến dịch' : 'Chưa có chiến dịch nào'}
-          </h3>
-          <p className="text-muted-foreground mb-4">
-            {search || filterStatus !== 'all' 
-              ? 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm'
-              : 'Bắt đầu bằng cách tạo chiến dịch marketing đầu tiên'}
-          </p>
-          {!search && filterStatus === 'all' && (
-            <Button onClick={() => navigate('/campaigns/new')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Tạo chiến dịch đầu tiên
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-          {filteredCampaigns.map((campaign) => (
-            <CampaignCard
-              key={campaign.id}
-              campaign={campaign}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={setDeleteTarget}
-              onStatusChange={handleStatusChange}
-            />
-          ))}
-        </div>
-      )}
+        {/* Campaign Grid */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-48 sm:h-64 rounded-xl" />
+            ))}
+          </div>
+        ) : filteredCampaigns.length === 0 ? (
+          <div className="text-center py-16 animate-fade-in">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 mb-4">
+              <Target className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {campaigns.length === 0 ? 'Chưa có chiến dịch nào' : 'Không tìm thấy chiến dịch'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+              {campaigns.length === 0
+                ? 'Bắt đầu tạo chiến dịch marketing đầu tiên của bạn.'
+                : 'Thử thay đổi bộ lọc để tìm chiến dịch phù hợp.'}
+            </p>
+            {campaigns.length === 0 && (
+              <Button onClick={handleAddNew} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                <Plus className="w-4 h-4" />
+                Tạo chiến dịch đầu tiên
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {paginatedCampaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={setDeleteTarget}
+                onStatusChange={handleStatusChange}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!isLoading && filteredCampaigns.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-border/50">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Hiển thị</span>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="w-[70px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ITEMS_PER_PAGE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt.toString()}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-muted-foreground">
+                / {filteredCampaigns.length} chiến dịch
+              </span>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <div className="flex items-center gap-1 px-2">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "ghost"}
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(pageNum)}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Delete Dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
