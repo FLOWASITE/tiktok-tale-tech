@@ -7,9 +7,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ============================================
+// Platform Alias Mapping for Backward Compatibility
+// ============================================
+const PLATFORM_ALIAS: Record<string, string> = {
+  'meta_feed': 'facebook_feed',
+  'meta_story': 'facebook_story',
+  'meta_reels': 'instagram_reels',
+  'zalo': 'zalo_oa',
+};
+
+function normalizePlatform(platform: string): string {
+  return PLATFORM_ALIAS[platform] || platform;
+}
+
 interface AdCopyRequest {
   topic: string;
-  platform: 'facebook_feed' | 'facebook_story' | 'instagram_feed' | 'instagram_story' | 'instagram_reels' | 'google_rsa' | 'tiktok' | 'zalo_oa' | 'zalo_message' | 'zalo_article' | 'linkedin';
+  platform: string; // Accept any string for backward compatibility
   objective: string;
   landingUrl?: string;
   audienceBrief?: string;
@@ -32,6 +46,8 @@ interface PlatformLimits {
   primary_text?: CharLimitConfig;
   headline?: CharLimitConfig;
   description?: CharLimitConfig;
+  short_headline?: CharLimitConfig;
+  long_headline?: CharLimitConfig;
 }
 
 // Character limits per platform
@@ -60,6 +76,11 @@ const CHAR_LIMITS: Record<string, PlatformLimits> = {
   },
   google_rsa: {
     headline: { max: 30 },
+    description: { max: 90 },
+  },
+  google_display: {
+    short_headline: { max: 25 },
+    long_headline: { max: 90 },
     description: { max: 90 },
   },
   tiktok: {
@@ -176,6 +197,50 @@ function checkCharLimits(text: string | null, field: string, limits: CharLimitCo
   return warnings;
 }
 
+// ============================================
+// Retry Logic with Exponential Backoff
+// ============================================
+async function callAIWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 2
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // Don't retry on these status codes
+      if (response.status === 429 || response.status === 402) {
+        return response;
+      }
+      
+      // Retry on server errors or timeouts
+      if (response.status >= 500 || response.status === 408) {
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          console.log(`[generate-ad-copy] Retry attempt ${attempt + 1} after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      console.error(`[generate-ad-copy] Attempt ${attempt + 1} failed:`, error);
+      
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error('All retry attempts failed');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -206,14 +271,24 @@ serve(async (req) => {
     }
 
     const body: AdCopyRequest = await req.json();
-    const { 
+    let { 
       topic, platform, objective, landingUrl, audienceBrief, 
       funnelStage, variationCount, brandTemplateId, productId, 
       personaId, campaignId, organizationId 
     } = body;
     const userId = claimsData.user.id;
 
-    console.log('[generate-ad-copy] Request:', { topic, platform, objective, variationCount });
+    // Normalize platform for backward compatibility
+    const originalPlatform = platform;
+    platform = normalizePlatform(platform);
+    
+    console.log('[generate-ad-copy] Request:', { 
+      topic, 
+      platform, 
+      originalPlatform: originalPlatform !== platform ? originalPlatform : undefined,
+      objective, 
+      variationCount 
+    });
 
     // Fetch brand context
     let brandContext = '';
@@ -296,6 +371,23 @@ Return JSON array with ${variationCount} variations:
 [{
   "headlines": ["headline1", "headline2", ...(15 headlines)],
   "descriptions": ["desc1", "desc2", "desc3", "desc4"]
+}]`;
+    } else if (platform === 'google_display') {
+      platformInstructions = `
+Platform: Google Display Network (GDN) Ads
+- Generate 5 short headlines (max 25 characters each) - punchy, attention-grabbing
+- Generate 1 long headline (max 90 characters) - more descriptive
+- Generate 5 descriptions (max 90 characters each)
+- Headlines should be action-oriented and benefit-focused
+- Descriptions should expand on value proposition
+- Keep messaging clear and concise for display format
+`;
+      outputFormat = `
+Return JSON array with ${variationCount} variations:
+[{
+  "short_headlines": ["short1", "short2", "short3", "short4", "short5"],
+  "long_headline": "longer descriptive headline here",
+  "descriptions": ["desc1", "desc2", "desc3", "desc4", "desc5"]
 }]`;
     } else if (platform === 'tiktok') {
       const ptLimits = limits.primary_text || { ideal: 80, max: 150 };
@@ -466,28 +558,31 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
 
     const userPrompt = `Generate ${variationCount} ad copy variations for: ${topic}`;
 
-    // Call Lovable AI Gateway
+    // Call Lovable AI Gateway with retry logic
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${lovableApiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4000,
-      }),
-    });
+    const aiResponse = await callAIWithRetry(
+      'https://ai.gateway.lovable.dev/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${lovableApiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.8,
+          max_tokens: 4000,
+        }),
+      }
+    );
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -525,16 +620,16 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       variations = JSON.parse(cleanContent);
     } catch (e) {
       console.error('[generate-ad-copy] Parse error:', content);
-      throw new Error('Failed to parse AI response');
+      throw new Error('Không thể xử lý phản hồi từ AI. Vui lòng thử lại.');
     }
 
-    // Create ad copy record
+    // Create ad copy record - use normalized platform
     const { data: adCopy, error: insertError } = await supabase
       .from('ad_copies')
       .insert({
         title: topic.substring(0, 100),
         topic,
-        platform,
+        platform, // Use normalized platform
         objective,
         landing_url: landingUrl || null,
         brand_template_id: brandTemplateId || null,
@@ -552,7 +647,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
 
     if (insertError) {
       console.error('[generate-ad-copy] Insert error:', insertError);
-      throw new Error(`Failed to save ad copy: ${insertError.message}`);
+      throw new Error(`Không thể lưu ad copy: ${insertError.message}`);
     }
 
     // Process and save variations
@@ -596,8 +691,56 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
           }
           policyWarnings.push(...checkPolicyViolations(d, `description_${idx}`));
         });
+      } else if (platform === 'google_display') {
+        // Process Google Display variations
+        const shortHeadlines = v.short_headlines || [];
+        const longHeadline = v.long_headline || '';
+        const descriptions = v.descriptions || [];
+        
+        charCounts.short_headlines = shortHeadlines.length;
+        charCounts.long_headline = longHeadline.length;
+        charCounts.descriptions = descriptions.length;
+        
+        // Check short headlines (max 25 chars)
+        shortHeadlines.forEach((h: string, idx: number) => {
+          charCounts[`short_headline_${idx}`] = h.length;
+          if (h.length > 25) {
+            policyWarnings.push({
+              field: `short_headline_${idx}`,
+              type: 'character_limit',
+              message: `Short headline ${idx + 1} vượt ${h.length - 25} ký tự`,
+              severity: 'error',
+            });
+          }
+          policyWarnings.push(...checkPolicyViolations(h, `short_headline_${idx}`));
+        });
+        
+        // Check long headline (max 90 chars)
+        if (longHeadline.length > 90) {
+          policyWarnings.push({
+            field: 'long_headline',
+            type: 'character_limit',
+            message: `Long headline vượt ${longHeadline.length - 90} ký tự`,
+            severity: 'error',
+          });
+        }
+        policyWarnings.push(...checkPolicyViolations(longHeadline, 'long_headline'));
+        
+        // Check descriptions (max 90 chars)
+        descriptions.forEach((d: string, idx: number) => {
+          charCounts[`description_${idx}`] = d.length;
+          if (d.length > 90) {
+            policyWarnings.push({
+              field: `description_${idx}`,
+              type: 'character_limit',
+              message: `Description ${idx + 1} vượt ${d.length - 90} ký tự`,
+              severity: 'error',
+            });
+          }
+          policyWarnings.push(...checkPolicyViolations(d, `description_${idx}`));
+        });
       } else {
-        // Process Meta variations
+        // Process Meta/Social variations
         charCounts.primary_text = countChars(v.primary_text);
         charCounts.headline = countChars(v.headline);
         charCounts.description = countChars(v.description);
@@ -617,19 +760,38 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
         if (v.headline) policyWarnings.push(...checkPolicyViolations(v.headline, 'headline'));
       }
 
-      const variationData = {
+      // Build variation data based on platform
+      let variationData: any = {
         ad_copy_id: adCopy.id,
         variation_label: label,
-        primary_text: v.primary_text || null,
-        headline: v.headline || null,
-        description: v.description || null,
-        cta_button: v.cta_button || 'learn_more',
-        headlines: platform === 'google_rsa' ? v.headlines : [],
-        descriptions: platform === 'google_rsa' ? v.descriptions : [],
         char_counts: charCounts,
         policy_warnings: policyWarnings,
         is_approved: false,
       };
+
+      if (platform === 'google_display') {
+        // Store Google Display data in headlines/descriptions arrays
+        variationData.headlines = v.short_headlines || [];
+        variationData.descriptions = v.descriptions || [];
+        variationData.headline = v.long_headline || null; // Store long headline in headline field
+        variationData.primary_text = null;
+        variationData.description = null;
+        variationData.cta_button = 'learn_more';
+      } else if (platform === 'google_rsa') {
+        variationData.headlines = v.headlines || [];
+        variationData.descriptions = v.descriptions || [];
+        variationData.primary_text = null;
+        variationData.headline = null;
+        variationData.description = null;
+        variationData.cta_button = 'learn_more';
+      } else {
+        variationData.primary_text = v.primary_text || null;
+        variationData.headline = v.headline || null;
+        variationData.description = v.description || null;
+        variationData.cta_button = v.cta_button || 'learn_more';
+        variationData.headlines = [];
+        variationData.descriptions = [];
+      }
 
       processedVariations.push(variationData);
     }
@@ -662,7 +824,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
     });
 
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : 'Đã xảy ra lỗi không xác định';
     console.error('[generate-ad-copy] Error:', error);
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,

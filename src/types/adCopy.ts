@@ -149,12 +149,32 @@ export const AD_PLATFORMS = [
   { value: 'instagram_story', label: 'Instagram Story', description: 'Story quảng cáo Instagram 24h', icon: '📸' },
   { value: 'instagram_reels', label: 'Instagram Reels', description: 'Video ngắn Reels', icon: '🎬' },
   { value: 'google_rsa', label: 'Google RSA', description: 'Responsive Search Ads', icon: '🔍' },
+  { value: 'google_display', label: 'Google Display', description: 'Quảng cáo hiển thị GDN', icon: '🖼️' },
   { value: 'tiktok', label: 'TikTok Ads', description: 'Quảng cáo video ngắn', icon: '🎵' },
   { value: 'zalo_oa', label: 'Zalo OA', description: 'Zalo Official Account Post', icon: '💬' },
   { value: 'zalo_message', label: 'Zalo Message', description: 'Tin nhắn quảng cáo Zalo', icon: '📩' },
   { value: 'zalo_article', label: 'Zalo Article', description: 'Bài viết quảng cáo Zalo', icon: '📰' },
   { value: 'linkedin', label: 'LinkedIn Ads', description: 'Quảng cáo B2B chuyên nghiệp', icon: '💼' },
 ] as const;
+
+// Legacy platforms mapping for backward compatibility
+export const LEGACY_PLATFORMS = [
+  { value: 'meta_feed', label: 'Meta Feed (legacy)', newValue: 'facebook_feed' },
+  { value: 'meta_story', label: 'Meta Story (legacy)', newValue: 'facebook_story' },
+  { value: 'meta_reels', label: 'Meta Reels (legacy)', newValue: 'instagram_reels' },
+  { value: 'zalo', label: 'Zalo (legacy)', newValue: 'zalo_oa' },
+] as const;
+
+// Get display label for platform including legacy support
+export function getPlatformLabel(platform: string): string {
+  const modern = AD_PLATFORMS.find(p => p.value === platform);
+  if (modern) return modern.label;
+  
+  const legacy = LEGACY_PLATFORMS.find(p => p.value === platform);
+  if (legacy) return legacy.label;
+  
+  return platform;
+}
 
 export const AD_OBJECTIVES = [
   { value: 'traffic', label: 'Traffic', description: 'Tăng lượt click về website', icon: '🔗' },
