@@ -58,7 +58,7 @@ export function usePerformanceLearning(variationId?: string) {
           predicted_conversion_rate: params.predictedConversionRate,
           predicted_roas: params.predictedRoas,
           confidence_score: params.confidenceScore,
-          prediction_factors: params.predictionFactors as unknown as null,
+          prediction_factors: params.predictionFactors ? JSON.parse(JSON.stringify(params.predictionFactors)) : null,
           organization_id: currentOrganization?.id,
         }])
         .select()
