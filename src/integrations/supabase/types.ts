@@ -259,6 +259,108 @@ export type Database = {
           },
         ]
       }
+      ad_copy_performance: {
+        Row: {
+          ad_copy_id: string
+          clicks: number | null
+          comments: number | null
+          conversion_rate: number | null
+          conversion_value: number | null
+          conversions: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string | null
+          ctr: number | null
+          data_source: string | null
+          engagement_rate: number | null
+          external_ad_id: string | null
+          id: string
+          impressions: number | null
+          leads: number | null
+          likes: number | null
+          logged_at: string
+          notes: string | null
+          reach: number | null
+          roas: number | null
+          saves: number | null
+          shares: number | null
+          spend: number | null
+          updated_at: string | null
+          variation_id: string | null
+        }
+        Insert: {
+          ad_copy_id: string
+          clicks?: number | null
+          comments?: number | null
+          conversion_rate?: number | null
+          conversion_value?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          data_source?: string | null
+          engagement_rate?: number | null
+          external_ad_id?: string | null
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          likes?: number | null
+          logged_at: string
+          notes?: string | null
+          reach?: number | null
+          roas?: number | null
+          saves?: number | null
+          shares?: number | null
+          spend?: number | null
+          updated_at?: string | null
+          variation_id?: string | null
+        }
+        Update: {
+          ad_copy_id?: string
+          clicks?: number | null
+          comments?: number | null
+          conversion_rate?: number | null
+          conversion_value?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          data_source?: string | null
+          engagement_rate?: number | null
+          external_ad_id?: string | null
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          likes?: number | null
+          logged_at?: string
+          notes?: string | null
+          reach?: number | null
+          roas?: number | null
+          saves?: number | null
+          shares?: number | null
+          spend?: number | null
+          updated_at?: string | null
+          variation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_performance_ad_copy_id_fkey"
+            columns: ["ad_copy_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_performance_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copy_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_copy_variations: {
         Row: {
           ad_copy_id: string

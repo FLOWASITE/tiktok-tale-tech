@@ -22,6 +22,7 @@ import {
   CTA_BUTTONS
 } from '@/types/adCopy';
 import { ABTestSetupDialog, ABTestCard, ABTestResultsView } from './ab-testing';
+import { PerformanceDashboard } from './performance';
 
 interface AdCopyViewerProps {
   open: boolean;
@@ -33,7 +34,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
   const { toggleVariationApproval } = useAdCopies();
   const { abTests, updateStatus, deleteTest } = useAdCopyABTests(adCopy.id);
   const [activeTab, setActiveTab] = useState(adCopy.variations?.[0]?.variation_label || 'A');
-  const [mainTab, setMainTab] = useState<'variations' | 'ab-tests'>('variations');
+  const [mainTab, setMainTab] = useState<'variations' | 'ab-tests' | 'performance'>('variations');
   const [showABTestSetup, setShowABTestSetup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   
@@ -489,8 +490,8 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
         </div>
 
         {/* Main Tabs: Variations / A/B Tests */}
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'variations' | 'ab-tests')}>
-          <TabsList className="grid grid-cols-2 w-fit">
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'variations' | 'ab-tests' | 'performance')}>
+          <TabsList className="grid grid-cols-3 w-fit">
             <TabsTrigger value="variations">Variations</TabsTrigger>
             <TabsTrigger value="ab-tests" className="gap-1">
               <FlaskConical className="h-4 w-4" />
@@ -499,6 +500,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{abTests.length}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
           </TabsList>
 
           {/* Variations Tab */}
@@ -604,6 +606,14 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                 )}
               </>
             )}
+          </TabsContent>
+
+          {/* Performance Tab */}
+          <TabsContent value="performance" className="mt-4">
+            <PerformanceDashboard 
+              adCopyId={adCopy.id} 
+              variations={adCopy.variations || []}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>
