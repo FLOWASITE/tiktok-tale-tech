@@ -344,11 +344,14 @@ export type Database = {
           likes: number | null
           logged_at: string
           notes: string | null
+          raw_api_response: Json | null
           reach: number | null
           roas: number | null
           saves: number | null
           shares: number | null
           spend: number | null
+          sync_config_id: string | null
+          synced_at: string | null
           updated_at: string | null
           variation_id: string | null
         }
@@ -372,11 +375,14 @@ export type Database = {
           likes?: number | null
           logged_at: string
           notes?: string | null
+          raw_api_response?: Json | null
           reach?: number | null
           roas?: number | null
           saves?: number | null
           shares?: number | null
           spend?: number | null
+          sync_config_id?: string | null
+          synced_at?: string | null
           updated_at?: string | null
           variation_id?: string | null
         }
@@ -400,11 +406,14 @@ export type Database = {
           likes?: number | null
           logged_at?: string
           notes?: string | null
+          raw_api_response?: Json | null
           reach?: number | null
           roas?: number | null
           saves?: number | null
           shares?: number | null
           spend?: number | null
+          sync_config_id?: string | null
+          synced_at?: string | null
           updated_at?: string | null
           variation_id?: string | null
         }
@@ -414,6 +423,13 @@ export type Database = {
             columns: ["ad_copy_id"]
             isOneToOne: false
             referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_performance_sync_config_id_fkey"
+            columns: ["sync_config_id"]
+            isOneToOne: false
+            referencedRelation: "ad_sync_configs"
             referencedColumns: ["id"]
           },
           {
@@ -477,6 +493,85 @@ export type Database = {
             columns: ["ad_copy_id"]
             isOneToOne: false
             referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_sync_configs: {
+        Row: {
+          ad_copy_id: string
+          connection_id: string | null
+          created_at: string | null
+          external_ad_id: string
+          external_ad_name: string | null
+          external_adset_id: string | null
+          external_campaign_id: string | null
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          next_sync_at: string | null
+          organization_id: string | null
+          sync_enabled: boolean | null
+          sync_frequency: string | null
+          sync_status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_copy_id: string
+          connection_id?: string | null
+          created_at?: string | null
+          external_ad_id: string
+          external_ad_name?: string | null
+          external_adset_id?: string | null
+          external_campaign_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          next_sync_at?: string | null
+          organization_id?: string | null
+          sync_enabled?: boolean | null
+          sync_frequency?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_copy_id?: string
+          connection_id?: string | null
+          created_at?: string | null
+          external_ad_id?: string
+          external_ad_name?: string | null
+          external_adset_id?: string | null
+          external_campaign_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          next_sync_at?: string | null
+          organization_id?: string | null
+          sync_enabled?: boolean | null
+          sync_frequency?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_sync_configs_ad_copy_id_fkey"
+            columns: ["ad_copy_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_sync_configs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_sync_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -4239,8 +4334,13 @@ export type Database = {
       social_connections: {
         Row: {
           access_token: string
+          ad_account_id: string | null
+          ad_account_name: string | null
+          app_id: string | null
           brand_template_id: string | null
+          business_id: string | null
           connected_at: string | null
+          connection_type: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
@@ -4264,8 +4364,13 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          app_id?: string | null
           brand_template_id?: string | null
+          business_id?: string | null
           connected_at?: string | null
+          connection_type?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -4289,8 +4394,13 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          app_id?: string | null
           brand_template_id?: string | null
+          business_id?: string | null
           connected_at?: string | null
+          connection_type?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -4988,6 +5098,7 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_next_sync_at: { Args: { frequency: string }; Returns: string }
       can_use_feature: {
         Args: {
           _usage_type: Database["public"]["Enums"]["usage_type"]
