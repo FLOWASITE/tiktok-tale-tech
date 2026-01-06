@@ -343,6 +343,150 @@ export type Database = {
         }
         Relationships: []
       }
+      ad_copy_creative_scores: {
+        Row: {
+          clarity_score: number | null
+          cta_score: number | null
+          emotional_appeal_score: number | null
+          grade: string | null
+          headline_score: number | null
+          id: string
+          model_version: string | null
+          optimization_priority: string | null
+          organization_id: string | null
+          overall_score: number | null
+          primary_text_score: number | null
+          relevance_score: number | null
+          score_breakdown: Json | null
+          scored_at: string | null
+          strengths: string[] | null
+          urgency_score: number | null
+          variation_id: string
+          weaknesses: string[] | null
+        }
+        Insert: {
+          clarity_score?: number | null
+          cta_score?: number | null
+          emotional_appeal_score?: number | null
+          grade?: string | null
+          headline_score?: number | null
+          id?: string
+          model_version?: string | null
+          optimization_priority?: string | null
+          organization_id?: string | null
+          overall_score?: number | null
+          primary_text_score?: number | null
+          relevance_score?: number | null
+          score_breakdown?: Json | null
+          scored_at?: string | null
+          strengths?: string[] | null
+          urgency_score?: number | null
+          variation_id: string
+          weaknesses?: string[] | null
+        }
+        Update: {
+          clarity_score?: number | null
+          cta_score?: number | null
+          emotional_appeal_score?: number | null
+          grade?: string | null
+          headline_score?: number | null
+          id?: string
+          model_version?: string | null
+          optimization_priority?: string | null
+          organization_id?: string | null
+          overall_score?: number | null
+          primary_text_score?: number | null
+          relevance_score?: number | null
+          score_breakdown?: Json | null
+          scored_at?: string | null
+          strengths?: string[] | null
+          urgency_score?: number | null
+          variation_id?: string
+          weaknesses?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_creative_scores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_creative_scores_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copy_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_copy_optimization_suggestions: {
+        Row: {
+          applied_at: string | null
+          confidence: string | null
+          created_at: string | null
+          field: string
+          id: string
+          improvement_metric: string | null
+          organization_id: string | null
+          original_text: string | null
+          predicted_improvement: number | null
+          reason: string
+          status: string | null
+          suggested_text: string
+          technique: string | null
+          variation_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          confidence?: string | null
+          created_at?: string | null
+          field: string
+          id?: string
+          improvement_metric?: string | null
+          organization_id?: string | null
+          original_text?: string | null
+          predicted_improvement?: number | null
+          reason: string
+          status?: string | null
+          suggested_text: string
+          technique?: string | null
+          variation_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          confidence?: string | null
+          created_at?: string | null
+          field?: string
+          id?: string
+          improvement_metric?: string | null
+          organization_id?: string | null
+          original_text?: string | null
+          predicted_improvement?: number | null
+          reason?: string
+          status?: string | null
+          suggested_text?: string
+          technique?: string | null
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_optimization_suggestions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_optimization_suggestions_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copy_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_copy_performance: {
         Row: {
           ad_copy_id: string
@@ -454,6 +598,84 @@ export type Database = {
           },
           {
             foreignKeyName: "ad_copy_performance_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copy_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_copy_prediction_history: {
+        Row: {
+          accuracy_score: number | null
+          actual_conversion_rate: number | null
+          actual_cpc: number | null
+          actual_cpm: number | null
+          actual_ctr: number | null
+          actual_roas: number | null
+          confidence_score: number | null
+          id: string
+          organization_id: string | null
+          predicted_at: string | null
+          predicted_conversion_rate: number | null
+          predicted_cpc: number | null
+          predicted_cpm: number | null
+          predicted_ctr: number | null
+          predicted_roas: number | null
+          prediction_factors: Json | null
+          validated_at: string | null
+          variation_id: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          actual_conversion_rate?: number | null
+          actual_cpc?: number | null
+          actual_cpm?: number | null
+          actual_ctr?: number | null
+          actual_roas?: number | null
+          confidence_score?: number | null
+          id?: string
+          organization_id?: string | null
+          predicted_at?: string | null
+          predicted_conversion_rate?: number | null
+          predicted_cpc?: number | null
+          predicted_cpm?: number | null
+          predicted_ctr?: number | null
+          predicted_roas?: number | null
+          prediction_factors?: Json | null
+          validated_at?: string | null
+          variation_id: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          actual_conversion_rate?: number | null
+          actual_cpc?: number | null
+          actual_cpm?: number | null
+          actual_ctr?: number | null
+          actual_roas?: number | null
+          confidence_score?: number | null
+          id?: string
+          organization_id?: string | null
+          predicted_at?: string | null
+          predicted_conversion_rate?: number | null
+          predicted_cpc?: number | null
+          predicted_cpm?: number | null
+          predicted_ctr?: number | null
+          predicted_roas?: number | null
+          prediction_factors?: Json | null
+          validated_at?: string | null
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_prediction_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_prediction_history_variation_id_fkey"
             columns: ["variation_id"]
             isOneToOne: false
             referencedRelation: "ad_copy_variations"
