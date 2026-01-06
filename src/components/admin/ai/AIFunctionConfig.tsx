@@ -127,6 +127,17 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     return 'custom';
   };
 
+  // Filter functions based on search query - MUST be before early return
+  const filteredFunctions = useMemo(() => {
+    if (!searchQuery.trim()) return AI_FUNCTIONS;
+    const query = searchQuery.toLowerCase();
+    return AI_FUNCTIONS.filter(fn => 
+      fn.name.toLowerCase().includes(query) ||
+      fn.description.toLowerCase().includes(query) ||
+      fn.category.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
+
   if (isLoading) {
     return (
       <Card>
@@ -140,17 +151,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const currentFunctionMeta = editingFunction?.functionName ? getFunctionMeta(editingFunction.functionName) : null;
   const currentModel = editingFunction?.modelOverride || currentFunctionMeta?.currentModel || '';
   const currentModelInfo = getEnhancedModelInfo(currentModel);
-
-  // Filter functions based on search query
-  const filteredFunctions = useMemo(() => {
-    if (!searchQuery.trim()) return AI_FUNCTIONS;
-    const query = searchQuery.toLowerCase();
-    return AI_FUNCTIONS.filter(fn => 
-      fn.name.toLowerCase().includes(query) ||
-      fn.description.toLowerCase().includes(query) ||
-      fn.category.toLowerCase().includes(query)
-    );
-  }, [searchQuery]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
