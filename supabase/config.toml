@@ -152,3 +152,6 @@ verify_jwt = false
 
 [functions.suggest-campaign-kpis]
 verify_jwt = false
+
+[functions.suggest-kpi-adjustments]
+verify_jwt = false

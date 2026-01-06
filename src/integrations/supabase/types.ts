@@ -2855,6 +2855,44 @@ export type Database = {
           },
         ]
       }
+      kpi_adjustment_dismissals: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          dismissed_at: string
+          dismissed_until: string
+          id: string
+          metric: string
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          dismissed_at?: string
+          dismissed_until: string
+          id?: string
+          metric: string
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          dismissed_at?: string
+          dismissed_until?: string
+          id?: string
+          metric?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_adjustment_dismissals_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       multi_channel_contents: {
         Row: {
           brand_guideline: string | null
