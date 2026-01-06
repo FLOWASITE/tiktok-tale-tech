@@ -1,4 +1,4 @@
-export type AdPlatform = 'meta_feed' | 'meta_story' | 'meta_reels' | 'google_rsa' | 'google_display' | 'tiktok' | 'zalo' | 'linkedin';
+export type AdPlatform = 'meta_feed' | 'meta_story' | 'meta_reels' | 'google_rsa' | 'google_display' | 'tiktok' | 'zalo_oa' | 'zalo_message' | 'zalo_article' | 'linkedin';
 export type AdObjective = 'traffic' | 'conversions' | 'engagement' | 'awareness' | 'leads' | 'app_installs' | 'video_views' | 'messages';
 export type AdFunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retention';
 export type AdCopyStatus = 'draft' | 'review' | 'approved' | 'published';
@@ -98,10 +98,20 @@ export const AD_CHAR_LIMITS = {
     primary_text: { ideal: 80, max: 150 },
     headline: { ideal: 30, max: 50 },
   },
-  zalo: {
+  zalo_oa: {
     primary_text: { ideal: 100, max: 200 },
     headline: { ideal: 30, max: 50 },
     description: { ideal: 25, max: 40 },
+  },
+  zalo_message: {
+    primary_text: { ideal: 150, max: 300 },
+    headline: { ideal: 25, max: 40 },
+    description: { ideal: 20, max: 35 },
+  },
+  zalo_article: {
+    primary_text: { ideal: 200, max: 500 },
+    headline: { ideal: 50, max: 80 },
+    description: { ideal: 100, max: 160 },
   },
   linkedin: {
     primary_text: { ideal: 150, max: 600 },
@@ -128,7 +138,9 @@ export const AD_PLATFORMS = [
   { value: 'meta_story', label: 'Meta Story', description: 'Facebook & Instagram Story', icon: '📸' },
   { value: 'google_rsa', label: 'Google RSA', description: 'Responsive Search Ads', icon: '🔍' },
   { value: 'tiktok', label: 'TikTok Ads', description: 'Quảng cáo video ngắn', icon: '🎵' },
-  { value: 'zalo', label: 'Zalo Ads', description: 'Zalo Official Account', icon: '💬' },
+  { value: 'zalo_oa', label: 'Zalo OA', description: 'Zalo Official Account Post', icon: '💬' },
+  { value: 'zalo_message', label: 'Zalo Message', description: 'Tin nhắn quảng cáo Zalo', icon: '📩' },
+  { value: 'zalo_article', label: 'Zalo Article', description: 'Bài viết quảng cáo Zalo', icon: '📰' },
   { value: 'linkedin', label: 'LinkedIn Ads', description: 'Quảng cáo B2B chuyên nghiệp', icon: '💼' },
 ] as const;
 

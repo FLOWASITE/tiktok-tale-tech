@@ -44,7 +44,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   // === Content Policy ===
   {
     id: 'no_misleading_claims',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo', 'linkedin'],
+    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'legal',
     name: 'Tuyên bố gây hiểu lầm',
     description: 'Không được dùng "100%", "đảm bảo", "cam kết" không có căn cứ',
@@ -54,7 +54,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'no_medical_claims',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo', 'linkedin'],
+    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'legal',
     name: 'Tuyên bố y tế',
     description: 'Không được tuyên bố chữa bệnh, điều trị',
@@ -64,7 +64,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'no_weight_loss_claims',
-    platform: ['meta_feed', 'meta_story', 'tiktok'],
+    platform: ['meta_feed', 'meta_story', 'tiktok', 'zalo_oa', 'zalo_message'],
     category: 'legal',
     name: 'Tuyên bố giảm cân',
     description: 'Không được hứa giảm X kg trong Y ngày',
@@ -74,7 +74,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'no_income_claims',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'linkedin'],
+    platform: ['meta_feed', 'meta_story', 'google_rsa', 'linkedin', 'zalo_oa', 'zalo_message'],
     category: 'legal',
     name: 'Tuyên bố thu nhập',
     description: 'Không được hứa kiếm X triệu/ngày',
@@ -86,7 +86,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   // === Format Policy ===
   {
     id: 'excessive_caps',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo', 'linkedin'],
+    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'format',
     name: 'Quá nhiều chữ hoa',
     description: 'Hơn 50% là chữ viết hoa',
@@ -100,7 +100,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'excessive_punctuation',
-    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo', 'linkedin'],
+    platform: ['meta_feed', 'meta_story', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article', 'linkedin'],
     category: 'format',
     name: 'Dấu câu thừa',
     description: 'Quá nhiều !!! hoặc ???',
@@ -125,12 +125,12 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   // === Engagement Policy ===
   {
     id: 'weak_cta',
-    platform: ['meta_feed', 'meta_story', 'tiktok', 'zalo'],
+    platform: ['meta_feed', 'meta_story', 'tiktok', 'zalo_oa', 'zalo_message', 'zalo_article'],
     category: 'engagement',
     name: 'CTA yếu',
     description: 'Thiếu lời kêu gọi hành động rõ ràng',
     check: (text) => {
-      const ctaPatterns = /mua ngay|đăng ký|tìm hiểu|xem thêm|liên hệ|click|nhấn|bấm|đặt hàng|tham gia/i;
+      const ctaPatterns = /mua ngay|đăng ký|tìm hiểu|xem thêm|liên hệ|click|nhấn|bấm|đặt hàng|tham gia|inbox|nhắn tin/i;
       return !ctaPatterns.test(text);
     },
     severity: 'info',
@@ -138,7 +138,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'clickbait',
-    platform: ['meta_feed', 'meta_story', 'tiktok', 'linkedin'],
+    platform: ['meta_feed', 'meta_story', 'tiktok', 'linkedin', 'zalo_article'],
     category: 'content',
     name: 'Clickbait',
     description: 'Nội dung câu view có thể bị hạn chế reach',
@@ -148,7 +148,7 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
   },
   {
     id: 'urgency_overuse',
-    platform: ['meta_feed', 'google_rsa', 'tiktok'],
+    platform: ['meta_feed', 'google_rsa', 'tiktok', 'zalo_oa', 'zalo_message'],
     category: 'content',
     name: 'Lạm dụng urgency',
     description: 'Quá nhiều cụm từ tạo khẩn cấp giả',
@@ -194,6 +194,48 @@ export const PLATFORM_POLICY_RULES: PlatformPolicyRule[] = [
     check: (text) => text.length > 100,
     severity: 'info',
     fixHint: 'Rút gọn còn dưới 100 ký tự cho overlay text',
+  },
+  
+  // === Zalo-Specific ===
+  {
+    id: 'zalo_competitor_mention',
+    platform: ['zalo_oa', 'zalo_message', 'zalo_article'],
+    category: 'legal',
+    name: 'Nhắc đến đối thủ',
+    description: 'Zalo không cho phép so sánh trực tiếp với đối thủ',
+    check: (text) => /grab|be|shopee|lazada|tiki|sendo|facebook|messenger/i.test(text),
+    severity: 'error',
+    fixHint: 'Tập trung vào USP của bạn thay vì so sánh với đối thủ',
+  },
+  {
+    id: 'zalo_phone_format',
+    platform: ['zalo_message'],
+    category: 'format',
+    name: 'Định dạng số điện thoại',
+    description: 'Số điện thoại nên theo format VN chuẩn',
+    check: (text) => /\b\d{10,11}\b/.test(text) && !/\b0\d{9,10}\b/.test(text),
+    severity: 'info',
+    fixHint: 'Dùng format 0xxx xxx xxx cho số điện thoại VN',
+  },
+  {
+    id: 'zalo_informal_language',
+    platform: ['zalo_message'],
+    category: 'content',
+    name: 'Ngôn ngữ phù hợp',
+    description: 'Zalo Message nên dùng ngôn ngữ thân thiện, conversational',
+    check: (text) => /kính thưa|trân trọng|quý khách hàng|quý công ty/i.test(text),
+    severity: 'info',
+    fixHint: 'Dùng ngôn ngữ thân thiện hơn: "bạn", "mình", emoji nhẹ nhàng',
+  },
+  {
+    id: 'zalo_article_seo',
+    platform: ['zalo_article'],
+    category: 'engagement',
+    name: 'Tiêu đề SEO-friendly',
+    description: 'Tiêu đề bài viết nên chứa keyword chính',
+    check: (text) => text.length < 30 || text.length > 100,
+    severity: 'info',
+    fixHint: 'Tiêu đề lý tưởng 30-70 ký tự, chứa keyword quan trọng',
   },
 ];
 

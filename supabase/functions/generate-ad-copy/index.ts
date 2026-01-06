@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface AdCopyRequest {
   topic: string;
-  platform: 'meta_feed' | 'meta_story' | 'google_rsa' | 'tiktok' | 'zalo' | 'linkedin';
+  platform: 'meta_feed' | 'meta_story' | 'google_rsa' | 'tiktok' | 'zalo_oa' | 'zalo_message' | 'zalo_article' | 'linkedin';
   objective: string;
   landingUrl?: string;
   audienceBrief?: string;
@@ -53,10 +53,20 @@ const CHAR_LIMITS: Record<string, PlatformLimits> = {
     primary_text: { ideal: 80, max: 150 },
     headline: { ideal: 30, max: 50 },
   },
-  zalo: {
+  zalo_oa: {
     primary_text: { ideal: 100, max: 200 },
     headline: { ideal: 30, max: 50 },
     description: { ideal: 25, max: 40 },
+  },
+  zalo_message: {
+    primary_text: { ideal: 150, max: 300 },
+    headline: { ideal: 25, max: 40 },
+    description: { ideal: 20, max: 35 },
+  },
+  zalo_article: {
+    primary_text: { ideal: 200, max: 500 },
+    headline: { ideal: 50, max: 80 },
+    description: { ideal: 100, max: 160 },
   },
   linkedin: {
     primary_text: { ideal: 150, max: 600 },
@@ -294,19 +304,27 @@ Return JSON array with ${variationCount} variations:
   "headline": "...",
   "cta_button": "learn_more|shop_now|sign_up|get_offer|download"
 }]`;
-    } else if (platform === 'zalo') {
+    } else if (platform === 'zalo_oa' || platform === 'zalo_message' || platform === 'zalo_article') {
       const ptLimits = limits.primary_text || { ideal: 100, max: 200 };
       const hlLimits = limits.headline || { ideal: 30, max: 50 };
       const descLimits = limits.description || { ideal: 25, max: 40 };
       
+      const zaloTypeDesc: Record<string, string> = {
+        'zalo_oa': 'Zalo Official Account Post - bài đăng OA trên feed',
+        'zalo_message': 'Zalo Message Ads - tin nhắn quảng cáo conversational',
+        'zalo_article': 'Zalo Article - bài viết dạng tin tức/blog',
+      };
+      
       platformInstructions = `
-Platform: Zalo Official Account Ads
+Platform: ${zaloTypeDesc[platform] || 'Zalo Ads'}
 - Primary Text: ${ptLimits.ideal} chars ideal, max ${ptLimits.max}
 - Headline: ${hlLimits.ideal} chars ideal, max ${hlLimits.max}
 - Description: ${descLimits.ideal} chars ideal, max ${descLimits.max}
 - Tone: Friendly, conversational, Vietnamese local
-- Optimize for Zalo OA message style
+- ${platform === 'zalo_message' ? 'Viết như tin nhắn trực tiếp, thân thiện' : ''}
+- ${platform === 'zalo_article' ? 'Tiêu đề hấp dẫn, nội dung informative' : ''}
 - Use Vietnamese colloquial language appropriately
+- Không so sánh trực tiếp với đối thủ
 `;
       outputFormat = `
 Return JSON array with ${variationCount} variations:

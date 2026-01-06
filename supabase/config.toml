@@ -161,3 +161,6 @@ verify_jwt = false
 
 [functions.suggest-ad-fix]
 verify_jwt = false
+
+[functions.predict-ad-performance]
+verify_jwt = false

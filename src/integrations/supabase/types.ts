@@ -269,6 +269,60 @@ export type Database = {
           },
         ]
       }
+      ad_copy_benchmarks: {
+        Row: {
+          avg_conversion_rate: number | null
+          avg_cpc: number | null
+          avg_cpm: number | null
+          avg_ctr: number | null
+          avg_roas: number | null
+          created_at: string | null
+          data_source: string | null
+          id: string
+          industry: string | null
+          objective: string | null
+          period_end: string | null
+          period_start: string | null
+          platform: string
+          sample_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_conversion_rate?: number | null
+          avg_cpc?: number | null
+          avg_cpm?: number | null
+          avg_ctr?: number | null
+          avg_roas?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          id?: string
+          industry?: string | null
+          objective?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          platform: string
+          sample_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_conversion_rate?: number | null
+          avg_cpc?: number | null
+          avg_cpm?: number | null
+          avg_ctr?: number | null
+          avg_roas?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          id?: string
+          industry?: string | null
+          objective?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          platform?: string
+          sample_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ad_copy_performance: {
         Row: {
           ad_copy_id: string
