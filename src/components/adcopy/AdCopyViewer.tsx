@@ -625,7 +625,8 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
           {/* Performance Tab */}
           <TabsContent value="performance" className="mt-4">
             <PerformanceDashboard 
-              adCopyId={adCopy.id} 
+              adCopyId={adCopy.id}
+              organizationId={adCopy.organization_id || undefined}
               variations={adCopy.variations || []}
             />
           </TabsContent>

@@ -3,19 +3,26 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdCopyPerformance } from '@/hooks/useAdCopyPerformance';
+import { useMetaAdsConnection } from '@/hooks/useMetaAdsConnection';
 import { AdCopyVariation } from '@/types/adCopy';
 import { PerformanceOverview } from './PerformanceOverview';
 import { PerformanceChart } from './PerformanceChart';
 import { PerformanceLogForm } from './PerformanceLogForm';
 import { PerformanceTable } from './PerformanceTable';
+import { AutoSyncStatus } from './AutoSyncStatus';
+import { MetaAdsConnectDialog } from '../MetaAdsConnectDialog';
+import { ExternalAdLinkDialog } from '../ExternalAdLinkDialog';
 
 interface PerformanceDashboardProps {
   adCopyId: string;
+  organizationId?: string;
   variations?: AdCopyVariation[];
 }
 
-export function PerformanceDashboard({ adCopyId, variations = [] }: PerformanceDashboardProps) {
+export function PerformanceDashboard({ adCopyId, organizationId, variations = [] }: PerformanceDashboardProps) {
   const [showLogForm, setShowLogForm] = useState(false);
+  const [showConnectDialog, setShowConnectDialog] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
   
   const {
     performanceData,
@@ -25,6 +32,9 @@ export function PerformanceDashboard({ adCopyId, variations = [] }: PerformanceD
     logPerformance,
     deletePerformance,
   } = useAdCopyPerformance(adCopyId);
+
+  const { connections } = useMetaAdsConnection({ organizationId });
+  const hasMetaConnection = connections && connections.length > 0;
 
   if (isLoading) {
     return (
@@ -56,6 +66,16 @@ export function PerformanceDashboard({ adCopyId, variations = [] }: PerformanceD
         </Button>
       </div>
 
+      {/* Auto Sync Status */}
+      {organizationId && (
+        <AutoSyncStatus
+          adCopyId={adCopyId}
+          hasMetaConnection={hasMetaConnection}
+          onConnectClick={() => setShowConnectDialog(true)}
+          onLinkClick={() => setShowLinkDialog(true)}
+        />
+      )}
+
       {/* Overview Cards */}
       <PerformanceOverview summary={summary} />
 
@@ -77,6 +97,25 @@ export function PerformanceDashboard({ adCopyId, variations = [] }: PerformanceD
         variations={variations}
         isLoading={logPerformance.isPending}
       />
+
+      {/* Meta Ads Connect Dialog */}
+      <MetaAdsConnectDialog
+        open={showConnectDialog}
+        onOpenChange={setShowConnectDialog}
+        organizationId={organizationId}
+        onSuccess={() => setShowConnectDialog(false)}
+      />
+
+      {/* External Ad Link Dialog */}
+      {organizationId && (
+        <ExternalAdLinkDialog
+          open={showLinkDialog}
+          onOpenChange={setShowLinkDialog}
+          adCopyId={adCopyId}
+          organizationId={organizationId}
+          onSuccess={() => setShowLinkDialog(false)}
+        />
+      )}
     </div>
   );
 }

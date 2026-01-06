@@ -164,3 +164,12 @@ verify_jwt = false
 
 [functions.predict-ad-performance]
 verify_jwt = false
+
+[functions.connect-meta-ads]
+verify_jwt = false
+
+[functions.fetch-meta-ad-insights]
+verify_jwt = false
+
+[functions.sync-ad-performance]
+verify_jwt = false
