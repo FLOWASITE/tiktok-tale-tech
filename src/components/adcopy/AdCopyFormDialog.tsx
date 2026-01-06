@@ -70,6 +70,20 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
     }
   }, [defaultCampaignId]);
 
+  // Auto-select default or single brand template
+  useEffect(() => {
+    if (!formData.brandTemplateId && brandTemplates.length > 0) {
+      const defaultBrand = brandTemplates.find(b => b.is_default);
+      const singleBrand = brandTemplates.length === 1 ? brandTemplates[0] : null;
+      const autoSelectBrand = defaultBrand || singleBrand;
+      if (autoSelectBrand) {
+        setFormData(prev => ({ ...prev, brandTemplateId: autoSelectBrand.id }));
+      }
+    }
+  }, [brandTemplates, formData.brandTemplateId]);
+
+  const selectedBrand = brandTemplates.find(b => b.id === formData.brandTemplateId);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.topic.trim()) return;
@@ -151,6 +165,95 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
                   Brainstorm với AI
                 </Button>
               </div>
+            </motion.div>
+
+            {/* Brand Template - Primary Field */}
+            <motion.div 
+              className="space-y-3"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 }}
+            >
+              <Label className="flex items-center gap-2 text-base font-semibold">
+                <Briefcase className="h-4 w-4 text-primary" />
+                Brand Template
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-600 bg-amber-50">
+                  Khuyến nghị
+                </Badge>
+              </Label>
+              
+              <Select 
+                value={formData.brandTemplateId || ''} 
+                onValueChange={(value) => updateField('brandTemplateId', value || undefined)}
+              >
+                <SelectTrigger className={cn(
+                  "bg-background/60 backdrop-blur-sm border-2 transition-all",
+                  formData.brandTemplateId 
+                    ? "border-primary/30 focus:border-primary/50" 
+                    : "border-amber-500/30 focus:border-amber-500/50"
+                )}>
+                  <SelectValue placeholder="Chọn brand template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {brandTemplates.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.id}>
+                      <div className="flex items-center gap-2">
+                        {brand.logo_url && (
+                          <img src={brand.logo_url} alt="" className="w-5 h-5 rounded object-cover" />
+                        )}
+                        {brand.primary_color && !brand.logo_url && (
+                          <div 
+                            className="w-4 h-4 rounded-full border border-border/50" 
+                            style={{ backgroundColor: brand.primary_color }} 
+                          />
+                        )}
+                        <span>{brand.brand_name}</span>
+                        {brand.is_default && (
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0">Mặc định</Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Brand Preview or Warning */}
+              {selectedBrand ? (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    {selectedBrand.logo_url && (
+                      <img src={selectedBrand.logo_url} alt="" className="w-8 h-8 rounded object-cover" />
+                    )}
+                    <div>
+                      <span className="font-medium text-sm">{selectedBrand.brand_name}</span>
+                      {selectedBrand.tagline && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">{selectedBrand.tagline}</p>
+                      )}
+                    </div>
+                  </div>
+                  {selectedBrand.tone_of_voice && selectedBrand.tone_of_voice.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedBrand.tone_of_voice.slice(0, 4).map((tone: string) => (
+                        <Badge key={tone} variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {tone}
+                        </Badge>
+                      ))}
+                      {selectedBrand.tone_of_voice.length > 4 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          +{selectedBrand.tone_of_voice.length - 4}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
+                  <span className="text-sm">⚠️</span>
+                  <p className="text-xs">
+                    Chọn Brand để AI tạo nội dung đúng giọng nói thương hiệu, sử dụng từ khóa phù hợp
+                  </p>
+                </div>
+              )}
             </motion.div>
 
             {/* Platform Selection - Visual Grid */}
@@ -328,30 +431,7 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                 >
-                  {/* Brand & Campaign */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm">
-                        <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                        Brand Template
-                      </Label>
-                      <Select 
-                        value={formData.brandTemplateId || ''} 
-                        onValueChange={(value) => updateField('brandTemplateId', value || undefined)}
-                      >
-                        <SelectTrigger className="bg-background border-border/50">
-                          <SelectValue placeholder="Chọn brand..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {brandTemplates.map((brand) => (
-                            <SelectItem key={brand.id} value={brand.id}>
-                              {brand.brand_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
+                  {/* Campaign */}
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2 text-sm">
                         <Flag className="h-3.5 w-3.5 text-muted-foreground" />
@@ -376,8 +456,6 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating, d
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-
                   {/* Landing URL */}
                   <div className="space-y-2">
                     <Label htmlFor="landingUrl" className="flex items-center gap-2 text-sm">
