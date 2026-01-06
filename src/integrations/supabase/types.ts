@@ -497,6 +497,86 @@ export type Database = {
           },
         ]
       }
+      ad_swipe_files: {
+        Row: {
+          competitor_name: string | null
+          created_at: string | null
+          created_by: string | null
+          cta_button: string | null
+          description: string | null
+          headline: string | null
+          id: string
+          industry: string | null
+          is_favorite: boolean | null
+          notes: string | null
+          objective: string | null
+          organization_id: string
+          performance_tier: string | null
+          platform: string
+          primary_text: string | null
+          screenshot_url: string | null
+          source_type: string
+          source_url: string | null
+          tags: string[] | null
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          competitor_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          cta_button?: string | null
+          description?: string | null
+          headline?: string | null
+          id?: string
+          industry?: string | null
+          is_favorite?: boolean | null
+          notes?: string | null
+          objective?: string | null
+          organization_id: string
+          performance_tier?: string | null
+          platform: string
+          primary_text?: string | null
+          screenshot_url?: string | null
+          source_type: string
+          source_url?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          competitor_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          cta_button?: string | null
+          description?: string | null
+          headline?: string | null
+          id?: string
+          industry?: string | null
+          is_favorite?: boolean | null
+          notes?: string | null
+          objective?: string | null
+          organization_id?: string
+          performance_tier?: string | null
+          platform?: string
+          primary_text?: string | null
+          screenshot_url?: string | null
+          source_type?: string
+          source_url?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_swipe_files_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_sync_configs: {
         Row: {
           ad_copy_id: string
@@ -1908,6 +1988,62 @@ export type Database = {
             columns: ["reply_to_id"]
             isOneToOne: false
             referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_profiles: {
+        Row: {
+          competitor_name: string
+          created_at: string | null
+          created_by: string | null
+          facebook_page_id: string | null
+          id: string
+          industry: string | null
+          instagram_handle: string | null
+          is_active: boolean | null
+          notes: string | null
+          organization_id: string
+          tiktok_handle: string | null
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          competitor_name: string
+          created_at?: string | null
+          created_by?: string | null
+          facebook_page_id?: string | null
+          id?: string
+          industry?: string | null
+          instagram_handle?: string | null
+          is_active?: boolean | null
+          notes?: string | null
+          organization_id: string
+          tiktok_handle?: string | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          competitor_name?: string
+          created_at?: string | null
+          created_by?: string | null
+          facebook_page_id?: string | null
+          id?: string
+          industry?: string | null
+          instagram_handle?: string | null
+          is_active?: boolean | null
+          notes?: string | null
+          organization_id?: string
+          tiktok_handle?: string | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -3464,6 +3600,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      marketing_calendar: {
+        Row: {
+          country_code: string | null
+          created_at: string | null
+          end_date: string | null
+          event_name: string
+          event_name_vi: string | null
+          event_type: string
+          id: string
+          industries: string[] | null
+          is_active: boolean | null
+          start_date: string
+          suggested_keywords: string[] | null
+          suggested_themes: string[] | null
+          urgency_level: number | null
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          event_name: string
+          event_name_vi?: string | null
+          event_type: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          start_date: string
+          suggested_keywords?: string[] | null
+          suggested_themes?: string[] | null
+          urgency_level?: number | null
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          event_name?: string
+          event_name_vi?: string | null
+          event_type?: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean | null
+          start_date?: string
+          suggested_keywords?: string[] | null
+          suggested_themes?: string[] | null
+          urgency_level?: number | null
+        }
+        Relationships: []
       }
       multi_channel_contents: {
         Row: {
