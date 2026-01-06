@@ -67,6 +67,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Check if OpenRouter provider has API key configured
   const hasOpenRouterApiKey = useMemo(() => {
@@ -140,22 +141,45 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const currentModel = editingFunction?.modelOverride || currentFunctionMeta?.currentModel || '';
   const currentModelInfo = getEnhancedModelInfo(currentModel);
 
+  // Filter functions based on search query
+  const filteredFunctions = useMemo(() => {
+    if (!searchQuery.trim()) return AI_FUNCTIONS;
+    const query = searchQuery.toLowerCase();
+    return AI_FUNCTIONS.filter(fn => 
+      fn.name.toLowerCase().includes(query) ||
+      fn.description.toLowerCase().includes(query) ||
+      fn.category.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h3 className="text-base sm:text-lg font-medium">Function Configuration</h3>
           <p className="text-xs sm:text-sm text-muted-foreground">
             Cấu hình AI model và parameters cho từng edge function
           </p>
         </div>
-        <div className="flex gap-1.5 sm:gap-2 flex-wrap">
-          {Object.entries(TYPE_BADGES).map(([type, badge]) => (
-            <Badge key={type} variant="outline" className={`${badge.className} text-[10px] sm:text-xs`}>
-              {badge.icon}
-              <span className="ml-1 hidden xs:inline">{badge.label}</span>
-            </Badge>
-          ))}
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm function..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-9 w-full sm:w-[200px]"
+            />
+          </div>
+          <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+            {Object.entries(TYPE_BADGES).map(([type, badge]) => (
+              <Badge key={type} variant="outline" className={`${badge.className} text-[10px] sm:text-xs`}>
+                {badge.icon}
+                <span className="ml-1 hidden xs:inline">{badge.label}</span>
+              </Badge>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -174,7 +198,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
               </TableRow>
             </TableHeader>
             <TableBody>
-              {AI_FUNCTIONS.map((fn) => {
+              {filteredFunctions.map((fn) => {
                 const config = getConfiguredFunction(fn.name);
                 const category = fn.category;
                 const typeBadge = TYPE_BADGES[fn.type];
