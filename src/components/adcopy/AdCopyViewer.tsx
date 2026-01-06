@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus } from 'lucide-react';
+import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAdCopies } from '@/hooks/useAdCopies';
@@ -23,6 +23,7 @@ import {
 } from '@/types/adCopy';
 import { ABTestSetupDialog, ABTestCard, ABTestResultsView } from './ab-testing';
 import { PerformanceDashboard } from './performance';
+import { PolicyChecker } from './PolicyChecker';
 
 interface AdCopyViewerProps {
   open: boolean;
@@ -34,7 +35,7 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
   const { toggleVariationApproval } = useAdCopies();
   const { abTests, updateStatus, deleteTest } = useAdCopyABTests(adCopy.id);
   const [activeTab, setActiveTab] = useState(adCopy.variations?.[0]?.variation_label || 'A');
-  const [mainTab, setMainTab] = useState<'variations' | 'ab-tests' | 'performance'>('variations');
+  const [mainTab, setMainTab] = useState<'variations' | 'ab-tests' | 'performance' | 'policy'>('variations');
   const [showABTestSetup, setShowABTestSetup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   
@@ -490,8 +491,8 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
         </div>
 
         {/* Main Tabs: Variations / A/B Tests */}
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'variations' | 'ab-tests' | 'performance')}>
-          <TabsList className="grid grid-cols-3 w-fit">
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'variations' | 'ab-tests' | 'performance' | 'policy')}>
+          <TabsList className="grid grid-cols-4 w-fit">
             <TabsTrigger value="variations">Variations</TabsTrigger>
             <TabsTrigger value="ab-tests" className="gap-1">
               <FlaskConical className="h-4 w-4" />
@@ -501,6 +502,10 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
               )}
             </TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="policy" className="gap-1">
+              <Shield className="h-4 w-4" />
+              Policy
+            </TabsTrigger>
           </TabsList>
 
           {/* Variations Tab */}
@@ -614,6 +619,11 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
               adCopyId={adCopy.id} 
               variations={adCopy.variations || []}
             />
+          </TabsContent>
+
+          {/* Policy Tab */}
+          <TabsContent value="policy" className="mt-4">
+            <PolicyChecker adCopy={adCopy} />
           </TabsContent>
         </Tabs>
       </DialogContent>
