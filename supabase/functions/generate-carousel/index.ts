@@ -24,6 +24,7 @@ interface CarouselFormData {
   logoUrl?: string | null;
   brandTemplateId?: string;
   organization_id?: string;
+  campaignId?: string;
 }
 
 interface CarouselSlide {
@@ -719,6 +720,7 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
         status: initialStatus,
         industry_template_id: industryMemory?.id || null,
         industry_template_version: industryMemory?.version || null,
+        campaign_id: formData.campaignId || null,
         // Self-critique metadata
         critique_score: critiqueResult?.overall_score || null,
         critique_details: critiqueResult || null,

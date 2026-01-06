@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   X,
   Target,
-  Book
+  Book,
+  Megaphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -43,6 +44,7 @@ import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
@@ -102,6 +104,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     brandVoiceVariantId: undefined,
     hook: undefined,
     angle: undefined,
+    campaignId: undefined,
   });
 
   // Handle initialTopic prop changes
@@ -694,6 +697,22 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 )}
               </CardContent>
             </Card>
+
+            {/* Campaign Selector */}
+            <div className="space-y-2">
+              <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                <Megaphone className="w-4 h-4" />
+                Liên kết với Chiến dịch
+                <span className="text-xs text-muted-foreground">(tùy chọn)</span>
+              </Label>
+              <CampaignSelector
+                value={formData.campaignId}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, campaignId: value }))}
+                disabled={isLoading}
+                placeholder="Chọn chiến dịch..."
+                showActiveOnly={true}
+              />
+            </div>
           </div>
         )}
       </div>

@@ -53,6 +53,7 @@ interface FormData {
   targetPersonaId?: string;
   targetProductId?: string;
   stream?: boolean; // NEW: Enable real-time SSE streaming
+  campaignId?: string;
 }
 
 // Journey Stage → Content Goal Mapping

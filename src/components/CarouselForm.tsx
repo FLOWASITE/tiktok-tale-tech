@@ -27,6 +27,7 @@ import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { 
   Images, 
   Loader2, 
@@ -37,7 +38,8 @@ import {
   Wand2,
   ChevronDown,
   ChevronUp,
-  Book
+  Book,
+  Megaphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -88,6 +90,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [brandGuideline, setBrandGuideline] = useState(DEFAULT_BRAND_GUIDELINE);
   const [includeLogo, setIncludeLogo] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
   
@@ -228,6 +231,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       logoUrl: getSelectedLogoUrl(),
       brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
       topicHistoryId,
+      campaignId: selectedCampaignId,
     });
   };
 
@@ -430,6 +434,22 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             <BrandPreviewCard template={selectedTemplate} defaultOpen={false} />
           </div>
         )}
+      </div>
+
+      {/* Campaign Selector */}
+      <div className="space-y-3 stagger-item" style={{ animationDelay: '350ms' }}>
+        <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
+          <Megaphone className="w-4 h-4" />
+          Liên kết với Chiến dịch
+          <span className="text-xs text-muted-foreground ml-1">(tùy chọn)</span>
+        </Label>
+        <CampaignSelector
+          value={selectedCampaignId}
+          onValueChange={setSelectedCampaignId}
+          disabled={isLoading}
+          placeholder="Chọn chiến dịch..."
+          showActiveOnly={true}
+        />
       </div>
 
       {/* Advanced Settings Toggle */}

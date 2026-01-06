@@ -52,6 +52,7 @@ import {
   X,
   Star,
   Settings2,
+  Megaphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -68,6 +69,7 @@ import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSele
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
 import { AIGenerationProgress } from '@/components/multichannel/AIGenerationProgress';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -202,6 +204,7 @@ export function MultiChannelFormStepper({
     contentPurpose: initialContentPurpose,
     marketingFramework: initialMarketingFramework,
     journeyStage: undefined,
+    campaignId: undefined,
   });
 
   // Handle initialTopic prop changes
@@ -1017,6 +1020,22 @@ export function MultiChannelFormStepper({
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Campaign Selector */}
+                  <div className="space-y-2">
+                    <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                      <Megaphone className="w-4 h-4" />
+                      Liên kết với Chiến dịch
+                      <span className="text-xs text-muted-foreground">(tùy chọn)</span>
+                    </Label>
+                    <CampaignSelector
+                      value={formData.campaignId}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, campaignId: value }))}
+                      disabled={effectiveLoading}
+                      placeholder="Chọn chiến dịch..."
+                      showActiveOnly={true}
+                    />
+                  </div>
                 </>
               )}
             </div>

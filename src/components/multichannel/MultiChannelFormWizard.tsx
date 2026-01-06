@@ -148,6 +148,7 @@ export function MultiChannelFormWizard({
     contentPurpose: initialData?.contentPurpose,
     marketingFramework: initialData?.marketingFramework,
     journeyStage: initialData?.journeyStage,
+    campaignId: initialData?.campaignId,
   });
 
   // Sync brand template
