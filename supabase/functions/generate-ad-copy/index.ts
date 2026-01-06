@@ -433,7 +433,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const aiResponse = await fetch('https://ai.lovable.dev/api/chat', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -452,7 +452,26 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('[generate-ad-copy] AI error:', errorText);
+      console.error('[generate-ad-copy] AI error:', aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ 
+          error: 'Hệ thống đang quá tải, vui lòng thử lại sau.' 
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ 
+          error: 'Đã hết quota AI, vui lòng liên hệ admin.' 
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       throw new Error(`AI call failed: ${aiResponse.status}`);
     }
 
