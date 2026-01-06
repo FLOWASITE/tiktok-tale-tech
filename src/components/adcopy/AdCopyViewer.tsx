@@ -258,6 +258,204 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
     </div>
   );
 
+  const renderTikTokVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      {/* TikTok Preview Mockup */}
+      <div className="bg-black rounded-xl p-4 text-white max-w-[280px] mx-auto aspect-[9/16] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        <div className="absolute bottom-4 left-4 right-12 z-10">
+          <p className="text-sm mb-2">{variation.primary_text || 'Primary text...'}</p>
+          <p className="font-bold text-xs">{variation.headline || 'Headline...'}</p>
+        </div>
+        <div className="absolute right-3 bottom-20 flex flex-col items-center gap-4 text-white">
+          <div className="text-center">
+            <div className="w-8 h-8 rounded-full bg-white/20" />
+            <span className="text-[10px]">❤️</span>
+          </div>
+          <div className="text-center">
+            <div className="w-8 h-8 rounded-full bg-white/20" />
+            <span className="text-[10px]">💬</span>
+          </div>
+          <div className="text-center">
+            <div className="w-8 h-8 rounded-full bg-white/20" />
+            <span className="text-[10px]">↗️</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Fields */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Primary Text (Overlay)</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.primary_text || '', 'Primary Text')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">{variation.primary_text || '-'}</div>
+        {renderCharCounter(variation.primary_text, 'primary_text')}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Headline</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.headline || '', 'Headline')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm font-medium">{variation.headline || '-'}</div>
+        {renderCharCounter(variation.headline, 'headline')}
+      </div>
+
+      <div>
+        <Label>CTA Button</Label>
+        <div className="mt-1">
+          <Badge variant="outline" className="text-sm">
+            {CTA_BUTTONS.find(c => c.value === variation.cta_button)?.label || variation.cta_button}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderZaloVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      {/* Zalo Preview Mockup */}
+      <div className="bg-background rounded-xl border max-w-[320px] mx-auto overflow-hidden">
+        <div className="bg-[#0068ff] text-white p-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg">💬</div>
+          <div>
+            <p className="font-medium text-sm">Zalo Official Account</p>
+            <p className="text-xs opacity-80">Được tài trợ</p>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-sm">{variation.primary_text || 'Primary text...'}</p>
+          <div className="bg-muted rounded-lg p-3">
+            <p className="font-medium text-sm">{variation.headline || 'Headline...'}</p>
+            <p className="text-xs text-muted-foreground mt-1">{variation.description || 'Description...'}</p>
+          </div>
+          <Button size="sm" className="w-full bg-[#0068ff] hover:bg-[#0055dd]">
+            {CTA_BUTTONS.find(c => c.value === variation.cta_button)?.label || 'Tìm hiểu thêm'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Fields */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Primary Text</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.primary_text || '', 'Primary Text')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">{variation.primary_text || '-'}</div>
+        {renderCharCounter(variation.primary_text, 'primary_text')}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Headline</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.headline || '', 'Headline')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm font-medium">{variation.headline || '-'}</div>
+        {renderCharCounter(variation.headline, 'headline')}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Description</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.description || '', 'Description')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">{variation.description || '-'}</div>
+        {renderCharCounter(variation.description, 'description')}
+      </div>
+
+      <div>
+        <Label>CTA Button</Label>
+        <div className="mt-1">
+          <Badge variant="outline" className="text-sm">
+            {CTA_BUTTONS.find(c => c.value === variation.cta_button)?.label || variation.cta_button}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderLinkedInVariation = (variation: AdCopyVariation) => (
+    <div className="space-y-4">
+      {/* LinkedIn Preview Mockup */}
+      <div className="bg-background rounded-xl border max-w-[400px] mx-auto overflow-hidden">
+        <div className="p-4 flex items-center gap-3 border-b">
+          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-xl">💼</div>
+          <div className="flex-1">
+            <p className="font-medium text-sm">Company Name</p>
+            <p className="text-xs text-muted-foreground">Được tài trợ</p>
+          </div>
+        </div>
+        <div className="p-4">
+          <p className="text-sm mb-3">{variation.primary_text || 'Primary text...'}</p>
+        </div>
+        <div className="aspect-video bg-muted flex items-center justify-center text-4xl">🖼️</div>
+        <div className="p-4 border-t">
+          <p className="font-medium">{variation.headline || 'Headline...'}</p>
+          <p className="text-sm text-muted-foreground mt-1">{variation.description || 'Description...'}</p>
+        </div>
+        <div className="px-4 pb-4">
+          <Button size="sm" variant="outline" className="font-medium">
+            {CTA_BUTTONS.find(c => c.value === variation.cta_button)?.label || 'Learn more'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Fields */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Primary Text (Intro)</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.primary_text || '', 'Primary Text')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">{variation.primary_text || '-'}</div>
+        {renderCharCounter(variation.primary_text, 'primary_text')}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Headline</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.headline || '', 'Headline')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm font-medium">{variation.headline || '-'}</div>
+        {renderCharCounter(variation.headline, 'headline')}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <Label>Description</Label>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(variation.description || '', 'Description')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">{variation.description || '-'}</div>
+        {renderCharCounter(variation.description, 'description')}
+      </div>
+
+      <div>
+        <Label>CTA Button</Label>
+        <div className="mt-1">
+          <Badge variant="outline" className="text-sm">
+            {CTA_BUTTONS.find(c => c.value === variation.cta_button)?.label || variation.cta_button}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -327,6 +525,12 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
                 <CardContent>
                   {adCopy.platform === 'google_rsa' 
                     ? renderGoogleRSAVariation(variation)
+                    : adCopy.platform === 'tiktok'
+                    ? renderTikTokVariation(variation)
+                    : adCopy.platform === 'zalo'
+                    ? renderZaloVariation(variation)
+                    : adCopy.platform === 'linkedin'
+                    ? renderLinkedInVariation(variation)
                     : renderMetaVariation(variation)
                   }
                   {renderPolicyWarnings(variation.policy_warnings)}
