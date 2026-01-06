@@ -43,6 +43,7 @@ import AdminHelpArticles from "./pages/AdminHelpArticles";
 import Campaigns from "./pages/Campaigns";
 import CampaignCreate from "./pages/CampaignCreate";
 import CampaignDetail from "./pages/CampaignDetail";
+import AdCopies from "./pages/AdCopies";
 
 const queryClient = new QueryClient();
 
@@ -197,6 +198,18 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <CampaignDetail />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Ad Copies */}
+              <Route
+                path="/ad-copies"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AdCopies />
+                    </AppLayout>
                   </ProtectedRoute>
                 }
               />
