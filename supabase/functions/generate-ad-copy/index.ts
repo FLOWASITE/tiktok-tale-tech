@@ -660,6 +660,30 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
+    // Build request body - only include optional params if they're valid
+    const aiRequestBody: Record<string, unknown> = {
+      model: aiConfig.model || 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    };
+    
+    // Only add temperature and max_tokens if they're valid numbers
+    if (typeof aiConfig.temperature === 'number' && aiConfig.temperature >= 0 && aiConfig.temperature <= 2) {
+      aiRequestBody.temperature = aiConfig.temperature;
+    }
+    if (typeof aiConfig.max_tokens === 'number' && aiConfig.max_tokens > 0) {
+      aiRequestBody.max_tokens = aiConfig.max_tokens;
+    }
+    
+    console.log('[generate-ad-copy] AI request body:', JSON.stringify({
+      model: aiRequestBody.model,
+      temperature: aiRequestBody.temperature,
+      max_tokens: aiRequestBody.max_tokens,
+      messageCount: 2
+    }));
+
     const aiResponse = await callAIWithRetry(
       'https://ai.gateway.lovable.dev/v1/chat/completions',
       {
@@ -668,15 +692,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${lovableApiKey}`,
         },
-        body: JSON.stringify({
-          model: aiConfig.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: aiConfig.temperature,
-          max_tokens: aiConfig.max_tokens,
-        }),
+        body: JSON.stringify(aiRequestBody),
       }
     );
 
