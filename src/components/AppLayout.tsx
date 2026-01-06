@@ -8,9 +8,28 @@ import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { QuickSearch } from '@/components/QuickSearch';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
 import { HelpHeaderButton } from '@/components/help/HelpHeaderButton';
+import { Menu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useSidebar } from '@/components/ui/sidebar';
 
 interface AppLayoutProps {
   children: React.ReactNode;
+}
+
+function MobileSidebarTrigger() {
+  const { toggleSidebar } = useSidebar();
+  
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleSidebar}
+      className="h-9 w-9 md:hidden shrink-0"
+    >
+      <Menu className="h-5 w-5" />
+      <span className="sr-only">Toggle Menu</span>
+    </Button>
+  );
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -21,9 +40,13 @@ export function AppLayout({ children }: AppLayoutProps) {
         
         <div className="flex-1 min-w-0 flex flex-col min-h-screen">
           {/* Top Header Bar */}
-          <header className="sticky top-0 z-40 h-14 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 gap-4">
-            <SidebarTrigger className="h-8 w-8" />
-            <Separator orientation="vertical" className="h-6" />
+          <header className="sticky top-0 z-40 h-14 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 gap-3">
+            {/* Mobile menu trigger - only visible on mobile */}
+            <MobileSidebarTrigger />
+            
+            {/* Desktop sidebar trigger - hidden on mobile */}
+            <SidebarTrigger className="h-8 w-8 hidden md:flex" />
+            <Separator orientation="vertical" className="h-6 hidden md:block" />
             <OrganizationSwitcher />
             <div className="flex-1" />
             
