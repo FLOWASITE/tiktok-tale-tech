@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, 
@@ -29,6 +29,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SlidePanel } from '@/components/ui/slide-panel';
+import { MobileFAB } from '@/components/ui/mobile-fab';
 import { MultiChannelForm } from '@/components/MultiChannelForm';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { PublishingQueue } from '@/components/PublishingQueue';
@@ -268,6 +269,21 @@ export default function ContentCalendar() {
   const [formOpen, setFormOpen] = useState(false);
   const [showMiniCalendar, setShowMiniCalendar] = useState(true);
   const [showCampaignTimeline, setShowCampaignTimeline] = useState(true);
+  
+  // Mobile FAB visibility
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [showFab, setShowFab] = useState(false);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      if (headerRef.current) {
+        const headerBottom = headerRef.current.getBoundingClientRect().bottom;
+        setShowFab(headerBottom < 0);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, []);
   
   // Schedule Topic Dialog state
   const [scheduleTopicDialogOpen, setScheduleTopicDialogOpen] = useState(false);
@@ -573,7 +589,7 @@ export default function ContentCalendar() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div ref={headerRef} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Quản lý lịch đăng</h1>
           <p className="text-muted-foreground text-sm">
@@ -962,6 +978,12 @@ export default function ContentCalendar() {
         contentGoal={pendingScheduleGoal}
         onSchedule={handleScheduleTopic}
         isLoading={isSchedulingTopic}
+      />
+      
+      {/* Mobile FAB */}
+      <MobileFAB 
+        visible={showFab && !formOpen} 
+        onClick={() => setFormOpen(true)}
       />
     </div>
   );
