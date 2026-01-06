@@ -73,7 +73,7 @@ export function AdCopyFormDialog({ open, onOpenChange, onSubmit, isGenerating }:
           {/* Platform Selection */}
           <div className="space-y-3">
             <Label>Nền tảng quảng cáo *</Label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {AD_PLATFORMS.map((platform) => (
                 <button
                   key={platform.value}

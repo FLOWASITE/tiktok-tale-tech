@@ -93,14 +93,17 @@ export const AD_CHAR_LIMITS = {
   },
   tiktok: {
     primary_text: { ideal: 80, max: 150 },
+    headline: { ideal: 30, max: 50 },
   },
   zalo: {
     primary_text: { ideal: 100, max: 200 },
     headline: { ideal: 30, max: 50 },
+    description: { ideal: 25, max: 40 },
   },
   linkedin: {
     primary_text: { ideal: 150, max: 600 },
     headline: { ideal: 70, max: 200 },
+    description: { ideal: 60, max: 100 },
   },
 } as const;
 
@@ -121,6 +124,9 @@ export const AD_PLATFORMS = [
   { value: 'meta_feed', label: 'Meta Feed', description: 'Facebook & Instagram Feed', icon: '📱' },
   { value: 'meta_story', label: 'Meta Story', description: 'Facebook & Instagram Story', icon: '📸' },
   { value: 'google_rsa', label: 'Google RSA', description: 'Responsive Search Ads', icon: '🔍' },
+  { value: 'tiktok', label: 'TikTok Ads', description: 'Quảng cáo video ngắn', icon: '🎵' },
+  { value: 'zalo', label: 'Zalo Ads', description: 'Zalo Official Account', icon: '💬' },
+  { value: 'linkedin', label: 'LinkedIn Ads', description: 'Quảng cáo B2B chuyên nghiệp', icon: '💼' },
 ] as const;
 
 export const AD_OBJECTIVES = [

@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface AdCopyRequest {
   topic: string;
-  platform: 'meta_feed' | 'meta_story' | 'google_rsa';
+  platform: 'meta_feed' | 'meta_story' | 'google_rsa' | 'tiktok' | 'zalo' | 'linkedin';
   objective: string;
   landingUrl?: string;
   audienceBrief?: string;
@@ -47,6 +47,20 @@ const CHAR_LIMITS: Record<string, PlatformLimits> = {
   google_rsa: {
     headline: { max: 30 },
     description: { max: 90 },
+  },
+  tiktok: {
+    primary_text: { ideal: 80, max: 150 },
+    headline: { ideal: 30, max: 50 },
+  },
+  zalo: {
+    primary_text: { ideal: 100, max: 200 },
+    headline: { ideal: 30, max: 50 },
+    description: { ideal: 25, max: 40 },
+  },
+  linkedin: {
+    primary_text: { ideal: 150, max: 600 },
+    headline: { ideal: 70, max: 200 },
+    description: { ideal: 60, max: 100 },
   },
 };
 
@@ -258,6 +272,71 @@ Return JSON array with ${variationCount} variations:
 [{
   "headlines": ["headline1", "headline2", ...(15 headlines)],
   "descriptions": ["desc1", "desc2", "desc3", "desc4"]
+}]`;
+    } else if (platform === 'tiktok') {
+      const ptLimits = limits.primary_text || { ideal: 80, max: 150 };
+      const hlLimits = limits.headline || { ideal: 30, max: 50 };
+      
+      platformInstructions = `
+Platform: TikTok In-Feed Ads
+- Primary Text: ${ptLimits.ideal} chars ideal, max ${ptLimits.max} (hiển thị ở overlay)
+- Headline: ${hlLimits.ideal} chars ideal, max ${hlLimits.max}
+- Tone: Casual, trendy, Gen Z friendly
+- Use hooks that work for vertical video
+- Avoid overly salesy language
+- Consider trending sounds/formats references
+`;
+      outputFormat = `
+Return JSON array with ${variationCount} variations:
+[{
+  "primary_text": "...",
+  "headline": "...",
+  "cta_button": "learn_more|shop_now|sign_up|get_offer|download"
+}]`;
+    } else if (platform === 'zalo') {
+      const ptLimits = limits.primary_text || { ideal: 100, max: 200 };
+      const hlLimits = limits.headline || { ideal: 30, max: 50 };
+      const descLimits = limits.description || { ideal: 25, max: 40 };
+      
+      platformInstructions = `
+Platform: Zalo Official Account Ads
+- Primary Text: ${ptLimits.ideal} chars ideal, max ${ptLimits.max}
+- Headline: ${hlLimits.ideal} chars ideal, max ${hlLimits.max}
+- Description: ${descLimits.ideal} chars ideal, max ${descLimits.max}
+- Tone: Friendly, conversational, Vietnamese local
+- Optimize for Zalo OA message style
+- Use Vietnamese colloquial language appropriately
+`;
+      outputFormat = `
+Return JSON array with ${variationCount} variations:
+[{
+  "primary_text": "...",
+  "headline": "...",
+  "description": "...",
+  "cta_button": "learn_more|shop_now|send_message|get_offer|contact_us"
+}]`;
+    } else if (platform === 'linkedin') {
+      const ptLimits = limits.primary_text || { ideal: 150, max: 600 };
+      const hlLimits = limits.headline || { ideal: 70, max: 200 };
+      const descLimits = limits.description || { ideal: 60, max: 100 };
+      
+      platformInstructions = `
+Platform: LinkedIn Sponsored Content
+- Primary Text: ${ptLimits.ideal} chars ideal, max ${ptLimits.max} (intro text)
+- Headline: ${hlLimits.ideal} chars ideal, max ${hlLimits.max}
+- Description: ${descLimits.ideal} chars ideal, max ${descLimits.max}
+- Tone: Professional, thought leadership
+- Use industry jargon appropriately
+- Focus on business value, ROI, career growth
+- Include data/statistics when relevant
+`;
+      outputFormat = `
+Return JSON array with ${variationCount} variations:
+[{
+  "primary_text": "...",
+  "headline": "...",
+  "description": "...",
+  "cta_button": "learn_more|sign_up|download|get_quote|contact_us"
 }]`;
     } else {
       const metaType = platform === 'meta_story' ? 'Story' : 'Feed';
