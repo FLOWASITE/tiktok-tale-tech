@@ -30,6 +30,8 @@ export type Database = {
           persona_id: string | null
           platform: Database["public"]["Enums"]["ad_platform"]
           product_id: string | null
+          saved_audience_id: string | null
+          sequence_stage_id: string | null
           status: string | null
           title: string
           topic: string
@@ -51,6 +53,8 @@ export type Database = {
           persona_id?: string | null
           platform?: Database["public"]["Enums"]["ad_platform"]
           product_id?: string | null
+          saved_audience_id?: string | null
+          sequence_stage_id?: string | null
           status?: string | null
           title: string
           topic: string
@@ -72,6 +76,8 @@ export type Database = {
           persona_id?: string | null
           platform?: Database["public"]["Enums"]["ad_platform"]
           product_id?: string | null
+          saved_audience_id?: string | null
+          sequence_stage_id?: string | null
           status?: string | null
           title?: string
           topic?: string
@@ -126,6 +132,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "brand_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_saved_audience_id_fkey"
+            columns: ["saved_audience_id"]
+            isOneToOne: false
+            referencedRelation: "saved_audiences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copies_sequence_stage_id_fkey"
+            columns: ["sequence_stage_id"]
+            isOneToOne: false
+            referencedRelation: "ad_sequence_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -493,6 +513,162 @@ export type Database = {
             columns: ["ad_copy_id"]
             isOneToOne: false
             referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_sequence_stage_copies: {
+        Row: {
+          ad_copy_id: string
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          sort_order: number | null
+          stage_id: string
+        }
+        Insert: {
+          ad_copy_id: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          sort_order?: number | null
+          stage_id: string
+        }
+        Update: {
+          ad_copy_id?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          sort_order?: number | null
+          stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_sequence_stage_copies_ad_copy_id_fkey"
+            columns: ["ad_copy_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_sequence_stage_copies_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "ad_sequence_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_sequence_stages: {
+        Row: {
+          audience_adjustments: Json | null
+          budget_percentage: number | null
+          created_at: string | null
+          delay_days: number | null
+          duration_days: number | null
+          id: string
+          notes: string | null
+          sequence_id: string
+          stage_label: string | null
+          stage_name: string
+          stage_order: number
+        }
+        Insert: {
+          audience_adjustments?: Json | null
+          budget_percentage?: number | null
+          created_at?: string | null
+          delay_days?: number | null
+          duration_days?: number | null
+          id?: string
+          notes?: string | null
+          sequence_id: string
+          stage_label?: string | null
+          stage_name: string
+          stage_order: number
+        }
+        Update: {
+          audience_adjustments?: Json | null
+          budget_percentage?: number | null
+          created_at?: string | null
+          delay_days?: number | null
+          duration_days?: number | null
+          id?: string
+          notes?: string | null
+          sequence_id?: string
+          stage_label?: string | null
+          stage_name?: string
+          stage_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_sequence_stages_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "ad_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_sequences: {
+        Row: {
+          brand_template_id: string | null
+          campaign_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          sequence_type: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          sequence_type: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          sequence_type?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_sequences_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_sequences_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_sequences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -4404,6 +4580,127 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "content_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_audiences: {
+        Row: {
+          age_max: number | null
+          age_min: number | null
+          behaviors: string[] | null
+          brand_template_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          device_types: string[] | null
+          education_levels: string[] | null
+          estimated_reach_max: number | null
+          estimated_reach_min: number | null
+          exclude_behaviors: string[] | null
+          exclude_interests: string[] | null
+          genders: string[] | null
+          id: string
+          income_levels: string[] | null
+          interests: string[] | null
+          is_favorite: boolean | null
+          languages: string[] | null
+          last_reach_check: string | null
+          life_events: string[] | null
+          locations: string[] | null
+          lookalike_percentage: number | null
+          lookalike_source: string | null
+          name: string
+          organization_id: string
+          relationship_statuses: string[] | null
+          source_persona_id: string | null
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          age_max?: number | null
+          age_min?: number | null
+          behaviors?: string[] | null
+          brand_template_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          device_types?: string[] | null
+          education_levels?: string[] | null
+          estimated_reach_max?: number | null
+          estimated_reach_min?: number | null
+          exclude_behaviors?: string[] | null
+          exclude_interests?: string[] | null
+          genders?: string[] | null
+          id?: string
+          income_levels?: string[] | null
+          interests?: string[] | null
+          is_favorite?: boolean | null
+          languages?: string[] | null
+          last_reach_check?: string | null
+          life_events?: string[] | null
+          locations?: string[] | null
+          lookalike_percentage?: number | null
+          lookalike_source?: string | null
+          name: string
+          organization_id: string
+          relationship_statuses?: string[] | null
+          source_persona_id?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          age_max?: number | null
+          age_min?: number | null
+          behaviors?: string[] | null
+          brand_template_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          device_types?: string[] | null
+          education_levels?: string[] | null
+          estimated_reach_max?: number | null
+          estimated_reach_min?: number | null
+          exclude_behaviors?: string[] | null
+          exclude_interests?: string[] | null
+          genders?: string[] | null
+          id?: string
+          income_levels?: string[] | null
+          interests?: string[] | null
+          is_favorite?: boolean | null
+          languages?: string[] | null
+          last_reach_check?: string | null
+          life_events?: string[] | null
+          locations?: string[] | null
+          lookalike_percentage?: number | null
+          lookalike_source?: string | null
+          name?: string
+          organization_id?: string
+          relationship_statuses?: string[] | null
+          source_persona_id?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_audiences_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_audiences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_audiences_source_persona_id_fkey"
+            columns: ["source_persona_id"]
+            isOneToOne: false
+            referencedRelation: "customer_personas"
             referencedColumns: ["id"]
           },
         ]
