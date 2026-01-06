@@ -14,7 +14,7 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full overflow-x-hidden bg-background">
         <AppSidebar />
         
         <div className="flex-1 flex flex-col min-h-screen">

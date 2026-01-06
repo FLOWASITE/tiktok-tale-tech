@@ -142,32 +142,30 @@ export default function Campaigns() {
         </div>
         
         <div className="flex items-center justify-between gap-2 sm:gap-4">
-          {/* Tabs - scrollable on mobile */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
-              <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)}>
-                <TabsList className="inline-flex w-auto min-w-max h-8 sm:h-10">
-                  <TabsTrigger value="all" className="text-[10px] sm:text-sm px-2 sm:px-3 h-6 sm:h-8">
-                    Tất cả ({campaigns.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="active" className="text-[10px] sm:text-sm px-2 sm:px-3 h-6 sm:h-8">
-                    <span className="hidden sm:inline">Đang chạy</span>
-                    <span className="sm:hidden">Chạy</span>
-                    <span className="ml-0.5 sm:ml-1">({stats.active})</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="planning" className="text-[10px] sm:text-sm px-2 sm:px-3 h-6 sm:h-8">
-                    <span className="hidden sm:inline">Lên kế hoạch</span>
-                    <span className="sm:hidden">KH</span>
-                    <span className="ml-0.5 sm:ml-1">({stats.planning})</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="completed" className="text-[10px] sm:text-sm px-2 sm:px-3 h-6 sm:h-8">
-                    <span className="hidden sm:inline">Hoàn thành</span>
-                    <span className="sm:hidden">Xong</span>
-                    <span className="ml-0.5 sm:ml-1">({stats.completed})</span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
+          {/* Tabs - wrap on mobile */}
+          <div className="flex-1 min-w-0">
+            <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)}>
+              <TabsList className="grid w-full grid-cols-2 gap-1 h-auto sm:inline-flex sm:w-auto sm:min-w-max sm:h-10">
+                <TabsTrigger value="all" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
+                  Tất cả ({campaigns.length})
+                </TabsTrigger>
+                <TabsTrigger value="active" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
+                  <span className="hidden sm:inline">Đang chạy</span>
+                  <span className="sm:hidden">Chạy</span>
+                  <span className="ml-0.5 sm:ml-1">({stats.active})</span>
+                </TabsTrigger>
+                <TabsTrigger value="planning" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
+                  <span className="hidden sm:inline">Lên kế hoạch</span>
+                  <span className="sm:hidden">KH</span>
+                  <span className="ml-0.5 sm:ml-1">({stats.planning})</span>
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="text-[10px] sm:text-sm px-2 sm:px-3 h-7 sm:h-8">
+                  <span className="hidden sm:inline">Hoàn thành</span>
+                  <span className="sm:hidden">Xong</span>
+                  <span className="ml-0.5 sm:ml-1">({stats.completed})</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
           
           {/* Search - Desktop */}
