@@ -6,10 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, X, Copy, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Check, X, Copy, AlertTriangle, CheckCircle, Info, FlaskConical, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAdCopies } from '@/hooks/useAdCopies';
+import { useAdCopyABTests } from '@/hooks/useAdCopyABTests';
 import { 
   type AdCopy, 
   type AdCopyVariation,
@@ -20,6 +21,7 @@ import {
   getCharLimits,
   CTA_BUTTONS
 } from '@/types/adCopy';
+import { ABTestSetupDialog, ABTestCard, ABTestResultsView } from './ab-testing';
 
 interface AdCopyViewerProps {
   open: boolean;
@@ -29,7 +31,11 @@ interface AdCopyViewerProps {
 
 export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) {
   const { toggleVariationApproval } = useAdCopies();
+  const { abTests, updateStatus, deleteTest } = useAdCopyABTests(adCopy.id);
   const [activeTab, setActiveTab] = useState(adCopy.variations?.[0]?.variation_label || 'A');
+  const [mainTab, setMainTab] = useState<'variations' | 'ab-tests'>('variations');
+  const [showABTestSetup, setShowABTestSetup] = useState(false);
+  const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   
   const platformConfig = getPlatformConfig(adCopy.platform);
   const objectiveConfig = getObjectiveConfig(adCopy.objective);
@@ -482,64 +488,133 @@ export function AdCopyViewer({ open, onOpenChange, adCopy }: AdCopyViewerProps) 
           )}
         </div>
 
-        {/* Variations Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid" style={{ gridTemplateColumns: `repeat(${adCopy.variations?.length || 1}, 1fr)` }}>
-            {adCopy.variations?.map((v) => (
-              <TabsTrigger 
-                key={v.variation_label} 
-                value={v.variation_label}
-                className="gap-2"
-              >
-                <span>Variation {v.variation_label}</span>
-                {v.is_approved && <CheckCircle className="h-3 w-3 text-green-500" />}
-              </TabsTrigger>
-            ))}
+        {/* Main Tabs: Variations / A/B Tests */}
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'variations' | 'ab-tests')}>
+          <TabsList className="grid grid-cols-2 w-fit">
+            <TabsTrigger value="variations">Variations</TabsTrigger>
+            <TabsTrigger value="ab-tests" className="gap-1">
+              <FlaskConical className="h-4 w-4" />
+              A/B Tests
+              {abTests.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{abTests.length}</Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
-          {adCopy.variations?.map((variation) => (
-            <TabsContent key={variation.variation_label} value={variation.variation_label} className="mt-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Variation {variation.variation_label}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={variation.is_approved ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleApprove(variation)}
-                        className="gap-1"
-                      >
-                        {variation.is_approved ? (
-                          <>
-                            <Check className="h-4 w-4" />
-                            Đã duyệt
-                          </>
-                        ) : (
-                          'Duyệt'
-                        )}
-                      </Button>
-                    </div>
+          {/* Variations Tab */}
+          <TabsContent value="variations" className="mt-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid" style={{ gridTemplateColumns: `repeat(${adCopy.variations?.length || 1}, 1fr)` }}>
+                {adCopy.variations?.map((v) => (
+                  <TabsTrigger 
+                    key={v.variation_label} 
+                    value={v.variation_label}
+                    className="gap-2"
+                  >
+                    <span>Variation {v.variation_label}</span>
+                    {v.is_approved && <CheckCircle className="h-3 w-3 text-green-500" />}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {adCopy.variations?.map((variation) => (
+                <TabsContent key={variation.variation_label} value={variation.variation_label} className="mt-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Variation {variation.variation_label}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant={variation.is_approved ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleApprove(variation)}
+                            className="gap-1"
+                          >
+                            {variation.is_approved ? (
+                              <>
+                                <Check className="h-4 w-4" />
+                                Đã duyệt
+                              </>
+                            ) : (
+                              'Duyệt'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {adCopy.platform === 'google_rsa' 
+                        ? renderGoogleRSAVariation(variation)
+                        : adCopy.platform === 'tiktok'
+                        ? renderTikTokVariation(variation)
+                        : adCopy.platform === 'zalo'
+                        ? renderZaloVariation(variation)
+                        : adCopy.platform === 'linkedin'
+                        ? renderLinkedInVariation(variation)
+                        : renderMetaVariation(variation)
+                      }
+                      {renderPolicyWarnings(variation.policy_warnings)}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </TabsContent>
+
+          {/* A/B Tests Tab */}
+          <TabsContent value="ab-tests" className="mt-4 space-y-4">
+            {selectedTestId ? (
+              <div className="space-y-4">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedTestId(null)}>
+                  ← Quay lại danh sách
+                </Button>
+                <ABTestResultsView
+                  testId={selectedTestId}
+                  variations={adCopy.variations || []}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">A/B Tests ({abTests.length})</h4>
+                  <Button size="sm" onClick={() => setShowABTestSetup(true)} disabled={!adCopy.variations || adCopy.variations.length < 2}>
+                    <Plus className="h-4 w-4 mr-1" /> Tạo A/B Test
+                  </Button>
+                </div>
+
+                {abTests.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FlaskConical className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>Chưa có A/B test nào</p>
+                    <p className="text-sm mt-1">Tạo test để so sánh hiệu quả các variations</p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {adCopy.platform === 'google_rsa' 
-                    ? renderGoogleRSAVariation(variation)
-                    : adCopy.platform === 'tiktok'
-                    ? renderTikTokVariation(variation)
-                    : adCopy.platform === 'zalo'
-                    ? renderZaloVariation(variation)
-                    : adCopy.platform === 'linkedin'
-                    ? renderLinkedInVariation(variation)
-                    : renderMetaVariation(variation)
-                  }
-                  {renderPolicyWarnings(variation.policy_warnings)}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          ))}
+                ) : (
+                  <div className="grid gap-3">
+                    {abTests.map((test) => (
+                      <ABTestCard
+                        key={test.id}
+                        test={test}
+                        onView={() => setSelectedTestId(test.id)}
+                        onStart={() => updateStatus.mutate({ testId: test.id, status: 'running' })}
+                        onPause={() => updateStatus.mutate({ testId: test.id, status: 'paused' })}
+                        onDelete={() => deleteTest.mutate(test.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* A/B Test Setup Dialog */}
+      <ABTestSetupDialog
+        open={showABTestSetup}
+        onOpenChange={setShowABTestSetup}
+        adCopyId={adCopy.id}
+        variations={adCopy.variations || []}
+      />
     </Dialog>
   );
 }

@@ -120,6 +120,145 @@ export type Database = {
           },
         ]
       }
+      ad_copy_ab_results: {
+        Row: {
+          ab_test_id: string
+          clicks: number | null
+          conversion_rate: number | null
+          conversions: number | null
+          cpc: number | null
+          ctr: number | null
+          id: string
+          impressions: number | null
+          logged_at: string
+          spend: number | null
+          updated_at: string | null
+          variation_id: string
+        }
+        Insert: {
+          ab_test_id: string
+          clicks?: number | null
+          conversion_rate?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          logged_at?: string
+          spend?: number | null
+          updated_at?: string | null
+          variation_id: string
+        }
+        Update: {
+          ab_test_id?: string
+          clicks?: number | null
+          conversion_rate?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          logged_at?: string
+          spend?: number | null
+          updated_at?: string | null
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_ab_results_ab_test_id_fkey"
+            columns: ["ab_test_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copy_ab_tests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_ab_results_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copy_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_copy_ab_tests: {
+        Row: {
+          ad_copy_id: string
+          confidence_threshold: number | null
+          created_at: string | null
+          created_by: string | null
+          end_date: string | null
+          hypothesis: string | null
+          id: string
+          metrics_to_track: string[] | null
+          name: string
+          organization_id: string
+          start_date: string | null
+          status: string | null
+          test_variable: string
+          updated_at: string | null
+          variation_ids: string[]
+          winner_variation_id: string | null
+        }
+        Insert: {
+          ad_copy_id: string
+          confidence_threshold?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string | null
+          hypothesis?: string | null
+          id?: string
+          metrics_to_track?: string[] | null
+          name: string
+          organization_id: string
+          start_date?: string | null
+          status?: string | null
+          test_variable?: string
+          updated_at?: string | null
+          variation_ids: string[]
+          winner_variation_id?: string | null
+        }
+        Update: {
+          ad_copy_id?: string
+          confidence_threshold?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string | null
+          hypothesis?: string | null
+          id?: string
+          metrics_to_track?: string[] | null
+          name?: string
+          organization_id?: string
+          start_date?: string | null
+          status?: string | null
+          test_variable?: string
+          updated_at?: string | null
+          variation_ids?: string[]
+          winner_variation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_copy_ab_tests_ad_copy_id_fkey"
+            columns: ["ad_copy_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_ab_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_ab_tests_winner_variation_id_fkey"
+            columns: ["winner_variation_id"]
+            isOneToOne: false
+            referencedRelation: "ad_copy_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_copy_variations: {
         Row: {
           ad_copy_id: string
