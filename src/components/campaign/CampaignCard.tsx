@@ -79,7 +79,7 @@ export function CampaignCard({
     )}>
       {/* Status indicator line */}
       <div className={cn(
-        'absolute top-0 left-0 right-0 h-1',
+        'absolute top-0 left-0 right-0 h-0.5 sm:h-1',
         campaign.status === 'active' && 'bg-green-500',
         campaign.status === 'planning' && 'bg-blue-500',
         campaign.status === 'paused' && 'bg-yellow-500',
@@ -88,16 +88,16 @@ export function CampaignCard({
         campaign.status === 'draft' && 'bg-muted-foreground'
       )} />
 
-      <CardHeader className="pb-2 sm:pb-3 pt-4 sm:pt-5 px-3 sm:px-6">
-        <div className="flex items-start justify-between gap-2 sm:gap-3">
+      <CardHeader className="pb-1.5 sm:pb-3 pt-3 sm:pt-5 px-2.5 sm:px-6">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-              <span className="text-base sm:text-lg">{typeConfig.icon}</span>
+            <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+              <span className="text-sm sm:text-lg">{typeConfig.icon}</span>
               <CampaignStatusBadge status={campaign.status} />
             </div>
-            <h3 className="font-semibold text-base sm:text-lg truncate">{campaign.name}</h3>
+            <h3 className="font-semibold text-sm sm:text-lg truncate">{campaign.name}</h3>
             {campaign.description && (
-              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-1">
+              <p className="text-[11px] sm:text-sm text-muted-foreground line-clamp-1 sm:line-clamp-2 mt-0.5 sm:mt-1">
                 {campaign.description}
               </p>
             )}
@@ -156,17 +156,17 @@ export function CampaignCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
+      <CardContent className="space-y-2 sm:space-y-4 px-2.5 sm:px-6 pb-2.5 sm:pb-6">
         {/* Date range */}
-        <div className="flex items-center justify-between text-xs sm:text-sm">
-          <div className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span>
-              {format(startDate, 'dd/MM', { locale: vi })} - {format(endDate, 'dd/MM/yyyy', { locale: vi })}
+        <div className="flex items-center justify-between text-[11px] sm:text-sm">
+          <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground">
+            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+            <span className="truncate">
+              {format(startDate, 'dd/MM', { locale: vi })} - {format(endDate, 'dd/MM', { locale: vi })}
             </span>
           </div>
           <span className={cn(
-            'text-[10px] sm:text-xs font-medium',
+            'text-[10px] sm:text-xs font-medium shrink-0',
             daysRemaining <= 3 && daysRemaining > 0 && 'text-yellow-500',
             daysRemaining <= 0 && !isPast(endDate) && 'text-destructive',
             isPast(endDate) && 'text-muted-foreground'
@@ -200,25 +200,22 @@ export function CampaignCard({
         )}
 
         {/* Channels & Budget */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/50">
-          <div className="flex gap-1 flex-wrap">
+        <div className="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-border/50">
+          <div className="flex gap-0.5 sm:gap-1 flex-wrap">
             {campaign.target_channels.slice(0, 2).map(channel => (
-              <Badge key={channel} variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
+              <Badge key={channel} variant="secondary" className="text-[9px] sm:text-xs px-1 sm:px-2 h-5 sm:h-auto">
                 {channel}
               </Badge>
             ))}
             {campaign.target_channels.length > 2 && (
-              <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
+              <Badge variant="secondary" className="text-[9px] sm:text-xs px-1 sm:px-2 h-5 sm:h-auto">
                 +{campaign.target_channels.length - 2}
               </Badge>
             )}
           </div>
           
           {campaign.budget_total && (
-            <span className="text-xs sm:text-sm font-medium">
-              <span className="hidden sm:inline">
-                {formatBudget(campaign.budget_spent, campaign.budget_currency)}/
-              </span>
+            <span className="text-[11px] sm:text-sm font-medium shrink-0">
               {formatBudget(campaign.budget_total, campaign.budget_currency)}
             </span>
           )}
