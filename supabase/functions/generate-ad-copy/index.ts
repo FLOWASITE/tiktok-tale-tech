@@ -661,8 +661,28 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
     }
 
     // Build request body - only include optional params if they're valid
+    // NOTE: generate-ad-copy currently calls the Lovable AI Gateway directly.
+    // Some admin configs may point to non-Lovable models (e.g. anthropic/*, meta-llama/*),
+    // which will return 400 from this gateway. In that case, we fall back to a known-good model.
+    const requestedModel = aiConfig.model || 'google/gemini-2.5-flash';
+    const isLovableGatewayModel = (model: string) =>
+      model.startsWith('google/gemini-') ||
+      model.startsWith('openai/gpt-') ||
+      model.startsWith('openai/o');
+
+    const effectiveModel = isLovableGatewayModel(requestedModel)
+      ? requestedModel
+      : 'google/gemini-2.5-flash';
+
+    if (effectiveModel !== requestedModel) {
+      console.warn('[generate-ad-copy] Model not supported by Lovable gateway, falling back:', {
+        requestedModel,
+        effectiveModel,
+      });
+    }
+
     const aiRequestBody: Record<string, unknown> = {
-      model: aiConfig.model || 'google/gemini-2.5-flash',
+      model: effectiveModel,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
