@@ -414,20 +414,20 @@ export function KPISuggestionDialog({
                         </div>
 
                         {/* Comparison metrics for AI suggestions */}
-                        {aiSuggestion.historicalAvg !== undefined || aiSuggestion.industryBenchmark !== undefined ? (
+                        {(aiSuggestion.historicalAvg != null || aiSuggestion.industryBenchmark != null) && (
                           <div className="flex flex-wrap gap-3 mb-2 text-xs">
-                            {aiSuggestion.historicalAvg !== undefined && (
+                            {aiSuggestion.historicalAvg != null && (
                               <span className="text-muted-foreground">
                                 📊 Lịch sử: {aiSuggestion.historicalAvg.toLocaleString('vi-VN')}
                               </span>
                             )}
-                            {aiSuggestion.industryBenchmark !== undefined && (
+                            {aiSuggestion.industryBenchmark != null && (
                               <span className="text-muted-foreground">
                                 🏭 Benchmark: {aiSuggestion.industryBenchmark.toLocaleString('vi-VN')}
                               </span>
                             )}
                           </div>
-                        ) : null}
+                        )}
                         
                         <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                           <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0" />
