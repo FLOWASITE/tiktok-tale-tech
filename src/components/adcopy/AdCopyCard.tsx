@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { memo, useCallback } from 'react';
 import { Eye, Trash2, Clock, Target, Layers, Megaphone, FileText, Copy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,13 +24,26 @@ interface AdCopyCardProps {
   onDuplicate: () => void;
 }
 
-export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: AdCopyCardProps) {
+// Memoized card component with custom comparison
+export const AdCopyCard = memo(function AdCopyCard({ 
+  adCopy, 
+  viewMode, 
+  onView, 
+  onDelete, 
+  onDuplicate 
+}: AdCopyCardProps) {
   const platformConfig = getPlatformConfig(adCopy.platform);
   const objectiveConfig = getObjectiveConfig(adCopy.objective);
   const statusConfig = getStatusConfig(adCopy.status);
   const funnelConfig = getFunnelStageConfig(adCopy.funnel_stage);
 
   const variationCount = adCopy.variations?.length || 0;
+  const formattedDate = format(new Date(adCopy.created_at), 'dd/MM/yyyy', { locale: vi });
+
+  // Memoize handlers to prevent unnecessary re-renders
+  const handleView = useCallback(() => onView(), [onView]);
+  const handleDelete = useCallback(() => onDelete(), [onDelete]);
+  const handleDuplicate = useCallback(() => onDuplicate(), [onDuplicate]);
 
   if (viewMode === 'list') {
     return (
@@ -74,13 +87,13 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
             </div>
             
             <div className="hidden md:block text-sm text-muted-foreground">
-              {format(new Date(adCopy.created_at), 'dd/MM/yyyy', { locale: vi })}
+              {formattedDate}
             </div>
             
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onView} className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
+                  <Button variant="ghost" size="icon" onClick={handleView} className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
                     <Eye className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -88,7 +101,7 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onDuplicate} className="h-8 w-8 hover:bg-blue-500/10 hover:text-blue-500">
+                  <Button variant="ghost" size="icon" onClick={handleDuplicate} className="h-8 w-8 hover:bg-blue-500/10 hover:text-blue-500">
                     <Copy className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -96,7 +109,7 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+                  <Button variant="ghost" size="icon" onClick={handleDelete} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -184,7 +197,7 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {format(new Date(adCopy.created_at), 'dd/MM/yyyy', { locale: vi })}
+              {formattedDate}
             </div>
             <div className="flex items-center gap-2">
               {adCopy.campaign && (
@@ -212,7 +225,7 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={onView} 
+            onClick={handleView} 
             className="gap-1 hover:bg-primary/10 hover:text-primary"
           >
             <Eye className="h-4 w-4" />
@@ -224,7 +237,7 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={onDuplicate}
+                  onClick={handleDuplicate}
                   className="h-8 w-8 hover:bg-blue-500/10 hover:text-blue-500"
                 >
                   <Copy className="h-4 w-4" />
@@ -235,7 +248,7 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={onDelete}
+              onClick={handleDelete}
               className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
@@ -248,4 +261,13 @@ export function AdCopyCard({ adCopy, viewMode, onView, onDelete, onDuplicate }: 
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
     </Card>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison for performance
+  return (
+    prevProps.adCopy.id === nextProps.adCopy.id &&
+    prevProps.adCopy.status === nextProps.adCopy.status &&
+    prevProps.adCopy.title === nextProps.adCopy.title &&
+    prevProps.adCopy.variations?.length === nextProps.adCopy.variations?.length &&
+    prevProps.viewMode === nextProps.viewMode
+  );
+});

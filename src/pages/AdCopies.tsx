@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Megaphone, X } from 'lucide-react';
@@ -8,7 +8,7 @@ import { AdCopyCard } from '@/components/adcopy/AdCopyCard';
 import { AdCopyHeroSection } from '@/components/adcopy/AdCopyHeroSection';
 import { AdCopyFilters, DatePreset, SortOption } from '@/components/adcopy/AdCopyFilters';
 import { AdCopyFormDialog } from '@/components/adcopy/AdCopyFormDialog';
-import { AdCopyViewer } from '@/components/adcopy/AdCopyViewer';
+import { LazyAdCopyViewer } from '@/components/adcopy/LazyAdCopyViewer';
 import type { AdCopy } from '@/types/adCopy';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -145,7 +145,8 @@ export default function AdCopies() {
     setCurrentPage(1);
   };
 
-  const handleView = async (adCopy: AdCopy) => {
+  // Memoized handlers
+  const handleView = useCallback(async (adCopy: AdCopy) => {
     setIsLoadingDetail(true);
     setViewerOpen(true);
     try {
@@ -156,17 +157,17 @@ export default function AdCopies() {
     } finally {
       setIsLoadingDetail(false);
     }
-  };
+  }, [fetchAdCopyDetail]);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     if (confirm('Bạn có chắc muốn xóa ad copy này?')) {
       deleteAdCopy(id);
     }
-  };
+  }, [deleteAdCopy]);
 
-  const handleDuplicate = (id: string) => {
+  const handleDuplicate = useCallback((id: string) => {
     duplicateAdCopy(id);
-  };
+  }, [duplicateAdCopy]);
 
   // Bulk actions handlers
   const handleBulkDelete = () => {
@@ -378,8 +379,8 @@ export default function AdCopies() {
         isGenerating={generating}
       />
 
-      {/* Viewer Dialog */}
-      <AdCopyViewer
+      {/* Viewer Dialog - Lazy loaded */}
+      <LazyAdCopyViewer
         open={viewerOpen}
         onOpenChange={setViewerOpen}
         adCopy={selectedAdCopy}
