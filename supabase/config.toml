@@ -146,3 +146,6 @@ verify_jwt = false
 
 [functions.campaign-notifications]
 verify_jwt = false
+
+[functions.analyze-dashboard-insights]
+verify_jwt = false
