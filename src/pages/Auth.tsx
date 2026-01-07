@@ -17,21 +17,11 @@ const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
 
 const features = [
-  { icon: Zap, text: 'Tạo script video chuyên nghiệp', color: 'from-yellow-500 to-orange-500' },
-  { icon: Palette, text: 'Thiết kế carousel đa nền tảng', color: 'from-pink-500 to-rose-500' },
-  { icon: Share2, text: 'Nội dung đa kênh tự động', color: 'from-blue-500 to-cyan-500' },
-  { icon: Bot, text: 'AI hỗ trợ sáng tạo', color: 'from-purple-500 to-violet-500' },
+  { icon: Zap, text: 'Tạo script video chuyên nghiệp' },
+  { icon: Palette, text: 'Thiết kế carousel đa nền tảng' },
+  { icon: Share2, text: 'Nội dung đa kênh tự động' },
+  { icon: Bot, text: 'AI hỗ trợ sáng tạo' },
 ];
-
-// Generate particles for background animation
-const particles = Array.from({ length: 20 }, (_, i) => ({
-  id: i,
-  left: Math.random() * 100,
-  top: Math.random() * 100,
-  delay: Math.random() * 4,
-  duration: 3 + Math.random() * 3,
-  size: 2 + Math.random() * 4,
-}));
 
 export default function Auth() {
   const { user, signIn, signUp, loading: authLoading } = useAuth();
@@ -157,51 +147,36 @@ export default function Auth() {
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
 
       {/* Left side - Branding (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12">
-        <div className="max-w-lg space-y-10 animate-fade-in relative z-10">
-          {/* Logo with glow */}
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-2xl blur-xl opacity-50 animate-pulse-glow bg-primary/30" />
-              <img src={logoImage} alt="Flowa Logo" className="relative w-16 h-16 object-contain logo-pulse" />
-            </div>
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 bg-muted/30">
+        <div className="max-w-md space-y-8">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <img src={logoImage} alt="Flowa Logo" className="w-12 h-12 object-contain" />
             <div>
-              <span className="text-5xl font-bold text-gradient text-glow">Flowa</span>
-              <div className="text-sm text-muted-foreground font-medium tracking-widest uppercase mt-1">
-                Content Platform
-              </div>
+              <span className="text-3xl font-bold text-primary">Flowa</span>
+              <div className="text-xs text-muted-foreground tracking-wide">Content Platform</div>
             </div>
           </div>
 
-          {/* Tagline with animation */}
-          <div className="space-y-6">
-            <h1 className="text-5xl font-bold text-foreground leading-tight">
-              One Flow.
-              <br />
-              <span className="text-gradient text-glow">All Content.</span>
+          {/* Tagline */}
+          <div className="space-y-3">
+            <h1 className="text-3xl font-bold text-foreground leading-tight">
+              One Flow. <span className="text-primary">All Content.</span>
             </h1>
-            <p className="text-xl text-muted-foreground leading-relaxed">
-              Nền tảng AI tạo nội dung đa kênh thông minh, giúp bạn tiết kiệm thời gian và 
-              <span className="text-foreground font-medium"> tăng 10x hiệu quả marketing</span>.
+            <p className="text-muted-foreground">
+              Nền tảng AI tạo nội dung đa kênh thông minh, giúp bạn tiết kiệm thời gian.
             </p>
           </div>
 
-          {/* Features with animated icons */}
-          <div className="grid grid-cols-2 gap-4">
-            {features.map((feature, index) => (
-              <div 
-                key={feature.text}
-                className="group flex items-center gap-3 p-4 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm hover-lift cursor-default stagger-item"
-                style={{ animationDelay: `${index * 100 + 300}ms` }}
-              >
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-sm font-medium text-foreground">{feature.text}</span>
+          {/* Features - simple list */}
+          <div className="space-y-3">
+            {features.map((feature) => (
+              <div key={feature.text} className="flex items-center gap-3">
+                <feature.icon className="h-4 w-4 text-primary" />
+                <span className="text-sm text-foreground">{feature.text}</span>
               </div>
             ))}
           </div>
-
         </div>
       </div>
 
