@@ -23,7 +23,23 @@ interface UseSalesChatReturn {
   clearMessages: () => void;
   addReaction: (messageId: string, emoji: string) => void;
   sessionId: string;
+  visitorId: string;
   trackCta: (action: string) => void;
+  saveLead: (leadData: LeadData) => Promise<boolean>;
+  requestHandoff: (platform: string) => Promise<boolean>;
+  interestLevel: string;
+}
+
+export interface LeadData {
+  name?: string;
+  email?: string;
+  phone?: string;
+  interestLevel?: string;
+  interestedFeatures?: string[];
+  conversationSummary?: string;
+  sourceUrl?: string;
+  handoffRequested?: boolean;
+  handoffPlatform?: string;
 }
 
 const STORAGE_KEY = 'flowa_sales_chat_messages';
@@ -160,6 +176,7 @@ export function useSalesChat(): UseSalesChatReturn {
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [interestLevel, setInterestLevel] = useState('low');
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Save messages to localStorage
@@ -334,6 +351,56 @@ export function useSalesChat(): UseSalesChatReturn {
     }));
   }, []);
 
+  // Save lead to database
+  const saveLead = useCallback(async (leadData: LeadData): Promise<boolean> => {
+    try {
+      const response = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          action: 'save_lead',
+          sessionId,
+          visitorId,
+          leadData: {
+            ...leadData,
+            conversationSummary: messages.slice(-5).map(m => m.content).join(' | ').slice(0, 500),
+            sourceUrl: window.location.pathname,
+          },
+        }),
+      });
+      return response.ok;
+    } catch (err) {
+      console.error('[useSalesChat] Failed to save lead:', err);
+      return false;
+    }
+  }, [sessionId, visitorId, messages]);
+
+  // Request human handoff
+  const requestHandoff = useCallback(async (platform: string): Promise<boolean> => {
+    try {
+      const response = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          action: 'request_handoff',
+          sessionId,
+          visitorId,
+          leadData: { platform },
+        }),
+      });
+      return response.ok;
+    } catch (err) {
+      console.error('[useSalesChat] Failed to request handoff:', err);
+      return false;
+    }
+  }, [sessionId, visitorId]);
+
   return {
     messages,
     isLoading,
@@ -342,6 +409,10 @@ export function useSalesChat(): UseSalesChatReturn {
     clearMessages,
     addReaction,
     sessionId,
+    visitorId,
     trackCta,
+    saveLead,
+    requestHandoff,
+    interestLevel,
   };
 }

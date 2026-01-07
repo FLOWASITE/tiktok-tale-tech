@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { X, Send, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { X, Send, Trash2, Volume2, VolumeX, MessageCircle, Phone, User, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,6 +9,13 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { LinhAvatar } from './LinhAvatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 const SALES_REACTIONS = ['👍', '👎', '❤️'];
 const GREET_STORAGE_KEY = 'flowa_sales_greeted';
@@ -134,32 +141,138 @@ function MessageBubble({
   );
 }
 
-// Typing Indicator
+// Enhanced Typing Indicator with name
 function TypingIndicator() {
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
       className="flex gap-2 mb-3"
     >
       <LinhAvatar size="sm" />
-      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
-        <div className="flex gap-1">
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="w-2 h-2 bg-muted-foreground/50 rounded-full"
-              animate={{ y: [0, -4, 0] }}
-              transition={{
-                duration: 0.6,
-                repeat: Infinity,
-                delay: i * 0.15,
-              }}
-            />
-          ))}
+      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Thùy Linh đang nhập</span>
+          <div className="flex gap-0.5">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className="w-1.5 h-1.5 bg-primary/70 rounded-full"
+                animate={{ 
+                  y: [0, -3, 0],
+                  opacity: [0.5, 1, 0.5],
+                }}
+                transition={{
+                  duration: 0.8,
+                  repeat: Infinity,
+                  delay: i * 0.2,
+                  ease: "easeInOut",
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// Lead Capture Form
+function LeadCaptureForm({ 
+  onSubmit, 
+  onClose 
+}: { 
+  onSubmit: (data: { name?: string; email?: string; phone?: string }) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email && !phone) return;
+    setIsSubmitting(true);
+    await onSubmit({ name: name || undefined, email: email || undefined, phone: phone || undefined });
+    setIsSubmitting(false);
+    onClose();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 pt-2">
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium flex items-center gap-1.5">
+          <User className="w-3.5 h-3.5" />
+          Họ tên
+        </label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nguyễn Văn A"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium flex items-center gap-1.5">
+          <Mail className="w-3.5 h-3.5" />
+          Email *
+        </label>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="email@company.com"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium flex items-center gap-1.5">
+          <Phone className="w-3.5 h-3.5" />
+          Số điện thoại
+        </label>
+        <Input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="0901234567"
+        />
+      </div>
+      <div className="flex gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+          Để sau
+        </Button>
+        <Button type="submit" disabled={(!email && !phone) || isSubmitting} className="flex-1">
+          {isSubmitting ? 'Đang gửi...' : 'Gửi thông tin'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// Handoff Options
+function HandoffOptions({ onSelect }: { onSelect: (platform: string) => void }) {
+  const platforms = [
+    { id: 'zalo', label: 'Zalo', icon: '💬', url: 'https://zalo.me/flowa' },
+    { id: 'messenger', label: 'Messenger', icon: '💭', url: 'https://m.me/flowa.vn' },
+    { id: 'phone', label: 'Gọi điện', icon: '📞', url: 'tel:19001234' },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {platforms.map(p => (
+        <a
+          key={p.id}
+          href={p.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => onSelect(p.id)}
+          className="flex items-center gap-1.5 bg-muted hover:bg-muted/80 border border-border rounded-full px-3 py-1.5 text-xs transition-colors"
+        >
+          <span>{p.icon}</span>
+          <span>{p.label}</span>
+        </a>
+      ))}
+    </div>
   );
 }
 
@@ -196,8 +309,19 @@ export function SalesChatWidget() {
   });
   const [unreadCount, setUnreadCount] = useState(0);
   const [showGreetTooltip, setShowGreetTooltip] = useState(false);
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [showHandoff, setShowHandoff] = useState(false);
   
-  const { messages, isLoading, sendMessage, clearMessages, addReaction } = useSalesChat();
+  const { 
+    messages, 
+    isLoading, 
+    sendMessage, 
+    clearMessages, 
+    addReaction,
+    saveLead,
+    requestHandoff,
+    interestLevel,
+  } = useSalesChat();
   const { playSend, playReceive } = useSoundEffects(soundEnabled);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -312,6 +436,15 @@ export function SalesChatWidget() {
   const dismissGreetTooltip = useCallback(() => {
     setShowGreetTooltip(false);
   }, []);
+
+  const handleLeadSubmit = useCallback(async (data: { name?: string; email?: string; phone?: string }) => {
+    await saveLead(data);
+  }, [saveLead]);
+
+  const handleHandoff = useCallback(async (platform: string) => {
+    await requestHandoff(platform);
+    setShowHandoff(false);
+  }, [requestHandoff]);
 
   return (
     <>
@@ -436,7 +569,49 @@ export function SalesChatWidget() {
                   onReact={handleReact}
                 />
               ))}
-              {isLoading && <TypingIndicator />}
+              
+              {/* Show handoff options when high interest */}
+              {!showHandoff && messages.length >= 5 && interestLevel !== 'low' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-3 p-3 bg-muted/50 rounded-xl border border-border"
+                >
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Cần tư vấn chi tiết hơn?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => setShowHandoff(true)}
+                    >
+                      <MessageCircle className="w-3 h-3 mr-1" />
+                      Nói chuyện với người thật
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 text-xs"
+                      onClick={() => setShowLeadForm(true)}
+                    >
+                      <Phone className="w-3 h-3 mr-1" />
+                      Để lại thông tin liên hệ
+                    </Button>
+                  </div>
+                  {showHandoff && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium mb-1">Chọn kênh liên hệ:</p>
+                      <HandoffOptions onSelect={handleHandoff} />
+                    </div>
+                  )}
+                </motion.div>
+              )}
+              
+              <AnimatePresence>
+                {isLoading && <TypingIndicator />}
+              </AnimatePresence>
             </ScrollArea>
 
             {/* Input */}
@@ -475,6 +650,25 @@ export function SalesChatWidget() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Lead Capture Dialog */}
+      <Dialog open={showLeadForm} onOpenChange={setShowLeadForm}>
+        <DialogContent className="sm:max-w-[340px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LinhAvatar size="sm" />
+              Để lại thông tin
+            </DialogTitle>
+            <DialogDescription>
+              Em sẽ liên hệ tư vấn chi tiết cho anh/chị ạ! 😊
+            </DialogDescription>
+          </DialogHeader>
+          <LeadCaptureForm 
+            onSubmit={handleLeadSubmit}
+            onClose={() => setShowLeadForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
