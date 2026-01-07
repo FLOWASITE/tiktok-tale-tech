@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSocialPlatformSettings, SocialPlatform } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from '@/components/admin/SocialPlatformCredentialsDialog';
-import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2 } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface PlatformConfig {
   platform: SocialPlatform;
@@ -37,6 +39,40 @@ export default function AdminSocialSettings() {
   const { settings, isLoading, saveSettings, deleteSettings, isSaving, isDeleting } = useSocialPlatformSettings();
   const [editingPlatform, setEditingPlatform] = useState<PlatformConfig | null>(null);
   const [deletingPlatform, setDeletingPlatform] = useState<PlatformConfig | null>(null);
+  const [testingPlatform, setTestingPlatform] = useState<SocialPlatform | null>(null);
+
+  const handleTestConnection = async (platform: SocialPlatform) => {
+    const platformSettings = getSettingsForPlatform(platform);
+    if (!platformSettings?.has_credentials) {
+      toast.error('Chưa có credentials để test');
+      return;
+    }
+
+    setTestingPlatform(platform);
+    try {
+      const { data, error } = await supabase.functions.invoke('test-twitter-credentials', {
+        body: {
+          // We need to test with actual credentials - but they're encrypted
+          // So we'll create a special test endpoint that uses stored credentials
+          platform,
+          useStoredCredentials: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message || 'Credentials hợp lệ!');
+      } else {
+        toast.error(data?.error || 'Test thất bại');
+      }
+    } catch (error: any) {
+      console.error('Test connection error:', error);
+      toast.error(error.message || 'Không thể test credentials');
+    } finally {
+      setTestingPlatform(null);
+    }
+  };
 
   const getSettingsForPlatform = (platform: SocialPlatform) => {
     return settings?.find(s => s.platform === platform);
@@ -143,14 +179,28 @@ export default function AdminSocialSettings() {
                         {isConfigured ? 'Chỉnh sửa' : 'Cấu hình'}
                       </Button>
                       {isConfigured && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeletingPlatform(config)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTestConnection(config.platform)}
+                            disabled={testingPlatform === config.platform}
+                          >
+                            {testingPlatform === config.platform ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Zap className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeletingPlatform(config)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
