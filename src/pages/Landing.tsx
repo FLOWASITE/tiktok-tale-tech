@@ -11,6 +11,7 @@ import {
 } from "@/components/landing";
 import { ScrollProgress } from "@/components/landing/ScrollProgress";
 import { BackToTop } from "@/components/landing/BackToTop";
+import { SalesChatWidget } from "@/components/landing/SalesChatWidget";
 
 export default function Landing() {
   return (
@@ -28,6 +29,7 @@ export default function Landing() {
       </main>
       <FooterSection />
       <BackToTop />
+      <SalesChatWidget />
     </div>
   );
 }

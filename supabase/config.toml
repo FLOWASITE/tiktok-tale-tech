@@ -173,3 +173,6 @@ verify_jwt = false
 
 [functions.sync-ad-performance]
 verify_jwt = false
+
+[functions.sales-chatbot]
+verify_jwt = false
