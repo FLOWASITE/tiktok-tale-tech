@@ -91,11 +91,18 @@ export function LandingNav() {
 
             {/* Desktop CTA */}
             <div className="hidden lg:flex items-center gap-3">
-              <Button variant="ghost" className="font-medium" asChild>
-                <a href={getAuthUrl('login')}>{t('nav.login')}</a>
+              <Button 
+                variant="ghost" 
+                className="font-medium" 
+                onClick={() => window.location.href = getAuthUrl('login')}
+              >
+                {t('nav.login')}
               </Button>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5" asChild>
-                <a href={getAuthUrl('register')}>{t('nav.startFree')}</a>
+              <Button 
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5" 
+                onClick={() => window.location.href = getAuthUrl('register')}
+              >
+                {t('nav.startFree')}
               </Button>
             </div>
 
@@ -135,11 +142,18 @@ export function LandingNav() {
                 </button>
               ))}
               <div className="pt-4 border-t border-border space-y-3">
-                <Button variant="outline" className="w-full" asChild>
-                  <a href={getAuthUrl('login')}>{t('nav.login')}</a>
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={() => window.location.href = getAuthUrl('login')}
+                >
+                  {t('nav.login')}
                 </Button>
-                <Button className="w-full bg-primary hover:bg-primary/90" asChild>
-                  <a href={getAuthUrl('register')}>{t('nav.startFree')}</a>
+                <Button 
+                  className="w-full bg-primary hover:bg-primary/90" 
+                  onClick={() => window.location.href = getAuthUrl('register')}
+                >
+                  {t('nav.startFree')}
                 </Button>
               </div>
             </div>
