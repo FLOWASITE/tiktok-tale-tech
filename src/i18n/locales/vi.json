@@ -417,5 +417,112 @@
   "language": {
     "vi": "Tiếng Việt",
     "en": "English"
+  },
+  "contact": {
+    "title": "Liên hệ với chúng tôi",
+    "subtitle": "Chúng tôi luôn sẵn sàng hỗ trợ bạn. Hãy để lại tin nhắn và chúng tôi sẽ phản hồi trong thời gian sớm nhất.",
+    "form": {
+      "title": "Gửi tin nhắn",
+      "name": "Họ và tên",
+      "namePlaceholder": "Nhập họ và tên",
+      "email": "Email",
+      "emailPlaceholder": "email@example.com",
+      "phone": "Số điện thoại",
+      "phonePlaceholder": "0912 345 678",
+      "subject": "Chủ đề",
+      "subjectPlaceholder": "Chọn chủ đề",
+      "subjects": {
+        "support": "Hỗ trợ kỹ thuật",
+        "sales": "Tư vấn gói dịch vụ",
+        "partnership": "Hợp tác kinh doanh",
+        "other": "Khác"
+      },
+      "message": "Nội dung",
+      "messagePlaceholder": "Mô tả chi tiết vấn đề hoặc yêu cầu của bạn...",
+      "submit": "Gửi tin nhắn",
+      "submitting": "Đang gửi...",
+      "success": "Tin nhắn đã được gửi thành công! Chúng tôi sẽ phản hồi sớm nhất có thể."
+    },
+    "info": {
+      "title": "Thông tin liên hệ",
+      "email": "Email hỗ trợ",
+      "phone": "Hotline",
+      "address": "Địa chỉ",
+      "hours": "Giờ làm việc"
+    },
+    "social": {
+      "title": "Kết nối với chúng tôi"
+    }
+  },
+  "careers": {
+    "badge": "Cơ hội nghề nghiệp",
+    "title": "Gia nhập đội ngũ Flowa",
+    "subtitle": "Cùng chúng tôi xây dựng tương lai Content Marketing tại Việt Nam",
+    "viewPositions": "Xem vị trí đang tuyển",
+    "whyJoin": {
+      "title": "Tại sao chọn Flowa?",
+      "subtitle": "Chúng tôi tin rằng môi trường làm việc tốt sẽ tạo ra những sản phẩm tuyệt vời"
+    },
+    "benefits": {
+      "remote": {
+        "title": "Làm việc từ xa",
+        "description": "Linh hoạt làm việc từ bất cứ đâu, không giới hạn địa lý"
+      },
+      "growth": {
+        "title": "Cơ hội phát triển",
+        "description": "Lộ trình thăng tiến rõ ràng và được đào tạo liên tục"
+      },
+      "team": {
+        "title": "Team trẻ & năng động",
+        "description": "Đồng nghiệp thân thiện, văn hóa cởi mở và sáng tạo"
+      },
+      "balance": {
+        "title": "Work-life balance",
+        "description": "Cân bằng giữa công việc và cuộc sống cá nhân"
+      },
+      "tech": {
+        "title": "Công nghệ tiên tiến",
+        "description": "Làm việc với AI, Cloud và các công nghệ mới nhất"
+      },
+      "salary": {
+        "title": "Lương cạnh tranh",
+        "description": "Mức lương hấp dẫn cùng các chế độ phúc lợi tốt"
+      }
+    },
+    "openPositions": {
+      "title": "Vị trí đang tuyển",
+      "subtitle": "Tìm vị trí phù hợp với bạn và ứng tuyển ngay"
+    },
+    "positions": {
+      "frontend": {
+        "title": "Frontend Engineer",
+        "description": "Xây dựng giao diện người dùng hiện đại với React, TypeScript và các công nghệ web tiên tiến.",
+        "req1": "2+ năm kinh nghiệm với React/TypeScript",
+        "req2": "Hiểu biết về UI/UX và responsive design",
+        "req3": "Kinh nghiệm với state management (Redux, Zustand, etc.)"
+      },
+      "ai": {
+        "title": "AI/ML Engineer",
+        "description": "Phát triển và tối ưu các mô hình AI cho content generation và NLP.",
+        "req1": "Kinh nghiệm với Python, TensorFlow hoặc PyTorch",
+        "req2": "Hiểu biết về NLP và Large Language Models",
+        "req3": "Khả năng deploy và scale AI models"
+      },
+      "marketing": {
+        "title": "Content Marketer",
+        "description": "Xây dựng chiến lược content marketing và quản lý các kênh truyền thông.",
+        "req1": "2+ năm kinh nghiệm content marketing",
+        "req2": "Kỹ năng viết và storytelling xuất sắc",
+        "req3": "Hiểu biết về SEO và social media marketing"
+      }
+    },
+    "requirements": "Yêu cầu:",
+    "apply": "Ứng tuyển ngay",
+    "noPositions": "Hiện tại chưa có vị trí mở. Hãy gửi CV của bạn để chúng tôi liên hệ khi có vị trí phù hợp.",
+    "cta": {
+      "title": "Không tìm thấy vị trí phù hợp?",
+      "description": "Gửi CV của bạn và chúng tôi sẽ liên hệ khi có vị trí phù hợp với kỹ năng của bạn.",
+      "button": "Gửi CV ứng tuyển"
+    }
   }
 }

@@ -299,5 +299,112 @@
     "vi": "เวียดนาม",
     "en": "อังกฤษ",
     "th": "ไทย"
+  },
+  "contact": {
+    "title": "ติดต่อเรา",
+    "subtitle": "เราพร้อมช่วยเหลือคุณ ฝากข้อความไว้และเราจะติดต่อกลับโดยเร็วที่สุด",
+    "form": {
+      "title": "ส่งข้อความ",
+      "name": "ชื่อ-นามสกุล",
+      "namePlaceholder": "กรอกชื่อ-นามสกุล",
+      "email": "อีเมล",
+      "emailPlaceholder": "email@example.com",
+      "phone": "เบอร์โทรศัพท์",
+      "phonePlaceholder": "0xx xxx xxxx",
+      "subject": "หัวข้อ",
+      "subjectPlaceholder": "เลือกหัวข้อ",
+      "subjects": {
+        "support": "ฝ่ายสนับสนุน",
+        "sales": "สอบถามการขาย",
+        "partnership": "ความร่วมมือทางธุรกิจ",
+        "other": "อื่นๆ"
+      },
+      "message": "ข้อความ",
+      "messagePlaceholder": "อธิบายคำถามหรือคำขอของคุณอย่างละเอียด...",
+      "submit": "ส่งข้อความ",
+      "submitting": "กำลังส่ง...",
+      "success": "ส่งข้อความสำเร็จ! เราจะตอบกลับโดยเร็วที่สุด"
+    },
+    "info": {
+      "title": "ข้อมูลติดต่อ",
+      "email": "อีเมลสนับสนุน",
+      "phone": "สายด่วน",
+      "address": "ที่อยู่",
+      "hours": "เวลาทำการ"
+    },
+    "social": {
+      "title": "เชื่อมต่อกับเรา"
+    }
+  },
+  "careers": {
+    "badge": "โอกาสทางอาชีพ",
+    "title": "ร่วมงานกับ Flowa",
+    "subtitle": "ช่วยเราสร้างอนาคตของ Content Marketing ในเวียดนาม",
+    "viewPositions": "ดูตำแหน่งที่เปิดรับ",
+    "whyJoin": {
+      "title": "ทำไมต้องเลือก Flowa?",
+      "subtitle": "เราเชื่อว่าสภาพแวดล้อมการทำงานที่ดีสร้างผลิตภัณฑ์ที่ดี"
+    },
+    "benefits": {
+      "remote": {
+        "title": "ทำงานทางไกล",
+        "description": "ทำงานได้อย่างยืดหยุ่นจากทุกที่ ไม่จำกัดพื้นที่"
+      },
+      "growth": {
+        "title": "โอกาสเติบโต",
+        "description": "เส้นทางอาชีพที่ชัดเจนและการเรียนรู้อย่างต่อเนื่อง"
+      },
+      "team": {
+        "title": "ทีมหนุ่มสาว & มีพลัง",
+        "description": "เพื่อนร่วมงานที่เป็นมิตรกับวัฒนธรรมที่เปิดกว้างและสร้างสรรค์"
+      },
+      "balance": {
+        "title": "Work-life Balance",
+        "description": "สมดุลระหว่างงานและชีวิตส่วนตัว"
+      },
+      "tech": {
+        "title": "เทคโนโลยีล้ำสมัย",
+        "description": "ทำงานกับ AI, Cloud และเทคโนโลยีใหม่ล่าสุด"
+      },
+      "salary": {
+        "title": "เงินเดือนแข่งขัน",
+        "description": "เงินเดือนที่น่าสนใจพร้อมสวัสดิการที่ดี"
+      }
+    },
+    "openPositions": {
+      "title": "ตำแหน่งที่เปิดรับ",
+      "subtitle": "หาตำแหน่งที่เหมาะกับคุณและสมัครวันนี้"
+    },
+    "positions": {
+      "frontend": {
+        "title": "Frontend Engineer",
+        "description": "สร้าง UI สมัยใหม่ด้วย React, TypeScript และเทคโนโลยีเว็บล้ำสมัย",
+        "req1": "ประสบการณ์ 2+ ปีกับ React/TypeScript",
+        "req2": "ความเข้าใจเกี่ยวกับ UI/UX และ responsive design",
+        "req3": "ประสบการณ์กับ state management (Redux, Zustand, etc.)"
+      },
+      "ai": {
+        "title": "AI/ML Engineer",
+        "description": "พัฒนาและปรับปรุงโมเดล AI สำหรับการสร้างเนื้อหาและ NLP",
+        "req1": "ประสบการณ์กับ Python, TensorFlow หรือ PyTorch",
+        "req2": "ความรู้เกี่ยวกับ NLP และ Large Language Models",
+        "req3": "ความสามารถในการ deploy และ scale AI models"
+      },
+      "marketing": {
+        "title": "Content Marketer",
+        "description": "สร้างกลยุทธ์ content marketing และจัดการช่องทางการสื่อสาร",
+        "req1": "ประสบการณ์ content marketing 2+ ปี",
+        "req2": "ทักษะการเขียนและ storytelling ที่ยอดเยี่ยม",
+        "req3": "ความเข้าใจเกี่ยวกับ SEO และ social media marketing"
+      }
+    },
+    "requirements": "คุณสมบัติ:",
+    "apply": "สมัครเลย",
+    "noPositions": "ไม่มีตำแหน่งว่างในขณะนี้ ส่ง CV ของคุณและเราจะติดต่อเมื่อมีตำแหน่งที่เหมาะสม",
+    "cta": {
+      "title": "ไม่พบตำแหน่งที่เหมาะสม?",
+      "description": "ส่ง CV ของคุณและเราจะติดต่อเมื่อมีตำแหน่งที่ตรงกับทักษะของคุณ",
+      "button": "ส่ง CV ของคุณ"
+    }
   }
 }
