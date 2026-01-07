@@ -3,6 +3,8 @@ export { default as SocialShare } from './SocialShare';
 export { default as BlogReactions } from './BlogReactions';
 export { default as BlogComments } from './BlogComments';
 export { default as RelatedPosts } from './RelatedPosts';
+export { default as BlogBreadcrumb } from './BlogBreadcrumb';
+export { default as BlogPagination } from './BlogPagination';
 
 // Blog posts metadata for related posts
 export const blogPostsData = [

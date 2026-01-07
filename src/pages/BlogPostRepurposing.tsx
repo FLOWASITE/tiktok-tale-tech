@@ -7,6 +7,7 @@ import {
   BlogReactions, 
   BlogComments, 
   RelatedPosts,
+  BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
 
@@ -66,13 +67,9 @@ const BlogPostRepurposing = () => {
           {/* Main Content */}
           <article className="flex-1 max-w-4xl">
             {/* Breadcrumb */}
-            <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
-              <Link to="/" className="hover:text-foreground">Trang chủ</Link>
-              <span>/</span>
-              <Link to="/blog" className="hover:text-foreground">Blog</Link>
-              <span>/</span>
-              <span className="text-foreground">Content Repurposing</span>
-            </nav>
+            <div className="mb-6">
+              <BlogBreadcrumb postTitle="Content Repurposing" />
+            </div>
 
             {/* Article Header */}
             <header className="mb-8">
