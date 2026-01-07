@@ -5,8 +5,6 @@ import {
   Clock, 
   User, 
   Calendar,
-  Share2,
-  Bookmark,
   CheckCircle2,
   AlertTriangle,
   Zap,
@@ -41,6 +39,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { 
+  ReadingProgress, 
+  SocialShare, 
+  BlogReactions, 
+  BlogComments, 
+  RelatedPosts,
+  blogPostsData 
+} from '@/components/blog';
+
+const POST_SLUG = 'cach-tao-content-da-kenh';
+const POST_CATEGORY = 'Strategy';
 
 const BlogPostMultiChannel = () => {
   const tableOfContents = [
@@ -65,6 +74,9 @@ const BlogPostMultiChannel = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Reading Progress */}
+      <ReadingProgress />
+
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -74,12 +86,7 @@ const BlogPostMultiChannel = () => {
               <span className="font-medium">Blog</span>
             </Link>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <Share2 className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Bookmark className="w-4 h-4" />
-              </Button>
+              <BlogReactions postSlug={POST_SLUG} />
             </div>
           </div>
         </div>
@@ -106,7 +113,7 @@ const BlogPostMultiChannel = () => {
             <p className="text-xl text-muted-foreground mb-8">
               Học cách tạo content cho 10+ kênh từ 1 ý tưởng duy nhất. Bao gồm framework, templates, tools và case studies thực tế. Tiết kiệm 80% thời gian ngay hôm nay.
             </p>
-            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-6">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Flowa Team
@@ -120,6 +127,10 @@ const BlogPostMultiChannel = () => {
                 25 phút đọc
               </div>
             </div>
+            <SocialShare 
+              title="Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z [2026]"
+              description="Học cách tạo content cho 10+ kênh từ 1 ý tưởng duy nhất."
+            />
           </motion.div>
         </div>
       </section>
@@ -1201,6 +1212,16 @@ const BlogPostMultiChannel = () => {
                   </div>
                 </div>
               </section>
+
+              {/* Related Posts */}
+              <RelatedPosts 
+                currentSlug={POST_SLUG}
+                currentCategory={POST_CATEGORY}
+                posts={blogPostsData}
+              />
+
+              {/* Comments */}
+              <BlogComments postSlug={POST_SLUG} />
             </article>
           </div>
         </div>

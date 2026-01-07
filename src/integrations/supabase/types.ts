@@ -1581,6 +1581,60 @@ export type Database = {
           },
         ]
       }
+      blog_comments: {
+        Row: {
+          author_email: string
+          author_name: string
+          content: string
+          created_at: string
+          id: string
+          is_approved: boolean | null
+          post_slug: string
+        }
+        Insert: {
+          author_email: string
+          author_name: string
+          content: string
+          created_at?: string
+          id?: string
+          is_approved?: boolean | null
+          post_slug: string
+        }
+        Update: {
+          author_email?: string
+          author_name?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_approved?: boolean | null
+          post_slug?: string
+        }
+        Relationships: []
+      }
+      blog_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          post_slug: string
+          reaction_type: string
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_slug: string
+          reaction_type?: string
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_slug?: string
+          reaction_type?: string
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       brand_products: {
         Row: {
           benefits: string[] | null

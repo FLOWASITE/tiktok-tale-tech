@@ -3,6 +3,17 @@ import { ArrowLeft, Clock, User, Calendar, ChevronDown, ChevronRight } from 'luc
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { 
+  ReadingProgress, 
+  SocialShare, 
+  BlogReactions, 
+  BlogComments, 
+  RelatedPosts,
+  blogPostsData 
+} from '@/components/blog';
+
+const POST_SLUG = 'ai-content-marketing-huong-dan';
+const POST_CATEGORY = 'AI';
 
 const BlogPostAIContent = () => {
   const [tocOpen, setTocOpen] = useState(false);
@@ -31,6 +42,9 @@ const BlogPostAIContent = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Reading Progress */}
+      <ReadingProgress />
+
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,13 +55,16 @@ const BlogPostAIContent = () => {
               </div>
               <span className="text-xl font-bold text-foreground">Flowa</span>
             </Link>
-            <Link 
-              to="/blog" 
-              className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Quay lại Blog</span>
-            </Link>
+            <div className="flex items-center gap-4">
+              <BlogReactions postSlug={POST_SLUG} />
+              <Link 
+                to="/blog" 
+                className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại Blog</span>
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
@@ -70,11 +87,11 @@ const BlogPostAIContent = () => {
               AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao [2026]
             </h1>
             
-            <p className="text-xl text-muted-foreground mb-8">
+            <p className="text-xl text-muted-foreground mb-6">
               Tìm hiểu cách sử dụng AI trong content marketing hiệu quả. Bao gồm workflow, tools, prompts, và case studies thực tế. Tăng 10x output mà không giảm chất lượng.
             </p>
             
-            <div className="flex items-center space-x-6 text-sm text-muted-foreground">
+            <div className="flex items-center space-x-6 text-sm text-muted-foreground mb-6">
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4" />
                 <span>Flowa Team</span>
@@ -84,6 +101,11 @@ const BlogPostAIContent = () => {
                 <span>Cập nhật: Tháng 1, 2026</span>
               </div>
             </div>
+            
+            <SocialShare 
+              title="AI Content Marketing: Hướng Dẫn Toàn Diện [2026]"
+              description="Tìm hiểu cách sử dụng AI trong content marketing hiệu quả."
+            />
           </motion.div>
         </div>
       </section>
@@ -969,6 +991,16 @@ const BlogPostAIContent = () => {
               </section>
 
             </div>
+
+            {/* Related Posts */}
+            <RelatedPosts 
+              currentSlug={POST_SLUG}
+              currentCategory={POST_CATEGORY}
+              posts={blogPostsData}
+            />
+
+            {/* Comments */}
+            <BlogComments postSlug={POST_SLUG} />
           </article>
         </div>
       </div>
