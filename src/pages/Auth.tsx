@@ -153,40 +153,8 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex bg-background relative overflow-hidden">
-      {/* Animated orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="orb orb-1 morph-shape" />
-        <div className="orb orb-2 morph-shape" />
-        <div className="orb orb-3" />
-      </div>
-
-      {/* Floating particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {particles.map((p) => (
-          <div
-            key={p.id}
-            className="particle"
-            style={{
-              left: `${p.left}%`,
-              top: `${p.top}%`,
-              width: `${p.size}px`,
-              height: `${p.size}px`,
-              animationDelay: `${p.delay}s`,
-              animationDuration: `${p.duration}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Grid pattern overlay */}
-      <div 
-        className="absolute inset-0 opacity-[0.02] pointer-events-none"
-        style={{
-          backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px),
-                           linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px',
-        }}
-      />
+      {/* Simple subtle background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
 
       {/* Left side - Branding (hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12">
@@ -239,42 +207,39 @@ export default function Auth() {
 
       {/* Right side - Auth form */}
       <div className="flex-1 flex items-center justify-center p-4 lg:p-12 relative">
-        {/* Gradient border card */}
-        <div className="w-full max-w-md relative animate-scale-in">
-          {/* Animated border */}
-          <div className="absolute -inset-[2px] rounded-2xl bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_100%] animate-shimmer opacity-70" />
-          
+        {/* Simple card */}
+        <div className="w-full max-w-md">
           {/* Card content */}
-          <div className="relative rounded-2xl bg-card/95 backdrop-blur-xl p-8 shadow-2xl">
+          <div className="rounded-2xl bg-card border border-border/50 p-8 shadow-lg">
             {/* Mobile logo */}
             <div className="lg:hidden pb-6 flex items-center justify-center gap-3">
-              <img src={logoImage} alt="Flowa Logo" className="w-12 h-12 object-contain logo-pulse" />
-              <span className="text-3xl font-bold text-gradient">Flowa</span>
+              <img src={logoImage} alt="Flowa Logo" className="w-10 h-10 object-contain" />
+              <span className="text-2xl font-bold text-primary">Flowa</span>
             </div>
 
             {/* Header */}
-            <div className="text-center space-y-2 pb-6">
-              <h2 className="text-2xl font-bold text-foreground">
-                {activeTab === 'login' ? 'Chào mừng trở lại! 👋' : 'Tạo tài khoản mới ✨'}
+            <div className="text-center space-y-1 pb-6">
+              <h2 className="text-xl font-semibold text-foreground">
+                {activeTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {activeTab === 'login' 
-                  ? 'Đăng nhập để tiếp tục sáng tạo nội dung' 
-                  : 'Bắt đầu hành trình sáng tạo của bạn'}
+                  ? 'Nhập thông tin để tiếp tục' 
+                  : 'Đăng ký để bắt đầu'}
               </p>
             </div>
             
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'register')}>
-              <TabsList className="grid w-full grid-cols-2 p-1.5 bg-muted/50 rounded-xl mb-6">
+              <TabsList className="grid w-full grid-cols-2 p-1 bg-muted rounded-lg mb-6">
                 <TabsTrigger 
                   value="login" 
-                  className="rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+                  className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm"
                 >
                   Đăng nhập
                 </TabsTrigger>
                 <TabsTrigger 
                   value="register"
-                  className="rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+                  className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm"
                 >
                   Đăng ký
                 </TabsTrigger>
