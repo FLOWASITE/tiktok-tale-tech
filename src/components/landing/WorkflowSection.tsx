@@ -6,7 +6,6 @@ import { Layers, Clapperboard, GalleryHorizontalEnd, Megaphone } from "lucide-re
 import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useState } from "react";
 import workflowBrandImg from "@/assets/workflow/workflow-brand.png";
-import workflowBrand2Img from "@/assets/workflow/workflow-brand-2.png";
 import workflowTopicImg from "@/assets/workflow-topic.png";
 import workflowTopic2Img from "@/assets/workflow-topic-2.png";
 
@@ -34,7 +33,7 @@ const contentTypes = [
   { key: "adCopy", icon: Megaphone },
 ];
 
-const step1Images = [workflowBrandImg, workflowBrand2Img];
+const step1Images = [workflowBrandImg];
 const step2Images = [workflowTopicImg, workflowTopic2Img];
 
 // Step number component with timeline
