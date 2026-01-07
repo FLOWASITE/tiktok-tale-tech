@@ -1,7 +1,7 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { 
-  Share2, Video, LayoutGrid, Brain, Palette, Calendar,
+  Layers, Clapperboard, GalleryHorizontalEnd, Lightbulb, PenTool, CalendarClock,
   X, Check, ArrowRight, Zap, ChevronDown, Sparkles, Star, Rocket
 } from "lucide-react";
 import { useState, useRef } from "react";
@@ -433,12 +433,12 @@ export function PainPointsSection() {
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   const cards = [
-    { key: "multiChannel", icon: Share2, isPopular: true },
-    { key: "videoScript", icon: Video },
-    { key: "carousel", icon: LayoutGrid },
-    { key: "ideation", icon: Brain },
-    { key: "brandVoice", icon: Palette },
-    { key: "publishing", icon: Calendar },
+    { key: "multiChannel", icon: Layers, isPopular: true },
+    { key: "videoScript", icon: Clapperboard },
+    { key: "carousel", icon: GalleryHorizontalEnd },
+    { key: "ideation", icon: Lightbulb },
+    { key: "brandVoice", icon: PenTool },
+    { key: "publishing", icon: CalendarClock },
   ];
 
   const toggleCard = (key: string) => {
