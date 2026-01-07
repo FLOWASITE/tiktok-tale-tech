@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { Shield, Scale, Zap, Building2, Heart, Home, Utensils, Sparkles, GraduationCap, Ban, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
+import { Shield, Scale, Zap, Building2, Heart, Home, Utensils, Sparkles, GraduationCap, Ban, CheckCircle2, AlertTriangle, ArrowRight, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Detailed industry data for 6 industries
@@ -136,6 +136,28 @@ const industryShowcase = [
       { forbidden: "Cam kết đỗ 100%", suggested: "Tỷ lệ đỗ cao dựa trên thống kê thực tế" },
       { forbidden: "Việc làm đảm bảo", suggested: "Hỗ trợ kết nối việc làm sau tốt nghiệp" },
       { forbidden: "Top 1 Việt Nam", suggested: "Đơn vị uy tín hàng đầu trong lĩnh vực" }
+    ]
+  },
+  {
+    key: "accounting",
+    icon: Calculator,
+    forbiddenTerms: [
+      "Cam kết hoàn thuế 100%",
+      "Không bị thanh tra",
+      "Tối ưu thuế tuyệt đối",
+      "Hóa đơn hợp pháp hóa",
+      "Giảm thuế tối đa"
+    ],
+    complianceRules: [
+      { severity: "critical", text: "Phải có chứng chỉ hành nghề kế toán/kiểm toán", legalRef: "Luật Kế toán 2015" },
+      { severity: "critical", text: "Không tư vấn trốn thuế, gian lận thuế", legalRef: "Luật Quản lý thuế 2019" },
+      { severity: "high", text: "Tuân thủ chuẩn mực kế toán Việt Nam (VAS)", legalRef: "Thông tư 200/2014/TT-BTC" },
+      { severity: "medium", text: "Bảo mật thông tin tài chính khách hàng", legalRef: "Luật Kế toán 2015" }
+    ],
+    claimRestrictions: [
+      { forbidden: "Cam kết hoàn thuế 100%", suggested: "Hỗ trợ tối ưu thuế theo quy định" },
+      { forbidden: "Không bị thanh tra", suggested: "Hồ sơ đúng quy định, sẵn sàng kiểm tra" },
+      { forbidden: "Giảm thuế tối đa", suggested: "Tư vấn các ưu đãi thuế phù hợp" }
     ]
   }
 ];
