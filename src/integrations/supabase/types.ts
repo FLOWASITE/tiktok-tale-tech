@@ -5536,6 +5536,42 @@ export type Database = {
           },
         ]
       }
+      social_platform_settings: {
+        Row: {
+          app_name: string | null
+          consumer_key: string | null
+          consumer_secret: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          platform: string
+          updated_at: string | null
+        }
+        Insert: {
+          app_name?: string | null
+          consumer_key?: string | null
+          consumer_secret?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          platform: string
+          updated_at?: string | null
+        }
+        Update: {
+          app_name?: string | null
+          consumer_key?: string | null
+          consumer_secret?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          platform?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       storyboards: {
         Row: {
           created_at: string

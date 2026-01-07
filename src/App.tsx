@@ -41,6 +41,7 @@ import NotFound from "./pages/NotFound";
 
 import MultiChannelCreate from "./pages/MultiChannelCreate";
 import AdminHelpArticles from "./pages/AdminHelpArticles";
+import AdminSocialSettings from "./pages/AdminSocialSettings";
 import Campaigns from "./pages/Campaigns";
 import CampaignCreate from "./pages/CampaignCreate";
 import CampaignDetail from "./pages/CampaignDetail";
@@ -403,6 +404,20 @@ function AppRoutes() {
                     <AdminProtectedRoute>
                       <AppLayout>
                         <AdminHelpArticles />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Social Platform Settings */}
+              <Route
+                path="/admin/social-settings"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminSocialSettings />
                       </AppLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>

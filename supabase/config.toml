@@ -176,3 +176,6 @@ verify_jwt = false
 
 [functions.sales-chatbot]
 verify_jwt = false
+
+[functions.manage-social-platform-settings]
+verify_jwt = false
