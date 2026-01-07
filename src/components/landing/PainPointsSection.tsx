@@ -31,8 +31,6 @@ export function PainPointsSection() {
       painDesc: t("painPoints.problems.time.description"),
       solution: t("painPoints.solution.title"),
       improvement: "80%",
-      beforeColor: "from-red-500/20 to-red-500/5",
-      afterColor: "from-green-500/20 to-green-500/5",
     },
     {
       icon: Brain,
@@ -40,8 +38,6 @@ export function PainPointsSection() {
       painDesc: t("painPoints.problems.ideas.description"),
       solution: t("painPoints.solution.title"),
       improvement: "∞",
-      beforeColor: "from-orange-500/20 to-orange-500/5",
-      afterColor: "from-blue-500/20 to-blue-500/5",
     },
     {
       icon: Repeat,
@@ -49,8 +45,6 @@ export function PainPointsSection() {
       painDesc: t("painPoints.problems.management.description"),
       solution: t("painPoints.solution.description"),
       improvement: "1-click",
-      beforeColor: "from-yellow-500/20 to-yellow-500/5",
-      afterColor: "from-purple-500/20 to-purple-500/5",
     },
     {
       icon: TrendingDown,
@@ -58,28 +52,14 @@ export function PainPointsSection() {
       painDesc: t("painPoints.problems.consistency.description"),
       solution: t("painPoints.solution.title"),
       improvement: "100%",
-      beforeColor: "from-pink-500/20 to-pink-500/5",
-      afterColor: "from-cyan-500/20 to-cyan-500/5",
     },
   ];
 
   return (
     <section className="py-28 lg:py-36 relative overflow-hidden">
-      {/* Background */}
+      {/* Background - Simplified */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-muted/30" />
-        
-        {/* Animated gradient split */}
-        <motion.div
-          animate={{ x: ["-10%", "10%", "-10%"] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-red-500/3 to-transparent"
-        />
-        <motion.div
-          animate={{ x: ["10%", "-10%", "10%"] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-green-500/3 to-transparent"
-        />
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -95,7 +75,7 @@ export function PainPointsSection() {
             initial={{ scale: 0.9, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-red-500/10 to-green-500/10 border border-primary/20 mb-8 backdrop-blur-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 border border-primary/20 mb-8 backdrop-blur-sm"
           >
             <motion.div
               animate={{ rotate: [0, 180, 360] }}
@@ -130,22 +110,16 @@ export function PainPointsSection() {
               <motion.div
                 whileHover={{ scale: 1.02, y: -5 }}
                 transition={{ duration: 0.3 }}
-                className="relative h-full rounded-3xl bg-card/80 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-all duration-300 shadow-lg hover:shadow-2xl overflow-hidden"
+                className="relative h-full rounded-3xl bg-card/80 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden"
               >
-                {/* Before/After Split Background */}
-                <div className="absolute inset-0 flex">
-                  <div className={`w-1/2 bg-gradient-to-br ${item.beforeColor}`} />
-                  <div className={`w-1/2 bg-gradient-to-bl ${item.afterColor}`} />
-                </div>
-
                 <div className="relative p-8 lg:p-10">
                   {/* Pain Point */}
                   <div className="flex items-start gap-5 mb-6">
                     <motion.div
                       whileHover={{ scale: 1.1, rotate: -10 }}
-                      className="shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-500/10 border border-red-500/20 flex items-center justify-center shadow-lg"
+                      className="shrink-0 w-14 h-14 rounded-2xl bg-muted/60 border border-border flex items-center justify-center"
                     >
-                      <item.icon className="w-7 h-7 text-red-500" />
+                      <item.icon className="w-7 h-7 text-muted-foreground" />
                     </motion.div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -153,9 +127,9 @@ export function PainPointsSection() {
                           animate={{ scale: [1, 1.2, 1] }}
                           transition={{ duration: 2, repeat: Infinity }}
                         >
-                          <X className="w-5 h-5 text-red-500" />
+                          <X className="w-5 h-5 text-muted-foreground" />
                         </motion.div>
-                        <span className="text-xs font-bold text-red-500 uppercase tracking-wider">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                           {t("painPoints.badge")}
                         </span>
                       </div>
@@ -177,9 +151,9 @@ export function PainPointsSection() {
                   <div className="flex items-start gap-5">
                     <motion.div
                       whileHover={{ scale: 1.1, rotate: 10 }}
-                      className="shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500/20 to-green-500/10 border border-green-500/20 flex items-center justify-center shadow-lg"
+                      className="shrink-0 w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center"
                     >
-                      <Sparkles className="w-7 h-7 text-green-500" />
+                      <Sparkles className="w-7 h-7 text-primary" />
                     </motion.div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -187,9 +161,9 @@ export function PainPointsSection() {
                           animate={{ scale: [1, 1.2, 1], rotate: [0, 10, 0] }}
                           transition={{ duration: 2, repeat: Infinity }}
                         >
-                          <Check className="w-5 h-5 text-green-500" />
+                          <Check className="w-5 h-5 text-primary" />
                         </motion.div>
-                        <span className="text-xs font-bold text-green-500 uppercase tracking-wider">
+                        <span className="text-xs font-bold text-primary uppercase tracking-wider">
                           {t("painPoints.solution.badge")}
                         </span>
                       </div>
@@ -205,7 +179,7 @@ export function PainPointsSection() {
                     whileHover={{ scale: 1.05 }}
                     className="absolute top-6 right-6"
                   >
-                    <span className="px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-primary/20 to-secondary/20 text-primary border border-primary/30 shadow-lg">
+                    <span className="px-4 py-2 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
                       {item.improvement}
                     </span>
                   </motion.div>
