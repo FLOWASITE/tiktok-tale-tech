@@ -2,65 +2,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, Sparkles, Zap, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-
-const plans = [
-  {
-    name: "Starter",
-    icon: Zap,
-    description: "Dành cho cá nhân và freelancer",
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    features: [
-      "100 nội dung AI/tháng",
-      "3 brand templates",
-      "5 kênh social",
-      "Xuất PDF/Image",
-      "Email support",
-    ],
-    cta: "Bắt đầu miễn phí",
-    popular: false,
-  },
-  {
-    name: "Professional",
-    icon: Sparkles,
-    description: "Dành cho team marketing nhỏ",
-    monthlyPrice: 990000,
-    yearlyPrice: 9900000,
-    features: [
-      "Unlimited nội dung AI",
-      "10 brand templates",
-      "Tất cả kênh social",
-      "Campaign management",
-      "Ad copy creation",
-      "Content calendar",
-      "Priority support",
-      "API access",
-    ],
-    cta: "Dùng thử 14 ngày",
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    icon: Building2,
-    description: "Dành cho doanh nghiệp lớn",
-    monthlyPrice: null,
-    yearlyPrice: null,
-    features: [
-      "Mọi tính năng Professional",
-      "Unlimited brand templates",
-      "Custom AI training",
-      "Dedicated account manager",
-      "SSO & Advanced security",
-      "Custom integrations",
-      "SLA guarantee",
-      "On-premise option",
-    ],
-    cta: "Liên hệ tư vấn",
-    popular: false,
-  },
-];
 
 // Animated number component
 function AnimatedPrice({ value, duration = 0.5 }: { value: number; duration?: number }) {
@@ -93,7 +37,32 @@ function AnimatedPrice({ value, duration = 0.5 }: { value: number; duration?: nu
 }
 
 export function PricingSection() {
+  const { t, i18n } = useTranslation();
   const [isYearly, setIsYearly] = useState(false);
+
+  const plans = [
+    {
+      key: "starter",
+      icon: Zap,
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      popular: false,
+    },
+    {
+      key: "professional",
+      icon: Sparkles,
+      monthlyPrice: 990000,
+      yearlyPrice: 9900000,
+      popular: true,
+    },
+    {
+      key: "enterprise",
+      icon: Building2,
+      monthlyPrice: null,
+      yearlyPrice: null,
+      popular: false,
+    },
+  ];
 
   return (
     <section id="pricing" className="py-24 lg:py-32 relative overflow-hidden">
@@ -114,34 +83,34 @@ export function PricingSection() {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Bảng giá</span>
+            <span className="text-sm font-medium text-primary">{t("pricing.badge")}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
-            Chọn gói phù hợp với
+            {t("pricing.title")}
             <br />
-            <span className="text-gradient">nhu cầu của bạn</span>
+            <span className="text-gradient">{t("pricing.titleHighlight")}</span>
           </h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Bắt đầu miễn phí, nâng cấp khi cần. Không cần thẻ tín dụng.
+            {t("pricing.subtitle")}
           </p>
 
           {/* Billing Toggle */}
           <div className="flex items-center justify-center gap-4">
             <span className={`text-sm font-medium transition-colors ${!isYearly ? "text-foreground" : "text-muted-foreground"}`}>
-              Hàng tháng
+              {t("pricing.monthly")}
             </span>
             <Switch
               checked={isYearly}
               onCheckedChange={setIsYearly}
             />
             <span className={`text-sm font-medium transition-colors ${isYearly ? "text-foreground" : "text-muted-foreground"}`}>
-              Hàng năm
+              {t("pricing.yearly")}
               <motion.span 
                 className="ml-2 text-xs text-primary font-semibold"
                 animate={{ scale: isYearly ? [1, 1.2, 1] : 1 }}
                 transition={{ duration: 0.3 }}
               >
-                -17%
+                {t("pricing.discount")}
               </motion.span>
             </span>
           </div>
@@ -151,7 +120,7 @@ export function PricingSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto perspective-1000">
           {plans.map((plan, index) => (
             <motion.div
-              key={plan.name}
+              key={plan.key}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -196,7 +165,7 @@ export function PricingSection() {
                     transition={{ delay: 0.3 }}
                   >
                     <span className="px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg">
-                      Phổ biến nhất
+                      {t("pricing.popularBadge")}
                     </span>
                   </motion.div>
                 )}
@@ -213,8 +182,8 @@ export function PricingSection() {
                 >
                   <plan.icon className={`w-6 h-6 ${plan.popular ? "text-primary" : "text-muted-foreground"}`} />
                 </motion.div>
-                <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
-                <p className="text-sm text-muted-foreground">{plan.description}</p>
+                <h3 className="text-xl font-bold mb-2">{t(`pricing.plans.${plan.key}.name`)}</h3>
+                <p className="text-sm text-muted-foreground">{t(`pricing.plans.${plan.key}.description`)}</p>
               </div>
 
               {/* Price with Animation */}
@@ -228,17 +197,17 @@ export function PricingSection() {
                       <span className="text-lg font-normal text-muted-foreground">₫</span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      /tháng {isYearly && "(thanh toán năm)"}
+                      {t("pricing.perMonth")} {isYearly && t("pricing.yearlyBilling")}
                     </div>
                   </>
                 ) : (
-                  <div className="text-4xl font-bold">Liên hệ</div>
+                  <div className="text-4xl font-bold">{t("pricing.contact")}</div>
                 )}
               </div>
 
               {/* Features with Stagger */}
               <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, featureIndex) => (
+                {(t(`pricing.plans.${plan.key}.features`, { returnObjects: true }) as string[]).map((feature, featureIndex) => (
                   <motion.li 
                     key={feature} 
                     className="flex items-start gap-3"
@@ -271,7 +240,7 @@ export function PricingSection() {
                   asChild
                 >
                   <Link to={plan.monthlyPrice !== null ? "/auth?tab=register" : "#"}>
-                    {plan.cta}
+                    {t(`pricing.plans.${plan.key}.cta`)}
                   </Link>
                 </Button>
               </motion.div>
@@ -288,13 +257,13 @@ export function PricingSection() {
           className="text-center mt-12"
         >
           <p className="text-muted-foreground">
-            Có câu hỏi?{" "}
+            {t("pricing.faqLink")}{" "}
             <a href="#faq" className="text-primary hover:underline font-medium">
-              Xem FAQ
+              {t("pricing.seeFaq")}
             </a>{" "}
-            hoặc{" "}
+            {t("pricing.or")}{" "}
             <a href="mailto:support@flowa.vn" className="text-primary hover:underline font-medium">
-              liên hệ hỗ trợ
+              {t("pricing.contactSupport")}
             </a>
           </p>
         </motion.div>

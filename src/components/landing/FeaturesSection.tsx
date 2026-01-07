@@ -11,51 +11,25 @@ import {
   BarChart3,
   ArrowRight
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
-const features = [
-  {
-    icon: Sparkles,
-    title: "AI Content Generation",
-    description: "Tạo nội dung chất lượng cao cho mọi kênh chỉ trong vài giây với công nghệ AI tiên tiến.",
-    color: "from-pink-500 to-rose-500",
-    glowColor: "group-hover:shadow-pink-500/25",
-  },
-  {
-    icon: Share2,
-    title: "Multi-channel Publishing",
-    description: "Xuất bản đồng thời lên Facebook, Instagram, TikTok, LinkedIn và nhiều nền tảng khác.",
-    color: "from-blue-500 to-cyan-500",
-    glowColor: "group-hover:shadow-blue-500/25",
-  },
-  {
-    icon: Palette,
-    title: "Brand Voice Management",
-    description: "Duy trì giọng điệu thương hiệu nhất quán trên mọi nội dung với AI học từ brand guide.",
-    color: "from-purple-500 to-violet-500",
-    glowColor: "group-hover:shadow-purple-500/25",
-  },
-  {
-    icon: Target,
-    title: "Campaign Management",
-    description: "Quản lý toàn bộ chiến dịch marketing từ A-Z với timeline, milestone và KPI tracking.",
-    color: "from-orange-500 to-amber-500",
-    glowColor: "group-hover:shadow-orange-500/25",
-  },
-  {
-    icon: FileEdit,
-    title: "Ad Copy Creation",
-    description: "Tạo ad copy tối ưu cho Facebook Ads, Google Ads với A/B testing tự động.",
-    color: "from-green-500 to-emerald-500",
-    glowColor: "group-hover:shadow-green-500/25",
-  },
-  {
-    icon: Calendar,
-    title: "Content Calendar",
-    description: "Lên lịch nội dung thông minh với gợi ý thời điểm đăng tối ưu cho từng kênh.",
-    color: "from-indigo-500 to-blue-500",
-    glowColor: "group-hover:shadow-indigo-500/25",
-  },
-];
+const featureIcons = {
+  aiContent: Sparkles,
+  multiChannel: Share2,
+  brandVoice: Palette,
+  campaign: Target,
+  adCopy: FileEdit,
+  calendar: Calendar,
+};
+
+const featureColors = {
+  aiContent: { color: "from-pink-500 to-rose-500", glowColor: "group-hover:shadow-pink-500/25" },
+  multiChannel: { color: "from-blue-500 to-cyan-500", glowColor: "group-hover:shadow-blue-500/25" },
+  brandVoice: { color: "from-purple-500 to-violet-500", glowColor: "group-hover:shadow-purple-500/25" },
+  campaign: { color: "from-orange-500 to-amber-500", glowColor: "group-hover:shadow-orange-500/25" },
+  adCopy: { color: "from-green-500 to-emerald-500", glowColor: "group-hover:shadow-green-500/25" },
+  calendar: { color: "from-indigo-500 to-blue-500", glowColor: "group-hover:shadow-indigo-500/25" },
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -77,6 +51,25 @@ const itemVariants = {
 };
 
 export function FeaturesSection() {
+  const { t } = useTranslation();
+
+  const featureKeys = ["aiContent", "multiChannel", "brandVoice", "campaign", "adCopy", "calendar"] as const;
+
+  const features = featureKeys.map((key) => ({
+    key,
+    icon: featureIcons[key],
+    title: t(`features.items.${key}.title`),
+    description: t(`features.items.${key}.description`),
+    ...featureColors[key],
+  }));
+
+  const stats = [
+    { icon: Globe, value: "50+", label: t("features.stats.industries"), color: "from-blue-500 to-cyan-500" },
+    { icon: FileEdit, value: "10+", label: t("features.stats.contentTypes"), color: "from-purple-500 to-violet-500" },
+    { icon: Share2, value: "8+", label: t("features.stats.channels"), color: "from-pink-500 to-rose-500" },
+    { icon: BarChart3, value: "Real-time", label: t("features.stats.analytics"), color: "from-green-500 to-emerald-500" },
+  ];
+
   return (
     <section id="features" className="py-28 lg:py-36 relative overflow-hidden">
       {/* Background */}
@@ -125,16 +118,15 @@ export function FeaturesSection() {
             >
               <Zap className="w-4 h-4 text-primary" />
             </motion.div>
-            <span className="text-sm font-semibold text-primary">Tính năng nổi bật</span>
+            <span className="text-sm font-semibold text-primary">{t("features.badge")}</span>
           </motion.div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-6">
-            Mọi thứ bạn cần cho
+            {t("features.title")}
             <br />
-            <span className="text-gradient">Content Marketing</span>
+            <span className="text-gradient">{t("features.titleHighlight")}</span>
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Flowa cung cấp bộ công cụ toàn diện giúp bạn tạo, quản lý và 
-            tối ưu nội dung marketing hiệu quả hơn.
+            {t("features.subtitle")}
           </p>
         </motion.div>
 
@@ -146,9 +138,9 @@ export function FeaturesSection() {
           viewport={{ once: true }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
         >
-          {features.map((feature, index) => (
+          {features.map((feature) => (
             <motion.div
-              key={feature.title}
+              key={feature.key}
               variants={itemVariants}
               className="group relative"
             >
@@ -182,7 +174,7 @@ export function FeaturesSection() {
                   whileHover={{ opacity: 1, x: 0 }}
                   className="flex items-center gap-1 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  Tìm hiểu thêm <ArrowRight className="w-4 h-4" />
+                  {t("features.learnMore")} <ArrowRight className="w-4 h-4" />
                 </motion.div>
 
                 {/* Animated corner decoration */}
@@ -206,12 +198,7 @@ export function FeaturesSection() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="mt-20 lg:mt-28 grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-8"
         >
-          {[
-            { icon: Globe, value: "50+", label: "Ngành nghề hỗ trợ", color: "from-blue-500 to-cyan-500" },
-            { icon: FileEdit, value: "10+", label: "Loại nội dung", color: "from-purple-500 to-violet-500" },
-            { icon: Share2, value: "8+", label: "Kênh social", color: "from-pink-500 to-rose-500" },
-            { icon: BarChart3, value: "Real-time", label: "Analytics", color: "from-green-500 to-emerald-500" },
-          ].map((stat, i) => (
+          {stats.map((stat, i) => (
             <motion.div
               key={stat.label}
               initial={{ opacity: 0, y: 20 }}
