@@ -4946,6 +4946,129 @@ export type Database = {
           },
         ]
       }
+      sales_chat_analytics: {
+        Row: {
+          assistant_message_count: number | null
+          conversion_action: string | null
+          converted: boolean | null
+          created_at: string
+          cta_clicked: string[] | null
+          detected_intent: string | null
+          ended_at: string | null
+          id: string
+          intent_confidence: number | null
+          message_count: number | null
+          objections: string[] | null
+          objections_handled: boolean | null
+          overall_sentiment: string | null
+          page_url: string | null
+          questions_asked: string[] | null
+          referrer: string | null
+          sentiment_score: number | null
+          session_id: string
+          started_at: string
+          thumbs_down_count: number | null
+          thumbs_up_count: number | null
+          topics_discussed: string[] | null
+          updated_at: string
+          user_agent: string | null
+          user_message_count: number | null
+          visitor_id: string | null
+        }
+        Insert: {
+          assistant_message_count?: number | null
+          conversion_action?: string | null
+          converted?: boolean | null
+          created_at?: string
+          cta_clicked?: string[] | null
+          detected_intent?: string | null
+          ended_at?: string | null
+          id?: string
+          intent_confidence?: number | null
+          message_count?: number | null
+          objections?: string[] | null
+          objections_handled?: boolean | null
+          overall_sentiment?: string | null
+          page_url?: string | null
+          questions_asked?: string[] | null
+          referrer?: string | null
+          sentiment_score?: number | null
+          session_id: string
+          started_at?: string
+          thumbs_down_count?: number | null
+          thumbs_up_count?: number | null
+          topics_discussed?: string[] | null
+          updated_at?: string
+          user_agent?: string | null
+          user_message_count?: number | null
+          visitor_id?: string | null
+        }
+        Update: {
+          assistant_message_count?: number | null
+          conversion_action?: string | null
+          converted?: boolean | null
+          created_at?: string
+          cta_clicked?: string[] | null
+          detected_intent?: string | null
+          ended_at?: string | null
+          id?: string
+          intent_confidence?: number | null
+          message_count?: number | null
+          objections?: string[] | null
+          objections_handled?: boolean | null
+          overall_sentiment?: string | null
+          page_url?: string | null
+          questions_asked?: string[] | null
+          referrer?: string | null
+          sentiment_score?: number | null
+          session_id?: string
+          started_at?: string
+          thumbs_down_count?: number | null
+          thumbs_up_count?: number | null
+          topics_discussed?: string[] | null
+          updated_at?: string
+          user_agent?: string | null
+          user_message_count?: number | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      sales_chat_messages_log: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          intent_category: string | null
+          reactions: string[] | null
+          role: string
+          sentiment: string | null
+          session_id: string
+          topic: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          intent_category?: string | null
+          reactions?: string[] | null
+          role: string
+          sentiment?: string | null
+          session_id: string
+          topic?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          intent_category?: string | null
+          reactions?: string[] | null
+          role?: string
+          sentiment?: string | null
+          session_id?: string
+          topic?: string | null
+        }
+        Relationships: []
+      }
       saved_audiences: {
         Row: {
           age_max: number | null
