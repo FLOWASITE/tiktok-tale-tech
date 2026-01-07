@@ -51,6 +51,16 @@ const Blog = () => {
       readTime: '25 phút',
       category: 'AI Marketing',
     },
+    {
+      id: 'content-repurposing-chien-luoc',
+      title: 'Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung Đa Kênh Trong 5 Phút [2026]',
+      excerpt: 'Đừng viết nhiều hơn, hãy viết thông minh hơn. Hướng dẫn chi tiết chiến lược Content Repurposing để thống trị mọi nền tảng.',
+      image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=250&fit=crop',
+      author: 'Võ Phương Duy',
+      date: 'Tháng 1, 2026',
+      readTime: '15 phút',
+      category: 'Strategy',
+    },
   ];
 
   const containerVariants = {
