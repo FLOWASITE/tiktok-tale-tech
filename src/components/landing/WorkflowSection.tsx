@@ -89,11 +89,13 @@ function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeat
           <div className="flex">
             {step1Images.map((img, idx) => (
               <div key={idx} className="flex-[0_0_100%] min-w-0">
-                <img
-                  src={img}
-                  alt={`Brand Setup Screenshot ${idx + 1}`}
-                  className="w-full shadow-lg border border-border/20 hover:shadow-xl transition-shadow duration-300"
-                />
+                <div className="relative aspect-video overflow-hidden rounded-xl shadow-lg border border-border/20 hover:shadow-xl transition-shadow duration-300">
+                  <img
+                    src={img}
+                    alt={`Brand Setup Screenshot ${idx + 1}`}
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                </div>
               </div>
             ))}
           </div>
