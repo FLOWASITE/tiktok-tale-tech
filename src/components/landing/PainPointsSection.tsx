@@ -1,40 +1,6 @@
 import { motion } from "framer-motion";
-import { X, Check, ArrowRight, Clock, Brain, Repeat, TrendingDown, Sparkles, Zap, ArrowDown } from "lucide-react";
-
-const painPoints = [
-  {
-    icon: Clock,
-    pain: "Mất 4-6 giờ/ngày tạo content thủ công",
-    solution: "AI tạo content trong vài phút",
-    improvement: "Tiết kiệm 80% thời gian",
-    beforeColor: "from-red-500/20 to-red-500/5",
-    afterColor: "from-green-500/20 to-green-500/5",
-  },
-  {
-    icon: Brain,
-    pain: "Cạn kiệt ý tưởng sáng tạo",
-    solution: "AI gợi ý ý tưởng không giới hạn",
-    improvement: "Luôn có ý tưởng mới",
-    beforeColor: "from-orange-500/20 to-orange-500/5",
-    afterColor: "from-blue-500/20 to-blue-500/5",
-  },
-  {
-    icon: Repeat,
-    pain: "Copy-paste giữa các kênh social",
-    solution: "Tự động format cho từng kênh",
-    improvement: "Xuất bản 1 click",
-    beforeColor: "from-yellow-500/20 to-yellow-500/5",
-    afterColor: "from-purple-500/20 to-purple-500/5",
-  },
-  {
-    icon: TrendingDown,
-    pain: "Không nhất quán brand voice",
-    solution: "AI học và duy trì giọng điệu",
-    improvement: "100% brand consistent",
-    beforeColor: "from-pink-500/20 to-pink-500/5",
-    afterColor: "from-cyan-500/20 to-cyan-500/5",
-  },
-];
+import { useTranslation } from "react-i18next";
+import { X, Check, ArrowDown, Clock, Brain, Repeat, TrendingDown, Sparkles, Zap } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -56,6 +22,47 @@ const itemVariants = {
 };
 
 export function PainPointsSection() {
+  const { t } = useTranslation();
+
+  const painPoints = [
+    {
+      icon: Clock,
+      pain: t("painPoints.problems.time.title"),
+      painDesc: t("painPoints.problems.time.description"),
+      solution: t("painPoints.solution.title"),
+      improvement: "80%",
+      beforeColor: "from-red-500/20 to-red-500/5",
+      afterColor: "from-green-500/20 to-green-500/5",
+    },
+    {
+      icon: Brain,
+      pain: t("painPoints.problems.ideas.title"),
+      painDesc: t("painPoints.problems.ideas.description"),
+      solution: t("painPoints.solution.title"),
+      improvement: "∞",
+      beforeColor: "from-orange-500/20 to-orange-500/5",
+      afterColor: "from-blue-500/20 to-blue-500/5",
+    },
+    {
+      icon: Repeat,
+      pain: t("painPoints.problems.management.title"),
+      painDesc: t("painPoints.problems.management.description"),
+      solution: t("painPoints.solution.description"),
+      improvement: "1-click",
+      beforeColor: "from-yellow-500/20 to-yellow-500/5",
+      afterColor: "from-purple-500/20 to-purple-500/5",
+    },
+    {
+      icon: TrendingDown,
+      pain: t("painPoints.problems.consistency.title"),
+      painDesc: t("painPoints.problems.consistency.description"),
+      solution: t("painPoints.solution.title"),
+      improvement: "100%",
+      beforeColor: "from-pink-500/20 to-pink-500/5",
+      afterColor: "from-cyan-500/20 to-cyan-500/5",
+    },
+  ];
+
   return (
     <section className="py-28 lg:py-36 relative overflow-hidden">
       {/* Background */}
@@ -96,16 +103,13 @@ export function PainPointsSection() {
             >
               <Zap className="w-4 h-4 text-primary" />
             </motion.div>
-            <span className="text-sm font-semibold text-primary">Vấn đề & Giải pháp</span>
+            <span className="text-sm font-semibold text-primary">{t("painPoints.badge")}</span>
           </motion.div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-6">
-            Bạn có đang gặp những
-            <br />
-            <span className="text-gradient">vấn đề này không?</span>
+            {t("painPoints.title")}
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Đây là những vấn đề phổ biến nhất mà 90% marketer gặp phải. 
-            Flowa giúp bạn giải quyết tất cả.
+            {t("painPoints.subtitle")}
           </p>
         </motion.div>
 
@@ -151,9 +155,11 @@ export function PainPointsSection() {
                         >
                           <X className="w-5 h-5 text-red-500" />
                         </motion.div>
-                        <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Vấn đề</span>
+                        <span className="text-xs font-bold text-red-500 uppercase tracking-wider">
+                          {t("painPoints.badge")}
+                        </span>
                       </div>
-                      <p className="text-foreground font-semibold text-lg">{item.pain}</p>
+                      <p className="text-foreground font-semibold text-lg">{item.painDesc}</p>
                     </div>
                   </div>
 
@@ -183,7 +189,9 @@ export function PainPointsSection() {
                         >
                           <Check className="w-5 h-5 text-green-500" />
                         </motion.div>
-                        <span className="text-xs font-bold text-green-500 uppercase tracking-wider">Giải pháp Flowa</span>
+                        <span className="text-xs font-bold text-green-500 uppercase tracking-wider">
+                          {t("painPoints.solution.badge")}
+                        </span>
                       </div>
                       <p className="text-foreground font-semibold text-lg">{item.solution}</p>
                     </div>
@@ -205,33 +213,6 @@ export function PainPointsSection() {
               </motion.div>
             </motion.div>
           ))}
-        </motion.div>
-
-        {/* Bottom Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-20 text-center"
-        >
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="inline-flex flex-wrap items-center justify-center gap-4 lg:gap-6 px-8 py-5 rounded-2xl bg-card/80 backdrop-blur-sm border border-border/50 shadow-lg"
-          >
-            <span className="text-muted-foreground font-medium">Kết quả thực tế:</span>
-            {[
-              { value: "80%", label: "tiết kiệm thời gian" },
-              { value: "3x", label: "năng suất" },
-              { value: "300%", label: "ROI" },
-            ].map((stat, i) => (
-              <div key={stat.label} className="flex items-center gap-2">
-                {i > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />}
-                <span className="font-bold text-foreground">{stat.value}</span>
-                <span className="text-muted-foreground">{stat.label}</span>
-              </div>
-            ))}
-          </motion.div>
         </motion.div>
       </div>
     </section>

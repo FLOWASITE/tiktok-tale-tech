@@ -1,68 +1,20 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Star, Quote } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useMemo } from "react";
 
-const testimonials = [
-  {
-    id: 1,
-    name: "Nguyễn Minh Anh",
-    role: "Marketing Manager",
-    company: "TechVN",
-    avatar: "",
-    content: "Flowa đã giúp team marketing của chúng tôi tiết kiệm hơn 20 giờ mỗi tuần. Chất lượng nội dung AI tạo ra vượt xa kỳ vọng.",
-    rating: 5,
-  },
-  {
-    id: 2,
-    name: "Trần Hoàng Long",
-    role: "CEO",
-    company: "StartupHub",
-    avatar: "",
-    content: "Là startup với nguồn lực hạn chế, Flowa giúp chúng tôi có thể sản xuất nội dung chất lượng như các công ty lớn.",
-    rating: 5,
-  },
-  {
-    id: 3,
-    name: "Phạm Thu Hà",
-    role: "Content Director",
-    company: "MediaPro Agency",
-    avatar: "",
-    content: "Quản lý nội dung cho 15+ client chưa bao giờ dễ dàng đến thế. Brand voice consistency là điểm mạnh nhất.",
-    rating: 5,
-  },
-  {
-    id: 4,
-    name: "Lê Văn Đức",
-    role: "Digital Marketing Lead",
-    company: "FashionVN",
-    avatar: "",
-    content: "Campaign management của Flowa rất trực quan. Chúng tôi có thể theo dõi mọi thứ trong một dashboard.",
-    rating: 5,
-  },
-  {
-    id: 5,
-    name: "Võ Thị Lan",
-    role: "Brand Manager",
-    company: "CosmeticPlus",
-    avatar: "",
-    content: "Multi-channel publishing tiết kiệm rất nhiều thời gian. Trước đây phải copy-paste, giờ chỉ cần 1 click.",
-    rating: 5,
-  },
-  {
-    id: 6,
-    name: "Hoàng Minh Tuấn",
-    role: "CMO",
-    company: "EduTech",
-    avatar: "",
-    content: "ROI tăng 250% sau 2 tháng sử dụng. AI hiểu ngành giáo dục rất tốt và tạo nội dung chuẩn xác.",
-    rating: 5,
-  },
-];
+interface Testimonial {
+  id: number;
+  name: string;
+  role: string;
+  company: string;
+  avatar: string;
+  content: string;
+  rating: number;
+}
 
-// Duplicate for seamless loop
-const duplicatedTestimonials = [...testimonials, ...testimonials];
-
-function TestimonialCard({ testimonial, index }: { testimonial: typeof testimonials[0]; index: number }) {
+function TestimonialCard({ testimonial, index }: { testimonial: Testimonial; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -133,6 +85,32 @@ function TestimonialCard({ testimonial, index }: { testimonial: typeof testimoni
 }
 
 export function TestimonialsSection() {
+  const { t } = useTranslation();
+
+  const testimonialItems = t("testimonials.items", { returnObjects: true }) as Array<{
+    quote: string;
+    name: string;
+    role: string;
+    company: string;
+  }>;
+
+  const testimonials: Testimonial[] = useMemo(() => {
+    if (!Array.isArray(testimonialItems)) return [];
+    return testimonialItems.map((item, index) => ({
+      id: index + 1,
+      name: item.name,
+      role: item.role,
+      company: item.company,
+      avatar: "",
+      content: item.quote,
+      rating: 5,
+    }));
+  }, [testimonialItems]);
+
+  // Duplicate for seamless loop
+  const duplicatedTestimonials = [...testimonials, ...testimonials];
+  const reversedTestimonials = useMemo(() => [...duplicatedTestimonials].reverse(), [duplicatedTestimonials]);
+
   return (
     <section id="testimonials" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background */}
@@ -167,16 +145,13 @@ export function TestimonialsSection() {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
             <Star className="w-4 h-4 text-primary fill-primary" />
-            <span className="text-sm font-medium text-primary">Đánh giá</span>
+            <span className="text-sm font-medium text-primary">{t("testimonials.badge")}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
-            Được tin dùng bởi
+            {t("testimonials.title")}
             <br />
-            <span className="text-gradient">hàng nghìn doanh nghiệp</span>
+            <span className="text-gradient">{t("testimonials.titleHighlight")}</span>
           </h2>
-          <p className="text-lg text-muted-foreground">
-            Xem những gì khách hàng nói về trải nghiệm sử dụng Flowa
-          </p>
         </motion.div>
 
         {/* Infinite Marquee - Row 1 (Left to Right) */}
@@ -215,7 +190,7 @@ export function TestimonialsSection() {
             }}
             className="flex"
           >
-            {duplicatedTestimonials.reverse().map((testimonial, index) => (
+            {reversedTestimonials.map((testimonial, index) => (
               <TestimonialCard key={`row2-${index}`} testimonial={testimonial} index={index} />
             ))}
           </motion.div>
@@ -230,10 +205,10 @@ export function TestimonialsSection() {
           className="mt-16 lg:mt-24"
         >
           <p className="text-center text-sm text-muted-foreground mb-8">
-            Được tin dùng bởi các thương hiệu hàng đầu
+            {t("hero.trustBadge")}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16">
-            {["TechVN", "StartupHub", "MediaPro", "FashionVN", "CosmeticPlus", "EduTech"].map((company, i) => (
+            {["TechViet", "StartupXYZ", "E-commerce Plus", "Agency Pro", "Beauty Corp", "Digital Studio"].map((company, i) => (
               <motion.div 
                 key={company} 
                 className="text-xl font-bold text-muted-foreground/50 hover:text-primary/70 transition-colors cursor-default"

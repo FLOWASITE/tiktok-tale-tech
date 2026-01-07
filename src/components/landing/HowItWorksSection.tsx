@@ -1,47 +1,9 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Sparkles, FileText, Calendar, Rocket, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MagneticButton } from "./effects";
-
-const steps = [
-  {
-    number: "01",
-    icon: Sparkles,
-    title: "Kết nối Brand",
-    description: "Nhập thông tin thương hiệu, giọng điệu và target audience. AI học và hiểu brand của bạn trong 2 phút.",
-    details: ["Brand guidelines", "Tone of voice", "Target personas"],
-    color: "from-pink-500 to-rose-500",
-    glowColor: "shadow-pink-500/20",
-  },
-  {
-    number: "02",
-    icon: FileText,
-    title: "Tạo Content AI",
-    description: "Chọn loại nội dung, nhập chủ đề. AI tạo ra bài viết chất lượng cao phù hợp với brand voice.",
-    details: ["Multi-format output", "SEO optimized", "Brand consistent"],
-    color: "from-blue-500 to-cyan-500",
-    glowColor: "shadow-blue-500/20",
-  },
-  {
-    number: "03",
-    icon: Calendar,
-    title: "Lên lịch thông minh",
-    description: "AI đề xuất thời điểm đăng tối ưu cho từng kênh. Kéo thả vào calendar để lên lịch.",
-    details: ["Best time to post", "Cross-platform sync", "Smart scheduling"],
-    color: "from-purple-500 to-violet-500",
-    glowColor: "shadow-purple-500/20",
-  },
-  {
-    number: "04",
-    icon: Rocket,
-    title: "Xuất bản & Phân tích",
-    description: "Tự động xuất bản lên tất cả kênh. Theo dõi hiệu suất real-time với dashboard analytics.",
-    details: ["Auto-publish", "Real-time analytics", "Performance insights"],
-    color: "from-orange-500 to-amber-500",
-    glowColor: "shadow-orange-500/20",
-  },
-];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -63,6 +25,47 @@ const itemVariants = {
 };
 
 export function HowItWorksSection() {
+  const { t } = useTranslation();
+
+  const steps = [
+    {
+      number: "01",
+      icon: Sparkles,
+      title: t("howItWorks.steps.step1.title"),
+      description: t("howItWorks.steps.step1.description"),
+      details: ["Brand guidelines", "Tone of voice", "Target personas"],
+      color: "from-pink-500 to-rose-500",
+      glowColor: "shadow-pink-500/20",
+    },
+    {
+      number: "02",
+      icon: FileText,
+      title: t("howItWorks.steps.step2.title"),
+      description: t("howItWorks.steps.step2.description"),
+      details: ["Multi-format output", "SEO optimized", "Brand consistent"],
+      color: "from-blue-500 to-cyan-500",
+      glowColor: "shadow-blue-500/20",
+    },
+    {
+      number: "03",
+      icon: Calendar,
+      title: t("howItWorks.steps.step3.title"),
+      description: t("howItWorks.steps.step3.description"),
+      details: ["Best time to post", "Cross-platform sync", "Smart scheduling"],
+      color: "from-purple-500 to-violet-500",
+      glowColor: "shadow-purple-500/20",
+    },
+    {
+      number: "04",
+      icon: Rocket,
+      title: t("howItWorks.steps.step4.title"),
+      description: t("howItWorks.steps.step4.description"),
+      details: ["Auto-publish", "Real-time analytics", "Performance insights"],
+      color: "from-orange-500 to-amber-500",
+      glowColor: "shadow-orange-500/20",
+    },
+  ];
+
   return (
     <section id="how-it-works" className="py-28 lg:py-36 relative overflow-hidden">
       {/* Background */}
@@ -110,15 +113,13 @@ export function HowItWorksSection() {
             >
               <Sparkles className="w-4 h-4 text-primary" />
             </motion.div>
-            <span className="text-sm font-semibold text-primary">Cách hoạt động</span>
+            <span className="text-sm font-semibold text-primary">{t("howItWorks.badge")}</span>
           </motion.div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-6">
-            Từ ý tưởng đến xuất bản
-            <br />
-            <span className="text-gradient">chỉ trong 4 bước</span>
+            {t("howItWorks.title")}
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Quy trình đơn giản, kết quả chuyên nghiệp. Không cần kỹ năng kỹ thuật.
+            {t("howItWorks.subtitle")}
           </p>
         </motion.div>
 
@@ -235,7 +236,7 @@ export function HowItWorksSection() {
             >
               <Link to="/auth?tab=register">
                 <span className="relative z-10 flex items-center font-semibold">
-                  Thử ngay miễn phí
+                  {t("howItWorks.cta")}
                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </span>
                 <motion.div
@@ -247,7 +248,7 @@ export function HowItWorksSection() {
             </Button>
           </MagneticButton>
           <p className="mt-5 text-sm text-muted-foreground">
-            Setup chỉ mất 2 phút • Không cần thẻ tín dụng
+            {t("hero.benefits.noCard")} • {t("hero.benefits.freeTrial")}
           </p>
         </motion.div>
       </div>

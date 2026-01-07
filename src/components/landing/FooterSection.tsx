@@ -1,48 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Sparkles, Facebook, Twitter, Linkedin, Instagram, Youtube } from "lucide-react";
-
-const footerLinks = {
-  product: {
-    title: "Sản phẩm",
-    links: [
-      { name: "Tính năng", href: "#features" },
-      { name: "Bảng giá", href: "#pricing" },
-      { name: "Integrations", href: "#" },
-      { name: "Changelog", href: "#" },
-      { name: "Roadmap", href: "#" },
-    ],
-  },
-  company: {
-    title: "Công ty",
-    links: [
-      { name: "Về chúng tôi", href: "#" },
-      { name: "Blog", href: "#" },
-      { name: "Tuyển dụng", href: "#" },
-      { name: "Liên hệ", href: "#" },
-      { name: "Đối tác", href: "#" },
-    ],
-  },
-  resources: {
-    title: "Tài nguyên",
-    links: [
-      { name: "Hướng dẫn", href: "#" },
-      { name: "API Docs", href: "#" },
-      { name: "Templates", href: "#" },
-      { name: "Webinars", href: "#" },
-      { name: "Hỗ trợ", href: "#" },
-    ],
-  },
-  legal: {
-    title: "Pháp lý",
-    links: [
-      { name: "Điều khoản", href: "#" },
-      { name: "Bảo mật", href: "#" },
-      { name: "Cookies", href: "#" },
-      { name: "Licenses", href: "#" },
-    ],
-  },
-};
 
 const socialLinks = [
   { icon: Facebook, href: "#", label: "Facebook" },
@@ -53,6 +12,47 @@ const socialLinks = [
 ];
 
 export function FooterSection() {
+  const { t } = useTranslation();
+
+  const footerLinks = {
+    product: {
+      title: t("footer.sections.product.title"),
+      links: [
+        { name: t("nav.features"), href: "#features" },
+        { name: t("nav.pricing"), href: "#pricing" },
+        { name: "Integrations", href: "#" },
+        { name: "API", href: "#" },
+      ],
+    },
+    company: {
+      title: t("footer.sections.company.title"),
+      links: [
+        { name: t("footer.sections.company.links.0"), href: "#" },
+        { name: "Blog", href: "#" },
+        { name: t("footer.sections.company.links.2"), href: "#" },
+        { name: t("footer.sections.company.links.3"), href: "#" },
+      ],
+    },
+    resources: {
+      title: t("footer.sections.resources.title"),
+      links: [
+        { name: t("footer.sections.resources.links.0"), href: "#" },
+        { name: t("footer.sections.resources.links.1"), href: "#" },
+        { name: t("footer.sections.resources.links.2"), href: "#" },
+        { name: t("footer.sections.resources.links.3"), href: "#" },
+      ],
+    },
+    legal: {
+      title: t("footer.sections.legal.title"),
+      links: [
+        { name: t("footer.sections.legal.links.0"), href: "#" },
+        { name: t("footer.sections.legal.links.1"), href: "#" },
+        { name: t("footer.sections.legal.links.2"), href: "#" },
+        { name: t("footer.sections.legal.links.3"), href: "#" },
+      ],
+    },
+  };
+
   const scrollToSection = (href: string) => {
     if (href.startsWith("#")) {
       const element = document.querySelector(href);
@@ -99,8 +99,7 @@ export function FooterSection() {
               <span className="text-xl font-bold text-gradient">Flowa</span>
             </Link>
             <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-              Nền tảng tạo nội dung AI đa kênh cho doanh nghiệp. 
-              One Flow. All Content.
+              {t("footer.description")}
             </p>
             {/* Social Links */}
             <div className="flex gap-3">
@@ -171,14 +170,14 @@ export function FooterSection() {
           transition={{ delay: 0.3 }}
         >
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Flowa. All rights reserved.
+            {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
           <div className="flex items-center gap-4">
             <motion.span 
               className="text-xs text-muted-foreground flex items-center gap-1"
               whileHover={{ scale: 1.05 }}
             >
-              Made with <span className="text-red-500">❤️</span> in Vietnam
+              {t("footer.madeWith")}
             </motion.span>
           </div>
         </motion.div>
