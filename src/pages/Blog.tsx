@@ -1,174 +1,267 @@
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Clock, User, ArrowRight, Calendar, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const Blog = () => {
+  const { t } = useTranslation();
+
+  const featuredPost = {
+    id: 'flowa-giai-phap-content-marketing',
+    title: 'Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút Thay Vì 10 Giờ',
+    excerpt: 'Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán.',
+    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop',
+    author: 'Flowa Team',
+    date: 'Tháng 1, 2026',
+    readTime: '15 phút đọc',
+    category: 'Product',
+    featured: true,
+  };
+
   const posts = [
     {
       id: 'flowa-giai-phap-content-marketing',
-      title: 'Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút',
+      title: 'Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút Thay Vì 10 Giờ',
       excerpt: 'Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình.',
-      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop',
+      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=250&fit=crop',
+      author: 'Flowa Team',
       date: 'Tháng 1, 2026',
       readTime: '15 phút',
       category: 'Product',
     },
     {
       id: 'cach-tao-content-da-kenh',
-      title: 'Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z',
-      excerpt: 'Học cách tạo content cho 10+ kênh từ 1 ý tưởng duy nhất. Bao gồm framework, templates và case studies.',
-      image: 'https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=600&h=400&fit=crop',
+      title: 'Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z [2026]',
+      excerpt: 'Học cách tạo content cho 10+ kênh từ 1 ý tưởng duy nhất. Bao gồm framework, templates, tools và case studies.',
+      image: 'https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=400&h=250&fit=crop',
+      author: 'Flowa Team',
       date: 'Tháng 1, 2026',
       readTime: '25 phút',
       category: 'Guide',
     },
     {
       id: 'ai-content-marketing-huong-dan',
-      title: 'AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao',
-      excerpt: 'Tìm hiểu cách sử dụng AI trong content marketing hiệu quả. Bao gồm workflow, tools và prompts.',
-      image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=400&fit=crop',
+      title: 'AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao [2026]',
+      excerpt: 'Tìm hiểu cách sử dụng AI trong content marketing hiệu quả. Bao gồm workflow, tools, prompts, và case studies thực tế.',
+      image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=250&fit=crop',
+      author: 'Flowa Team',
       date: 'Tháng 1, 2026',
       readTime: '25 phút',
       category: 'AI Marketing',
     },
     {
       id: 'content-repurposing-chien-luoc',
-      title: 'Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung Đa Kênh',
-      excerpt: 'Đừng viết nhiều hơn, hãy viết thông minh hơn. Hướng dẫn chi tiết chiến lược Content Repurposing.',
-      image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&h=400&fit=crop',
+      title: 'Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung Đa Kênh Trong 5 Phút [2026]',
+      excerpt: 'Đừng viết nhiều hơn, hãy viết thông minh hơn. Hướng dẫn chi tiết chiến lược Content Repurposing để thống trị mọi nền tảng.',
+      image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=250&fit=crop',
+      author: 'Võ Phương Duy',
       date: 'Tháng 1, 2026',
       readTime: '15 phút',
       category: 'Strategy',
     },
   ];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Simple Navigation */}
-      <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/40">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="flex items-center justify-between h-14">
-            <Link 
-              to="/landing" 
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
-            >
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <Link to="/landing" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4" />
-              <span>Trang chủ</span>
+              <span className="font-medium">Trang chủ</span>
             </Link>
-            <span className="text-sm font-medium text-foreground">Blog</span>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+              Flowa Blog
+            </h1>
             <div className="w-20" />
           </div>
         </div>
       </nav>
 
-      {/* Hero - Clean & Minimal */}
-      <section className="py-16 md:py-20">
-        <div className="max-w-5xl mx-auto px-6">
+      {/* Hero Section */}
+      <section className="relative py-16 lg:py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-4"
+            className="text-center mb-12"
           >
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
-              Khám Phá Thế Giới
-              <br />
-              <span className="text-gradient">Content Marketing</span>
+            <Badge variant="outline" className="mb-4 border-primary/30 text-primary">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Insights & Updates
+            </Badge>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+              Khám Phá Thế Giới{' '}
+              <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                Content Marketing
+              </span>
             </h1>
-            <p className="text-muted-foreground text-lg max-w-xl">
-              Kiến thức, chiến lược và insights từ đội ngũ Flowa.
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Chia sẻ kiến thức, trends và chiến lược content marketing từ đội ngũ Flowa
             </p>
           </motion.div>
         </div>
       </section>
 
-      {/* Posts Grid */}
-      <section className="pb-24">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 gap-8">
-            {posts.map((post, index) => (
-              <motion.article
-                key={post.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.5 }}
-              >
-                <Link to={`/blog/${post.id}`} className="group block">
-                  {/* Image */}
-                  <div className="aspect-[3/2] rounded-xl overflow-hidden mb-4 bg-muted">
+      {/* Featured Post */}
+      <section className="py-8 lg:py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Link to={`/blog/${featuredPost.id}`} className="group block">
+              <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-card to-card/50 border border-border/50 hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/10">
+                <div className="grid lg:grid-cols-2 gap-0">
+                  <div className="relative aspect-[16/9] lg:aspect-auto lg:h-full overflow-hidden">
                     <img
-                      src={post.image}
-                      alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      src={featuredPost.image}
+                      alt={featuredPost.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/20" />
+                    <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
+                      Featured
+                    </Badge>
                   </div>
-                  
-                  {/* Content */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="px-2.5 py-1 bg-muted rounded-full font-medium">
-                        {post.category}
-                      </span>
-                      <span>{post.date}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {post.readTime}
-                      </span>
-                    </div>
-                    
-                    <h2 className="text-xl font-semibold group-hover:text-primary transition-colors leading-snug line-clamp-2">
-                      {post.title}
+                  <div className="p-8 lg:p-12 flex flex-col justify-center">
+                    <Badge variant="outline" className="w-fit mb-4 border-primary/30 text-primary">
+                      {featuredPost.category}
+                    </Badge>
+                    <h2 className="text-2xl lg:text-3xl xl:text-4xl font-bold mb-4 group-hover:text-primary transition-colors line-clamp-3">
+                      {featuredPost.title}
                     </h2>
-                    
-                    <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2">
-                      {post.excerpt}
+                    <p className="text-muted-foreground text-lg mb-6 line-clamp-2">
+                      {featuredPost.excerpt}
                     </p>
-                    
-                    <div className="flex items-center gap-1 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity pt-1">
-                      <span>Đọc tiếp</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <div className="flex items-center gap-6 text-sm text-muted-foreground mb-6">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        {featuredPost.author}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        {featuredPost.date}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        {featuredPost.readTime}
+                      </div>
                     </div>
+                    <Button className="w-fit group/btn">
+                      Đọc bài viết
+                      <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                    </Button>
                   </div>
-                </Link>
-              </motion.article>
-            ))}
-          </div>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
         </div>
       </section>
 
-      {/* CTA - Minimal */}
-      <section className="py-16 border-t border-border/40">
-        <div className="max-w-5xl mx-auto px-6">
+      {/* All Posts */}
+      <section className="py-12 lg:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="flex flex-col md:flex-row md:items-center justify-between gap-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
           >
-            <div>
-              <h2 className="text-xl font-semibold mb-1">
-                Sẵn sàng bắt đầu?
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                Tạo content cho 12 kênh chỉ trong 10 phút.
-              </p>
+            <motion.h2 variants={itemVariants} className="text-2xl font-bold mb-8">
+              Tất cả bài viết
+            </motion.h2>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {posts.map((post, index) => (
+                <motion.div key={post.id} variants={itemVariants}>
+                  <Link to={`/blog/${post.id}`} className="group block h-full">
+                    <div className="h-full rounded-2xl overflow-hidden bg-card border border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+                      <div className="relative aspect-[16/10] overflow-hidden">
+                        <img
+                          src={post.image}
+                          alt={post.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <Badge className="absolute top-3 left-3 bg-background/90 text-foreground text-xs">
+                          {post.category}
+                        </Badge>
+                      </div>
+                      <div className="p-6">
+                        <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                          {post.title}
+                        </h3>
+                        <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
+                          {post.excerpt}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {post.date}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {post.readTime}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
             </div>
-            <div className="flex gap-3">
-              <Button asChild>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 lg:py-24">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="p-8 lg:p-12 rounded-3xl bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20"
+          >
+            <h2 className="text-2xl lg:text-3xl font-bold mb-4">
+              Sẵn sàng tự động hóa content marketing?
+            </h2>
+            <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+              Tạo content cho 12 kênh chỉ trong 10 phút. Dùng thử miễn phí ngay hôm nay.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" asChild>
                 <Link to="/auth">Dùng thử miễn phí</Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link to="/contact">Liên hệ</Link>
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/contact">Liên hệ tư vấn</Link>
               </Button>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Footer - Simple */}
-      <footer className="py-6 border-t border-border/40">
-        <div className="max-w-5xl mx-auto px-6 text-center text-xs text-muted-foreground">
+      {/* Footer */}
+      <footer className="py-8 border-t border-border/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
           © 2026 Flowa. All rights reserved.
         </div>
       </footer>
