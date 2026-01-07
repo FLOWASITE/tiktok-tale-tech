@@ -1,73 +1,57 @@
 import { motion } from "framer-motion";
-import { Star, Quote, TrendingUp, Users, Award, Shield, ArrowLeft, ArrowRight } from "lucide-react";
-import { useState } from "react";
-
-const metrics = [
-  {
-    icon: Users,
-    value: "10,000+",
-    label: "Marketer sử dụng",
-    description: "Từ startup đến enterprise",
-    color: "from-pink-500 to-rose-500",
-  },
-  {
-    icon: TrendingUp,
-    value: "500K+",
-    label: "Content đã tạo",
-    description: "Mỗi tháng tăng 40%",
-    color: "from-blue-500 to-cyan-500",
-  },
-  {
-    icon: Award,
-    value: "4.9/5",
-    label: "Đánh giá trung bình",
-    description: "Từ 2,000+ reviews",
-    color: "from-yellow-500 to-orange-500",
-  },
-  {
-    icon: Shield,
-    value: "99.9%",
-    label: "Uptime cam kết",
-    description: "Enterprise-grade reliability",
-    color: "from-green-500 to-emerald-500",
-  },
-];
-
-const featuredReviews = [
-  {
-    content: "Flowa giúp team tôi tạo được lượng content gấp 5 lần với cùng nguồn lực. ROI tăng 300% sau 3 tháng.",
-    author: "Nguyễn Văn A",
-    role: "Head of Marketing",
-    company: "TechCorp Vietnam",
-    avatar: "NVA",
-    rating: 5,
-  },
-  {
-    content: "Brand voice consistency là game-changer. Mỗi client đều có giọng điệu riêng biệt, AI học cực nhanh.",
-    author: "Trần Thị B",
-    role: "Creative Director",
-    company: "Digital Agency Pro",
-    avatar: "TTB",
-    rating: 5,
-  },
-  {
-    content: "Từ 6 giờ/ngày xuống còn 1 giờ cho content. Giờ team có thời gian focus vào strategy thay vì execution.",
-    author: "Lê Minh C",
-    role: "Marketing Manager",
-    company: "E-commerce Giant",
-    avatar: "LMC",
-    rating: 5,
-  },
-];
-
-const awards = [
-  "Top 10 MarTech Startups 2024",
-  "Best AI Content Tool - Vietnam",
-  "Product Hunt #1",
-  "G2 High Performer",
-];
+import { useTranslation } from "react-i18next";
+import { Star, Quote, TrendingUp, Users, Award, Shield } from "lucide-react";
 
 export function SocialProofSection() {
+  const { t } = useTranslation();
+
+  const metrics = [
+    {
+      icon: Users,
+      value: "10,000+",
+      label: t("socialProof.title"),
+      description: t("socialProof.subtitle"),
+      color: "from-pink-500 to-rose-500",
+    },
+    {
+      icon: TrendingUp,
+      value: "500K+",
+      label: t("features.stats.contentTypes"),
+      description: t("socialProof.stats.contentIncrease"),
+      color: "from-blue-500 to-cyan-500",
+    },
+    {
+      icon: Award,
+      value: "4.9/5",
+      label: t("socialProof.stats.rating"),
+      description: "2,000+ reviews",
+      color: "from-yellow-500 to-orange-500",
+    },
+    {
+      icon: Shield,
+      value: "99.9%",
+      label: "Uptime",
+      description: "Enterprise-grade reliability",
+      color: "from-green-500 to-emerald-500",
+    },
+  ];
+
+  const featuredReviews = t("testimonials.items", { returnObjects: true }) as Array<{
+    quote: string;
+    name: string;
+    role: string;
+    company: string;
+  }>;
+
+  const displayReviews = Array.isArray(featuredReviews) ? featuredReviews.slice(0, 3) : [];
+
+  const awards = [
+    "Top 10 MarTech Startups 2024",
+    "Best AI Content Tool - Vietnam",
+    "Product Hunt #1",
+    "G2 High Performer",
+  ];
+
   return (
     <section id="testimonials" className="py-28 lg:py-36 relative overflow-hidden bg-muted/20">
       {/* Background */}
@@ -143,7 +127,7 @@ export function SocialProofSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-20"
         >
-          {featuredReviews.map((review, index) => (
+          {displayReviews.map((review, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 30 }}
@@ -167,7 +151,7 @@ export function SocialProofSection() {
                 
                 {/* Stars */}
                 <div className="flex gap-1 mb-5">
-                  {Array.from({ length: review.rating }).map((_, i) => (
+                  {Array.from({ length: 5 }).map((_, i) => (
                     <motion.div
                       key={i}
                       initial={{ opacity: 0, scale: 0, rotate: -180 }}
@@ -182,7 +166,7 @@ export function SocialProofSection() {
 
                 {/* Content */}
                 <p className="text-foreground text-lg leading-relaxed mb-8">
-                  "{review.content}"
+                  "{review.quote}"
                 </p>
 
                 {/* Author */}
@@ -191,11 +175,11 @@ export function SocialProofSection() {
                     whileHover={{ scale: 1.1 }}
                     className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-base font-bold text-white shadow-lg ring-4 ring-primary/20"
                   >
-                    {review.avatar}
+                    {review.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </motion.div>
                   <div>
                     <div className="font-bold text-foreground">
-                      {review.author}
+                      {review.name}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {review.role} @ {review.company}
@@ -219,7 +203,7 @@ export function SocialProofSection() {
           className="text-center"
         >
           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-6 font-medium">
-            Giải thưởng & Công nhận
+            Awards & Recognition
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6">
             {awards.map((award, i) => (

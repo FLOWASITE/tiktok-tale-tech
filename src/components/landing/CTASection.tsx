@@ -1,23 +1,25 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { ArrowRight, Shield, Zap, Clock, CheckCircle2, Sparkles, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MagneticButton } from "./effects";
 
-const trustBadges = [
-  { icon: Shield, text: "Bảo mật SSL 256-bit" },
-  { icon: Zap, text: "Setup chỉ 2 phút" },
-  { icon: Clock, text: "Hỗ trợ 24/7" },
-];
-
-const guarantees = [
-  "Dùng thử miễn phí 14 ngày",
-  "Không cần thẻ tín dụng",
-  "Hủy bất cứ lúc nào",
-  "Hoàn tiền 30 ngày",
-];
-
 export function CTASection() {
+  const { t } = useTranslation();
+
+  const trustBadges = [
+    { icon: Shield, text: "SSL 256-bit" },
+    { icon: Zap, text: "2 min setup" },
+    { icon: Clock, text: "24/7 support" },
+  ];
+
+  const guarantees = [
+    t("cta.benefits.freeTrial"),
+    t("cta.benefits.noCard"),
+    t("cta.benefits.cancelAnytime"),
+  ];
+
   return (
     <section className="py-28 lg:py-36 relative overflow-hidden">
       {/* Background */}
@@ -124,7 +126,7 @@ export function CTASection() {
                 >
                   <Sparkles className="w-4 h-4 text-primary" />
                 </motion.div>
-                <span className="text-sm font-bold text-primary">Limited Time Offer</span>
+                <span className="text-sm font-bold text-primary">{t("cta.badge")}</span>
               </motion.div>
 
               {/* Headline */}
@@ -135,10 +137,10 @@ export function CTASection() {
                 transition={{ delay: 0.1 }}
                 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6"
               >
-                Sẵn sàng tăng tốc
+                {t("cta.title")}
                 <br />
                 <span className="relative inline-block">
-                  <span className="text-gradient">Content Marketing?</span>
+                  <span className="text-gradient">{t("cta.titleHighlight")}</span>
                   <motion.span
                     className="absolute inset-0 blur-2xl bg-gradient-to-r from-primary/30 to-secondary/30 -z-10"
                     animate={{ opacity: [0.5, 0.8, 0.5] }}
@@ -155,8 +157,7 @@ export function CTASection() {
                 transition={{ delay: 0.2 }}
                 className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
               >
-                Tham gia cùng <span className="text-foreground font-bold">10,000+ marketer</span> đang 
-                sử dụng Flowa để tạo nội dung chất lượng nhanh hơn bao giờ hết.
+                {t("cta.subtitle")}
               </motion.p>
 
               {/* Guarantees */}
@@ -203,7 +204,7 @@ export function CTASection() {
                   >
                     <Link to="/auth?tab=register">
                       <span className="relative z-10 flex items-center font-bold">
-                        Bắt đầu miễn phí ngay
+                        {t("cta.startFree")}
                         <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                       </span>
                       <motion.div
@@ -221,7 +222,7 @@ export function CTASection() {
                     className="w-full sm:w-auto h-16 text-lg rounded-2xl border-2 hover:bg-primary/5"
                     onClick={() => document.querySelector("#pricing")?.scrollIntoView({ behavior: "smooth" })}
                   >
-                    Xem bảng giá
+                    {t("pricing.badge")}
                   </Button>
                 </MagneticButton>
               </motion.div>
@@ -234,7 +235,7 @@ export function CTASection() {
                 transition={{ delay: 0.5 }}
                 className="flex flex-wrap items-center justify-center gap-8 lg:gap-12"
               >
-                {trustBadges.map((badge, i) => (
+                {trustBadges.map((badge) => (
                   <motion.div
                     key={badge.text}
                     whileHover={{ scale: 1.05 }}
@@ -257,9 +258,9 @@ export function CTASection() {
             className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5"
           >
             {[
-              { value: "80%", label: "Thời gian tiết kiệm", color: "from-pink-500 to-rose-500" },
-              { value: "3x", label: "Tăng năng suất", color: "from-blue-500 to-cyan-500" },
-              { value: "300%", label: "ROI trung bình", color: "from-green-500 to-emerald-500" },
+              { value: "80%", label: t("socialProof.stats.timeSaved"), color: "from-pink-500 to-rose-500" },
+              { value: "3x", label: t("socialProof.stats.contentIncrease"), color: "from-blue-500 to-cyan-500" },
+              { value: "300%", label: "ROI", color: "from-green-500 to-emerald-500" },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
