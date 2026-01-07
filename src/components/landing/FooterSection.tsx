@@ -30,7 +30,7 @@ export function FooterSection() {
       title: t("footer.sections.company.title"),
       links: [
         { name: t("footer.sections.company.links.0"), href: "/about", isInternal: true },
-        { name: "Blog", href: "#" },
+        { name: "Blog", href: "/blog", isInternal: true },
         { name: t("footer.sections.company.links.2"), href: "/careers", isInternal: true },
         { name: t("footer.sections.company.links.3"), href: "/contact", isInternal: true },
       ],
