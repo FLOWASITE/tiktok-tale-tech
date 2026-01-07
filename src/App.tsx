@@ -49,6 +49,8 @@ import Landing from "./pages/Landing";
 import Contact from "./pages/Contact";
 import Careers from "./pages/Careers";
 import About from "./pages/About";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 
 const queryClient = new QueryClient();
 
