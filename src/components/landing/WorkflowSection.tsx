@@ -65,7 +65,8 @@ function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeat
   }, [emblaApi]);
 
   return (
-    <div className="grid md:grid-cols-2 gap-8 items-center">
+    <div className="space-y-6">
+      {/* Step 1 text content */}
       <div className="flex gap-6 items-start">
         <span className="text-4xl font-light text-primary min-w-[3rem]">
           {step.num}
@@ -84,7 +85,9 @@ function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeat
           )}
         </div>
       </div>
-      <div className="order-first md:order-last">
+      
+      {/* Carousel below Step 1 */}
+      <div className="ml-0 md:ml-[4.5rem]">
         <div className="overflow-hidden rounded-xl" ref={emblaRef}>
           <div className="flex">
             {step1Images.map((img, idx) => (
