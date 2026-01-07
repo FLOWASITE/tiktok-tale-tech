@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { LandingNav } from '@/components/landing/LandingNav';
 import { 
   ArrowLeft, 
   Clock, 
@@ -71,9 +72,12 @@ const BlogPostFlowa = () => {
       <ReadingProgress />
 
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
+      <LandingNav />
+
+      {/* Secondary Nav - Back to Blog */}
+      <div className="sticky top-16 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-12">
             <Link to="/blog" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4" />
               <span className="font-medium">Blog</span>
@@ -83,7 +87,7 @@ const BlogPostFlowa = () => {
             </div>
           </div>
         </div>
-      </nav>
+      </div>
 
       {/* Hero */}
       <section className="relative py-12 lg:py-20 overflow-hidden">
