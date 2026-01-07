@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sparkles } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useTranslation } from "react-i18next";
+import logo from "@/assets/logo.png";
+
 export function LandingNav() {
   const { t } = useTranslation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -64,18 +66,15 @@ export function LandingNav() {
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2.5 group">
               <motion.div
-                whileHover={{ scale: 1.1, rotate: 5 }}
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="relative w-10 h-10 lg:w-11 lg:h-11"
+                className="relative"
               >
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-secondary opacity-90 group-hover:opacity-100 transition-opacity shadow-lg" />
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
-                </motion.div>
+                <img 
+                  src={logo} 
+                  alt="Flowa Logo" 
+                  className="w-10 h-10 lg:w-11 lg:h-11 object-contain"
+                />
               </motion.div>
               <span className="text-2xl lg:text-2xl font-extrabold text-gradient">
                 Flowa
