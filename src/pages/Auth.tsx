@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2, Zap, Palette, Share2, Bot, AlertCircle, XCircle } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Zap, Palette, Share2, Bot, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
@@ -181,131 +181,75 @@ export default function Auth() {
       </div>
 
       {/* Right side - Auth form */}
-      <div className="flex-1 flex items-center justify-center p-4 lg:p-12 relative">
-        {/* Simple card */}
+      <div className="flex-1 flex items-center justify-center p-4 lg:p-12">
         <div className="w-full max-w-md">
-          {/* Card content */}
-          <div className="rounded-2xl bg-card border border-border/50 p-8 shadow-lg">
+          <div className="rounded-xl bg-card border border-border p-6">
             {/* Mobile logo */}
-            <div className="lg:hidden pb-6 flex items-center justify-center gap-3">
-              <img src={logoImage} alt="Flowa Logo" className="w-10 h-10 object-contain" />
-              <span className="text-2xl font-bold text-primary">Flowa</span>
+            <div className="lg:hidden pb-4 flex items-center justify-center gap-2">
+              <img src={logoImage} alt="Flowa Logo" className="w-8 h-8 object-contain" />
+              <span className="text-xl font-bold text-primary">Flowa</span>
             </div>
 
             {/* Header */}
-            <div className="text-center space-y-1 pb-6">
-              <h2 className="text-xl font-semibold text-foreground">
+            <div className="text-center pb-4">
+              <h2 className="text-lg font-semibold text-foreground">
                 {activeTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
               </h2>
-              <p className="text-sm text-muted-foreground">
-                {activeTab === 'login' 
-                  ? 'Nhập thông tin để tiếp tục' 
-                  : 'Đăng ký để bắt đầu'}
-              </p>
             </div>
             
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'register')}>
-              <TabsList className="grid w-full grid-cols-2 p-1 bg-muted rounded-lg mb-6">
-                <TabsTrigger 
-                  value="login" 
-                  className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                >
-                  Đăng nhập
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="register"
-                  className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                >
-                  Đăng ký
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="login">Đăng nhập</TabsTrigger>
+                <TabsTrigger value="register">Đăng ký</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="login" className="space-y-4 animate-fade-in">
+              <TabsContent value="login" className="space-y-4">
                 <form onSubmit={handleLogin} className="space-y-4">
-                  {/* Error Alert */}
                   {loginError && (
-                    <div className="relative overflow-hidden rounded-xl border border-destructive/50 bg-destructive/10 p-4 animate-shake">
-                      <div className="flex gap-3">
-                        <div className="flex-shrink-0">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/20">
-                            <XCircle className="h-5 w-5 text-destructive" />
-                          </div>
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-medium text-destructive">
-                            Đăng nhập không thành công
-                          </p>
-                          <p className="text-sm text-destructive/80">
-                            {loginError}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setLoginError(null)}
-                          className="flex-shrink-0 text-destructive/60 hover:text-destructive transition-colors"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                      {/* Animated border */}
-                      <div className="absolute bottom-0 left-0 h-1 bg-destructive/30 animate-pulse w-full" />
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-destructive">{loginError}</p>
                     </div>
                   )}
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email" className="text-sm font-medium">
-                      Email
-                    </Label>
-                    <div className={`relative group rounded-xl transition-all duration-300 ${focusedField === 'login-email' ? 'input-glow' : ''}`}>
-                      <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-all duration-200 ${
-                        focusedField === 'login-email' ? 'text-primary scale-110' : 'text-muted-foreground'
-                      }`} />
-                      <Input
-                        id="login-email"
-                        type="email"
-                        placeholder="email@example.com"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        onFocus={() => setFocusedField('login-email')}
-                        onBlur={() => setFocusedField(null)}
-                        required
-                        disabled={isLoading}
-                        className="pl-11 h-12 rounded-xl border-border/50 bg-muted/30 transition-all duration-200 focus:bg-background"
-                      />
-                    </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label htmlFor="login-email" className="text-sm">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      required
+                      disabled={isLoading}
+                    />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password" className="text-sm font-medium">
-                      Mật khẩu
-                    </Label>
-                    <div className={`relative group rounded-xl transition-all duration-300 ${focusedField === 'login-password' ? 'input-glow' : ''}`}>
-                      <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-all duration-200 ${
-                        focusedField === 'login-password' ? 'text-primary scale-110' : 'text-muted-foreground'
-                      }`} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="login-password" className="text-sm">Mật khẩu</Label>
+                    <div className="relative">
                       <Input
                         id="login-password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        onFocus={() => setFocusedField('login-password')}
-                        onBlur={() => setFocusedField(null)}
                         required
                         disabled={isLoading}
-                        className="pl-11 pr-11 h-12 rounded-xl border-border/50 bg-muted/30 transition-all duration-200 focus:bg-background"
+                        className="pr-10"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
                       <Checkbox 
                         id="remember-me" 
                         checked={rememberMe}
@@ -313,18 +257,14 @@ export default function Auth() {
                           setRememberMe(checked === true);
                           localStorage.setItem('rememberMe', checked === true ? 'true' : 'false');
                         }}
-                        className="border-muted-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary rounded-md"
                       />
-                      <Label 
-                        htmlFor="remember-me" 
-                        className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                      >
+                      <Label htmlFor="remember-me" className="text-muted-foreground cursor-pointer">
                         Ghi nhớ
                       </Label>
                     </div>
                     <button
                       type="button"
-                      className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+                      className="text-primary hover:underline"
                       onClick={() => setShowForgotPassword(true)}
                     >
                       Quên mật khẩu?
@@ -336,126 +276,70 @@ export default function Auth() {
                     onOpenChange={setShowForgotPassword} 
                   />
 
-                  <Button 
-                    type="submit" 
-                    className="w-full h-12 rounded-xl gradient-primary text-primary-foreground font-semibold text-base transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 group" 
-                    disabled={isLoading}
-                  >
+                  <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Đang đăng nhập...
                       </>
                     ) : (
-                      <>
-                        Đăng nhập
-                        <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                      </>
+                      'Đăng nhập'
                     )}
                   </Button>
                 </form>
               </TabsContent>
               
-              <TabsContent value="register" className="space-y-4 animate-fade-in">
+              <TabsContent value="register" className="space-y-4">
                 <form onSubmit={handleRegister} className="space-y-4">
-                  {/* Error Alert */}
                   {registerError && (
-                    <div className="relative overflow-hidden rounded-xl border border-destructive/50 bg-destructive/10 p-4 animate-shake">
-                      <div className="flex gap-3">
-                        <div className="flex-shrink-0">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/20">
-                            <XCircle className="h-5 w-5 text-destructive" />
-                          </div>
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-medium text-destructive">
-                            Đăng ký không thành công
-                          </p>
-                          <p className="text-sm text-destructive/80">
-                            {registerError}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setRegisterError(null)}
-                          className="flex-shrink-0 text-destructive/60 hover:text-destructive transition-colors"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                      {/* Animated border */}
-                      <div className="absolute bottom-0 left-0 h-1 bg-destructive/30 animate-pulse w-full" />
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-destructive">{registerError}</p>
                     </div>
                   )}
-                  <div className="space-y-2">
-                    <Label htmlFor="register-name" className="text-sm font-medium">
-                      Họ và tên
-                    </Label>
-                    <div className={`relative group rounded-xl transition-all duration-300 ${focusedField === 'register-name' ? 'input-glow' : ''}`}>
-                      <User className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-all duration-200 ${
-                        focusedField === 'register-name' ? 'text-primary scale-110' : 'text-muted-foreground'
-                      }`} />
-                      <Input
-                        id="register-name"
-                        type="text"
-                        placeholder="Nguyễn Văn A"
-                        value={registerFullName}
-                        onChange={(e) => setRegisterFullName(e.target.value)}
-                        onFocus={() => setFocusedField('register-name')}
-                        onBlur={() => setFocusedField(null)}
-                        disabled={isLoading}
-                        className="pl-11 h-12 rounded-xl border-border/50 bg-muted/30 transition-all duration-200 focus:bg-background"
-                      />
-                    </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-name" className="text-sm">Họ và tên</Label>
+                    <Input
+                      id="register-name"
+                      type="text"
+                      placeholder="Nguyễn Văn A"
+                      value={registerFullName}
+                      onChange={(e) => setRegisterFullName(e.target.value)}
+                      disabled={isLoading}
+                    />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="register-email" className="text-sm font-medium">
-                      Email
-                    </Label>
-                    <div className={`relative group rounded-xl transition-all duration-300 ${focusedField === 'register-email' ? 'input-glow' : ''}`}>
-                      <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-all duration-200 ${
-                        focusedField === 'register-email' ? 'text-primary scale-110' : 'text-muted-foreground'
-                      }`} />
-                      <Input
-                        id="register-email"
-                        type="email"
-                        placeholder="email@example.com"
-                        value={registerEmail}
-                        onChange={(e) => setRegisterEmail(e.target.value)}
-                        onFocus={() => setFocusedField('register-email')}
-                        onBlur={() => setFocusedField(null)}
-                        required
-                        disabled={isLoading}
-                        className="pl-11 h-12 rounded-xl border-border/50 bg-muted/30 transition-all duration-200 focus:bg-background"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-email" className="text-sm">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={registerEmail}
+                      onChange={(e) => setRegisterEmail(e.target.value)}
+                      required
+                      disabled={isLoading}
+                    />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="register-password" className="text-sm font-medium">
-                      Mật khẩu
-                    </Label>
-                    <div className={`relative group rounded-xl transition-all duration-300 ${focusedField === 'register-password' ? 'input-glow' : ''}`}>
-                      <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-all duration-200 ${
-                        focusedField === 'register-password' ? 'text-primary scale-110' : 'text-muted-foreground'
-                      }`} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-password" className="text-sm">Mật khẩu</Label>
+                    <div className="relative">
                       <Input
                         id="register-password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Ít nhất 6 ký tự"
                         value={registerPassword}
                         onChange={(e) => setRegisterPassword(e.target.value)}
-                        onFocus={() => setFocusedField('register-password')}
-                        onBlur={() => setFocusedField(null)}
                         required
                         disabled={isLoading}
-                        className="pl-11 pr-11 h-12 rounded-xl border-border/50 bg-muted/30 transition-all duration-200 focus:bg-background"
+                        className="pr-10"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -463,33 +347,25 @@ export default function Auth() {
                     <PasswordStrengthIndicator password={registerPassword} />
                   </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full h-12 rounded-xl gradient-primary text-primary-foreground font-semibold text-base transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 group" 
-                    disabled={isLoading}
-                  >
+                  <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Đang tạo tài khoản...
                       </>
                     ) : (
-                      <>
-                        Tạo tài khoản
-                        <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                      </>
+                      'Tạo tài khoản'
                     )}
                   </Button>
                 </form>
               </TabsContent>
             </Tabs>
 
-            {/* Terms notice */}
-            <p className="text-xs text-center text-muted-foreground pt-6">
+            <p className="text-xs text-center text-muted-foreground pt-4">
               Bằng việc đăng ký, bạn đồng ý với{' '}
-              <a href="#" className="text-primary hover:underline font-medium">Điều khoản</a>
+              <a href="#" className="text-primary hover:underline">Điều khoản</a>
               {' '}và{' '}
-              <a href="#" className="text-primary hover:underline font-medium">Chính sách bảo mật</a>
+              <a href="#" className="text-primary hover:underline">Chính sách bảo mật</a>
             </p>
           </div>
         </div>
