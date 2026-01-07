@@ -1,6 +1,5 @@
 export { LandingNav } from "./LandingNav";
 export { HeroSection } from "./HeroSection";
-export { PainPointsSection } from "./PainPointsSection";
 export { WorkflowSection } from "./WorkflowSection";
 export { SocialProofSection } from "./SocialProofSection";
 export { PricingSection } from "./PricingSection";

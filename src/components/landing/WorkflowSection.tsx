@@ -32,11 +32,11 @@ export function WorkflowSection() {
   const { t } = useTranslation();
 
   const steps = [
-    { num: 1, key: "step1" },
-    { num: 2, key: "step2" },
+    { num: 1, key: "step1", hasFeature: true },
+    { num: 2, key: "step2", hasFeature: true },
     { num: 3, key: "step3", hasContentTypes: true },
     { num: 4, key: "step4" },
-    { num: 5, key: "step5" },
+    { num: 5, key: "step5", hasFeature: true },
   ];
 
   return (
@@ -85,9 +85,16 @@ export function WorkflowSection() {
                 <h3 className="text-xl font-semibold text-foreground mb-2">
                   {t(`workflow.steps.${step.key}.title`)}
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-2">
                   {t(`workflow.steps.${step.key}.description`)}
                 </p>
+
+                {/* Feature highlight for steps 1, 2, 5 */}
+                {step.hasFeature && (
+                  <span className="inline-block text-sm text-primary font-medium">
+                    → {t(`workflow.steps.${step.key}.feature`)}
+                  </span>
+                )}
 
                 {/* Content Types for Step 3 */}
                 {step.hasContentTypes && (
@@ -95,11 +102,14 @@ export function WorkflowSection() {
                     {contentTypes.map((type) => (
                       <div
                         key={type.key}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/30"
+                        className="flex flex-col items-center gap-1 px-3 py-3 rounded-lg border border-border/50 bg-muted/30 text-center"
                       >
-                        <type.icon className="w-4 h-4 text-primary" />
+                        <type.icon className="w-5 h-5 text-primary mb-1" />
                         <span className="text-sm font-medium text-foreground">
-                          {t(`workflow.steps.step3.types.${type.key}`)}
+                          {t(`workflow.steps.step3.types.${type.key}.name`)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {t(`workflow.steps.step3.types.${type.key}.highlight`)}
                         </span>
                       </div>
                     ))}

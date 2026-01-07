@@ -39,75 +39,30 @@
       "aiGeneration": "AI Generation"
     }
   },
-  "painPoints": {
-    "badge": "Tính năng nổi bật",
-    "title": "Mọi thứ bạn cần cho Content Marketing",
-    "subtitle": "Tiết kiệm 80% thời gian với chất lượng tốt hơn",
-    "features": {
-      "multiChannel": {
-        "keyword": "Đa kênh",
-        "title": "trong 10 phút.",
-        "description": "Tự động tạo content Facebook, Instagram, LinkedIn, TikTok chỉ với một câu lệnh. Tiết kiệm 5 giờ mỗi tuần."
-      },
-      "videoScript": {
-        "keyword": "Video Script",
-        "title": "trong 3 phút.",
-        "description": "AI tạo kịch bản video TikTok/Reels với hook, timing và visual cues chi tiết. Quay 1 lần, không cần re-shoot."
-      },
-      "carousel": {
-        "keyword": "Carousel",
-        "title": "tự động hoàn chỉnh.",
-        "description": "Tạo carousel post chuyên nghiệp với prompts cho từng slide, caption và CTA sẵn sàng đăng."
-      },
-      "adCopy": {
-        "keyword": "Ad Copy",
-        "title": "chuyển đổi cao.",
-        "description": "AI tạo nội dung quảng cáo Facebook, Instagram, TikTok với A/B testing, scoring và tối ưu CTR tự động."
-      },
-      "ideation": {
-        "keyword": "Ý tưởng",
-        "title": "không giới hạn.",
-        "description": "AI brainstorm topics theo brand, Discovery Feed trending, Topic Bank lưu trữ. Không bao giờ hết ý tưởng."
-      },
-      "brandVoice": {
-        "keyword": "Giọng điệu",
-        "title": "thương hiệu nhất quán.",
-        "description": "Setup 1 lần, AI áp dụng cho mọi content. 3 người viết cùng 1 giọng, brand recognition tăng 3x."
-      },
-      "publishing": {
-        "keyword": "Lên lịch",
-        "title": "một chạm.",
-        "description": "Dashboard tổng quan tất cả kênh, drag & drop reschedule, team assignment với @mention. 0% missed deadlines."
-      },
-      "collaboration": {
-        "keyword": "Cộng tác",
-        "title": "đội nhóm không giới hạn.",
-        "description": "Phân công task, phân quyền Owner/Admin/Member, chat real-time. Ai làm gì, ai thấy gì — rõ ràng và bảo mật."
-      }
-    }
-  },
   "workflow": {
-    "badge": "Quy trình đơn giản",
+    "badge": "Cách Flowa hoạt động",
     "title": "Từ Brand đến Content",
     "titleHighlight": "trong 5 bước",
-    "subtitle": "Không cần kỹ năng kỹ thuật, AI lo tất cả",
+    "subtitle": "Tiết kiệm 80% thời gian, AI lo tất cả",
     "steps": {
       "step1": {
         "title": "Khai báo Brand",
-        "description": "Upload logo, màu sắc, tone of voice của thương hiệu"
+        "description": "Upload logo, màu sắc, tone of voice của thương hiệu",
+        "feature": "Giọng điệu thương hiệu nhất quán"
       },
       "step2": {
         "title": "AI gợi ý Chủ đề",
-        "description": "Dựa trên brand & ngành, AI đề xuất topics trending"
+        "description": "Dựa trên brand & ngành, AI đề xuất topics trending",
+        "feature": "Ý tưởng không giới hạn"
       },
       "step3": {
         "title": "Chọn loại Content",
         "description": "Từ 1 topic, tạo content cho nhiều định dạng",
         "types": {
-          "multiChannel": "Đa kênh",
-          "videoScript": "Video Script",
-          "carousel": "Carousel",
-          "adCopy": "Ad Copy"
+          "multiChannel": { "name": "Đa kênh", "highlight": "10 phút" },
+          "videoScript": { "name": "Video Script", "highlight": "3 phút" },
+          "carousel": { "name": "Carousel", "highlight": "tự động" },
+          "adCopy": { "name": "Ad Copy", "highlight": "CTR cao" }
         }
       },
       "step4": {
@@ -116,7 +71,8 @@
       },
       "step5": {
         "title": "Phê duyệt & Lên lịch",
-        "description": "Review, chỉnh sửa, lên lịch đăng tự động"
+        "description": "Review, phân công team, lên lịch đăng tự động",
+        "feature": "Lên lịch một chạm + Cộng tác đội nhóm"
       }
     },
     "cta": "Bắt đầu miễn phí"
