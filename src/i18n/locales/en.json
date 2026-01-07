@@ -40,31 +40,191 @@
     }
   },
   "painPoints": {
-    "badge": "Your Problems",
-    "title": "Is Your Marketing Team Struggling?",
-    "subtitle": "Thousands of marketers are wasting time with manual processes. Flowa solves everything.",
-    "problems": {
-      "time": {
-        "title": "Lack of Time",
-        "description": "Creating content for 5+ channels takes hours every day"
+    "badge": "6 Problems Eating 80% of Marketing Time",
+    "title": "Flowa Solves Each One",
+    "subtitle": "From chaos to control, from burnout to breakthrough",
+    "problemLabel": "Problem",
+    "consequenceLabel": "Consequences",
+    "solutionLabel": "Solution",
+    "exclusiveFeaturesLabel": "Exclusive Features",
+    "resultLabel": "Results",
+    "cards": {
+      "multiChannel": {
+        "category": "Multi-Channel Content",
+        "problemTitle": "Open 12 Tabs, Copy-Paste 12 Times",
+        "problemSubtitle": "Still Wrong Format on Instagram",
+        "realityChecks": [
+          "Website needs 800 words with SEO structure",
+          "Facebook max 300 words, rich text format",
+          "Instagram 150 words + hashtags at end",
+          "Twitter only 280 characters",
+          "LinkedIn more formal than Facebook",
+          "TikTok needs 3-second hook"
+        ],
+        "consequences": [
+          "Each topic takes 2-3 hours just to adapt format",
+          "70% of posts don't get engagement due to wrong format",
+          "Team burnout from repetitive work"
+        ],
+        "solutionName": "Multi-Channel Generator",
+        "solutionSteps": [
+          "Enter 1 topic only",
+          "Select channels (or all 12)",
+          "AI auto-creates 12 versions",
+          "Preview, edit, or use immediately"
+        ],
+        "exclusiveFeatures": ["Self-Critique AI", "Brand Voice Sync", "Industry Compliance"],
+        "beforeLabel": "Before Flowa",
+        "beforeValue": "2-3 hours/topic",
+        "afterLabel": "With Flowa",
+        "afterValue": "10 mins/topic",
+        "savingHighlight": "→ Save 90% time"
       },
-      "consistency": {
-        "title": "Inconsistency",
-        "description": "Brand voice varies across each platform"
+      "videoScript": {
+        "category": "Video Content",
+        "problemTitle": "Shoot 10 Videos, 9 Flop",
+        "problemSubtitle": "No Proper Script",
+        "realityChecks": [
+          "TikTok/Reels need hook in first 3 seconds",
+          "60s video needs precise timing per section",
+          "Voice-over needs word-by-word script",
+          "Unplanned character actions → disjointed video"
+        ],
+        "consequences": [
+          "Re-shoot 5-6 times because 'don't know what to say'",
+          "80% effort on filming/editing, only 20% on content strategy",
+          "Competitors with proper scripts outperform 10x"
+        ],
+        "solutionName": "TikTok Video Script Generator",
+        "solutionSteps": [
+          "Choose topic + video type",
+          "Select character type & duration",
+          "AI creates script with detailed timing",
+          "Includes visual cues & actions"
+        ],
+        "exclusiveFeatures": ["Hook Library 50+", "Timing Calculator", "Visual Cues"],
+        "beforeLabel": "Before Flowa",
+        "beforeValue": "2 hrs + 5 takes",
+        "afterLabel": "With Flowa",
+        "afterValue": "10 mins + 1 take",
+        "savingHighlight": "→ 3x more engagement"
       },
-      "ideas": {
-        "title": "Out of Ideas",
-        "description": "Thinking of 30+ posts per month is a nightmare"
+      "carousel": {
+        "category": "Visual Content",
+        "problemTitle": "Design 10 Carousel Slides",
+        "problemSubtitle": "Takes a Full Work Day",
+        "realityChecks": [
+          "Carousel = Highest engagement content type",
+          "Need: Idea → Copywriting → Design → Review",
+          "Each slide needs: Text + Visual concept + Layout",
+          "No designer? → Canva templates look like 1000 other brands"
+        ],
+        "consequences": [
+          "1 carousel takes 3-5 hours (idea → design → publish)",
+          "Can only post 2-3 carousels/week",
+          "Inconsistent design → weak brand identity"
+        ],
+        "solutionName": "Carousel Prompt Generator",
+        "solutionSteps": [
+          "Enter topic + select platform",
+          "Choose slides count & AI tool",
+          "AI creates prompts for each slide",
+          "Caption + CTA ready-to-post"
+        ],
+        "exclusiveFeatures": ["Multi-AI Support", "Brand Integration", "Caption Ready"],
+        "beforeLabel": "Before Flowa",
+        "beforeValue": "4-5 hrs/carousel",
+        "afterLabel": "With Flowa",
+        "afterValue": "30 mins/carousel",
+        "savingHighlight": "→ Save 90% time"
       },
-      "management": {
-        "title": "Hard to Manage",
-        "description": "Opening 10 tabs to post on different channels"
+      "ideation": {
+        "category": "Content Strategy",
+        "problemTitle": "Sit 2 Hours at Blank Screen",
+        "problemSubtitle": "'What to Write This Month?'",
+        "realityChecks": [
+          "Need 30+ posts/month for social media",
+          "8+ blog posts for SEO",
+          "4+ email campaigns",
+          "10+ ad copies for A/B testing"
+        ],
+        "consequences": [
+          "80% marketers get 'creative block' weekly",
+          "Recycle old content → lower engagement",
+          "Miss trends → lose viral opportunities"
+        ],
+        "solutionName": "Topics Hub + AI Chatbot",
+        "solutionSteps": [
+          "AI Chatbot brainstorms based on brand",
+          "Discovery Feed with trending topics",
+          "Topic Bank saves & tracks ideas",
+          "AI learns from successful topics"
+        ],
+        "exclusiveFeatures": ["Context-Aware AI", "Seasonal Suggestions", "Performance Learning"],
+        "beforeLabel": "Before Flowa",
+        "beforeValue": "2 hrs + 30% bad ideas",
+        "afterLabel": "With Flowa",
+        "afterValue": "5 mins + 80% good ideas",
+        "savingHighlight": "→ Never run out of ideas"
+      },
+      "brandVoice": {
+        "category": "Brand Identity",
+        "problemTitle": "Facebook Fun, LinkedIn Serious",
+        "problemSubtitle": "Website Like Someone Else Wrote",
+        "realityChecks": [
+          "3 writers → 3 different tones",
+          "Intern writes social → doesn't understand brand guidelines",
+          "Outsource blog → tone doesn't match",
+          "CEO writes LinkedIn → too formal for brand"
+        ],
+        "consequences": [
+          "Brand identity unclear, hard to recognize",
+          "Customers confused: 'Is this brand X?'",
+          "Takes 5-10 interactions to build trust"
+        ],
+        "solutionName": "Brand Voice AI Engine",
+        "solutionSteps": [
+          "Setup brand positioning (one time)",
+          "Choose tone & formality level",
+          "Define preferred/forbidden words",
+          "AI applies to ALL content"
+        ],
+        "exclusiveFeatures": ["Channel Overrides", "Industry Memory", "Voice Variants"],
+        "beforeLabel": "Before Flowa",
+        "beforeValue": "20-page guidelines",
+        "afterLabel": "With Flowa",
+        "afterValue": "AI enforces 100%",
+        "savingHighlight": "→ 3x brand recognition"
+      },
+      "publishing": {
+        "category": "Content Operations",
+        "problemTitle": "Missed Deadlines, Wrong Channels",
+        "problemSubtitle": "Duplicate Posts 3 Times",
+        "realityChecks": [
+          "12 channels × 30 posts/month = 360 posts",
+          "Each channel has separate dashboard",
+          "No overview: Which channel posted?",
+          "Team of 3: Who posts what? Already posted?"
+        ],
+        "consequences": [
+          "40% posts miss deadline → lose momentum",
+          "15% posts wrong channel/format",
+          "10% posts duplicated → unprofessional"
+        ],
+        "solutionName": "Unified Content Calendar",
+        "solutionSteps": [
+          "Overview dashboard for all channels",
+          "Drag & Drop reschedule",
+          "Color code by campaign",
+          "Team assignment with @mention"
+        ],
+        "exclusiveFeatures": ["Campaign Overlay", "Conflict Detection", "Bulk Actions"],
+        "beforeLabel": "Before Flowa",
+        "beforeValue": "360 logins/month",
+        "afterLabel": "With Flowa",
+        "afterValue": "1 dashboard",
+        "savingHighlight": "→ 0% missed deadlines"
       }
-    },
-    "solution": {
-      "badge": "Solution",
-      "title": "Flowa automates everything",
-      "description": "1 topic → 5 channels → 10 minutes. No experts needed, no large team required."
     }
   },
   "howItWorks": {
