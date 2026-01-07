@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Shield, Zap, Clock, CheckCircle2, Sparkles, Star } from "lucide-react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MagneticButton } from "./effects";
+import { getAuthUrl } from "@/hooks/useDomainRouting";
 
 export function CTASection() {
   const { t } = useTranslation();
@@ -202,7 +202,7 @@ export function CTASection() {
                     className="w-full sm:w-auto gradient-primary text-white shadow-xl hover:shadow-2xl transition-all group px-12 h-16 text-lg rounded-2xl relative overflow-hidden"
                     asChild
                   >
-                    <Link to="/auth?tab=register">
+                    <a href={getAuthUrl('register')}>
                       <span className="relative z-10 flex items-center font-bold">
                         {t("cta.startFree")}
                         <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -212,7 +212,7 @@ export function CTASection() {
                         animate={{ x: ["-200%", "200%"] }}
                         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", repeatDelay: 1 }}
                       />
-                    </Link>
+                    </a>
                   </Button>
                 </MagneticButton>
                 <MagneticButton strength={0.2}>

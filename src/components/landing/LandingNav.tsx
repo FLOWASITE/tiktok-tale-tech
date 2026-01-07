@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useTranslation } from "react-i18next";
+import { getAuthUrl } from "@/hooks/useDomainRouting";
 import logo from "@/assets/logo.png";
 
 export function LandingNav() {
@@ -64,7 +64,7 @@ export function LandingNav() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 lg:h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2.5 group">
+            <a href="/" className="flex items-center gap-2.5 group">
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -79,7 +79,7 @@ export function LandingNav() {
               <span className="text-2xl lg:text-2xl font-extrabold text-gradient">
                 Flowa
               </span>
-            </Link>
+            </a>
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-10">
@@ -112,18 +112,18 @@ export function LandingNav() {
             <div className="hidden lg:flex items-center gap-3">
               <LanguageSwitcher variant="dropdown" />
               <Button variant="ghost" className="font-medium" asChild>
-                <Link to="/auth">{t('nav.login')}</Link>
+                <a href={getAuthUrl('login')}>{t('nav.login')}</a>
               </Button>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all font-semibold px-6 rounded-xl relative overflow-hidden" asChild>
-                  <Link to="/auth?tab=register">
+                  <a href={getAuthUrl('register')}>
                     <span className="relative z-10">{t('nav.startFree')}</span>
                     <motion.div
                       className="absolute inset-0 bg-white/20"
                       animate={{ x: ["-100%", "100%"] }}
                       transition={{ duration: 2, repeat: Infinity, ease: "linear", repeatDelay: 1 }}
                     />
-                  </Link>
+                  </a>
                 </Button>
               </motion.div>
             </div>
@@ -197,10 +197,10 @@ export function LandingNav() {
                     <LanguageSwitcher variant="dropdown" />
                   </div>
                   <Button variant="outline" className="w-full h-12 text-base rounded-xl" asChild>
-                    <Link to="/auth">{t('nav.login')}</Link>
+                    <a href={getAuthUrl('login')}>{t('nav.login')}</a>
                   </Button>
                   <Button className="w-full h-12 text-base gradient-primary text-white rounded-xl" asChild>
-                    <Link to="/auth?tab=register">{t('nav.startFree')}</Link>
+                    <a href={getAuthUrl('register')}>{t('nav.startFree')}</a>
                   </Button>
                 </motion.div>
               </div>

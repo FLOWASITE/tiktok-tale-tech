@@ -1,10 +1,10 @@
 import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
-import { Link } from "react-router-dom";
 import { ArrowRight, Play, Zap, Users, FileText, TrendingUp, CheckCircle2, Star, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useRef, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { GradientMesh, FloatingShapes, MagneticButton } from "./effects";
+import { getAuthUrl } from "@/hooks/useDomainRouting";
 
 const trustLogos = [
   "VinGroup", "FPT", "Shopee", "Tiki", "Sendo", "MoMo"
@@ -237,7 +237,7 @@ export function HeroSection() {
                 className="w-full sm:w-auto gradient-primary text-white shadow-xl hover:shadow-2xl transition-all group px-10 h-16 text-lg relative overflow-hidden rounded-2xl"
                 asChild
               >
-                <Link to="/auth?tab=register">
+                <a href={getAuthUrl('register')}>
                   <span className="relative z-10 flex items-center font-semibold">
                     {t("hero.cta.startFree")}
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -248,7 +248,7 @@ export function HeroSection() {
                     animate={{ x: ["-200%", "200%"] }}
                     transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", repeatDelay: 1 }}
                   />
-                </Link>
+                </a>
               </Button>
             </MagneticButton>
             
