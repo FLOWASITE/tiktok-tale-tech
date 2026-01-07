@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -5,12 +6,16 @@ import { Clock, User, ArrowRight, Calendar, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LandingNav } from '@/components/landing/LandingNav';
+import { BlogBreadcrumb, BlogPagination } from '@/components/blog';
+
+const POSTS_PER_PAGE = 6;
 
 const Blog = () => {
   const { t } = useTranslation();
+  const [currentPage, setCurrentPage] = useState(1);
 
   const featuredPost = {
-    id: 'flowa-giai-phap-content-marketing',
+    id: 'flowa-content-marketing-da-kenh',
     title: 'Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút Thay Vì 10 Giờ',
     excerpt: 'Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán.',
     image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop',
@@ -21,9 +26,9 @@ const Blog = () => {
     featured: true,
   };
 
-  const posts = [
+  const allPosts = [
     {
-      id: 'flowa-giai-phap-content-marketing',
+      id: 'flowa-content-marketing-da-kenh',
       title: 'Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút Thay Vì 10 Giờ',
       excerpt: 'Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình.',
       image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=250&fit=crop',
@@ -64,6 +69,10 @@ const Blog = () => {
     },
   ];
 
+  const totalPages = Math.ceil(allPosts.length / POSTS_PER_PAGE);
+  const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
+  const paginatedPosts = allPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -77,13 +86,23 @@ const Blog = () => {
     visible: { opacity: 1, y: 0 }
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <LandingNav />
 
+      {/* Breadcrumb */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <BlogBreadcrumb />
+      </div>
+
       {/* Hero Section */}
-      <section className="relative py-16 lg:py-24 overflow-hidden">
+      <section className="relative py-12 lg:py-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <motion.div
@@ -174,12 +193,15 @@ const Blog = () => {
             initial="hidden"
             animate="visible"
           >
-            <motion.h2 variants={itemVariants} className="text-2xl font-bold mb-8">
-              Tất cả bài viết
-            </motion.h2>
+            <motion.div variants={itemVariants} className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold">Tất cả bài viết</h2>
+              <span className="text-sm text-muted-foreground">
+                {allPosts.length} bài viết
+              </span>
+            </motion.div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {posts.map((post, index) => (
+              {paginatedPosts.map((post) => (
                 <motion.div key={post.id} variants={itemVariants}>
                   <Link to={`/blog/${post.id}`} className="group block h-full">
                     <div className="h-full rounded-2xl overflow-hidden bg-card border border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
@@ -216,6 +238,17 @@ const Blog = () => {
                 </motion.div>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <motion.div variants={itemVariants} className="mt-12">
+                <BlogPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </motion.div>
+            )}
           </motion.div>
         </div>
       </section>

@@ -36,6 +36,7 @@ import {
   BlogReactions, 
   BlogComments, 
   RelatedPosts,
+  BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
 
@@ -88,6 +89,10 @@ const BlogPostFlowa = () => {
       <section className="relative py-12 lg:py-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Breadcrumb */}
+          <div className="mb-6">
+            <BlogBreadcrumb postTitle="Flowa: Content Marketing Đa Kênh" />
+          </div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

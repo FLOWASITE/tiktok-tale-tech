@@ -9,6 +9,7 @@ import {
   BlogReactions, 
   BlogComments, 
   RelatedPosts,
+  BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
 
@@ -72,6 +73,10 @@ const BlogPostAIContent = () => {
       {/* Hero Section */}
       <section className="pt-24 pb-12 bg-gradient-to-b from-primary/5 to-background">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Breadcrumb */}
+          <div className="mb-6">
+            <BlogBreadcrumb postTitle="AI Content Marketing" />
+          </div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
