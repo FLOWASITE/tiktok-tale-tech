@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Target, Users, Zap, Heart } from "lucide-react";
+import { Target, Users, Zap, Heart, Mail, Phone, MapPin, Clock, Facebook, Linkedin, MessageCircle } from "lucide-react";
 import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
 
 const values = [
@@ -31,6 +31,51 @@ const stats = [
   { value: "50+", labelKey: "about.stats.industries" },
   { value: "1M+", labelKey: "about.stats.content" },
   { value: "99%", labelKey: "about.stats.satisfaction" },
+];
+
+const contactInfo = [
+  {
+    icon: Mail,
+    labelKey: "contact.info.email",
+    value: "support@flowa.one",
+    href: "mailto:support@flowa.one",
+  },
+  {
+    icon: Phone,
+    labelKey: "contact.info.phone",
+    value: "0838 226 363",
+    href: "tel:0838226363",
+  },
+  {
+    icon: MapPin,
+    labelKey: "contact.info.address",
+    value: "Ho Chi Minh City, Vietnam",
+    href: null,
+  },
+  {
+    icon: Clock,
+    labelKey: "contact.info.hours",
+    value: "Mon - Fri: 9:00 - 18:00",
+    href: null,
+  },
+];
+
+const socialLinks = [
+  { 
+    icon: Facebook, 
+    href: "https://www.facebook.com/profile.php?id=61575157292883", 
+    label: "Facebook",
+  },
+  { 
+    icon: Linkedin, 
+    href: "https://www.linkedin.com/in/flowaone/", 
+    label: "LinkedIn",
+  },
+  { 
+    icon: MessageCircle, 
+    href: "https://zalo.me/flowa", 
+    label: "Zalo",
+  },
 ];
 
 export default function About() {
@@ -167,6 +212,75 @@ export default function About() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section className="pb-16 lg:pb-24">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">
+              {t("contact.info.title")}
+            </h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {contactInfo.map((item, index) => (
+              <motion.div
+                key={item.labelKey}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-card rounded-2xl p-6 border border-border shadow-sm text-center"
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 mx-auto">
+                  <item.icon className="w-6 h-6 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground mb-1">
+                  {t(item.labelKey)}
+                </p>
+                {item.href ? (
+                  <a
+                    href={item.href}
+                    className="font-medium hover:text-primary transition-colors"
+                  >
+                    {item.value}
+                  </a>
+                ) : (
+                  <p className="font-medium">{item.value}</p>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Social Links */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex justify-center gap-4"
+          >
+            {socialLinks.map((social) => (
+              <a
+                key={social.label}
+                href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-12 h-12 rounded-xl border border-border flex items-center justify-center hover:bg-muted hover:border-primary/30 transition-colors"
+                aria-label={social.label}
+              >
+                <social.icon className="w-5 h-5" />
+              </a>
+            ))}
+          </motion.div>
         </div>
       </section>
     </PublicPageLayout>
