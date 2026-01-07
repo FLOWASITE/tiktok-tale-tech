@@ -524,5 +524,46 @@
       "description": "Send your CV and we'll contact you when we have a role matching your skills.",
       "button": "Send Your CV"
     }
+  },
+  "about": {
+    "title": "About Us",
+    "subtitle": "Flowa is Vietnam's leading AI Content Marketing platform, helping businesses create quality content faster and more efficiently.",
+    "stats": {
+      "users": "Users",
+      "industries": "Industries",
+      "content": "Content Created",
+      "satisfaction": "Satisfaction"
+    },
+    "story": {
+      "title": "Our Story",
+      "p1": "Flowa was founded with a simple mission: to help Vietnamese marketers and businesses create high-quality content without spending hours every day.",
+      "p2": "We understand that content marketing is the backbone of every digital strategy, but creating consistent, quality content is a major challenge for many teams.",
+      "p3": "With advanced AI technology and deep understanding of the Vietnamese market, Flowa helps you create multi-channel content in minutes instead of hours."
+    },
+    "quote": {
+      "text": "We believe AI doesn't replace human creativity, but is a tool to amplify it.",
+      "author": "Flowa Team",
+      "role": "Founder & CEO"
+    },
+    "values": {
+      "title": "Core Values",
+      "subtitle": "The principles that guide everything we do",
+      "mission": {
+        "title": "Clear Mission",
+        "desc": "Helping every Vietnamese business access AI technology in content marketing."
+      },
+      "team": {
+        "title": "Dedicated Team",
+        "desc": "Experts passionate about technology and marketing, always working for customers."
+      },
+      "innovation": {
+        "title": "Continuous Innovation",
+        "desc": "Constantly updating and improving products according to the latest trends."
+      },
+      "customer": {
+        "title": "Customer-Centric",
+        "desc": "Every decision is aimed at delivering the best value to customers."
+      }
+    }
   }
 }
