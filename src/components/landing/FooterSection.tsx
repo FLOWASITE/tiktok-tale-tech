@@ -31,8 +31,8 @@ export function FooterSection() {
       links: [
         { name: t("footer.sections.company.links.0"), href: "#" },
         { name: "Blog", href: "#" },
-        { name: t("footer.sections.company.links.2"), href: "#" },
-        { name: t("footer.sections.company.links.3"), href: "#" },
+        { name: t("footer.sections.company.links.2"), href: "/careers", isInternal: true },
+        { name: t("footer.sections.company.links.3"), href: "/contact", isInternal: true },
       ],
     },
     resources: {
@@ -138,9 +138,17 @@ export function FooterSection() {
             >
               <h4 className="font-semibold text-foreground mb-4">{section.title}</h4>
               <ul className="space-y-2.5">
-                {section.links.map((link) => (
+                {section.links.map((link: { name: string; href: string; isInternal?: boolean }) => (
                   <li key={link.name}>
-                    {link.href.startsWith("#") ? (
+                    {link.isInternal ? (
+                      <Link
+                        to={link.href}
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors relative group"
+                      >
+                        {link.name}
+                        <span className="absolute left-0 -bottom-0.5 w-0 h-px bg-primary transition-all duration-300 group-hover:w-full" />
+                      </Link>
+                    ) : link.href.startsWith("#") ? (
                       <button
                         onClick={() => scrollToSection(link.href)}
                         className="text-sm text-muted-foreground hover:text-primary transition-colors relative group"

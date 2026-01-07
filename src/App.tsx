@@ -46,6 +46,8 @@ import CampaignCreate from "./pages/CampaignCreate";
 import CampaignDetail from "./pages/CampaignDetail";
 import AdCopies from "./pages/AdCopies";
 import Landing from "./pages/Landing";
+import Contact from "./pages/Contact";
+import Careers from "./pages/Careers";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +61,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/landing" element={<Landing />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/careers" element={<Careers />} />
         {/* Redirect all other routes to landing page on landing domain */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -70,6 +74,8 @@ function AppRoutes() {
     <Routes>
       {/* Landing page still accessible at /landing for preview */}
       <Route path="/landing" element={<Landing />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/careers" element={<Careers />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       
