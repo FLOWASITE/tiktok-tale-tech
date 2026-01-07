@@ -31,6 +31,16 @@ const Blog = () => {
       readTime: '15 phút',
       category: 'Product',
     },
+    {
+      id: 'cach-tao-content-da-kenh',
+      title: 'Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z [2026]',
+      excerpt: 'Học cách tạo content cho 10+ kênh từ 1 ý tưởng duy nhất. Bao gồm framework, templates, tools và case studies.',
+      image: 'https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=400&h=250&fit=crop',
+      author: 'Flowa Team',
+      date: 'Tháng 1, 2026',
+      readTime: '25 phút',
+      category: 'Guide',
+    },
   ];
 
   const containerVariants = {
