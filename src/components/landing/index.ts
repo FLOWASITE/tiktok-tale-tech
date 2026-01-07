@@ -1,8 +1,7 @@
 export { LandingNav } from "./LandingNav";
 export { HeroSection } from "./HeroSection";
 export { PainPointsSection } from "./PainPointsSection";
-export { HowItWorksSection } from "./HowItWorksSection";
-export { FeaturesSection } from "./FeaturesSection";
+export { WorkflowSection } from "./WorkflowSection";
 export { SocialProofSection } from "./SocialProofSection";
 export { PricingSection } from "./PricingSection";
 export { FAQSection } from "./FAQSection";

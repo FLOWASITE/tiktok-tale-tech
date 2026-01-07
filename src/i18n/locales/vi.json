@@ -86,29 +86,40 @@
       }
     }
   },
-  "howItWorks": {
-    "badge": "Cách hoạt động",
-    "title": "Bắt đầu trong 2 phút",
-    "subtitle": "Quy trình đơn giản, kết quả ấn tượng. Không cần training, không cần kỹ năng kỹ thuật.",
+  "workflow": {
+    "badge": "Quy trình đơn giản",
+    "title": "Từ Brand đến Content",
+    "titleHighlight": "trong 5 bước",
+    "subtitle": "Không cần kỹ năng kỹ thuật, AI lo tất cả",
     "steps": {
       "step1": {
-        "title": "Nhập Brand Guidelines",
-        "description": "Upload logo, màu sắc, tone of voice. AI học và ghi nhớ mọi thứ về thương hiệu của bạn."
+        "title": "Khai báo Brand",
+        "description": "Upload logo, màu sắc, tone of voice của thương hiệu"
       },
       "step2": {
-        "title": "Chọn Topic & Kênh",
-        "description": "Nhập một topic, chọn các kênh muốn đăng. AI tự động điều chỉnh format cho từng nền tảng."
+        "title": "AI gợi ý Chủ đề",
+        "description": "Dựa trên brand & ngành, AI đề xuất topics trending"
       },
       "step3": {
-        "title": "AI Tạo Nội Dung",
-        "description": "Trong vài giây, bạn có bài viết, caption, hashtag phù hợp với từng kênh và brand voice."
+        "title": "Chọn loại Content",
+        "description": "Từ 1 topic, tạo content cho nhiều định dạng",
+        "types": {
+          "multiChannel": "Đa kênh",
+          "videoScript": "Video Script",
+          "carousel": "Carousel",
+          "adCopy": "Ad Copy"
+        }
       },
       "step4": {
-        "title": "Review & Xuất Bản",
-        "description": "Xem trước, chỉnh sửa nếu cần, rồi đăng ngay hoặc lên lịch. Tất cả từ một dashboard."
+        "title": "AI tạo nội dung",
+        "description": "Trong vài giây, content hoàn chỉnh cho mọi platform"
+      },
+      "step5": {
+        "title": "Phê duyệt & Lên lịch",
+        "description": "Review, chỉnh sửa, lên lịch đăng tự động"
       }
     },
-    "cta": "Bắt đầu ngay"
+    "cta": "Bắt đầu miễn phí"
   },
   "features": {
     "badge": "Tính năng nổi bật",
