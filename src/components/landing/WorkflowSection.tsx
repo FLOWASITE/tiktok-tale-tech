@@ -7,6 +7,8 @@ import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useState } from "react";
 import workflowBrandImg from "@/assets/workflow/workflow-brand.png";
 import workflowBrand2Img from "@/assets/workflow/workflow-brand-2.png";
+import workflowTopicImg from "@/assets/workflow-topic.png";
+import workflowTopic2Img from "@/assets/workflow-topic-2.png";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -33,8 +35,15 @@ const contentTypes = [
 ];
 
 const step1Images = [workflowBrandImg, workflowBrand2Img];
+const step2Images = [workflowTopicImg, workflowTopic2Img];
 
-function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeature?: boolean } }) {
+interface StepWithCarouselProps {
+  step: { num: number; key: string; hasFeature?: boolean };
+  images: string[];
+  altPrefix: string;
+}
+
+function StepWithCarousel({ step, images, altPrefix }: StepWithCarouselProps) {
   const { t } = useTranslation();
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -66,7 +75,7 @@ function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeat
 
   return (
     <div className="space-y-6">
-      {/* Step 1 text content */}
+      {/* Step text content */}
       <div className="flex gap-6 items-start">
         <span className="text-4xl font-light text-primary min-w-[3rem]">
           {step.num}
@@ -86,16 +95,16 @@ function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeat
         </div>
       </div>
       
-      {/* Carousel below Step 1 */}
+      {/* Carousel below step */}
       <div className="ml-0 md:ml-[4.5rem]">
         <div className="overflow-hidden rounded-xl" ref={emblaRef}>
           <div className="flex">
-            {step1Images.map((img, idx) => (
+            {images.map((img, idx) => (
               <div key={idx} className="flex-[0_0_100%] min-w-0">
                 <div className="relative aspect-video overflow-hidden rounded-xl shadow-lg border border-border/20 hover:shadow-xl transition-shadow duration-300">
                   <img
                     src={img}
-                    alt={`Brand Setup Screenshot ${idx + 1}`}
+                    alt={`${altPrefix} ${idx + 1}`}
                     className="absolute inset-0 w-full h-full object-cover object-top"
                   />
                 </div>
@@ -105,7 +114,7 @@ function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeat
         </div>
         {/* Dots indicator */}
         <div className="flex justify-center gap-2 mt-3">
-          {step1Images.map((_, idx) => (
+          {images.map((_, idx) => (
             <button
               key={idx}
               onClick={() => scrollTo(idx)}
@@ -120,7 +129,6 @@ function Step1WithCarousel({ step }: { step: { num: number; key: string; hasFeat
     </div>
   );
 }
-
 export function WorkflowSection() {
   const { t } = useTranslation();
 
@@ -171,9 +179,11 @@ export function WorkflowSection() {
                 index !== steps.length - 1 ? "border-b border-border/30" : ""
               }`}
             >
-              {/* Step 1: 2-column layout with image carousel */}
+              {/* Step 1 & 2: with image carousel */}
               {step.num === 1 ? (
-                <Step1WithCarousel step={step} />
+                <StepWithCarousel step={step} images={step1Images} altPrefix="Brand Setup Screenshot" />
+              ) : step.num === 2 ? (
+                <StepWithCarousel step={step} images={step2Images} altPrefix="Topic Suggestion Screenshot" />
               ) : (
                 /* Other steps: original layout */
                 <div className="flex gap-6 items-start">
