@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 export function LandingNav() {
+  const { t } = useTranslation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("");
@@ -31,10 +33,10 @@ export function LandingNav() {
   }, []);
 
   const navLinks = [
-    { name: "Tính năng", href: "#features" },
-    { name: "Cách hoạt động", href: "#how-it-works" },
-    { name: "Đánh giá", href: "#testimonials" },
-    { name: "Bảng giá", href: "#pricing" },
+    { name: t('nav.features'), href: "#features" },
+    { name: t('nav.howItWorks'), href: "#how-it-works" },
+    { name: t('nav.testimonials'), href: "#testimonials" },
+    { name: t('nav.pricing'), href: "#pricing" },
   ];
 
   const scrollToSection = (href: string) => {
@@ -109,13 +111,14 @@ export function LandingNav() {
 
             {/* Desktop CTA */}
             <div className="hidden lg:flex items-center gap-3">
+              <LanguageSwitcher variant="toggle" />
               <Button variant="ghost" className="font-medium" asChild>
-                <Link to="/auth">Đăng nhập</Link>
+                <Link to="/auth">{t('nav.login')}</Link>
               </Button>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all font-semibold px-6 rounded-xl relative overflow-hidden" asChild>
                   <Link to="/auth?tab=register">
-                    <span className="relative z-10">Bắt đầu miễn phí</span>
+                    <span className="relative z-10">{t('nav.startFree')}</span>
                     <motion.div
                       className="absolute inset-0 bg-white/20"
                       animate={{ x: ["-100%", "100%"] }}
@@ -191,11 +194,14 @@ export function LandingNav() {
                   transition={{ delay: 0.4 }}
                   className="pt-4 border-t border-border space-y-3"
                 >
+                  <div className="flex justify-center pb-2">
+                    <LanguageSwitcher variant="toggle" />
+                  </div>
                   <Button variant="outline" className="w-full h-12 text-base rounded-xl" asChild>
-                    <Link to="/auth">Đăng nhập</Link>
+                    <Link to="/auth">{t('nav.login')}</Link>
                   </Button>
                   <Button className="w-full h-12 text-base gradient-primary text-white rounded-xl" asChild>
-                    <Link to="/auth?tab=register">Bắt đầu miễn phí</Link>
+                    <Link to="/auth?tab=register">{t('nav.startFree')}</Link>
                   </Button>
                 </motion.div>
               </div>
