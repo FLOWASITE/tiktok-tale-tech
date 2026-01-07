@@ -1,6 +1,7 @@
 import { useParams, Navigate } from 'react-router-dom';
 import BlogPostFlowa from './BlogPostFlowa';
 import BlogPostMultiChannel from './BlogPostMultiChannel';
+import BlogPostAIContent from './BlogPostAIContent';
 
 const BlogPost = () => {
   const { slug } = useParams();
@@ -11,6 +12,8 @@ const BlogPost = () => {
       return <BlogPostFlowa />;
     case 'cach-tao-content-da-kenh':
       return <BlogPostMultiChannel />;
+    case 'ai-content-marketing-huong-dan':
+      return <BlogPostAIContent />;
     default:
       // Redirect to blog list if slug not found
       return <Navigate to="/blog" replace />;
