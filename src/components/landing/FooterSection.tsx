@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Sparkles, Facebook, Twitter, Linkedin, Instagram, Youtube } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram, Youtube } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const socialLinks = [
   { icon: Facebook, href: "#", label: "Facebook" },
@@ -87,14 +88,15 @@ export function FooterSection() {
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4 group">
               <motion.div 
-                className="relative w-8 h-8"
-                whileHover={{ scale: 1.1, rotate: 5 }}
+                className="relative"
+                whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-secondary opacity-90" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
+                <img 
+                  src={logo} 
+                  alt="Flowa Logo" 
+                  className="w-8 h-8 object-contain"
+                />
               </motion.div>
               <span className="text-xl font-bold text-gradient">Flowa</span>
             </Link>
