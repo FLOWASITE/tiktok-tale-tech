@@ -41,6 +41,16 @@ const Blog = () => {
       readTime: '25 phút',
       category: 'Guide',
     },
+    {
+      id: 'ai-content-marketing-huong-dan',
+      title: 'AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao [2026]',
+      excerpt: 'Tìm hiểu cách sử dụng AI trong content marketing hiệu quả. Bao gồm workflow, tools, prompts, và case studies thực tế.',
+      image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=250&fit=crop',
+      author: 'Flowa Team',
+      date: 'Tháng 1, 2026',
+      readTime: '25 phút',
+      category: 'AI Marketing',
+    },
   ];
 
   const containerVariants = {
