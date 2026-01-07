@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Target, Users, Zap, Heart, Mail, Phone, MapPin, Clock, Facebook, Linkedin, MessageCircle } from "lucide-react";
 import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
-
+import founderImage from "@/assets/founder-duy-vo.jpg";
 const values = [
   {
     icon: Target,
@@ -133,7 +133,7 @@ export default function About() {
         </div>
       </section>
 
-      {/* Story Section */}
+      {/* Founder Section */}
       <section className="pb-16 lg:pb-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -142,15 +142,19 @@ export default function About() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
+              className="order-2 lg:order-1"
             >
-              <h2 className="text-2xl md:text-3xl font-bold mb-4">
-                {t("about.story.title")}
-              </h2>
+              <p className="text-sm font-medium text-primary mb-2">{t("about.founder.label")}</p>
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">Duy Vo</h2>
+              <p className="text-muted-foreground mb-4">{t("about.founder.role")}</p>
               <div className="space-y-4 text-muted-foreground">
                 <p>{t("about.story.p1")}</p>
                 <p>{t("about.story.p2")}</p>
                 <p>{t("about.story.p3")}</p>
               </div>
+              <blockquote className="mt-6 pl-4 border-l-2 border-primary italic text-muted-foreground">
+                "{t("about.quote.text")}"
+              </blockquote>
             </motion.div>
 
             <motion.div
@@ -158,16 +162,14 @@ export default function About() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-2xl p-8 md:p-12"
+              className="order-1 lg:order-2"
             >
-              <blockquote className="text-lg md:text-xl font-medium italic">
-                "{t("about.quote.text")}"
-              </blockquote>
-              <div className="mt-4">
-                <p className="font-semibold">{t("about.quote.author")}</p>
-                <p className="text-sm text-muted-foreground">
-                  {t("about.quote.role")}
-                </p>
+              <div className="relative">
+                <img
+                  src={founderImage}
+                  alt="Duy Vo - Founder & CEO"
+                  className="rounded-2xl w-full max-w-md mx-auto object-cover aspect-[3/4]"
+                />
               </div>
             </motion.div>
           </div>
