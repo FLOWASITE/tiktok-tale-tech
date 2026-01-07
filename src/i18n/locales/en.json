@@ -73,6 +73,11 @@
         "keyword": "Schedule",
         "title": "with one click.",
         "description": "Overview dashboard for all channels, drag & drop reschedule, team assignment with @mention. 0% missed deadlines."
+      },
+      "collaboration": {
+        "keyword": "Collaborate",
+        "title": "with your team seamlessly.",
+        "description": "Assign tasks, set permissions for Owner/Admin/Member, real-time chat. Who does what, who sees what — clear and secure."
       }
     }
   },
