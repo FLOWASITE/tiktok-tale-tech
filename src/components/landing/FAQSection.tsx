@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { HelpCircle, Plus, Minus } from "lucide-react";
 import { useState } from "react";
 
@@ -81,39 +81,53 @@ export function FAQSection() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.05 }}
             >
-              <button
+              <motion.button
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
-                className="w-full text-left p-5 rounded-xl bg-card border border-border/50 hover:border-primary/30 transition-all group"
+                className={`w-full text-left p-5 rounded-xl bg-card border transition-all duration-300 group ${
+                  openIndex === index 
+                    ? "border-primary/40 shadow-lg shadow-primary/5" 
+                    : "border-border/50 hover:border-primary/30 hover:shadow-md"
+                }`}
+                whileHover={{ scale: 1.005 }}
+                whileTap={{ scale: 0.995 }}
               >
                 <div className="flex items-center justify-between gap-4">
-                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors pr-4">
+                  <h3 className={`font-semibold transition-colors pr-4 ${
+                    openIndex === index ? "text-primary" : "text-foreground group-hover:text-primary"
+                  }`}>
                     {faq.question}
                   </h3>
-                  <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                    openIndex === index ? "bg-primary/10" : "bg-muted"
-                  }`}>
+                  <motion.div 
+                    className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                      openIndex === index ? "bg-primary/10" : "bg-muted group-hover:bg-primary/5"
+                    }`}
+                    animate={{ rotate: openIndex === index ? 180 : 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                  >
                     {openIndex === index ? (
                       <Minus className="w-4 h-4 text-primary" />
                     ) : (
-                      <Plus className="w-4 h-4 text-muted-foreground" />
+                      <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                     )}
-                  </div>
+                  </motion.div>
                 </div>
                 
-                <motion.div
-                  initial={false}
-                  animate={{
-                    height: openIndex === index ? "auto" : 0,
-                    opacity: openIndex === index ? 1 : 0,
-                  }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden"
-                >
-                  <p className="pt-4 text-muted-foreground leading-relaxed">
-                    {faq.answer}
-                  </p>
-                </motion.div>
-              </button>
+                <AnimatePresence initial={false}>
+                  {openIndex === index && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <p className="pt-4 text-muted-foreground leading-relaxed border-t border-border/30 mt-4">
+                        {faq.answer}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
             </motion.div>
           ))}
         </div>

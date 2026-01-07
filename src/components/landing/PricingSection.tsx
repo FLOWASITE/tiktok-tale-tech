@@ -1,6 +1,6 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Check, Sparkles, Zap, Building2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -62,9 +62,35 @@ const plans = [
   },
 ];
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat("vi-VN").format(price);
-};
+// Animated number component
+function AnimatedPrice({ value, duration = 0.5 }: { value: number; duration?: number }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  
+  useEffect(() => {
+    const startValue = displayValue;
+    const endValue = value;
+    const startTime = Date.now();
+    const endTime = startTime + duration * 1000;
+    
+    const animate = () => {
+      const now = Date.now();
+      if (now >= endTime) {
+        setDisplayValue(endValue);
+        return;
+      }
+      
+      const progress = (now - startTime) / (duration * 1000);
+      const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const currentValue = Math.round(startValue + (endValue - startValue) * easeProgress);
+      setDisplayValue(currentValue);
+      requestAnimationFrame(animate);
+    };
+    
+    requestAnimationFrame(animate);
+  }, [value, duration]);
+  
+  return <>{new Intl.NumberFormat("vi-VN").format(displayValue)}</>;
+}
 
 export function PricingSection() {
   const [isYearly, setIsYearly] = useState(false);
@@ -110,13 +136,19 @@ export function PricingSection() {
             />
             <span className={`text-sm font-medium transition-colors ${isYearly ? "text-foreground" : "text-muted-foreground"}`}>
               Hàng năm
-              <span className="ml-2 text-xs text-primary font-semibold">-17%</span>
+              <motion.span 
+                className="ml-2 text-xs text-primary font-semibold"
+                animate={{ scale: isYearly ? [1, 1.2, 1] : 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                -17%
+              </motion.span>
             </span>
           </div>
         </motion.div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto perspective-1000">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}
@@ -124,38 +156,75 @@ export function PricingSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={plan.popular ? { 
+                z: 30,
+                scale: 1.02,
+                transition: { duration: 0.3 }
+              } : {
+                y: -8,
+                transition: { duration: 0.3 }
+              }}
               className={`relative rounded-2xl p-6 lg:p-8 ${
                 plan.popular
-                  ? "bg-card border-2 border-primary shadow-xl"
-                  : "bg-card border border-border/50"
+                  ? "bg-card border-2 border-primary shadow-2xl lg:scale-105 z-10"
+                  : "bg-card border border-border/50 hover:border-primary/30"
               }`}
+              style={plan.popular ? {
+                transform: "perspective(1000px)",
+                transformStyle: "preserve-3d"
+              } : undefined}
             >
-              {/* Popular Badge */}
+              {/* Spotlight Glow for Popular */}
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="px-4 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground">
-                    Phổ biến nhất
-                  </span>
-                </div>
+                <>
+                  <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-primary/20 via-primary/5 to-secondary/20 blur-xl -z-10" />
+                  <motion.div 
+                    className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 to-transparent opacity-0"
+                    whileHover={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </>
               )}
+              
+              {/* Popular Badge */}
+              <AnimatePresence>
+                {plan.popular && (
+                  <motion.div 
+                    className="absolute -top-3 left-1/2 -translate-x-1/2"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <span className="px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg">
+                      Phổ biến nhất
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Header */}
               <div className="text-center mb-6">
-                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${
-                  plan.popular ? "bg-primary/10" : "bg-muted"
-                }`}>
+                <motion.div 
+                  className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${
+                    plan.popular ? "bg-primary/10" : "bg-muted"
+                  }`}
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
                   <plan.icon className={`w-6 h-6 ${plan.popular ? "text-primary" : "text-muted-foreground"}`} />
-                </div>
+                </motion.div>
                 <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
                 <p className="text-sm text-muted-foreground">{plan.description}</p>
               </div>
 
-              {/* Price */}
-              <div className="text-center mb-6">
+              {/* Price with Animation */}
+              <div className="text-center mb-6 h-20 flex flex-col justify-center">
                 {plan.monthlyPrice !== null ? (
                   <>
                     <div className="text-4xl font-bold">
-                      {formatPrice(isYearly ? Math.round(plan.yearlyPrice! / 12) : plan.monthlyPrice)}
+                      <AnimatedPrice 
+                        value={isYearly ? Math.round(plan.yearlyPrice! / 12) : plan.monthlyPrice} 
+                      />
                       <span className="text-lg font-normal text-muted-foreground">₫</span>
                     </div>
                     <div className="text-sm text-muted-foreground">
@@ -167,31 +236,45 @@ export function PricingSection() {
                 )}
               </div>
 
-              {/* Features */}
+              {/* Features with Stagger */}
               <ul className="space-y-3 mb-8">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                {plan.features.map((feature, featureIndex) => (
+                  <motion.li 
+                    key={feature} 
+                    className="flex items-start gap-3"
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 + featureIndex * 0.05 }}
+                  >
+                    <div className={`rounded-full p-0.5 ${plan.popular ? "bg-primary/20" : "bg-muted"}`}>
+                      <Check className={`w-4 h-4 ${plan.popular ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
                     <span className="text-sm text-foreground">{feature}</span>
-                  </li>
+                  </motion.li>
                 ))}
               </ul>
 
               {/* CTA */}
-              <Button
-                className={`w-full ${
-                  plan.popular
-                    ? "gradient-primary text-white shadow-lg hover:shadow-xl"
-                    : ""
-                }`}
-                variant={plan.popular ? "default" : "outline"}
-                size="lg"
-                asChild
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <Link to={plan.monthlyPrice !== null ? "/auth?tab=register" : "#"}>
-                  {plan.cta}
-                </Link>
-              </Button>
+                <Button
+                  className={`w-full ${
+                    plan.popular
+                      ? "bg-gradient-to-r from-primary to-secondary text-white shadow-lg hover:shadow-xl hover:opacity-90"
+                      : "hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                  }`}
+                  variant={plan.popular ? "default" : "outline"}
+                  size="lg"
+                  asChild
+                >
+                  <Link to={plan.monthlyPrice !== null ? "/auth?tab=register" : "#"}>
+                    {plan.cta}
+                  </Link>
+                </Button>
+              </motion.div>
             </motion.div>
           ))}
         </div>
@@ -206,11 +289,11 @@ export function PricingSection() {
         >
           <p className="text-muted-foreground">
             Có câu hỏi?{" "}
-            <a href="#" className="text-primary hover:underline font-medium">
+            <a href="#faq" className="text-primary hover:underline font-medium">
               Xem FAQ
             </a>{" "}
             hoặc{" "}
-            <a href="#" className="text-primary hover:underline font-medium">
+            <a href="mailto:support@flowa.vn" className="text-primary hover:underline font-medium">
               liên hệ hỗ trợ
             </a>
           </p>
