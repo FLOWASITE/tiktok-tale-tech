@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { LandingNav } from '@/components/landing/LandingNav';
+import { FooterSection } from '@/components/landing/FooterSection';
 import { 
   ArrowLeft, 
   Clock, 
@@ -1236,21 +1237,7 @@ const BlogPostMultiChannel = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 border-t border-border/50 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              © 2026 Flowa. All rights reserved.
-            </p>
-            <div className="flex items-center gap-4">
-              <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                ← Quay lại Blog
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <FooterSection />
     </div>
   );
 };

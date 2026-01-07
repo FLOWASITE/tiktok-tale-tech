@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { LandingNav } from '@/components/landing/LandingNav';
+import { FooterSection } from '@/components/landing/FooterSection';
 import { 
   ArrowLeft, 
   Clock, 
@@ -883,12 +884,7 @@ Text: "Dùng thử FREE → Bio"`}</pre>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-8 border-t border-border/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
-          © 2026 Flowa. All rights reserved.
-        </div>
-      </footer>
+      <FooterSection />
     </div>
   );
 };
