@@ -163,26 +163,26 @@ function TypingIndicator() {
   );
 }
 
-// Proactive Greeting Tooltip
-function GreetingTooltip({ onDismiss }: { onDismiss: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onDismiss, 10000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20, scale: 0.9 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 20, scale: 0.9 }}
-      className="absolute right-full mr-3 bottom-2 whitespace-nowrap bg-background shadow-lg rounded-full px-4 py-2.5 text-sm border border-border"
-    >
-      <span className="font-medium">Em có thể giúp gì cho anh/chị ạ? 😊</span>
-      {/* Arrow pointing right */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 w-2 h-2 bg-background border-r border-b border-border rotate-[-45deg]" />
-    </motion.div>
-  );
-}
+// Proactive Greeting Tooltip - Simple div, no hooks
+const GreetingTooltip = ({ onDismiss }: { onDismiss: () => void }) => (
+  <motion.div
+    initial={{ opacity: 0, x: 20, scale: 0.9 }}
+    animate={{ opacity: 1, x: 0, scale: 1 }}
+    exit={{ opacity: 0, x: 20, scale: 0.9 }}
+    onAnimationComplete={(definition) => {
+      // Auto dismiss after animation completes and 10s
+      if (definition === 'animate') {
+        const timer = setTimeout(onDismiss, 10000);
+        return () => clearTimeout(timer);
+      }
+    }}
+    className="absolute right-full mr-3 bottom-2 whitespace-nowrap bg-background shadow-lg rounded-full px-4 py-2.5 text-sm border border-border"
+  >
+    <span className="font-medium">Em có thể giúp gì cho anh/chị ạ? 😊</span>
+    {/* Arrow pointing right */}
+    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 w-2 h-2 bg-background border-r border-b border-border rotate-[-45deg]" />
+  </motion.div>
+);
 
 export function SalesChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -223,6 +223,13 @@ export function SalesChatWidget() {
 
     return () => clearTimeout(timer);
   }, [isOpen]);
+
+  // Auto-dismiss greeting tooltip after 10 seconds
+  useEffect(() => {
+    if (!showGreetTooltip) return;
+    const timer = setTimeout(() => setShowGreetTooltip(false), 10000);
+    return () => clearTimeout(timer);
+  }, [showGreetTooltip]);
 
   // Handle unread count and sound when new assistant message arrives
   useEffect(() => {
