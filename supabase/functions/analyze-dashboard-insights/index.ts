@@ -380,7 +380,7 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -393,14 +393,18 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Get user info
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+    // Validate JWT using getClaims
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("[analyze-dashboard-insights] Auth error:", claimsError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const userId = claimsData.claims.sub as string;
 
     // Get organization - try membership first, fallback to content tables
     let organizationId: string | null = null;
@@ -408,7 +412,7 @@ serve(async (req) => {
     const { data: membership } = await supabase
       .from("organization_members")
       .select("organization_id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .limit(1)
       .single();
 
@@ -419,7 +423,7 @@ serve(async (req) => {
       const { data: brand } = await supabase
         .from("brand_templates")
         .select("organization_id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .limit(1)
         .single();
       
@@ -428,7 +432,7 @@ serve(async (req) => {
 
     // If still no org, return starter insights for new users
     if (!organizationId) {
-      console.log(`[analyze-dashboard-insights] No organization found for user ${user.id}, returning starter insights`);
+      console.log(`[analyze-dashboard-insights] No organization found for user ${userId}, returning starter insights`);
       
       const starterInsights = [
         {
@@ -468,7 +472,7 @@ serve(async (req) => {
     const { forceRefresh } = await req.json().catch(() => ({ forceRefresh: false }));
 
     // Fetch content stats first to generate hash
-    const stats = await fetchContentStats(supabase, organizationId, user.id);
+    const stats = await fetchContentStats(supabase, organizationId, userId);
     
     console.log(`[analyze-dashboard-insights] Stats:`, JSON.stringify(stats, null, 2));
 
