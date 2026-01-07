@@ -73,6 +73,11 @@
         "keyword": "Lên lịch",
         "title": "một chạm.",
         "description": "Dashboard tổng quan tất cả kênh, drag & drop reschedule, team assignment với @mention. 0% missed deadlines."
+      },
+      "collaboration": {
+        "keyword": "Cộng tác",
+        "title": "đội nhóm không giới hạn.",
+        "description": "Phân công task, phân quyền Owner/Admin/Member, chat real-time. Ai làm gì, ai thấy gì — rõ ràng và bảo mật."
       }
     }
   },
