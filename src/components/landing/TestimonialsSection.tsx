@@ -1,7 +1,5 @@
 import { motion } from "framer-motion";
-import { Star, Quote, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Star, Quote } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const testimonials = [
@@ -11,7 +9,7 @@ const testimonials = [
     role: "Marketing Manager",
     company: "TechVN",
     avatar: "",
-    content: "Flowa đã giúp team marketing của chúng tôi tiết kiệm hơn 20 giờ mỗi tuần. Chất lượng nội dung AI tạo ra vượt xa kỳ vọng, đặc biệt là khả năng giữ đúng giọng điệu thương hiệu.",
+    content: "Flowa đã giúp team marketing của chúng tôi tiết kiệm hơn 20 giờ mỗi tuần. Chất lượng nội dung AI tạo ra vượt xa kỳ vọng.",
     rating: 5,
   },
   {
@@ -20,7 +18,7 @@ const testimonials = [
     role: "CEO",
     company: "StartupHub",
     avatar: "",
-    content: "Là startup với nguồn lực hạn chế, Flowa giúp chúng tôi có thể sản xuất nội dung chất lượng như các công ty lớn. ROI tăng 300% sau 3 tháng sử dụng.",
+    content: "Là startup với nguồn lực hạn chế, Flowa giúp chúng tôi có thể sản xuất nội dung chất lượng như các công ty lớn.",
     rating: 5,
   },
   {
@@ -29,7 +27,7 @@ const testimonials = [
     role: "Content Director",
     company: "MediaPro Agency",
     avatar: "",
-    content: "Quản lý nội dung cho 15+ client chưa bao giờ dễ dàng đến thế. Brand voice consistency là điểm mạnh nhất của Flowa - mỗi client đều có giọng điệu riêng biệt.",
+    content: "Quản lý nội dung cho 15+ client chưa bao giờ dễ dàng đến thế. Brand voice consistency là điểm mạnh nhất.",
     rating: 5,
   },
   {
@@ -38,7 +36,7 @@ const testimonials = [
     role: "Digital Marketing Lead",
     company: "FashionVN",
     avatar: "",
-    content: "Campaign management của Flowa rất trực quan. Chúng tôi có thể theo dõi mọi thứ từ content đến performance trong một dashboard duy nhất.",
+    content: "Campaign management của Flowa rất trực quan. Chúng tôi có thể theo dõi mọi thứ trong một dashboard.",
     rating: 5,
   },
   {
@@ -47,22 +45,94 @@ const testimonials = [
     role: "Brand Manager",
     company: "CosmeticPlus",
     avatar: "",
-    content: "Multi-channel publishing tiết kiệm rất nhiều thời gian. Trước đây phải copy-paste giữa các platform, giờ chỉ cần 1 click là xong.",
+    content: "Multi-channel publishing tiết kiệm rất nhiều thời gian. Trước đây phải copy-paste, giờ chỉ cần 1 click.",
+    rating: 5,
+  },
+  {
+    id: 6,
+    name: "Hoàng Minh Tuấn",
+    role: "CMO",
+    company: "EduTech",
+    avatar: "",
+    content: "ROI tăng 250% sau 2 tháng sử dụng. AI hiểu ngành giáo dục rất tốt và tạo nội dung chuẩn xác.",
     rating: 5,
   },
 ];
 
+// Duplicate for seamless loop
+const duplicatedTestimonials = [...testimonials, ...testimonials];
+
+function TestimonialCard({ testimonial, index }: { testimonial: typeof testimonials[0]; index: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: index * 0.1, duration: 0.5 }}
+      className="flex-shrink-0 w-[350px] mx-3"
+    >
+      <div className="relative group h-full">
+        {/* Glassmorphism Card */}
+        <div className="relative h-full p-6 rounded-2xl bg-card/60 backdrop-blur-xl border border-border/50 hover:border-primary/40 transition-all duration-500 hover:shadow-[0_8px_32px_rgba(var(--primary),0.15)]">
+          {/* Gradient overlay on hover */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          
+          {/* Quote Icon with Gradient */}
+          <div className="absolute -top-3 -left-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
+              <Quote className="w-5 h-5 text-white" />
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="relative z-10 pt-4">
+            {/* Stars with stagger animation */}
+            <div className="flex gap-1 mb-4">
+              {Array.from({ length: testimonial.rating }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 + i * 0.1 }}
+                >
+                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Quote */}
+            <p className="text-sm text-foreground/90 leading-relaxed mb-6 line-clamp-4">
+              "{testimonial.content}"
+            </p>
+
+            {/* Author */}
+            <div className="flex items-center gap-3">
+              {/* Avatar with Ring Glow */}
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-secondary blur-sm opacity-50 group-hover:opacity-80 transition-opacity" />
+                <Avatar className="relative w-10 h-10 border-2 border-background">
+                  <AvatarImage src={testimonial.avatar} />
+                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20 text-primary font-semibold text-xs">
+                    {testimonial.name.split(" ").map(n => n[0]).join("")}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div>
+                <div className="font-medium text-foreground text-sm">
+                  {testimonial.name}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {testimonial.role} @ {testimonial.company}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export function TestimonialsSection() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const nextTestimonial = () => {
-    setCurrentIndex((prev) => (prev + 1) % testimonials.length);
-  };
-
-  const prevTestimonial = () => {
-    setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
-  };
-
   return (
     <section id="testimonials" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background */}
@@ -71,10 +141,18 @@ export function TestimonialsSection() {
         <motion.div
           animate={{
             scale: [1, 1.2, 1],
-            opacity: [0.2, 0.3, 0.2],
+            opacity: [0.15, 0.25, 0.15],
           }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/10 blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            opacity: [0.1, 0.2, 0.1],
+          }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-secondary/10 blur-3xl"
         />
       </div>
 
@@ -101,87 +179,46 @@ export function TestimonialsSection() {
           </p>
         </motion.div>
 
-        {/* Testimonials Carousel */}
-        <div className="relative max-w-4xl mx-auto">
+        {/* Infinite Marquee - Row 1 (Left to Right) */}
+        <div className="relative mb-6 overflow-hidden">
+          {/* Fade edges */}
+          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+          
           <motion.div
-            key={currentIndex}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="bg-card border border-border/50 rounded-2xl p-8 lg:p-12 relative"
+            animate={{ x: ["0%", "-50%"] }}
+            transition={{
+              duration: 40,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="flex"
           >
-            {/* Quote Icon */}
-            <Quote className="absolute top-8 left-8 w-12 h-12 text-primary/20" />
-
-            {/* Content */}
-            <div className="relative z-10">
-              {/* Stars */}
-              <div className="flex gap-1 mb-6">
-                {Array.from({ length: testimonials[currentIndex].rating }).map((_, i) => (
-                  <Star key={i} className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-                ))}
-              </div>
-
-              {/* Quote */}
-              <p className="text-lg lg:text-xl text-foreground leading-relaxed mb-8">
-                "{testimonials[currentIndex].content}"
-              </p>
-
-              {/* Author */}
-              <div className="flex items-center gap-4">
-                <Avatar className="w-12 h-12 border-2 border-primary/20">
-                  <AvatarImage src={testimonials[currentIndex].avatar} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                    {testimonials[currentIndex].name.split(" ").map(n => n[0]).join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-semibold text-foreground">
-                    {testimonials[currentIndex].name}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {testimonials[currentIndex].role} @ {testimonials[currentIndex].company}
-                  </div>
-                </div>
-              </div>
-            </div>
+            {duplicatedTestimonials.map((testimonial, index) => (
+              <TestimonialCard key={`row1-${index}`} testimonial={testimonial} index={index} />
+            ))}
           </motion.div>
+        </div>
 
-          {/* Navigation */}
-          <div className="flex items-center justify-center gap-4 mt-8">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={prevTestimonial}
-              className="rounded-full"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-
-            <div className="flex gap-2">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentIndex(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === currentIndex
-                      ? "bg-primary w-6"
-                      : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                  }`}
-                />
-              ))}
-            </div>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={nextTestimonial}
-              className="rounded-full"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+        {/* Infinite Marquee - Row 2 (Right to Left) */}
+        <div className="relative overflow-hidden">
+          {/* Fade edges */}
+          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+          
+          <motion.div
+            animate={{ x: ["-50%", "0%"] }}
+            transition={{
+              duration: 40,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="flex"
+          >
+            {duplicatedTestimonials.reverse().map((testimonial, index) => (
+              <TestimonialCard key={`row2-${index}`} testimonial={testimonial} index={index} />
+            ))}
+          </motion.div>
         </div>
 
         {/* Company Logos */}
@@ -195,11 +232,19 @@ export function TestimonialsSection() {
           <p className="text-center text-sm text-muted-foreground mb-8">
             Được tin dùng bởi các thương hiệu hàng đầu
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16 opacity-50">
-            {["TechVN", "StartupHub", "MediaPro", "FashionVN", "CosmeticPlus"].map((company) => (
-              <div key={company} className="text-xl font-bold text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16">
+            {["TechVN", "StartupHub", "MediaPro", "FashionVN", "CosmeticPlus", "EduTech"].map((company, i) => (
+              <motion.div 
+                key={company} 
+                className="text-xl font-bold text-muted-foreground/50 hover:text-primary/70 transition-colors cursor-default"
+                whileHover={{ scale: 1.05 }}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
                 {company}
-              </div>
+              </motion.div>
             ))}
           </div>
         </motion.div>

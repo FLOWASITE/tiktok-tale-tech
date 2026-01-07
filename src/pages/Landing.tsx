@@ -13,6 +13,8 @@ import {
   CTASection,
   FooterSection,
 } from "@/components/landing";
+import { ScrollProgress } from "@/components/landing/ScrollProgress";
+import { BackToTop } from "@/components/landing/BackToTop";
 
 export default function Landing() {
   const { user, loading } = useAuth();
@@ -41,6 +43,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background">
+      <ScrollProgress />
       <LandingNav />
       <main>
         <HeroSection />
@@ -53,6 +56,7 @@ export default function Landing() {
         <CTASection />
       </main>
       <FooterSection />
+      <BackToTop />
     </div>
   );
 }
