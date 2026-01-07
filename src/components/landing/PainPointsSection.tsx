@@ -4,6 +4,7 @@ import {
   Layers, Clapperboard, GalleryHorizontalEnd, Lightbulb, PenTool, CalendarClock,
   X, Check, ArrowRight
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -83,6 +84,16 @@ function SimplePainPointCard({ cardKey, icon: Icon }: SimplePainPointCardProps) 
           </div>
         </div>
       </div>
+
+      {/* CTA Button */}
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="w-full mt-4 text-primary hover:text-primary/80 hover:bg-primary/5"
+      >
+        {t("painPoints.viewDetails")}
+        <ArrowRight className="w-4 h-4 ml-2" />
+      </Button>
     </div>
   );
 }
