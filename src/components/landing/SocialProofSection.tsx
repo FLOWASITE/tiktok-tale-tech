@@ -42,7 +42,7 @@ export function SocialProofSection() {
   const displayReviews = Array.isArray(featuredReviews) ? featuredReviews.slice(0, 3) : [];
 
   return (
-    <section id="testimonials" className="py-16 lg:py-24 bg-background">
+    <section id="social-proof" className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Metrics Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
