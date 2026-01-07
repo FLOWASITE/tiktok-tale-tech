@@ -77,8 +77,8 @@
         ],
         "solutionName": "Multi-Channel Generator",
         "solutionSteps": [
-          "Enter 1 topic only",
-          "Select channels (or all 12)",
+          "AI suggests topics for your brand",
+          "Pick topic + desired channels",
           "AI auto-creates 12 versions",
           "Preview, edit, or use immediately"
         ],
@@ -106,7 +106,7 @@
         ],
         "solutionName": "TikTok Video Script Generator",
         "solutionSteps": [
-          "Choose topic + video type",
+          "AI suggests topic, select video type",
           "Select character type & duration",
           "AI creates script with detailed timing",
           "Includes visual cues & actions"
@@ -135,7 +135,7 @@
         ],
         "solutionName": "Carousel Prompt Generator",
         "solutionSteps": [
-          "Enter topic + select platform",
+          "AI suggests topic, select platform",
           "Choose slides count & AI tool",
           "AI creates prompts for each slide",
           "Caption + CTA ready-to-post"

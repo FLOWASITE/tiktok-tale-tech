@@ -77,8 +77,8 @@
         ],
         "solutionName": "Multi-Channel Generator",
         "solutionSteps": [
-          "Nhập 1 topic duy nhất",
-          "Chọn kênh (hoặc tất cả 12 kênh)",
+          "AI gợi ý topics phù hợp brand",
+          "Chọn topic + kênh mong muốn",
           "AI tự động tạo 12 phiên bản",
           "Preview, chỉnh sửa, hoặc dùng luôn"
         ],
@@ -106,7 +106,7 @@
         ],
         "solutionName": "TikTok Video Script Generator",
         "solutionSteps": [
-          "Chọn topic + video type",
+          "AI gợi ý topic, chọn video type",
           "Chọn character type & duration",
           "AI tạo script với timing chi tiết",
           "Bao gồm visual cues & actions"
@@ -135,7 +135,7 @@
         ],
         "solutionName": "Carousel Prompt Generator",
         "solutionSteps": [
-          "Nhập topic + chọn platform",
+          "AI gợi ý topic, chọn platform",
           "Chọn số slides & AI tool",
           "AI tạo prompts cho từng slide",
           "Caption + CTA ready-to-post"
