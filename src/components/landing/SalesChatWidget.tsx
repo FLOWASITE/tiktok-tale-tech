@@ -216,7 +216,7 @@ export function SalesChatWidget() {
                 <LinhAvatar size="md" className="ring-white/30" />
                 <div>
                   <h3 className="font-semibold text-sm">Chat với Linh</h3>
-                  <p className="text-xs opacity-80">Tư vấn viên AI Flowa</p>
+                  <p className="text-xs opacity-80">Tư vấn viên Flowa</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">

@@ -24,7 +24,7 @@ export function LinhAvatar({ size = 'md', showOnline = false, className }: LinhA
     <div className={cn("relative flex-shrink-0", className)}>
       <img
         src={linhAvatarImg}
-        alt="Linh - Tư vấn viên AI Flowa"
+        alt="Linh - Tư vấn viên Flowa"
         className={cn(
           sizeClasses[size],
           "rounded-full object-cover ring-2 ring-white/80 shadow-md"
