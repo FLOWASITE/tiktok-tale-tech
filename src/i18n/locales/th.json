@@ -30,31 +30,40 @@
     }
   },
   "painPoints": {
-    "badge": "ปัญหาที่คุณเข้าใจ",
-    "title": "ปัญหาทุกนักการตลาดเคยเจอ",
-    "subtitle": "คุณเคยประสบปัญหาเหล่านี้ไหม?",
-    "viewDetails": "ดูรายละเอียด",
-    "problems": {
-      "time": {
-        "title": "ใช้เวลานานเกินไป",
-        "description": "สร้างคอนเทนต์ 1 โพสต์ใช้เวลาหลายชั่วโมง แต่ผลลัพธ์ไม่คุ้มค่า"
+    "badge": "คุณสมบัติเด่น",
+    "title": "ทุกสิ่งที่คุณต้องการสำหรับ Content Marketing",
+    "subtitle": "ประหยัดเวลา 80% พร้อมคุณภาพที่ดีกว่า",
+    "features": {
+      "multiChannel": {
+        "keyword": "หลายช่องทาง",
+        "title": "ใน 10 นาที",
+        "description": "สร้างคอนเทนต์สำหรับ Facebook, Instagram, LinkedIn, TikTok โดยอัตโนมัติด้วยคำสั่งเดียว ประหยัดเวลา 5 ชั่วโมงทุกสัปดาห์"
       },
-      "consistency": {
-        "title": "เสียงแบรนด์ไม่สม่ำเสมอ",
-        "description": "แต่ละช่องทางมีสไตล์ต่างกัน ลูกค้าสับสนกับภาพลักษณ์แบรนด์"
+      "videoScript": {
+        "keyword": "สคริปต์วิดีโอ",
+        "title": "ใน 3 นาที",
+        "description": "AI สร้างสคริปต์ TikTok/Reels พร้อม hook, timing และ visual cues โดยละเอียด ถ่ายครั้งเดียว ไม่ต้องถ่ายซ้ำ"
       },
-      "multichannel": {
-        "title": "จัดการหลายช่องทางยาก",
-        "description": "Facebook, Instagram, LinkedIn, TikTok... แต่ละที่ต้องปรับคอนเทนต์ใหม่"
+      "carousel": {
+        "keyword": "Carousel",
+        "title": "อัตโนมัติเต็มรูปแบบ",
+        "description": "สร้าง carousel post มืออาชีพพร้อม prompts สำหรับแต่ละสไลด์ caption และ CTA พร้อมโพสต์"
       },
-      "ideas": {
-        "title": "หมดไอเดีย",
-        "description": "ไม่รู้จะโพสต์อะไร วนซ้ำไปมา ลูกค้าเบื่อ"
+      "ideation": {
+        "keyword": "ไอเดีย",
+        "title": "ไม่มีขีดจำกัด",
+        "description": "AI ระดมความคิดหัวข้อสำหรับแบรนด์ของคุณ Discovery Feed trending, Topic Bank เก็บไอเดีย ไม่มีวันหมดไอเดีย"
+      },
+      "brandVoice": {
+        "keyword": "เสียงแบรนด์",
+        "title": "สม่ำเสมอเสมอ",
+        "description": "ตั้งค่าครั้งเดียว AI ใช้กับคอนเทนต์ทั้งหมด 3 คนเขียน เสียงเดียว การจดจำแบรนด์เพิ่ม 3 เท่า"
+      },
+      "publishing": {
+        "keyword": "ตั้งเวลา",
+        "title": "ด้วยคลิกเดียว",
+        "description": "แดชบอร์ดรวมทุกช่องทาง ลาก & วาง เพื่อจัดตาราง การมอบหมายทีมด้วย @mention 0% พลาด deadline"
       }
-    },
-    "solution": {
-      "title": "Flowa คือคำตอบ",
-      "description": "AI ที่เข้าใจแบรนด์คุณอย่างลึกซึ้ง สร้างคอนเทนต์คุณภาพสูงสำหรับทุกช่องทางโดยอัตโนมัติ"
     }
   },
   "howItWorks": {

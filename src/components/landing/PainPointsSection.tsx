@@ -1,110 +1,56 @@
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { 
-  Layers, Clapperboard, GalleryHorizontalEnd, Lightbulb, PenTool, CalendarClock,
-  X, Check, ArrowRight
+  Layers, Clapperboard, GalleryHorizontalEnd, Lightbulb, PenTool, CalendarClock
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useState, useCallback, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-  type CarouselApi
-} from "@/components/ui/carousel";
 
-interface SimplePainPointCardProps {
-  cardKey: string;
+interface FeatureSectionProps {
+  featureKey: string;
   icon: React.ElementType;
+  index: number;
 }
 
-function SimplePainPointCard({ cardKey, icon: Icon }: SimplePainPointCardProps) {
+function FeatureSection({ featureKey, icon: Icon, index }: FeatureSectionProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="h-full rounded-xl bg-card border border-border p-6 transition-all duration-300 hover:shadow-md hover:border-primary/30">
-      {/* Icon */}
-      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-5">
-        <Icon className="w-6 h-6 text-primary" />
-      </div>
-
-      {/* Problem */}
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-2">
-          <X className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            {t("painPoints.problemLabel")}
-          </span>
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-100px" }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="py-16 lg:py-24 border-b border-border/30 last:border-b-0"
+    >
+      <div className="max-w-4xl mx-auto">
+        {/* Icon */}
+        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+          <Icon className="w-6 h-6 text-primary" />
         </div>
-        <h3 className="text-lg font-bold text-foreground mb-1">
-          {t(`painPoints.cards.${cardKey}.problemTitle`)}
+
+        {/* Title with accent keyword */}
+        <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4">
+          <span className="text-primary">
+            {t(`painPoints.features.${featureKey}.keyword`)}
+          </span>
+          {" "}
+          <span className="text-foreground">
+            {t(`painPoints.features.${featureKey}.title`)}
+          </span>
         </h3>
-        <p className="text-sm text-muted-foreground">
-          {t(`painPoints.cards.${cardKey}.problemSubtitle`)}
+
+        {/* Description */}
+        <p className="text-lg text-muted-foreground max-w-2xl">
+          {t(`painPoints.features.${featureKey}.description`)}
         </p>
       </div>
-
-      {/* Solution */}
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-2">
-          <Check className="w-4 h-4 text-primary" />
-          <span className="text-xs font-medium text-primary uppercase tracking-wider">
-            {t("painPoints.solutionLabel")}
-          </span>
-        </div>
-        <p className="text-sm font-semibold text-foreground">
-          {t(`painPoints.cards.${cardKey}.solutionName`)}
-        </p>
-      </div>
-
-      {/* Before/After */}
-      <div className="bg-muted/50 rounded-lg p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 text-center p-3 rounded-lg bg-background border border-border">
-            <p className="text-[10px] text-muted-foreground mb-1 uppercase">
-              {t(`painPoints.cards.${cardKey}.beforeLabel`)}
-            </p>
-            <p className="text-sm font-bold text-muted-foreground">
-              {t(`painPoints.cards.${cardKey}.beforeValue`)}
-            </p>
-          </div>
-          
-          <ArrowRight className="w-4 h-4 text-primary shrink-0" />
-          
-          <div className="flex-1 text-center p-3 rounded-lg bg-primary/5 border border-primary/20">
-            <p className="text-[10px] text-primary mb-1 uppercase">
-              {t(`painPoints.cards.${cardKey}.afterLabel`)}
-            </p>
-            <p className="text-sm font-bold text-primary">
-              {t(`painPoints.cards.${cardKey}.afterValue`)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Button */}
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="w-full mt-4 text-primary hover:text-primary/80 hover:bg-primary/5"
-      >
-        {t("painPoints.viewDetails")}
-        <ArrowRight className="w-4 h-4 ml-2" />
-      </Button>
-    </div>
+    </motion.div>
   );
 }
 
 export function PainPointsSection() {
   const { t } = useTranslation();
-  const [api, setApi] = useState<CarouselApi>();
-  const [current, setCurrent] = useState(0);
-  const [count, setCount] = useState(0);
 
-  const painPoints = [
+  const features = [
     { key: "multiChannel", icon: Layers },
     { key: "videoScript", icon: Clapperboard },
     { key: "carousel", icon: GalleryHorizontalEnd },
@@ -112,21 +58,6 @@ export function PainPointsSection() {
     { key: "brandVoice", icon: PenTool },
     { key: "publishing", icon: CalendarClock },
   ];
-
-  useEffect(() => {
-    if (!api) return;
-
-    setCount(api.scrollSnapList().length);
-    setCurrent(api.selectedScrollSnap());
-
-    api.on("select", () => {
-      setCurrent(api.selectedScrollSnap());
-    });
-  }, [api]);
-
-  const scrollTo = useCallback((index: number) => {
-    api?.scrollTo(index);
-  }, [api]);
 
   return (
     <section className="py-20 lg:py-28 bg-background">
@@ -137,7 +68,7 @@ export function PainPointsSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center max-w-3xl mx-auto mb-12"
+          className="text-center max-w-3xl mx-auto mb-8"
         >
           <span className="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-primary/10 text-primary mb-4">
             {t("painPoints.badge")}
@@ -150,58 +81,17 @@ export function PainPointsSection() {
           </p>
         </motion.div>
 
-        {/* Carousel */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="relative"
-        >
-          <Carousel
-            setApi={setApi}
-            opts={{
-              align: "start",
-              loop: true,
-            }}
-            className="w-full"
-          >
-            <CarouselContent className="-ml-4">
-              {painPoints.map((point) => (
-                <CarouselItem 
-                  key={point.key} 
-                  className="pl-4 basis-full md:basis-1/2 lg:basis-1/3"
-                >
-                  <SimplePainPointCard
-                    cardKey={point.key}
-                    icon={point.icon}
-                  />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            
-            {/* Navigation Arrows */}
-            <CarouselPrevious className="hidden md:flex -left-12 border-border hover:bg-primary hover:text-primary-foreground hover:border-primary" />
-            <CarouselNext className="hidden md:flex -right-12 border-border hover:bg-primary hover:text-primary-foreground hover:border-primary" />
-          </Carousel>
-
-          {/* Dots Pagination */}
-          <div className="flex justify-center gap-2 mt-8">
-            {Array.from({ length: count }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => scrollTo(index)}
-                className={cn(
-                  "w-2 h-2 rounded-full transition-all duration-300",
-                  current === index 
-                    ? "bg-primary w-6" 
-                    : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                )}
-                aria-label={`Go to slide ${index + 1}`}
-              />
-            ))}
-          </div>
-        </motion.div>
+        {/* Feature Sections */}
+        <div className="mt-12">
+          {features.map((feature, index) => (
+            <FeatureSection
+              key={feature.key}
+              featureKey={feature.key}
+              icon={feature.icon}
+              index={index}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );

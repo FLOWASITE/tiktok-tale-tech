@@ -40,200 +40,39 @@
     }
   },
   "painPoints": {
-    "badge": "6 Vấn Đề Đang Ngốn 80% Thời Gian Marketing Team",
-    "title": "Flowa Giải Quyết Từng Cái — Trong 10 Phút",
-    "subtitle": "Từ chaos đến control, từ burnout đến breakthrough",
-    "problemLabel": "Vấn đề",
-    "realityLabel": "Hậu quả thực tế",
-    "consequenceLabel": "Hậu quả",
-    "solutionLabel": "Giải pháp",
-    "exclusiveFeaturesLabel": "Tính năng độc quyền",
-    "resultLabel": "Kết quả",
-    "mostPopular": "Phổ biến nhất",
-    "viewDetails": "Xem chi tiết",
-    "cta": {
-      "question": "Bạn đang gặp vấn đề nào?",
-      "primary": "Dùng Thử Miễn Phí",
-      "secondary": "Xem Demo 2 Phút",
-      "benefit1": "Không cần thẻ tín dụng",
-      "benefit2": "Setup 5 phút"
-    },
-    "cards": {
+    "badge": "Tính năng nổi bật",
+    "title": "Mọi thứ bạn cần cho Content Marketing",
+    "subtitle": "Tiết kiệm 80% thời gian với chất lượng tốt hơn",
+    "features": {
       "multiChannel": {
-        "category": "Multi-Channel Content",
-        "problemTitle": "Mở 12 Tab, Copy-Paste 12 Lần",
-        "problemSubtitle": "Vẫn Bị Instagram Cắt Mất Caption",
-        "realityChecks": [
-          "Website cần 800 từ có SEO structure",
-          "Facebook tối đa 300 từ, rich text format",
-          "Instagram 150 từ + hashtags cuối bài",
-          "Twitter chỉ 280 ký tự",
-          "LinkedIn tone formal hơn Facebook",
-          "TikTok cần hook 3 giây đầu"
-        ],
-        "consequences": [
-          "Mỗi topic mất 2-3 giờ chỉ để adapt format",
-          "70% posts không đạt engagement vì sai format",
-          "Team burnout vì công việc lặp đi lặp lại"
-        ],
-        "solutionName": "Multi-Channel Generator",
-        "solutionSteps": [
-          "AI gợi ý topics phù hợp brand",
-          "Chọn topic + kênh mong muốn",
-          "AI tự động tạo 12 phiên bản",
-          "Preview, chỉnh sửa, hoặc dùng luôn"
-        ],
-        "exclusiveFeatures": ["Self-Critique AI", "Brand Voice Sync", "Industry Compliance"],
-        "beforeLabel": "Trước Flowa",
-        "beforeValue": "2-3 giờ/topic",
-        "afterLabel": "Với Flowa",
-        "afterValue": "10 phút/topic",
-        "savingHighlight": "Tiết kiệm 90% thời gian"
+        "keyword": "Đa kênh",
+        "title": "trong 10 phút.",
+        "description": "Tự động tạo content Facebook, Instagram, LinkedIn, TikTok chỉ với một câu lệnh. Tiết kiệm 5 giờ mỗi tuần."
       },
       "videoScript": {
-        "category": "Video Content",
-        "problemTitle": "Quay 10 Videos, 9 Cái Flop",
-        "problemSubtitle": "Vì Không Có Kịch Bản Chuẩn",
-        "realityChecks": [
-          "TikTok/Reels cần hook trong 3 giây đầu",
-          "Video 60s cần timing chính xác từng section",
-          "Voice-over cần script word-by-word",
-          "Character actions không được plan → video rời rạc"
-        ],
-        "consequences": [
-          "Quay đi quay lại 5-6 lần vì 'không biết nói gì'",
-          "80% effort vào quay/edit, chỉ 20% vào content strategy",
-          "Competitor với script chuẩn outperform 10x"
-        ],
-        "solutionName": "TikTok Video Script Generator",
-        "solutionSteps": [
-          "AI gợi ý topic, chọn video type",
-          "Chọn character type & duration",
-          "AI tạo script với timing chi tiết",
-          "Bao gồm visual cues & actions"
-        ],
-        "exclusiveFeatures": ["Hook Library 50+", "Timing Calculator", "Visual Cues"],
-        "beforeLabel": "Trước Flowa",
-        "beforeValue": "2 giờ + 5 lần quay",
-        "afterLabel": "Với Flowa",
-        "afterValue": "10 phút + 1 lần quay",
-        "savingHighlight": "Engagement tăng 3x"
+        "keyword": "Video Script",
+        "title": "trong 3 phút.",
+        "description": "AI tạo kịch bản video TikTok/Reels với hook, timing và visual cues chi tiết. Quay 1 lần, không cần re-shoot."
       },
       "carousel": {
-        "category": "Visual Content",
-        "problemTitle": "1 Carousel = 1 Ngày. Seriously?",
-        "problemSubtitle": "Mất Nguyên 1 Ngày Làm Việc",
-        "realityChecks": [
-          "Carousel = Content engagement cao nhất",
-          "Cần: Ý tưởng → Copywriting → Design → Review",
-          "Mỗi slide cần: Text + Visual concept + Layout",
-          "Không có designer? → Canva template giống 1000 brands"
-        ],
-        "consequences": [
-          "1 carousel mất 3-5 giờ (idea → design → publish)",
-          "Chỉ post được 2-3 carousels/tuần",
-          "Design không nhất quán → brand identity yếu"
-        ],
-        "solutionName": "Carousel Prompt Generator",
-        "solutionSteps": [
-          "AI gợi ý topic, chọn platform",
-          "Chọn số slides & AI tool",
-          "AI tạo prompts cho từng slide",
-          "Caption + CTA ready-to-post"
-        ],
-        "exclusiveFeatures": ["Multi-AI Support", "Brand Integration", "Caption Ready"],
-        "beforeLabel": "Trước Flowa",
-        "beforeValue": "4-5 giờ/carousel",
-        "afterLabel": "Với Flowa",
-        "afterValue": "30 phút/carousel",
-        "savingHighlight": "Tiết kiệm 90% thời gian"
+        "keyword": "Carousel",
+        "title": "tự động hoàn chỉnh.",
+        "description": "Tạo carousel post chuyên nghiệp với prompts cho từng slide, caption và CTA sẵn sàng đăng."
       },
       "ideation": {
-        "category": "Content Strategy",
-        "problemTitle": "Ngồi 2 Tiếng Trước Màn Hình Trắng",
-        "problemSubtitle": "'Tháng Này Viết Gì Đây?'",
-        "realityChecks": [
-          "Cần 30+ bài/tháng cho social media",
-          "8+ bài blog cho SEO",
-          "4+ email campaigns",
-          "10+ ad copies cho A/B testing"
-        ],
-        "consequences": [
-          "80% marketer bị 'creative block' hàng tuần",
-          "Recycle nội dung cũ → giảm engagement",
-          "Không kịp trend → mất cơ hội viral"
-        ],
-        "solutionName": "Topics Hub + AI Chatbot",
-        "solutionSteps": [
-          "AI Chatbot brainstorm theo brand",
-          "Discovery Feed với trending topics",
-          "Topic Bank lưu & track ideas",
-          "AI học từ topics thành công"
-        ],
-        "exclusiveFeatures": ["Context-Aware AI", "Seasonal Suggestions", "Performance Learning"],
-        "beforeLabel": "Trước Flowa",
-        "beforeValue": "2 giờ + 30% ideas dở",
-        "afterLabel": "Với Flowa",
-        "afterValue": "5 phút + 80% ideas tốt",
-        "savingHighlight": "Không bao giờ hết ý tưởng"
+        "keyword": "Ý tưởng",
+        "title": "không giới hạn.",
+        "description": "AI brainstorm topics theo brand, Discovery Feed trending, Topic Bank lưu trữ. Không bao giờ hết ý tưởng."
       },
       "brandVoice": {
-        "category": "Brand Identity",
-        "problemTitle": "3 Người Viết = 3 Giọng Khác Nhau",
-        "problemSubtitle": "Website Đọc Như Intern Viết",
-        "realityChecks": [
-          "3 người viết content → 3 giọng điệu khác nhau",
-          "Intern viết social → không hiểu brand guidelines",
-          "Outsource blog → tone không match",
-          "CEO viết LinkedIn → quá formal so với brand"
-        ],
-        "consequences": [
-          "Brand identity mờ nhạt, khó nhận diện",
-          "Khách hàng confused: 'Đây có phải brand X?'",
-          "Mất 5-10 lần tương tác để build trust"
-        ],
-        "solutionName": "Brand Voice AI Engine",
-        "solutionSteps": [
-          "Setup brand positioning (1 lần)",
-          "Chọn tone & formality level",
-          "Định nghĩa preferred/forbidden words",
-          "AI áp dụng cho MỌI content"
-        ],
-        "exclusiveFeatures": ["Channel Overrides", "Industry Memory", "Voice Variants"],
-        "beforeLabel": "Trước Flowa",
-        "beforeValue": "Guidelines 20 trang",
-        "afterLabel": "Với Flowa",
-        "afterValue": "AI enforce 100%",
-        "savingHighlight": "Brand recognition tăng 3x"
+        "keyword": "Giọng điệu",
+        "title": "thương hiệu nhất quán.",
+        "description": "Setup 1 lần, AI áp dụng cho mọi content. 3 người viết cùng 1 giọng, brand recognition tăng 3x."
       },
       "publishing": {
-        "category": "Content Operations",
-        "problemTitle": "Đăng Nhầm Kênh, Sếp Hỏi 'Ai Duyệt?'",
-        "problemSubtitle": "Cùng 1 Post Đăng 3 Lần — Ai Cũng Đổ Cho Nhau",
-        "realityChecks": [
-          "12 kênh × 30 posts/tháng = 360 lần đăng bài",
-          "Mỗi kênh có dashboard riêng",
-          "Không có overview: Kênh nào đã đăng?",
-          "Team 3 người: Ai đăng gì? Đã đăng chưa?"
-        ],
-        "consequences": [
-          "40% posts miss deadline → mất momentum",
-          "15% posts đăng nhầm kênh/format",
-          "10% posts trùng lặp → unprofessional"
-        ],
-        "solutionName": "Unified Content Calendar",
-        "solutionSteps": [
-          "Dashboard tổng quan tất cả kênh",
-          "Drag & Drop reschedule",
-          "Color code theo campaign",
-          "Team assignment với @mention"
-        ],
-        "exclusiveFeatures": ["Campaign Overlay", "Conflict Detection", "Bulk Actions"],
-        "beforeLabel": "Trước Flowa",
-        "beforeValue": "360 logins/tháng",
-        "afterLabel": "Với Flowa",
-        "afterValue": "1 dashboard",
-        "savingHighlight": "0% missed deadlines"
+        "keyword": "Lên lịch",
+        "title": "một chạm.",
+        "description": "Dashboard tổng quan tất cả kênh, drag & drop reschedule, team assignment với @mention. 0% missed deadlines."
       }
     }
   },
