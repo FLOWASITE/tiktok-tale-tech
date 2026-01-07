@@ -27,7 +27,7 @@ export function BackToTop() {
           }}
           whileTap={{ scale: 0.9 }}
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary text-white shadow-lg flex items-center justify-center"
+          className="fixed bottom-8 left-8 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary text-white shadow-lg flex items-center justify-center"
           aria-label="Scroll to top"
         >
           <ArrowUp className="w-5 h-5" />
