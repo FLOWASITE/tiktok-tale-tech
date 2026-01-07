@@ -259,12 +259,143 @@ serve(async (req) => {
       );
     }
 
+    // For Instagram - using OAuth 2.0 flow
+    if (platform === 'instagram') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'instagram', encryptionKey);
+      
+      if (!globalCreds.consumerKey || !globalCreds.consumerSecret) {
+        throw new Error('Instagram chưa được cấu hình. Liên hệ Admin để thiết lập App ID/Secret trong Admin Settings.');
+      }
+
+      // If accessToken is provided, we're completing the OAuth flow (callback handling)
+      if (accessToken) {
+        // Check for existing connection
+        let query = supabase
+          .from('social_connections')
+          .select('id')
+          .eq('platform', 'instagram');
+
+        if (brandTemplateId) {
+          query = query.eq('brand_template_id', brandTemplateId);
+        } else {
+          query = query.eq('organization_id', organizationId);
+        }
+
+        const { data: existingConnection } = await query.maybeSingle();
+
+        // Parse metadata from accessTokenSecret (used to pass extra data)
+        let tokenExpiresAt = null;
+        let instagramUserId = null;
+        try {
+          const metadata = accessTokenSecret ? JSON.parse(accessTokenSecret) : {};
+          tokenExpiresAt = metadata.expires_at || null;
+          instagramUserId = metadata.instagram_user_id || null;
+        } catch (e) {
+          console.log('No metadata in accessTokenSecret');
+        }
+
+        const connectionData = {
+          organization_id: organizationId || null,
+          brand_template_id: brandTemplateId || null,
+          user_id: user.id,
+          platform: 'instagram',
+          platform_username: username || null,
+          access_token: accessToken,
+          refresh_token: null, // Instagram doesn't have refresh tokens, we refresh long-lived token
+          token_expires_at: tokenExpiresAt,
+          is_active: true,
+          connected_at: new Date().toISOString(),
+          scopes: ['instagram_business_basic', 'instagram_business_content_publish'],
+          metadata: { 
+            instagram_user_id: instagramUserId,
+            token_type: 'long_lived',
+            uses_global_credentials: true
+          },
+        };
+
+        let connection;
+        if (existingConnection) {
+          const { data, error } = await supabase
+            .from('social_connections')
+            .update(connectionData)
+            .eq('id', existingConnection.id)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          connection = data;
+        } else {
+          const { data, error } = await supabase
+            .from('social_connections')
+            .insert(connectionData)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          connection = data;
+        }
+
+        console.log('Instagram connection saved:', connection.id);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            connection: {
+              id: connection.id,
+              platform: connection.platform,
+              username: connection.platform_username,
+              isActive: connection.is_active,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // No accessToken - return OAuth URL for user to authorize
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/instagram-oauth-callback`;
+      
+      // Create state with brandTemplateId/organizationId for callback
+      const state = btoa(JSON.stringify({
+        brandTemplateId: brandTemplateId || null,
+        organizationId: organizationId || null,
+        userId: user.id,
+      }));
+
+      const oauthUrl = `https://www.instagram.com/oauth/authorize?` + new URLSearchParams({
+        client_id: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        scope: 'instagram_business_basic,instagram_business_content_publish',
+        response_type: 'code',
+        state: state,
+      }).toString();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresOAuth: true,
+          oauthUrl: oauthUrl,
+          instructions: {
+            steps: [
+              '1. Đảm bảo tài khoản Instagram là Professional (Business hoặc Creator)',
+              '2. Click nút bên dưới để đăng nhập Instagram',
+              '3. Cho phép ứng dụng truy cập tài khoản của bạn',
+              '4. Bạn sẽ được redirect về sau khi hoàn tất',
+            ],
+            note: 'Chỉ hỗ trợ tài khoản Instagram Professional (Business/Creator). Tài khoản cá nhân sẽ không hoạt động.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported. Coming soon!`,
-        supportedPlatforms: ['twitter'],
+        supportedPlatforms: ['twitter', 'instagram'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
