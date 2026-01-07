@@ -2,7 +2,7 @@ import { AnimatedToaster } from "@/components/ui/animated-toast";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { TopicErrorBoundary } from "@/components/topic/TopicErrorBoundary";
+import { useDomainRouting } from "@/hooks/useDomainRouting";
 import Dashboard from "./pages/Dashboard";
 import Topics from "./pages/Topics";
 import Index from "./pages/Index";
@@ -48,33 +49,42 @@ import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" storageKey="app-theme" enableSystem themes={["light", "dark", "lime", "system"]}>
-      <AuthProvider>
-        <OrganizationProvider>
-          <TooltipProvider>
-          <AnimatedToaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Public routes - Landing page as default for unauthenticated users */}
-              <Route path="/landing" element={<Landing />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              
-              {/* Protected routes */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <Dashboard />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
+// Domain-aware routing component
+function AppRoutes() {
+  const { isLandingDomain, isAppDomain } = useDomainRouting();
+
+  // If on landing domain (flowa.one), show only landing page
+  if (isLandingDomain) {
+    return (
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/landing" element={<Landing />} />
+        {/* Redirect all other routes to landing page on landing domain */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  // App domain (app.flowa.one or localhost/preview) - show full app
+  return (
+    <Routes>
+      {/* Landing page still accessible at /landing for preview */}
+      <Route path="/landing" element={<Landing />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      
+      {/* Protected routes */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <Dashboard />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
                 path="/topics"
                 element={
                   <ProtectedRoute>
@@ -401,7 +411,20 @@ const App = () => (
               {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
+  );
+}
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider attribute="class" defaultTheme="dark" storageKey="app-theme" enableSystem themes={["light", "dark", "lime", "system"]}>
+      <AuthProvider>
+        <OrganizationProvider>
+          <TooltipProvider>
+            <AnimatedToaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
           </TooltipProvider>
         </OrganizationProvider>
       </AuthProvider>

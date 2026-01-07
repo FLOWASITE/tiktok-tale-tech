@@ -1,10 +1,10 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Sparkles, Zap, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { getAuthUrl } from "@/hooks/useDomainRouting";
 
 // Animated number component
 function AnimatedPrice({ value, duration = 0.5 }: { value: number; duration?: number }) {
@@ -239,9 +239,9 @@ export function PricingSection() {
                   size="lg"
                   asChild
                 >
-                  <Link to={plan.monthlyPrice !== null ? "/auth?tab=register" : "#"}>
+                  <a href={plan.monthlyPrice !== null ? getAuthUrl('register') : "#"}>
                     {t(`pricing.plans.${plan.key}.cta`)}
-                  </Link>
+                  </a>
                 </Button>
               </motion.div>
             </motion.div>
