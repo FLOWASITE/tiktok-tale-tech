@@ -11,32 +11,24 @@ export function SocialProofSection() {
       value: "10,000+",
       label: t("socialProof.title"),
       description: t("socialProof.subtitle"),
-      iconBg: "bg-pink-100",
-      iconColor: "text-pink-600",
     },
     {
       icon: TrendingUp,
       value: "500K+",
       label: t("features.stats.contentTypes"),
       description: t("socialProof.stats.contentIncrease"),
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
     },
     {
       icon: Award,
       value: "4.9/5",
       label: t("socialProof.stats.rating"),
       description: "2,000+ reviews",
-      iconBg: "bg-amber-100",
-      iconColor: "text-amber-600",
     },
     {
       icon: Shield,
       value: "99.9%",
       label: "Uptime",
       description: "Enterprise-grade reliability",
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
     },
   ];
 
@@ -63,8 +55,8 @@ export function SocialProofSection() {
               transition={{ duration: 0.3, delay: index * 0.05 }}
               className="text-center p-6 rounded-xl bg-card border border-border/40"
             >
-              <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${metric.iconBg} mb-3`}>
-                <metric.icon className={`w-5 h-5 ${metric.iconColor}`} />
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-muted mb-3">
+                <metric.icon className="w-5 h-5 text-foreground/70" />
               </div>
               <div className="text-2xl lg:text-3xl font-bold text-foreground">
                 {metric.value}
