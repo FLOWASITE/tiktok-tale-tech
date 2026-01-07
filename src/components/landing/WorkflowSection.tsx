@@ -37,13 +37,31 @@ const contentTypes = [
 const step1Images = [workflowBrandImg, workflowBrand2Img];
 const step2Images = [workflowTopicImg, workflowTopic2Img];
 
+// Step number component with timeline
+function StepNumber({ num, isLast }: { num: number; isLast: boolean }) {
+  return (
+    <div className="relative flex flex-col items-center shrink-0">
+      {/* Prominent number in gradient circle */}
+      <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/25 ring-4 ring-primary/10 z-10 transition-transform hover:scale-110">
+        <span className="text-xl md:text-2xl font-bold text-white">{num}</span>
+      </div>
+      
+      {/* Timeline line connecting to next step */}
+      {!isLast && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-[calc(100%+2rem)] bg-gradient-to-b from-primary/50 via-primary/30 to-primary/10" />
+      )}
+    </div>
+  );
+}
+
 interface StepWithCarouselProps {
   step: { num: number; key: string; hasFeature?: boolean };
   images: string[];
   altPrefix: string;
+  isLast: boolean;
 }
 
-function StepWithCarousel({ step, images, altPrefix }: StepWithCarouselProps) {
+function StepWithCarousel({ step, images, altPrefix, isLast }: StepWithCarouselProps) {
   const { t } = useTranslation();
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -75,12 +93,10 @@ function StepWithCarousel({ step, images, altPrefix }: StepWithCarouselProps) {
 
   return (
     <div className="space-y-6">
-      {/* Step text content */}
-      <div className="flex gap-6 items-start">
-        <span className="text-4xl font-light text-primary min-w-[3rem]">
-          {step.num}
-        </span>
-        <div className="flex-1">
+      {/* Step text content with timeline */}
+      <div className="flex gap-5 md:gap-6 items-start">
+        <StepNumber num={step.num} isLast={isLast} />
+        <div className="flex-1 pt-2">
           <h3 className="text-xl font-semibold text-foreground mb-2">
             {t(`workflow.steps.${step.key}.title`)}
           </h3>
@@ -96,7 +112,7 @@ function StepWithCarousel({ step, images, altPrefix }: StepWithCarouselProps) {
       </div>
       
       {/* Carousel below step */}
-      <div className="ml-0 md:ml-[4.5rem]">
+      <div className="ml-[4.5rem] md:ml-[5rem]">
         <div className="overflow-hidden rounded-xl" ref={emblaRef}>
           <div className="flex">
             {images.map((img, idx) => (
@@ -181,16 +197,14 @@ export function WorkflowSection() {
             >
               {/* Step 1 & 2: with image carousel */}
               {step.num === 1 ? (
-                <StepWithCarousel step={step} images={step1Images} altPrefix="Brand Setup Screenshot" />
+                <StepWithCarousel step={step} images={step1Images} altPrefix="Brand Setup Screenshot" isLast={index === steps.length - 1} />
               ) : step.num === 2 ? (
-                <StepWithCarousel step={step} images={step2Images} altPrefix="Topic Suggestion Screenshot" />
+                <StepWithCarousel step={step} images={step2Images} altPrefix="Topic Suggestion Screenshot" isLast={index === steps.length - 1} />
               ) : (
-                /* Other steps: original layout */
-                <div className="flex gap-6 items-start">
-                  <span className="text-4xl font-light text-primary min-w-[3rem]">
-                    {step.num}
-                  </span>
-                  <div className="flex-1">
+                /* Other steps: original layout with timeline */
+                <div className="flex gap-5 md:gap-6 items-start">
+                  <StepNumber num={step.num} isLast={index === steps.length - 1} />
+                  <div className="flex-1 pt-2">
                     <h3 className="text-xl font-semibold text-foreground mb-2">
                       {t(`workflow.steps.${step.key}.title`)}
                     </h3>
