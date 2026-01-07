@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Facebook, Twitter, Linkedin, Instagram, Youtube } from "lucide-react";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import logo from "@/assets/logo.png";
 
 const socialLinks = [
@@ -175,6 +176,7 @@ export function FooterSection() {
             {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
           <div className="flex items-center gap-4">
+            <LanguageSwitcher variant="dropdown" />
             <motion.span 
               className="text-xs text-muted-foreground flex items-center gap-1"
               whileHover={{ scale: 1.05 }}
