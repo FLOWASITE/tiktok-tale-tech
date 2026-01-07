@@ -175,15 +175,7 @@ export function FooterSection() {
           <p className="text-sm text-muted-foreground">
             {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
-          <div className="flex items-center gap-4">
-            <LanguageSwitcher variant="dropdown" />
-            <motion.span 
-              className="text-xs text-muted-foreground flex items-center gap-1"
-              whileHover={{ scale: 1.05 }}
-            >
-              Made with ❤️ in Việt Nam
-            </motion.span>
-          </div>
+          <LanguageSwitcher variant="dropdown" />
         </motion.div>
       </div>
     </footer>
