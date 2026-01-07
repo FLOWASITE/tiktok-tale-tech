@@ -6,11 +6,11 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import logo from "@/assets/logo.png";
 
 const socialLinks = [
-  { icon: Facebook, href: "#", label: "Facebook" },
-  { icon: Twitter, href: "#", label: "Twitter" },
-  { icon: Linkedin, href: "#", label: "LinkedIn" },
-  { icon: Instagram, href: "#", label: "Instagram" },
-  { icon: Youtube, href: "#", label: "YouTube" },
+  { icon: Facebook, href: "https://www.facebook.com/profile.php?id=61575157292883", label: "Facebook" },
+  { icon: Twitter, href: "https://x.com/FlowaSite", label: "X" },
+  { icon: Linkedin, href: "https://www.linkedin.com/in/flowaone/", label: "LinkedIn" },
+  { icon: Instagram, href: "https://www.instagram.com/flowaone/", label: "Instagram" },
+  { icon: Youtube, href: "https://www.youtube.com/@Flowasite", label: "YouTube" },
 ];
 
 export function FooterSection() {
