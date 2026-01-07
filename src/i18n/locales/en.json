@@ -40,19 +40,28 @@
     }
   },
   "painPoints": {
-    "badge": "6 Problems Eating 80% of Marketing Time",
-    "title": "Flowa Solves Each One",
+    "badge": "6 Problems Eating 80% of Marketing Team's Time",
+    "title": "Flowa Solves Each One — In 10 Minutes",
     "subtitle": "From chaos to control, from burnout to breakthrough",
     "problemLabel": "Problem",
+    "realityLabel": "Real Consequences",
     "consequenceLabel": "Consequences",
     "solutionLabel": "Solution",
     "exclusiveFeaturesLabel": "Exclusive Features",
     "resultLabel": "Results",
+    "mostPopular": "Most Popular",
+    "cta": {
+      "question": "Which problem are you facing?",
+      "primary": "Start Free Trial",
+      "secondary": "Watch 2-Min Demo",
+      "benefit1": "No credit card required",
+      "benefit2": "5-minute setup"
+    },
     "cards": {
       "multiChannel": {
         "category": "Multi-Channel Content",
         "problemTitle": "Open 12 Tabs, Copy-Paste 12 Times",
-        "problemSubtitle": "Still Wrong Format on Instagram",
+        "problemSubtitle": "Instagram Still Cuts Off Your Caption",
         "realityChecks": [
           "Website needs 800 words with SEO structure",
           "Facebook max 300 words, rich text format",
@@ -78,7 +87,7 @@
         "beforeValue": "2-3 hours/topic",
         "afterLabel": "With Flowa",
         "afterValue": "10 mins/topic",
-        "savingHighlight": "→ Save 90% time"
+        "savingHighlight": "Save 90% time"
       },
       "videoScript": {
         "category": "Video Content",
@@ -107,11 +116,11 @@
         "beforeValue": "2 hrs + 5 takes",
         "afterLabel": "With Flowa",
         "afterValue": "10 mins + 1 take",
-        "savingHighlight": "→ 3x more engagement"
+        "savingHighlight": "3x more engagement"
       },
       "carousel": {
         "category": "Visual Content",
-        "problemTitle": "Design 10 Carousel Slides",
+        "problemTitle": "1 Carousel = 1 Day. Seriously?",
         "problemSubtitle": "Takes a Full Work Day",
         "realityChecks": [
           "Carousel = Highest engagement content type",
@@ -136,7 +145,7 @@
         "beforeValue": "4-5 hrs/carousel",
         "afterLabel": "With Flowa",
         "afterValue": "30 mins/carousel",
-        "savingHighlight": "→ Save 90% time"
+        "savingHighlight": "Save 90% time"
       },
       "ideation": {
         "category": "Content Strategy",
@@ -165,12 +174,12 @@
         "beforeValue": "2 hrs + 30% bad ideas",
         "afterLabel": "With Flowa",
         "afterValue": "5 mins + 80% good ideas",
-        "savingHighlight": "→ Never run out of ideas"
+        "savingHighlight": "Never run out of ideas"
       },
       "brandVoice": {
         "category": "Brand Identity",
-        "problemTitle": "Facebook Fun, LinkedIn Serious",
-        "problemSubtitle": "Website Like Someone Else Wrote",
+        "problemTitle": "3 Writers = 3 Different Voices",
+        "problemSubtitle": "Website Reads Like an Intern Wrote It",
         "realityChecks": [
           "3 writers → 3 different tones",
           "Intern writes social → doesn't understand brand guidelines",
@@ -194,12 +203,12 @@
         "beforeValue": "20-page guidelines",
         "afterLabel": "With Flowa",
         "afterValue": "AI enforces 100%",
-        "savingHighlight": "→ 3x brand recognition"
+        "savingHighlight": "3x brand recognition"
       },
       "publishing": {
         "category": "Content Operations",
-        "problemTitle": "Missed Deadlines, Wrong Channels",
-        "problemSubtitle": "Duplicate Posts 3 Times",
+        "problemTitle": "Wrong Channel, Boss Asks 'Who Approved?'",
+        "problemSubtitle": "Same Post 3 Times — Everyone Blames Each Other",
         "realityChecks": [
           "12 channels × 30 posts/month = 360 posts",
           "Each channel has separate dashboard",
@@ -223,7 +232,7 @@
         "beforeValue": "360 logins/month",
         "afterLabel": "With Flowa",
         "afterValue": "1 dashboard",
-        "savingHighlight": "→ 0% missed deadlines"
+        "savingHighlight": "0% missed deadlines"
       }
     }
   },

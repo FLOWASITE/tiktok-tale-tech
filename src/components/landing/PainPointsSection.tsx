@@ -2,10 +2,11 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { 
   Share2, Video, LayoutGrid, Brain, Palette, Calendar,
-  X, Check, ArrowRight, Zap, ChevronDown, Sparkles
+  X, Check, ArrowRight, Zap, ChevronDown, Sparkles, Star, Rocket
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -26,18 +27,57 @@ const itemVariants = {
   },
 };
 
+// Color coding for feature tags
+const featureTagColors: Record<string, string> = {
+  // AI Features - Blue
+  "Self-Critique AI": "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  "Context-Aware AI": "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  "Performance Learning": "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  
+  // Integration Features - Green
+  "Brand Voice Sync": "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  "Channel Overrides": "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  "Brand Integration": "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  "Multi-AI Support": "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  
+  // Compliance Features - Yellow/Amber
+  "Industry Compliance": "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  "Industry Memory": "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  "Conflict Detection": "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  
+  // Productivity Features - Purple
+  "Timing Calculator": "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  "Bulk Actions": "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  "Caption Ready": "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  "Seasonal Suggestions": "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  
+  // Creative Features - Pink (default)
+  "Hook Library 50+": "bg-primary/10 text-primary border-primary/20",
+  "Visual Cues": "bg-primary/10 text-primary border-primary/20",
+  "Voice Variants": "bg-primary/10 text-primary border-primary/20",
+  "Campaign Overlay": "bg-primary/10 text-primary border-primary/20",
+};
+
+const getFeatureTagColor = (feature: string): string => {
+  return featureTagColors[feature] || "bg-primary/10 text-primary border-primary/20";
+};
+
 interface PainPointCardProps {
   cardKey: string;
   icon: React.ElementType;
   isExpanded: boolean;
   onToggle: () => void;
+  isPopular?: boolean;
 }
 
-function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle }: PainPointCardProps) {
+function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle, isPopular }: PainPointCardProps) {
   const { t } = useTranslation();
   
+  // Merge reality checks and consequences into one array
   const realityChecks = t(`painPoints.cards.${cardKey}.realityChecks`, { returnObjects: true }) as string[];
   const consequences = t(`painPoints.cards.${cardKey}.consequences`, { returnObjects: true }) as string[];
+  const combinedPainPoints = [...(Array.isArray(realityChecks) ? realityChecks : []), ...(Array.isArray(consequences) ? consequences : [])];
+  
   const solutionSteps = t(`painPoints.cards.${cardKey}.solutionSteps`, { returnObjects: true }) as string[];
   const exclusiveFeatures = t(`painPoints.cards.${cardKey}.exclusiveFeatures`, { returnObjects: true }) as string[];
 
@@ -47,10 +87,25 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle }: PainPointC
       className="group"
     >
       <motion.div
-        whileHover={{ y: -4 }}
+        whileHover={{ y: -8 }}
         transition={{ duration: 0.3 }}
-        className="relative h-full rounded-2xl bg-card/80 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden"
+        className={cn(
+          "relative h-full rounded-2xl bg-card/80 backdrop-blur-sm border transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden",
+          isPopular 
+            ? "border-primary/50 hover:border-primary ring-2 ring-primary/20" 
+            : "border-border/50 hover:border-primary/30"
+        )}
       >
+        {/* Popular Badge */}
+        {isPopular && (
+          <div className="absolute top-0 right-0 z-10">
+            <div className="bg-primary text-primary-foreground px-3 py-1.5 text-xs font-bold rounded-bl-xl flex items-center gap-1.5">
+              <Star className="w-3 h-3 fill-current" />
+              {t("painPoints.mostPopular")}
+            </div>
+          </div>
+        )}
+
         <div className="p-6 lg:p-8">
           {/* Category Badge */}
           <div className="flex items-center justify-between mb-6">
@@ -58,10 +113,15 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle }: PainPointC
               {t(`painPoints.cards.${cardKey}.category`)}
             </span>
             <motion.div
-              whileHover={{ scale: 1.1 }}
-              className="w-10 h-10 rounded-xl bg-muted/60 border border-border flex items-center justify-center"
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              className={cn(
+                "w-10 h-10 rounded-xl border flex items-center justify-center transition-colors",
+                isPopular 
+                  ? "bg-primary/10 border-primary/30" 
+                  : "bg-muted/60 border-border"
+              )}
             >
-              <Icon className="w-5 h-5 text-muted-foreground" />
+              <Icon className={cn("w-5 h-5", isPopular ? "text-primary" : "text-muted-foreground")} />
             </motion.div>
           </div>
 
@@ -81,8 +141,8 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle }: PainPointC
             </p>
           </div>
 
-          {/* Reality Check - Collapsible */}
-          <div className="mb-4">
+          {/* Combined Pain Points (Reality Check + Consequences) - Collapsible */}
+          <div className="mb-6">
             <button
               onClick={onToggle}
               className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full"
@@ -93,7 +153,7 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle }: PainPointC
               >
                 <ChevronDown className="w-4 h-4" />
               </motion.div>
-              <span>📉 Reality Check</span>
+              <span>💔 {t("painPoints.realityLabel")}</span>
             </button>
             
             <motion.div
@@ -105,28 +165,15 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle }: PainPointC
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <ul className="mt-3 space-y-1.5 pl-6">
-                {Array.isArray(realityChecks) && realityChecks.map((check, idx) => (
-                  <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
-                    <span className="text-muted-foreground/60">•</span>
-                    <span>{check}</span>
-                  </li>
+              <div className="mt-3 pl-4 border-l-2 border-muted/40 space-y-1.5">
+                {combinedPainPoints.map((point, idx) => (
+                  <p key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
+                    <span className="text-muted-foreground/60 shrink-0">→</span>
+                    <span>{point}</span>
+                  </p>
                 ))}
-              </ul>
+              </div>
             </motion.div>
-          </div>
-
-          {/* Consequences */}
-          <div className="mb-6 pl-4 border-l-2 border-muted/40">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">💔 {t("painPoints.consequenceLabel")}</p>
-            <ul className="space-y-1">
-              {Array.isArray(consequences) && consequences.map((consequence, idx) => (
-                <li key={idx} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                  <span className="text-muted-foreground/60">→</span>
-                  <span>{consequence}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Divider */}
@@ -163,43 +210,64 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle }: PainPointC
             </div>
           </div>
 
-          {/* Exclusive Features */}
+          {/* Exclusive Features with Color Coding */}
           <div className="mb-6">
             <p className="text-xs font-semibold text-muted-foreground mb-2">💎 {t("painPoints.exclusiveFeaturesLabel")}</p>
             <div className="flex flex-wrap gap-1.5">
               {Array.isArray(exclusiveFeatures) && exclusiveFeatures.map((feature, idx) => (
-                <span
+                <motion.span
                   key={idx}
-                  className="px-2 py-1 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20"
+                  whileHover={{ scale: 1.05 }}
+                  className={cn(
+                    "px-2 py-1 rounded-full text-[10px] font-medium border transition-all",
+                    getFeatureTagColor(feature)
+                  )}
                 >
                   {feature}
-                </span>
+                </motion.span>
               ))}
             </div>
           </div>
 
-          {/* Before/After Comparison */}
+          {/* Enhanced Before/After Comparison */}
           <div className="bg-muted/30 rounded-xl p-4">
             <p className="text-xs font-semibold text-muted-foreground mb-3">📊 {t("painPoints.resultLabel")}</p>
             <div className="flex items-center gap-3">
+              {/* Before Box */}
               <div className="flex-1 text-center p-3 rounded-lg bg-muted/60 border border-border/50">
                 <p className="text-[10px] text-muted-foreground mb-1">{t(`painPoints.cards.${cardKey}.beforeLabel`)}</p>
                 <p className="text-sm font-bold text-muted-foreground">{t(`painPoints.cards.${cardKey}.beforeValue`)}</p>
               </div>
+              
+              {/* Animated Arrow */}
               <motion.div
-                animate={{ x: [0, 4, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+                animate={{ x: [0, 6, 0] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                className="shrink-0"
               >
                 <ArrowRight className="w-5 h-5 text-primary" />
               </motion.div>
-              <div className="flex-1 text-center p-3 rounded-lg bg-primary/10 border border-primary/20">
+              
+              {/* After Box - Enhanced with gradient */}
+              <div className="flex-1 text-center p-3 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/30 relative overflow-hidden">
+                <div className="absolute top-1 right-1">
+                  <Sparkles className="w-3 h-3 text-primary/50" />
+                </div>
                 <p className="text-[10px] text-primary mb-1">{t(`painPoints.cards.${cardKey}.afterLabel`)}</p>
-                <p className="text-sm font-bold text-primary">{t(`painPoints.cards.${cardKey}.afterValue`)}</p>
+                <p className="text-base font-extrabold text-primary">{t(`painPoints.cards.${cardKey}.afterValue`)}</p>
               </div>
             </div>
-            <p className="text-center text-xs font-semibold text-primary mt-3">
+            
+            {/* Saving Highlight */}
+            <motion.p 
+              initial={{ opacity: 0.8 }}
+              animate={{ opacity: [0.8, 1, 0.8] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-center text-xs font-bold text-primary mt-3 flex items-center justify-center gap-1"
+            >
+              <Rocket className="w-3 h-3" />
               {t(`painPoints.cards.${cardKey}.savingHighlight`)}
-            </p>
+            </motion.p>
           </div>
         </div>
       </motion.div>
@@ -212,7 +280,7 @@ export function PainPointsSection() {
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   const cards = [
-    { key: "multiChannel", icon: Share2 },
+    { key: "multiChannel", icon: Share2, isPopular: true },
     { key: "videoScript", icon: Video },
     { key: "carousel", icon: LayoutGrid },
     { key: "ideation", icon: Brain },
@@ -268,7 +336,7 @@ export function PainPointsSection() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16"
         >
           {cards.map((card) => (
             <PainPointCard
@@ -277,8 +345,43 @@ export function PainPointsSection() {
               icon={card.icon}
               isExpanded={expandedCards[card.key] || false}
               onToggle={() => toggleCard(card.key)}
+              isPopular={card.isPopular}
             />
           ))}
+        </motion.div>
+
+        {/* CTA Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="max-w-2xl mx-auto"
+        >
+          <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-8 text-center shadow-lg">
+            <h3 className="text-xl font-bold text-foreground mb-4">
+              {t("painPoints.cta.question")}
+            </h3>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+              <Button size="lg" className="gap-2 font-semibold">
+                <Rocket className="w-4 h-4" />
+                {t("painPoints.cta.primary")}
+              </Button>
+              <Button size="lg" variant="outline" className="gap-2 font-semibold">
+                {t("painPoints.cta.secondary")}
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Check className="w-3 h-3 text-primary" />
+                {t("painPoints.cta.benefit1")}
+              </span>
+              <span className="flex items-center gap-1">
+                <Check className="w-3 h-3 text-primary" />
+                {t("painPoints.cta.benefit2")}
+              </span>
+            </div>
+          </div>
         </motion.div>
       </div>
     </section>
