@@ -23,7 +23,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-chatbo
 const WELCOME_MESSAGE: SalesChatMessage = {
   id: 'welcome',
   role: 'assistant',
-  content: `Xin chào! 👋 Tôi là **Linh** - Tư vấn viên AI của Flowa.
+  content: `Xin chào! 👋 Tôi là **Linh** - Tư vấn viên của Flowa.
 
 Flowa là nền tảng AI Content Marketing giúp bạn **tạo 1 tuần content trong 1 giờ**, tiết kiệm 80% thời gian!
 
