@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 const languages = [
   { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
   { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'th', name: 'ภาษาไทย', flag: '🇹🇭' },
 ];
 
 interface LanguageSwitcherProps {
