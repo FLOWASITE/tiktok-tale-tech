@@ -1,18 +1,30 @@
-import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { X, Send, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSalesChat, SalesChatMessage } from '@/hooks/useSalesChat';
+import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { LinhAvatar } from './LinhAvatar';
+
+const SALES_REACTIONS = ['👍', '👎', '❤️'];
+const GREET_STORAGE_KEY = 'flowa_sales_greeted';
+const SOUND_STORAGE_KEY = 'flowa_sales_sound';
+
 // Message Bubble Component
-function MessageBubble({ message, onSuggestionClick, onCtaClick }: {
+function MessageBubble({ 
+  message, 
+  onSuggestionClick, 
+  onCtaClick,
+  onReact,
+}: {
   message: SalesChatMessage;
   onSuggestionClick: (text: string) => void;
   onCtaClick: (action: string) => void;
+  onReact: (messageId: string, emoji: string) => void;
 }) {
   const isUser = message.role === 'user';
 
@@ -21,7 +33,7 @@ function MessageBubble({ message, onSuggestionClick, onCtaClick }: {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "flex gap-2 mb-3",
+        "flex gap-2 mb-3 group",
         isUser ? "justify-end" : "justify-start"
       )}
     >
@@ -82,6 +94,35 @@ function MessageBubble({ message, onSuggestionClick, onCtaClick }: {
             ))}
           </div>
         )}
+
+        {/* Emoji Reactions - Only for assistant messages */}
+        {!isUser && (
+          <div className="flex items-center gap-1 mt-2">
+            {/* Show existing reactions */}
+            {message.reactions && message.reactions.length > 0 && (
+              <div className="flex gap-0.5 mr-1">
+                {message.reactions.map((emoji, idx) => (
+                  <span key={idx} className="text-sm">{emoji}</span>
+                ))}
+              </div>
+            )}
+            {/* Reaction picker */}
+            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              {SALES_REACTIONS.map(emoji => (
+                <button
+                  key={emoji}
+                  onClick={() => onReact(message.id, emoji)}
+                  className={cn(
+                    "text-sm hover:scale-125 transition-transform px-1 rounded hover:bg-primary/10",
+                    message.reactions?.includes(emoji) && "bg-primary/20"
+                  )}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {isUser && (
@@ -122,12 +163,88 @@ function TypingIndicator() {
   );
 }
 
+// Proactive Greeting Tooltip
+function GreetingTooltip({ onDismiss }: { onDismiss: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 10000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20, scale: 0.9 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 20, scale: 0.9 }}
+      className="absolute right-full mr-3 bottom-2 whitespace-nowrap bg-background shadow-lg rounded-full px-4 py-2.5 text-sm border border-border"
+    >
+      <span className="font-medium">Em có thể giúp gì cho anh/chị ạ? 😊</span>
+      {/* Arrow pointing right */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 w-2 h-2 bg-background border-r border-b border-border rotate-[-45deg]" />
+    </motion.div>
+  );
+}
+
 export function SalesChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
-  const { messages, isLoading, sendMessage, clearMessages } = useSalesChat();
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return localStorage.getItem(SOUND_STORAGE_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showGreetTooltip, setShowGreetTooltip] = useState(false);
+  
+  const { messages, isLoading, sendMessage, clearMessages, addReaction } = useSalesChat();
+  const { playSend, playReceive } = useSoundEffects(soundEnabled);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevMessagesLengthRef = useRef(messages.length);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+
+  // Save sound preference
+  useEffect(() => {
+    try {
+      localStorage.setItem(SOUND_STORAGE_KEY, String(soundEnabled));
+    } catch {}
+  }, [soundEnabled]);
+
+  // Proactive greeting after 30 seconds
+  useEffect(() => {
+    const hasGreeted = localStorage.getItem(GREET_STORAGE_KEY) === 'true';
+    if (hasGreeted || isOpen) return;
+
+    const timer = setTimeout(() => {
+      setShowGreetTooltip(true);
+      localStorage.setItem(GREET_STORAGE_KEY, 'true');
+    }, 30000);
+
+    return () => clearTimeout(timer);
+  }, [isOpen]);
+
+  // Handle unread count and sound when new assistant message arrives
+  useEffect(() => {
+    if (messages.length > prevMessagesLengthRef.current) {
+      const newMessage = messages[messages.length - 1];
+      if (newMessage.role === 'assistant') {
+        playReceive();
+        if (!isOpen) {
+          setUnreadCount(prev => prev + 1);
+        }
+      }
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages, isOpen, playReceive]);
+
+  // Reset unread count when opening chat
+  useEffect(() => {
+    if (isOpen) {
+      setUnreadCount(0);
+      setShowGreetTooltip(false);
+    }
+  }, [isOpen]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -147,10 +264,12 @@ export function SalesChatWidget() {
     if (!input.trim() || isLoading) return;
     const text = input;
     setInput('');
+    playSend();
     await sendMessage(text);
   };
 
   const handleSuggestionClick = (text: string) => {
+    playSend();
     sendMessage(text);
   };
 
@@ -164,7 +283,6 @@ export function SalesChatWidget() {
         setIsOpen(false);
         break;
       case 'DEMO':
-        // Could open a demo video modal or link
         window.open('https://flowa.vn/demo', '_blank');
         break;
       case 'CONTACT':
@@ -173,30 +291,63 @@ export function SalesChatWidget() {
     }
   };
 
+  const handleReact = useCallback((messageId: string, emoji: string) => {
+    addReaction(messageId, emoji);
+  }, [addReaction]);
+
+  const handleDragEnd = useCallback((_: any, info: PanInfo) => {
+    // Swipe down to close on mobile
+    if (isMobile && info.offset.y > 100) {
+      setIsOpen(false);
+    }
+  }, [isMobile]);
+
+  const dismissGreetTooltip = useCallback(() => {
+    setShowGreetTooltip(false);
+  }, []);
+
   return (
     <>
       {/* FAB Button */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.button
+          <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pl-1.5 pr-4 py-1.5 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+            className="fixed bottom-6 right-6 z-50"
           >
-            <LinhAvatar size="lg" showOnline />
-            <span className="text-sm font-medium hidden sm:inline">Chat với Thùy Linh</span>
+            {/* Proactive Greeting Tooltip */}
+            <AnimatePresence>
+              {showGreetTooltip && (
+                <GreetingTooltip onDismiss={dismissGreetTooltip} />
+              )}
+            </AnimatePresence>
             
-            {/* Pulse effect */}
-            <motion.div
-              className="absolute inset-0 rounded-full bg-primary/30"
-              animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}
-              transition={{ duration: 2.5, repeat: Infinity }}
-            />
-          </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsOpen(true)}
+              className="relative flex items-center gap-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pl-1.5 pr-4 py-1.5 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+            >
+              <LinhAvatar size="lg" showOnline />
+              <span className="text-sm font-medium hidden sm:inline">Chat với Thùy Linh</span>
+              
+              {/* Unread Badge */}
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+              
+              {/* Pulse effect */}
+              <motion.div
+                className="absolute inset-0 rounded-full bg-primary/30"
+                animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+              />
+            </motion.button>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -208,8 +359,25 @@ export function SalesChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 right-6 z-50 w-[calc(100vw-3rem)] sm:w-[400px] h-[600px] max-h-[80vh] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            drag={isMobile ? 'y' : false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.3 }}
+            onDragEnd={handleDragEnd}
+            className={cn(
+              "fixed z-50 bg-background border shadow-2xl flex flex-col overflow-hidden",
+              // Mobile: full screen
+              "inset-0 w-full h-full rounded-none border-0",
+              // Desktop: positioned popup
+              "sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[400px] sm:h-[600px] sm:max-h-[80vh] sm:rounded-2xl sm:border-border"
+            )}
           >
+            {/* Drag indicator on mobile */}
+            {isMobile && (
+              <div className="flex justify-center pt-2 pb-1">
+                <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+              </div>
+            )}
+
             {/* Header */}
             <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -220,6 +388,16 @@ export function SalesChatWidget() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                {/* Sound Toggle */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/10"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -248,13 +426,17 @@ export function SalesChatWidget() {
                   message={message}
                   onSuggestionClick={handleSuggestionClick}
                   onCtaClick={handleCtaClick}
+                  onReact={handleReact}
                 />
               ))}
               {isLoading && <TypingIndicator />}
             </ScrollArea>
 
             {/* Input */}
-            <div className="p-3 border-t border-border bg-muted/30">
+            <div className={cn(
+              "p-3 border-t border-border bg-muted/30",
+              isMobile && "pb-safe" // Safe area for iPhone
+            )}>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

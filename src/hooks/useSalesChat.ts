@@ -7,6 +7,7 @@ export interface SalesChatMessage {
   timestamp: Date;
   suggestions?: string[];
   ctaActions?: Array<{ action: string; label: string }>;
+  reactions?: string[];
 }
 
 interface UseSalesChatReturn {
@@ -15,6 +16,7 @@ interface UseSalesChatReturn {
   error: string | null;
   sendMessage: (content: string) => Promise<void>;
   clearMessages: () => void;
+  addReaction: (messageId: string, emoji: string) => void;
 }
 
 const STORAGE_KEY = 'flowa_sales_chat_messages';
@@ -240,11 +242,25 @@ export function useSalesChat(): UseSalesChatReturn {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const addReaction = useCallback((messageId: string, emoji: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const currentReactions = m.reactions || [];
+      // Toggle reaction
+      const hasReaction = currentReactions.includes(emoji);
+      const newReactions = hasReaction
+        ? currentReactions.filter(r => r !== emoji)
+        : [...currentReactions, emoji];
+      return { ...m, reactions: newReactions };
+    }));
+  }, []);
+
   return {
     messages,
     isLoading,
     error,
     sendMessage,
     clearMessages,
+    addReaction,
   };
 }
