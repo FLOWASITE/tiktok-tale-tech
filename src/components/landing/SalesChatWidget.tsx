@@ -188,7 +188,7 @@ export function SalesChatWidget() {
             className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pl-1.5 pr-4 py-1.5 rounded-full shadow-lg hover:shadow-xl transition-shadow"
           >
             <LinhAvatar size="lg" showOnline />
-            <span className="text-sm font-medium hidden sm:inline">Chat với Linh</span>
+            <span className="text-sm font-medium hidden sm:inline">Chat với Thùy Linh</span>
             
             {/* Pulse effect */}
             <motion.div
@@ -215,7 +215,7 @@ export function SalesChatWidget() {
               <div className="flex items-center gap-3">
                 <LinhAvatar size="md" className="ring-white/30" />
                 <div>
-                  <h3 className="font-semibold text-sm">Chat với Linh</h3>
+                  <h3 className="font-semibold text-sm">Chat với Thùy Linh</h3>
                   <p className="text-xs opacity-80">Tư vấn viên Flowa</p>
                 </div>
               </div>
