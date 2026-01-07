@@ -7,7 +7,8 @@ const APP_DOMAINS = ['app.flowa.one', 'app.flowa.vn'];
 const LANDING_DOMAINS = ['flowa.one', 'flowa.vn', 'www.flowa.one', 'www.flowa.vn'];
 
 export function useDomainRouting() {
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const hostnameRaw = typeof window !== 'undefined' ? window.location.hostname : '';
+  const hostname = hostnameRaw.toLowerCase().replace(/\.$/, '');
   
   // Check if we're on localhost or preview domain (treat as app domain for development)
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
@@ -20,8 +21,8 @@ export function useDomainRouting() {
                       isPreviewDomain;
   
   // Check if on landing domain (root domain without app. prefix)
-  const isLandingDomain = LANDING_DOMAINS.some(domain => hostname === domain) ||
-                          (!isAppDomain && !isLocalhost && !isPreviewDomain);
+  // NOTE: Be strict here to avoid misclassifying app domains due to DNS/hostname edge cases.
+  const isLandingDomain = LANDING_DOMAINS.some(domain => hostname === domain);
 
   // Get the app domain URL for redirects
   const getAppUrl = (path: string = '/') => {
