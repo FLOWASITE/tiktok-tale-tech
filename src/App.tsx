@@ -416,7 +416,7 @@ function AppRoutes() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" storageKey="app-theme" enableSystem themes={["light", "dark", "lime", "system"]}>
+    <ThemeProvider attribute="class" defaultTheme="light" storageKey="app-theme" enableSystem themes={["light", "dark", "lime", "system"]}>
       <AuthProvider>
         <OrganizationProvider>
           <TooltipProvider>
