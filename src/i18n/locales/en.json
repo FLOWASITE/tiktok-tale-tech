@@ -77,6 +77,44 @@
     },
     "cta": "Start Free"
   },
+  "industryMemory": {
+    "badge": "Flowa Exclusive",
+    "title": "Vietnam Industry Knowledge",
+    "subtitle": "EXCLUSIVE compliance rules system, built by legal experts and continuously updated",
+    "stats": {
+      "packs": "Industry Packs",
+      "categories": "Categories",
+      "countries": "Countries"
+    },
+    "industries": {
+      "healthcare": "Healthcare & Pharma",
+      "finance": "Finance & Banking",
+      "realestate": "Real Estate",
+      "beauty": "Beauty & Spa",
+      "food": "Food & Beverage",
+      "education": "Education"
+    },
+    "preview": {
+      "forbiddenTerms": "Forbidden Terms",
+      "complianceRules": "Compliance Rules",
+      "claimRestrictions": "Claim Restrictions",
+      "exampleForbidden": "Example forbidden terms:"
+    },
+    "features": {
+      "noViolation": {
+        "title": "No Violations",
+        "description": "AI automatically checks forbidden terms and warns before publishing, helping you avoid legal risks"
+      },
+      "compliance": {
+        "title": "Legal Compliance",
+        "description": "Rules researched from Vietnam Advertising Law and industry regulatory documents"
+      },
+      "autoUpdate": {
+        "title": "Continuous Updates",
+        "description": "Legal expert team monitors and updates new rules when regulations change"
+      }
+    }
+  },
   "features": {
     "badge": "Key Features",
     "title": "Everything you need for",

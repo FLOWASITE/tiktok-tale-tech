@@ -2,6 +2,7 @@ import {
   LandingNav,
   HeroSection,
   WorkflowSection,
+  IndustryMemorySection,
   SocialProofSection,
   PricingSection,
   FAQSection,
@@ -19,6 +20,7 @@ export default function Landing() {
       <main>
         <HeroSection />
         <WorkflowSection />
+        <IndustryMemorySection />
         <SocialProofSection />
         <PricingSection />
         <FAQSection />
