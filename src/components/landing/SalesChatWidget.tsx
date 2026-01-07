@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, Trash2, Sparkles } from 'lucide-react';
+import { X, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSalesChat, SalesChatMessage } from '@/hooks/useSalesChat';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
-
+import { LinhAvatar } from './LinhAvatar';
 // Message Bubble Component
 function MessageBubble({ message, onSuggestionClick, onCtaClick }: {
   message: SalesChatMessage;
@@ -26,9 +26,7 @@ function MessageBubble({ message, onSuggestionClick, onCtaClick }: {
       )}
     >
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center flex-shrink-0">
-          <Sparkles className="w-4 h-4 text-primary-foreground" />
-        </div>
+        <LinhAvatar size="sm" />
       )}
       
       <div className={cn(
@@ -103,9 +101,7 @@ function TypingIndicator() {
       animate={{ opacity: 1 }}
       className="flex gap-2 mb-3"
     >
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-        <Sparkles className="w-4 h-4 text-primary-foreground" />
-      </div>
+      <LinhAvatar size="sm" />
       <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
         <div className="flex gap-1">
           {[0, 1, 2].map((i) => (
@@ -189,16 +185,16 @@ export function SalesChatWidget() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pl-1.5 pr-4 py-1.5 rounded-full shadow-lg hover:shadow-xl transition-shadow"
           >
-            <MessageCircle className="w-5 h-5" />
+            <LinhAvatar size="lg" showOnline />
             <span className="text-sm font-medium hidden sm:inline">Chat với Linh</span>
             
             {/* Pulse effect */}
             <motion.div
               className="absolute inset-0 rounded-full bg-primary/30"
-              animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}
+              transition={{ duration: 2.5, repeat: Infinity }}
             />
           </motion.button>
         )}
@@ -217,9 +213,7 @@ export function SalesChatWidget() {
             {/* Header */}
             <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5" />
-                </div>
+                <LinhAvatar size="md" className="ring-white/30" />
                 <div>
                   <h3 className="font-semibold text-sm">Chat với Linh</h3>
                   <p className="text-xs opacity-80">Tư vấn viên AI Flowa</p>
