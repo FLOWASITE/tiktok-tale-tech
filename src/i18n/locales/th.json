@@ -29,75 +29,30 @@
       "satisfaction": "พึงพอใจ"
     }
   },
-  "painPoints": {
-    "badge": "คุณสมบัติเด่น",
-    "title": "ทุกสิ่งที่คุณต้องการสำหรับ Content Marketing",
-    "subtitle": "ประหยัดเวลา 80% พร้อมคุณภาพที่ดีกว่า",
-    "features": {
-      "multiChannel": {
-        "keyword": "หลายช่องทาง",
-        "title": "ใน 10 นาที",
-        "description": "สร้างคอนเทนต์สำหรับ Facebook, Instagram, LinkedIn, TikTok โดยอัตโนมัติด้วยคำสั่งเดียว ประหยัดเวลา 5 ชั่วโมงทุกสัปดาห์"
-      },
-      "videoScript": {
-        "keyword": "สคริปต์วิดีโอ",
-        "title": "ใน 3 นาที",
-        "description": "AI สร้างสคริปต์ TikTok/Reels พร้อม hook, timing และ visual cues โดยละเอียด ถ่ายครั้งเดียว ไม่ต้องถ่ายซ้ำ"
-      },
-      "carousel": {
-        "keyword": "Carousel",
-        "title": "อัตโนมัติเต็มรูปแบบ",
-        "description": "สร้าง carousel post มืออาชีพพร้อม prompts สำหรับแต่ละสไลด์ caption และ CTA พร้อมโพสต์"
-      },
-      "adCopy": {
-        "keyword": "Ad Copy",
-        "title": "ที่แปลงยอดขาย",
-        "description": "AI สร้างเนื้อหาโฆษณา Facebook, Instagram, TikTok พร้อม A/B testing, การให้คะแนน และการเพิ่มประสิทธิภาพ CTR อัตโนมัติ"
-      },
-      "ideation": {
-        "keyword": "ไอเดีย",
-        "title": "ไม่มีขีดจำกัด",
-        "description": "AI ระดมความคิดหัวข้อสำหรับแบรนด์ของคุณ Discovery Feed trending, Topic Bank เก็บไอเดีย ไม่มีวันหมดไอเดีย"
-      },
-      "brandVoice": {
-        "keyword": "เสียงแบรนด์",
-        "title": "สม่ำเสมอเสมอ",
-        "description": "ตั้งค่าครั้งเดียว AI ใช้กับคอนเทนต์ทั้งหมด 3 คนเขียน เสียงเดียว การจดจำแบรนด์เพิ่ม 3 เท่า"
-      },
-      "publishing": {
-        "keyword": "ตั้งเวลา",
-        "title": "ด้วยคลิกเดียว",
-        "description": "แดชบอร์ดรวมทุกช่องทาง ลาก & วาง เพื่อจัดตาราง การมอบหมายทีมด้วย @mention 0% พลาด deadline"
-      },
-      "collaboration": {
-        "keyword": "ทำงานร่วมกัน",
-        "title": "กับทีมอย่างราบรื่น",
-        "description": "มอบหมายงาน, กำหนดสิทธิ์ Owner/Admin/Member, แชทเรียลไทม์ ใครทำอะไร ใครเห็นอะไร — ชัดเจนและปลอดภัย"
-      }
-    }
-  },
   "workflow": {
-    "badge": "ขั้นตอนง่าย",
+    "badge": "วิธีการทำงานของ Flowa",
     "title": "จากแบรนด์สู่คอนเทนต์",
     "titleHighlight": "ใน 5 ขั้นตอน",
-    "subtitle": "ไม่ต้องมีทักษะเทคนิค AI จัดการทุกอย่าง",
+    "subtitle": "ประหยัดเวลา 80% AI จัดการทุกอย่าง",
     "steps": {
       "step1": {
         "title": "ตั้งค่าแบรนด์",
-        "description": "อัปโหลดโลโก้ สี และ tone of voice ของแบรนด์"
+        "description": "อัปโหลดโลโก้ สี และ tone of voice ของแบรนด์",
+        "feature": "เสียงแบรนด์ที่สม่ำเสมอ"
       },
       "step2": {
         "title": "AI แนะนำหัวข้อ",
-        "description": "ตามแบรนด์และอุตสาหกรรม AI แนะนำหัวข้อที่กำลังเทรนด์"
+        "description": "ตามแบรนด์และอุตสาหกรรม AI แนะนำหัวข้อที่กำลังเทรนด์",
+        "feature": "ไอเดียไม่จำกัด"
       },
       "step3": {
         "title": "เลือกประเภทคอนเทนต์",
         "description": "จาก 1 หัวข้อ สร้างคอนเทนต์หลายรูปแบบ",
         "types": {
-          "multiChannel": "หลายช่องทาง",
-          "videoScript": "สคริปต์วิดีโอ",
-          "carousel": "Carousel",
-          "adCopy": "Ad Copy"
+          "multiChannel": { "name": "หลายช่องทาง", "highlight": "10 นาที" },
+          "videoScript": { "name": "สคริปต์วิดีโอ", "highlight": "3 นาที" },
+          "carousel": { "name": "Carousel", "highlight": "อัตโนมัติ" },
+          "adCopy": { "name": "Ad Copy", "highlight": "CTR สูง" }
         }
       },
       "step4": {
@@ -106,7 +61,8 @@
       },
       "step5": {
         "title": "อนุมัติ & ตั้งเวลา",
-        "description": "ตรวจสอบ แก้ไข และตั้งเวลาเผยแพร่อัตโนมัติ"
+        "description": "ตรวจสอบ มอบหมายทีม ตั้งเวลาเผยแพร่อัตโนมัติ",
+        "feature": "ตั้งเวลาคลิกเดียว + ทำงานร่วมกันเป็นทีม"
       }
     },
     "cta": "เริ่มต้นฟรี"

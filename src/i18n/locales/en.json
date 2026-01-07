@@ -39,75 +39,30 @@
       "aiGeneration": "AI Generation"
     }
   },
-  "painPoints": {
-    "badge": "Key Features",
-    "title": "Everything you need for Content Marketing",
-    "subtitle": "Save 80% of time with better quality",
-    "features": {
-      "multiChannel": {
-        "keyword": "Multi-channel",
-        "title": "in 10 minutes.",
-        "description": "Auto-create content for Facebook, Instagram, LinkedIn, TikTok with one command. Save 5 hours every week."
-      },
-      "videoScript": {
-        "keyword": "Video Script",
-        "title": "in 3 minutes.",
-        "description": "AI creates TikTok/Reels scripts with hooks, timing and detailed visual cues. Shoot once, no re-takes."
-      },
-      "carousel": {
-        "keyword": "Carousel",
-        "title": "fully automated.",
-        "description": "Create professional carousel posts with prompts for each slide, caption and CTA ready to post."
-      },
-      "adCopy": {
-        "keyword": "Ad Copy",
-        "title": "that converts.",
-        "description": "AI creates ad content for Facebook, Instagram, TikTok with A/B testing, scoring and auto CTR optimization."
-      },
-      "ideation": {
-        "keyword": "Ideas",
-        "title": "without limits.",
-        "description": "AI brainstorms topics for your brand, Discovery Feed trending, Topic Bank storage. Never run out of ideas."
-      },
-      "brandVoice": {
-        "keyword": "Brand voice",
-        "title": "always consistent.",
-        "description": "Setup once, AI applies to all content. 3 writers, same voice, 3x brand recognition."
-      },
-      "publishing": {
-        "keyword": "Schedule",
-        "title": "with one click.",
-        "description": "Overview dashboard for all channels, drag & drop reschedule, team assignment with @mention. 0% missed deadlines."
-      },
-      "collaboration": {
-        "keyword": "Collaborate",
-        "title": "with your team seamlessly.",
-        "description": "Assign tasks, set permissions for Owner/Admin/Member, real-time chat. Who does what, who sees what — clear and secure."
-      }
-    }
-  },
   "workflow": {
-    "badge": "Simple Process",
+    "badge": "How Flowa Works",
     "title": "From Brand to Content",
     "titleHighlight": "in 5 Steps",
-    "subtitle": "No technical skills needed, AI handles everything",
+    "subtitle": "Save 80% of time, AI handles everything",
     "steps": {
       "step1": {
         "title": "Set Up Brand",
-        "description": "Upload logo, colors, and tone of voice for your brand"
+        "description": "Upload logo, colors, and tone of voice for your brand",
+        "feature": "Consistent brand voice"
       },
       "step2": {
         "title": "AI Suggests Topics",
-        "description": "Based on your brand & industry, AI recommends trending topics"
+        "description": "Based on your brand & industry, AI recommends trending topics",
+        "feature": "Unlimited ideas"
       },
       "step3": {
         "title": "Choose Content Type",
         "description": "From 1 topic, create content in multiple formats",
         "types": {
-          "multiChannel": "Multi-channel",
-          "videoScript": "Video Script",
-          "carousel": "Carousel",
-          "adCopy": "Ad Copy"
+          "multiChannel": { "name": "Multi-channel", "highlight": "10 min" },
+          "videoScript": { "name": "Video Script", "highlight": "3 min" },
+          "carousel": { "name": "Carousel", "highlight": "auto" },
+          "adCopy": { "name": "Ad Copy", "highlight": "high CTR" }
         }
       },
       "step4": {
@@ -116,7 +71,8 @@
       },
       "step5": {
         "title": "Approve & Schedule",
-        "description": "Review, edit, and schedule automatic publishing"
+        "description": "Review, assign team, schedule automatic publishing",
+        "feature": "One-click scheduling + Team collaboration"
       }
     },
     "cta": "Start Free"
