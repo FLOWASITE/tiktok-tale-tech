@@ -70,6 +70,9 @@ export function SocialPlatformCredentialsDialog({
   const [showSecret, setShowSecret] = useState(false);
 
   const help = PLATFORM_HELP[platform];
+  const isFacebook = platform === 'facebook';
+  const keyLabel = isFacebook ? 'App ID' : 'Consumer Key (API Key)';
+  const secretLabel = isFacebook ? 'App Secret' : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
     if (open && existingSettings) {
@@ -143,10 +146,10 @@ export function SocialPlatformCredentialsDialog({
             />
           </div>
 
-          {/* Consumer Key */}
+          {/* Consumer Key / App ID */}
           <div className="space-y-2">
             <Label htmlFor="consumerKey">
-              Consumer Key (API Key) {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
+              {keyLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
             </Label>
             <div className="relative">
               <Input
@@ -154,7 +157,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showKey ? 'text' : 'password'}
                 value={consumerKey}
                 onChange={(e) => setConsumerKey(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : 'Nhập Consumer Key'}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebook ? 'App ID' : 'Consumer Key'}`}
                 className="pr-10"
               />
               <Button
@@ -174,10 +177,10 @@ export function SocialPlatformCredentialsDialog({
             )}
           </div>
 
-          {/* Consumer Secret */}
+          {/* Consumer Secret / App Secret */}
           <div className="space-y-2">
             <Label htmlFor="consumerSecret">
-              Consumer Secret (API Secret) {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
+              {secretLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
             </Label>
             <div className="relative">
               <Input
@@ -185,7 +188,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showSecret ? 'text' : 'password'}
                 value={consumerSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : 'Nhập Consumer Secret'}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebook ? 'App Secret' : 'Consumer Secret'}`}
                 className="pr-10"
               />
               <Button
