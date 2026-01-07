@@ -17,7 +17,7 @@ export function LandingNav() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
 
-      const sections = ["features", "how-it-works", "testimonials", "pricing"];
+      const sections = ["workflow", "industry-memory", "social-proof", "pricing", "faq"];
       for (const section of sections) {
         const element = document.getElementById(section);
         if (element) {
@@ -34,9 +34,9 @@ export function LandingNav() {
   }, []);
 
   const navLinks = [
-    { name: t('nav.features'), href: "#features" },
-    { name: t('nav.howItWorks'), href: "#how-it-works" },
-    { name: t('nav.testimonials'), href: "#testimonials" },
+    { name: t('nav.howItWorks'), href: "#workflow" },
+    { name: t('nav.industryMemory'), href: "#industry-memory" },
+    { name: t('nav.testimonials'), href: "#social-proof" },
     { name: t('nav.pricing'), href: "#pricing" },
   ];
 

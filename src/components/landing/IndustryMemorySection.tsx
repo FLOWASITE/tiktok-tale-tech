@@ -269,7 +269,7 @@ export function IndustryMemorySection() {
   ];
 
   return (
-    <section className="py-20 md:py-28 bg-background">
+    <section id="industry-memory" className="py-20 md:py-28 bg-background">
       <div className="container mx-auto px-4 md:px-6">
         {/* Header */}
         <motion.div

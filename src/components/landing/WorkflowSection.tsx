@@ -160,7 +160,7 @@ export function WorkflowSection() {
   ];
 
   return (
-    <section id="how-it-works" className="py-24 bg-background">
+    <section id="workflow" className="py-24 bg-background">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <motion.div
