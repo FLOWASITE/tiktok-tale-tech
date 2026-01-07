@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, User, ArrowRight, Calendar, TrendingUp } from 'lucide-react';
+import { Clock, User, ArrowRight, Calendar, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { LandingNav } from '@/components/landing/LandingNav';
 
 const Blog = () => {
   const { t } = useTranslation();
@@ -79,20 +80,7 @@ const Blog = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/landing" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-medium">Trang chủ</span>
-            </Link>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
-              Flowa Blog
-            </h1>
-            <div className="w-20" />
-          </div>
-        </div>
-      </nav>
+      <LandingNav />
 
       {/* Hero Section */}
       <section className="relative py-16 lg:py-24 overflow-hidden">
