@@ -47,32 +47,32 @@
     "steps": {
       "step1": {
         "title": "Khai báo Brand",
-        "description": "Upload logo, màu sắc, tone of voice của thương hiệu",
-        "feature": "Giọng điệu thương hiệu nhất quán"
+        "description": "Thiết lập Brand Template: logo, màu sắc, tone of voice, formality level, từ ngữ ưu tiên/cấm dùng, và compliance rules theo ngành.",
+        "feature": "AI học và giữ giọng điệu nhất quán trên mọi content"
       },
       "step2": {
         "title": "AI gợi ý Chủ đề",
-        "description": "Dựa trên brand & ngành, AI đề xuất topics trending",
-        "feature": "Ý tưởng không giới hạn"
+        "description": "AI phân tích xu hướng real-time từ TikTok, Facebook, kết hợp lịch sự kiện ngành và Customer Persona để đề xuất chủ đề phù hợp.",
+        "feature": "Trending topics + Customer Journey targeting"
       },
       "step3": {
         "title": "Chọn loại Content",
-        "description": "Từ 1 topic, tạo content cho nhiều định dạng",
+        "description": "Từ một chủ đề duy nhất, tạo content cho nhiều định dạng và nền tảng.",
         "types": {
-          "multiChannel": { "name": "Đa kênh", "highlight": "10 phút" },
-          "videoScript": { "name": "Video Script", "highlight": "3 phút" },
-          "carousel": { "name": "Carousel", "highlight": "tự động" },
-          "adCopy": { "name": "Ad Copy", "highlight": "CTR cao" }
+          "multiChannel": { "name": "Đa kênh", "highlight": "5+ platforms", "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo" },
+          "videoScript": { "name": "Video Script", "highlight": "15 thể loại", "subtitle": "Voice-over + chỉ dẫn diễn xuất" },
+          "carousel": { "name": "Carousel", "highlight": "5-10 slides", "subtitle": "Image prompts AI-ready" },
+          "adCopy": { "name": "Ad Copy", "highlight": "A/B testing", "subtitle": "Facebook, Google, TikTok Ads" }
         }
       },
       "step4": {
         "title": "AI tạo nội dung",
-        "description": "Trong vài giây, content hoàn chỉnh cho mọi platform"
+        "description": "AI tự đánh giá và cải thiện output qua Self-Critique, tuân thủ brand voice và compliance rules. Học từ feedback để ngày càng chính xác."
       },
       "step5": {
         "title": "Phê duyệt & Lên lịch",
-        "description": "Review, phân công team, lên lịch đăng tự động",
-        "feature": "Lên lịch một chạm + Cộng tác đội nhóm"
+        "description": "Review, chỉnh sửa inline, phân công team, lên lịch xuất bản tự động. Quản lý theo Campaign với timeline và KPI tracking.",
+        "feature": "Content Calendar + Team Collaboration"
       }
     },
     "cta": "Bắt đầu miễn phí"

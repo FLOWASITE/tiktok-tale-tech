@@ -102,14 +102,17 @@ export function WorkflowSection() {
                     {contentTypes.map((type) => (
                       <div
                         key={type.key}
-                        className="flex flex-col items-center gap-1 px-3 py-3 rounded-lg border border-border/50 bg-muted/30 text-center"
+                        className="flex flex-col items-center gap-1 px-3 py-4 rounded-lg border border-border/50 bg-muted/30 text-center"
                       >
                         <type.icon className="w-5 h-5 text-primary mb-1" />
                         <span className="text-sm font-medium text-foreground">
                           {t(`workflow.steps.step3.types.${type.key}.name`)}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs font-medium text-primary">
                           {t(`workflow.steps.step3.types.${type.key}.highlight`)}
+                        </span>
+                        <span className="text-xs text-muted-foreground leading-tight">
+                          {t(`workflow.steps.step3.types.${type.key}.subtitle`)}
                         </span>
                       </div>
                     ))}

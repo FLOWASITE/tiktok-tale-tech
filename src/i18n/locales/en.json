@@ -47,32 +47,32 @@
     "steps": {
       "step1": {
         "title": "Set Up Brand",
-        "description": "Upload logo, colors, and tone of voice for your brand",
-        "feature": "Consistent brand voice"
+        "description": "Configure Brand Template: logo, colors, tone of voice, formality level, preferred/forbidden words, and industry compliance rules.",
+        "feature": "AI learns and maintains consistent voice across all content"
       },
       "step2": {
         "title": "AI Suggests Topics",
-        "description": "Based on your brand & industry, AI recommends trending topics",
-        "feature": "Unlimited ideas"
+        "description": "AI analyzes real-time trends from TikTok, Facebook, combined with industry events calendar and Customer Personas to suggest relevant topics.",
+        "feature": "Trending topics + Customer Journey targeting"
       },
       "step3": {
         "title": "Choose Content Type",
-        "description": "From 1 topic, create content in multiple formats",
+        "description": "From a single topic, create content for multiple formats and platforms.",
         "types": {
-          "multiChannel": { "name": "Multi-channel", "highlight": "10 min" },
-          "videoScript": { "name": "Video Script", "highlight": "3 min" },
-          "carousel": { "name": "Carousel", "highlight": "auto" },
-          "adCopy": { "name": "Ad Copy", "highlight": "high CTR" }
+          "multiChannel": { "name": "Multi-channel", "highlight": "5+ platforms", "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo" },
+          "videoScript": { "name": "Video Script", "highlight": "15 formats", "subtitle": "Voice-over + acting directions" },
+          "carousel": { "name": "Carousel", "highlight": "5-10 slides", "subtitle": "AI-ready image prompts" },
+          "adCopy": { "name": "Ad Copy", "highlight": "A/B testing", "subtitle": "Facebook, Google, TikTok Ads" }
         }
       },
       "step4": {
         "title": "AI Creates Content",
-        "description": "In seconds, complete content for all platforms"
+        "description": "AI self-evaluates and improves output via Self-Critique, following brand voice and compliance rules. Learns from feedback for better accuracy."
       },
       "step5": {
         "title": "Approve & Schedule",
-        "description": "Review, assign team, schedule automatic publishing",
-        "feature": "One-click scheduling + Team collaboration"
+        "description": "Review, inline editing, assign team members, auto-schedule publishing. Manage by Campaign with timeline and KPI tracking.",
+        "feature": "Content Calendar + Team Collaboration"
       }
     },
     "cta": "Start Free"
