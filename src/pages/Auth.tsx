@@ -147,35 +147,12 @@ export default function Auth() {
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
 
       {/* Left side - Branding (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 bg-muted/30">
-        <div className="max-w-md space-y-8">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <img src={logoImage} alt="Flowa Logo" className="w-12 h-12 object-contain" />
-            <div>
-              <span className="text-3xl font-bold text-primary">Flowa</span>
-              <div className="text-xs text-muted-foreground tracking-wide">Content Platform</div>
-            </div>
-          </div>
-
-          {/* Tagline */}
-          <div className="space-y-3">
-            <h1 className="text-3xl font-bold text-foreground leading-tight">
-              One Flow. <span className="text-primary">All Content.</span>
-            </h1>
-            <p className="text-muted-foreground">
-              Nền tảng AI tạo nội dung đa kênh thông minh, giúp bạn tiết kiệm thời gian.
-            </p>
-          </div>
-
-          {/* Features - simple list */}
-          <div className="space-y-3">
-            {features.map((feature) => (
-              <div key={feature.text} className="flex items-center gap-3">
-                <feature.icon className="h-4 w-4 text-primary" />
-                <span className="text-sm text-foreground">{feature.text}</span>
-              </div>
-            ))}
+      <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-muted/20">
+        <div className="text-center space-y-4">
+          <img src={logoImage} alt="Flowa Logo" className="w-16 h-16 mx-auto" />
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Flowa</h1>
+            <p className="text-sm text-muted-foreground mt-1">Content Platform</p>
           </div>
         </div>
       </div>
