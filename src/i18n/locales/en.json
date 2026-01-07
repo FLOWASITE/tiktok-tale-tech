@@ -457,8 +457,14 @@
   "careers": {
     "badge": "Career Opportunities",
     "title": "Join the Flowa Team",
-    "subtitle": "Help us build the future of Content Marketing in Vietnam",
+    "subtitle": "Help us build the future of global Content Marketing",
     "viewPositions": "View Open Positions",
+    "stats": {
+      "remote": "Remote Work",
+      "countries": "Countries",
+      "rating": "Rating",
+      "growth": "Growth"
+    },
     "whyJoin": {
       "title": "Why Join Flowa?",
       "subtitle": "We believe great work environments create great products"
@@ -485,11 +491,12 @@
         "description": "Work with AI, Cloud and the latest technologies"
       },
       "salary": {
-        "title": "Competitive Salary",
-        "description": "Attractive salary with great benefits"
+        "title": "Great Benefits",
+        "description": "Competitive salary with excellent benefits"
       }
     },
     "openPositions": {
+      "badge": "{{count}} open positions",
       "title": "Open Positions",
       "subtitle": "Find a role that fits you and apply today"
     },
@@ -516,7 +523,7 @@
         "req3": "Understanding of SEO and social media marketing"
       }
     },
-    "requirements": "Requirements:",
+    "requirements": "Requirements",
     "apply": "Apply Now",
     "noPositions": "No open positions at the moment. Send your CV and we'll contact you when a suitable role opens.",
     "cta": {
