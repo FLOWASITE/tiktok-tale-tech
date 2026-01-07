@@ -5,8 +5,6 @@ import {
   Clock, 
   User, 
   Calendar,
-  Share2,
-  Bookmark,
   MessageCircle,
   ChevronRight,
   CheckCircle2,
@@ -32,6 +30,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { 
+  ReadingProgress, 
+  SocialShare, 
+  BlogReactions, 
+  BlogComments, 
+  RelatedPosts,
+  blogPostsData 
+} from '@/components/blog';
+
+const POST_SLUG = 'flowa-content-marketing-da-kenh';
+const POST_CATEGORY = 'Product';
 
 const BlogPostFlowa = () => {
   // Table of Contents
@@ -57,6 +66,9 @@ const BlogPostFlowa = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Reading Progress */}
+      <ReadingProgress />
+
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -66,12 +78,7 @@ const BlogPostFlowa = () => {
               <span className="font-medium">Blog</span>
             </Link>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <Share2 className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Bookmark className="w-4 h-4" />
-              </Button>
+              <BlogReactions postSlug={POST_SLUG} />
             </div>
           </div>
         </div>
@@ -99,7 +106,7 @@ const BlogPostFlowa = () => {
               Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. 
               Tự động hóa 90% quy trình, giữ brand voice nhất quán.
             </p>
-            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-6">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Flowa Team
@@ -113,6 +120,10 @@ const BlogPostFlowa = () => {
                 15 phút đọc
               </div>
             </div>
+            <SocialShare 
+              title="Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút"
+              description="Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút."
+            />
           </motion.div>
         </div>
       </section>
@@ -848,6 +859,16 @@ Text: "Dùng thử FREE → Bio"`}</pre>
                   <strong>10 phút đầu tiên với Flowa</strong> sẽ thay đổi cách bạn nghĩ về content marketing mãi mãi.
                 </p>
               </section>
+
+              {/* Related Posts */}
+              <RelatedPosts 
+                currentSlug={POST_SLUG}
+                currentCategory={POST_CATEGORY}
+                posts={blogPostsData}
+              />
+
+              {/* Comments */}
+              <BlogComments postSlug={POST_SLUG} />
             </article>
           </div>
         </div>

@@ -1,6 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Clock, User, Calendar, ChevronDown, Zap, Target, Layers, Share2, Video, Mail, BarChart3, Lightbulb } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { 
+  ReadingProgress, 
+  SocialShare, 
+  BlogReactions, 
+  BlogComments, 
+  RelatedPosts,
+  blogPostsData 
+} from '@/components/blog';
+
+const POST_SLUG = 'content-repurposing-chien-luoc';
+const POST_CATEGORY = 'Strategy';
 
 const BlogPostRepurposing = () => {
   const tableOfContents = [
@@ -23,6 +34,9 @@ const BlogPostRepurposing = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Reading Progress */}
+      <ReadingProgress />
+
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -33,13 +47,16 @@ const BlogPostRepurposing = () => {
               </div>
               <span className="text-xl font-bold text-foreground">Flowa</span>
             </Link>
-            <Link 
-              to="/blog" 
-              className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Quay lại Blog</span>
-            </Link>
+            <div className="flex items-center gap-4">
+              <BlogReactions postSlug={POST_SLUG} />
+              <Link 
+                to="/blog" 
+                className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại Blog</span>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -76,7 +93,7 @@ const BlogPostRepurposing = () => {
                 Đừng viết nhiều hơn, hãy viết thông minh hơn. Hướng dẫn chi tiết chiến lược Content Repurposing để thống trị mọi nền tảng từ Facebook, TikTok đến LinkedIn chỉ từ 1 bài gốc.
               </p>
 
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-6">
                 <div className="flex items-center space-x-2">
                   <User className="w-4 h-4" />
                   <span>Võ Phương Duy</span>
@@ -90,6 +107,11 @@ const BlogPostRepurposing = () => {
                   <span>15 phút đọc</span>
                 </div>
               </div>
+
+              <SocialShare 
+                title="Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung"
+                description="Đừng viết nhiều hơn, hãy viết thông minh hơn."
+              />
             </header>
 
             {/* Mobile Table of Contents */}
