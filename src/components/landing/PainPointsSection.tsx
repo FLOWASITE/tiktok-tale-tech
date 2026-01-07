@@ -2,7 +2,8 @@ import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { 
   Layers, Clapperboard, GalleryHorizontalEnd, Lightbulb, PenTool, CalendarClock,
-  X, Check, ArrowRight, Zap, ChevronDown, Sparkles, Star, Rocket
+  X, Check, ArrowRight, Zap, ChevronDown, Sparkles, Star, Rocket,
+  Gem, HeartCrack, TrendingUp
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -228,7 +229,10 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle, isPopular, i
               >
                 <ChevronDown className="w-3 h-3" />
               </motion.div>
-              <span className="group-hover/btn:text-primary transition-colors">💔 {t("painPoints.realityLabel")}</span>
+              <span className="group-hover/btn:text-primary transition-colors flex items-center gap-1.5">
+                <HeartCrack className="w-3.5 h-3.5 text-muted-foreground" />
+                {t("painPoints.realityLabel")}
+              </span>
             </button>
             
             <motion.div
@@ -318,7 +322,7 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle, isPopular, i
           {/* Exclusive Features - Enhanced with shimmer */}
           <div className="mb-6">
             <p className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
-              <span className="text-sm">💎</span>
+              <Gem className="w-3.5 h-3.5 text-primary" />
               {t("painPoints.exclusiveFeaturesLabel")}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -361,7 +365,7 @@ function PainPointCard({ cardKey, icon: Icon, isExpanded, onToggle, isPopular, i
             }} />
             
             <p className="relative text-xs font-semibold text-muted-foreground mb-4 flex items-center gap-1.5">
-              <span className="text-sm">📊</span>
+              <TrendingUp className="w-3.5 h-3.5 text-primary" />
               {t("painPoints.resultLabel")}
             </p>
             
