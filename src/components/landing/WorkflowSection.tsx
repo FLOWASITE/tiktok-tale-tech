@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Layers, Clapperboard, GalleryHorizontalEnd, Megaphone } from "lucide-react";
+import workflowBrandImg from "@/assets/workflow/workflow-brand.png";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -74,51 +75,85 @@ export function WorkflowSection() {
             <motion.div
               key={step.key}
               variants={itemVariants}
-              className={`flex gap-6 items-start py-8 ${
+              className={`py-8 ${
                 index !== steps.length - 1 ? "border-b border-border/30" : ""
               }`}
             >
-              <span className="text-4xl font-light text-primary min-w-[3rem]">
-                {step.num}
-              </span>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  {t(`workflow.steps.${step.key}.title`)}
-                </h3>
-                <p className="text-muted-foreground mb-2">
-                  {t(`workflow.steps.${step.key}.description`)}
-                </p>
-
-                {/* Feature highlight for steps 1, 2, 5 */}
-                {step.hasFeature && (
-                  <span className="inline-block text-sm text-primary font-medium">
-                    → {t(`workflow.steps.${step.key}.feature`)}
-                  </span>
-                )}
-
-                {/* Content Types for Step 3 */}
-                {step.hasContentTypes && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                    {contentTypes.map((type) => (
-                      <div
-                        key={type.key}
-                        className="flex flex-col items-center gap-1 px-3 py-4 rounded-lg border border-border/50 bg-muted/30 text-center"
-                      >
-                        <type.icon className="w-5 h-5 text-primary mb-1" />
-                        <span className="text-sm font-medium text-foreground">
-                          {t(`workflow.steps.step3.types.${type.key}.name`)}
+              {/* Step 1: 2-column layout with image */}
+              {step.num === 1 ? (
+                <div className="grid md:grid-cols-2 gap-8 items-center">
+                  <div className="flex gap-6 items-start">
+                    <span className="text-4xl font-light text-primary min-w-[3rem]">
+                      {step.num}
+                    </span>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-foreground mb-2">
+                        {t(`workflow.steps.${step.key}.title`)}
+                      </h3>
+                      <p className="text-muted-foreground mb-2">
+                        {t(`workflow.steps.${step.key}.description`)}
+                      </p>
+                      {step.hasFeature && (
+                        <span className="inline-block text-sm text-primary font-medium">
+                          → {t(`workflow.steps.${step.key}.feature`)}
                         </span>
-                        <span className="text-xs font-medium text-primary">
-                          {t(`workflow.steps.step3.types.${type.key}.highlight`)}
-                        </span>
-                        <span className="text-xs text-muted-foreground leading-tight">
-                          {t(`workflow.steps.step3.types.${type.key}.subtitle`)}
-                        </span>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                  <div className="order-first md:order-last">
+                    <img
+                      src={workflowBrandImg}
+                      alt="Brand Setup Screenshot"
+                      className="rounded-xl shadow-lg border border-border/20 hover:shadow-xl transition-shadow duration-300 w-full"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* Other steps: original layout */
+                <div className="flex gap-6 items-start">
+                  <span className="text-4xl font-light text-primary min-w-[3rem]">
+                    {step.num}
+                  </span>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-foreground mb-2">
+                      {t(`workflow.steps.${step.key}.title`)}
+                    </h3>
+                    <p className="text-muted-foreground mb-2">
+                      {t(`workflow.steps.${step.key}.description`)}
+                    </p>
+
+                    {/* Feature highlight for steps 2, 5 */}
+                    {step.hasFeature && (
+                      <span className="inline-block text-sm text-primary font-medium">
+                        → {t(`workflow.steps.${step.key}.feature`)}
+                      </span>
+                    )}
+
+                    {/* Content Types for Step 3 */}
+                    {step.hasContentTypes && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                        {contentTypes.map((type) => (
+                          <div
+                            key={type.key}
+                            className="flex flex-col items-center gap-1 px-3 py-4 rounded-lg border border-border/50 bg-muted/30 text-center"
+                          >
+                            <type.icon className="w-5 h-5 text-primary mb-1" />
+                            <span className="text-sm font-medium text-foreground">
+                              {t(`workflow.steps.step3.types.${type.key}.name`)}
+                            </span>
+                            <span className="text-xs font-medium text-primary">
+                              {t(`workflow.steps.step3.types.${type.key}.highlight`)}
+                            </span>
+                            <span className="text-xs text-muted-foreground leading-tight">
+                              {t(`workflow.steps.step3.types.${type.key}.subtitle`)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
           ))}
         </motion.div>
