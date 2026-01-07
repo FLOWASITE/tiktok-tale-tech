@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 import { useTranslation } from "react-i18next";
 import { getAuthUrl } from "@/hooks/useDomainRouting";
 import logo from "@/assets/logo.png";
@@ -91,7 +91,6 @@ export function LandingNav() {
 
             {/* Desktop CTA */}
             <div className="hidden lg:flex items-center gap-3">
-              <ThemeToggle />
               <Button variant="ghost" className="font-medium" asChild>
                 <a href={getAuthUrl('login')}>{t('nav.login')}</a>
               </Button>
@@ -136,9 +135,6 @@ export function LandingNav() {
                 </button>
               ))}
               <div className="pt-4 border-t border-border space-y-3">
-                <div className="flex justify-center pb-2">
-                  <ThemeToggle />
-                </div>
                 <Button variant="outline" className="w-full" asChild>
                   <a href={getAuthUrl('login')}>{t('nav.login')}</a>
                 </Button>
