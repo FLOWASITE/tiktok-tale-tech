@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createHmac } from "node:crypto";
+import { createHmac, createDecipheriv } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,56 @@ interface PublishRequest {
   content: string;
   mediaUrls?: string[];
   scheduleId?: string;
+}
+
+// Decrypt encrypted credentials from social_platform_settings
+function decrypt(encryptedText: string, key: string): string {
+  try {
+    const textParts = encryptedText.split(':');
+    const iv = Buffer.from(textParts.shift()!, 'hex');
+    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
+    
+    // Create key from string (must be 32 bytes for aes-256-cbc)
+    const keyBuffer = Buffer.alloc(32);
+    Buffer.from(key).copy(keyBuffer);
+    
+    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
+    let decrypted = decipher.update(encryptedData);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    console.error('Decryption error:', error);
+    return '';
+  }
+}
+
+// Get global platform credentials from social_platform_settings
+async function getGlobalPlatformCredentials(
+  supabase: any,
+  platform: string,
+  encryptionKey: string
+): Promise<{ consumerKey: string | null; consumerSecret: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('social_platform_settings')
+      .select('consumer_key, consumer_secret')
+      .eq('platform', platform)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      console.log(`No global settings found for ${platform}`);
+      return { consumerKey: null, consumerSecret: null };
+    }
+
+    return {
+      consumerKey: data.consumer_key ? decrypt(data.consumer_key, encryptionKey) : null,
+      consumerSecret: data.consumer_secret ? decrypt(data.consumer_secret, encryptionKey) : null,
+    };
+  } catch (error) {
+    console.error('Error fetching global credentials:', error);
+    return { consumerKey: null, consumerSecret: null };
+  }
 }
 
 // Generate OAuth signature for Twitter API
@@ -155,23 +206,45 @@ serve(async (req) => {
       throw new Error('Invalid platform for this endpoint');
     }
 
-    // Get Twitter credentials from connection (brand-specific) or fallback to ENV
+    // Get Twitter credentials
     const accessToken = connection.access_token;
-    const accessTokenSecret = connection.refresh_token; // We store token secret in refresh_token field
+    const accessTokenSecret = connection.refresh_token;
     
-    // Consumer keys: prioritize connection-specific, fallback to ENV
-    const consumerKey = connection.consumer_key || Deno.env.get('TWITTER_CONSUMER_KEY');
-    const consumerSecret = connection.consumer_secret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+    // Credential hierarchy: connection-specific > global admin settings > ENV
+    let consumerKey = connection.consumer_key;
+    let consumerSecret = connection.consumer_secret;
+    let credentialSource = 'brand-specific';
 
     if (!consumerKey || !consumerSecret) {
-      throw new Error('Twitter app credentials not configured. Please add Consumer Key and Secret.');
+      // Try global admin settings
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
+      
+      if (globalCreds.consumerKey && globalCreds.consumerSecret) {
+        consumerKey = globalCreds.consumerKey;
+        consumerSecret = globalCreds.consumerSecret;
+        credentialSource = 'global-admin';
+      }
+    }
+
+    // Final fallback to ENV
+    if (!consumerKey || !consumerSecret) {
+      consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
+      consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+      if (consumerKey && consumerSecret) {
+        credentialSource = 'environment';
+      }
+    }
+
+    if (!consumerKey || !consumerSecret) {
+      throw new Error('Twitter app credentials not configured. Please contact Admin to setup Twitter API keys.');
     }
 
     if (!accessToken || !accessTokenSecret) {
       throw new Error('Twitter user credentials not found in connection');
     }
 
-    console.log(`Using ${connection.consumer_key ? 'brand-specific' : 'environment'} consumer keys`);
+    console.log(`Using ${credentialSource} consumer keys`);
 
     // Create publish attempt record
     const { data: attempt, error: attemptError } = await supabase
