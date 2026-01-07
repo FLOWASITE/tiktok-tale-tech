@@ -86,29 +86,40 @@
       }
     }
   },
-  "howItWorks": {
-    "badge": "How It Works",
-    "title": "Get Started in 2 Minutes",
-    "subtitle": "Simple process, impressive results. No training needed, no technical skills required.",
+  "workflow": {
+    "badge": "Simple Process",
+    "title": "From Brand to Content",
+    "titleHighlight": "in 5 Steps",
+    "subtitle": "No technical skills needed, AI handles everything",
     "steps": {
       "step1": {
-        "title": "Enter Brand Guidelines",
-        "description": "Upload logo, colors, tone of voice. AI learns and remembers everything about your brand."
+        "title": "Set Up Brand",
+        "description": "Upload logo, colors, and tone of voice for your brand"
       },
       "step2": {
-        "title": "Choose Topic & Channels",
-        "description": "Enter a topic, select channels to post. AI automatically adjusts format for each platform."
+        "title": "AI Suggests Topics",
+        "description": "Based on your brand & industry, AI recommends trending topics"
       },
       "step3": {
-        "title": "AI Creates Content",
-        "description": "In seconds, you get posts, captions, hashtags suitable for each channel and brand voice."
+        "title": "Choose Content Type",
+        "description": "From 1 topic, create content in multiple formats",
+        "types": {
+          "multiChannel": "Multi-channel",
+          "videoScript": "Video Script",
+          "carousel": "Carousel",
+          "adCopy": "Ad Copy"
+        }
       },
       "step4": {
-        "title": "Review & Publish",
-        "description": "Preview, edit if needed, then post immediately or schedule. All from one dashboard."
+        "title": "AI Creates Content",
+        "description": "In seconds, complete content for all platforms"
+      },
+      "step5": {
+        "title": "Approve & Schedule",
+        "description": "Review, edit, and schedule automatic publishing"
       }
     },
-    "cta": "Get Started Now"
+    "cta": "Start Free"
   },
   "features": {
     "badge": "Key Features",
