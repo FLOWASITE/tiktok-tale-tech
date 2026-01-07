@@ -129,6 +129,52 @@
         "title": "Continuous Updates",
         "description": "Legal expert team updates new rules monthly"
       }
+    },
+    "moreIndustries": {
+      "title": "And 35+ more industries supported",
+      "subtitle": "Each industry has its own compliance rules, carefully researched",
+      "viewAll": "View all 42+ industries"
+    },
+    "allIndustries": {
+      "healthcare": "Healthcare & Pharma",
+      "finance": "Finance",
+      "realestate": "Real Estate",
+      "beauty": "Beauty & Spa",
+      "food": "F&B - Food & Beverage",
+      "education": "Education",
+      "accounting": "Accounting & Tax",
+      "insurance": "Insurance",
+      "banking": "Banking",
+      "crypto": "Crypto & Fintech",
+      "it": "Information Technology",
+      "game": "Gaming & Entertainment",
+      "telecom": "Telecommunications",
+      "logistics": "Logistics",
+      "manufacturing": "Manufacturing",
+      "agriculture": "Agriculture",
+      "pet": "Pet Care",
+      "travel": "Travel & Tourism",
+      "fashion": "Fashion",
+      "legal": "Legal Services",
+      "hr": "Human Resources",
+      "consulting": "Consulting",
+      "ecommerce": "E-commerce",
+      "momBaby": "Mom & Baby"
+    },
+    "categories": {
+      "finance": "Finance & Banking",
+      "technology": "Technology",
+      "lifestyle": "Lifestyle",
+      "services": "Services",
+      "commerce": "Commerce",
+      "manufacturing": "Manufacturing & Logistics"
+    },
+    "dialog": {
+      "title": "42+ Industry Packs by Category"
+    },
+    "cta": {
+      "question": "Don't see your industry?",
+      "action": "Request a new industry"
     }
   },
   "features": {

@@ -129,6 +129,52 @@
         "title": "Cập nhật liên tục",
         "description": "Team chuyên gia pháp lý cập nhật quy tắc mới hàng tháng"
       }
+    },
+    "moreIndustries": {
+      "title": "Và 35+ ngành khác được hỗ trợ",
+      "subtitle": "Mỗi ngành đều có bộ quy tắc tuân thủ riêng, được nghiên cứu kỹ lưỡng",
+      "viewAll": "Xem tất cả 42+ ngành"
+    },
+    "allIndustries": {
+      "healthcare": "Y tế & Dược phẩm",
+      "finance": "Tài chính",
+      "realestate": "Bất động sản",
+      "beauty": "Làm đẹp & Spa",
+      "food": "F&B - Thực phẩm",
+      "education": "Giáo dục",
+      "accounting": "Kế toán & Thuế",
+      "insurance": "Bảo hiểm",
+      "banking": "Ngân hàng",
+      "crypto": "Crypto & Fintech",
+      "it": "Công nghệ thông tin",
+      "game": "Game & Giải trí",
+      "telecom": "Viễn thông",
+      "logistics": "Logistics",
+      "manufacturing": "Sản xuất",
+      "agriculture": "Nông nghiệp",
+      "pet": "Thú cưng",
+      "travel": "Du lịch",
+      "fashion": "Thời trang",
+      "legal": "Pháp lý",
+      "hr": "Nhân sự",
+      "consulting": "Tư vấn",
+      "ecommerce": "Thương mại điện tử",
+      "momBaby": "Mẹ & Bé"
+    },
+    "categories": {
+      "finance": "Tài chính & Ngân hàng",
+      "technology": "Công nghệ",
+      "lifestyle": "Lifestyle",
+      "services": "Dịch vụ",
+      "commerce": "Thương mại",
+      "manufacturing": "Sản xuất & Logistics"
+    },
+    "dialog": {
+      "title": "42+ Industry Packs theo Danh mục"
+    },
+    "cta": {
+      "question": "Không thấy ngành của bạn?",
+      "action": "Yêu cầu thêm ngành mới"
     }
   },
   "features": {

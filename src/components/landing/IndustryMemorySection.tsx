@@ -1,10 +1,17 @@
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { Shield, Scale, Zap, Building2, Heart, Home, Utensils, Sparkles, GraduationCap, Ban, CheckCircle2, AlertTriangle, ArrowRight, Calculator } from "lucide-react";
+import { 
+  Shield, Scale, Zap, Building2, Heart, Home, Utensils, Sparkles, GraduationCap, 
+  Ban, CheckCircle2, AlertTriangle, ArrowRight, Calculator, Code, Gamepad2, 
+  Truck, PawPrint, Plane, Shirt, Users, ShoppingCart, Baby, ChevronRight,
+  Briefcase, Factory, Wheat, Landmark, Radio, MessageSquare
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
-// Detailed industry data for 6 industries
+// Detailed industry data for 7 industries (main showcase)
 const industryShowcase = [
   {
     key: "healthcare",
@@ -168,12 +175,90 @@ const valueProps = [
   { icon: Zap, key: "autoUpdate" }
 ];
 
+// Additional industries not shown in main tabs
+const moreIndustries = [
+  { key: "insurance", icon: Shield, category: "finance" },
+  { key: "banking", icon: Landmark, category: "finance" },
+  { key: "crypto", icon: Briefcase, category: "finance" },
+  { key: "it", icon: Code, category: "technology" },
+  { key: "game", icon: Gamepad2, category: "technology" },
+  { key: "telecom", icon: Radio, category: "technology" },
+  { key: "logistics", icon: Truck, category: "manufacturing" },
+  { key: "manufacturing", icon: Factory, category: "manufacturing" },
+  { key: "agriculture", icon: Wheat, category: "manufacturing" },
+  { key: "pet", icon: PawPrint, category: "lifestyle" },
+  { key: "travel", icon: Plane, category: "lifestyle" },
+  { key: "fashion", icon: Shirt, category: "lifestyle" },
+  { key: "legal", icon: Scale, category: "services" },
+  { key: "hr", icon: Users, category: "services" },
+  { key: "consulting", icon: MessageSquare, category: "services" },
+  { key: "ecommerce", icon: ShoppingCart, category: "commerce" },
+  { key: "momBaby", icon: Baby, category: "lifestyle" }
+];
+
+// All categories with full industry lists
+const allCategories = [
+  { 
+    key: "finance", 
+    industries: ["healthcare", "finance", "accounting", "insurance", "banking", "crypto"]
+  },
+  { 
+    key: "technology", 
+    industries: ["it", "game", "telecom"]
+  },
+  { 
+    key: "lifestyle", 
+    industries: ["beauty", "pet", "travel", "fashion", "momBaby"]
+  },
+  { 
+    key: "services", 
+    industries: ["education", "legal", "hr", "consulting"]
+  },
+  { 
+    key: "commerce", 
+    industries: ["food", "ecommerce", "realestate"]
+  },
+  { 
+    key: "manufacturing", 
+    industries: ["logistics", "manufacturing", "agriculture"]
+  }
+];
+
+// Icon map for all industries
+const industryIconMap: Record<string, any> = {
+  healthcare: Heart,
+  finance: Building2,
+  realestate: Home,
+  beauty: Sparkles,
+  food: Utensils,
+  education: GraduationCap,
+  accounting: Calculator,
+  insurance: Shield,
+  banking: Landmark,
+  crypto: Briefcase,
+  it: Code,
+  game: Gamepad2,
+  telecom: Radio,
+  logistics: Truck,
+  manufacturing: Factory,
+  agriculture: Wheat,
+  pet: PawPrint,
+  travel: Plane,
+  fashion: Shirt,
+  legal: Scale,
+  hr: Users,
+  consulting: MessageSquare,
+  ecommerce: ShoppingCart,
+  momBaby: Baby
+};
+
 type PreviewTab = "forbidden" | "compliance" | "claims";
 
 export function IndustryMemorySection() {
   const { t } = useTranslation();
   const [activeIndustry, setActiveIndustry] = useState(0);
   const [activePreviewTab, setActivePreviewTab] = useState<PreviewTab>("forbidden");
+  const [showAllDialog, setShowAllDialog] = useState(false);
 
   const currentIndustry = industryShowcase[activeIndustry];
 
@@ -384,6 +469,51 @@ export function IndustryMemorySection() {
           </div>
         </motion.div>
 
+        {/* More Industries Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-12 md:mb-16"
+        >
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {t("industryMemory.moreIndustries.title")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("industryMemory.moreIndustries.subtitle")}
+            </p>
+          </div>
+
+          {/* Grid of additional industries */}
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            {moreIndustries.slice(0, 12).map((industry) => {
+              const Icon = industry.icon;
+              return (
+                <div
+                  key={industry.key}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50 text-sm"
+                >
+                  <Icon className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-foreground">{t(`industryMemory.allIndustries.${industry.key}`)}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* View all button */}
+          <div className="text-center">
+            <Button
+              variant="outline"
+              onClick={() => setShowAllDialog(true)}
+              className="gap-2"
+            >
+              {t("industryMemory.moreIndustries.viewAll")}
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </motion.div>
+
         {/* Value props */}
         <div className="grid md:grid-cols-3 gap-6">
           {valueProps.map((prop) => {
@@ -406,7 +536,69 @@ export function IndustryMemorySection() {
             );
           })}
         </div>
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-12 text-center p-6 rounded-xl bg-muted/30 border border-border/50"
+        >
+          <p className="text-muted-foreground mb-3">
+            {t("industryMemory.cta.question")}
+          </p>
+          <Button variant="link" className="text-primary gap-1">
+            {t("industryMemory.cta.action")}
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </motion.div>
       </div>
+
+      {/* All Industries Dialog */}
+      <Dialog open={showAllDialog} onOpenChange={setShowAllDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {t("industryMemory.dialog.title")}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {allCategories.map((category) => (
+              <div key={category.key}>
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                  {t(`industryMemory.categories.${category.key}`)} ({category.industries.length})
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {category.industries.map((industryKey) => {
+                    const Icon = industryIconMap[industryKey] || Shield;
+                    return (
+                      <div
+                        key={industryKey}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50 text-sm"
+                      >
+                        <Icon className="w-4 h-4 text-primary" />
+                        <span>{t(`industryMemory.allIndustries.${industryKey}`)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Dialog CTA */}
+          <div className="mt-6 pt-6 border-t border-border/50 text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              {t("industryMemory.cta.question")}
+            </p>
+            <Button variant="link" className="text-primary gap-1">
+              {t("industryMemory.cta.action")}
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
