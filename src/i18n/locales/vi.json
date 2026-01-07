@@ -77,6 +77,44 @@
     },
     "cta": "Bắt đầu miễn phí"
   },
+  "industryMemory": {
+    "badge": "Độc quyền Flowa",
+    "title": "Kiến Thức Ngành Việt Nam",
+    "subtitle": "Hệ thống quy tắc tuân thủ ngành ĐỘC QUYỀN, được xây dựng bởi chuyên gia pháp lý và cập nhật liên tục",
+    "stats": {
+      "packs": "Industry Packs",
+      "categories": "Danh mục ngành",
+      "countries": "Quốc gia"
+    },
+    "industries": {
+      "healthcare": "Y tế & Dược phẩm",
+      "finance": "Tài chính & Ngân hàng",
+      "realestate": "Bất động sản",
+      "beauty": "Làm đẹp & Spa",
+      "food": "Thực phẩm & F&B",
+      "education": "Giáo dục"
+    },
+    "preview": {
+      "forbiddenTerms": "Từ cấm dùng",
+      "complianceRules": "Quy tắc tuân thủ",
+      "claimRestrictions": "Giới hạn cam kết",
+      "exampleForbidden": "Ví dụ từ cấm trong ngành:"
+    },
+    "features": {
+      "noViolation": {
+        "title": "Không lo vi phạm",
+        "description": "AI tự động kiểm tra từ cấm và cảnh báo trước khi xuất bản, giúp bạn tránh rủi ro pháp lý"
+      },
+      "compliance": {
+        "title": "Tuân thủ pháp luật",
+        "description": "Quy tắc được nghiên cứu từ Luật Quảng cáo Việt Nam và các văn bản pháp quy ngành"
+      },
+      "autoUpdate": {
+        "title": "Cập nhật liên tục",
+        "description": "Team chuyên gia pháp lý theo dõi và cập nhật rules mới khi luật thay đổi"
+      }
+    }
+  },
   "features": {
     "badge": "Tính năng nổi bật",
     "title": "Mọi thứ bạn cần cho",
