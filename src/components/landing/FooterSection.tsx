@@ -181,7 +181,7 @@ export function FooterSection() {
               className="text-xs text-muted-foreground flex items-center gap-1"
               whileHover={{ scale: 1.05 }}
             >
-              {t("footer.madeWith")}
+              Made with ❤️ in Việt Nam
             </motion.span>
           </div>
         </motion.div>
