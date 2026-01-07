@@ -1,44 +1,13 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { HelpCircle, Plus, Minus } from "lucide-react";
 import { useState } from "react";
-
-const faqs = [
-  {
-    question: "Flowa có phù hợp với ngành của tôi không?",
-    answer: "Flowa hỗ trợ 50+ ngành nghề khác nhau từ E-commerce, F&B, Bất động sản, Giáo dục, đến Fintech và nhiều hơn nữa. AI của chúng tôi đã được train với dữ liệu đặc thù từng ngành để tạo ra nội dung chuyên nghiệp và phù hợp.",
-  },
-  {
-    question: "AI có thể giữ đúng giọng điệu thương hiệu của tôi không?",
-    answer: "Hoàn toàn có thể! Bạn chỉ cần nhập brand guidelines, tone of voice và một vài sample text. AI sẽ học và duy trì giọng điệu nhất quán trên mọi nội dung. Bạn cũng có thể điều chỉnh và tinh chỉnh bất cứ lúc nào.",
-  },
-  {
-    question: "Tôi có thể xuất bản trực tiếp lên các kênh social không?",
-    answer: "Có, Flowa tích hợp với Facebook, Instagram, TikTok, LinkedIn, Zalo, và nhiều kênh khác. Bạn có thể lên lịch và xuất bản tự động, hoặc review trước khi đăng. Tất cả đều được quản lý từ một dashboard duy nhất.",
-  },
-  {
-    question: "Nội dung AI tạo ra có bị trùng lặp không?",
-    answer: "Không! Mỗi nội dung được AI tạo ra đều là duy nhất và được tùy chỉnh theo brand, context và mục tiêu của bạn. Chúng tôi cũng có công cụ kiểm tra plagiarism để đảm bảo tính độc đáo.",
-  },
-  {
-    question: "Có giới hạn số lượng content tôi có thể tạo không?",
-    answer: "Gói Starter miễn phí cho phép tạo 100 nội dung/tháng. Gói Professional cung cấp unlimited content generation, đủ cho mọi nhu cầu của team marketing chuyên nghiệp.",
-  },
-  {
-    question: "Tôi có cần kỹ năng kỹ thuật để sử dụng Flowa không?",
-    answer: "Hoàn toàn không! Flowa được thiết kế cho marketer, không phải developer. Giao diện trực quan, kéo thả dễ dàng. Setup chỉ mất 2 phút và bạn có thể bắt đầu tạo content ngay lập tức.",
-  },
-  {
-    question: "Dữ liệu của tôi có an toàn không?",
-    answer: "Bảo mật là ưu tiên hàng đầu. Chúng tôi sử dụng mã hóa SSL, tuân thủ GDPR, và không bao giờ chia sẻ dữ liệu của bạn với bên thứ ba. Dữ liệu được lưu trữ trên servers bảo mật tại Singapore.",
-  },
-  {
-    question: "Có hỗ trợ tiếng Việt không?",
-    answer: "Flowa được tối ưu đặc biệt cho tiếng Việt với AI hiểu văn hóa, ngữ cảnh và cách diễn đạt của người Việt. Giao diện và support đều 100% tiếng Việt.",
-  },
-];
+import { useTranslation } from "react-i18next";
 
 export function FAQSection() {
+  const { t } = useTranslation();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  const faqs = t("faq.items", { returnObjects: true }) as Array<{ question: string; answer: string }>;
 
   return (
     <section id="faq" className="py-24 lg:py-32 relative overflow-hidden">
@@ -58,16 +27,15 @@ export function FAQSection() {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
             <HelpCircle className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">FAQ</span>
+            <span className="text-sm font-medium text-primary">{t("faq.badge")}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
-            Câu hỏi
+            {t("faq.title")}
             <br />
-            <span className="text-gradient">thường gặp</span>
+            <span className="text-gradient">{t("faq.titleHighlight")}</span>
           </h2>
           <p className="text-lg text-muted-foreground">
-            Những thắc mắc phổ biến nhất về Flowa. Không tìm thấy câu trả lời? 
-            Liên hệ đội ngũ hỗ trợ 24/7 của chúng tôi.
+            {t("faq.subtitle")}
           </p>
         </motion.div>
 
@@ -141,9 +109,9 @@ export function FAQSection() {
           className="text-center mt-12"
         >
           <p className="text-muted-foreground">
-            Vẫn còn thắc mắc?{" "}
+            {t("faq.contactPrompt")}{" "}
             <a href="mailto:support@flowa.vn" className="text-primary hover:underline font-medium">
-              Liên hệ đội ngũ hỗ trợ
+              {t("faq.contactLink")}
             </a>
           </p>
         </motion.div>

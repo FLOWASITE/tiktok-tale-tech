@@ -3,22 +3,11 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Play, Zap, Users, FileText, TrendingUp, CheckCircle2, Star, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useRef, type MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { GradientMesh, FloatingShapes, MagneticButton } from "./effects";
-
-const stats = [
-  { icon: Users, value: 10000, suffix: "+", label: "Marketer tin dùng" },
-  { icon: FileText, value: 500000, suffix: "+", label: "Nội dung đã tạo" },
-  { icon: TrendingUp, value: 95, suffix: "%", label: "Khách hài lòng" },
-];
 
 const trustLogos = [
   "VinGroup", "FPT", "Shopee", "Tiki", "Sendo", "MoMo"
-];
-
-const urgencyBenefits = [
-  "Không cần thẻ tín dụng",
-  "Dùng thử miễn phí 14 ngày",
-  "Hủy bất cứ lúc nào",
 ];
 
 function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
@@ -101,6 +90,20 @@ function TiltCard({ children }: { children: React.ReactNode }) {
 }
 
 export function HeroSection() {
+  const { t } = useTranslation();
+
+  const stats = [
+    { icon: Users, value: 10000, suffix: "+", label: t("hero.stats.marketers") },
+    { icon: FileText, value: 500000, suffix: "+", label: t("hero.stats.content") },
+    { icon: TrendingUp, value: 95, suffix: "%", label: t("hero.stats.satisfaction") },
+  ];
+
+  const urgencyBenefits = [
+    t("hero.benefits.noCard"),
+    t("hero.benefits.freeTrial"),
+    t("hero.benefits.cancelAnytime"),
+  ];
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 lg:pt-28 lg:pb-20">
       {/* Animated Background */}
@@ -147,7 +150,7 @@ export function HeroSection() {
               transition={{ delay: 0.6 }}
               className="text-sm font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
             >
-              10,000+ Marketer đang dùng
+              {t("hero.badge")}
             </motion.span>
           </motion.div>
 
@@ -159,7 +162,7 @@ export function HeroSection() {
             className="mb-5"
           >
             <span className="text-lg sm:text-xl text-muted-foreground font-medium">
-              Mệt mỏi với việc tạo content thủ công?
+              {t("hero.problem")}
             </span>
           </motion.div>
 
@@ -170,10 +173,10 @@ export function HeroSection() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 relative"
           >
-            <span className="text-foreground">Tạo 1 Tuần Content</span>
+            <span className="text-foreground">{t("hero.titleLine1")}</span>
             <br />
             <span className="relative inline-block">
-              <span className="text-gradient">Chỉ Trong 1 Giờ</span>
+              <span className="text-gradient">{t("hero.titleLine2")}</span>
               {/* Glow effect behind text */}
               <motion.span
                 className="absolute inset-0 blur-3xl bg-gradient-to-r from-primary/30 via-secondary/20 to-primary/30 -z-10"
@@ -197,9 +200,7 @@ export function HeroSection() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-6 leading-relaxed"
           >
-            Flowa là nền tảng AI giúp bạn <span className="text-foreground font-semibold">tạo, lên lịch và xuất bản</span> nội dung 
-            đa kênh tự động. Tiết kiệm <span className="text-primary font-bold">80% thời gian</span> với 
-            chất lượng tốt hơn.
+            {t("hero.descPlain")}
           </motion.p>
 
           {/* Quick Benefits */}
@@ -238,7 +239,7 @@ export function HeroSection() {
               >
                 <Link to="/auth?tab=register">
                   <span className="relative z-10 flex items-center font-semibold">
-                    Bắt đầu miễn phí ngay
+                    {t("hero.cta.startFree")}
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </span>
                   {/* Shimmer effect */}
@@ -259,7 +260,7 @@ export function HeroSection() {
                 onClick={() => document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })}
               >
                 <Play className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
-                Xem cách hoạt động
+                {t("hero.cta.watchHow")}
               </Button>
             </MagneticButton>
           </motion.div>
@@ -306,7 +307,7 @@ export function HeroSection() {
             className="mb-16"
           >
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-5 font-medium">
-              Được tin dùng bởi các thương hiệu hàng đầu Việt Nam
+              {t("hero.trustBadge")}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-12">
               {trustLogos.map((logo, i) => (
@@ -364,10 +365,10 @@ export function HeroSection() {
                   {/* Mock Dashboard Content */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-5 mb-8">
                     {[
-                      { label: "Bài viết hôm nay", value: "12", color: "from-primary/20 to-primary/5" },
-                      { label: "Đã lên lịch", value: "24", color: "from-secondary/20 to-secondary/5" },
-                      { label: "Tương tác", value: "1.2K", color: "from-green-500/20 to-green-500/5" },
-                      { label: "Hiệu suất", value: "+45%", color: "from-orange-500/20 to-orange-500/5" },
+                      { label: t("hero.dashboard.postsToday"), value: "12", color: "from-primary/20 to-primary/5" },
+                      { label: t("hero.dashboard.scheduled"), value: "24", color: "from-secondary/20 to-secondary/5" },
+                      { label: t("hero.dashboard.engagement"), value: "1.2K", color: "from-green-500/20 to-green-500/5" },
+                      { label: t("hero.dashboard.performance"), value: "+45%", color: "from-orange-500/20 to-orange-500/5" },
                     ].map((item, i) => (
                       <motion.div
                         key={i}
@@ -383,7 +384,7 @@ export function HeroSection() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                     <div className="sm:col-span-2 h-36 sm:h-44 rounded-xl bg-muted/15 border border-border/10 p-5">
-                      <div className="text-xs text-muted-foreground mb-3 font-medium">Content Calendar</div>
+                      <div className="text-xs text-muted-foreground mb-3 font-medium">{t("hero.dashboard.calendar")}</div>
                       <div className="grid grid-cols-7 gap-1.5">
                         {Array.from({ length: 14 }).map((_, i) => (
                           <motion.div
@@ -397,7 +398,7 @@ export function HeroSection() {
                       </div>
                     </div>
                     <div className="h-36 sm:h-44 rounded-xl bg-muted/15 border border-border/10 p-5">
-                      <div className="text-xs text-muted-foreground mb-3 font-medium">AI Generation</div>
+                      <div className="text-xs text-muted-foreground mb-3 font-medium">{t("hero.dashboard.aiGeneration")}</div>
                       <div className="space-y-2.5">
                         {[1, 2, 3].map((i) => (
                           <motion.div
@@ -417,51 +418,40 @@ export function HeroSection() {
 
             {/* Glow Effect */}
             <motion.div
+              className="absolute -inset-4 -z-10 rounded-[40px] bg-gradient-to-r from-primary/20 via-secondary/20 to-primary/20 blur-3xl"
               animate={{
                 opacity: [0.3, 0.5, 0.3],
-                scale: [1, 1.02, 1],
+                scale: [0.95, 1, 0.95],
               }}
               transition={{
-                duration: 4,
+                duration: 5,
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
-              className="absolute -inset-6 -z-10 bg-gradient-to-r from-primary/20 via-secondary/15 to-primary/20 rounded-[40px] blur-3xl"
             />
           </TiltCard>
-          
-          {/* Floating Badge */}
-          <motion.div
-            animate={{
-              y: [0, -15, 0],
-              rotate: [0, 2, 0],
-            }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -right-6 top-1/4 hidden lg:block"
-          >
-            <div className="px-5 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm font-semibold flex items-center gap-2.5 shadow-lg backdrop-blur-sm">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              >
-                <Sparkles className="w-4 h-4" />
-              </motion.div>
-              AI đang tạo content...
-            </div>
-          </motion.div>
+        </motion.div>
 
-          {/* Left floating element */}
+        {/* Scroll Indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5 }}
+          className="flex justify-center mt-16"
+        >
           <motion.div
-            animate={{
-              y: [0, 10, 0],
-              x: [0, -5, 0],
-            }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            className="absolute -left-8 bottom-1/3 hidden lg:block"
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="flex flex-col items-center gap-2 cursor-pointer"
+            onClick={() => document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })}
           >
-            <div className="px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-semibold flex items-center gap-2 shadow-lg backdrop-blur-sm">
-              <Zap className="w-4 h-4" />
-              80% faster
+            <span className="text-xs text-muted-foreground font-medium">Scroll</span>
+            <div className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex justify-center pt-2">
+              <motion.div
+                animate={{ y: [0, 12, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="w-1.5 h-1.5 rounded-full bg-primary"
+              />
             </div>
           </motion.div>
         </motion.div>

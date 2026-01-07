@@ -1,0 +1,333 @@
+{
+  "nav": {
+    "features": "Tính năng",
+    "howItWorks": "Cách hoạt động",
+    "pricing": "Bảng giá",
+    "faq": "FAQ",
+    "login": "Đăng nhập",
+    "startFree": "Bắt đầu miễn phí"
+  },
+  "hero": {
+    "badge": "10,000+ Marketer đang dùng",
+    "problem": "Mệt mỏi với việc tạo content thủ công?",
+    "titleLine1": "Tạo 1 Tuần Content",
+    "titleLine2": "Chỉ Trong 1 Giờ",
+    "description": "Flowa là nền tảng AI giúp bạn <strong>tạo, lên lịch và xuất bản</strong> nội dung đa kênh tự động. Tiết kiệm <strong>80% thời gian</strong> với chất lượng tốt hơn.",
+    "descPlain": "Flowa là nền tảng AI giúp bạn tạo, lên lịch và xuất bản nội dung đa kênh tự động. Tiết kiệm 80% thời gian với chất lượng tốt hơn.",
+    "benefits": {
+      "noCard": "Không cần thẻ tín dụng",
+      "freeTrial": "Dùng thử miễn phí 14 ngày",
+      "cancelAnytime": "Hủy bất cứ lúc nào"
+    },
+    "cta": {
+      "startFree": "Bắt đầu miễn phí ngay",
+      "watchHow": "Xem cách hoạt động"
+    },
+    "stats": {
+      "marketers": "Marketer tin dùng",
+      "content": "Nội dung đã tạo",
+      "satisfaction": "Khách hài lòng"
+    },
+    "trustBadge": "Được tin dùng bởi các thương hiệu hàng đầu Việt Nam",
+    "dashboard": {
+      "postsToday": "Bài viết hôm nay",
+      "scheduled": "Đã lên lịch",
+      "engagement": "Tương tác",
+      "performance": "Hiệu suất",
+      "calendar": "Content Calendar",
+      "aiGeneration": "AI Generation"
+    }
+  },
+  "painPoints": {
+    "badge": "Vấn đề của bạn",
+    "title": "Marketing Team đang gặp khó khăn?",
+    "subtitle": "Hàng nghìn marketer đang lãng phí thời gian với quy trình thủ công. Flowa giải quyết tất cả.",
+    "problems": {
+      "time": {
+        "title": "Thiếu thời gian",
+        "description": "Tạo content cho 5+ kênh mất hàng giờ mỗi ngày"
+      },
+      "consistency": {
+        "title": "Thiếu nhất quán",
+        "description": "Giọng điệu brand khác nhau trên mỗi nền tảng"
+      },
+      "ideas": {
+        "title": "Cạn ý tưởng",
+        "description": "Phải nghĩ 30+ bài viết mỗi tháng là ác mộng"
+      },
+      "management": {
+        "title": "Khó quản lý",
+        "description": "Mở 10 tab để đăng bài lên các kênh khác nhau"
+      }
+    },
+    "solution": {
+      "badge": "Giải pháp",
+      "title": "Flowa tự động hóa tất cả",
+      "description": "1 topic → 5 kênh → 10 phút. Không cần chuyên gia, không cần đội ngũ lớn."
+    }
+  },
+  "howItWorks": {
+    "badge": "Cách hoạt động",
+    "title": "Bắt đầu trong 2 phút",
+    "subtitle": "Quy trình đơn giản, kết quả ấn tượng. Không cần training, không cần kỹ năng kỹ thuật.",
+    "steps": {
+      "step1": {
+        "title": "Nhập Brand Guidelines",
+        "description": "Upload logo, màu sắc, tone of voice. AI học và ghi nhớ mọi thứ về thương hiệu của bạn."
+      },
+      "step2": {
+        "title": "Chọn Topic & Kênh",
+        "description": "Nhập một topic, chọn các kênh muốn đăng. AI tự động điều chỉnh format cho từng nền tảng."
+      },
+      "step3": {
+        "title": "AI Tạo Nội Dung",
+        "description": "Trong vài giây, bạn có bài viết, caption, hashtag phù hợp với từng kênh và brand voice."
+      },
+      "step4": {
+        "title": "Review & Xuất Bản",
+        "description": "Xem trước, chỉnh sửa nếu cần, rồi đăng ngay hoặc lên lịch. Tất cả từ một dashboard."
+      }
+    },
+    "cta": "Bắt đầu ngay"
+  },
+  "features": {
+    "badge": "Tính năng nổi bật",
+    "title": "Mọi thứ bạn cần cho",
+    "titleHighlight": "Content Marketing",
+    "subtitle": "Flowa cung cấp bộ công cụ toàn diện giúp bạn tạo, quản lý và tối ưu nội dung marketing hiệu quả hơn.",
+    "learnMore": "Tìm hiểu thêm",
+    "items": {
+      "aiContent": {
+        "title": "AI Content Generation",
+        "description": "Tạo nội dung chất lượng cao cho mọi kênh chỉ trong vài giây với công nghệ AI tiên tiến."
+      },
+      "multiChannel": {
+        "title": "Multi-channel Publishing",
+        "description": "Xuất bản đồng thời lên Facebook, Instagram, TikTok, LinkedIn và nhiều nền tảng khác."
+      },
+      "brandVoice": {
+        "title": "Brand Voice Management",
+        "description": "Duy trì giọng điệu thương hiệu nhất quán trên mọi nội dung với AI học từ brand guide."
+      },
+      "campaign": {
+        "title": "Campaign Management",
+        "description": "Quản lý toàn bộ chiến dịch marketing từ A-Z với timeline, milestone và KPI tracking."
+      },
+      "adCopy": {
+        "title": "Ad Copy Creation",
+        "description": "Tạo ad copy tối ưu cho Facebook Ads, Google Ads với A/B testing tự động."
+      },
+      "calendar": {
+        "title": "Content Calendar",
+        "description": "Lên lịch nội dung thông minh với gợi ý thời điểm đăng tối ưu cho từng kênh."
+      }
+    },
+    "stats": {
+      "industries": "Ngành nghề hỗ trợ",
+      "contentTypes": "Loại nội dung",
+      "channels": "Kênh social",
+      "analytics": "Analytics"
+    }
+  },
+  "socialProof": {
+    "badge": "Đánh giá",
+    "title": "Được tin dùng bởi",
+    "titleHighlight": "10,000+ Marketer",
+    "subtitle": "Từ startup đến enterprise, Flowa giúp các team marketing tiết kiệm thời gian và tăng hiệu quả.",
+    "stats": {
+      "rating": "Đánh giá trung bình",
+      "timeSaved": "Tiết kiệm thời gian",
+      "contentIncrease": "Tăng content output"
+    }
+  },
+  "testimonials": {
+    "badge": "Testimonials",
+    "title": "Khách hàng nói gì",
+    "titleHighlight": "về Flowa",
+    "items": [
+      {
+        "quote": "Flowa giúp team tôi tạo content nhanh gấp 5 lần. Chất lượng còn tốt hơn cả khi viết thủ công!",
+        "name": "Nguyễn Minh Anh",
+        "role": "Marketing Director",
+        "company": "TechViet"
+      },
+      {
+        "quote": "Tính năng brand voice management là game-changer. Content luôn đúng tone dù ai trong team tạo.",
+        "name": "Trần Hoàng Long",
+        "role": "Content Lead",
+        "company": "StartupXYZ"
+      },
+      {
+        "quote": "Từ 1 bài viết, Flowa tự động tạo 5 phiên bản cho các kênh khác nhau. Tiết kiệm cực kỳ nhiều thời gian!",
+        "name": "Lê Thu Hương",
+        "role": "Social Media Manager",
+        "company": "E-commerce Plus"
+      },
+      {
+        "quote": "ROI sau 3 tháng dùng Flowa tăng 200%. Chi phí thuê thêm content writer giảm đáng kể.",
+        "name": "Phạm Văn Đức",
+        "role": "CEO",
+        "company": "Agency Pro"
+      },
+      {
+        "quote": "Interface đẹp, dễ dùng. Team onboard chỉ trong 1 buổi là thành thạo hết các tính năng.",
+        "name": "Võ Thị Mai",
+        "role": "Brand Manager",
+        "company": "Beauty Corp"
+      },
+      {
+        "quote": "AI của Flowa hiểu tiếng Việt rất tốt, kể cả các cách nói meme, trend. Content tạo ra rất tự nhiên.",
+        "name": "Đặng Quốc Bảo",
+        "role": "Creative Director",
+        "company": "Digital Studio"
+      }
+    ]
+  },
+  "pricing": {
+    "badge": "Bảng giá",
+    "title": "Chọn gói phù hợp với",
+    "titleHighlight": "nhu cầu của bạn",
+    "subtitle": "Bắt đầu miễn phí, nâng cấp khi cần. Không cần thẻ tín dụng.",
+    "monthly": "Hàng tháng",
+    "yearly": "Hàng năm",
+    "discount": "-17%",
+    "perMonth": "/tháng",
+    "yearlyBilling": "(thanh toán năm)",
+    "contact": "Liên hệ",
+    "popularBadge": "Phổ biến nhất",
+    "plans": {
+      "starter": {
+        "name": "Starter",
+        "description": "Dành cho cá nhân và freelancer",
+        "cta": "Bắt đầu miễn phí",
+        "features": [
+          "100 nội dung AI/tháng",
+          "3 brand templates",
+          "5 kênh social",
+          "Xuất PDF/Image",
+          "Email support"
+        ]
+      },
+      "professional": {
+        "name": "Professional",
+        "description": "Dành cho team marketing nhỏ",
+        "cta": "Dùng thử 14 ngày",
+        "features": [
+          "Unlimited nội dung AI",
+          "10 brand templates",
+          "Tất cả kênh social",
+          "Campaign management",
+          "Ad copy creation",
+          "Content calendar",
+          "Priority support",
+          "API access"
+        ]
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "description": "Dành cho doanh nghiệp lớn",
+        "cta": "Liên hệ tư vấn",
+        "features": [
+          "Mọi tính năng Professional",
+          "Unlimited brand templates",
+          "Custom AI training",
+          "Dedicated account manager",
+          "SSO & Advanced security",
+          "Custom integrations",
+          "SLA guarantee",
+          "On-premise option"
+        ]
+      }
+    },
+    "faqLink": "Có câu hỏi?",
+    "seeFaq": "Xem FAQ",
+    "or": "hoặc",
+    "contactSupport": "liên hệ hỗ trợ"
+  },
+  "faq": {
+    "badge": "FAQ",
+    "title": "Câu hỏi",
+    "titleHighlight": "thường gặp",
+    "subtitle": "Những thắc mắc phổ biến nhất về Flowa. Không tìm thấy câu trả lời? Liên hệ đội ngũ hỗ trợ 24/7 của chúng tôi.",
+    "contactPrompt": "Vẫn còn thắc mắc?",
+    "contactLink": "Liên hệ đội ngũ hỗ trợ",
+    "items": [
+      {
+        "question": "Flowa có phù hợp với ngành của tôi không?",
+        "answer": "Flowa hỗ trợ 50+ ngành nghề khác nhau từ E-commerce, F&B, Bất động sản, Giáo dục, đến Fintech và nhiều hơn nữa. AI của chúng tôi đã được train với dữ liệu đặc thù từng ngành để tạo ra nội dung chuyên nghiệp và phù hợp."
+      },
+      {
+        "question": "AI có thể giữ đúng giọng điệu thương hiệu của tôi không?",
+        "answer": "Hoàn toàn có thể! Bạn chỉ cần nhập brand guidelines, tone of voice và một vài sample text. AI sẽ học và duy trì giọng điệu nhất quán trên mọi nội dung. Bạn cũng có thể điều chỉnh và tinh chỉnh bất cứ lúc nào."
+      },
+      {
+        "question": "Tôi có thể xuất bản trực tiếp lên các kênh social không?",
+        "answer": "Có, Flowa tích hợp với Facebook, Instagram, TikTok, LinkedIn, Zalo, và nhiều kênh khác. Bạn có thể lên lịch và xuất bản tự động, hoặc review trước khi đăng. Tất cả đều được quản lý từ một dashboard duy nhất."
+      },
+      {
+        "question": "Nội dung AI tạo ra có bị trùng lặp không?",
+        "answer": "Không! Mỗi nội dung được AI tạo ra đều là duy nhất và được tùy chỉnh theo brand, context và mục tiêu của bạn. Chúng tôi cũng có công cụ kiểm tra plagiarism để đảm bảo tính độc đáo."
+      },
+      {
+        "question": "Có giới hạn số lượng content tôi có thể tạo không?",
+        "answer": "Gói Starter miễn phí cho phép tạo 100 nội dung/tháng. Gói Professional cung cấp unlimited content generation, đủ cho mọi nhu cầu của team marketing chuyên nghiệp."
+      },
+      {
+        "question": "Tôi có cần kỹ năng kỹ thuật để sử dụng Flowa không?",
+        "answer": "Hoàn toàn không! Flowa được thiết kế cho marketer, không phải developer. Giao diện trực quan, kéo thả dễ dàng. Setup chỉ mất 2 phút và bạn có thể bắt đầu tạo content ngay lập tức."
+      },
+      {
+        "question": "Dữ liệu của tôi có an toàn không?",
+        "answer": "Bảo mật là ưu tiên hàng đầu. Chúng tôi sử dụng mã hóa SSL, tuân thủ GDPR, và không bao giờ chia sẻ dữ liệu của bạn với bên thứ ba. Dữ liệu được lưu trữ trên servers bảo mật tại Singapore."
+      },
+      {
+        "question": "Có hỗ trợ tiếng Việt không?",
+        "answer": "Flowa được tối ưu đặc biệt cho tiếng Việt với AI hiểu văn hóa, ngữ cảnh và cách diễn đạt của người Việt. Giao diện và support đều 100% tiếng Việt."
+      }
+    ]
+  },
+  "cta": {
+    "badge": "Bắt đầu ngay",
+    "title": "Sẵn sàng tăng tốc",
+    "titleHighlight": "Content Marketing?",
+    "subtitle": "Tham gia cùng 10,000+ marketer đang sử dụng Flowa để tạo nội dung nhanh hơn, tốt hơn.",
+    "startFree": "Bắt đầu miễn phí ngay",
+    "benefits": {
+      "noCard": "Không cần thẻ tín dụng",
+      "freeTrial": "14 ngày dùng thử",
+      "cancelAnytime": "Hủy bất cứ lúc nào"
+    }
+  },
+  "footer": {
+    "description": "Nền tảng AI Content Marketing hàng đầu Việt Nam. Tạo, quản lý và xuất bản nội dung đa kênh tự động.",
+    "newsletter": {
+      "title": "Nhận tips marketing hàng tuần",
+      "placeholder": "Email của bạn",
+      "button": "Đăng ký"
+    },
+    "sections": {
+      "product": {
+        "title": "Sản phẩm",
+        "links": ["Tính năng", "Bảng giá", "Integrations", "API"]
+      },
+      "company": {
+        "title": "Công ty",
+        "links": ["Về chúng tôi", "Blog", "Tuyển dụng", "Liên hệ"]
+      },
+      "resources": {
+        "title": "Tài nguyên",
+        "links": ["Documentation", "Help Center", "Case Studies", "Templates"]
+      },
+      "legal": {
+        "title": "Pháp lý",
+        "links": ["Điều khoản", "Bảo mật", "Cookies", "GDPR"]
+      }
+    },
+    "copyright": "© {{year}} Flowa. All rights reserved.",
+    "madeWith": "Made with ❤️ in Vietnam"
+  },
+  "language": {
+    "vi": "Tiếng Việt",
+    "en": "English"
+  }
+}
