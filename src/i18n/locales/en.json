@@ -80,7 +80,7 @@
   "industryMemory": {
     "badge": "Flowa Exclusive",
     "title": "Vietnam Industry Knowledge",
-    "subtitle": "EXCLUSIVE compliance rules system, built by legal experts and continuously updated",
+    "subtitle": "EXCLUSIVE industry compliance rules system, built by legal experts and continuously updated",
     "stats": {
       "packs": "Industry Packs",
       "categories": "Categories",
@@ -91,27 +91,42 @@
       "finance": "Finance & Banking",
       "realestate": "Real Estate",
       "beauty": "Beauty & Spa",
-      "food": "Food & Beverage",
-      "education": "Education"
+      "food": "F&B - Food & Beverage",
+      "education": "Education & Training"
+    },
+    "tabs": {
+      "forbidden": "Forbidden Terms",
+      "compliance": "Compliance Rules",
+      "claims": "Claim Restrictions"
+    },
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium"
     },
     "preview": {
       "forbiddenTerms": "Forbidden Terms",
       "complianceRules": "Compliance Rules",
       "claimRestrictions": "Claim Restrictions",
-      "exampleForbidden": "Example forbidden terms:"
+      "exampleForbidden": "Example forbidden terms:",
+      "forbiddenDesc": "Terms/phrases that AI will automatically detect and warn about:",
+      "complianceDesc": "Mandatory legal rules for advertising in this industry:",
+      "claimsDesc": "AI will suggest replacing violating claims with compliant alternatives:"
     },
+    "showMore": "Show {{count}} more",
+    "showLess": "Show less",
     "features": {
       "noViolation": {
         "title": "No Violations",
-        "description": "AI automatically checks forbidden terms and warns before publishing, helping you avoid legal risks"
+        "description": "AI automatically checks and warns about industry forbidden terms before publishing"
       },
       "compliance": {
         "title": "Legal Compliance",
-        "description": "Rules researched from Vietnam Advertising Law and industry regulatory documents"
+        "description": "Researched from Advertising Law, Decrees and related Circulars"
       },
       "autoUpdate": {
         "title": "Continuous Updates",
-        "description": "Legal expert team monitors and updates new rules when regulations change"
+        "description": "Legal expert team updates new rules monthly"
       }
     }
   },

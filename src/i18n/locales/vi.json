@@ -91,27 +91,42 @@
       "finance": "Tài chính & Ngân hàng",
       "realestate": "Bất động sản",
       "beauty": "Làm đẹp & Spa",
-      "food": "Thực phẩm & F&B",
-      "education": "Giáo dục"
+      "food": "F&B - Thực phẩm",
+      "education": "Giáo dục & Đào tạo"
+    },
+    "tabs": {
+      "forbidden": "Từ cấm",
+      "compliance": "Quy tắc tuân thủ",
+      "claims": "Giới hạn cam kết"
+    },
+    "severity": {
+      "critical": "Nghiêm trọng",
+      "high": "Cao",
+      "medium": "Trung bình"
     },
     "preview": {
-      "forbiddenTerms": "Từ cấm dùng",
+      "forbiddenTerms": "Từ cấm",
       "complianceRules": "Quy tắc tuân thủ",
       "claimRestrictions": "Giới hạn cam kết",
-      "exampleForbidden": "Ví dụ từ cấm trong ngành:"
+      "exampleForbidden": "Ví dụ từ cấm:",
+      "forbiddenDesc": "Các từ/cụm từ AI sẽ tự động phát hiện và cảnh báo khi xuất hiện trong nội dung:",
+      "complianceDesc": "Các quy tắc pháp lý bắt buộc tuân thủ khi quảng cáo trong ngành:",
+      "claimsDesc": "AI sẽ gợi ý thay thế các cam kết vi phạm bằng nội dung phù hợp:"
     },
+    "showMore": "Xem thêm {{count}} mục",
+    "showLess": "Thu gọn",
     "features": {
       "noViolation": {
         "title": "Không lo vi phạm",
-        "description": "AI tự động kiểm tra từ cấm và cảnh báo trước khi xuất bản, giúp bạn tránh rủi ro pháp lý"
+        "description": "AI tự động kiểm tra và cảnh báo các từ cấm ngành trước khi xuất bản"
       },
       "compliance": {
         "title": "Tuân thủ pháp luật",
-        "description": "Quy tắc được nghiên cứu từ Luật Quảng cáo Việt Nam và các văn bản pháp quy ngành"
+        "description": "Nghiên cứu từ Luật Quảng cáo, các Nghị định và Thông tư liên quan"
       },
       "autoUpdate": {
         "title": "Cập nhật liên tục",
-        "description": "Team chuyên gia pháp lý theo dõi và cập nhật rules mới khi luật thay đổi"
+        "description": "Team chuyên gia pháp lý cập nhật quy tắc mới hàng tháng"
       }
     }
   },
