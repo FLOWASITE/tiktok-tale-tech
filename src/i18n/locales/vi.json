@@ -457,8 +457,14 @@
   "careers": {
     "badge": "Cơ hội nghề nghiệp",
     "title": "Gia nhập đội ngũ Flowa",
-    "subtitle": "Cùng chúng tôi xây dựng tương lai Content Marketing tại Việt Nam",
+    "subtitle": "Cùng chúng tôi xây dựng tương lai Content Marketing toàn cầu",
     "viewPositions": "Xem vị trí đang tuyển",
+    "stats": {
+      "remote": "Làm việc từ xa",
+      "countries": "Quốc gia",
+      "rating": "Đánh giá",
+      "growth": "Tăng trưởng"
+    },
     "whyJoin": {
       "title": "Tại sao chọn Flowa?",
       "subtitle": "Chúng tôi tin rằng môi trường làm việc tốt sẽ tạo ra những sản phẩm tuyệt vời"
@@ -485,11 +491,12 @@
         "description": "Làm việc với AI, Cloud và các công nghệ mới nhất"
       },
       "salary": {
-        "title": "Lương cạnh tranh",
-        "description": "Mức lương hấp dẫn cùng các chế độ phúc lợi tốt"
+        "title": "Phúc lợi hấp dẫn",
+        "description": "Mức lương cạnh tranh cùng các chế độ phúc lợi tốt"
       }
     },
     "openPositions": {
+      "badge": "{{count}} vị trí đang mở",
       "title": "Vị trí đang tuyển",
       "subtitle": "Tìm vị trí phù hợp với bạn và ứng tuyển ngay"
     },
@@ -516,7 +523,7 @@
         "req3": "Hiểu biết về SEO và social media marketing"
       }
     },
-    "requirements": "Yêu cầu:",
+    "requirements": "Yêu cầu",
     "apply": "Ứng tuyển ngay",
     "noPositions": "Hiện tại chưa có vị trí mở. Hãy gửi CV của bạn để chúng tôi liên hệ khi có vị trí phù hợp.",
     "cta": {
