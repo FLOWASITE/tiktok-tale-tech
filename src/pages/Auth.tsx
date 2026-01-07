@@ -234,24 +234,6 @@ export default function Auth() {
             ))}
           </div>
 
-          {/* Social proof */}
-          <div className="flex items-center gap-4 pt-4">
-            <div className="flex -space-x-3">
-              {['🎨', '🚀', '💡', '⚡'].map((emoji, i) => (
-                <div 
-                  key={i}
-                  className="w-10 h-10 rounded-full border-2 border-background gradient-primary flex items-center justify-center text-lg shadow-lg"
-                  style={{ animationDelay: `${i * 100}ms` }}
-                >
-                  {emoji}
-                </div>
-              ))}
-            </div>
-            <div className="text-sm">
-              <div className="font-bold text-foreground">10,000+</div>
-              <div className="text-muted-foreground">người dùng tin tưởng</div>
-            </div>
-          </div>
         </div>
       </div>
 
