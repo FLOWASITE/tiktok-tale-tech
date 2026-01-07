@@ -8,6 +8,11 @@ export interface SalesChatMessage {
   suggestions?: string[];
   ctaActions?: Array<{ action: string; label: string }>;
   reactions?: string[];
+  // Analytics metadata (parsed from AI response)
+  intent?: string;
+  sentiment?: string;
+  topic?: string;
+  objection?: string;
 }
 
 interface UseSalesChatReturn {
@@ -17,10 +22,39 @@ interface UseSalesChatReturn {
   sendMessage: (content: string) => Promise<void>;
   clearMessages: () => void;
   addReaction: (messageId: string, emoji: string) => void;
+  sessionId: string;
+  trackCta: (action: string) => void;
 }
 
 const STORAGE_KEY = 'flowa_sales_chat_messages';
+const SESSION_KEY = 'flowa_sales_session_id';
+const VISITOR_KEY = 'flowa_visitor_id';
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-chatbot`;
+
+// Generate unique IDs
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+// Get or create session ID (resets each new chat session)
+function getSessionId(): string {
+  let sessionId = sessionStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    sessionId = generateId();
+    sessionStorage.setItem(SESSION_KEY, sessionId);
+  }
+  return sessionId;
+}
+
+// Get or create visitor ID (persistent across sessions)
+function getVisitorId(): string {
+  let visitorId = localStorage.getItem(VISITOR_KEY);
+  if (!visitorId) {
+    visitorId = generateId();
+    localStorage.setItem(VISITOR_KEY, visitorId);
+  }
+  return visitorId;
+}
 
 const WELCOME_MESSAGE: SalesChatMessage = {
   id: 'welcome',
@@ -41,14 +75,22 @@ Anh/chị muốn tìm hiểu gì về Flowa ạ?`,
   ],
 };
 
-// Parse CTA and suggestions from AI response
+// Parse CTA, suggestions, and metadata from AI response
 function parseAIResponse(content: string): {
   cleanContent: string;
   suggestions: string[];
   ctaActions: Array<{ action: string; label: string }>;
+  intent?: string;
+  sentiment?: string;
+  topic?: string;
+  objection?: string;
 } {
   const suggestions: string[] = [];
   const ctaActions: Array<{ action: string; label: string }> = [];
+  let intent: string | undefined;
+  let sentiment: string | undefined;
+  let topic: string | undefined;
+  let objection: string | undefined;
   
   let cleanContent = content;
   
@@ -68,14 +110,38 @@ function parseAIResponse(content: string): {
   }
   cleanContent = cleanContent.replace(suggestRegex, '');
   
+  // Parse metadata tags
+  const intentMatch = content.match(/\[INTENT:(\w+)\]/);
+  if (intentMatch) intent = intentMatch[1];
+  cleanContent = cleanContent.replace(/\[INTENT:\w+\]/g, '');
+  
+  const sentimentMatch = content.match(/\[SENTIMENT:(\w+)\]/);
+  if (sentimentMatch) sentiment = sentimentMatch[1];
+  cleanContent = cleanContent.replace(/\[SENTIMENT:\w+\]/g, '');
+  
+  const topicMatch = content.match(/\[TOPIC:(\w+)\]/);
+  if (topicMatch) topic = topicMatch[1];
+  cleanContent = cleanContent.replace(/\[TOPIC:\w+\]/g, '');
+  
+  const objectionMatch = content.match(/\[OBJECTION:(\w+)\]/);
+  if (objectionMatch) objection = objectionMatch[1];
+  cleanContent = cleanContent.replace(/\[OBJECTION:\w+\]/g, '');
+  
   return {
     cleanContent: cleanContent.trim(),
     suggestions,
     ctaActions,
+    intent,
+    sentiment,
+    topic,
+    objection,
   };
 }
 
 export function useSalesChat(): UseSalesChatReturn {
+  const sessionId = useRef(getSessionId()).current;
+  const visitorId = useRef(getVisitorId()).current;
+  
   const [messages, setMessages] = useState<SalesChatMessage[]>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -104,6 +170,12 @@ export function useSalesChat(): UseSalesChatReturn {
       console.error('[useSalesChat] Failed to save messages:', e);
     }
   }, [messages]);
+
+  // Track CTA clicks
+  const trackCta = useCallback((action: string) => {
+    console.log('[useSalesChat] CTA clicked:', action, 'session:', sessionId);
+    // Could send to analytics endpoint here
+  }, [sessionId]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -138,7 +210,11 @@ export function useSalesChat(): UseSalesChatReturn {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ 
+          messages: apiMessages,
+          sessionId,
+          visitorId,
+        }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -207,12 +283,12 @@ export function useSalesChat(): UseSalesChatReturn {
         }
       }
 
-      // Final parse for suggestions and CTAs
-      const { cleanContent, suggestions, ctaActions } = parseAIResponse(fullContent);
+      // Final parse for suggestions, CTAs, and metadata
+      const { cleanContent, suggestions, ctaActions, intent, sentiment, topic, objection } = parseAIResponse(fullContent);
       
       setMessages(prev => prev.map(m => 
         m.id === assistantId 
-          ? { ...m, content: cleanContent, suggestions, ctaActions }
+          ? { ...m, content: cleanContent, suggestions, ctaActions, intent, sentiment, topic, objection }
           : m
       ));
 
@@ -235,11 +311,14 @@ export function useSalesChat(): UseSalesChatReturn {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, sessionId, visitorId]);
 
   const clearMessages = useCallback(() => {
     setMessages([WELCOME_MESSAGE]);
     localStorage.removeItem(STORAGE_KEY);
+    // Generate new session ID for new conversation
+    const newSessionId = generateId();
+    sessionStorage.setItem(SESSION_KEY, newSessionId);
   }, []);
 
   const addReaction = useCallback((messageId: string, emoji: string) => {
@@ -262,5 +341,7 @@ export function useSalesChat(): UseSalesChatReturn {
     sendMessage,
     clearMessages,
     addReaction,
+    sessionId,
+    trackCta,
   };
 }
