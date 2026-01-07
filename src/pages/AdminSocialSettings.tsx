@@ -30,7 +30,7 @@ interface PlatformConfig {
 const PLATFORMS: PlatformConfig[] = [
   { platform: 'twitter', name: 'Twitter / X', icon: Twitter, color: 'text-sky-500', available: true },
   { platform: 'facebook', name: 'Facebook', icon: Facebook, color: 'text-blue-600', available: true },
-  { platform: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-pink-500', available: false },
+  { platform: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-pink-500', available: true },
   { platform: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', available: false },
   { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: false },
 ];
@@ -51,9 +51,12 @@ export default function AdminSocialSettings() {
     setTestingPlatform(platform);
     try {
       // Call platform-specific test function
-      const testFunctionName = platform === 'facebook' 
-        ? 'test-facebook-credentials' 
-        : 'test-twitter-credentials';
+      let testFunctionName = 'test-twitter-credentials';
+      if (platform === 'facebook') {
+        testFunctionName = 'test-facebook-credentials';
+      } else if (platform === 'instagram') {
+        testFunctionName = 'test-instagram-credentials';
+      }
       
       const { data, error } = await supabase.functions.invoke(testFunctionName, {
         body: {
@@ -160,7 +163,7 @@ export default function AdminSocialSettings() {
                           <p>App: <span className="text-foreground">{platformSettings.app_name}</span></p>
                         )}
                         <p>
-                          {config.platform === 'facebook' ? 'App ID' : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
+                          {config.platform === 'facebook' || config.platform === 'instagram' ? 'App ID' : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
                         </p>
                         <p>
                           Trạng thái: {platformSettings.is_active ? (

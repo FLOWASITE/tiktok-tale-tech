@@ -41,7 +41,7 @@ const PLATFORM_HELP = {
   },
   instagram: {
     url: 'https://developers.facebook.com/apps/',
-    instructions: 'Cấu hình thông qua Meta for Developers (Instagram Basic Display)',
+    instructions: 'Tạo App tại Meta for Developers → Add Instagram Product → Basic Display hoặc Business Login → App ID & Secret',
   },
   linkedin: {
     url: 'https://www.linkedin.com/developers/apps',
@@ -70,9 +70,13 @@ export function SocialPlatformCredentialsDialog({
   const [showSecret, setShowSecret] = useState(false);
 
   const help = PLATFORM_HELP[platform];
-  const isFacebook = platform === 'facebook';
-  const keyLabel = isFacebook ? 'App ID' : 'Consumer Key (API Key)';
-  const secretLabel = isFacebook ? 'App Secret' : 'Consumer Secret (API Secret)';
+  const isFacebookOrInstagram = platform === 'facebook' || platform === 'instagram';
+  const keyLabel = isFacebookOrInstagram 
+    ? (platform === 'instagram' ? 'Instagram App ID' : 'App ID')
+    : 'Consumer Key (API Key)';
+  const secretLabel = isFacebookOrInstagram 
+    ? (platform === 'instagram' ? 'Instagram App Secret' : 'App Secret')
+    : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
     if (open && existingSettings) {
@@ -157,7 +161,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showKey ? 'text' : 'password'}
                 value={consumerKey}
                 onChange={(e) => setConsumerKey(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebook ? 'App ID' : 'Consumer Key'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebookOrInstagram ? 'App ID' : 'Consumer Key'}`}
                 className="pr-10"
               />
               <Button
@@ -188,7 +192,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showSecret ? 'text' : 'password'}
                 value={consumerSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebook ? 'App Secret' : 'Consumer Secret'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebookOrInstagram ? 'App Secret' : 'Consumer Secret'}`}
                 className="pr-10"
               />
               <Button
