@@ -49,6 +49,11 @@
         "title": "อัตโนมัติเต็มรูปแบบ",
         "description": "สร้าง carousel post มืออาชีพพร้อม prompts สำหรับแต่ละสไลด์ caption และ CTA พร้อมโพสต์"
       },
+      "adCopy": {
+        "keyword": "Ad Copy",
+        "title": "ที่แปลงยอดขาย",
+        "description": "AI สร้างเนื้อหาโฆษณา Facebook, Instagram, TikTok พร้อม A/B testing, การให้คะแนน และการเพิ่มประสิทธิภาพ CTR อัตโนมัติ"
+      },
       "ideation": {
         "keyword": "ไอเดีย",
         "title": "ไม่มีขีดจำกัด",
