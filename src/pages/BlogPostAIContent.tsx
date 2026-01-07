@@ -3,6 +3,7 @@ import { ArrowLeft, Clock, User, Calendar, ChevronDown, ChevronRight } from 'luc
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { LandingNav } from '@/components/landing/LandingNav';
 import { 
   ReadingProgress, 
   SocialShare, 
@@ -47,28 +48,22 @@ const BlogPostAIContent = () => {
       <ReadingProgress />
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+      <LandingNav />
+
+      {/* Secondary Nav - Back to Blog */}
+      <div className="fixed top-16 left-0 right-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">F</span>
-              </div>
-              <span className="text-xl font-bold text-foreground">Flowa</span>
+          <div className="flex justify-between items-center h-12">
+            <Link to="/blog" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-medium">Blog</span>
             </Link>
             <div className="flex items-center gap-4">
               <BlogReactions postSlug={POST_SLUG} />
-              <Link 
-                to="/blog" 
-                className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Quay lại Blog</span>
-              </Link>
             </div>
           </div>
         </div>
-      </nav>
+      </div>
 
       {/* Hero Section */}
       <section className="pt-24 pb-12 bg-gradient-to-b from-primary/5 to-background">

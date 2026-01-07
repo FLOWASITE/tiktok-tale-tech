@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Clock, User, Calendar, ChevronDown, Zap, Target, Layers, Share2, Video, Mail, BarChart3, Lightbulb } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { LandingNav } from '@/components/landing/LandingNav';
 import { 
   ReadingProgress, 
   SocialShare, 
@@ -38,25 +39,19 @@ const BlogPostRepurposing = () => {
       {/* Reading Progress */}
       <ReadingProgress />
 
-      {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      {/* Navigation */}
+      <LandingNav />
+
+      {/* Secondary Nav - Back to Blog */}
+      <header className="bg-card border-b border-border sticky top-16 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-primary to-primary/80 rounded-lg flex items-center justify-center">
-                <Zap className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">Flowa</span>
+            <Link to="/blog" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-medium">Blog</span>
             </Link>
             <div className="flex items-center gap-4">
               <BlogReactions postSlug={POST_SLUG} />
-              <Link 
-                to="/blog" 
-                className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Quay lại Blog</span>
-              </Link>
             </div>
           </div>
         </div>
