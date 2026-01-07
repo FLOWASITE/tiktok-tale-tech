@@ -78,14 +78,15 @@ function AppRoutes() {
   // App domain (app.flowa.one or localhost/preview) - show full app
   return (
     <Routes>
-      {/* Landing page still accessible at /landing for preview */}
+      {/* Landing/public pages accessible on app domain too (preview/local/dev) */}
       <Route path="/landing" element={<Landing />} />
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/careers" element={<Careers />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/:slug" element={<BlogPost />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      
       {/* Protected routes */}
       <Route
         path="/"
