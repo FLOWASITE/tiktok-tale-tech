@@ -39,8 +39,8 @@ const contactInfo = [
   {
     icon: Phone,
     labelKey: "contact.info.phone",
-    value: "+84 28 1234 5678",
-    href: "tel:+842812345678",
+    value: "0838 226 363",
+    href: "tel:0838226363",
     gradient: "from-blue-500 to-cyan-500",
   },
   {
