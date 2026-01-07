@@ -111,7 +111,7 @@ export function LandingNav() {
 
             {/* Desktop CTA */}
             <div className="hidden lg:flex items-center gap-3">
-              <LanguageSwitcher variant="toggle" />
+              <LanguageSwitcher variant="dropdown" />
               <Button variant="ghost" className="font-medium" asChild>
                 <Link to="/auth">{t('nav.login')}</Link>
               </Button>
@@ -195,7 +195,7 @@ export function LandingNav() {
                   className="pt-4 border-t border-border space-y-3"
                 >
                   <div className="flex justify-center pb-2">
-                    <LanguageSwitcher variant="toggle" />
+                    <LanguageSwitcher variant="dropdown" />
                   </div>
                   <Button variant="outline" className="w-full h-12 text-base rounded-xl" asChild>
                     <Link to="/auth">{t('nav.login')}</Link>
