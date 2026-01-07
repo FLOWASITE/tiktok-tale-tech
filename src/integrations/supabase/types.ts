@@ -5033,6 +5033,63 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_chat_leads: {
+        Row: {
+          conversation_summary: string | null
+          created_at: string | null
+          email: string | null
+          handoff_platform: string | null
+          handoff_requested: boolean | null
+          id: string
+          interest_level: string | null
+          interested_features: string[] | null
+          name: string | null
+          notes: string | null
+          phone: string | null
+          session_id: string
+          source_url: string | null
+          status: string | null
+          updated_at: string | null
+          visitor_id: string
+        }
+        Insert: {
+          conversation_summary?: string | null
+          created_at?: string | null
+          email?: string | null
+          handoff_platform?: string | null
+          handoff_requested?: boolean | null
+          id?: string
+          interest_level?: string | null
+          interested_features?: string[] | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          session_id: string
+          source_url?: string | null
+          status?: string | null
+          updated_at?: string | null
+          visitor_id: string
+        }
+        Update: {
+          conversation_summary?: string | null
+          created_at?: string | null
+          email?: string | null
+          handoff_platform?: string | null
+          handoff_requested?: boolean | null
+          id?: string
+          interest_level?: string | null
+          interested_features?: string[] | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          session_id?: string
+          source_url?: string | null
+          status?: string | null
+          updated_at?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       sales_chat_messages_log: {
         Row: {
           content: string

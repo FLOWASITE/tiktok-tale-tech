@@ -378,6 +378,68 @@ function parseResponseMetadata(content: string): {
   return metadata;
 }
 
+// Detect high-interest signals for lead capture
+function detectLeadSignals(messages: Array<{ role: string; content: string }>): {
+  interestLevel: string;
+  interestedFeatures: string[];
+  shouldCaptureLead: boolean;
+} {
+  const userMessages = messages.filter(m => m.role === 'user').map(m => m.content.toLowerCase());
+  const allText = userMessages.join(' ');
+  
+  let interestLevel = 'low';
+  const interestedFeatures: string[] = [];
+  let shouldCaptureLead = false;
+  
+  // High interest signals
+  const highInterestPatterns = [
+    /đăng ký|đăng kí|mua|thanh toán|bắt đầu|trial|dùng thử/,
+    /giá bao nhiêu|báo giá|gói nào|chi phí/,
+    /liên hệ|tư vấn|demo|gặp/,
+    /công ty tôi|team tôi|doanh nghiệp/,
+  ];
+  
+  const mediumInterestPatterns = [
+    /ngành.*của tôi|phù hợp|có hỗ trợ/,
+    /tính năng|làm được gì|so với/,
+    /carousel|video|script|content/,
+  ];
+  
+  // Feature detection
+  if (/carousel/i.test(allText)) interestedFeatures.push('carousel');
+  if (/video|script|tiktok|reels/i.test(allText)) interestedFeatures.push('video_scripts');
+  if (/multi.*channel|đa kênh|nhiều kênh/i.test(allText)) interestedFeatures.push('multichannel');
+  if (/industry|ngành|compliance/i.test(allText)) interestedFeatures.push('industry_packs');
+  if (/team|nhóm|cộng tác/i.test(allText)) interestedFeatures.push('team_collaboration');
+  if (/api|integration|tích hợp/i.test(allText)) interestedFeatures.push('api_integration');
+  
+  // Determine interest level
+  const highMatches = highInterestPatterns.filter(p => p.test(allText)).length;
+  const mediumMatches = mediumInterestPatterns.filter(p => p.test(allText)).length;
+  
+  if (highMatches >= 2 || (highMatches >= 1 && mediumMatches >= 2)) {
+    interestLevel = 'very_high';
+    shouldCaptureLead = true;
+  } else if (highMatches >= 1 || mediumMatches >= 2) {
+    interestLevel = 'high';
+    shouldCaptureLead = userMessages.length >= 3;
+  } else if (mediumMatches >= 1) {
+    interestLevel = 'medium';
+  }
+  
+  return { interestLevel, interestedFeatures, shouldCaptureLead };
+}
+
+// Generate conversation summary for lead
+function generateConversationSummary(messages: Array<{ role: string; content: string }>): string {
+  const userMessages = messages
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .slice(-5); // Last 5 messages
+  
+  return userMessages.join(' | ').slice(0, 500);
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -385,10 +447,69 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, sessionId, visitorId } = await req.json();
+    const { messages, sessionId, visitorId, action, leadData } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    // Initialize Supabase client
+    let supabase = null;
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    }
+
+    // Handle special actions
+    if (action === 'save_lead' && supabase) {
+      console.log("[sales-chatbot] Saving lead:", leadData);
+      try {
+        const { error } = await supabase.from('sales_chat_leads').upsert({
+          session_id: sessionId,
+          visitor_id: visitorId,
+          name: leadData?.name,
+          email: leadData?.email,
+          phone: leadData?.phone,
+          interest_level: leadData?.interestLevel || 'medium',
+          interested_features: leadData?.interestedFeatures || [],
+          conversation_summary: leadData?.conversationSummary,
+          source_url: leadData?.sourceUrl,
+          handoff_requested: leadData?.handoffRequested || false,
+          handoff_platform: leadData?.handoffPlatform,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'session_id' });
+        
+        if (error) throw error;
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (err) {
+        console.error("[sales-chatbot] Failed to save lead:", err);
+        return new Response(
+          JSON.stringify({ error: "Failed to save lead" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (action === 'request_handoff' && supabase) {
+      console.log("[sales-chatbot] Handoff requested:", leadData?.platform);
+      try {
+        await supabase.from('sales_chat_leads').upsert({
+          session_id: sessionId,
+          visitor_id: visitorId,
+          handoff_requested: true,
+          handoff_platform: leadData?.platform,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'session_id' });
+        
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (err) {
+        console.error("[sales-chatbot] Failed to log handoff:", err);
+      }
+    }
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -396,11 +517,9 @@ serve(async (req) => {
 
     console.log("[sales-chatbot] Processing request with", messages.length, "messages", "session:", sessionId);
 
-    // Initialize Supabase client for analytics
-    let supabase = null;
-    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-      supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    }
+    // Detect lead signals
+    const leadSignals = detectLeadSignals(messages);
+    console.log("[sales-chatbot] Lead signals:", leadSignals);
 
     // Get time-aware greeting
     const timeGreeting = getVietnameseTimeGreeting();
@@ -466,7 +585,7 @@ serve(async (req) => {
         }
       }
       
-      // Update or create session analytics
+      // Update or create session analytics with lead info
       try {
         await supabase.from('sales_chat_analytics').upsert({
           session_id: sessionId,
@@ -481,11 +600,34 @@ serve(async (req) => {
       } catch (err) {
         console.error("[sales-chatbot] Failed to update analytics:", err);
       }
+
+      // Auto-save lead if high interest detected
+      if (leadSignals.shouldCaptureLead) {
+        try {
+          await supabase.from('sales_chat_leads').upsert({
+            session_id: sessionId,
+            visitor_id: visitorId,
+            interest_level: leadSignals.interestLevel,
+            interested_features: leadSignals.interestedFeatures,
+            conversation_summary: generateConversationSummary(messages),
+            source_url: 'landing',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'session_id' });
+          console.log("[sales-chatbot] Lead auto-saved");
+        } catch (err) {
+          console.error("[sales-chatbot] Failed to auto-save lead:", err);
+        }
+      }
     }
 
-    // Return streaming response
+    // Return streaming response with lead signals in header
     return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: { 
+        ...corsHeaders, 
+        "Content-Type": "text/event-stream",
+        "X-Lead-Interest": leadSignals.interestLevel,
+        "X-Should-Capture": String(leadSignals.shouldCaptureLead),
+      },
     });
 
   } catch (error) {
