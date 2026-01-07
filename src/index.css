@@ -32,7 +32,7 @@ All colors MUST be HSL.
     --accent: 340 82% 52%;
     --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 94% 45%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 240 5.9% 90%;
@@ -53,7 +53,7 @@ All colors MUST be HSL.
     --task-review: 45 93% 47%;
     --task-approved: 217 91% 60%;
     --task-published: 142 76% 36%;
-    --task-overdue: 0 84.2% 60.2%;
+    --task-overdue: 0 94% 45%;
 
     /* Font */
     --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -95,7 +95,7 @@ All colors MUST be HSL.
     --accent: 340 82% 52%;
     --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 94% 35%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 240 3.7% 15.9%;
@@ -114,7 +114,7 @@ All colors MUST be HSL.
     --task-review: 45 93% 47%;
     --task-approved: 217 91% 60%;
     --task-published: 142 76% 36%;
-    --task-overdue: 0 84.2% 60.2%;
+    --task-overdue: 0 94% 45%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -154,7 +154,7 @@ All colors MUST be HSL.
     --accent: 65 90% 50%;
     --accent-foreground: 75 50% 10%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 94% 45%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 75 30% 85%;
