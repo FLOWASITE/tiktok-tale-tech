@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { 
-  Layers, Clapperboard, GalleryHorizontalEnd, Lightbulb, PenTool, CalendarClock, Users
+  Layers, Clapperboard, GalleryHorizontalEnd, Lightbulb, PenTool, CalendarClock, Users, Megaphone
 } from "lucide-react";
 
 interface FeatureSectionProps {
@@ -54,6 +54,7 @@ export function PainPointsSection() {
     { key: "multiChannel", icon: Layers },
     { key: "videoScript", icon: Clapperboard },
     { key: "carousel", icon: GalleryHorizontalEnd },
+    { key: "adCopy", icon: Megaphone },
     { key: "ideation", icon: Lightbulb },
     { key: "brandVoice", icon: PenTool },
     { key: "publishing", icon: CalendarClock },
