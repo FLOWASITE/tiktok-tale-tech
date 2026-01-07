@@ -137,6 +137,35 @@ const BlogPost = () => {
         </div>
       </section>
 
+      {/* Mobile Table of Contents */}
+      <section className="lg:hidden py-4 border-b border-border/50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="toc" className="border-none">
+              <AccordionTrigger className="py-3 px-4 bg-muted/50 rounded-xl hover:bg-muted/70 transition-colors">
+                <span className="flex items-center gap-2 font-semibold text-sm">
+                  <FileText className="w-4 h-4" />
+                  Mục lục bài viết
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                <nav className="space-y-1 bg-card rounded-xl p-3 border border-border/50">
+                  {tableOfContents.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => scrollToSection(item.id)}
+                      className="block w-full text-left py-2.5 px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+                    >
+                      {item.title}
+                    </button>
+                  ))}
+                </nav>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      </section>
+
       {/* Content */}
       <section className="py-8 lg:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
