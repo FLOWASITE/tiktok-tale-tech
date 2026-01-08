@@ -1,7 +1,35 @@
 /**
  * Shared AI types and error codes
+ * Re-exports topic types from the source of truth to avoid duplication
  */
 
+// Re-export all topic-related types from the source of truth
+export type {
+  TopicCategory,
+  TopicFormat,
+  EngagementLevel,
+  SortOption,
+  TopicScores,
+  EnhancedTopicSuggestion,
+  TopicType,
+  FunnelStage,
+  EmotionalTone,
+  SearchIntent,
+  ClusterRole,
+  ContentTier,
+  MediaOwnership,
+  TopicDataSource,
+  SuggestedKeywords,
+  ContentSeries,
+  TopicHistoryItem,
+  ContentPillar,
+  SeasonalEvent,
+} from '@/types/topicDiscovery';
+
+// Re-export utility function
+export { calculateOverallScore } from '@/types/topicDiscovery';
+
+// ============== AI ERROR TYPES ==============
 export type AIErrorCode = 'CREDITS_EXHAUSTED' | 'RATE_LIMIT' | 'UNKNOWN';
 
 export interface AIHookState {
@@ -159,35 +187,4 @@ export interface TrendingTopic {
   source: string;
   created_at: string;
   expires_at: string;
-}
-
-// ============== ENHANCED SUGGESTIONS TYPES ==============
-export type TopicCategory = 'evergreen' | 'trending' | 'seasonal' | 'reactive';
-export type TopicFormat = 'carousel' | 'script' | 'multichannel';
-export type EngagementLevel = 'low' | 'medium' | 'high';
-export type SortOption = 'overall' | 'brandFit' | 'trend' | 'engagement' | 'competition';
-
-export interface TopicScores {
-  brandFit: number;
-  trend: number;
-  competition: number;
-  engagement: number;
-}
-
-export interface EnhancedTopicSuggestion {
-  topic: string;
-  category: TopicCategory;
-  formats: TopicFormat[];
-  estimatedEngagement: EngagementLevel;
-  reasoning: string;
-  relatedKeywords: string[];
-  scores: TopicScores;
-  pillar?: string;
-  topicType?: string;
-  funnelStage?: string;
-  emotionalTone?: string;
-}
-
-export function calculateOverallScore(scores: TopicScores): number {
-  return Math.round((scores.brandFit + scores.trend + scores.competition + scores.engagement) / 4);
 }
