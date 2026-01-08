@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSocialPlatformSettings, SocialPlatform } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from '@/components/admin/SocialPlatformCredentialsDialog';
-import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign, MessageCircle, MapPin, Globe } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,9 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-pink-500', available: true },
   { platform: 'threads', name: 'Threads', icon: AtSign, color: 'text-foreground', available: true },
   { platform: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', available: true },
+  { platform: 'zalo_oa', name: 'Zalo OA', icon: MessageCircle, color: 'text-blue-500', available: true },
+  { platform: 'google_business', name: 'Google Business', icon: MapPin, color: 'text-red-500', available: true },
+  { platform: 'website', name: 'Website', icon: Globe, color: 'text-green-600', available: true },
   { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: false },
 ];
 
@@ -52,16 +55,17 @@ export default function AdminSocialSettings() {
     setTestingPlatform(platform);
     try {
       // Call platform-specific test function
-      let testFunctionName = 'test-twitter-credentials';
-      if (platform === 'facebook') {
-        testFunctionName = 'test-facebook-credentials';
-      } else if (platform === 'instagram') {
-        testFunctionName = 'test-instagram-credentials';
-      } else if (platform === 'threads') {
-        testFunctionName = 'test-threads-credentials';
-      } else if (platform === 'linkedin') {
-        testFunctionName = 'test-linkedin-credentials';
-      }
+      const testFunctionMap: Record<string, string> = {
+        twitter: 'test-twitter-credentials',
+        facebook: 'test-facebook-credentials',
+        instagram: 'test-instagram-credentials',
+        threads: 'test-threads-credentials',
+        linkedin: 'test-linkedin-credentials',
+        zalo_oa: 'test-zalo-credentials',
+        google_business: 'test-google-business-credentials',
+        website: 'test-website-credentials',
+      };
+      const testFunctionName = testFunctionMap[platform] || 'test-twitter-credentials';
       
       const { data, error } = await supabase.functions.invoke(testFunctionName, {
         body: {
@@ -168,7 +172,7 @@ export default function AdminSocialSettings() {
                           <p>App: <span className="text-foreground">{platformSettings.app_name}</span></p>
                         )}
                         <p>
-                          {config.platform === 'facebook' || config.platform === 'instagram' || config.platform === 'threads' ? 'App ID' : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
+                          {['facebook', 'instagram', 'threads', 'zalo_oa', 'google_business'].includes(config.platform) ? 'App ID' : config.platform === 'website' ? 'API URL' : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
                         </p>
                         <p>
                           Trạng thái: {platformSettings.is_active ? (
