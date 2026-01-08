@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -434,28 +436,57 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Instructions */}
-            <Alert>
-              <Info className="h-4 w-4" />
+            {/* Warning about token ownership */}
+            <Alert variant="destructive" className="border-amber-500/50 bg-amber-500/10 text-amber-700">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                API Keys (Consumer Key/Secret) đã được Admin cấu hình. Bạn chỉ cần nhập Access Token từ tài khoản Twitter của mình.
+                <strong>Quan trọng:</strong> Access Token phải được tạo từ chính tài khoản Twitter mà bạn muốn đăng bài. Token từ tài khoản khác sẽ đăng bài lên tài khoản đó.
               </AlertDescription>
             </Alert>
 
-            <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-2">
-              <p className="font-medium">Hướng dẫn lấy Access Token:</p>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Truy cập <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">developer.twitter.com <ExternalLink className="w-3 h-3" /></a></li>
-                <li>Vào App mà Admin đã share (hoặc tạo mới)</li>
-                <li>Trong <strong>Keys and Tokens</strong>, generate Access Token</li>
-                <li>Copy <strong>Access Token</strong> và <strong>Access Token Secret</strong></li>
-                <li>Đảm bảo App có quyền <strong>Read and Write</strong></li>
-              </ol>
+            <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-3">
+              <p className="font-medium">Cách lấy Access Token từ tài khoản Twitter của bạn:</p>
+              
+              {/* Option 1: Team Member */}
+              <div className="border-l-2 border-primary pl-3">
+                <p className="font-medium text-primary">Tùy chọn 1: Được Admin mời vào App</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground mt-1">
+                  <li>Yêu cầu Admin mời bạn làm Team Member trong Project trên <a href="https://developer.twitter.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">developer.twitter.com <ExternalLink className="w-3 h-3" /></a></li>
+                  <li>Chấp nhận lời mời qua email</li>
+                  <li>Truy cập App → <strong>Keys and Tokens</strong></li>
+                  <li>Generate <strong>Access Token của tài khoản bạn</strong></li>
+                  <li>Copy Access Token và Access Token Secret</li>
+                </ol>
+              </div>
+              
+              {/* Option 2: Own App */}
+              <div className="border-l-2 border-muted-foreground pl-3">
+                <p className="font-medium">Tùy chọn 2: Tạo App Developer riêng</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground mt-1">
+                  <li>Đăng ký Twitter Developer tại <a href="https://developer.twitter.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">developer.twitter.com <ExternalLink className="w-3 h-3" /></a></li>
+                  <li>Tạo Project và App mới</li>
+                  <li>Trong User Authentication, bật <strong>OAuth 1.0a</strong> với <strong>Read and Write</strong></li>
+                  <li>Trong Keys and Tokens, generate Access Token</li>
+                  <li>Liên hệ Admin để được cung cấp Consumer Key/Secret nếu cần</li>
+                </ol>
+              </div>
             </div>
 
             {/* Access Token */}
             <div className="space-y-2">
-              <Label htmlFor="accessToken">Access Token</Label>
+              <Label htmlFor="accessToken" className="flex items-center gap-1">
+                Access Token
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Token này đại diện cho quyền đăng bài của tài khoản Twitter. Đảm bảo bạn generate từ đúng tài khoản muốn sử dụng.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </Label>
               <div className="relative">
                 <Input
                   id="accessToken"
