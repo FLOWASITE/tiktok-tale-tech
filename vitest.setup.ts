@@ -1,4 +1,6 @@
 // Vitest setup file
+import { vi } from 'vitest';
+
 // Mock crypto for edge function tests
 if (typeof globalThis.crypto === 'undefined') {
   globalThis.crypto = {
@@ -18,3 +20,8 @@ if (typeof globalThis.performance === 'undefined') {
     now: () => Date.now(),
   } as Performance;
 }
+
+// Reset all mocks before each test
+beforeEach(() => {
+  vi.clearAllMocks();
+});
