@@ -233,3 +233,36 @@ verify_jwt = false
 
 [functions.test-threads-connection]
 verify_jwt = false
+
+[functions.zalo-oauth-callback]
+verify_jwt = false
+
+[functions.publish-zalo]
+verify_jwt = false
+
+[functions.refresh-zalo-token]
+verify_jwt = false
+
+[functions.test-zalo-connection]
+verify_jwt = false
+
+[functions.google-business-oauth-callback]
+verify_jwt = false
+
+[functions.publish-google-business]
+verify_jwt = false
+
+[functions.refresh-google-business-token]
+verify_jwt = false
+
+[functions.test-google-business-connection]
+verify_jwt = false
+
+[functions.connect-website]
+verify_jwt = false
+
+[functions.publish-website]
+verify_jwt = false
+
+[functions.test-website-connection]
+verify_jwt = false

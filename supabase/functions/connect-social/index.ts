@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface ConnectRequest {
-  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube';
+  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_maps' | 'website';
   organizationId?: string;
   brandTemplateId?: string;
   accessToken?: string;
@@ -616,12 +616,101 @@ serve(async (req) => {
       );
     }
 
+    // For Zalo OA - using OAuth 2.0 flow
+    if (platform === 'zalo_oa') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'zalo_oa', encryptionKey);
+      
+      if (!globalCreds.consumerKey) {
+        throw new Error('Zalo OA chưa được cấu hình. Liên hệ Admin để thiết lập App ID/Secret.');
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/zalo-oauth-callback`;
+      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id }));
+
+      const oauthUrl = `https://oauth.zaloapp.com/v4/oa/permission?` + new URLSearchParams({
+        app_id: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        state: state,
+      }).toString();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresOAuth: true,
+          oauthUrl,
+          instructions: {
+            steps: ['1. Click để đăng nhập Zalo OA', '2. Chọn OA muốn kết nối', '3. Cấp quyền cho ứng dụng'],
+            note: 'Bạn cần có quyền Admin của Zalo Official Account.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // For Google Maps (Business Profile) - using OAuth 2.0 flow
+    if (platform === 'google_maps') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'google_maps', encryptionKey);
+      
+      if (!globalCreds.consumerKey) {
+        throw new Error('Google Business Profile chưa được cấu hình. Liên hệ Admin.');
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/google-business-oauth-callback`;
+      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id }));
+
+      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
+        client_id: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        scope: 'https://www.googleapis.com/auth/business.manage',
+        response_type: 'code',
+        access_type: 'offline',
+        prompt: 'consent',
+        state,
+      }).toString();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresOAuth: true,
+          oauthUrl,
+          instructions: {
+            steps: ['1. Click để đăng nhập Google', '2. Chọn tài khoản Google Business', '3. Cấp quyền'],
+            note: 'Bạn cần có Google Business Profile đã được xác minh.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // For Website - redirect to separate connect-website function
+    if (platform === 'website') {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresManualSetup: true,
+          instructions: {
+            steps: ['1. Nhập URL website', '2. Chọn loại kết nối (WordPress/API/Webhook)', '3. Cấu hình credentials'],
+            fields: [
+              { key: 'websiteUrl', label: 'Website URL', required: true },
+              { key: 'integrationType', label: 'Loại kết nối', required: true },
+            ],
+            note: 'Hỗ trợ WordPress REST API, Custom API, Webhook hoặc copy thủ công.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,
-        error: `Platform ${platform} is not yet supported. Coming soon!`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads'],
+        error: `Platform ${platform} is not yet supported.`,
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'zalo_oa', 'google_maps', 'website'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
