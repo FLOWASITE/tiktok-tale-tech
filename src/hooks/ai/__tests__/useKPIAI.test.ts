@@ -64,9 +64,14 @@ describe('useKPIAI', () => {
 
       await act(async () => {
         await result.current.suggestions.fetchSuggestions({
-          objective: 'awareness',
-          platform: 'facebook',
-          industry: 'technology',
+          campaignType: 'awareness',
+          budget: 1000,
+          budgetCurrency: 'USD',
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+          targetChannels: ['facebook'],
+          industries: ['technology'],
+          organizationId: 'test-org-id',
         });
       });
 
@@ -87,7 +92,16 @@ describe('useKPIAI', () => {
       const { result } = renderHook(() => useKPIAI({}));
 
       await act(async () => {
-        await result.current.suggestions.fetchSuggestions({ objective: 'awareness' });
+        await result.current.suggestions.fetchSuggestions({
+          campaignType: 'awareness',
+          budget: 1000,
+          budgetCurrency: 'USD',
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+          targetChannels: ['facebook'],
+          industries: null,
+          organizationId: 'test-org-id',
+        });
       });
 
       act(() => {
