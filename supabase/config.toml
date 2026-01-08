@@ -197,3 +197,6 @@ verify_jwt = false
 
 [functions.linkedin-oauth-callback]
 verify_jwt = false
+
+[functions.publish-linkedin]
+verify_jwt = false
