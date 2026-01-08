@@ -54,6 +54,9 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   tiktok: 'tiktok',
   threads: 'threads',
   youtube: 'youtube',
+  zalo_oa: 'zalo_oa',
+  google_business: 'google_business',
+  website: 'website',
 };
 
 const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
@@ -64,6 +67,9 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   tiktok: () => <span>🎵</span>,
   threads: () => <span>🧵</span>,
   youtube: () => <span>▶️</span>,
+  zalo_oa: () => <span>💬</span>,
+  google_business: () => <span>📍</span>,
+  website: () => <span>🌐</span>,
 };
 
 export function DirectPublishButton({
