@@ -21,3 +21,18 @@ export type {
   GenerateHooksOptions,
   BrandVoice as HookBrandVoice,
 } from './useHookAI';
+
+// Consolidated KPI AI hook
+export { useKPIAI } from './useKPIAI';
+export type {
+  UseKPIAIOptions,
+  UseKPIAIResult,
+  AISuggestion,
+  AIKPISuggestionsResult,
+  KPISuggestionsParams,
+  AdjustmentSuggestion,
+  AdjustmentAnalysis,
+  CampaignGoal as KPICampaignGoal,
+  KPILog,
+  Campaign as KPICampaign,
+} from './useKPIAI';
