@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useSocialConnections, SocialPlatform, SocialConnection } from '@/hooks/useSocialConnections';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Switch } from '@/components/ui/switch';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -50,7 +50,6 @@ import {
   MessageCircle,
   MapPin,
   Globe,
-  AlertCircle,
   Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -144,8 +143,6 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
 interface TwitterSetupForm {
   accessToken: string;
   accessTokenSecret: string;
-  consumerKey: string;
-  consumerSecret: string;
 }
 
 export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabProps) {
@@ -169,41 +166,11 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null);
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
   
-  // Twitter specific states
-  const [useOwnKeys, setUseOwnKeys] = useState(false);
-  const [globalTwitterConfigured, setGlobalTwitterConfigured] = useState<boolean | null>(null);
-  const [checkingGlobalConfig, setCheckingGlobalConfig] = useState(false);
-
   const [twitterForm, setTwitterForm] = useState<TwitterSetupForm>({
     accessToken: '',
     accessTokenSecret: '',
-    consumerKey: '',
-    consumerSecret: '',
   });
   
-  // Check if Admin has configured global Twitter credentials
-  const checkGlobalTwitterConfig = async () => {
-    setCheckingGlobalConfig(true);
-    try {
-      const { data, error } = await supabase
-        .from('social_platform_settings')
-        .select('id')
-        .eq('platform', 'twitter')
-        .eq('is_active', true)
-        .maybeSingle();
-      
-      setGlobalTwitterConfigured(!!data && !error);
-    } catch (err) {
-      console.error('Error checking global Twitter config:', err);
-      setGlobalTwitterConfigured(false);
-    } finally {
-      setCheckingGlobalConfig(false);
-    }
-  };
-  
-  useEffect(() => {
-    checkGlobalTwitterConfig();
-  }, []);
 
   const handleConnect = (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
@@ -215,17 +182,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   };
 
   const handleTwitterSubmit = async () => {
-    // Always require access tokens
     if (!twitterForm.accessToken || !twitterForm.accessTokenSecret) {
       toast.error('Vui lòng nhập Access Token và Access Token Secret');
-      return;
-    }
-    
-    // Determine if consumer keys are required
-    const needsConsumerKeys = useOwnKeys || !globalTwitterConfigured;
-    
-    if (needsConsumerKeys && (!twitterForm.consumerKey || !twitterForm.consumerSecret)) {
-      toast.error('Vui lòng nhập API Key và API Secret');
       return;
     }
 
@@ -235,13 +193,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         brandTemplateId: template.id,
         accessToken: twitterForm.accessToken,
         accessTokenSecret: twitterForm.accessTokenSecret,
-        // Only pass consumer keys if user needs them
-        consumerKey: needsConsumerKeys ? twitterForm.consumerKey : undefined,
-        consumerSecret: needsConsumerKeys ? twitterForm.consumerSecret : undefined,
       });
       setSetupDialogOpen(false);
-      setTwitterForm({ accessToken: '', accessTokenSecret: '', consumerKey: '', consumerSecret: '' });
-      setUseOwnKeys(false);
+      setTwitterForm({ accessToken: '', accessTokenSecret: '' });
     } catch (error) {
       // Error handled in mutation
     }
@@ -480,125 +434,26 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Global config status */}
-            {checkingGlobalConfig ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Đang kiểm tra cấu hình...
-              </div>
-            ) : globalTwitterConfigured === false ? (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Twitter chưa được Admin cấu hình. Bạn cần nhập đầy đủ API Keys từ tài khoản Developer của mình.
-                </AlertDescription>
-              </Alert>
-            ) : globalTwitterConfigured === true ? (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  API Keys đã được Admin cấu hình. Bạn chỉ cần nhập Access Token từ tài khoản Twitter của mình.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            {/* Toggle for own keys - only show if global is configured */}
-            {globalTwitterConfigured && (
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div className="space-y-0.5">
-                  <Label htmlFor="useOwnKeys">Sử dụng API Keys riêng</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Bật nếu bạn muốn dùng Developer App riêng thay vì dùng chung
-                  </p>
-                </div>
-                <Switch
-                  id="useOwnKeys"
-                  checked={useOwnKeys}
-                  onCheckedChange={setUseOwnKeys}
-                />
-              </div>
-            )}
-
             {/* Instructions */}
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                API Keys (Consumer Key/Secret) đã được Admin cấu hình. Bạn chỉ cần nhập Access Token từ tài khoản Twitter của mình.
+              </AlertDescription>
+            </Alert>
+
             <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-2">
-              <p className="font-medium">
-                {useOwnKeys || !globalTwitterConfigured 
-                  ? 'Hướng dẫn lấy API Keys:' 
-                  : 'Hướng dẫn lấy Access Token:'}
-              </p>
+              <p className="font-medium">Hướng dẫn lấy Access Token:</p>
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                 <li>Truy cập <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">developer.twitter.com <ExternalLink className="w-3 h-3" /></a></li>
-                {useOwnKeys || !globalTwitterConfigured ? (
-                  <>
-                    <li>Tạo Project và App (hoặc dùng có sẵn)</li>
-                    <li>Vào <strong>Keys and Tokens</strong></li>
-                    <li>Copy <strong>API Key</strong> và <strong>API Secret</strong></li>
-                    <li>Generate và copy <strong>Access Token</strong> và <strong>Access Token Secret</strong></li>
-                    <li>Đảm bảo App có quyền <strong>Read and Write</strong></li>
-                  </>
-                ) : (
-                  <>
-                    <li>Vào App mà Admin đã share cho bạn (hoặc tạo mới)</li>
-                    <li>Trong <strong>Keys and Tokens</strong>, generate Access Token</li>
-                    <li>Copy <strong>Access Token</strong> và <strong>Access Token Secret</strong></li>
-                    <li>Đảm bảo Access Token có quyền <strong>Read and Write</strong></li>
-                  </>
-                )}
+                <li>Vào App mà Admin đã share (hoặc tạo mới)</li>
+                <li>Trong <strong>Keys and Tokens</strong>, generate Access Token</li>
+                <li>Copy <strong>Access Token</strong> và <strong>Access Token Secret</strong></li>
+                <li>Đảm bảo App có quyền <strong>Read and Write</strong></li>
               </ol>
             </div>
 
-            {/* Consumer Key/Secret - Only show if using own keys OR no global config */}
-            {(useOwnKeys || !globalTwitterConfigured) && (
-              <>
-                {/* Consumer Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="consumerKey">API Key (Consumer Key)</Label>
-                  <div className="relative">
-                    <Input
-                      id="consumerKey"
-                      type={showSecrets.consumerKey ? 'text' : 'password'}
-                      placeholder="Nhập API Key..."
-                      value={twitterForm.consumerKey}
-                      onChange={(e) => setTwitterForm(prev => ({ ...prev, consumerKey: e.target.value }))}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                      onClick={() => toggleSecret('consumerKey')}
-                    >
-                      {showSecrets.consumerKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Consumer Secret */}
-                <div className="space-y-2">
-                  <Label htmlFor="consumerSecret">API Secret (Consumer Secret)</Label>
-                  <div className="relative">
-                    <Input
-                      id="consumerSecret"
-                      type={showSecrets.consumerSecret ? 'text' : 'password'}
-                      placeholder="Nhập API Secret..."
-                      value={twitterForm.consumerSecret}
-                      onChange={(e) => setTwitterForm(prev => ({ ...prev, consumerSecret: e.target.value }))}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                      onClick={() => toggleSecret('consumerSecret')}
-                    >
-                      {showSecrets.consumerSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Access Token - Always required */}
+            {/* Access Token */}
             <div className="space-y-2">
               <Label htmlFor="accessToken">Access Token</Label>
               <div className="relative">
@@ -621,7 +476,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               </div>
             </div>
 
-            {/* Access Token Secret - Always required */}
+            {/* Access Token Secret */}
             <div className="space-y-2">
               <Label htmlFor="accessTokenSecret">Access Token Secret</Label>
               <div className="relative">
