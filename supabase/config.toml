@@ -203,3 +203,9 @@ verify_jwt = false
 
 [functions.test-instagram-connection]
 verify_jwt = false
+
+[functions.refresh-linkedin-token]
+verify_jwt = false
+
+[functions.test-linkedin-connection]
+verify_jwt = false
