@@ -200,3 +200,6 @@ verify_jwt = false
 
 [functions.publish-linkedin]
 verify_jwt = false
+
+[functions.test-instagram-connection]
+verify_jwt = false
