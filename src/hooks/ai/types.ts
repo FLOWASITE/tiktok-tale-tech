@@ -15,3 +15,179 @@ export interface AIRequestOptions {
   organizationId?: string;
   signal?: AbortSignal;
 }
+
+// ============== TOPIC REFINEMENT TYPES ==============
+export interface RefinedTopic {
+  topic: string;
+  angle: string;
+  hook: string;
+  targetPersona?: string;
+  targetPersonaId?: string;
+  productFit?: string;
+  productFitId?: string;
+  suggestedJourneyStage?: 'awareness' | 'consideration' | 'decision' | 'loyalty';
+  suggestedContentAngle?: string;
+}
+
+export interface RefineContextUsed {
+  hasPersonas: boolean;
+  hasProducts: boolean;
+  hasIndustryMemory: boolean;
+  hasLearningContext: boolean;
+}
+
+// ============== TOPIC INTELLIGENCE TYPES ==============
+export interface TopicGap {
+  pillar: string;
+  gapType: 'missing' | 'underperforming' | 'overdue';
+  severity: 'high' | 'medium' | 'low';
+  reason: string;
+  suggestedTopics: string[];
+  priority: number;
+}
+
+export interface TopicCluster {
+  clusterId: string;
+  clusterName: string;
+  topics: string[];
+  topKeywords: string[];
+  avgPerformance: number;
+}
+
+export interface KeywordExpansion {
+  lsiKeywords: string[];
+  trendingKeywords: string[];
+  longTailKeywords: string[];
+  competitorKeywords: string[];
+  keywordClusters: { theme: string; keywords: string[] }[];
+}
+
+export interface TopicRefinementIntel {
+  original: string;
+  refinedVersions: {
+    topic: string;
+    improvement: string;
+    angle: string;
+    brandFitScore: number;
+  }[];
+  bestChoice: string;
+  reasoning: string;
+}
+
+export interface GapAnalysisResult {
+  gaps: TopicGap[];
+  insights: string;
+  recommendations: string[];
+}
+
+export interface ClusterAnalysisResult {
+  clusters: TopicCluster[];
+  unclustered: string[];
+  summary: string;
+}
+
+// ============== TOPIC RECOMMENDATIONS TYPES ==============
+export interface TrendingMatch {
+  topic: string;
+  velocityScore: number;
+  source: 'web_search' | 'curated_event' | 'curated_news';
+}
+
+export interface NextBestTopic {
+  topic: string;
+  reason: string;
+  confidence: number;
+  pillar: string;
+  suggestedFormat: string;
+  timing: string;
+  trendingMatch?: TrendingMatch | null;
+}
+
+export interface WeeklyPlanItem {
+  day: string;
+  topic: string;
+  pillar: string;
+  format: string;
+  reason: string;
+  priority: number;
+  isTrendingBased?: boolean;
+  trendingSource?: string | null;
+}
+
+export interface WeeklyPlan {
+  weeklyPlan: WeeklyPlanItem[];
+  weekTheme: string;
+  insights: string;
+  trendingTopicsUsed?: number;
+}
+
+export interface TopicConflict {
+  topics: string[];
+  type: 'duplicate' | 'contradiction' | 'cannibalization' | 'timing';
+  severity: 'high' | 'medium' | 'low';
+  explanation: string;
+  resolution: string;
+}
+
+export interface ConflictCheckResult {
+  conflicts: TopicConflict[];
+  summary: string;
+}
+
+export interface LearningResult {
+  learnings: string[];
+  adjustments: {
+    preferMore: string[];
+    preferLess: string[];
+    avoidPatterns: string[];
+  };
+  confidenceBoost: number;
+}
+
+// ============== TRENDING TOPICS TYPES ==============
+export interface TrendingTopic {
+  id: string;
+  topic: string;
+  category: string;
+  velocity_score: number;
+  peak_status: 'rising' | 'peaking' | 'declining';
+  peak_prediction: string;
+  related_keywords: string[];
+  engagement_potential: number;
+  competition_level: 'low' | 'medium' | 'high';
+  suggested_angles: string[];
+  source: string;
+  created_at: string;
+  expires_at: string;
+}
+
+// ============== ENHANCED SUGGESTIONS TYPES ==============
+export type TopicCategory = 'evergreen' | 'trending' | 'seasonal' | 'reactive';
+export type TopicFormat = 'carousel' | 'script' | 'multichannel';
+export type EngagementLevel = 'low' | 'medium' | 'high';
+export type SortOption = 'overall' | 'brandFit' | 'trend' | 'engagement' | 'competition';
+
+export interface TopicScores {
+  brandFit: number;
+  trend: number;
+  competition: number;
+  engagement: number;
+}
+
+export interface EnhancedTopicSuggestion {
+  topic: string;
+  category: TopicCategory;
+  formats: TopicFormat[];
+  estimatedEngagement: EngagementLevel;
+  reasoning: string;
+  relatedKeywords: string[];
+  scores: TopicScores;
+  pillar?: string;
+  topicType?: string;
+  funnelStage?: string;
+  emotionalTone?: string;
+}
+
+export function calculateOverallScore(scores: TopicScores): number {
+  return Math.round((scores.brandFit + scores.trend + scores.competition + scores.engagement) / 4);
+}
