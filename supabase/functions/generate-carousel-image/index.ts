@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, geminiApiKey, carouselId, slideNumber } = await req.json();
+    const { prompt, carouselId, slideNumber } = await req.json();
 
     console.log(`[generate-carousel-image] Starting generation for carousel ${carouselId}, slide ${slideNumber}`);
 
@@ -26,14 +26,6 @@ serve(async (req) => {
       );
     }
 
-    if (!geminiApiKey) {
-      console.error("[generate-carousel-image] Missing Gemini API key");
-      return new Response(
-        JSON.stringify({ error: "Gemini API key is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     if (!carouselId || slideNumber === undefined) {
       console.error("[generate-carousel-image] Missing carouselId or slideNumber");
       return new Response(
@@ -42,15 +34,17 @@ serve(async (req) => {
       );
     }
 
-    // Call Gemini Image API
-    console.log("[generate-carousel-image] Calling Gemini API...");
+    // Call Lovable AI Gateway for image generation
+    console.log("[generate-carousel-image] Calling Lovable AI Gateway...");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    
     const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent",
+      "https://ai-gateway.lovable.dev/v1beta/models/google/gemini-3-pro-image-preview:generateContent",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": geminiApiKey,
+          "Authorization": `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
           contents: [
@@ -67,30 +61,30 @@ serve(async (req) => {
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
-      console.error("[generate-carousel-image] Gemini API error:", geminiResponse.status, errorText);
+      console.error("[generate-carousel-image] Lovable AI Gateway error:", geminiResponse.status, errorText);
       
       if (geminiResponse.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau." }),
+          JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      if (geminiResponse.status === 401 || geminiResponse.status === 403) {
+      if (errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
         return new Response(
-          JSON.stringify({ error: "API key không hợp lệ. Vui lòng kiểm tra lại." }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
       return new Response(
-        JSON.stringify({ error: "Lỗi từ Gemini API: " + errorText }),
+        JSON.stringify({ error: "Lỗi từ AI Gateway: " + errorText }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const geminiData = await geminiResponse.json();
-    console.log("[generate-carousel-image] Gemini response received");
+    console.log("[generate-carousel-image] Lovable AI response received");
 
     // Extract image data from response
     let imageBase64: string | null = null;
@@ -109,7 +103,7 @@ serve(async (req) => {
     if (!imageBase64) {
       console.error("[generate-carousel-image] No image data in response:", JSON.stringify(geminiData));
       return new Response(
-        JSON.stringify({ error: "Không thể tạo ảnh. Gemini không trả về dữ liệu ảnh." }),
+        JSON.stringify({ error: "Không thể tạo ảnh. AI không trả về dữ liệu ảnh." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
