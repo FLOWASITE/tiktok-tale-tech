@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,11 +117,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -239,27 +235,20 @@ ${JSON.stringify(analysisContext, null, 2)}
 
 Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
 
-    // Call AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
+    // Use shared callAI utility
+    const aiResult = await callAI({
+      functionName: 'suggest-kpi-adjustments',
+      organizationId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      maxTokensOverride: 2000,
+      temperatureOverride: 0.3,
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", aiResponse.status, errorText);
+    if (!aiResult.success) {
+      console.error("AI error:", aiResult.error);
       
       // Return basic analysis without AI enhancement
       const fallbackSuggestions: AdjustmentSuggestion[] = analyses.map((a) => {
@@ -298,8 +287,8 @@ Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
       });
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || "";
+    const aiData = aiResult.data;
+    const content = aiData?.choices?.[0]?.message?.content || "";
     
     // Parse AI response
     let aiAnalysis: {

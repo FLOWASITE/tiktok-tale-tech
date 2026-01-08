@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,13 +115,8 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     
@@ -280,30 +276,24 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
   ]
 }`;
 
-    console.log('Calling AI Gateway for KPI suggestions...');
+    console.log('Calling AI for KPI suggestions...');
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
+    // Use shared callAI utility
+    const aiResult = await callAI({
+      functionName: 'suggest-campaign-kpis',
+      organizationId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      maxTokensOverride: 2000,
+      temperatureOverride: 0.7,
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", aiResponse.status, errorText);
+    if (!aiResult.success) {
+      console.error("AI error:", aiResult.error);
       
-      if (aiResponse.status === 429) {
+      if (aiResult.error?.includes('Rate limit')) {
         return new Response(JSON.stringify({ 
           error: "Rate limits exceeded, please try again later." 
         }), {
@@ -311,7 +301,7 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResponse.status === 402) {
+      if (aiResult.error?.includes('Payment')) {
         return new Response(JSON.stringify({ 
           error: "Payment required, please add funds to your workspace." 
         }), {
@@ -319,17 +309,16 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      throw new Error(`AI error: ${aiResult.error}`);
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
+    const content = aiResult.data?.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error("No content in AI response");
     }
 
-    console.log('Raw AI response:', content);
+    console.log('AI response received via', aiResult.provider);
 
     // Parse AI response
     let parsedResponse: AIResponse;
