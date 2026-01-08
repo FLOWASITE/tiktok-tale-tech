@@ -55,6 +55,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://developers.tiktok.com/',
     instructions: 'Tạo App tại TikTok for Developers → Manage apps',
   },
+  youtube: {
+    url: 'https://console.cloud.google.com/apis/credentials',
+    instructions: 'Tạo OAuth 2.0 Client tại Google Cloud Console → APIs & Services → YouTube Data API',
+  },
   zalo_oa: {
     url: 'https://developers.zalo.me/apps',
     instructions: 'Tạo App tại Zalo Developers → Thông tin ứng dụng → App ID & Secret Key',

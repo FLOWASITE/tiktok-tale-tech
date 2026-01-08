@@ -45,6 +45,9 @@ import {
   AtSign,
   RefreshCw,
   ShieldCheck,
+  MessageCircle,
+  MapPin,
+  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,21 +76,21 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     name: 'Facebook',
     icon: <Facebook className="w-5 h-5" />,
     color: 'bg-[#1877F2] text-white',
-    available: false,
+    available: true,
     description: 'Đăng lên Page',
   },
   instagram: {
     name: 'Instagram',
     icon: <Instagram className="w-5 h-5" />,
     color: 'bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white',
-    available: false,
+    available: true,
     description: 'Đăng ảnh và carousel',
   },
   linkedin: {
     name: 'LinkedIn',
     icon: <Linkedin className="w-5 h-5" />,
     color: 'bg-[#0A66C2] text-white',
-    available: false,
+    available: true,
     description: 'Đăng bài chuyên nghiệp',
   },
   tiktok: {
@@ -95,13 +98,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     icon: <Music2 className="w-5 h-5" />,
     color: 'bg-black text-white',
     available: false,
-    description: 'Đăng video ngắn',
+    description: 'Đăng video ngắn (sắp ra mắt)',
   },
   threads: {
     name: 'Threads',
     icon: <AtSign className="w-5 h-5" />,
     color: 'bg-black text-white',
-    available: false,
+    available: true,
     description: 'Đăng threads',
   },
   youtube: {
@@ -109,7 +112,28 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     icon: <Youtube className="w-5 h-5" />,
     color: 'bg-[#FF0000] text-white',
     available: false,
-    description: 'Đăng video',
+    description: 'Đăng video (sắp ra mắt)',
+  },
+  zalo_oa: {
+    name: 'Zalo OA',
+    icon: <MessageCircle className="w-5 h-5" />,
+    color: 'bg-[#0068FF] text-white',
+    available: true,
+    description: 'Đăng tin nhắn và bài viết OA',
+  },
+  google_business: {
+    name: 'Google Business',
+    icon: <MapPin className="w-5 h-5" />,
+    color: 'bg-[#4285F4] text-white',
+    available: true,
+    description: 'Đăng bài Local Posts',
+  },
+  website: {
+    name: 'Website',
+    icon: <Globe className="w-5 h-5" />,
+    color: 'bg-[#10B981] text-white',
+    available: true,
+    description: 'WordPress, API hoặc Webhook',
   },
 };
 
@@ -204,10 +228,24 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
-  const handleTestConnection = async (connectionId: string) => {
+  const TEST_FUNCTION_MAP: Record<SocialPlatform, string> = {
+    twitter: 'test-twitter-connection',
+    facebook: 'test-facebook-connection',
+    instagram: 'test-instagram-connection',
+    linkedin: 'test-linkedin-connection',
+    threads: 'test-threads-connection',
+    tiktok: 'test-tiktok-connection',
+    youtube: 'test-youtube-connection',
+    zalo_oa: 'test-zalo-connection',
+    google_business: 'test-google-business-connection',
+    website: 'test-website-connection',
+  };
+
+  const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
     setTestingConnection(connectionId);
     try {
-      const { data, error } = await supabase.functions.invoke('test-twitter-connection', {
+      const functionName = TEST_FUNCTION_MAP[platform];
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { connectionId },
       });
 
@@ -215,8 +253,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         throw new Error(data?.error || error?.message || 'Không thể xác minh kết nối');
       }
 
+      const displayName = data.data?.username || data.data?.name || data.data?.oa_name || 'Tài khoản';
       toast.success('Xác minh thành công!', {
-        description: `Đã kết nối với @${data.data.username}`,
+        description: `Đã kết nối với ${displayName}`,
       });
 
       // Refetch connections to get updated data
@@ -224,7 +263,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     } catch (error: any) {
       console.error('Test connection error:', error);
       toast.error('Xác minh thất bại', {
-        description: error.message || 'Vui lòng kiểm tra lại API Keys',
+        description: error.message || 'Vui lòng kiểm tra lại cấu hình',
       });
     } finally {
       setTestingConnection(null);
@@ -310,7 +349,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleTestConnection(connection.id)}
+                    onClick={() => handleTestConnection(connection.id, platform)}
                     disabled={isTesting}
                   >
                     {isTesting ? (
