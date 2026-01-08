@@ -221,3 +221,15 @@ verify_jwt = false
 
 [functions.test-facebook-connection]
 verify_jwt = false
+
+[functions.threads-oauth-callback]
+verify_jwt = false
+
+[functions.publish-threads]
+verify_jwt = false
+
+[functions.refresh-threads-token]
+verify_jwt = false
+
+[functions.test-threads-connection]
+verify_jwt = false

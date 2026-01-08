@@ -570,12 +570,58 @@ serve(async (req) => {
       );
     }
 
+    // For Threads - using OAuth 2.0 flow
+    if (platform === 'threads') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'threads', encryptionKey);
+      
+      if (!globalCreds.consumerKey || !globalCreds.consumerSecret) {
+        throw new Error('Threads chưa được cấu hình. Liên hệ Admin để thiết lập App ID/Secret trong Admin Settings.');
+      }
+
+      // Return OAuth URL for user to authorize
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/threads-oauth-callback`;
+      
+      // Create state with brandTemplateId/organizationId for callback
+      const state = btoa(JSON.stringify({
+        brandTemplateId: brandTemplateId || null,
+        organizationId: organizationId || null,
+        userId: user.id,
+      }));
+
+      const oauthUrl = `https://threads.net/oauth/authorize?` + new URLSearchParams({
+        client_id: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        scope: 'threads_basic,threads_content_publish',
+        response_type: 'code',
+        state: state,
+      }).toString();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresOAuth: true,
+          oauthUrl: oauthUrl,
+          instructions: {
+            steps: [
+              '1. Click nút bên dưới để đăng nhập Threads',
+              '2. Cho phép ứng dụng quyền đăng bài',
+              '3. Bạn sẽ được redirect về sau khi hoàn tất',
+            ],
+            note: 'Token Threads có hiệu lực 60 ngày. Hệ thống sẽ tự động làm mới token trước khi hết hạn.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported. Coming soon!`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
