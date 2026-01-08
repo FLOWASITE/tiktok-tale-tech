@@ -390,12 +390,145 @@ serve(async (req) => {
       );
     }
 
+    // For LinkedIn - using OAuth 2.0 flow
+    if (platform === 'linkedin') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'linkedin', encryptionKey);
+      
+      if (!globalCreds.consumerKey || !globalCreds.consumerSecret) {
+        throw new Error('LinkedIn chưa được cấu hình. Liên hệ Admin để thiết lập Client ID/Secret trong Admin Settings.');
+      }
+
+      // If accessToken is provided, we're completing the OAuth flow (callback handling)
+      if (accessToken) {
+        // Check for existing connection
+        let query = supabase
+          .from('social_connections')
+          .select('id')
+          .eq('platform', 'linkedin');
+
+        if (brandTemplateId) {
+          query = query.eq('brand_template_id', brandTemplateId);
+        } else {
+          query = query.eq('organization_id', organizationId);
+        }
+
+        const { data: existingConnection } = await query.maybeSingle();
+
+        // Parse metadata from accessTokenSecret (used to pass extra data)
+        let tokenExpiresAt = null;
+        let personId = null;
+        let personUrn = null;
+        try {
+          const metadata = accessTokenSecret ? JSON.parse(accessTokenSecret) : {};
+          tokenExpiresAt = metadata.expires_at || null;
+          personId = metadata.person_id || null;
+          personUrn = metadata.person_urn || null;
+        } catch (e) {
+          console.log('No metadata in accessTokenSecret');
+        }
+
+        const connectionData = {
+          organization_id: organizationId || null,
+          brand_template_id: brandTemplateId || null,
+          user_id: user.id,
+          platform: 'linkedin',
+          platform_username: username || null,
+          platform_user_id: personId,
+          access_token: accessToken,
+          refresh_token: null,
+          token_expires_at: tokenExpiresAt,
+          is_active: true,
+          connected_at: new Date().toISOString(),
+          scopes: ['openid', 'profile', 'w_member_social'],
+          metadata: { 
+            person_urn: personUrn,
+            token_type: 'access_token',
+            uses_global_credentials: true
+          },
+        };
+
+        let connection;
+        if (existingConnection) {
+          const { data, error } = await supabase
+            .from('social_connections')
+            .update(connectionData)
+            .eq('id', existingConnection.id)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          connection = data;
+        } else {
+          const { data, error } = await supabase
+            .from('social_connections')
+            .insert(connectionData)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          connection = data;
+        }
+
+        console.log('LinkedIn connection saved:', connection.id);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            connection: {
+              id: connection.id,
+              platform: connection.platform,
+              username: connection.platform_username,
+              isActive: connection.is_active,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // No accessToken - return OAuth URL for user to authorize
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/linkedin-oauth-callback`;
+      
+      // Create state with brandTemplateId/organizationId for callback
+      const state = btoa(JSON.stringify({
+        brandTemplateId: brandTemplateId || null,
+        organizationId: organizationId || null,
+        userId: user.id,
+      }));
+
+      const oauthUrl = `https://www.linkedin.com/oauth/v2/authorization?` + new URLSearchParams({
+        response_type: 'code',
+        client_id: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        scope: 'openid profile w_member_social',
+        state: state,
+      }).toString();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresOAuth: true,
+          oauthUrl: oauthUrl,
+          instructions: {
+            steps: [
+              '1. Click nút bên dưới để đăng nhập LinkedIn',
+              '2. Cho phép ứng dụng truy cập tài khoản của bạn',
+              '3. Bạn sẽ được redirect về sau khi hoàn tất',
+            ],
+            note: 'Token LinkedIn có hiệu lực 60 ngày. Bạn sẽ cần kết nối lại sau khi hết hạn.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported. Coming soon!`,
-        supportedPlatforms: ['twitter', 'instagram'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
