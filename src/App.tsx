@@ -55,6 +55,7 @@ import BlogPost from "./pages/BlogPost";
 import InstagramCallback from "./pages/InstagramCallback";
 import LinkedInCallback from "./pages/LinkedInCallback";
 import FacebookCallback from "./pages/FacebookCallback";
+import ThreadsCallback from "./pages/ThreadsCallback";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ function AppRoutes() {
       <Route path="/auth/instagram/callback" element={<InstagramCallback />} />
       <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
       <Route path="/auth/facebook/callback" element={<FacebookCallback />} />
+      <Route path="/auth/threads/callback" element={<ThreadsCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       {/* Protected routes */}
       <Route
