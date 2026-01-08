@@ -30,7 +30,7 @@ interface SocialPlatformCredentialsDialogProps {
   isSaving: boolean;
 }
 
-const PLATFORM_HELP = {
+const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string }> = {
   twitter: {
     url: 'https://developer.twitter.com/en/portal/dashboard',
     instructions: 'Tạo App tại Twitter Developer Portal → Keys and Tokens → Consumer Keys',
@@ -55,6 +55,18 @@ const PLATFORM_HELP = {
     url: 'https://developers.tiktok.com/',
     instructions: 'Tạo App tại TikTok for Developers → Manage apps',
   },
+  zalo_oa: {
+    url: 'https://developers.zalo.me/apps',
+    instructions: 'Tạo App tại Zalo Developers → Thông tin ứng dụng → App ID & Secret Key',
+  },
+  google_business: {
+    url: 'https://console.cloud.google.com/apis/credentials',
+    instructions: 'Tạo OAuth 2.0 Client tại Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs',
+  },
+  website: {
+    url: '',
+    instructions: 'Nhập URL API endpoint hoặc WordPress REST API URL và API Key/Password nếu cần xác thực',
+  },
 };
 
 export function SocialPlatformCredentialsDialog({
@@ -76,16 +88,33 @@ export function SocialPlatformCredentialsDialog({
   const help = PLATFORM_HELP[platform];
   const isMetaPlatform = platform === 'facebook' || platform === 'instagram' || platform === 'threads';
   const isLinkedIn = platform === 'linkedin';
-  const keyLabel = isLinkedIn
-    ? 'LinkedIn Client ID'
-    : isMetaPlatform 
-      ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
-      : 'Consumer Key (API Key)';
-  const secretLabel = isLinkedIn
-    ? 'LinkedIn Client Secret'
-    : isMetaPlatform 
-      ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
-      : 'Consumer Secret (API Secret)';
+  const isZalo = platform === 'zalo_oa';
+  const isGoogle = platform === 'google_business';
+  const isWebsite = platform === 'website';
+  
+  const keyLabel = isWebsite
+    ? 'API URL / WordPress URL'
+    : isGoogle
+      ? 'Google Client ID'
+      : isZalo
+        ? 'Zalo App ID'
+        : isLinkedIn
+          ? 'LinkedIn Client ID'
+          : isMetaPlatform 
+            ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
+            : 'Consumer Key (API Key)';
+  
+  const secretLabel = isWebsite
+    ? 'API Key / Application Password'
+    : isGoogle
+      ? 'Google Client Secret'
+      : isZalo
+        ? 'Zalo Secret Key'
+        : isLinkedIn
+          ? 'LinkedIn Client Secret'
+          : isMetaPlatform 
+            ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
+            : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
     if (open && existingSettings) {
