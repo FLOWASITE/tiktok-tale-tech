@@ -75,12 +75,17 @@ export function SocialPlatformCredentialsDialog({
 
   const help = PLATFORM_HELP[platform];
   const isMetaPlatform = platform === 'facebook' || platform === 'instagram' || platform === 'threads';
-  const keyLabel = isMetaPlatform 
-    ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
-    : 'Consumer Key (API Key)';
-  const secretLabel = isMetaPlatform 
-    ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
-    : 'Consumer Secret (API Secret)';
+  const isLinkedIn = platform === 'linkedin';
+  const keyLabel = isLinkedIn
+    ? 'LinkedIn Client ID'
+    : isMetaPlatform 
+      ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
+      : 'Consumer Key (API Key)';
+  const secretLabel = isLinkedIn
+    ? 'LinkedIn Client Secret'
+    : isMetaPlatform 
+      ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
+      : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
     if (open && existingSettings) {

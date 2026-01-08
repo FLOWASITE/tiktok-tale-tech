@@ -32,7 +32,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'facebook', name: 'Facebook', icon: Facebook, color: 'text-blue-600', available: true },
   { platform: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-pink-500', available: true },
   { platform: 'threads', name: 'Threads', icon: AtSign, color: 'text-foreground', available: true },
-  { platform: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', available: false },
+  { platform: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', available: true },
   { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: false },
 ];
 
@@ -59,6 +59,8 @@ export default function AdminSocialSettings() {
         testFunctionName = 'test-instagram-credentials';
       } else if (platform === 'threads') {
         testFunctionName = 'test-threads-credentials';
+      } else if (platform === 'linkedin') {
+        testFunctionName = 'test-linkedin-credentials';
       }
       
       const { data, error } = await supabase.functions.invoke(testFunctionName, {
