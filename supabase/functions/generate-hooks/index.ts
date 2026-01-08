@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,15 +35,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Topic is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY is not configured');
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -98,33 +90,26 @@ Trả về JSON array với format:
 
     console.log('[generate-hooks] Calling AI with topic:', topic);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.8,
-      }),
+    // Use shared callAI utility instead of direct fetch
+    const result = await callAI({
+      functionName: 'generate-hooks',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperatureOverride: 0.8,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[generate-hooks] AI error:', response.status, errorText);
+    if (!result.success) {
+      console.error('[generate-hooks] AI error:', result.error);
       
-      if (response.status === 429) {
+      if (result.error?.includes('Rate limit')) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (result.error?.includes('Payment')) {
         return new Response(
           JSON.stringify({ error: 'Credits exhausted. Please add more credits.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -137,8 +122,7 @@ Trả về JSON array với format:
       );
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = result.data?.choices?.[0]?.message?.content;
     
     if (!content) {
       console.error('[generate-hooks] No content in response');
@@ -163,7 +147,7 @@ Trả về JSON array với format:
       );
     }
 
-    console.log('[generate-hooks] Successfully generated', hooks.length, 'hooks');
+    console.log('[generate-hooks] Successfully generated', hooks.length, 'hooks via', result.provider);
 
     return new Response(
       JSON.stringify({ hooks }),
