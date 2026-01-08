@@ -15,9 +15,7 @@ import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpda
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
-import { GeminiApiKeyInput } from './GeminiApiKeyInput';
 import { GeneratedImagesGallery } from './GeneratedImagesGallery';
-import { useGeminiApiKey } from '@/hooks/useGeminiApiKey';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
 import { StatusSelector, ContentStatus } from '@/components/StatusSelector';
 import { supabase } from '@/integrations/supabase/client';
@@ -119,7 +117,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
 
-  const { apiKey, isConfigured } = useGeminiApiKey();
   const { generating, generatedImages, generateImage, getImageForSlide, deleteImage } = useImageGeneration();
   
   // Fetch creator profile
@@ -186,24 +183,15 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   };
 
   const handleGenerateImage = async (slideNumber: number, prompt: string) => {
-    if (!isConfigured || !apiKey) {
-      toast.error('Vui lòng cấu hình Gemini API Key trước');
-      return;
-    }
-    await generateImage(prompt, apiKey, carousel.id, slideNumber);
+    await generateImage(prompt, carousel.id, slideNumber);
   };
 
   const handleGenerateAllImages = async () => {
-    if (!isConfigured || !apiKey) {
-      toast.error('Vui lòng cấu hình Gemini API Key trước');
-      return;
-    }
-
     setGeneratingAll(true);
     toast.info(`Bắt đầu tạo ${carousel.slides_content.length} ảnh...`);
 
     for (const slide of carousel.slides_content) {
-      await generateImage(slide.fullPrompt, apiKey, carousel.id, slide.slideNumber);
+      await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber);
       // Small delay between requests to avoid rate limiting
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
@@ -320,9 +308,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
         <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-3 xs:px-6 pt-2 space-y-2 xs:space-y-3">
-            {/* Gemini API Key Input */}
-            <GeminiApiKeyInput />
-            
             <TabsList className="w-full xs:w-fit h-auto flex-wrap justify-start gap-1">
               <TabsTrigger value="slides" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <Images className="w-3 h-3 xs:w-4 xs:h-4" />
@@ -346,29 +331,27 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
           <ScrollArea className="flex-1 px-3 xs:px-6 py-3 xs:py-4">
             <TabsContent value="slides" className="mt-0 space-y-3 xs:space-y-4">
               {/* Generate All Button */}
-              {isConfigured && (
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleGenerateAllImages}
-                    disabled={generatingAll || generating !== null}
-                    className="gap-1.5 xs:gap-2 h-8 xs:h-9 text-xs xs:text-sm"
-                    size="sm"
-                  >
-                    {generatingAll ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 animate-spin" />
-                        <span className="hidden xs:inline">Đang tạo...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
-                        <span className="hidden xs:inline">Tạo tất cả ảnh</span>
-                        <span className="xs:hidden">Tạo ảnh</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleGenerateAllImages}
+                  disabled={generatingAll || generating !== null}
+                  className="gap-1.5 xs:gap-2 h-8 xs:h-9 text-xs xs:text-sm"
+                  size="sm"
+                >
+                  {generatingAll ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 animate-spin" />
+                      <span className="hidden xs:inline">Đang tạo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                      <span className="hidden xs:inline">Tạo tất cả ảnh</span>
+                      <span className="xs:hidden">Tạo ảnh</span>
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {carousel.slides_content.map((slide) => (
                 <SlidePromptCard
@@ -378,7 +361,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   generatedImage={getImageForSlide(slide.slideNumber)}
                   isGenerating={generating === slide.slideNumber}
                   onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
-                  canGenerateImage={isConfigured && generating === null && !generatingAll}
+                  canGenerateImage={generating === null && !generatingAll}
                 />
               ))}
             </TabsContent>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Sparkles, Palette, HelpCircle, Check } from 'lucide-react';
+import { Settings, Palette, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -7,11 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -24,32 +19,14 @@ import { BrandCard } from '@/components/BrandCard';
 import { BrandForm } from '@/components/BrandForm';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, ArrowLeft } from 'lucide-react';
-import { AIProviderSettings } from './AIProviderSettings';
-import { useAIProviders } from '@/hooks/useAIProviders';
-import { AI_PROVIDERS, AIProviderType } from '@/types/aiProvider';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import { isBrandTemplateChanged } from '@/utils/isBrandTemplateChanged';
 
 // Type for form data without ownership fields
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
 
 export function SettingsDropdown() {
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [brandOpen, setBrandOpen] = useState(false);
-  const { config, getProviderConfig, setSelectedProvider } = useAIProviders();
-  const activeProvider = AI_PROVIDERS.find(p => p.id === config.selectedProvider);
-  const isConfigured = !!getProviderConfig(config.selectedProvider);
-
-  const handleQuickSwitch = (providerId: AIProviderType) => {
-    if (!getProviderConfig(providerId)) {
-      toast.error(`${AI_PROVIDERS.find(p => p.id === providerId)?.name} chưa được cấu hình`);
-      setSettingsOpen(true);
-      return;
-    }
-    setSelectedProvider(providerId);
-    toast.success(`Đã chuyển sang ${AI_PROVIDERS.find(p => p.id === providerId)?.name}`);
-  };
 
   return (
     <>
@@ -58,64 +35,17 @@ export function SettingsDropdown() {
           <Button variant="ghost" size="sm" className="h-9 gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Cài đặt</span>
-            {isConfigured && activeProvider && (
-              <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 hidden md:flex gap-1">
-                {activeProvider.icon}
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              </Badge>
-            )}
+            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 hidden md:flex gap-1">
+              ✨
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            </Badge>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56 bg-popover">
-          {/* AI Provider Section */}
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            AI Provider
-          </DropdownMenuLabel>
-          
-          {/* Quick Switch Sub-menu */}
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="gap-2">
-              <span className="text-base">{activeProvider?.icon || '🤖'}</span>
-              <span className="flex-1">
-                {activeProvider?.name.split(' ')[0] || 'Chọn Provider'}
-              </span>
-              {isConfigured && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              )}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent className="w-56">
-                {AI_PROVIDERS.map((provider) => {
-                  const providerConfig = getProviderConfig(provider.id);
-                  const isActive = config.selectedProvider === provider.id;
-                  
-                  return (
-                    <DropdownMenuItem
-                      key={provider.id}
-                      onClick={() => handleQuickSwitch(provider.id)}
-                      className="gap-2"
-                    >
-                      <span className="text-base">{provider.icon}</span>
-                      <div className="flex-1">
-                        <p className="text-sm">{provider.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {providerConfig ? provider.description : 'Chưa cấu hình'}
-                        </p>
-                      </div>
-                      {isActive && <Check className="w-4 h-4 text-primary" />}
-                      {providerConfig && !isActive && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      )}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-          
-          <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-            <Sparkles className="w-4 h-4 mr-2" />
-            Cài đặt API chi tiết
+          {/* AI Info */}
+          <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+            <span className="text-base mr-2">✨</span>
+            Lovable AI (tự động)
           </DropdownMenuItem>
           
           <DropdownMenuSeparator />
@@ -134,26 +64,8 @@ export function SettingsDropdown() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <SettingsApiDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <BrandManagementDialogInner open={brandOpen} onOpenChange={setBrandOpen} />
     </>
-  );
-}
-
-function SettingsApiDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Cài đặt AI Providers
-          </DialogTitle>
-        </DialogHeader>
-
-        <AIProviderSettings />
-      </DialogContent>
-    </Dialog>
   );
 }
 

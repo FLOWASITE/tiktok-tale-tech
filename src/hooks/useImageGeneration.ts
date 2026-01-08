@@ -14,7 +14,6 @@ export function useImageGeneration() {
 
   const generateImage = async (
     prompt: string,
-    geminiApiKey: string,
     carouselId: string,
     slideNumber: number
   ): Promise<string | null> => {
@@ -24,7 +23,6 @@ export function useImageGeneration() {
       const { data, error } = await supabase.functions.invoke('generate-carousel-image', {
         body: {
           prompt,
-          geminiApiKey,
           carouselId,
           slideNumber,
         },
@@ -34,8 +32,8 @@ export function useImageGeneration() {
         console.error('Error generating image:', error);
         if (error.message?.includes('429')) {
           toast.error('Đã vượt giới hạn API. Vui lòng thử lại sau.');
-        } else if (error.message?.includes('401') || error.message?.includes('403')) {
-          toast.error('API key không hợp lệ. Vui lòng kiểm tra lại.');
+        } else if (error.message?.includes('CREDITS_EXHAUSTED')) {
+          toast.error('Đã hết credits AI. Vui lòng nâng cấp hoặc chờ reset.');
         } else {
           toast.error('Không thể tạo ảnh: ' + error.message);
         }
