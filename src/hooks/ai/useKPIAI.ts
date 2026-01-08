@@ -142,8 +142,9 @@ export function useKPIAI(options: UseKPIAIOptions = {}) {
     setSuggestionsError(null);
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('suggest-campaign-kpis', {
+      const { data, error: functionError } = await supabase.functions.invoke('kpi-ai', {
         body: {
+          action: 'suggest',
           campaignType: params.campaignType,
           budget: params.budget,
           budgetCurrency: params.budgetCurrency,
@@ -239,8 +240,9 @@ export function useKPIAI(options: UseKPIAIOptions = {}) {
         return;
       }
 
-      const { data, error: fnError } = await supabase.functions.invoke('suggest-kpi-adjustments', {
+      const { data, error: fnError } = await supabase.functions.invoke('kpi-ai', {
         body: {
+          action: 'adjust',
           campaignId,
           organizationId: campaign.organization_id,
           currentGoals: goals,
