@@ -43,6 +43,10 @@ const PLATFORM_HELP = {
     url: 'https://developers.facebook.com/apps/',
     instructions: 'Tạo App tại Meta for Developers → Add Instagram Product → Basic Display hoặc Business Login → App ID & Secret',
   },
+  threads: {
+    url: 'https://developers.facebook.com/apps/',
+    instructions: 'Tạo App tại Meta for Developers → Add Threads Product → Configure Threads API → App ID & Secret',
+  },
   linkedin: {
     url: 'https://www.linkedin.com/developers/apps',
     instructions: 'Tạo App tại LinkedIn Developers → Auth → Client ID & Secret',
@@ -70,12 +74,12 @@ export function SocialPlatformCredentialsDialog({
   const [showSecret, setShowSecret] = useState(false);
 
   const help = PLATFORM_HELP[platform];
-  const isFacebookOrInstagram = platform === 'facebook' || platform === 'instagram';
-  const keyLabel = isFacebookOrInstagram 
-    ? (platform === 'instagram' ? 'Instagram App ID' : 'App ID')
+  const isMetaPlatform = platform === 'facebook' || platform === 'instagram' || platform === 'threads';
+  const keyLabel = isMetaPlatform 
+    ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
     : 'Consumer Key (API Key)';
-  const secretLabel = isFacebookOrInstagram 
-    ? (platform === 'instagram' ? 'Instagram App Secret' : 'App Secret')
+  const secretLabel = isMetaPlatform 
+    ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
     : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
@@ -161,7 +165,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showKey ? 'text' : 'password'}
                 value={consumerKey}
                 onChange={(e) => setConsumerKey(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebookOrInstagram ? 'App ID' : 'Consumer Key'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
                 className="pr-10"
               />
               <Button
@@ -192,7 +196,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showSecret ? 'text' : 'password'}
                 value={consumerSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isFacebookOrInstagram ? 'App Secret' : 'Consumer Secret'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
                 className="pr-10"
               />
               <Button

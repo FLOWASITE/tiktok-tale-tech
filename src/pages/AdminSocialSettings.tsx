@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSocialPlatformSettings, SocialPlatform } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from '@/components/admin/SocialPlatformCredentialsDialog';
-import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2 } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +31,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'twitter', name: 'Twitter / X', icon: Twitter, color: 'text-sky-500', available: true },
   { platform: 'facebook', name: 'Facebook', icon: Facebook, color: 'text-blue-600', available: true },
   { platform: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-pink-500', available: true },
+  { platform: 'threads', name: 'Threads', icon: AtSign, color: 'text-foreground', available: true },
   { platform: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', available: false },
   { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: false },
 ];
@@ -56,6 +57,8 @@ export default function AdminSocialSettings() {
         testFunctionName = 'test-facebook-credentials';
       } else if (platform === 'instagram') {
         testFunctionName = 'test-instagram-credentials';
+      } else if (platform === 'threads') {
+        testFunctionName = 'test-threads-credentials';
       }
       
       const { data, error } = await supabase.functions.invoke(testFunctionName, {
@@ -163,7 +166,7 @@ export default function AdminSocialSettings() {
                           <p>App: <span className="text-foreground">{platformSettings.app_name}</span></p>
                         )}
                         <p>
-                          {config.platform === 'facebook' || config.platform === 'instagram' ? 'App ID' : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
+                          {config.platform === 'facebook' || config.platform === 'instagram' || config.platform === 'threads' ? 'App ID' : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
                         </p>
                         <p>
                           Trạng thái: {platformSettings.is_active ? (
