@@ -188,3 +188,6 @@ verify_jwt = false
 
 [functions.test-instagram-credentials]
 verify_jwt = false
+
+[functions.test-threads-credentials]
+verify_jwt = false
