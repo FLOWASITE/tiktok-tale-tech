@@ -209,3 +209,15 @@ verify_jwt = false
 
 [functions.test-linkedin-connection]
 verify_jwt = false
+
+[functions.facebook-oauth-callback]
+verify_jwt = false
+
+[functions.publish-facebook]
+verify_jwt = false
+
+[functions.refresh-facebook-token]
+verify_jwt = false
+
+[functions.test-facebook-connection]
+verify_jwt = false

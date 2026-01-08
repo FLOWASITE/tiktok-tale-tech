@@ -1,0 +1,238 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createDecipheriv } from "node:crypto";
+import { Buffer } from "node:buffer";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface TestConnectionRequest {
+  connectionId: string;
+}
+
+// Decrypt encrypted token
+function decrypt(encryptedText: string, key: string): string {
+  try {
+    const textParts = encryptedText.split(':');
+    const iv = Buffer.from(textParts.shift()!, 'hex');
+    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
+    
+    const keyBuffer = Buffer.alloc(32);
+    Buffer.from(key).copy(keyBuffer);
+    
+    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
+    let decrypted = decipher.update(encryptedData);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    console.error('Decryption error:', error);
+    return '';
+  }
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify user authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    const body: TestConnectionRequest = await req.json();
+    const { connectionId } = body;
+
+    if (!connectionId) {
+      throw new Error('connectionId is required');
+    }
+
+    console.log('Testing Facebook connection:', connectionId);
+
+    // Get connection details
+    const { data: connection, error: connectionError } = await supabase
+      .from('social_connections')
+      .select('*')
+      .eq('id', connectionId)
+      .eq('platform', 'facebook')
+      .single();
+
+    if (connectionError || !connection) {
+      throw new Error('Facebook connection not found');
+    }
+
+    // Decrypt access token
+    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+    const accessToken = decrypt(connection.access_token, encryptionKey);
+
+    if (!accessToken) {
+      throw new Error('Failed to decrypt access token');
+    }
+
+    const pageId = connection.platform_user_id || connection.metadata?.page_id;
+    if (!pageId) {
+      throw new Error('Page ID not found in connection');
+    }
+
+    // Check token expiry
+    const tokenExpiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
+    const now = new Date();
+    
+    if (tokenExpiresAt && tokenExpiresAt < now) {
+      console.log('Token has expired');
+      
+      // Mark connection as needing reauth
+      await supabase
+        .from('social_connections')
+        .update({
+          is_active: false,
+          metadata: {
+            ...connection.metadata,
+            needs_reauth: true,
+            reauth_reason: 'token_expired',
+            tested_at: now.toISOString(),
+          },
+        })
+        .eq('id', connectionId);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          valid: false,
+          error: 'Token đã hết hạn',
+          needsReauth: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Test connection by fetching Page info
+    console.log('Fetching Page info...');
+    const pageResponse = await fetch(
+      `https://graph.facebook.com/v21.0/${pageId}?` + new URLSearchParams({
+        access_token: accessToken,
+        fields: 'id,name,category,followers_count,fan_count,picture',
+      })
+    );
+
+    if (!pageResponse.ok) {
+      const errorData = await pageResponse.json();
+      console.error('Facebook API error:', errorData);
+
+      // Check if it's an auth error
+      const isAuthError = errorData.error?.code === 190 || 
+                          errorData.error?.type === 'OAuthException';
+
+      if (isAuthError) {
+        // Mark connection as inactive
+        await supabase
+          .from('social_connections')
+          .update({
+            is_active: false,
+            metadata: {
+              ...connection.metadata,
+              needs_reauth: true,
+              reauth_reason: 'auth_error',
+              last_error: errorData.error?.message,
+              tested_at: now.toISOString(),
+            },
+          })
+          .eq('id', connectionId);
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            valid: false,
+            error: errorData.error?.message || 'Token không hợp lệ',
+            needsReauth: true,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      throw new Error(errorData.error?.message || 'Failed to verify Page');
+    }
+
+    const pageData = await pageResponse.json();
+    console.log('Page verified:', pageData.name);
+
+    // Calculate days until expiry
+    let daysUntilExpiry = null;
+    let expiryWarning = false;
+    if (tokenExpiresAt) {
+      daysUntilExpiry = Math.ceil((tokenExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      expiryWarning = daysUntilExpiry <= 7;
+    }
+
+    // Update connection metadata with test results
+    await supabase
+      .from('social_connections')
+      .update({
+        is_active: true,
+        platform_username: pageData.name,
+        metadata: {
+          ...connection.metadata,
+          needs_reauth: false,
+          page_category: pageData.category,
+          followers_count: pageData.followers_count,
+          fan_count: pageData.fan_count,
+          page_picture: pageData.picture?.data?.url,
+          last_test_success: true,
+          tested_at: now.toISOString(),
+        },
+      })
+      .eq('id', connectionId);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        valid: true,
+        page: {
+          id: pageData.id,
+          name: pageData.name,
+          category: pageData.category,
+          followers: pageData.followers_count || pageData.fan_count,
+          picture: pageData.picture?.data?.url,
+        },
+        token: {
+          expiresAt: tokenExpiresAt?.toISOString(),
+          daysUntilExpiry,
+          expiryWarning,
+        },
+        message: 'Kết nối Facebook Page hoạt động bình thường',
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Facebook connection test error:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Failed to test Facebook connection';
+    return new Response(
+      JSON.stringify({
+        success: false,
+        valid: false,
+        error: errorMessage,
+      }),
+      { 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+});
