@@ -5438,6 +5438,8 @@ export type Database = {
           business_id: string | null
           connected_at: string | null
           connection_type: string | null
+          consumer_key: string | null
+          consumer_secret: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
@@ -5468,6 +5470,8 @@ export type Database = {
           business_id?: string | null
           connected_at?: string | null
           connection_type?: string | null
+          consumer_key?: string | null
+          consumer_secret?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -5498,6 +5502,8 @@ export type Database = {
           business_id?: string | null
           connected_at?: string | null
           connection_type?: string | null
+          consumer_key?: string | null
+          consumer_secret?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
