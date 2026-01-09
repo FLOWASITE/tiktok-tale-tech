@@ -324,14 +324,14 @@ export function BrandChannelOptimizationEditor({ brandTemplateId }: BrandChannel
                 Quality Mode
               </Label>
               <Select
-                value={editForm.quality_mode || ''}
-                onValueChange={(v) => setEditForm(prev => ({ ...prev, quality_mode: v as QualityMode || null }))}
+                value={editForm.quality_mode || '__default__'}
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, quality_mode: v === '__default__' ? null : v as QualityMode }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Mặc định (từ hệ thống)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Mặc định</SelectItem>
+                  <SelectItem value="__default__">Mặc định</SelectItem>
                   {QUALITY_MODES.map(q => (
                     <SelectItem key={q.value} value={q.value}>
                       {q.label} - {q.description}
@@ -348,14 +348,14 @@ export function BrandChannelOptimizationEditor({ brandTemplateId }: BrandChannel
                 Prompt Style
               </Label>
               <Select
-                value={editForm.prompt_style || ''}
-                onValueChange={(v) => setEditForm(prev => ({ ...prev, prompt_style: v as PromptStyle || null }))}
+                value={editForm.prompt_style || '__default__'}
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, prompt_style: v === '__default__' ? null : v as PromptStyle }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Mặc định (từ hệ thống)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Mặc định</SelectItem>
+                  <SelectItem value="__default__">Mặc định</SelectItem>
                   {PROMPT_STYLES.map(p => (
                     <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                   ))}
@@ -370,14 +370,14 @@ export function BrandChannelOptimizationEditor({ brandTemplateId }: BrandChannel
                 Hook Intensity
               </Label>
               <Select
-                value={editForm.hook_intensity || ''}
-                onValueChange={(v) => setEditForm(prev => ({ ...prev, hook_intensity: v as HookIntensity || null }))}
+                value={editForm.hook_intensity || '__default__'}
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, hook_intensity: v === '__default__' ? null : v as HookIntensity }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Mặc định (từ hệ thống)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Mặc định</SelectItem>
+                  <SelectItem value="__default__">Mặc định</SelectItem>
                   {HOOK_INTENSITIES.map(h => (
                     <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>
                   ))}
@@ -392,14 +392,14 @@ export function BrandChannelOptimizationEditor({ brandTemplateId }: BrandChannel
                 Cost Priority
               </Label>
               <Select
-                value={editForm.cost_priority || ''}
-                onValueChange={(v) => setEditForm(prev => ({ ...prev, cost_priority: v as CostPriority || null }))}
+                value={editForm.cost_priority || '__default__'}
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, cost_priority: v === '__default__' ? null : v as CostPriority }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Mặc định (từ hệ thống)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Mặc định</SelectItem>
+                  <SelectItem value="__default__">Mặc định</SelectItem>
                   {COST_PRIORITIES.map(c => (
                     <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                   ))}
