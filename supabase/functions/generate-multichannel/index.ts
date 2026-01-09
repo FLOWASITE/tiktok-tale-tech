@@ -320,126 +320,51 @@ const getBrandVoicePrompt = (
 ): string => {
   const parts: string[] = [];
   
-  // HIGHEST PRIORITY: System Rules (if available from Industry Memory)
-  if (industryMemory?.system_rules && industryMemory.system_rules.length > 0) {
-    parts.push(`## 🔐 SYSTEM RULES (LUẬT CAO NHẤT - KHÔNG ĐƯỢC VI PHẠM)`);
-    parts.push(`Đây là các quy tắc BẮT BUỘC tuyệt đối. Không được vi phạm dưới bất kỳ hình thức nào.`);
-    industryMemory.system_rules.forEach((rule, i) => {
-      parts.push(`${i + 1}. ${rule}`);
-    });
-    parts.push('');
+  // SYSTEM RULES (highest priority)
+  if (industryMemory?.system_rules?.length) {
+    parts.push(`## SYSTEM RULES (KHÔNG VI PHẠM)`);
+    parts.push(industryMemory.system_rules.map((r, i) => `${i + 1}. ${r}`).join('\n'));
   }
   
-  // If we have merged rules from Industry Memory, use HIGHER priority prompt
-  if (mergedRules && mergedRules.forbidden_terms.length > 0) {
-    parts.push(`## 🔒 INDUSTRY MEMORY (LUẬT NGÀNH - KHÓA CỨNG)`);
-    parts.push(`Industry Memory là LUẬT KHÓA CỨNG. Mọi nội dung PHẢI tuân theo.`);
-    
-    // FORBIDDEN TERMS - Absolute lock
-    if (mergedRules.forbidden_terms.length > 0) {
-      parts.push(`\n### ⛔ TỪ CẤM TUYỆT ĐỐI (Industry-level)`);
-      parts.push(`Các từ sau KHÔNG BAO GIỜ được dùng - không rewrite, không từ đồng nghĩa:`);
-      parts.push(mergedRules.forbidden_terms.join(", "));
+  // INDUSTRY MEMORY
+  if (mergedRules?.forbidden_terms?.length) {
+    parts.push(`\n## INDUSTRY MEMORY`);
+    parts.push(`TỪ CẤM: ${mergedRules.forbidden_terms.join(", ")}`);
+    if (mergedRules.compliance_rules?.length) {
+      parts.push(`COMPLIANCE: ${mergedRules.compliance_rules.slice(0, 5).join("; ")}`);
     }
-    
-    // COMPLIANCE RULES - Industry law
-    if (mergedRules.compliance_rules.length > 0) {
-      parts.push(`\n### 📜 QUY TẮC TUÂN THỦ NGÀNH`);
-      mergedRules.compliance_rules.forEach((rule, i) => {
-        parts.push(`${i + 1}. ${rule}`);
-      });
+    if (mergedRules.claim_restrictions?.length) {
+      parts.push(`KHÔNG ĐƯỢC: ${mergedRules.claim_restrictions.slice(0, 3).join("; ")}`);
     }
-    
-    // CLAIM RESTRICTIONS
-    if (mergedRules.claim_restrictions.length > 0) {
-      parts.push(`\n### ⚠️ HẠN CHẾ TUYÊN BỐ`);
-      mergedRules.claim_restrictions.forEach((claim) => {
-        parts.push(`- KHÔNG ĐƯỢC: ${claim}`);
-      });
+    if (industryMemory?.argument_patterns?.valid_patterns?.length) {
+      parts.push(`LẬP LUẬN HỢP LỆ: ${industryMemory.argument_patterns.valid_patterns.slice(0, 3).join("; ")}`);
     }
-    
-    // ARGUMENT PATTERNS (if available)
-    if (industryMemory?.argument_patterns) {
-      const { valid_patterns, forbidden_patterns } = industryMemory.argument_patterns;
-      
-      if (valid_patterns && valid_patterns.length > 0) {
-        parts.push(`\n### ✅ CẤU TRÚC LẬP LUẬN ĐƯỢC PHÉP`);
-        parts.push(`AI CHỈ ĐƯỢC lập luận theo các mẫu sau:`);
-        valid_patterns.forEach(p => parts.push(`- ${p}`));
-      }
-      
-      if (forbidden_patterns && forbidden_patterns.length > 0) {
-        parts.push(`\n### ❌ CẤU TRÚC LẬP LUẬN CẤM`);
-        forbidden_patterns.forEach(p => parts.push(`- KHÔNG ĐƯỢC: ${p}`));
-      }
+    if (industryMemory?.argument_patterns?.forbidden_patterns?.length) {
+      parts.push(`LẬP LUẬN CẤM: ${industryMemory.argument_patterns.forbidden_patterns.slice(0, 3).join("; ")}`);
     }
-    
-    parts.push(`\n### NGUYÊN TẮC INDUSTRY MEMORY`);
-    parts.push(`1. Industry Memory OVERRIDE mọi yêu cầu khác nếu mâu thuẫn`);
-    parts.push(`2. Không được "sáng tạo" từ nằm trong danh sách cấm`);
-    parts.push(`3. Brand Voice có thể thay đổi tone, nhưng KHÔNG được vi phạm compliance`);
-    parts.push(`4. Nếu user yêu cầu vi phạm → từ chối mềm + giải thích trung lập`);
   }
   
-  parts.push(`\n## BRAND VOICE PROFILE`);
-  parts.push(`Brand Voice định hướng giọng văn. Mọi nội dung PHẢI tuân theo Brand Voice.`);
-  
-  if (voice.brand_positioning) {
-    const label = brandPositioningLabels[voice.brand_positioning] || voice.brand_positioning;
-    parts.push(`\n### Định vị thương hiệu: ${label}`);
-  }
-  
+  // BRAND VOICE
+  parts.push(`\n## BRAND VOICE`);
   const tones = mergedRules?.tone_of_voice || voice.tone_of_voice || [];
-  if (tones.length > 0) {
-    const toneLabels = tones.map(t => toneOfVoiceLabels[t] || t).join(", ");
-    parts.push(`\n### Tone of Voice: ${toneLabels}`);
-  }
-  
   const formality = mergedRules?.formality_level || voice.formality_level;
-  if (formality) {
-    const label = formalityLevelLabels[formality] || formality;
-    parts.push(`\n### Mức trang trọng: ${label}`);
-  }
-  
   const styles = mergedRules?.language_style || voice.language_style || [];
-  if (styles.length > 0) {
-    const styleLabels = styles.map(s => languageStyleLabels[s] || s).join(", ");
-    parts.push(`\n### Phong cách ngôn ngữ: ${styleLabels}`);
-  }
   
-  parts.push(`\n### NGUYÊN TẮC BRAND VOICE BẮT BUỘC`);
-  parts.push(`1. Brand Voice OVERRIDE mọi style khác`);
-  parts.push(`2. Không được "sáng tạo giọng mới"`);
-  parts.push(`3. Không thay đổi giọng giữa các kênh`);
-  parts.push(`4. Nếu yêu cầu MÂU THUẪN với Brand Voice → ƯU TIÊN Brand Voice`);
-  parts.push(`5. KHÔNG thông báo hay giải thích về Brand Voice trong output`);
+  if (voice.brand_positioning) parts.push(`Định vị: ${brandPositioningLabels[voice.brand_positioning] || voice.brand_positioning}`);
+  if (tones.length) parts.push(`Tone: ${tones.map(t => toneOfVoiceLabels[t] || t).join(", ")}`);
+  if (formality) parts.push(`Formality: ${formalityLevelLabels[formality] || formality}`);
+  if (styles.length) parts.push(`Style: ${styles.map(s => languageStyleLabels[s] || s).join(", ")}`);
   
-  const preferredWords = mergedRules?.preferred_words || voice.preferred_words || [];
-  if (preferredWords.length > 0) {
-    parts.push(`\n### TỪ PHẢI DÙNG (ưu tiên sử dụng)`);
-    parts.push(preferredWords.join(", "));
-  }
-  
-  const forbiddenWords = mergedRules?.forbidden_words || voice.forbidden_words || [];
-  if (forbiddenWords.length > 0) {
-    parts.push(`\n### TỪ CẤM (TUYỆT ĐỐI KHÔNG DÙNG)`);
-    parts.push(forbiddenWords.join(", "));
-  }
+  const preferred = mergedRules?.preferred_words || voice.preferred_words || [];
+  const forbidden = mergedRules?.forbidden_words || voice.forbidden_words || [];
+  if (preferred.length) parts.push(`TỪ ƯU TIÊN: ${preferred.slice(0, 15).join(", ")}`);
+  if (forbidden.length) parts.push(`TỪ CẤM: ${forbidden.join(", ")}`);
   
   const allowEmoji = mergedRules?.allow_emoji ?? voice.allow_emoji ?? true;
-  parts.push(`\n### EMOJI`);
-  if (allowEmoji) {
-    parts.push(`Có thể dùng emoji TIẾT CHẾ theo từng kênh (Website/Google Maps/Zalo OA/Telegram: KHÔNG emoji)`);
-  } else {
-    parts.push(`TUYỆT ĐỐI KHÔNG dùng emoji trong bất kỳ kênh nào`);
-  }
+  parts.push(`EMOJI: ${allowEmoji ? 'Tiết chế theo kênh (Website/GMaps/Zalo/Telegram: KHÔNG)' : 'TUYỆT ĐỐI KHÔNG'}`);
   
-  // Brand-level compliance rules (if no Industry Memory)
-  if (!mergedRules && voice.compliance_rules && voice.compliance_rules.length > 0) {
-    parts.push(`\n### QUY TẮC TUÂN THỦ`);
-    voice.compliance_rules.forEach(rule => {
-      parts.push(`- ${rule}`);
-    });
+  if (!mergedRules && voice.compliance_rules?.length) {
+    parts.push(`COMPLIANCE: ${voice.compliance_rules.slice(0, 3).join("; ")}`);
   }
   
   return parts.join("\n");
@@ -482,215 +407,84 @@ type ChannelOverrides = Record<string, ChannelOverride> | null;
 
 const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   website: {
-    min_length: 800,
-    max_length: 2000,
-    length_unit: 'words',
-    hook_required: false,
-    hook_style: 'không cần giật tít',
-    bullet_allowed: true,
-    cta_policy: 'soft',
-    emoji_allowed: false,
-    emoji_limit: 0,
-    hashtag_limit: 0,
-    hashtag_position: 'none',
-    line_break_style: 'normal',
-    link_position: 'body',
-    format_description: '⚠️ BÀI DÀI 800-2000 TỪ: H1 title, Intro 50-100 words, 4-6 H2 sections (mỗi section 150-300 words), Conclusion với CTA. PHẢI viết ĐẦY ĐỦ tất cả sections.',
-    // SEO-specific settings
-    seo_optimized: true,
-    heading_structure_required: true,
-    featured_snippet_format: true,
+    min_length: 800, max_length: 2000, length_unit: 'words',
+    hook_required: false, hook_style: 'không cần giật tít',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'BÀI DÀI 800-2000 TỪ: H1, Intro, 4-6 H2 sections, Conclusion+CTA. Pure Markdown.',
+    seo_optimized: true, heading_structure_required: true, featured_snippet_format: true,
   },
   facebook: {
-    min_length: 120,
-    max_length: 300,
-    length_unit: 'words',
-    hook_required: true,
-    hook_style: 'BẮT BUỘC 2 dòng đầu là hook mạnh (câu sốc, số liệu, câu hỏi) + emoji thu hút (🎯⚡💡🔥)',
-    bullet_allowed: true,
-    cta_policy: 'optional',
-    emoji_allowed: true,
-    emoji_limit: 5,
-    hashtag_limit: 3,
-    hashtag_position: 'end',
-    line_break_style: 'short',
-    link_position: 'body',
-    format_description: `BẮT BUỘC RICH TEXT FORMAT:
-• Hook: Emoji + **text đậm** (VD: 🎯 **5 sai lầm phổ biến...**)
-• Body: Dùng emoji làm bullet (✅ 💡 ⚡ 📌 ➡️), **in đậm** keywords
-• Chia đoạn ngắn 2-3 dòng, xuống dòng nhiều
-• CTA cuối: emoji + **text đậm** (VD: ➡️ **Liên hệ ngay**)
-• KHÔNG viết plain text không format`,
+    min_length: 120, max_length: 300, length_unit: 'words',
+    hook_required: true, hook_style: 'Hook mạnh + emoji (🎯⚡💡🔥)',
+    bullet_allowed: true, cta_policy: 'optional',
+    emoji_allowed: true, emoji_limit: 5, hashtag_limit: 3, hashtag_position: 'end',
+    line_break_style: 'short', link_position: 'body',
+    format_description: 'Hook emoji+**bold**, body emoji bullets (✅💡⚡), đoạn ngắn, CTA cuối',
   },
   instagram: {
-    min_length: 50,
-    max_length: 150,
-    length_unit: 'words',
-    hook_required: true,
-    hook_style: 'Hook ngắn gọn + emoji thu hút (🔥✨💫)',
-    bullet_allowed: false,
-    cta_policy: 'optional',
-    emoji_allowed: true,
-    emoji_limit: 5,
-    hashtag_limit: 5,
-    hashtag_position: 'end',
-    line_break_style: 'many',
-    link_position: 'none',
-    format_description: `BẮT BUỘC RICH TEXT FORMAT:
-• Hook: Emoji thu hút + text mạnh (🔥✨💫)
-• Body: Nhiều xuống dòng, mỗi dòng 1 ý ngắn
-• Dùng emoji làm điểm nhấn (không quá 5)
-• KHÔNG hashtag trong body - tách riêng cuối bài
-• Kết thúc bằng CTA nhẹ + emoji (💬 Comment...)
-• KHÔNG viết dạng đoạn văn dài liền mạch`,
+    min_length: 50, max_length: 150, length_unit: 'words',
+    hook_required: true, hook_style: 'Hook ngắn + emoji (🔥✨💫)',
+    bullet_allowed: false, cta_policy: 'optional',
+    emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5, hashtag_position: 'end',
+    line_break_style: 'many', link_position: 'none',
+    format_description: 'Hook emoji, nhiều xuống dòng, emoji điểm nhấn, hashtag cuối bài, CTA nhẹ',
   },
   twitter: {
-    min_length: 0,
-    max_length: 280,
-    length_unit: 'chars',
-    hook_required: true,
-    hook_style: 'Quan điểm sắc nét ngay câu đầu, gây tò mò',
-    bullet_allowed: false,
-    cta_policy: 'none',
-    emoji_allowed: false,
-    emoji_limit: 0,
-    hashtag_limit: 1,
-    hashtag_position: 'end',
-    line_break_style: 'minimal',
-    link_position: 'allowed',
-    format_description: `THREAD FORMAT BẮT BUỘC:
-• Tweet 1/: Hook sắc nét, gây tò mò mạnh
-• Mỗi tweet đánh số (1/, 2/, 3/...)
-• Tối đa 280 ký tự/tweet - câu ngắn, ý rõ
-• KHÔNG emoji (giữ tone nghiêm túc)
-• Tweet cuối: CTA follow hoặc retweet
-• Tổng 5-7 tweets cho thread hoàn chỉnh`,
+    min_length: 0, max_length: 280, length_unit: 'chars',
+    hook_required: true, hook_style: 'Quan điểm sắc nét',
+    bullet_allowed: false, cta_policy: 'none',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 1, hashtag_position: 'end',
+    line_break_style: 'minimal', link_position: 'allowed',
+    format_description: 'Thread (1/, 2/...), 280 ký tự/tweet, KHÔNG emoji, 5-7 tweets, CTA cuối',
   },
   google_maps: {
-    min_length: 80,
-    max_length: 150,
-    length_unit: 'words',
-    hook_required: false,
-    hook_style: 'không',
-    bullet_allowed: false,
-    cta_policy: 'none',
-    emoji_allowed: false,
-    emoji_limit: 0,
-    hashtag_limit: 0,
-    hashtag_position: 'none',
-    line_break_style: 'normal',
-    link_position: 'none',
+    min_length: 80, max_length: 150, length_unit: 'words',
+    hook_required: false, hook_style: 'không',
+    bullet_allowed: false, cta_policy: 'none',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'none',
     format_description: 'Thực tế, xác thực, khách quan, như đánh giá chuyên nghiệp',
   },
   linkedin: {
-    min_length: 150,
-    max_length: 400,
-    length_unit: 'words',
-    hook_required: true,
-    hook_style: 'Insight/số liệu thú vị (không giật tít rẻ tiền)',
-    bullet_allowed: true,
-    cta_policy: 'soft',
-    emoji_allowed: true,
-    emoji_limit: 2,
-    hashtag_limit: 3,
-    hashtag_position: 'end',
-    line_break_style: 'normal',
-    link_position: 'allowed',
-    format_description: `BẮT BUỘC PROFESSIONAL FORMAT:
-• Hook: Insight/số liệu thú vị (không giật tít)
-• Body: Chia đoạn rõ ràng, mỗi đoạn 2-3 dòng
-• Bullets: Dùng → hoặc • cho điểm chính
-• Keywords: **In đậm** các insight quan trọng
-• Emoji: Tiết chế (1-2 cho professional 🎯💡)
-• CTA mềm cuối bài + 3 hashtag chuyên ngành`,
+    min_length: 150, max_length: 400, length_unit: 'words',
+    hook_required: true, hook_style: 'Insight/số liệu (không giật tít)',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: true, emoji_limit: 2, hashtag_limit: 3, hashtag_position: 'end',
+    line_break_style: 'normal', link_position: 'allowed',
+    format_description: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold** keywords, emoji tiết chế, 3 hashtag',
   },
   email: {
-    min_length: 150,
-    max_length: 400,
-    length_unit: 'words',
-    hook_required: false,
-    bullet_allowed: true,
-    cta_policy: 'required',
-    has_subject_line: true,
-    emoji_allowed: false,
-    emoji_limit: 0,
-    hashtag_limit: 0,
-    hashtag_position: 'none',
-    line_break_style: 'normal',
-    link_position: 'body',
-    format_description: `EMAIL MARKETING FORMAT BẮT BUỘC:
-• Subject: Hấp dẫn, KHÔNG spam trigger (free, !!!, CAPS)
-• Opening: Personalized greeting
-• Body: Đoạn ngắn 2-3 câu, scannable
-• Bullets cho benefits: ✓ hoặc •
-• CTA: **Button-style text** rõ ràng
-• P.S. line optional cho urgency`,
+    min_length: 150, max_length: 400, length_unit: 'words',
+    hook_required: false, bullet_allowed: true, cta_policy: 'required', has_subject_line: true,
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Subject hấp dẫn (không spam), greeting, body scannable, bullets, CTA rõ ràng',
   },
   youtube: {
-    min_length: 500,
-    max_length: 800,
-    length_unit: 'words',
-    hook_required: true,
-    hook_style: 'Hook 5 giây đầu gây shock/tò mò (câu hỏi/số liệu)',
-    bullet_allowed: true,
-    cta_policy: 'required',
-    emoji_allowed: true,
-    emoji_limit: 5,
-    hashtag_limit: 5,
-    hashtag_position: 'end',
-    line_break_style: 'normal',
-    link_position: 'body',
-    format_description: `SCRIPT FORMAT CHI TIẾT BẮT BUỘC:
-• HOOK (0-5s): Câu hỏi/số liệu gây shock
-• INTRO (5-15s): Giới thiệu vấn đề + promise
-• CONTENT: Chia thành 3-5 segments, mỗi segment có heading
-• Dùng emoji 🎯💡⚡ làm bullet cho từng point
-• **In đậm** các keywords quan trọng
-• CTA: Subscribe + Like + Comment reminder
-• OUTRO: Tóm tắt + teaser video tiếp`,
+    min_length: 500, max_length: 800, length_unit: 'words',
+    hook_required: true, hook_style: 'Hook 5s shock/tò mò',
+    bullet_allowed: true, cta_policy: 'required',
+    emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5, hashtag_position: 'end',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'HOOK(0-5s), INTRO(5-15s), 3-5 segments, emoji bullets, CTA Sub+Like, OUTRO teaser',
   },
   zalo_oa: {
-    min_length: 60,
-    max_length: 150,
-    length_unit: 'words',
-    hook_required: true,
-    hook_style: 'Trực diện, không giật tít',
-    bullet_allowed: false,
-    cta_policy: 'required',
-    emoji_allowed: false,
-    emoji_limit: 0,
-    hashtag_limit: 0,
-    hashtag_position: 'none',
-    line_break_style: 'short',
-    link_position: 'allowed',
-    format_description: `MOBILE-FIRST FORMAT BẮT BUỘC:
-• Hook: Trực diện, không giật tít
-• Body: Đoạn ngắn 2-3 dòng, dễ đọc trên mobile
-• KHÔNG emoji (phong cách formal)
-• CTA rõ ràng với link action
-• Tone: Thân thiện, local, chuyên nghiệp`,
+    min_length: 60, max_length: 150, length_unit: 'words',
+    hook_required: true, hook_style: 'Trực diện',
+    bullet_allowed: false, cta_policy: 'required',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'short', link_position: 'allowed',
+    format_description: 'Mobile-first, đoạn ngắn, KHÔNG emoji, CTA+link, tone thân thiện local',
   },
   telegram: {
-    min_length: 100,
-    max_length: 500,
-    length_unit: 'words',
-    hook_required: false,
-    hook_style: 'Thông tin giá trị ngay từ đầu',
-    bullet_allowed: true,
-    cta_policy: 'optional',
-    emoji_allowed: false,
-    emoji_limit: 0,
-    hashtag_limit: 0,
-    hashtag_position: 'none',
-    line_break_style: 'normal',
-    link_position: 'allowed',
-    format_description: `COMMUNITY FORMAT BẮT BUỘC:
-• Hook: Thông tin giá trị ngay từ đầu
-• Body: Bullets rõ ràng (• hoặc -)
-• Chia sections với heading nếu dài
-• KHÔNG emoji (technical/serious tone)
-• Link cho phép trong body
-• CTA: Join channel/Share nếu phù hợp`,
+    min_length: 100, max_length: 500, length_unit: 'words',
+    hook_required: false, hook_style: 'Thông tin giá trị',
+    bullet_allowed: true, cta_policy: 'optional',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'allowed',
+    format_description: 'Bullets rõ ràng, sections+heading nếu dài, KHÔNG emoji, link allowed',
   },
 };
 
@@ -698,137 +492,36 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
 // ADAPTIVE FORMAT DESCRIPTION - Thích ứng theo brandAllowEmoji
 // Khi brand cấm emoji → dùng ký hiệu (✓ → • ★) + bold
 // Khi brand cho emoji → dùng emoji như thường
-// ============================================
+// Compact adaptive format based on emoji mode
 function getAdaptiveFormatDescription(channel: string, brandAllowEmoji: boolean): string {
-  // Format mặc định cho các kênh không có emoji mode
   const noEmojiChannels = ['website', 'google_maps', 'email', 'zalo_oa', 'telegram', 'twitter'];
-  
   if (noEmojiChannels.includes(channel)) {
-    // Các kênh này vốn không dùng emoji, giữ nguyên format gốc
     return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
   }
   
-  // Adaptive format cho các kênh social có emoji
+  // NO-EMOJI MODE: Use symbols instead
   if (!brandAllowEmoji) {
-    // NO-EMOJI MODE: Dùng ký hiệu thay emoji
-    switch (channel) {
-      case 'facebook':
-        return `BẮT BUỘC RICH TEXT FORMAT (KHÔNG EMOJI):
-• Hook: ★ **[Câu hook mạnh]** - dùng ký hiệu ★ hoặc → thay emoji
-• Body: Dùng bullets ✓ hoặc → cho điểm chính, **in đậm** keywords
-• Chia đoạn ngắn 2-3 dòng, xuống dòng nhiều
-• CTA cuối: → **Liên hệ ngay** (dùng ký hiệu, không emoji)
-• TUYỆT ĐỐI KHÔNG dùng emoji (🎯❌💡⚡ đều cấm)
-• VẪN PHẢI có bullets và bold formatting`;
-      
-      case 'instagram':
-        return `BẮT BUỘC RICH TEXT FORMAT (KHÔNG EMOJI):
-• Hook: ★ **[Text mạnh]** - dùng ký hiệu thay emoji
-• Body: Nhiều xuống dòng, mỗi dòng 1 ý ngắn
-• Dùng → hoặc • làm điểm nhấn thay emoji
-• KHÔNG hashtag trong body - tách riêng cuối bài
-• CTA nhẹ: → Comment ý kiến của bạn
-• TUYỆT ĐỐI KHÔNG emoji - VẪN PHẢI có bullets`;
-      
-      case 'linkedin':
-        return `BẮT BUỘC PROFESSIONAL FORMAT (KHÔNG EMOJI):
-• Hook: Insight/số liệu thú vị (không giật tít)
-• Body: Chia đoạn rõ ràng, mỗi đoạn 2-3 dòng
-• Bullets: Dùng → hoặc • cho điểm chính
-• Keywords: **In đậm** các insight quan trọng
-• KHÔNG emoji (giữ professional tone)
-• CTA mềm cuối bài + 3 hashtag chuyên ngành`;
-      
-      case 'youtube':
-        return `SCRIPT FORMAT CHI TIẾT (KHÔNG EMOJI):
-• HOOK (0-5s): Câu hỏi/số liệu gây shock
-• INTRO (5-15s): Giới thiệu vấn đề + promise
-• CONTENT: Chia thành 3-5 segments, mỗi segment có heading
-• Dùng → hoặc • làm bullet cho từng point
-• **In đậm** các keywords quan trọng
-• CTA: Subscribe + Like + Comment reminder
-• OUTRO: Tóm tắt + teaser video tiếp`;
-      
-      case 'tiktok':
-        return `SHORT-FORM SCRIPT FORMAT (KHÔNG EMOJI):
-• Hook 3s đầu: Gây tò mò NGAY - dùng ★ hoặc → thay emoji
-• Body: 3-5 điểm chính, mỗi điểm 1 dòng
-• Dùng → hoặc • làm bullet
-• **In đậm** từ khóa action
-• CTA cuối: → Follow + Share
-• Tone: Nhanh, trẻ, năng lượng cao`;
-      
-      case 'threads':
-        return `CONVERSATIONAL FORMAT (KHÔNG EMOJI):
-• Hook: Quan điểm cá nhân rõ ràng
-• Body: 2-3 đoạn ngắn, giọng trò chuyện
-• Dùng → cho emphasis thay emoji
-• Kết: Câu hỏi mở để tạo discussion
-• KHÔNG hashtag, KHÔNG link trong body`;
-      
-      default:
-        return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
-    }
-  } else {
-    // EMOJI MODE: Giữ nguyên format có emoji
-    switch (channel) {
-      case 'facebook':
-        return `BẮT BUỘC RICH TEXT FORMAT:
-• Hook: Emoji + **text đậm** (VD: 🎯 **5 sai lầm phổ biến...**)
-• Body: Dùng emoji làm bullet (✅ 💡 ⚡ 📌 ➡️), **in đậm** keywords
-• Chia đoạn ngắn 2-3 dòng, xuống dòng nhiều
-• CTA cuối: emoji + **text đậm** (VD: ➡️ **Liên hệ ngay**)
-• KHÔNG viết plain text không format`;
-      
-      case 'instagram':
-        return `BẮT BUỘC RICH TEXT FORMAT:
-• Hook: Emoji thu hút + text mạnh (🔥✨💫)
-• Body: Nhiều xuống dòng, mỗi dòng 1 ý ngắn
-• Dùng emoji làm điểm nhấn (không quá 5)
-• KHÔNG hashtag trong body - tách riêng cuối bài
-• Kết thúc bằng CTA nhẹ + emoji (💬 Comment...)
-• KHÔNG viết dạng đoạn văn dài liền mạch`;
-      
-      case 'linkedin':
-        return `BẮT BUỘC PROFESSIONAL FORMAT:
-• Hook: Insight/số liệu thú vị (không giật tít)
-• Body: Chia đoạn rõ ràng, mỗi đoạn 2-3 dòng
-• Bullets: Dùng → hoặc • cho điểm chính
-• Keywords: **In đậm** các insight quan trọng
-• Emoji: Tiết chế (1-2 cho professional 🎯💡)
-• CTA mềm cuối bài + 3 hashtag chuyên ngành`;
-      
-      case 'youtube':
-        return `SCRIPT FORMAT CHI TIẾT BẮT BUỘC:
-• HOOK (0-5s): Câu hỏi/số liệu gây shock
-• INTRO (5-15s): Giới thiệu vấn đề + promise
-• CONTENT: Chia thành 3-5 segments, mỗi segment có heading
-• Dùng emoji 🎯💡⚡ làm bullet cho từng point
-• **In đậm** các keywords quan trọng
-• CTA: Subscribe + Like + Comment reminder
-• OUTRO: Tóm tắt + teaser video tiếp`;
-      
-      case 'tiktok':
-        return `SHORT-FORM SCRIPT FORMAT:
-• Hook 3s đầu: Gây tò mò NGAY (❓🔥💥)
-• Body: 3-5 điểm chính, mỗi điểm 1 dòng
-• Dùng emoji làm bullet (✅ ❌ 💡 ⚡)
-• **In đậm** từ khóa action
-• CTA cuối: Follow + Share (📲)
-• Tone: Nhanh, trẻ, năng lượng cao`;
-      
-      case 'threads':
-        return `CONVERSATIONAL FORMAT:
-• Hook: Quan điểm cá nhân rõ ràng
-• Body: 2-3 đoạn ngắn, giọng trò chuyện
-• Emoji: Tiết chế (1-2 phù hợp ngữ cảnh)
-• Kết: Câu hỏi mở để tạo discussion
-• KHÔNG hashtag, KHÔNG link trong body`;
-      
-      default:
-        return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
-    }
+    const noEmojiFormats: Record<string, string> = {
+      facebook: 'Hook ★/**bold**, bullets ✓/→, đoạn ngắn, KHÔNG emoji',
+      instagram: 'Hook ★/**bold**, xuống dòng nhiều, bullets →/•, hashtag cuối, KHÔNG emoji',
+      linkedin: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold** keywords, KHÔNG emoji',
+      youtube: 'HOOK-INTRO-CONTENT(3-5 segments)-CTA-OUTRO, bullets →/•, KHÔNG emoji',
+      tiktok: 'Hook 3s, 3-5 điểm, bullets →/•, **bold** action, KHÔNG emoji',
+      threads: 'Quan điểm rõ, 2-3 đoạn, → emphasis, câu hỏi kết, KHÔNG emoji',
+    };
+    return noEmojiFormats[channel] || DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
   }
+  
+  // EMOJI MODE: Standard format
+  const emojiFormats: Record<string, string> = {
+    facebook: 'Hook emoji+**bold**, emoji bullets (✅💡⚡📌➡️), đoạn ngắn, CTA cuối',
+    instagram: 'Hook emoji (🔥✨💫), xuống dòng, emoji điểm nhấn (≤5), hashtag cuối, CTA nhẹ',
+    linkedin: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold**, emoji tiết chế (1-2), 3 hashtag',
+    youtube: 'HOOK(0-5s)-INTRO(5-15s)-CONTENT(3-5 segments)-CTA(Sub+Like)-OUTRO, emoji bullets',
+    tiktok: 'Hook 3s (❓🔥💥), 3-5 điểm, emoji bullets, **bold** action, CTA📲',
+    threads: 'Quan điểm rõ, 2-3 đoạn, emoji tiết chế, câu hỏi kết',
+  };
+  return emojiFormats[channel] || DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
 }
 
 // Build chi tiết rules prompt cho AI từ settings
@@ -1094,175 +787,50 @@ ${angleDescriptions[contentAngle] || contentAngle}
 - Tone và cách diễn đạt phải nhất quán với góc tiếp cận đã chọn`
     : "";
 
-  return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
+  return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
-
 ${extendedBrandSection}
-
 ${productTargetingSection}
 
 ## NGUYÊN TẮC LÕI
-ONE TOPIC → ONE CORE MESSAGE → MULTI-CHANNEL CONTENT
-- Từ MỘT chủ đề, tạo nội dung PHÙ HỢP RIÊNG cho từng kênh
-- Nội dung dùng được NGAY để đăng thật
-- KHÔNG sao chép máy móc giữa các kênh
+ONE TOPIC → MULTI-CHANNEL CONTENT
+- Nội dung PHÙ HỢP RIÊNG từng kênh, KHÔNG sao chép máy móc
 - Giữ thông điệp lõi NHẤT QUÁN
 
-## 📝 ĐỊNH DẠNG RICH TEXT (BẮT BUỘC)
-Mọi nội dung PHẢI sử dụng rich text formatting để tăng tính trực quan và dễ đọc:
-
-### 1. ICONS/EMOJI (trừ các kênh cấm):
-- Dùng emoji làm bullet points thay vì gạch đầu dòng: ✅ 🎯 💡 ⚡ 🔥 📌 ➡️ 📊 💼 🚀
-- Mỗi section có icon đại diện phù hợp với nội dung
-- Emoji phải liên quan đến context, không ngẫu nhiên
-- Hook mở đầu nên có emoji thu hút: 🎯 ⚡ 💡
-
-### 2. MARKDOWN FORMATTING:
-- **In đậm** cho: keywords quan trọng, brand name, số liệu, CTA
-- *In nghiêng* cho emphasis nhẹ, quote, highlight
-- Bullet points có cấu trúc rõ ràng với emoji prefix
-- Chia section bằng line breaks để dễ đọc
-
-### 3. CẤU TRÚC VISUAL:
-- Hook mở đầu: emoji + **text đậm** gây chú ý
-- Nội dung chính: bullet points với emoji khác nhau
-- CTA cuối: emoji hành động (➡️ 🔗 📞 💬) + **in đậm**
-
-### VÍ DỤ FORMAT CHUẨN:
-"""
-🎯 **5 sai lầm phổ biến khi quản lý kế toán DN**
-
-Bạn đang gặp khó khăn với sổ sách? Đây là những lỗi thường gặp:
-
-✅ **Không phân loại chi phí** - Khó kiểm soát dòng tiền
-💡 **Thiếu backup dữ liệu** - Rủi ro mất mát cao
-⚡ **Chậm cập nhật hóa đơn** - Ảnh hưởng thuế GTGT
-📊 **Không đối soát định kỳ** - Sai lệch số liệu tích lũy
-
-➡️ **Liên hệ ngay** để được tư vấn miễn phí!
-"""
-
-### KÊNH KHÔNG DÙNG RICH TEXT:
-- Google Maps: Plain text, không emoji, không markdown
-- Zalo OA: Plain text thân thiện, không emoji
-- Email: Minimal markdown, không emoji
-- Telegram: Có thể dùng markdown, không emoji
+## FORMAT (BẮT BUỘC)
+**Social channels:** Emoji bullets (✅💡⚡📌➡️), **in đậm** keywords, đoạn ngắn 2-3 dòng
+**Không emoji:** Website, Google Maps, Email, Zalo OA, Telegram${brandVoice && !brandVoice.allow_emoji ? ", TẤT CẢ (Brand Voice)" : ""}
+**Ví dụ:**
+🎯 **5 sai lầm phổ biến khi...**
+✅ **Điểm 1** - Mô tả ngắn
+💡 **Điểm 2** - Mô tả ngắn
+➡️ **Liên hệ ngay** để được tư vấn!
 
 ## BRAND CONTEXT
-Brand name: ${brandName}
-Đối tượng mục tiêu: ${audienceDescription}
-${brandGuideline ? `Brand guideline: ${brandGuideline}` : ""}
-${primaryColor ? `Màu chủ đạo: ${primaryColor}` : ""}
+Brand: ${brandName} | Đối tượng: ${audienceDescription}
+${brandGuideline ? `Guideline: ${brandGuideline}` : ""}${primaryColor ? ` | Màu: ${primaryColor}` : ""}
 
-## MỤC TIÊU NỘI DUNG
-${goalDescriptions[contentGoal] || contentGoal}
-
+## MỤC TIÊU: ${goalDescriptions[contentGoal] || contentGoal}
 ${contentAngleSection}
 
-## MARKETING FRAMEWORK (nếu có)
-Nếu user chọn framework, cấu trúc nội dung PHẢI theo framework đó:
-- PAS: Problem → Agitate → Solution
-- AIDA: Attention → Interest → Desire → Action
-- FAB: Features → Advantages → Benefits
-- 4U: Useful → Urgent → Unique → Ultra-specific
-- STAR: Situation → Task → Action → Result
-- BAB: Before → After → Bridge
-
-## QUY ƯỚC THEO TỪNG KÊNH (SOCIAL CHANNEL SETTINGS)
-Brand Voice là LUẬT NỀN. Channel Settings là LUẬT TRIỂN KHAI.
-Không được để Channel Settings phá Brand Voice.
-
+## CHANNEL SETTINGS
 ${selectedChannelRules}
 
-## 🔍 SEO OPTIMIZATION RULES (CHỈ ÁP DỤNG CHO WEBSITE)
-Khi tạo nội dung cho WEBSITE, BẮT BUỘC tuân thủ các quy tắc SEO sau:
+## WEBSITE SEO (CHỈ áp dụng cho website)
+- SEO Title: 50-60 ký tự, keyword đầu | Meta: 150-160 ký tự
+- H1 có keyword, 4-6 H2 với secondary keywords, H3 nếu cần
+- Focus keyword: H1, intro, 1-2 H2, conclusion (tự nhiên, 1-2% density)
+- Featured Snippet: 40-60 từ trả lời câu hỏi chính
+- Word count: 800-2000 từ | Pure Markdown (KHÔNG HTML)
+- seo_score_estimate: Title(15) + Meta(15) + Keyword trong title(15) + H1(10) + 100 từ đầu(10) + H2(10) + Words(10) + Snippet(10) + Links(5)
 
-### Cấu trúc bài viết chuẩn SEO:
-1. **SEO Title**: 50-60 ký tự, chứa focus keyword ở đầu, hấp dẫn click
-2. **Meta Description**: 150-160 ký tự, chứa keyword, có CTA nhẹ
-3. **Intro paragraph** (50-100 words): Hook reader, chứa focus keyword trong câu đầu
-4. **Body sections**: Mỗi H2 có 150-300 words, H3 nếu cần chia nhỏ
-5. **Featured Snippet Box**: Đoạn tóm tắt 40-60 words trả lời câu hỏi chính
-6. **Conclusion**: Tóm tắt + CTA mềm
+## KIỂM TRA CUỐI
+- Max length? TỰ RÚT GỌN | Emoji/hashtag sai? TỰ SỬA | Format sai? TỰ ĐIỀU CHỈNH
+- Website có pure Markdown? TỰ CHUYỂN ĐỔI nếu HTML
 
-### Heading Optimization:
-- **H1**: Chứa focus keyword, 50-70 ký tự, hấp dẫn (khác SEO title)
-- **H2**: Mỗi bài 4-6 H2, chứa secondary keywords, format: ## Heading
-- **H3**: Dùng để chia nhỏ H2 phức tạp, format: ### Heading
-
-### On-Page SEO:
-- Focus keyword: Xuất hiện trong H1, intro, 1-2 H2, conclusion (TỰ NHIÊN, không spam)
-- Keyword density: 1-2% (tính trên tổng words)
-- LSI keywords: Sử dụng từ liên quan ngữ nghĩa
-- Internal link anchors: Gợi ý 2-3 anchor text để link nội bộ
-- Slug: Ngắn gọn, chứa keyword, không dấu, lowercase
-
-### Featured Snippet Optimization:
-- Paragraph snippet: Câu trả lời trực tiếp 40-60 words
-- List snippet: Bullet points 5-8 items (nếu phù hợp)
-- Trả lời câu hỏi "Làm sao", "Là gì", "Tại sao" ngay đầu section
-
-### Open Graph Tags (ADVANCED):
-- OG Title: 60-90 ký tự, hấp dẫn hơn SEO title, có thể dùng emoji nếu phù hợp
-- OG Description: 150-200 ký tự, tạo curiosity, có CTA mềm
-
-### SEO Score Calculation (PHẢI tự tính và trả về seo_score_estimate):
-Tính điểm SEO dựa trên các tiêu chí sau (tổng 100 điểm):
-- Title length (50-60 chars): 15 điểm
-- Meta description (150-160 chars): 15 điểm
-- Focus keyword có trong title: 15 điểm
-- Focus keyword có trong H1: 10 điểm
-- Focus keyword trong 100 từ đầu: 10 điểm
-- Số H2 (4-6): 10 điểm
-- Word count (1000-2000): 10 điểm
-- Featured snippet provided: 10 điểm
-- Internal link anchors (2-3): 5 điểm
-→ Trả về seo_score_estimate dựa trên tính toán này
-
-### FAQ Extraction (nếu content có dạng Q&A hoặc liệt kê câu hỏi):
-- Extract 2-4 câu FAQ tự nhiên từ nội dung
-- Mỗi FAQ: question (câu hỏi tự nhiên) + answer (50-100 words trả lời súc tích)
-- Dùng để tạo FAQ Schema Markup
-
-### Readability:
-- Sentence length: Trung bình 15-20 words
-- Paragraph length: 2-4 câu
-- Transition words: "Ngoài ra", "Bên cạnh đó", "Cụ thể", "Quan trọng hơn"
-- Active voice > 80%
-
-## ⚠️ QUAN TRỌNG: WEBSITE CONTENT FORMAT
-Khi tạo nội dung cho channel WEBSITE:
-- Content PHẢI là pure Markdown syntax
-- TUYỆT ĐỐI KHÔNG dùng HTML tags (<h1>, <h2>, <p>, <strong>, <ul>, <li>, etc.)
-- Chỉ dùng: # ## ### **bold** *italic* - list > quote [link](url)
-- Nếu output HTML, content sẽ KHÔNG RENDER được trên website mockup
-
-## KIỂM TRA CUỐI (BẮT BUỘC)
-Trước khi xuất nội dung, tự kiểm tra:
-- Có vượt max length không? → TỰ RÚT GỌN, giữ ý chính
-- Có vi phạm emoji / hashtag không? → TỰ ĐIỀU CHỈNH
-- Có CTA sai quy định không? → TỰ SỬA
-- Có format sai nền tảng không? → TỰ ĐIỀU CHỈNH
-- Có sử dụng rich text (emoji, bold) đúng cách không? → TỰ ĐIỀU CHỈNH
-- WEBSITE content có phải pure Markdown không? → TỰ CHUYỂN ĐỔI nếu có HTML
-
-## NGUYÊN TẮC BẮT BUỘC
-1. KHÔNG dùng chung một bài cho mọi kênh
-2. KHÔNG copy nguyên văn giữa các kênh
-3. Mỗi kênh phải đúng hành vi người đọc, đúng giới hạn kỹ thuật
-4. Giữ thông điệp lõi NHẤT QUÁN xuyên suốt
-5. Giọng văn: Chuyên nghiệp, rõ ràng, không quảng cáo lộ liễu, phù hợp ${audienceDescription}
-6. SỬ DỤNG RICH TEXT: emoji bullets, **bold** keywords, visual structure
-
-## ĐIỀU TUYỆT ĐỐI KHÔNG LÀM
-- Không giải thích vì sao viết như vậy
-- Không bình luận ngoài nội dung
-- Không thêm kênh không được yêu cầu
-- Không dùng emoji cho Website, Google Maps, Zalo OA, Email, Telegram${brandVoice && !brandVoice.allow_emoji ? "\n- KHÔNG dùng emoji ở BẤT KỲ kênh nào (Brand Voice yêu cầu)" : ""}
-- Không lặp lại câu chữ giữa các kênh
-- Không hiển thị cài đặt
-- Không giải thích logic xử lý`;
+## CẤM
+- Giải thích/bình luận | Thêm kênh không yêu cầu | Copy giữa kênh | Hiển thị cài đặt`;
 };
 
 serve(async (req) => {
