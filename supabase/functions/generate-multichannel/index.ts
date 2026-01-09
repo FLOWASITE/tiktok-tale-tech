@@ -1895,6 +1895,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         channels: formData.channels,
         topic: formData.topic,
         contentGoal,
+        qualityMode: formData.qualityMode || 'balanced', // NEW: Pass quality mode for dynamic tokens
         brandTemplateId: formData.brandTemplateId,
         brandName,
         footerInfo,

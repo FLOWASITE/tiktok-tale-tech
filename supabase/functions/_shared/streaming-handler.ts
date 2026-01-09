@@ -12,6 +12,7 @@
 
 import { callAI, iterateStreamDeltas } from "./ai-provider.ts";
 import { formatFooterInfo, type FooterInfo } from "./channel-prompt-builder.ts";
+import { calculateChannelMaxTokens } from "./dynamic-tokens.ts";
 
 // ============================================
 // TYPES
@@ -23,6 +24,7 @@ export interface StreamingContext {
   channels: string[];
   topic: string;
   contentGoal: string;
+  qualityMode?: 'fast' | 'balanced' | 'quality'; // NEW: For dynamic token calculation
   brandTemplateId?: string;
   brandName: string;
   // Footer context
@@ -210,6 +212,13 @@ export async function generateChannelStreaming(
   const effectiveModel = channelConfig?.model ?? context.defaultModel;
   const effectiveTemperature = channelConfig?.temperature ?? context.defaultTemperature;
   
+  // Calculate dynamic max_tokens based on channel and context
+  const dynamicMaxTokens = calculateChannelMaxTokens(channel, {
+    contentGoal: context.contentGoal,
+    qualityMode: context.qualityMode,
+    channelMaxLength: channelConfig?.maxTokens ?? undefined,
+  });
+  
   const startTime = Date.now();
 
   try {
@@ -218,6 +227,7 @@ export async function generateChannelStreaming(
       organizationId: context.organizationId || undefined,
       modelOverride: effectiveModel,
       temperatureOverride: effectiveTemperature,
+      maxTokensOverride: dynamicMaxTokens, // NEW: Use dynamic tokens
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
