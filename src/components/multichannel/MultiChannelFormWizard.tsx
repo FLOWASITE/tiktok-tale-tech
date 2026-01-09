@@ -51,7 +51,9 @@ import {
   X,
   Settings2,
   Phone,
+  ExternalLink,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
@@ -652,14 +654,36 @@ export function MultiChannelFormWizard({
                         <p className="text-xs text-muted-foreground">Tự động thêm hotline, email, website vào cuối bài</p>
                       </div>
                     </div>
-                    <Checkbox
-                      id="includeFooterInfo"
-                      checked={formData.includeFooterInfo !== false}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({ ...prev, includeFooterInfo: checked as boolean }))
-                      }
-                      disabled={isGenerating}
-                    />
+                    <div className="flex items-center gap-2">
+                      {brandTemplateId && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-muted-foreground hover:text-primary"
+                              asChild
+                            >
+                              <Link to="/brands/new" state={{ editTemplate: { id: brandTemplateId } }}>
+                                <ExternalLink className="w-4 h-4 mr-1" />
+                                Sửa
+                              </Link>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Chỉnh sửa thông tin liên hệ của thương hiệu</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Checkbox
+                        id="includeFooterInfo"
+                        checked={formData.includeFooterInfo !== false}
+                        onCheckedChange={(checked) => 
+                          setFormData(prev => ({ ...prev, includeFooterInfo: checked as boolean }))
+                        }
+                        disabled={isGenerating}
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
