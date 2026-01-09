@@ -31,6 +31,7 @@ import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useDraft } from '@/hooks/useDraft';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
+import { useContentLearning } from '@/hooks/useContentLearning';
 import { useContentValidation, ValidationResult } from '@/hooks/useContentValidation';
 import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
@@ -404,6 +405,9 @@ export function MultiChannelViewer({
     industryMemory?.id
   );
 
+  // Content learning hook - track user edits for brand learning
+  const { trackEdit } = useContentLearning();
+
   // State for selected channel in new layout - must be before early return
   const safeChannels = Array.isArray(content?.selected_channels) ? content.selected_channels : [];
   const [selectedChannel, setSelectedChannel] = useState<Channel>(safeChannels[0] || 'facebook');
@@ -547,10 +551,25 @@ export function MultiChannelViewer({
   const executeSave = async (channel: Channel, contentToSave: string) => {
     if (!onUpdateContent) return;
     
+    // Get original content for learning tracking
+    const originalContent = getContentForChannel(content, channel) || '';
+    
     setIsSaving(true);
     try {
       const updated = await onUpdateContent(content.id, channel, contentToSave);
       if (updated) {
+        // Track edit for content learning (fire and forget)
+        if (originalContent && contentToSave !== originalContent) {
+          trackEdit({
+            channel,
+            contentType: 'multichannel',
+            originalContent,
+            editedContent: contentToSave,
+            contentId: content.id,
+            brandTemplateId: content.brand_template_id || undefined,
+          }).catch(err => console.warn('[learning] Failed to track edit:', err));
+        }
+        
         setEditingChannel(null);
         resetEditContent('');
         setPreviewContent(null);

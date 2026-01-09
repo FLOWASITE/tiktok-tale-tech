@@ -83,7 +83,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
  * Search for similar content using vector similarity
  */
 async function searchSimilarContent(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any, // Use 'any' to avoid strict type checking for RPC calls
   embedding: number[],
   organizationId: string,
   brandTemplateId?: string,
@@ -139,7 +139,7 @@ async function searchSimilarContent(
  * @param contentType - Optional content type filter ('multichannel', 'script', 'carousel')
  */
 export async function checkSemanticDuplicate(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any, // Use 'any' to avoid strict type checking for RPC calls
   newContent: string,
   organizationId: string,
   brandTemplateId?: string,
