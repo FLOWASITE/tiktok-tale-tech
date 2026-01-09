@@ -72,10 +72,26 @@ export function useStreamingRegenerate(options: UseStreamingRegenerateOptions = 
       let buffer = '';
       let accumulatedText = '';
       let finalResult: string | null = null;
+      
+      // Watchdog timer to detect stalled streams
+      const WATCHDOG_TIMEOUT = 60000; // 60s
+      let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+      
+      const resetWatchdog = () => {
+        if (watchdogTimer) clearTimeout(watchdogTimer);
+        watchdogTimer = setTimeout(() => {
+          console.warn('[Regenerate] Watchdog timeout - no data received');
+          abortControllerRef.current?.abort();
+        }, WATCHDOG_TIMEOUT);
+      };
+      
+      resetWatchdog();
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        
+        resetWatchdog();
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -94,13 +110,17 @@ export function useStreamingRegenerate(options: UseStreamingRegenerateOptions = 
             try {
               const event = JSON.parse(jsonStr);
 
-              // Handle streaming text chunks
-              if (event.type === 'streaming_text' && event.streamingChunk) {
-                const { text, isComplete } = event.streamingChunk;
-                accumulatedText += text;
-                setStreamingText(accumulatedText);
+              // Handle streaming text chunks - support both formats:
+              // 1. event.streamingChunk.text (from useStreamingGeneration format)
+              // 2. event.content (from backend regenerate format)
+              if (event.type === 'streaming_text') {
+                const deltaText = event.streamingChunk?.text ?? event.content ?? '';
+                if (deltaText) {
+                  accumulatedText += deltaText;
+                  setStreamingText(accumulatedText);
+                }
                 
-                if (isComplete) {
+                if (event.streamingChunk?.isComplete) {
                   setProgress({ progress: 90, message: 'Đang hoàn thiện...', isComplete: false });
                 }
               }
@@ -112,6 +132,13 @@ export function useStreamingRegenerate(options: UseStreamingRegenerateOptions = 
                   message: event.message || '',
                   isComplete: false,
                 });
+              }
+              
+              // Handle channel_complete event
+              if (event.type === 'channel_complete') {
+                accumulatedText = event.content || accumulatedText;
+                setStreamingText(accumulatedText);
+                setProgress({ progress: 95, message: 'Đang lưu...', isComplete: false });
               }
 
               // Handle result
@@ -127,11 +154,12 @@ export function useStreamingRegenerate(options: UseStreamingRegenerateOptions = 
               }
             } catch (parseError) {
               // Ignore parse errors for incomplete JSON
-              console.debug('SSE parse skip:', jsonStr);
             }
           }
         }
       }
+      
+      if (watchdogTimer) clearTimeout(watchdogTimer);
 
       return finalResult || accumulatedText;
     } catch (error) {
