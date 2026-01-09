@@ -13,9 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Settings2, Info, Zap, Scale, Sparkles, ChevronDown } from 'lucide-react';
-import { QualityMode, QUALITY_MODES } from '@/types/multichannel';
+import { QualityMode, QUALITY_MODES, Channel } from '@/types/multichannel';
 import { useBrandChannelOptimizations } from '@/hooks/useBrandChannelOptimizations';
-import { Channel } from '@/types/multichannel';
 
 interface QualityModeQuickSelectorProps {
   value: QualityMode;
