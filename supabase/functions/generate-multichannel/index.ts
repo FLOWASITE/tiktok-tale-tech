@@ -36,6 +36,13 @@ import {
   type AIMetrics 
 } from "../_shared/logger.ts";
 import { estimateTotalCost } from "../_shared/cost-estimator.ts";
+// Phase 2: Compliance Pre-check import
+import { 
+  preCheckCompliance, 
+  type IndustryMemoryRules, 
+  type BrandRules,
+  type PreCheckResult,
+} from "../_shared/compliance-precheck.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -1393,6 +1400,53 @@ Mục tiêu nội dung: ${goalLabel}`;
       channelModelConfigsPromise
     ]);
     console.log("[parallel-db] AI configs loaded:", aiConfig ? "custom" : "default");
+
+    // ============================================
+    // COMPLIANCE PRE-CHECK (for 'create' action only)
+    // Validates topic BEFORE generation to catch forbidden terms early
+    // ============================================
+    if (!formData.action || formData.action === 'create') {
+      // Build rules for compliance check
+      const industryRulesForCheck: IndustryMemoryRules | null = industryMemory ? {
+        forbidden_terms: industryMemory.forbidden_terms || [],
+        compliance_rules: industryMemory.compliance_rules || [],
+        claim_restrictions: industryMemory.claim_restrictions || [],
+        forbidden_words: industryMemory.forbidden_words || [],
+        argument_patterns: industryMemory.argument_patterns,
+      } : null;
+      
+      const brandRulesForCheck: BrandRules | null = brandVoice ? {
+        forbidden_words: brandVoice.forbidden_words || [],
+        compliance_rules: brandVoice.compliance_rules || [],
+      } : null;
+      
+      const complianceResult: PreCheckResult = preCheckCompliance(
+        formData.topic,
+        industryRulesForCheck,
+        brandRulesForCheck
+      );
+      
+      console.log(`[compliance-precheck] Risk level: ${complianceResult.riskLevel}, issues: ${complianceResult.issues.length}`);
+      
+      // If topic is blocked (contains industry forbidden terms), reject immediately
+      if (complianceResult.riskLevel === 'blocked') {
+        console.error('[compliance-precheck] Topic BLOCKED due to forbidden terms');
+        return new Response(
+          JSON.stringify({
+            error: 'Topic chứa từ cấm trong ngành',
+            complianceBlocked: true,
+            issues: complianceResult.issues,
+            suggestion: 'Vui lòng điều chỉnh topic để tránh các từ bị cấm',
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // For high-risk topics, log warning but continue (will rely on Self-Critique)
+      if (complianceResult.riskLevel === 'high') {
+        console.warn('[compliance-precheck] High-risk topic detected, will rely on Self-Critique');
+      }
+    }
 
     // ============================================
     // REGENERATE MODE - Lightweight single channel path

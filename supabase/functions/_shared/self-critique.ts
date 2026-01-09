@@ -15,6 +15,7 @@ import {
   getRefinementStrategy,
 } from './critique-criteria.ts';
 import { getAIConfig } from './ai-config.ts';
+import { evaluateHook, type HookEvaluation } from './ai-hook-evaluator.ts';
 
 // ================== CONFIGURATION ==================
 export const CRITIQUE_CONFIG = {
@@ -638,19 +639,22 @@ export async function runSelfCritiqueLoop(options: {
   additionalContext?: string;
   apiKey: string;
   maxRefinements?: number; // NEW: Override max refinements (for quality modes)
+  organizationId?: string; // For AI hook evaluator
 }): Promise<{
   finalContent: any;
   critiqueResult: CritiqueResult;
   wasRefined: boolean;
   refinementCount: number;
   needsManualReview: boolean;
+  hookEvaluations?: Record<string, HookEvaluation>;
 }> {
-  const { content, contentType, brandVoice, mergedRules, additionalContext, apiKey, maxRefinements: maxRefinementsOverride } = options;
+  const { content, contentType, brandVoice, mergedRules, additionalContext, apiKey, maxRefinements: maxRefinementsOverride, organizationId } = options;
   
   let currentContent = content;
   let refinementCount = 0;
   let wasRefined = false;
   let needsManualReview = false;
+  let hookEvaluations: Record<string, HookEvaluation> = {};
   
   // First critique
   let critiqueResult = await critiqueContent({
@@ -664,6 +668,77 @@ export async function runSelfCritiqueLoop(options: {
   
   const initialScore = critiqueResult.overall_score;
   console.log(`[Self-Critique] Initial score: ${initialScore}`);
+  
+  // Enhanced Hook Evaluation using AI Hook Evaluator (for multichannel content)
+  if (contentType === 'multichannel' && critiqueResult.scores.hook_strength < 14) {
+    console.log(`[Self-Critique] Hook score low (${critiqueResult.scores.hook_strength}/18), running AI hook evaluation...`);
+    try {
+      // Extract hooks from channel content
+      const channels = Object.keys(currentContent).filter(k => 
+        k.endsWith('_content') && currentContent[k]
+      );
+      
+      // Evaluate hooks in parallel (limit to first 4 channels for performance)
+      const evalPromises = channels.slice(0, 4).map(async (channelKey) => {
+        const channelName = channelKey.replace('_content', '');
+        const channelContent = currentContent[channelKey];
+        // Extract first line/sentence as hook
+        const hook = channelContent?.split(/[\n.!?]/)[0]?.trim() || '';
+        if (hook.length > 10) {
+          const evaluation = await evaluateHook(hook, channelName, {
+            brandVoice: brandVoice?.tone_of_voice?.join(', '),
+            organizationId,
+          });
+          return [channelName, evaluation] as const;
+        }
+        return null;
+      });
+      
+      const results = await Promise.all(evalPromises);
+      results.forEach(result => {
+        if (result) {
+          hookEvaluations[result[0]] = result[1];
+        }
+      });
+      
+      // Adjust hook_strength score based on AI evaluation average
+      const avgHookScore = Object.values(hookEvaluations).reduce((sum, e) => sum + e.combinedScore, 0) / 
+        Math.max(Object.values(hookEvaluations).length, 1);
+      if (avgHookScore > 0) {
+        // Blend regex score with AI score (AI has more weight for low scores)
+        const aiWeight = critiqueResult.scores.hook_strength < 10 ? 0.6 : 0.4;
+        const blendedHookScore = Math.round(
+          critiqueResult.scores.hook_strength * (1 - aiWeight) + 
+          (avgHookScore / 100 * 18) * aiWeight
+        );
+        console.log(`[Self-Critique] Hook score adjusted: ${critiqueResult.scores.hook_strength} → ${blendedHookScore} (AI avg: ${avgHookScore.toFixed(1)})`);
+        
+        // Update scores
+        const oldOverall = critiqueResult.overall_score;
+        critiqueResult.scores.hook_strength = Math.min(18, blendedHookScore);
+        critiqueResult.overall_score = Object.values(critiqueResult.scores).reduce((a, b) => a + b, 0);
+        critiqueResult.passed = critiqueResult.overall_score >= CRITIQUE_CONFIG.PASS_THRESHOLD;
+        critiqueResult.quality_tier = getQualityTier(critiqueResult.overall_score);
+        
+        // Add hook-specific issues from AI evaluation
+        Object.entries(hookEvaluations).forEach(([channel, evaluation]) => {
+          evaluation.issues.forEach(issue => {
+            if (!critiqueResult.issues.some(i => i.description.includes(issue))) {
+              critiqueResult.issues.push({
+                category: 'hook',
+                severity: 'warning',
+                description: `[${channel}] ${issue}`,
+              });
+            }
+          });
+        });
+        
+        console.log(`[Self-Critique] Overall score adjusted: ${oldOverall} → ${critiqueResult.overall_score}`);
+      }
+    } catch (hookEvalError) {
+      console.warn('[Self-Critique] AI hook evaluation failed, continuing with regex score:', hookEvalError);
+    }
+  }
   
   // Get refinement strategy based on score
   const strategy = getRefinementStrategy(critiqueResult.overall_score);
@@ -729,5 +804,6 @@ export async function runSelfCritiqueLoop(options: {
     wasRefined,
     refinementCount,
     needsManualReview,
+    hookEvaluations: Object.keys(hookEvaluations).length > 0 ? hookEvaluations : undefined,
   };
 }
