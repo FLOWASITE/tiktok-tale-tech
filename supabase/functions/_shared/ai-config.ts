@@ -159,61 +159,67 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
 
 // In-memory cache with short TTL to reduce DB calls
 const configCache: Map<string, { config: AIFunctionConfig; fetchedAt: number }> = new Map();
-const CACHE_TTL_MS = 60000; // 1 minute cache
+const CACHE_TTL_MS = 120000; // 2 minute cache (increased for edge optimization)
+
+// Pre-initialized Supabase client for config fetches
+let _configSupabase: ReturnType<typeof createClient> | null = null;
+
+const getConfigSupabase = () => {
+  if (!_configSupabase) {
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (url && key) {
+      _configSupabase = createClient(url, key);
+    }
+  }
+  return _configSupabase;
+};
 
 /**
  * Get AI configuration for a specific function
- * Supports organization-specific overrides
+ * OPTIMIZED: Reuses Supabase client, extended cache TTL, reduced logging
  */
 export async function getAIConfig(
   functionName: string,
   organizationId?: string
 ): Promise<AIFunctionConfig> {
-  // Check in-memory cache first
+  // Fast path: check cache first
   const cacheKey = `${functionName}:${organizationId || 'global'}`;
   const cached = configCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-    console.log(`[ai-config] Cache hit for ${functionName}`);
+  const now = Date.now();
+  
+  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.config;
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn('[ai-config] Missing Supabase credentials, using defaults');
+  const supabase = getConfigSupabase();
+  if (!supabase) {
     return getDefaultConfig(functionName);
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
   try {
-    // Query: prioritize org-specific config, fallback to global
+    // Optimized query with minimal select
     let query = supabase
       .from('ai_function_configs')
-      .select('function_name, model_override, temperature, max_tokens, cache_ttl_hours, custom_system_prompt, is_enabled, priority_level')
+      .select('model_override, temperature, max_tokens, cache_ttl_hours, custom_system_prompt, is_enabled, priority_level')
       .eq('function_name', functionName)
       .eq('is_enabled', true);
 
     if (organizationId) {
-      // Get both org-specific and global configs
       query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
     } else {
-      // Only global configs
       query = query.is('organization_id', null);
     }
 
     const { data, error } = await query
-      .order('organization_id', { nullsFirst: false }) // org-specific first
+      .order('organization_id', { nullsFirst: false })
       .limit(1);
 
     if (error) {
-      console.warn(`[ai-config] Query error for ${functionName}:`, error.message);
       return getDefaultConfig(functionName);
     }
 
-    // Use DB config if found, otherwise defaults
-    const dbConfig = data?.[0];
+    const dbConfig = data?.[0] as any;
     const defaultConfig = DEFAULT_CONFIGS[functionName] || DEFAULT_CONFIGS['chat-topics'];
 
     const config: AIFunctionConfig = {
@@ -228,17 +234,9 @@ export async function getAIConfig(
     };
 
     // Update cache
-    configCache.set(cacheKey, { config, fetchedAt: Date.now() });
-    console.log(`[ai-config] Loaded config for ${functionName}:`, {
-      model: config.model,
-      temperature: config.temperature,
-      max_tokens: config.max_tokens,
-      source: dbConfig ? 'database' : 'defaults',
-    });
-
+    configCache.set(cacheKey, { config, fetchedAt: now });
     return config;
-  } catch (err) {
-    console.error(`[ai-config] Failed to fetch config for ${functionName}:`, err);
+  } catch {
     return getDefaultConfig(functionName);
   }
 }
@@ -281,31 +279,27 @@ export interface ChannelModelConfig {
 }
 
 // In-memory cache for channel configs
-const channelConfigCache: Map<string, { configs: ChannelModelConfig[]; fetchedAt: number }> = new Map();
+const channelConfigCache: Map<string, { configs: Map<string, ChannelModelConfig>; fetchedAt: number }> = new Map();
 
 /**
  * Get channel-specific model configurations
- * Returns map of channel -> config for use in generate-multichannel
+ * OPTIMIZED: Pre-built Map, reuses Supabase client, reduced logging
  */
 export async function getChannelModelConfigs(
   organizationId?: string
 ): Promise<Map<string, ChannelModelConfig>> {
   const cacheKey = organizationId || 'global';
   const cached = channelConfigCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-    console.log(`[ai-config] Channel config cache hit`);
-    return new Map(cached.configs.map(c => [c.channel, c]));
+  const now = Date.now();
+  
+  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached.configs;
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn('[ai-config] Missing Supabase credentials for channel configs');
+  const supabase = getConfigSupabase();
+  if (!supabase) {
     return new Map();
   }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
     let query = supabase
@@ -322,17 +316,15 @@ export async function getChannelModelConfigs(
     const { data, error } = await query.order('organization_id', { nullsFirst: false });
 
     if (error) {
-      console.warn('[ai-config] Error fetching channel configs:', error.message);
       return new Map();
     }
 
-    // Convert to map, prioritizing org-specific over global
+    // Build map directly - avoid intermediate array
     const configMap = new Map<string, ChannelModelConfig>();
-    const seenChannels = new Set<string>();
 
-    for (const row of data || []) {
-      if (!seenChannels.has(row.channel) && row.model_override) {
-        seenChannels.add(row.channel);
+    for (const rawRow of data || []) {
+      const row = rawRow as any;
+      if (!configMap.has(row.channel) && row.model_override) {
         configMap.set(row.channel, {
           channel: row.channel,
           model: row.model_override,
@@ -343,16 +335,10 @@ export async function getChannelModelConfigs(
       }
     }
 
-    // Cache results
-    channelConfigCache.set(cacheKey, {
-      configs: Array.from(configMap.values()),
-      fetchedAt: Date.now(),
-    });
-
-    console.log(`[ai-config] Loaded ${configMap.size} channel model configs`);
+    // Cache the Map directly (no conversion needed on hit)
+    channelConfigCache.set(cacheKey, { configs: configMap, fetchedAt: now });
     return configMap;
-  } catch (err) {
-    console.error('[ai-config] Failed to fetch channel configs:', err);
+  } catch {
     return new Map();
   }
 }
