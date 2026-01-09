@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,11 +37,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -187,123 +183,116 @@ Lưu ý:
 - Sử dụng ngôn ngữ phù hợp với persona ${persona.name}
 - Tập trung vào sản phẩm ${product.name}`;
 
-    console.log('Calling Lovable AI for journey messaging generation...');
+    console.log('Calling AI for journey messaging generation...');
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "generate_journey_messaging",
-            description: "Generate journey stage messaging for each stage",
-            parameters: {
-              type: "object",
-              properties: {
-                stages: {
-                  type: "array",
-                  description: "Messaging for each journey stage",
-                  items: {
-                    type: "object",
-                    properties: {
-                      journey_stage: {
-                        type: "string",
-                        enum: ["awareness", "consideration", "decision", "loyalty"],
-                        description: "Giai đoạn journey"
-                      },
-                      headline: {
-                        type: "string",
-                        description: "Headline chính cho stage, 5-15 từ, thu hút"
-                      },
-                      hook: {
-                        type: "string",
-                        description: "Hook mở đầu, 1-2 câu ngắn gây tò mò"
-                      },
-                      key_message: {
-                        type: "string",
-                        description: "Message chính, 2-3 câu súc tích"
-                      },
-                      pain_points_focus: {
-                        type: "array",
-                        items: { type: "string" },
-                        description: "2-4 pain points ưu tiên cho stage này"
-                      },
-                      benefits_highlight: {
-                        type: "array",
-                        items: { type: "string" },
-                        description: "2-4 benefits cần nhấn mạnh"
-                      },
-                      cta_template: {
-                        type: "string",
-                        description: "CTA gợi ý cho stage"
-                      },
-                      emotional_tone: {
-                        type: "string",
-                        enum: ["curiosity", "urgency", "trust", "delight", "empathy", "authority"],
-                        description: "Emotional tone phù hợp"
-                      },
-                      objection_response: {
-                        type: "string",
-                        description: "Cách handle 1 objection phổ biến của persona"
-                      },
-                      content_types: {
-                        type: "array",
-                        items: { type: "string" },
-                        description: "2-4 loại content phù hợp cho stage"
-                      },
-                      avoid_messages: {
-                        type: "array",
-                        items: { type: "string" },
-                        description: "2-3 điều KHÔNG nên nói ở stage này"
-                      }
-                    },
-                    required: ["journey_stage", "headline", "hook", "key_message", "pain_points_focus", "benefits_highlight", "cta_template", "emotional_tone", "content_types"]
+    const tools = [{
+      type: "function",
+      function: {
+        name: "generate_journey_messaging",
+        description: "Generate journey stage messaging for each stage",
+        parameters: {
+          type: "object",
+          properties: {
+            stages: {
+              type: "array",
+              description: "Messaging for each journey stage",
+              items: {
+                type: "object",
+                properties: {
+                  journey_stage: {
+                    type: "string",
+                    enum: ["awareness", "consideration", "decision", "loyalty"],
+                    description: "Giai đoạn journey"
+                  },
+                  headline: {
+                    type: "string",
+                    description: "Headline chính cho stage, 5-15 từ, thu hút"
+                  },
+                  hook: {
+                    type: "string",
+                    description: "Hook mở đầu, 1-2 câu ngắn gây tò mò"
+                  },
+                  key_message: {
+                    type: "string",
+                    description: "Message chính, 2-3 câu súc tích"
+                  },
+                  pain_points_focus: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "2-4 pain points ưu tiên cho stage này"
+                  },
+                  benefits_highlight: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "2-4 benefits cần nhấn mạnh"
+                  },
+                  cta_template: {
+                    type: "string",
+                    description: "CTA gợi ý cho stage"
+                  },
+                  emotional_tone: {
+                    type: "string",
+                    enum: ["curiosity", "urgency", "trust", "delight", "empathy", "authority"],
+                    description: "Emotional tone phù hợp"
+                  },
+                  objection_response: {
+                    type: "string",
+                    description: "Cách handle 1 objection phổ biến của persona"
+                  },
+                  content_types: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "2-4 loại content phù hợp cho stage"
+                  },
+                  avoid_messages: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "2-3 điều KHÔNG nên nói ở stage này"
                   }
-                }
-              },
-              required: ["stages"]
+                },
+                required: ["journey_stage", "headline", "hook", "key_message", "pain_points_focus", "benefits_highlight", "cta_template", "emotional_tone", "content_types"]
+              }
             }
-          }
-        }],
-        tool_choice: { type: "function", function: { name: "generate_journey_messaging" } }
-      }),
+          },
+          required: ["stages"]
+        }
+      }
+    }];
+
+    const aiResponse = await callAI({
+      functionName: 'generate-journey-messaging',
+      organizationId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      tools,
+      toolChoice: { type: "function", function: { name: "generate_journey_messaging" } },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
+    if (!aiResponse.success) {
+      console.error('AI call failed:', aiResponse.error);
+      if (aiResponse.error?.includes('Rate limit')) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (aiResponse.error?.includes('Payment')) {
         return new Response(
           JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(aiResponse.error || 'AI call failed');
     }
 
-    const data = await response.json();
-    console.log('AI response received');
+    console.log('AI response received via', aiResponse.provider);
 
     // Extract tool call result
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = aiResponse.data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) {
-      console.error('No tool call in response:', data);
+      console.error('No tool call in response:', aiResponse.data);
       throw new Error('Invalid AI response: no tool call');
     }
 
