@@ -54,11 +54,12 @@ interface FormData {
   targetProductId?: string;
   stream?: boolean; // NEW: Enable real-time SSE streaming
   campaignId?: string;
-  // Expand mode parameters
-  action?: 'create' | 'expand' | 'regenerate'; // 'create' = default, 'expand' = add channels, 'regenerate' = single channel
+  // Action mode parameters
+  action?: 'create' | 'expand' | 'regenerate' | 'preview'; // 'create' = default, 'preview' = ultra-fast no-save
   contentId?: string; // Required when action='expand' or 'regenerate'
   newChannels?: string[]; // Required when action='expand' - channels to add
   channel?: string; // Required when action='regenerate' - single channel to regenerate
+  previewChannel?: string; // Required when action='preview' - single channel to preview
   enableCritique?: boolean; // Optional for regenerate: run Self-Critique (default: false)
 }
 
@@ -1316,6 +1317,140 @@ serve(async (req) => {
       organizationId = orgMember?.organization_id || null;
     }
     console.log("Using organization_id:", organizationId, "(from request:", !!formData.organization_id, ")");
+
+    // ============================================
+    // PREVIEW MODE HANDLER
+    // Ultra-fast path - no DB save, no Self-Critique
+    // ============================================
+    if (formData.action === 'preview') {
+      const previewChannel = formData.previewChannel || formData.channel;
+      console.log(`[preview-mode] Generating preview for ${previewChannel}`);
+      
+      if (!previewChannel || !formData.topic || !formData.contentGoal) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields for preview (topic, contentGoal, previewChannel)' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch minimal brand template context
+      let brandName = "Thương hiệu";
+      let brandVoicePrompt = "";
+      
+      if (formData.brandTemplateId) {
+        const { data: template } = await supabase
+          .from("brand_templates")
+          .select("brand_name, brand_positioning, tone_of_voice, formality_level, preferred_words, forbidden_words")
+          .eq("id", formData.brandTemplateId)
+          .single();
+
+        if (template) {
+          brandName = template.brand_name || "Thương hiệu";
+          
+          const parts: string[] = [];
+          if (template.brand_positioning) {
+            parts.push(`Định vị: ${template.brand_positioning}`);
+          }
+          if (template.tone_of_voice?.length) {
+            parts.push(`Tone: ${template.tone_of_voice.join(", ")}`);
+          }
+          if (template.formality_level) {
+            parts.push(`Phong cách: ${template.formality_level}`);
+          }
+          if (template.preferred_words?.length) {
+            parts.push(`Từ ưu tiên: ${template.preferred_words.join(", ")}`);
+          }
+          if (template.forbidden_words?.length) {
+            parts.push(`Từ cấm: ${template.forbidden_words.join(", ")}`);
+          }
+          brandVoicePrompt = parts.join("\n");
+        }
+      }
+
+      // Preview-specific constants
+      const PREVIEW_GOAL_LABELS: Record<string, string> = {
+        education: "Giáo dục - Chia sẻ kiến thức",
+        awareness: "Nhận diện - Tăng nhận biết thương hiệu",
+        engagement: "Tương tác - Khuyến khích bình luận, chia sẻ",
+        expertise: "Xây chuyên gia - Thể hiện chuyên môn sâu",
+        conversion: "Chuyển đổi - Thúc đẩy hành động mua hàng",
+      };
+
+      const PREVIEW_CHANNEL_LIMITS: Record<string, { min: number; max: number; unit: string }> = {
+        website: { min: 300, max: 500, unit: "từ" },
+        facebook: { min: 80, max: 150, unit: "từ" },
+        instagram: { min: 30, max: 80, unit: "từ" },
+        twitter: { min: 0, max: 280, unit: "ký tự" },
+        google_maps: { min: 50, max: 100, unit: "từ" },
+        linkedin: { min: 100, max: 200, unit: "từ" },
+        email: { min: 100, max: 200, unit: "từ" },
+        youtube: { min: 100, max: 200, unit: "từ" },
+        zalo_oa: { min: 30, max: 80, unit: "từ" },
+        telegram: { min: 50, max: 120, unit: "từ" },
+        tiktok: { min: 20, max: 60, unit: "từ" },
+        threads: { min: 30, max: 100, unit: "từ" },
+      };
+
+      const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
+        website: "Website/Blog",
+        facebook: "Facebook",
+        instagram: "Instagram",
+        twitter: "X (Twitter)",
+        google_maps: "Google Maps",
+        linkedin: "LinkedIn",
+        email: "Email",
+        youtube: "YouTube",
+        zalo_oa: "Zalo OA",
+        telegram: "Telegram",
+        tiktok: "TikTok",
+        threads: "Threads",
+      };
+
+      const channelLabel = PREVIEW_CHANNEL_LABELS[previewChannel] || previewChannel;
+      const channelLimit = PREVIEW_CHANNEL_LIMITS[previewChannel] || { min: 50, max: 150, unit: "từ" };
+      const goalLabel = PREVIEW_GOAL_LABELS[formData.contentGoal] || formData.contentGoal;
+
+      const systemPrompt = `Bạn là chuyên gia content marketing tại Việt Nam. 
+Viết nội dung PREVIEW ngắn gọn cho kênh ${channelLabel}.
+
+${brandVoicePrompt ? `BRAND VOICE:\n${brandVoicePrompt}\n` : ""}
+
+QUY TẮC:
+- Viết ${channelLimit.min}-${channelLimit.max} ${channelLimit.unit}
+- Mục tiêu: ${goalLabel}
+- Ngôn ngữ: Tiếng Việt tự nhiên
+- Phong cách phù hợp với kênh ${channelLabel}
+- KHÔNG giải thích, chỉ viết nội dung
+- Format phù hợp với kênh (có thể dùng emoji nếu phù hợp)`;
+
+      const userPrompt = `Viết nội dung ${channelLabel} về chủ đề: "${formData.topic}"${formData.industry ? ` trong ngành ${formData.industry}` : ""}.
+
+Tên thương hiệu: ${brandName}
+Mục tiêu nội dung: ${goalLabel}`;
+
+      // Single AI call - direct, fast (use fastest model)
+      const aiResponse = await callAI({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        maxTokens: 1000,
+        temperature: 0.7,
+      });
+
+      const previewContent = aiResponse.content || "";
+
+      // Return immediately - NO DB save, NO caching
+      return new Response(
+        JSON.stringify({
+          preview: previewContent,
+          channel: previewChannel,
+          channelLabel,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // ============================================
     // EXPAND MODE HANDLER

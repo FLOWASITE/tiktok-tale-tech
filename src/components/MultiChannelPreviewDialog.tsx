@@ -140,13 +140,15 @@ export function MultiChannelPreviewDialog({
     }));
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("preview-multichannel", {
+      const { data, error: fnError } = await supabase.functions.invoke("generate-multichannel", {
         body: {
+          action: 'preview',
           topic: formData.topic,
           industry: formData.industry,
           contentGoal: formData.contentGoal,
           previewChannel: channel,
           brandTemplateId: formData.brandTemplateId,
+          channels: [channel], // Required by FormData interface
         },
       });
 
