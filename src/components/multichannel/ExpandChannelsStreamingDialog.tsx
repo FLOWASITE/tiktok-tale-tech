@@ -14,11 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Channel, MultiChannelContent } from '@/types/multichannel';
+import { ChannelSettings, BASE_CHANNEL_CONFIG, getChannelDescription } from '@/types/channelSettings';
 import { cn } from '@/lib/utils';
 import { useExpandChannelsStreaming } from '@/hooks/useExpandChannelsStreaming';
 import { StreamingTextGrid, ChannelStreamData } from '@/components/multichannel/streaming/StreamingTextGrid';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface ExpandChannelsStreamingDialogProps {
   open: boolean;
@@ -27,26 +29,24 @@ interface ExpandChannelsStreamingDialogProps {
   onComplete?: (updatedContent: MultiChannelContent) => void;
 }
 
-const ALL_CHANNELS: { 
-  value: Channel; 
-  label: string; 
-  icon: React.ReactNode; 
-  color: string;
-  bgColor: string;
-  description: string;
-}[] = [
-  { value: 'website', label: 'Website/Blog', icon: <Globe className="w-4 h-4" />, color: 'text-blue-400', bgColor: 'bg-blue-500/10', description: '800-2000 từ, SEO optimized' },
-  { value: 'facebook', label: 'Facebook', icon: <Facebook className="w-4 h-4" />, color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', description: '120-300 từ, hook + emoji' },
-  { value: 'instagram', label: 'Instagram', icon: <Instagram className="w-4 h-4" />, color: 'text-pink-400', bgColor: 'bg-pink-500/10', description: '50-150 từ, visual-first' },
-  { value: 'twitter', label: 'X (Twitter)', icon: <Twitter className="w-4 h-4" />, color: 'text-slate-400', bgColor: 'bg-slate-500/10', description: 'Thread 5-7 tweets' },
-  { value: 'linkedin', label: 'LinkedIn', icon: <Linkedin className="w-4 h-4" />, color: 'text-sky-400', bgColor: 'bg-sky-500/10', description: '150-400 từ, professional' },
-  { value: 'youtube', label: 'YouTube', icon: <Youtube className="w-4 h-4" />, color: 'text-red-400', bgColor: 'bg-red-500/10', description: 'Script video 3-5 phút' },
-  { value: 'email', label: 'Email', icon: <Mail className="w-4 h-4" />, color: 'text-amber-400', bgColor: 'bg-amber-500/10', description: '150-400 từ, subject + CTA' },
-  { value: 'google_maps', label: 'Google Maps', icon: <MapPin className="w-4 h-4" />, color: 'text-green-400', bgColor: 'bg-green-500/10', description: '80-150 từ, review style' },
-  { value: 'zalo_oa', label: 'Zalo OA', icon: <MessageCircle className="w-4 h-4" />, color: 'text-blue-400', bgColor: 'bg-blue-500/10', description: '60-150 từ, mobile-first' },
-  { value: 'telegram', label: 'Telegram', icon: <Send className="w-4 h-4" />, color: 'text-sky-400', bgColor: 'bg-sky-500/10', description: '100-500 từ, community' },
-  { value: 'tiktok', label: 'TikTok', icon: <Music2 className="w-4 h-4" />, color: 'text-pink-400', bgColor: 'bg-pink-500/10', description: '60-150 từ, short script' },
-  { value: 'threads', label: 'Threads', icon: <AtSign className="w-4 h-4" />, color: 'text-slate-400', bgColor: 'bg-slate-500/10', description: '50-200 từ, conversational' },
+const CHANNEL_ICONS: Record<Channel, React.ReactNode> = {
+  website: <Globe className="w-4 h-4" />,
+  facebook: <Facebook className="w-4 h-4" />,
+  instagram: <Instagram className="w-4 h-4" />,
+  twitter: <Twitter className="w-4 h-4" />,
+  linkedin: <Linkedin className="w-4 h-4" />,
+  youtube: <Youtube className="w-4 h-4" />,
+  email: <Mail className="w-4 h-4" />,
+  google_maps: <MapPin className="w-4 h-4" />,
+  zalo_oa: <MessageCircle className="w-4 h-4" />,
+  telegram: <Send className="w-4 h-4" />,
+  tiktok: <Music2 className="w-4 h-4" />,
+  threads: <AtSign className="w-4 h-4" />,
+};
+
+const ALL_CHANNEL_VALUES: Channel[] = [
+  'website', 'facebook', 'instagram', 'twitter', 'linkedin', 
+  'youtube', 'email', 'google_maps', 'zalo_oa', 'telegram', 'tiktok', 'threads'
 ];
 
 type Phase = 'select' | 'streaming' | 'complete';
@@ -61,6 +61,23 @@ export function ExpandChannelsStreamingDialog({
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>([]);
   const [freshSelectedChannels, setFreshSelectedChannels] = useState<Channel[]>([]);
   const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+
+  // Fetch brand template for channel overrides
+  const { data: brandTemplate } = useQuery({
+    queryKey: ['brand-overrides-expand', content?.brand_template_id],
+    queryFn: async () => {
+      if (!content?.brand_template_id) return null;
+      const { data } = await supabase
+        .from('brand_templates')
+        .select('channel_overrides')
+        .eq('id', content.brand_template_id)
+        .single();
+      return data;
+    },
+    enabled: !!content?.brand_template_id && open,
+  });
+
+  const channelOverrides = brandTemplate?.channel_overrides as Record<string, Partial<ChannelSettings>> | null;
 
   const { 
     expand, 
@@ -104,8 +121,8 @@ export function ExpandChannelsStreamingDialog({
 
   // Filter out channels that already have content - use fresh data
   const contentChannels = freshSelectedChannels.length > 0 ? freshSelectedChannels : (Array.isArray(content.selected_channels) ? content.selected_channels : []);
-  const availableChannels = ALL_CHANNELS.filter(
-    ch => !contentChannels.includes(ch.value)
+  const availableChannels = ALL_CHANNEL_VALUES.filter(
+    ch => !contentChannels.includes(ch)
   );
 
   // Build streaming grid data
@@ -210,12 +227,15 @@ export function ExpandChannelsStreamingDialog({
             ) : (
               <ScrollArea className="max-h-[400px] pr-4">
                 <div className="grid gap-2">
-                  {availableChannels.map(channel => {
-                    const isSelected = selectedChannels.includes(channel.value);
+                  {availableChannels.map(channelValue => {
+                    const isSelected = selectedChannels.includes(channelValue);
+                    const config = BASE_CHANNEL_CONFIG[channelValue];
+                    const icon = CHANNEL_ICONS[channelValue];
+                    const hasOverride = channelOverrides?.[channelValue];
                     
                     return (
                       <label
-                        key={channel.value}
+                        key={channelValue}
                         className={cn(
                           "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all",
                           isSelected
@@ -225,14 +245,23 @@ export function ExpandChannelsStreamingDialog({
                       >
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => handleToggleChannel(channel.value)}
+                          onCheckedChange={() => handleToggleChannel(channelValue)}
                         />
-                        <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", channel.bgColor)}>
-                          <span className={channel.color}>{channel.icon}</span>
+                        <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", config.bgColor)}>
+                          <span className={config.color}>{icon}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{channel.label}</div>
-                          <div className="text-xs text-muted-foreground">{channel.description}</div>
+                          <div className="font-medium text-sm flex items-center gap-1.5">
+                            {config.label}
+                            {hasOverride && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-primary/10 border-primary/20">
+                                Brand
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {getChannelDescription(channelValue, channelOverrides)}
+                          </div>
                         </div>
                       </label>
                     );
@@ -324,17 +353,18 @@ export function ExpandChannelsStreamingDialog({
             <div className="py-4">
               <div className="flex flex-wrap gap-2">
                 {selectedChannels.map(channelValue => {
-                  const channel = ALL_CHANNELS.find(c => c.value === channelValue);
-                  if (!channel) return null;
+                  const config = BASE_CHANNEL_CONFIG[channelValue];
+                  const icon = CHANNEL_ICONS[channelValue];
+                  if (!config) return null;
                   
                   return (
                     <Badge 
                       key={channelValue} 
                       variant="secondary"
-                      className={cn("gap-1.5", channel.bgColor)}
+                      className={cn("gap-1.5", config.bgColor)}
                     >
-                      <span className={channel.color}>{channel.icon}</span>
-                      {channel.label}
+                      <span className={config.color}>{icon}</span>
+                      {config.label}
                     </Badge>
                   );
                 })}
