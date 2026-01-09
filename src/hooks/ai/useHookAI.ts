@@ -302,14 +302,13 @@ export function useHookAI(options: UseHookAIOptions = {}) {
     setMultiChannelError(null);
 
     try {
-      const priorityChannels = channels.slice(0, 3);
-      
+      // Generate hooks for ALL selected channels (no limit)
       const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
         body: {
           topic,
           brandVoice,
-          count: priorityChannels.length,
-          platforms: priorityChannels,
+          count: channels.length,
+          platforms: channels,
           multiChannel: true,
           organizationId,
           brandTemplateId,
@@ -323,9 +322,9 @@ export function useHookAI(options: UseHookAIOptions = {}) {
       if (fnError) throw fnError;
 
       const generatedHooks: MultiChannelHook[] = (data?.hooks || []).map((hook: any, idx: number) => ({
-        channel: priorityChannels[idx] || priorityChannels[0],
+        channel: channels[idx] || channels[0],
         opening_line: hook.opening_line,
-        hook_type: hook.framework || CHANNEL_HOOK_TYPES[priorityChannels[idx]]?.[0] || 'General',
+        hook_type: hook.framework || CHANNEL_HOOK_TYPES[channels[idx]]?.[0] || 'General',
         psychology: hook.psychology_reason,
         evaluation: hook.evaluation, // Include evaluation from API
       }));

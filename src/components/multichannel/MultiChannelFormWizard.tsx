@@ -312,26 +312,24 @@ export function MultiChannelFormWizard({
     setFormData(prev => ({ ...prev, channels: [] }));
   };
 
-  // Hook selection handlers
+  // Hook selection handlers - Toggle logic for multi-select
   const handleSelectHook = (hook: MultiChannelHook) => {
     setFormData(prev => {
-      const existingIndex = (prev.selectedHooks || []).findIndex(
-        h => h.channel === hook.channel
+      const hookKey = `${hook.channel}-${hook.opening_line}`;
+      const existingHook = (prev.selectedHooks || []).find(
+        h => `${h.channel}-${h.opening_line}` === hookKey
       );
       
       let newSelectedHooks: MultiChannelSelectedHook[];
       
-      if (existingIndex >= 0) {
-        // Replace existing hook for this channel
-        newSelectedHooks = [...(prev.selectedHooks || [])];
-        newSelectedHooks[existingIndex] = {
-          channel: hook.channel,
-          opening_line: hook.opening_line,
-          hook_type: hook.hook_type,
-          psychology: hook.psychology,
-        };
+      if (existingHook) {
+        // Already exists -> remove (toggle off)
+        newSelectedHooks = (prev.selectedHooks || []).filter(
+          h => `${h.channel}-${h.opening_line}` !== hookKey
+        );
+        toast.info(`Đã bỏ chọn hook cho ${CHANNELS.find(c => c.value === hook.channel)?.label || hook.channel}`);
       } else {
-        // Add new hook
+        // Not exists -> add (toggle on)
         newSelectedHooks = [
           ...(prev.selectedHooks || []),
           {
@@ -341,12 +339,11 @@ export function MultiChannelFormWizard({
             psychology: hook.psychology,
           }
         ];
+        toast.success(`Đã chọn hook cho ${CHANNELS.find(c => c.value === hook.channel)?.label || hook.channel}`);
       }
       
       return { ...prev, selectedHooks: newSelectedHooks };
     });
-    
-    toast.success(`Đã chọn hook cho ${CHANNELS.find(c => c.value === hook.channel)?.label || hook.channel}`);
   };
 
   const handleRemoveHook = (channel: Channel) => {
@@ -784,6 +781,7 @@ export function MultiChannelFormWizard({
                     tone_of_voice: brandTemplate.tone_of_voice || [],
                     formality_level: brandTemplate.formality_level || undefined,
                   } : undefined}
+                  selectedHooks={formData.selectedHooks}
                   onSelectHook={handleSelectHook}
                   disabled={isGenerating}
                 />
