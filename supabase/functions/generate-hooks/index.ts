@@ -173,12 +173,30 @@ Trả về JSON array với format:
     // Parse the JSON from the response
     let hooks;
     try {
-      // Try to extract JSON from markdown code blocks if present
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
+      let jsonStr = content.trim();
+      
+      // Strip markdown code blocks if present (handle various formats)
+      // Match ```json ... ``` or ``` ... ```
+      const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1].trim();
+      } else {
+        // Also try to find array start/end if wrapped in other text
+        const arrayStart = jsonStr.indexOf('[');
+        const arrayEnd = jsonStr.lastIndexOf(']');
+        if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+          jsonStr = jsonStr.slice(arrayStart, arrayEnd + 1);
+        }
+      }
+      
       hooks = JSON.parse(jsonStr);
+      
+      // Ensure it's an array
+      if (!Array.isArray(hooks)) {
+        hooks = [hooks];
+      }
     } catch (parseError) {
-      console.error('[generate-hooks] Failed to parse response:', parseError, 'Content:', content);
+      console.error('[generate-hooks] Failed to parse response:', parseError, 'Content:', content.substring(0, 200));
       return new Response(
         JSON.stringify({ error: 'Failed to parse AI response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
