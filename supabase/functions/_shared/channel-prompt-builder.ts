@@ -515,25 +515,23 @@ export function formatFooterInfo(
   if (channel === 'email') {
     const lines: string[] = ['\n\n---'];
     
-    if (companyName) lines.push(`\n**${companyName}**`);
-    lines.push(divider);
+    if (companyName) {
+      lines.push(`\n**${companyName}**`);
+      if (tagline) lines.push(`*${tagline}*`);
+    }
     lines.push('');
     
-    const contactLine: string[] = [];
     if (useEmoji) {
-      if (footer.phone) contactLine.push(`📞 ${footer.phone}`);
-      if (footer.email) contactLine.push(`📧 ${footer.email}`);
+      if (footer.phone) lines.push(`📞 Hotline: ${footer.phone}`);
+      if (footer.email) lines.push(`📧 Email: ${footer.email}`);
+      if (footer.website) lines.push(`🌐 Website: ${footer.website}`);
+      if (footer.address) lines.push(`📍 Địa chỉ: ${footer.address}`);
     } else {
-      if (footer.phone) contactLine.push(`Tel: ${footer.phone}`);
-      if (footer.email) contactLine.push(`Email: ${footer.email}`);
+      if (footer.phone) lines.push(`Tel: ${footer.phone}`);
+      if (footer.email) lines.push(`Email: ${footer.email}`);
+      if (footer.website) lines.push(`Web: ${footer.website}`);
+      if (footer.address) lines.push(`Địa chỉ: ${footer.address}`);
     }
-    if (contactLine.length) lines.push(contactLine.join('  |  '));
-    
-    if (footer.website) {
-      lines.push(useEmoji ? `🌐 ${footer.website}` : footer.website);
-    }
-    
-    if (footer.address) lines.push(`\n*${footer.address}*`);
     
     return lines.join('  \n');
   }
@@ -562,8 +560,25 @@ export function formatFooterInfo(
     return lines.join('  \n');
   }
   
-  // ======= TWITTER / TIKTOK / YOUTUBE - Compact CTA =======
-  if (channel === 'twitter' || channel === 'tiktok' || channel === 'youtube') {
+  // ======= TWITTER/X - Compact with Bio Link =======
+  if (channel === 'twitter') {
+    const lines: string[] = [];
+    
+    if (useEmoji) {
+      lines.push('\n\n—');
+      if (footer.website) lines.push(`🔗 ${footer.website}`);
+      if (footer.phone) lines.push(`📞 ${footer.phone}`);
+    } else {
+      lines.push('\n\n—');
+      if (footer.website) lines.push(`→ ${footer.website}`);
+      if (footer.phone) lines.push(`→ ${footer.phone}`);
+    }
+    
+    return lines.length > 1 ? lines.join('  \n') : '';
+  }
+  
+  // ======= TIKTOK / YOUTUBE - Compact CTA =======
+  if (channel === 'tiktok' || channel === 'youtube') {
     if (!footer.website) return '';
     return useEmoji 
       ? `\n\n👉 Theo dõi: ${footer.website}` 
@@ -583,13 +598,19 @@ export function formatFooterInfo(
     return lines.join('  \n');
   }
   
-  // ======= THREADS - Compact Style =======
+  // ======= THREADS - Compact Style with Contact =======
   if (channel === 'threads') {
-    const lines: string[] = ['\n\n---'];
-    if (footer.website) {
-      lines.push(useEmoji ? `🔗 ${footer.website}` : footer.website);
+    const lines: string[] = ['\n\n—'];
+    
+    if (useEmoji) {
+      if (footer.website) lines.push(`🔗 ${footer.website}`);
+      if (footer.phone) lines.push(`📞 ${footer.phone}`);
+    } else {
+      if (footer.website) lines.push(`→ ${footer.website}`);
+      if (footer.phone) lines.push(`→ ${footer.phone}`);
     }
-    return lines.join('  \n');
+    
+    return lines.length > 1 ? lines.join('  \n') : '';
   }
   
   return '';
