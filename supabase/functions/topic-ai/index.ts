@@ -54,6 +54,7 @@ import {
 type TopicAIAction = 
   | 'suggest'           // Generate topic suggestions
   | 'refine'            // Refine a single topic
+  | 'refine_intel'      // Intelligence-based topic refinement
   | 'next_best'         // Get single best topic recommendation
   | 'weekly_plan'       // Get weekly content plan
   | 'conflict_check'    // Check topic conflicts
@@ -62,6 +63,7 @@ type TopicAIAction =
   | 'gap_analysis'      // Analyze content gaps
   | 'cluster'           // Cluster similar topics
   | 'keywords';         // Expand keywords
+
 
 interface TopicAIRequest {
   action?: TopicAIAction;
@@ -127,6 +129,7 @@ serve(async (req) => {
       case 'gap_analysis':
       case 'cluster':
       case 'keywords':
+      case 'refine_intel':
         return await handleAnalysis(action, supabase, brandContext, params, startTime);
       default:
         return createErrorResponse(`Invalid action: ${action}`, 400);
@@ -651,7 +654,7 @@ Phân tích và tạo danh sách trending topics. Respond in Vietnamese.`;
 
 // ========== Handler: Analysis ==========
 async function handleAnalysis(
-  action: 'gap_analysis' | 'cluster' | 'keywords',
+  action: 'gap_analysis' | 'cluster' | 'keywords' | 'refine_intel',
   supabase: any,
   brandContext: TopicBrandContext | null,
   params: TopicAIRequest,
@@ -705,6 +708,36 @@ Keywords đã có từ topics:
 ${existingTopics.slice(0, 30).map(t => t.topic).join(', ')}
 
 Trả về JSON: { "lsiKeywords": string[], "trendingKeywords": string[], "longTailKeywords": string[], "competitorKeywords": string[], "keywordClusters": [{ "theme": string, "keywords": string[] }] }`;
+  } else if (action === 'refine_intel') {
+    if (!topicToRefine) {
+      return createErrorResponse('topicToRefine is required for refine_intel action', 400);
+    }
+    userPrompt = `Tinh chỉnh và cải thiện topic sau theo nhiều góc độ khác nhau:
+
+Brand: ${brandContext?.brandName || 'Unknown'}
+Industry: ${JSON.stringify(brandContext?.industry || [])}
+Content Goal: ${contentGoal}
+Content Pillars: ${JSON.stringify(contentPillars)}
+
+Topic gốc: "${topicToRefine}"
+
+Context từ các topics đã có (${existingTopics.length}):
+${existingTopics.slice(0, 10).map(t => `- ${t.topic}`).join('\n')}
+
+Trả về JSON: { 
+  "originalTopic": string,
+  "refinedVersions": [{ 
+    "topic": string, 
+    "angle": string, 
+    "targetAudience": string,
+    "contentPillar": string,
+    "estimatedEngagement": "high|medium|low",
+    "differentiator": string
+  }],
+  "reasoning": string,
+  "keywords": string[],
+  "avoidDuplicating": string[]
+}`;
   }
 
   // Call AI

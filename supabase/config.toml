@@ -58,8 +58,10 @@ verify_jwt = false
 [functions.preview-multichannel]
 verify_jwt = false
 
-[functions.generate-topic-suggestions]
-verify_jwt = false
+# [functions.generate-topic-suggestions] - merged into topic-ai
+# [functions.analyze-topic-gaps] - merged into topic-ai
+# [functions.recommend-topics] - merged into topic-ai
+# [functions.discover-trending-topics] - merged into topic-ai
 
 [functions.analyze-script]
 verify_jwt = false
@@ -70,16 +72,7 @@ verify_jwt = false
 [functions.generate-storyboard]
 verify_jwt = false
 
-[functions.analyze-topic-gaps]
-verify_jwt = false
-
-[functions.recommend-topics]
-verify_jwt = false
-
 [functions.learn-from-feedback]
-verify_jwt = false
-
-[functions.discover-trending-topics]
 verify_jwt = false
 
 [functions.chat-topics]

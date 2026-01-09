@@ -293,9 +293,9 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }, 100);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-topic-suggestions', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
-          mode: 'refine',
+          action: 'refine',
           rawTopic: rawTopic.trim(),
           videoType,
           brandTemplateId,
@@ -380,12 +380,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'gap_analysis',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          analysisType: 'gap',
         },
       });
 
@@ -417,12 +417,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'cluster',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          analysisType: 'cluster',
         },
       });
 
@@ -454,12 +454,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'keywords',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          analysisType: 'keywords',
         },
       });
 
@@ -491,12 +491,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('analyze-topic-gaps', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'refine_intel',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          analysisType: 'refine',
           topicToRefine,
         },
       });
@@ -539,12 +539,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('recommend-topics', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'next_best',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          recommendationType: 'next_best',
         },
       });
 
@@ -576,12 +576,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('recommend-topics', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'weekly_plan',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          recommendationType: 'weekly',
         },
       });
 
@@ -613,12 +613,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('recommend-topics', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'conflict_check',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          recommendationType: 'conflict_check',
           topics,
         },
       });
@@ -655,12 +655,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('recommend-topics', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'learning',
           brandTemplateId,
           contentGoal,
           organizationId: currentOrganization?.id,
-          recommendationType: 'learning_feedback',
           feedbackData: { topicId, feedback, reason },
         },
       });
@@ -707,8 +707,9 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setTrendingErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('discover-trending-topics', {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
         body: {
+          action: 'trending',
           brandTemplateId,
           organizationId: currentOrganization.id,
           forceRefresh,
@@ -779,19 +780,17 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setSuggestError(null);
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke(
-        'generate-topic-suggestions',
-        {
-          body: {
-            contentGoal,
-            brandTemplateId,
-            organizationId: currentOrganization?.id,
-            format,
-            enhanced: true,
-            forceRefresh,
-          },
-        }
-      );
+      const { data, error: functionError } = await supabase.functions.invoke('topic-ai', {
+        body: {
+          action: 'suggest',
+          contentGoal,
+          brandTemplateId,
+          organizationId: currentOrganization?.id,
+          format,
+          enhanced: true,
+          forceRefresh,
+        },
+      });
 
       if (functionError) {
         throw new Error(functionError.message);
