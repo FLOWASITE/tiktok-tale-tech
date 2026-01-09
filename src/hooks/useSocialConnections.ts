@@ -20,6 +20,7 @@ export interface SocialConnection {
   last_verified_at: string | null;
   last_error: string | null;
   scopes: string[];
+  token_expires_at: string | null;
 }
 
 interface UseSocialConnectionsOptions {

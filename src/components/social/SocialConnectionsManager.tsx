@@ -36,10 +36,12 @@ import {
   XCircle,
   Loader2,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { TokenExpiryBadge } from './TokenExpiryBadge';
 
 const MessageCircleIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -277,13 +279,16 @@ export function SocialConnectionsManager() {
                       <Icon className={cn('h-5 w-5', config.color)} />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{config.name}</span>
                         {connection && (
                           <Badge variant="outline" className="text-xs">
                             <CheckCircle2 className="h-3 w-3 mr-1 text-green-500" />
                             Đã kết nối
                           </Badge>
+                        )}
+                        {connection && (
+                          <TokenExpiryBadge expiresAt={connection.token_expires_at} />
                         )}
                         {!config.available && (
                           <Badge variant="secondary" className="text-xs">
