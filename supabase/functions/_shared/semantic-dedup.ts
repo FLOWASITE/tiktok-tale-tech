@@ -93,14 +93,16 @@ async function searchSimilarContent(
   // Format embedding for pgvector
   const embeddingStr = `[${embedding.join(',')}]`;
 
-  // Build the RPC call - use the search_embeddings function
+  // Build the RPC call - use the search_embeddings function with correct param names
+  // Based on the existing function signature in db-functions
   const { data, error } = await supabase.rpc('search_embeddings', {
     query_embedding: embeddingStr,
+    match_organization_id: organizationId,
+    match_brand_template_id: brandTemplateId || null,
+    match_content_types: contentType ? [contentType] : null,
     match_threshold: DEDUP_CONFIG.WARNING_THRESHOLD,
     match_count: DEDUP_CONFIG.MATCH_COUNT,
-    filter_org_id: organizationId,
-    filter_brand_id: brandTemplateId || null,
-  });
+  } as any); // Use 'as any' to bypass strict typing for RPC
 
   if (error) {
     console.error('Search embeddings error:', error);
