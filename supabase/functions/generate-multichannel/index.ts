@@ -43,6 +43,13 @@ import {
   type BrandRules,
   type PreCheckResult,
 } from "../_shared/compliance-precheck.ts";
+// Phase 1: Semantic Deduplication import
+import {
+  checkSemanticDuplicate,
+  extractMultichannelText,
+  buildDifferentiationInstruction,
+  type DuplicateCheckResult,
+} from "../_shared/semantic-dedup.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -3124,6 +3131,50 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     console.log("Generated content:", generatedData.title);
 
     // ============================================
+    // SEMANTIC DEDUPLICATION CHECK - Detect similar existing content
+    // ============================================
+    let dedupResult: DuplicateCheckResult | null = null;
+    if (organizationId && !fromCache) {
+      try {
+        // Extract text from generated channel contents for dedup check
+        const channelContents: Record<string, string> = {};
+        for (const channel of formData.channels) {
+          const contentKey = `${channel}_content`;
+          if (generatedData[contentKey]) {
+            if (typeof generatedData[contentKey] === 'object' && generatedData[contentKey].content) {
+              channelContents[channel] = generatedData[contentKey].content;
+            } else if (typeof generatedData[contentKey] === 'string') {
+              channelContents[channel] = generatedData[contentKey];
+            }
+          }
+        }
+        
+        const textToCheck = extractMultichannelText(channelContents);
+        if (textToCheck.length > 50) {
+          dedupResult = await checkSemanticDuplicate(
+            supabase,
+            textToCheck,
+            organizationId,
+            formData.brandTemplateId,
+            formData.contentId, // Exclude current content when regenerating
+            'multichannel'
+          );
+          
+          if (dedupResult.isDuplicate) {
+            console.log(`[dedup] ⚠️ Duplicate detected (${(dedupResult.similarity! * 100).toFixed(1)}%): ${dedupResult.matchedContentPreview?.slice(0, 100)}...`);
+          } else if (dedupResult.isWarning) {
+            console.log(`[dedup] 📝 Similar content found (${(dedupResult.similarity! * 100).toFixed(1)}%)`);
+          } else {
+            console.log(`[dedup] ✅ Content is unique`);
+          }
+        }
+      } catch (dedupError) {
+        console.warn('[dedup] Check failed, continuing:', dedupError);
+        // Fail open - don't block content creation if dedup fails
+      }
+    }
+
+    // ============================================
     // POST-PROCESS: Auto-fix missing SEO fields for website + word count validation
     // ============================================
     let websiteWordCountShort = false;
@@ -3628,7 +3679,20 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       console.warn('[metrics] Failed to save:', metricsError);
     }
 
-    return new Response(JSON.stringify({ ...content, fromCache }), {
+    // Include dedup result in response for UI notification
+    const responseData = { 
+      ...content, 
+      fromCache,
+      // Semantic deduplication warning (if similar content found)
+      dedupWarning: dedupResult?.isWarning || dedupResult?.isDuplicate ? {
+        isDuplicate: dedupResult.isDuplicate,
+        similarity: dedupResult.similarity,
+        matchedContentPreview: dedupResult.matchedContentPreview,
+        matchedContentId: dedupResult.matchedContentId,
+      } : null,
+    };
+    
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
