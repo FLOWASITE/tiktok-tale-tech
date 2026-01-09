@@ -7,6 +7,11 @@ import {
   CollapsibleContent, 
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   Sparkles, 
   RefreshCw, 
@@ -28,10 +33,25 @@ import {
   Music2,
   AtSign,
   LucideIcon,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { Channel, CHANNELS } from '@/types/multichannel';
 import { MultiChannelHook, useMultiChannelHooks } from '@/hooks/useMultiChannelHooks';
 import { cn } from '@/lib/utils';
+
+// Hook Score Badge Component
+const getScoreColor = (score: number) => {
+  if (score >= 14) return 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
+  if (score >= 10) return 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30';
+  return 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30';
+};
+
+const getScoreIcon = (score: number) => {
+  if (score >= 14) return CheckCircle2;
+  if (score >= 10) return null;
+  return AlertTriangle;
+};
 
 interface MultiChannelHookGeneratorProps {
   topic: string;
@@ -180,6 +200,48 @@ export function MultiChannelHookGenerator({
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                             {hook.hook_type}
                           </Badge>
+                          
+                          {/* Hook Evaluation Score Badge */}
+                          {hook.evaluation && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "text-[9px] px-1.5 py-0 flex items-center gap-0.5",
+                                    getScoreColor(hook.evaluation.score)
+                                  )}
+                                >
+                                  {(() => {
+                                    const ScoreIcon = getScoreIcon(hook.evaluation.score);
+                                    return ScoreIcon && <ScoreIcon className="w-2.5 h-2.5" />;
+                                  })()}
+                                  {hook.evaluation.score}/18
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <div className="space-y-1.5 text-xs">
+                                  {hook.evaluation.strengths?.length > 0 && (
+                                    <div className="text-emerald-600 dark:text-emerald-400">
+                                      {hook.evaluation.strengths.map((s, i) => (
+                                        <div key={i}>✓ {s}</div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {hook.evaluation.issues?.length > 0 && (
+                                    <div className="text-red-600 dark:text-red-400">
+                                      {hook.evaluation.issues.map((issue, i) => (
+                                        <div key={i}>✗ {issue}</div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {!hook.evaluation.strengths?.length && !hook.evaluation.issues?.length && (
+                                    <span className="text-muted-foreground">Chưa có đánh giá chi tiết</span>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
 
                         <p className="text-sm leading-relaxed text-foreground">

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAI } from "../_shared/ai-provider.ts";
+import { evaluateHook, type HookEvaluation } from "../_shared/ai-hook-evaluator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -147,10 +148,39 @@ Trả về JSON array với format:
       );
     }
 
-    console.log('[generate-hooks] Successfully generated', hooks.length, 'hooks via', result.provider);
+    // Phase 2: Evaluate each hook with AI Hook Evaluator
+    console.log('[generate-hooks] Evaluating', hooks.length, 'hooks with AI Hook Evaluator');
+    
+    const hooksWithEvaluations = await Promise.all(
+      hooks.map(async (hook: any, idx: number) => {
+        const hookChannel = platform || 'facebook';
+        try {
+          const evaluation = await evaluateHook(
+            hook.opening_line || '',
+            hookChannel,
+            { brandVoice: brandVoice?.tone_of_voice?.join(', ') }
+          );
+          
+          return {
+            ...hook,
+            evaluation: {
+              score: evaluation.combinedScore,
+              issues: evaluation.issues,
+              strengths: evaluation.strengths,
+            },
+          };
+        } catch (evalErr) {
+          console.warn('[generate-hooks] Evaluation failed for hook', idx, ':', evalErr);
+          // Return hook without evaluation if evaluation fails
+          return hook;
+        }
+      })
+    );
+
+    console.log('[generate-hooks] Successfully generated and evaluated', hooksWithEvaluations.length, 'hooks via', result.provider);
 
     return new Response(
-      JSON.stringify({ hooks }),
+      JSON.stringify({ hooks: hooksWithEvaluations }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
