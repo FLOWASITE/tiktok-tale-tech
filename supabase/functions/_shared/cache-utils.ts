@@ -418,7 +418,7 @@ export const CACHE_TTL: Record<string, number> = {
   'generate-carousel': 7,
   
   // Low hit rate - short TTL
-  'regenerate-channel': 1,
+  // 'regenerate-channel' merged into 'generate-multichannel' with action='regenerate'
   'ai-edit-channel': 1,
 };
 
@@ -436,6 +436,6 @@ export const CACHE_SCOPE: Record<string, 'org' | 'global'> = {
   'generate-sample-text': 'org',
   'generate-script': 'org',
   'generate-carousel': 'org',
-  'regenerate-channel': 'org',
+  // 'regenerate-channel' merged into 'generate-multichannel'
   'ai-edit-channel': 'org',
 };

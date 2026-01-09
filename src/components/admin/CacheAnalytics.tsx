@@ -45,7 +45,7 @@ const FUNCTION_LABELS: Record<string, string> = {
   "generate-brand-voice": "Brand Voice",
   "generate-brand-guideline": "Brand Guideline",
   "generate-brand-complete": "Brand Complete",
-  "regenerate-channel": "Regenerate Channel",
+  // "regenerate-channel" merged into "generate-multichannel"
   "ai-edit-channel": "AI Edit",
 };
 
