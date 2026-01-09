@@ -36,11 +36,18 @@ export interface QuickHookSuggestion {
   text_overlay?: string;
 }
 
+export interface HookEvaluationScore {
+  score: number;        // 0-18 combined score
+  issues: string[];     // Quality issues
+  strengths: string[];  // Quality strengths
+}
+
 export interface MultiChannelHook {
   channel: Channel;
   opening_line: string;
   hook_type: string;
   psychology?: string;
+  evaluation?: HookEvaluationScore;
 }
 
 export interface BrandVoice {
@@ -310,6 +317,7 @@ export function useHookAI(options: UseHookAIOptions = {}) {
         opening_line: hook.opening_line,
         hook_type: hook.framework || CHANNEL_HOOK_TYPES[priorityChannels[idx]]?.[0] || 'General',
         psychology: hook.psychology_reason,
+        evaluation: hook.evaluation, // Include evaluation from API
       }));
 
       setMultiChannelHooks(generatedHooks);

@@ -254,6 +254,7 @@ export interface MultiChannelSelectedHook {
   hook_type?: string;         // Loại hook: question, story, bold_statement, etc.
   psychology?: string;        // Lý do tâm lý tại sao hook này hiệu quả
   text_overlay?: string;      // Text hiển thị trên hình/video
+  evaluation?: HookEvaluationResult; // Evaluation score from AI Hook Evaluator
 }
 
 /**

@@ -4446,6 +4446,7 @@ export type Database = {
           facebook_content: string | null
           global_hook: Json | null
           google_maps_content: string | null
+          hook_evaluations: Json | null
           id: string
           industry: string | null
           industry_template_version: string | null
@@ -4491,6 +4492,7 @@ export type Database = {
           facebook_content?: string | null
           global_hook?: Json | null
           google_maps_content?: string | null
+          hook_evaluations?: Json | null
           id?: string
           industry?: string | null
           industry_template_version?: string | null
@@ -4536,6 +4538,7 @@ export type Database = {
           facebook_content?: string | null
           global_hook?: Json | null
           google_maps_content?: string | null
+          hook_evaluations?: Json | null
           id?: string
           industry?: string | null
           industry_template_version?: string | null
