@@ -271,6 +271,7 @@ export function useHookAI(options: UseHookAIOptions = {}) {
   const [multiChannelHooks, setMultiChannelHooks] = useState<MultiChannelHook[]>([]);
   const [multiChannelLoading, setMultiChannelLoading] = useState(false);
   const [multiChannelError, setMultiChannelError] = useState<string | null>(null);
+  const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
 
   const channelsKey = channels.sort().join(',');
   const multiChannelCacheKey = `mc-${topic}-${channelsKey}-${brandVoiceKey}`;
@@ -374,6 +375,67 @@ export function useHookAI(options: UseHookAIOptions = {}) {
     fetchMultiChannelHooks();
   }, [multiChannelCacheKey, fetchMultiChannelHooks]);
 
+  // Regenerate hook for a SINGLE channel
+  const regenerateForChannel = useCallback(async (channel: Channel): Promise<MultiChannelHook | null> => {
+    if (!topic.trim() || topic.length < 10) {
+      toast.error('Cần có chủ đề hợp lệ');
+      return null;
+    }
+
+    setRegeneratingChannel(channel);
+
+    try {
+      console.log('[useHookAI.multiChannel] Regenerating hook for:', channel);
+      
+      const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
+        body: {
+          topic,
+          brandVoice,
+          platforms: [channel], // Single channel
+          organizationId,
+          brandTemplateId,
+        },
+      });
+
+      if (fnError) throw fnError;
+
+      const hook = data?.hooks?.[0];
+      if (!hook) {
+        throw new Error('Không nhận được hook từ API');
+      }
+
+      const newHook: MultiChannelHook = {
+        channel,
+        opening_line: hook.opening_line,
+        hook_type: hook.framework || CHANNEL_HOOK_TYPES[channel]?.[0] || 'General',
+        psychology: hook.psychology_reason,
+        evaluation: hook.evaluation,
+      };
+
+      // Update state - replace old hook for this channel
+      setMultiChannelHooks(prev => {
+        const updated = prev.filter(h => h.channel !== channel);
+        return [...updated, newHook];
+      });
+
+      // Update cache
+      const cached = multiChannelCache.get(multiChannelCacheKey);
+      if (cached) {
+        const updatedCache = cached.filter(h => h.channel !== channel);
+        multiChannelCache.set(multiChannelCacheKey, [...updatedCache, newHook]);
+      }
+
+      toast.success(`Đã tạo lại hook cho ${channel}`);
+      return newHook;
+    } catch (err) {
+      console.error('[useHookAI.multiChannel] Regenerate error:', err);
+      toast.error(err instanceof Error ? err.message : 'Không thể tạo lại hook');
+      return null;
+    } finally {
+      setRegeneratingChannel(null);
+    }
+  }, [topic, brandVoice, organizationId, brandTemplateId, multiChannelCacheKey]);
+
   // ============== RETURN ==============
   return {
     // Generator module
@@ -399,6 +461,8 @@ export function useHookAI(options: UseHookAIOptions = {}) {
       isLoading: multiChannelLoading,
       error: multiChannelError,
       refresh: refreshMultiChannelHooks,
+      regenerateForChannel,
+      regeneratingChannel,
       channelHookTypes: CHANNEL_HOOK_TYPES,
     },
   };
@@ -424,6 +488,8 @@ export interface UseHookAIResult {
     isLoading: boolean;
     error: string | null;
     refresh: () => void;
+    regenerateForChannel: (channel: Channel) => Promise<MultiChannelHook | null>;
+    regeneratingChannel: Channel | null;
     channelHookTypes: Record<Channel, string[]>;
   };
 }
