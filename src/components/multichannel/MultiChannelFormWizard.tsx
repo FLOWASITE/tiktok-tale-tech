@@ -56,6 +56,7 @@ import {
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
+import { useCompliancePrecheck, type ComplianceIssue } from '@/hooks/useCompliancePrecheck';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
@@ -64,6 +65,7 @@ import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
+import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -208,6 +210,38 @@ export function MultiChannelFormWizard({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 
+  // Compliance Pre-check - real-time validation of topic
+  const {
+    quickCheck,
+    fullCheck,
+    suggestCompliantTopic,
+    isChecking: isCheckingCompliance,
+    lastResult: complianceResult,
+  } = useCompliancePrecheck({
+    industryForbiddenTerms: [], // Will be populated from brand template
+    brandForbiddenWords: [],
+  });
+
+  // Run quick compliance check when topic changes
+  const [complianceCheckResult, setComplianceCheckResult] = useState<ReturnType<typeof fullCheck> | null>(null);
+  
+  useEffect(() => {
+    if (formData.topic.trim().length >= 10) {
+      const result = fullCheck(formData.topic);
+      setComplianceCheckResult(result);
+    } else {
+      setComplianceCheckResult(null);
+    }
+  }, [formData.topic, fullCheck]);
+
+  const handleSuggestCompliant = async () => {
+    if (!complianceCheckResult || complianceCheckResult.issues.length === 0) return;
+    const suggested = await suggestCompliantTopic(formData.topic, complianceCheckResult.issues);
+    if (suggested) {
+      setFormData(prev => ({ ...prev, topic: suggested }));
+    }
+  };
+
   // Estimated time
   const estimatedTime = useMemo(() => {
     const baseTime = 10;
@@ -342,6 +376,15 @@ export function MultiChannelFormWizard({
                   <p className="text-xs text-amber-500">
                     Chủ đề nên có ít nhất 10 ký tự
                   </p>
+                )}
+
+                {/* Compliance Warning Badge */}
+                {formData.topic.trim().length >= 10 && complianceCheckResult && (
+                  <ComplianceWarningBadge
+                    result={complianceCheckResult}
+                    onSuggestCompliant={handleSuggestCompliant}
+                    isSuggesting={isCheckingCompliance}
+                  />
                 )}
 
                 {/* Brainstorm with AI Button */}

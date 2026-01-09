@@ -62,7 +62,8 @@ type TopicAIAction =
   | 'trending'          // Discover trending topics
   | 'gap_analysis'      // Analyze content gaps
   | 'cluster'           // Cluster similar topics
-  | 'keywords';         // Expand keywords
+  | 'keywords'          // Expand keywords
+  | 'suggest_compliant'; // Suggest compliant topic alternative
 
 
 interface TopicAIRequest {
@@ -86,6 +87,13 @@ interface TopicAIRequest {
     feedback: 'positive' | 'negative';
     reason?: string;
   };
+  // For suggest_compliant action
+  topic?: string;              // for 'suggest_compliant'
+  issues?: Array<{             // for 'suggest_compliant'
+    type: string;
+    term: string;
+    reason: string;
+  }>;
 }
 
 // ========== Main Handler ==========
@@ -131,6 +139,8 @@ serve(async (req) => {
       case 'keywords':
       case 'refine_intel':
         return await handleAnalysis(action, supabase, brandContext, params, startTime);
+      case 'suggest_compliant':
+        return await handleSuggestCompliant(supabase, brandContext, params, startTime);
       default:
         return createErrorResponse(`Invalid action: ${action}`, 400);
     }
@@ -781,6 +791,72 @@ Trả về JSON: {
     analysisType: action,
     result: parsedResult,
     topicsAnalyzed: existingTopics.length,
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+// ========== Handler: Suggest Compliant Topic ==========
+async function handleSuggestCompliant(
+  supabase: any,
+  brandContext: TopicBrandContext | null,
+  params: TopicAIRequest,
+  startTime: number
+): Promise<Response> {
+  const { topic, issues, organizationId } = params;
+
+  if (!topic || !issues || issues.length === 0) {
+    return createErrorResponse('topic and issues are required for suggest_compliant action', 400);
+  }
+
+  const issuesList = issues
+    .map(i => `- ${i.type}: "${i.term}" - ${i.reason}`)
+    .join('\n');
+
+  // Build prompt to suggest compliant topic
+  const prompt = `Topic gốc: "${topic}"
+
+Các vấn đề compliance:
+${issuesList}
+
+${brandContext ? `Brand: ${brandContext.brandName}\nNgành: ${brandContext.industry?.join(', ') || 'N/A'}` : ''}
+
+Viết lại topic này để:
+1. Tránh TẤT CẢ các từ/claim bị cấm được liệt kê ở trên
+2. Giữ nguyên ý tưởng chính và mục đích content
+3. Tuân thủ quy định ngành
+4. Vẫn hấp dẫn và thu hút người đọc
+
+CHỈ TRẢ VỀ TOPIC MỚI, KHÔNG GIẢI THÍCH.`;
+
+  // Call AI
+  const result = await callAI({
+    functionName: 'topic-ai',
+    organizationId,
+    messages: [
+      { 
+        role: 'system', 
+        content: 'Bạn là chuyên gia compliance content. Nhiệm vụ của bạn là viết lại topic để tuân thủ quy định mà vẫn giữ được sức hút.' 
+      },
+      { role: 'user', content: prompt }
+    ],
+    modelOverride: 'google/gemini-2.5-flash-lite', // Fast, cheap
+  });
+
+  if (!result.success) {
+    if (result.error?.includes('Rate limit')) {
+      return createRateLimitResponse();
+    }
+    return createErrorResponse(result.error || 'AI call failed', 500);
+  }
+
+  const suggestedTopic = result.data?.choices?.[0]?.message?.content?.trim() || null;
+
+  console.log(`[topic-ai:suggest_compliant] Completed in ${Date.now() - startTime}ms, suggested: "${suggestedTopic?.substring(0, 50)}..."`);
+
+  return new Response(JSON.stringify({
+    success: true,
+    suggestedTopic,
+    originalTopic: topic,
+    issuesAddressed: issues.length,
   }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
