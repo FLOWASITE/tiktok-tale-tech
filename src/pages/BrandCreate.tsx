@@ -146,10 +146,10 @@ export default function BrandCreate() {
   // Populate form with editing template data
   useEffect(() => {
     if (editingTemplate) {
-      setName(editingTemplate.name);
-      setBrandName(editingTemplate.brand_name);
+      setName(editingTemplate.name || '');
+      setBrandName(editingTemplate.brand_name || '');
       setIndustries(editingTemplate.industry || []);
-      setBrandGuideline(editingTemplate.brand_guideline);
+      setBrandGuideline(editingTemplate.brand_guideline || DEFAULT_BRAND_GUIDELINE);
       setIncludeLogo(editingTemplate.include_logo);
       setIsDefault(editingTemplate.is_default);
       setPrimaryColor(editingTemplate.primary_color || '#000000');
