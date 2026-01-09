@@ -91,6 +91,8 @@ interface FormData {
   channel?: string; // Required when action='regenerate' - single channel to regenerate
   previewChannel?: string; // Required when action='preview' - single channel to preview
   enableCritique?: boolean; // Optional for regenerate: run Self-Critique (default: false)
+  // Footer Info control - whether to append contact info after generation
+  includeFooterInfo?: boolean; // Default: true
 }
 
 // Channel content column mapping (for expand mode)
@@ -1545,6 +1547,22 @@ Nội dung sẵn sàng đăng ngay.`;
                 }
               }
               
+              // Append footer if user opted in (default: true)
+              if (formData.includeFooterInfo !== false) {
+                const footerText = formatFooterInfo(
+                  extendedBrandContext?.footerInfo as FooterInfo | null,
+                  channel,
+                  brandVoice?.allow_emoji !== false,
+                  channelOverrides as Record<string, any> | null,
+                  extendedBrandContext?.brandName || null,
+                  (extendedBrandContext as any)?.tagline || null
+                );
+                if (footerText) {
+                  generatedContent += footerText;
+                  emit({ type: 'streaming_text', channel, content: footerText });
+                }
+              }
+              
               emit({ type: 'channel_complete', channel, content: generatedContent });
               emit({ type: 'progress', step: 'finalize', progress: 85, message: 'Đang lưu...' });
               
@@ -1690,6 +1708,21 @@ Nội dung sẵn sàng đăng ngay.`;
           );
         }
         throw err;
+      }
+      
+      // Append footer if user opted in (default: true)
+      if (formData.includeFooterInfo !== false) {
+        const footerText = formatFooterInfo(
+          extendedBrandContext?.footerInfo as FooterInfo | null,
+          channel,
+          brandVoice?.allow_emoji !== false,
+          channelOverrides as Record<string, any> | null,
+          extendedBrandContext?.brandName || null,
+          (extendedBrandContext as any)?.tagline || null
+        );
+        if (footerText) {
+          newContent += footerText;
+        }
       }
       
       // Update database
@@ -1868,6 +1901,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         brandAllowEmoji,
         companyName,
         tagline,
+        includeFooterInfo: formData.includeFooterInfo !== false, // Default: true
         channelModelConfigs: new Map(
           formData.channels.map(ch => {
             const cfg = channelModelConfigs.get(ch);
@@ -3110,7 +3144,9 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
 
     // ============================================
     // AUTO-APPEND FOOTER INFO (Post AI-generation)
+    // Only append if user opts in (default: true)
     // ============================================
+    const shouldAppendFooter = formData.includeFooterInfo !== false;
     const footerInfo = extendedBrandContext?.footerInfo;
     const hasFooterInfo = footerInfo && (footerInfo.phone || footerInfo.email || footerInfo.website || footerInfo.address);
     const brandAllowEmoji = brandVoice?.allow_emoji !== false;
@@ -3119,7 +3155,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     const companyName = extendedBrandContext?.brandName || footerInfo?.company_name;
     const tagline = (extendedBrandContext as any)?.tagline || (brandVoice as any)?.tagline;
 
-    if (hasFooterInfo) {
+    if (shouldAppendFooter && hasFooterInfo) {
       // Use existing channelOverrides variable (extracted from brand template earlier)
       const footerOverrides = channelOverrides as Record<string, { 
         footer_enabled?: boolean; 

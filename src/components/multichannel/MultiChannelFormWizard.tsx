@@ -50,6 +50,7 @@ import {
   ChevronDown,
   X,
   Settings2,
+  Phone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
@@ -152,6 +153,7 @@ export function MultiChannelFormWizard({
     journeyStage: initialData?.journeyStage,
     campaignId: initialData?.campaignId,
     qualityMode: initialData?.qualityMode || 'balanced',
+    includeFooterInfo: initialData?.includeFooterInfo !== false, // Default: true
   });
 
   // Sync brand template
@@ -633,6 +635,31 @@ export function MultiChannelFormWizard({
                         </TooltipContent>
                       </Tooltip>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Footer Info Option */}
+              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Phone className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Thông tin liên hệ (Footer)</h3>
+                        <p className="text-xs text-muted-foreground">Tự động thêm hotline, email, website vào cuối bài</p>
+                      </div>
+                    </div>
+                    <Checkbox
+                      id="includeFooterInfo"
+                      checked={formData.includeFooterInfo !== false}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, includeFooterInfo: checked as boolean }))
+                      }
+                      disabled={isGenerating}
+                    />
                   </div>
                 </CardContent>
               </Card>
