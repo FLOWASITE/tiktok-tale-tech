@@ -364,3 +364,38 @@ export function getChannelLengthDisplay(
   }
   return `Tối đa ${settings.max_length} ${unitLabel}`;
 }
+
+// Base channel config (without description - will be computed dynamically)
+export const BASE_CHANNEL_CONFIG: Record<Channel, {
+  label: string;
+  color: string;
+  bgColor: string;
+  descriptionSuffix: string;
+}> = {
+  website: { label: 'Website/Blog', color: 'text-blue-400', bgColor: 'bg-blue-500/10', descriptionSuffix: 'SEO optimized' },
+  facebook: { label: 'Facebook', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', descriptionSuffix: 'hook + emoji' },
+  instagram: { label: 'Instagram', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'visual-first' },
+  twitter: { label: 'X (Twitter)', color: 'text-slate-400', bgColor: 'bg-slate-500/10', descriptionSuffix: '' },
+  linkedin: { label: 'LinkedIn', color: 'text-sky-400', bgColor: 'bg-sky-500/10', descriptionSuffix: 'professional' },
+  youtube: { label: 'YouTube', color: 'text-red-400', bgColor: 'bg-red-500/10', descriptionSuffix: '' },
+  email: { label: 'Email', color: 'text-amber-400', bgColor: 'bg-amber-500/10', descriptionSuffix: 'subject + CTA' },
+  google_maps: { label: 'Google Maps', color: 'text-green-400', bgColor: 'bg-green-500/10', descriptionSuffix: 'review style' },
+  zalo_oa: { label: 'Zalo OA', color: 'text-blue-400', bgColor: 'bg-blue-500/10', descriptionSuffix: 'mobile-first' },
+  telegram: { label: 'Telegram', color: 'text-sky-400', bgColor: 'bg-sky-500/10', descriptionSuffix: 'community' },
+  tiktok: { label: 'TikTok', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'short script' },
+  threads: { label: 'Threads', color: 'text-slate-400', bgColor: 'bg-slate-500/10', descriptionSuffix: 'conversational' },
+};
+
+// Helper: Get full channel description with dynamic length from brand overrides
+export function getChannelDescription(
+  channel: Channel,
+  channelOverrides?: Record<string, Partial<ChannelSettings>> | null
+): string {
+  const baseConfig = BASE_CHANNEL_CONFIG[channel];
+  const lengthDisplay = getChannelLengthDisplay(channel, channelOverrides);
+  
+  if (baseConfig.descriptionSuffix) {
+    return `${lengthDisplay}, ${baseConfig.descriptionSuffix}`;
+  }
+  return lengthDisplay;
+}
