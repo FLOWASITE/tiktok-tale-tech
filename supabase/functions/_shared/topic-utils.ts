@@ -7,6 +7,14 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 
 // ========== TYPES ==========
 
+export interface IndustryContext {
+  targetAudience?: string;
+  forbiddenTerms?: string[];
+  complianceRules?: { rule: string; description: string }[];
+  brandVoice?: { tone?: string[]; formality?: string; language_style?: string[] };
+  claimRestrictions?: string[];
+}
+
 export interface TopicBrandContext {
   brandName: string;
   brandPositioning?: string;
@@ -24,6 +32,10 @@ export interface TopicBrandContext {
   personasContext: string;
   productsContext: string;
   productPersonaMappingContext: string;
+  // Raw data for ID lookup
+  personas?: PersonaData[];
+  products?: ProductData[];
+  industryContext?: IndustryContext;
 }
 
 export interface ContentPillar {
@@ -499,6 +511,26 @@ ${products.map(p => `
     console.log('[fetchTopicBrandContext] Loaded', mappings.length, 'product-persona mappings');
   }
 
+  // Fetch industry context if available
+  let industryContext: IndustryContext | undefined = undefined;
+  if (brand.industry_template_id) {
+    const { data: industryData } = await supabase
+      .from('industry_templates')
+      .select('target_audience, forbidden_terms, compliance_rules, brand_voice, claim_restrictions')
+      .eq('id', brand.industry_template_id)
+      .single();
+    
+    if (industryData) {
+      industryContext = {
+        targetAudience: industryData.target_audience,
+        forbiddenTerms: industryData.forbidden_terms,
+        complianceRules: industryData.compliance_rules,
+        brandVoice: industryData.brand_voice,
+        claimRestrictions: industryData.claim_restrictions,
+      };
+    }
+  }
+
   return {
     brandName: brand.brand_name,
     brandPositioning: brand.brand_positioning,
@@ -515,6 +547,10 @@ ${products.map(p => `
     personasContext,
     productsContext,
     productPersonaMappingContext,
+    // Raw data for ID lookup
+    personas,
+    products,
+    industryContext,
   };
 }
 
