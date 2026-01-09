@@ -52,6 +52,7 @@ import {
   Settings2,
   Phone,
   ExternalLink,
+  Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -69,6 +70,7 @@ import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarn
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
+  MultiChannelSelectedHook,
   ContentGoal, 
   ContentAngle,
   Channel, 
@@ -80,6 +82,7 @@ import {
   QualityMode,
   QUALITY_MODES,
 } from '@/types/multichannel';
+import { MultiChannelHook } from '@/hooks/useMultiChannelHooks';
 import { JourneyStage } from '@/types/customerPersona';
 import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
 
@@ -158,6 +161,8 @@ export function MultiChannelFormWizard({
     campaignId: initialData?.campaignId,
     qualityMode: initialData?.qualityMode || 'balanced',
     includeFooterInfo: initialData?.includeFooterInfo !== false, // Default: true
+    selectedHooks: initialData?.selectedHooks || [],
+    globalHook: initialData?.globalHook,
   });
 
   // Sync brand template
@@ -299,6 +304,58 @@ export function MultiChannelFormWizard({
 
   const handleDeselectAll = () => {
     setFormData(prev => ({ ...prev, channels: [] }));
+  };
+
+  // Hook selection handlers
+  const handleSelectHook = (hook: MultiChannelHook) => {
+    setFormData(prev => {
+      const existingIndex = (prev.selectedHooks || []).findIndex(
+        h => h.channel === hook.channel
+      );
+      
+      let newSelectedHooks: MultiChannelSelectedHook[];
+      
+      if (existingIndex >= 0) {
+        // Replace existing hook for this channel
+        newSelectedHooks = [...(prev.selectedHooks || [])];
+        newSelectedHooks[existingIndex] = {
+          channel: hook.channel,
+          opening_line: hook.opening_line,
+          hook_type: hook.hook_type,
+          psychology: hook.psychology,
+        };
+      } else {
+        // Add new hook
+        newSelectedHooks = [
+          ...(prev.selectedHooks || []),
+          {
+            channel: hook.channel,
+            opening_line: hook.opening_line,
+            hook_type: hook.hook_type,
+            psychology: hook.psychology,
+          }
+        ];
+      }
+      
+      return { ...prev, selectedHooks: newSelectedHooks };
+    });
+    
+    toast.success(`Đã chọn hook cho ${CHANNELS.find(c => c.value === hook.channel)?.label || hook.channel}`);
+  };
+
+  const handleRemoveHook = (channel: Channel) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedHooks: (prev.selectedHooks || []).filter(h => h.channel !== channel),
+    }));
+  };
+
+  const handleClearAllHooks = () => {
+    setFormData(prev => ({
+      ...prev,
+      selectedHooks: [],
+      globalHook: undefined,
+    }));
   };
 
   const submittingRef = useRef(false);
@@ -443,8 +500,78 @@ export function MultiChannelFormWizard({
                       tone_of_voice: brandTemplate.tone_of_voice || [],
                       formality_level: brandTemplate.formality_level || undefined,
                     } : undefined}
+                    onSelectHook={handleSelectHook}
                     disabled={isGenerating}
                   />
+                )}
+
+                {/* Selected Hooks Display */}
+                {formData.selectedHooks && formData.selectedHooks.length > 0 && (
+                  <Card className="border-amber-500/30 bg-amber-500/5">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-amber-500" />
+                          <span className="text-sm font-medium">Hooks đã chọn</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {formData.selectedHooks.length}
+                          </Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={handleClearAllHooks}
+                          disabled={isGenerating}
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Xóa tất cả
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {formData.selectedHooks.map((hook) => {
+                          const channelInfo = CHANNELS.find(c => c.value === hook.channel);
+                          return (
+                            <div 
+                              key={hook.channel}
+                              className="flex items-start gap-3 p-2 rounded-lg bg-background/50 group"
+                            >
+                              <div className="flex-shrink-0 w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
+                                {channelIcons[hook.channel]}
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-medium">{channelInfo?.label}</span>
+                                  {hook.hook_type && (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                                      {hook.hook_type}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  "{hook.opening_line}"
+                                </p>
+                              </div>
+                              
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleRemoveHook(hook.channel)}
+                                disabled={isGenerating}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             </div>
