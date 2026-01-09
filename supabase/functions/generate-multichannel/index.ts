@@ -1444,7 +1444,7 @@ Mục tiêu nội dung: ${goalLabel}`;
         console.log("[parallel-db] Starting parallel fetch: personas, mappings, industry memory...");
         const parallelStartTime = Date.now();
         
-        const [personasResult, mappingsResult, fetchedIndustryMemory] = await Promise.all([
+        const [personasResult, mappingsResult, productsResult, fetchedIndustryMemory] = await Promise.all([
           // Fetch customer personas
           supabase
             .from('customer_personas')
@@ -1463,6 +1463,14 @@ Mục tiêu nội dung: ${goalLabel}`;
             .eq('brand_template_id', formData.brandTemplateId)
             .order('relevance_score', { ascending: false })
             .limit(15),
+          // Fetch brand products directly for products section in prompt
+          supabase
+            .from('brand_products')
+            .select('id, name, category, description, unique_selling_points, target_audience, pain_points_solved, benefits, suggested_content_angles, is_featured')
+            .eq('brand_template_id', formData.brandTemplateId)
+            .eq('is_active', true)
+            .order('is_featured', { ascending: false })
+            .limit(10),
           // Fetch Industry Memory (if available) - now in parallel!
           industryTemplateId 
             ? fetchIndustryMemory(supabase, industryTemplateId)
@@ -1508,6 +1516,23 @@ Mục tiêu nội dung: ${goalLabel}`;
           extendedBrandContext.primaryPersona = mapPersona(personasResult.data.find((p: any) => p.is_primary) || personasResult.data[0]);
           extendedBrandContext.allPersonas = personasResult.data.map(mapPersona);
           console.log("Customer personas loaded:", personasResult.data.length, "Primary:", extendedBrandContext.primaryPersona?.name);
+        }
+
+        // Process products result - populate extendedBrandContext.products for buildProductsContextSection
+        if (productsResult.data && productsResult.data.length > 0) {
+          extendedBrandContext.products = productsResult.data.map((p: any) => ({
+            name: p.name,
+            category: p.category,
+            description: p.description,
+            unique_selling_points: p.unique_selling_points || [],
+            target_audience: p.target_audience,
+            pain_points_solved: p.pain_points_solved || [],
+            benefits: p.benefits || [],
+            suggested_content_angles: p.suggested_content_angles || [],
+            is_featured: p.is_featured,
+          }));
+          console.log("Brand products loaded:", productsResult.data.length, 
+                      "Featured:", productsResult.data.filter((p: any) => p.is_featured).length);
         }
 
         // Build Product-Persona mapping context for multichannel content
