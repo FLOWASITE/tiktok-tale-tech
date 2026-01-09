@@ -564,51 +564,86 @@ serve(async (req) => {
 
     console.log(`[analyze-dashboard-insights] Calling AI...`);
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: prompt },
-          { role: "user", content: "Analyze dữ liệu và generate insights cho user này." }
-        ],
-        tools: [insightsTool],
-        tool_choice: { type: "function", function: { name: "generate_insights" } }
-      }),
-    });
+    // Retry logic for transient AI errors (MALFORMED_FUNCTION_CALL, empty tool_calls)
+    const MAX_RETRIES = 2;
+    let insights: any[] = [];
+    let lastError: Error | null = null;
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error(`[analyze-dashboard-insights] AI error:`, aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: prompt },
+              { role: "user", content: "Analyze dữ liệu và generate insights cho user này." }
+            ],
+            tools: [insightsTool],
+            tool_choice: { type: "function", function: { name: "generate_insights" } }
+          }),
         });
+
+        if (!aiResponse.ok) {
+          const errorText = await aiResponse.text();
+          console.error(`[analyze-dashboard-insights] AI error (attempt ${attempt + 1}):`, aiResponse.status, errorText);
+          
+          if (aiResponse.status === 429) {
+            return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later" }), {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          
+          throw new Error(`AI gateway error: ${aiResponse.status}`);
+        }
+
+        const aiData = await aiResponse.json();
+        console.log(`[analyze-dashboard-insights] AI response (attempt ${attempt + 1}):`, JSON.stringify(aiData, null, 2));
+
+        // Check for malformed function call or missing tool_calls
+        const finishReason = aiData.choices?.[0]?.native_finish_reason || aiData.choices?.[0]?.finish_reason;
+        if (finishReason === "MALFORMED_FUNCTION_CALL") {
+          console.warn(`[analyze-dashboard-insights] AI returned MALFORMED_FUNCTION_CALL, retrying...`);
+          throw new Error("AI returned malformed function call");
+        }
+
+        // Extract insights from tool call
+        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+        if (!toolCall || toolCall.function.name !== "generate_insights") {
+          console.warn(`[analyze-dashboard-insights] Missing or invalid tool_calls, retrying...`);
+          throw new Error("Invalid AI response format - no tool_calls");
+        }
+
+        const parsedArgs = JSON.parse(toolCall.function.arguments);
+        insights = parsedArgs.insights.map((insight: any, index: number) => ({
+          id: `ai-${Date.now()}-${index}`,
+          ...insight
+        }));
+
+        // Success - break out of retry loop
+        lastError = null;
+        break;
+
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        console.warn(`[analyze-dashboard-insights] Attempt ${attempt + 1} failed: ${lastError.message}`);
+        
+        if (attempt < MAX_RETRIES) {
+          // Wait before retrying (exponential backoff: 1s, 2s)
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 1000));
+        }
       }
-      
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
 
-    const aiData = await aiResponse.json();
-    console.log(`[analyze-dashboard-insights] AI response:`, JSON.stringify(aiData, null, 2));
-
-    // Extract insights from tool call
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function.name !== "generate_insights") {
-      throw new Error("Invalid AI response format");
+    // If all retries failed, throw the last error
+    if (lastError) {
+      throw lastError;
     }
-
-    const parsedArgs = JSON.parse(toolCall.function.arguments);
-    const insights = parsedArgs.insights.map((insight: any, index: number) => ({
-      id: `ai-${Date.now()}-${index}`,
-      ...insight
-    }));
 
     console.log(`[analyze-dashboard-insights] Generated ${insights.length} insights, caching result`);
 
