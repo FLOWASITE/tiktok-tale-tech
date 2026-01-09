@@ -167,10 +167,13 @@ export function MultiChannelFormWizard({
     }
   }, [voiceVariantId]);
 
-  // Notify parent of form data changes
+  // Notify parent of form data changes - use ref to avoid infinite loops
+  const onFormDataChangeRef = useRef(onFormDataChange);
+  onFormDataChangeRef.current = onFormDataChange;
+  
   useEffect(() => {
-    onFormDataChange?.(formData);
-  }, [formData, onFormDataChange]);
+    onFormDataChangeRef.current?.(formData);
+  }, [formData]);
 
   // Auto-derive contentGoal from journeyStage
   useEffect(() => {
