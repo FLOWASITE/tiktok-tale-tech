@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChannelOverride } from '@/components/ChannelSettingsEditor';
 import { DEFAULT_CHANNEL_SETTINGS, ChannelSettings } from '@/types/channelSettings';
 import { Channel } from '@/types/multichannel';
+import { BrandChannelOptimizationEditor } from './BrandChannelOptimizationEditor';
 import {
   Collapsible,
   CollapsibleContent,
@@ -229,6 +230,9 @@ export function BrandViewChannelsTab({ template }: BrandViewChannelsTabProps) {
 
   return (
     <div className="space-y-4">
+      {/* AI Channel Optimization */}
+      <BrandChannelOptimizationEditor brandTemplateId={template.id} />
+
       {/* Channel Settings */}
       <Card>
         <CardHeader className="pb-3">
