@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogPortal,
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -1550,19 +1551,23 @@ export function MultiChannelViewer({
         }}
       />
 
-      {/* Regenerate Streaming Overlay */}
+      {/* Regenerate Streaming Overlay - Portal to ensure visibility above dialog */}
       {isStreamingRegenerating && streamingRegeneratingChannel && (
-        <RegenerateStreamingOverlay
-          channel={streamingRegeneratingChannel}
-          streamingText={regenerateStreamingText}
-          progress={regenerateProgress.progress}
-          message={regenerateProgress.message}
-          isComplete={regenerateProgress.isComplete}
-          onCancel={cancelStreamingRegenerate}
-          onComplete={() => {
-            // Content already updated via onComplete callback
-          }}
-        />
+        <DialogPortal>
+          <div className="fixed inset-0 z-[60]">
+            <RegenerateStreamingOverlay
+              channel={streamingRegeneratingChannel}
+              streamingText={regenerateStreamingText}
+              progress={regenerateProgress.progress}
+              message={regenerateProgress.message}
+              isComplete={regenerateProgress.isComplete}
+              onCancel={cancelStreamingRegenerate}
+              onComplete={() => {
+                // Content already updated via onComplete callback
+              }}
+            />
+          </div>
+        </DialogPortal>
       )}
     </Dialog>
   );
