@@ -219,16 +219,19 @@ export function MultiChannelFormWizard({
   });
 
   // Compliance Pre-check - real-time validation of topic
+  // IMPORTANT: memoize options to avoid recreating callbacks every render (prevents update-depth loop)
+  const complianceOptions = useMemo(() => ({
+    industryForbiddenTerms: [], // Will be populated from brand template
+    brandForbiddenWords: [],
+  }), []);
+
   const {
     quickCheck,
     fullCheck,
     suggestCompliantTopic,
     isChecking: isCheckingCompliance,
     lastResult: complianceResult,
-  } = useCompliancePrecheck({
-    industryForbiddenTerms: [], // Will be populated from brand template
-    brandForbiddenWords: [],
-  });
+  } = useCompliancePrecheck(complianceOptions);
 
   // Run quick compliance check when topic changes
   const [complianceCheckResult, setComplianceCheckResult] = useState<ReturnType<typeof fullCheck> | null>(null);
