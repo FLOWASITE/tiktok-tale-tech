@@ -65,6 +65,8 @@ export interface GenerateHooksOptions {
   platform?: string;
   duration?: string;
   count?: number;
+  organizationId?: string;
+  brandTemplateId?: string;
 }
 
 export interface UseHookAIOptions {
@@ -72,6 +74,8 @@ export interface UseHookAIOptions {
   brandVoice?: BrandVoice;
   channels?: Channel[];
   enabled?: boolean;
+  organizationId?: string;
+  brandTemplateId?: string;
 }
 
 // Pre-defined hook frameworks per channel
@@ -96,7 +100,7 @@ const multiChannelCache = new Map<string, MultiChannelHook[]>();
 
 // ============== HOOK IMPLEMENTATION ==============
 export function useHookAI(options: UseHookAIOptions = {}) {
-  const { topic = '', brandVoice, channels = [], enabled = true } = options;
+  const { topic = '', brandVoice, channels = [], enabled = true, organizationId, brandTemplateId } = options;
   const { handleApiError } = useAIErrorHandler();
 
   // ============== GENERATOR MODULE ==============
@@ -125,6 +129,8 @@ export function useHookAI(options: UseHookAIOptions = {}) {
           platform,
           duration,
           count,
+          organizationId: genOptions.organizationId,
+          brandTemplateId: genOptions.brandTemplateId,
         },
       });
 
@@ -208,6 +214,8 @@ export function useHookAI(options: UseHookAIOptions = {}) {
           brandVoice,
           count: 3,
           platform: 'tiktok',
+          organizationId,
+          brandTemplateId,
         },
       });
 
@@ -303,6 +311,8 @@ export function useHookAI(options: UseHookAIOptions = {}) {
           count: priorityChannels.length,
           platforms: priorityChannels,
           multiChannel: true,
+          organizationId,
+          brandTemplateId,
         },
       });
 

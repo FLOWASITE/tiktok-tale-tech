@@ -64,6 +64,8 @@ interface MultiChannelHookGeneratorProps {
   onSelectHook?: (hook: MultiChannelHook) => void;
   disabled?: boolean;
   className?: string;
+  organizationId?: string;
+  brandTemplateId?: string;
 }
 
 const channelIcons: Record<Channel, LucideIcon> = {
@@ -88,6 +90,8 @@ export function MultiChannelHookGenerator({
   onSelectHook,
   disabled,
   className,
+  organizationId,
+  brandTemplateId,
 }: MultiChannelHookGeneratorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -97,6 +101,8 @@ export function MultiChannelHookGenerator({
     channels,
     brandVoice,
     enabled: isOpen && topic.length >= 10 && channels.length > 0,
+    organizationId,
+    brandTemplateId,
   });
 
   const handleCopy = async (text: string, index: number) => {

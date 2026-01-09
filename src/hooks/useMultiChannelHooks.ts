@@ -25,6 +25,8 @@ interface UseMultiChannelHooksOptions {
   channels: Channel[];
   brandVoice?: BrandVoice;
   enabled?: boolean;
+  organizationId?: string;
+  brandTemplateId?: string;
 }
 
 export function useMultiChannelHooks({
@@ -32,8 +34,10 @@ export function useMultiChannelHooks({
   channels,
   brandVoice,
   enabled = true,
+  organizationId,
+  brandTemplateId,
 }: UseMultiChannelHooksOptions) {
-  const { multiChannel } = useHookAI({ topic, channels, brandVoice, enabled });
+  const { multiChannel } = useHookAI({ topic, channels, brandVoice, enabled, organizationId, brandTemplateId });
 
   return {
     hooks: multiChannel.hooks,
