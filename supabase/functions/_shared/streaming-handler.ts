@@ -89,6 +89,7 @@ export interface ParallelStreamingResult {
 /**
  * Generate content for multiple channels in PARALLEL with interleaved streaming
  * OPTIMIZED: Uses Promise.allSettled for resilience, pre-allocated results
+ * ENHANCED: Emits 'channel_complete' event immediately when each channel finishes
  */
 export async function generateChannelsParallel(params: {
   channels: string[];
@@ -137,9 +138,29 @@ export async function generateChannelsParallel(params: {
         if (result.success) {
           channelResults[channel] = result.content;
           completedChannels.push(channel);
+          
+          // EARLY RETURN: Emit channel_complete immediately so UI can show it
+          emit({
+            type: 'progress',
+            step: 'channel_complete',
+            message: `${getChannelDisplayName(channel)} hoàn thành`,
+            currentChannel: channel,
+            completedChannels: [...completedChannels],
+            totalChannels: channels,
+            progress: Math.round((completedChannels.length / channels.length) * 80) + 20, // 20-100%
+          });
+          
           onChannelComplete?.(channel, result.content);
         } else {
           errors[channel] = result.error || 'Unknown error';
+          
+          // Emit error for individual channel (graceful degradation)
+          emit({
+            type: 'progress',
+            step: 'channel_error',
+            message: `${getChannelDisplayName(channel)}: ${result.error}`,
+            currentChannel: channel,
+          });
         }
       } else {
         // Handle rejected promise - shouldn't happen but be safe
@@ -157,6 +178,12 @@ export async function generateChannelsParallel(params: {
   }
   
   const totalDuration = Date.now() - startTime;
+  
+  // Log performance stats
+  console.log(`[parallel-streaming] Completed ${completedChannels.length}/${channels.length} channels in ${totalDuration}ms`);
+  if (Object.keys(errors).length > 0) {
+    console.warn(`[parallel-streaming] Errors:`, errors);
+  }
   
   return { 
     channelResults, 

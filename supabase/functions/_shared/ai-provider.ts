@@ -1,12 +1,20 @@
 // ============================================
 // Multi-Provider AI Caller
 // Dynamically routes AI calls to user's provider or Lovable Gateway
+// Includes Circuit Breaker pattern and Auto-Retry for resilience
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { getAIConfig, AIFunctionConfig } from "./ai-config.ts";
 import { decrypt, isEncryptionConfigured } from "./crypto.ts";
-
+import { 
+  getEffectiveModel, 
+  recordSuccess, 
+  recordFailure, 
+  isRetryableError,
+  withRetry,
+  type RetryConfig,
+} from "./circuit-breaker.ts";
 // Provider endpoint configurations
 const PROVIDER_ENDPOINTS: Record<string, string> = {
   lovable: "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -593,9 +601,13 @@ async function callGeminiDirect(
 
 /**
  * Main AI call function with multi-provider support
+ * Now includes Circuit Breaker pattern and Auto-Retry for resilience
+ * 
  * Priority:
- * 1. User-configured provider with API key
- * 2. Lovable AI Gateway (fallback)
+ * 1. Check circuit breaker - use fallback if circuit is open
+ * 2. User-configured provider with API key
+ * 3. Lovable AI Gateway (default/fallback)
+ * 4. Auto-retry on transient failures
  */
 export async function callAI(options: AICallOptions): Promise<AICallResult> {
   const { functionName, organizationId, messages, modelOverride, temperatureOverride } = options;
@@ -604,8 +616,11 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
   const config = await getAIConfig(functionName, organizationId);
   
   // Apply per-channel overrides if provided (Admin-configured)
-  const effectiveModel = modelOverride || config.model;
+  const requestedModel = modelOverride || config.model;
   const effectiveTemperature = temperatureOverride ?? config.temperature;
+  
+  // Check circuit breaker - may switch to fallback model
+  const { model: effectiveModel, usingFallback } = getEffectiveModel(requestedModel);
   
   // Create effective config with overrides
   const effectiveConfig = {
@@ -614,7 +629,7 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
     temperature: effectiveTemperature,
   };
   
-  console.log(`[ai-provider] Function: ${functionName}, Model: ${effectiveModel}${modelOverride ? ' (override)' : ''}`);
+  console.log(`[ai-provider] Function: ${functionName}, Model: ${effectiveModel}${modelOverride ? ' (override)' : ''}${usingFallback ? ' (fallback)' : ''}`);
 
   // Determine provider from model
   const primaryProvider = getProviderFromModel(effectiveModel);
@@ -626,7 +641,11 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
   
   if (!supabaseUrl || !supabaseKey) {
     console.warn("[ai-provider] Missing Supabase credentials, using Lovable Gateway");
-    return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
+    return callWithCircuitBreaker(
+      () => callLovableGateway(messages, effectiveModel, effectiveConfig, options),
+      effectiveModel,
+      options
+    );
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -640,24 +659,22 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
     if (apiKey) {
       console.log(`[ai-provider] Using user's ${primaryProvider} API key`);
       
-      let result: AICallResult;
-      
-      switch (primaryProvider) {
-        case "openai":
-          result = await callOpenAI(apiKey, messages, effectiveModel, effectiveConfig, options);
-          break;
-        case "anthropic":
-          result = await callAnthropic(apiKey, messages, effectiveModel, effectiveConfig, options);
-          break;
-        case "gemini":
-          result = await callGeminiDirect(apiKey, messages, effectiveModel, effectiveConfig, options);
-          break;
-        case "openrouter":
-          result = await callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
-          break;
-        default:
-          result = await callLovableGateway(messages, effectiveModel, effectiveConfig, options);
-      }
+      const providerCall = async (): Promise<AICallResult> => {
+        switch (primaryProvider) {
+          case "openai":
+            return callOpenAI(apiKey, messages, effectiveModel, effectiveConfig, options);
+          case "anthropic":
+            return callAnthropic(apiKey, messages, effectiveModel, effectiveConfig, options);
+          case "gemini":
+            return callGeminiDirect(apiKey, messages, effectiveModel, effectiveConfig, options);
+          case "openrouter":
+            return callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
+          default:
+            return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
+        }
+      };
+
+      const result = await callWithCircuitBreaker(providerCall, effectiveModel, options);
 
       if (result.success) {
         return result;
@@ -666,7 +683,11 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
       // Fallback to Lovable Gateway ONLY if model is Lovable-compatible
       if (isLovableCompatibleModel(effectiveModel)) {
         console.warn(`[ai-provider] ${primaryProvider} failed, falling back to Lovable Gateway`);
-        const fallbackResult = await callLovableGateway(messages, effectiveModel, effectiveConfig, options);
+        const fallbackResult = await callWithCircuitBreaker(
+          () => callLovableGateway(messages, effectiveModel, effectiveConfig, options),
+          effectiveModel,
+          options
+        );
         fallbackResult.fromFallback = true;
         return fallbackResult;
       } else {
@@ -679,7 +700,78 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
 
   // Default: Use Lovable Gateway
   console.log("[ai-provider] Using Lovable AI Gateway (default)");
-  return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
+  return callWithCircuitBreaker(
+    () => callLovableGateway(messages, effectiveModel, effectiveConfig, options),
+    effectiveModel,
+    options
+  );
+}
+
+/**
+ * Wrapper that applies circuit breaker and retry logic to AI calls
+ */
+async function callWithCircuitBreaker(
+  fn: () => Promise<AICallResult>,
+  model: string,
+  options: AICallOptions
+): Promise<AICallResult> {
+  // Skip retry for streaming calls (they handle errors differently)
+  if (options.stream) {
+    const result = await fn();
+    if (result.success) {
+      recordSuccess(model);
+    } else {
+      recordFailure(model);
+    }
+    return result;
+  }
+
+  // Configure retry for non-streaming calls
+  const retryConfig: RetryConfig = {
+    maxRetries: 2,
+    baseDelayMs: 1000,
+    maxDelayMs: 4000,
+    backoffMultiplier: 2,
+  };
+
+  try {
+    const result = await withRetry(
+      async () => {
+        const res = await fn();
+        if (!res.success) {
+          // Convert failure result to error for retry logic
+          const error = new Error(res.error || 'AI call failed');
+          (error as any).status = res.error?.includes('429') ? 429 : 
+                                   res.error?.includes('402') ? 402 :
+                                   res.error?.includes('500') ? 500 : undefined;
+          throw error;
+        }
+        return res;
+      },
+      (error, attempt) => {
+        const shouldRetry = isRetryableError(error);
+        if (shouldRetry) {
+          console.log(`[ai-provider] Retry ${attempt + 1}/${retryConfig.maxRetries} for ${model}: ${error.message}`);
+        }
+        return shouldRetry;
+      },
+      retryConfig,
+      (attempt, delay, error) => {
+        console.log(`[ai-provider] Waiting ${delay}ms before retry ${attempt} for ${model}`);
+      }
+    );
+    
+    recordSuccess(model);
+    return result;
+  } catch (error) {
+    recordFailure(model);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      provider: getProviderFromModel(model),
+      model,
+    };
+  }
 }
 
 /**

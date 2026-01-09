@@ -27,6 +27,7 @@ import {
   CRITIQUE_CONFIG,
   type CritiqueResult,
 } from "../_shared/self-critique.ts";
+import { calculateChannelMaxTokens, calculateTotalMaxTokens } from "../_shared/dynamic-tokens.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
