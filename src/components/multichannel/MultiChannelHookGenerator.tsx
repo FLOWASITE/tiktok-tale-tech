@@ -21,6 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   Sparkles, 
   RefreshCw, 
@@ -50,7 +56,9 @@ import {
   CheckCheck,
   XCircle,
   ArrowUpDown,
+  Eye,
 } from 'lucide-react';
+import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { Channel, CHANNELS } from '@/types/multichannel';
 import { MultiChannelHook, useMultiChannelHooks } from '@/hooks/useMultiChannelHooks';
 import { cn } from '@/lib/utils';
@@ -151,6 +159,23 @@ export function MultiChannelHookGenerator({
   const [isOpen, setIsOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'channel' | 'score'>('channel');
+  const [previewHook, setPreviewHook] = useState<MultiChannelHook | null>(null);
+
+  // Map multichannel Channel to ChannelMockupFrame type
+  const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general'> = {
+    facebook: 'facebook',
+    linkedin: 'linkedin',
+    instagram: 'instagram',
+    tiktok: 'tiktok',
+    email: 'email',
+    twitter: 'twitter',
+    website: 'general',
+    google_maps: 'general',
+    youtube: 'general',
+    zalo_oa: 'general',
+    telegram: 'general',
+    threads: 'general',
+  };
 
   // Check if a hook is selected
   const isHookSelected = (hook: MultiChannelHook) => {
@@ -553,6 +578,25 @@ export function MultiChannelHookGenerator({
 
                             {/* Action buttons - right side */}
                             <div className="flex flex-col gap-1 opacity-0 group-hover/hook:opacity-100 transition-opacity">
+                              {/* Preview Button */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 hover:bg-primary/10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPreviewHook(hook);
+                                    }}
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Xem trước</TooltipContent>
+                              </Tooltip>
+
                               {/* Regenerate Button */}
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -676,6 +720,86 @@ export function MultiChannelHookGenerator({
           )}
         </AnimatePresence>
       </CollapsibleContent>
+
+      {/* Hook Preview Dialog */}
+      <Dialog open={!!previewHook} onOpenChange={(open) => !open && setPreviewHook(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              Xem trước Hook - {previewHook && CHANNELS.find(c => c.value === previewHook.channel)?.label}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {previewHook && (
+            <div className="space-y-4">
+              {/* Hook Info */}
+              <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs">
+                    {previewHook.hook_type}
+                  </Badge>
+                  {previewHook.evaluation && (
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-xs",
+                        getScoreColor(previewHook.evaluation.score)
+                      )}
+                    >
+                      {previewHook.evaluation.score}/18 điểm
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-sm font-medium">"{previewHook.opening_line}"</p>
+                {previewHook.psychology && (
+                  <p className="text-xs text-muted-foreground italic flex items-start gap-1.5">
+                    <Lightbulb className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-500" />
+                    {previewHook.psychology}
+                  </p>
+                )}
+              </div>
+
+              {/* Platform Mockup Preview */}
+              <div className="rounded-xl overflow-hidden border bg-gradient-to-b from-muted/5 to-muted/20 p-3">
+                <ChannelMockupFrame
+                  channel={channelToMockupType[previewHook.channel]}
+                  content={`${previewHook.opening_line}\n\n[Nội dung bài viết sẽ tiếp tục ở đây...]`}
+                  brandName={brandVoice?.brand_name || 'Brand'}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    handleCopy(previewHook.opening_line, -1);
+                    setCopiedIndex(-1);
+                  }}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Hook
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    onSelectHook?.(previewHook);
+                    setPreviewHook(null);
+                  }}
+                  disabled={disabled}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Chọn Hook này
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Collapsible>
   );
 }
