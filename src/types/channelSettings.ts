@@ -356,7 +356,13 @@ export function getChannelLengthDisplay(
   const unitLabel = settings.length_unit === 'chars' ? 'ký tự' : 'từ';
   
   // Special cases for specific channels
-  if (channel === 'twitter') return 'Thread 5-7 tweets';
+  if (channel === 'twitter') {
+    const hasOverride = channelOverrides?.[channel]?.min_length || channelOverrides?.[channel]?.max_length;
+    if (hasOverride) {
+      return `Thread ${settings.min_length}-${settings.max_length} tweets`;
+    }
+    return 'Thread 5-7 tweets';
+  }
   if (channel === 'youtube') return `Script ${settings.min_length}-${settings.max_length} từ`;
   
   if (settings.min_length) {

@@ -1101,8 +1101,8 @@ export function MultiChannelViewer({
                           <h3 className="font-semibold text-sm">{config.label}</h3>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              {getChannelLengthDisplay(channel, channelOverrides)}
-                              {channelOverrides?.[channel] && (
+                            {getChannelLengthDisplay(channel, channelOverrides)}
+                              {channelOverrides?.[channel] && Object.keys(channelOverrides[channel] || {}).length > 0 && (
                                 <Badge variant="outline" className="text-[9px] px-1 py-0 bg-primary/10 border-primary/20">
                                   Brand
                                 </Badge>
