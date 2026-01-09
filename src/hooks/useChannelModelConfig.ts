@@ -2,6 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export type QualityMode = 'fast' | 'balanced' | 'quality';
+export type PromptStyle = 'concise' | 'detailed' | 'creative' | 'analytical';
+export type HookIntensity = 'subtle' | 'moderate' | 'aggressive';
+export type CostPriority = 'economy' | 'balanced' | 'performance';
+
 export interface ChannelModelConfig {
   id: string;
   organizationId: string | null;
@@ -11,6 +16,13 @@ export interface ChannelModelConfig {
   maxTokens: number | null;
   isEnabled: boolean;
   priority: number;
+  // New optimization fields
+  qualityModeDefault: QualityMode | null;
+  promptStyle: PromptStyle | null;
+  hookIntensity: HookIntensity | null;
+  costPriority: CostPriority | null;
+  preferredHookTypes: string[] | null;
+  allowUserOverride: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -67,6 +79,12 @@ export function useChannelModelConfig(organizationId?: string) {
         maxTokens: row.max_tokens,
         isEnabled: row.is_enabled ?? true,
         priority: row.priority ?? 0,
+        qualityModeDefault: row.quality_mode_default,
+        promptStyle: row.prompt_style,
+        hookIntensity: row.hook_intensity,
+        costPriority: row.cost_priority,
+        preferredHookTypes: row.preferred_hook_types,
+        allowUserOverride: row.allow_user_override ?? true,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       })) as ChannelModelConfig[];
@@ -92,6 +110,12 @@ export function useChannelModelConfig(organizationId?: string) {
         max_tokens: config.maxTokens,
         is_enabled: config.isEnabled ?? true,
         priority: config.priority ?? 0,
+        quality_mode_default: config.qualityModeDefault,
+        prompt_style: config.promptStyle,
+        hook_intensity: config.hookIntensity,
+        cost_priority: config.costPriority,
+        preferred_hook_types: config.preferredHookTypes,
+        allow_user_override: config.allowUserOverride ?? true,
       };
 
       if (existingData?.id) {
