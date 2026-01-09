@@ -29,6 +29,8 @@ interface GenerateHooksRequest {
   platform?: string;
   duration?: string;
   count?: number;
+  organizationId?: string;
+  brandTemplateId?: string;
 }
 
 serve(async (req) => {
@@ -37,7 +39,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, brandVoice, platform, duration, count = 5 } = await req.json() as GenerateHooksRequest;
+    const { topic, brandVoice, platform, duration, count = 5, organizationId, brandTemplateId } = await req.json() as GenerateHooksRequest;
     
     if (!topic) {
       return new Response(
@@ -51,12 +53,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch channel optimization for the target platform
+    // Fetch channel optimization for the target platform (supports brand/org overrides)
     const targetChannel = platform || 'facebook';
     let channelOptimization: ChannelOptimization | null = null;
     try {
-      channelOptimization = await getChannelOptimization(supabase, targetChannel);
-      console.log('[generate-hooks] Channel optimization loaded for:', targetChannel, channelOptimization);
+      channelOptimization = await getChannelOptimization(supabase, targetChannel, organizationId, brandTemplateId);
+      console.log('[generate-hooks] Channel optimization loaded for:', targetChannel, 'org:', organizationId, 'brand:', brandTemplateId);
     } catch (optErr) {
       console.warn('[generate-hooks] Failed to load channel optimization, using defaults:', optErr);
     }
