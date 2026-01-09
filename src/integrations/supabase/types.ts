@@ -1196,38 +1196,56 @@ export type Database = {
       }
       ai_channel_model_configs: {
         Row: {
+          allow_user_override: boolean | null
           channel: string
+          cost_priority: string | null
           created_at: string | null
+          hook_intensity: string | null
           id: string
           is_enabled: boolean | null
           max_tokens: number | null
           model_override: string | null
           organization_id: string | null
+          preferred_hook_types: string[] | null
           priority: number | null
+          prompt_style: string | null
+          quality_mode_default: string | null
           temperature: number | null
           updated_at: string | null
         }
         Insert: {
+          allow_user_override?: boolean | null
           channel: string
+          cost_priority?: string | null
           created_at?: string | null
+          hook_intensity?: string | null
           id?: string
           is_enabled?: boolean | null
           max_tokens?: number | null
           model_override?: string | null
           organization_id?: string | null
+          preferred_hook_types?: string[] | null
           priority?: number | null
+          prompt_style?: string | null
+          quality_mode_default?: string | null
           temperature?: number | null
           updated_at?: string | null
         }
         Update: {
+          allow_user_override?: boolean | null
           channel?: string
+          cost_priority?: string | null
           created_at?: string | null
+          hook_intensity?: string | null
           id?: string
           is_enabled?: boolean | null
           max_tokens?: number | null
           model_override?: string | null
           organization_id?: string | null
+          preferred_hook_types?: string[] | null
           priority?: number | null
+          prompt_style?: string | null
+          quality_mode_default?: string | null
           temperature?: number | null
           updated_at?: string | null
         }
@@ -1714,6 +1732,56 @@ export type Database = {
           visitor_id?: string
         }
         Relationships: []
+      }
+      brand_channel_optimizations: {
+        Row: {
+          brand_template_id: string
+          channel: string
+          cost_priority: string | null
+          created_at: string | null
+          hook_intensity: string | null
+          id: string
+          max_tokens_override: number | null
+          preferred_hook_types: string[] | null
+          prompt_style: string | null
+          quality_mode: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_template_id: string
+          channel: string
+          cost_priority?: string | null
+          created_at?: string | null
+          hook_intensity?: string | null
+          id?: string
+          max_tokens_override?: number | null
+          preferred_hook_types?: string[] | null
+          prompt_style?: string | null
+          quality_mode?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_template_id?: string
+          channel?: string
+          cost_priority?: string | null
+          created_at?: string | null
+          hook_intensity?: string | null
+          id?: string
+          max_tokens_override?: number | null
+          preferred_hook_types?: string[] | null
+          prompt_style?: string | null
+          quality_mode?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_channel_optimizations_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       brand_preferences_learned: {
         Row: {
