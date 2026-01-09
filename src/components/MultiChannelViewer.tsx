@@ -414,6 +414,13 @@ export function MultiChannelViewer({
   // State for selected channel in new layout - must be before early return
   const safeChannels = Array.isArray(content?.selected_channels) ? content.selected_channels : [];
   const [selectedChannel, setSelectedChannel] = useState<Channel>(safeChannels[0] || 'facebook');
+  
+  // Sync selectedChannel when content changes (e.g., opening different content)
+  useEffect(() => {
+    if (safeChannels.length > 0 && !safeChannels.includes(selectedChannel)) {
+      setSelectedChannel(safeChannels[0]);
+    }
+  }, [content?.id, safeChannels]);
 
   if (!content) return null;
 
