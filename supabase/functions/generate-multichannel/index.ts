@@ -1430,16 +1430,17 @@ Mục tiêu nội dung: ${goalLabel}`;
 
       // Single AI call - direct, fast (use fastest model)
       const aiResponse = await callAI({
-        model: "google/gemini-2.5-flash-lite",
+        functionName: "preview-multichannel",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        maxTokens: 1000,
-        temperature: 0.7,
+        maxTokensOverride: 1000,
+        temperatureOverride: 0.7,
+        modelOverride: "google/gemini-2.5-flash-lite",
       });
 
-      const previewContent = aiResponse.content || "";
+      const previewContent = aiResponse.data?.choices?.[0]?.message?.content || "";
 
       // Return immediately - NO DB save, NO caching
       return new Response(
