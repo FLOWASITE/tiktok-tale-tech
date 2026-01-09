@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,15 +37,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Vui lòng tạo Brand Guideline trước khi tạo Brand Voice' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -162,54 +154,43 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả bổ 
       }
     ];
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        tools,
-        tool_choice: { type: "function", function: { name: "suggest_brand_voice" } },
-      }),
+    const aiResponse = await callAI({
+      functionName: 'generate-brand-voice',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      tools,
+      toolChoice: { type: 'function', function: { name: 'suggest_brand_voice' } },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
+    if (!aiResponse.success) {
+      console.error('AI call failed:', aiResponse.error);
+      if (aiResponse.error?.includes('Rate limit')) {
         return new Response(
           JSON.stringify({ error: 'Quá nhiều yêu cầu, vui lòng thử lại sau' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (aiResponse.error?.includes('Payment')) {
         return new Response(
           JSON.stringify({ error: 'Vui lòng nạp thêm credits để sử dụng tính năng AI' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
       return new Response(
         JSON.stringify({ error: 'AI service error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    console.log("AI response received:", JSON.stringify(data).slice(0, 500));
+    console.log('AI response received via', aiResponse.provider);
     
     // Extract from tool call response
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = aiResponse.data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall || toolCall.function?.name !== "suggest_brand_voice") {
       // Fallback: try to parse content as JSON
-      const content = data.choices?.[0]?.message?.content;
+      const content = aiResponse.data?.choices?.[0]?.message?.content;
       if (content) {
         try {
           const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
