@@ -16,7 +16,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 // ============================================
 
 export type QualityMode = 'fast' | 'balanced' | 'quality';
-export type PromptStyle = 'default' | 'concise' | 'detailed' | 'creative';
+export type PromptStyle = 'default' | 'concise' | 'detailed' | 'creative' | 'analytical';
 export type HookIntensity = 'soft' | 'medium' | 'strong' | 'viral';
 export type CostPriority = 'economy' | 'balanced' | 'quality';
 
@@ -172,6 +172,12 @@ export const PROMPT_STYLE_INSTRUCTIONS: Record<PromptStyle, string> = {
 - Sử dụng ngôn ngữ sinh động, hình ảnh
 - Có thể dùng metaphor, so sánh bất ngờ
 - Tạo điểm nhấn khác biệt`,
+  analytical: `
+## PROMPT STYLE: ANALYTICAL
+- Viết logic, có cấu trúc rõ ràng
+- Dùng data, số liệu, so sánh
+- Phân tích từng khía cạnh
+- Kết luận dựa trên evidence`,
 };
 
 // ============================================
