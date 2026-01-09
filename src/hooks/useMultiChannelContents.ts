@@ -903,8 +903,8 @@ export function useMultiChannelContents() {
   const expandChannels = async (contentId: string, newChannels: Channel[]): Promise<MultiChannelContent | null> => {
     setExpandingChannels(true);
     try {
-      const { data, error } = await supabase.functions.invoke('expand-multichannel-channels', {
-        body: { contentId, newChannels },
+      const { data, error } = await supabase.functions.invoke('generate-multichannel', {
+        body: { action: 'expand', contentId, newChannels },
       });
 
       if (error) {

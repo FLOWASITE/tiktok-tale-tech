@@ -54,7 +54,27 @@ interface FormData {
   targetProductId?: string;
   stream?: boolean; // NEW: Enable real-time SSE streaming
   campaignId?: string;
+  // Expand mode parameters
+  action?: 'create' | 'expand'; // 'create' = default, 'expand' = add channels to existing content
+  contentId?: string; // Required when action='expand'
+  newChannels?: string[]; // Required when action='expand' - channels to add
 }
+
+// Channel content column mapping (for expand mode)
+const CHANNEL_COLUMN_MAP: Record<string, string> = {
+  website: 'website_content',
+  facebook: 'facebook_content',
+  instagram: 'instagram_content',
+  twitter: 'twitter_content',
+  google_maps: 'google_maps_content',
+  linkedin: 'linkedin_content',
+  email: 'email_content',
+  youtube: 'youtube_content',
+  zalo_oa: 'zalo_oa_content',
+  telegram: 'telegram_content',
+  tiktok: 'tiktok_content',
+  threads: 'threads_content',
+};
 
 // Journey Stage → Content Goal Mapping
 // Auto-derive contentGoal from journeyStage to reduce user input
@@ -1295,6 +1315,57 @@ serve(async (req) => {
     }
     console.log("Using organization_id:", organizationId, "(from request:", !!formData.organization_id, ")");
 
+    // ============================================
+    // EXPAND MODE HANDLER
+    // Adds new channels to existing content
+    // ============================================
+    if (formData.action === 'expand') {
+      console.log(`[expand-mode] Expanding content ${formData.contentId} with channels: ${formData.newChannels?.join(', ')}`);
+      
+      if (!formData.contentId || !formData.newChannels || formData.newChannels.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Missing contentId or newChannels for expand action' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch existing content
+      const { data: existingContent, error: fetchError } = await supabase
+        .from('multi_channel_contents')
+        .select('*')
+        .eq('id', formData.contentId)
+        .single();
+
+      if (fetchError || !existingContent) {
+        console.error('[expand-mode] Content not found:', fetchError);
+        return new Response(
+          JSON.stringify({ error: 'Content not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Validate: channels should not already exist
+      const existingChannels = existingContent.selected_channels || [];
+      const invalidChannels = formData.newChannels.filter(ch => existingChannels.includes(ch));
+      if (invalidChannels.length > 0) {
+        return new Response(
+          JSON.stringify({ error: `Channels already exist: ${invalidChannels.join(', ')}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Override formData with existing content context for consistent generation
+      formData.topic = existingContent.topic;
+      formData.channels = formData.newChannels;
+      formData.brandTemplateId = existingContent.brand_template_id;
+      formData.contentGoal = existingContent.content_goal;
+      organizationId = existingContent.organization_id;
+
+      // Continue with normal generation flow but with expand context
+      // After generation, we'll UPDATE instead of INSERT
+      console.log(`[expand-mode] Using context from existing content: topic="${formData.topic}", channels=${formData.channels.join(',')}`);
+    }
+
     // Load brand template if provided
     let brandName = "Thương hiệu";
     let brandGuideline: string | null = null;
@@ -1873,42 +1944,98 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             }
             
             // Save to database with critique metadata
-            const { data: savedContent, error: dbError } = await supabase
-              .from('multi_channel_contents')
-              .insert({
-                user_id: userId,
-                organization_id: organizationId || null,
-                title: formData.topic.slice(0, 100),
-                topic: formData.topic,
-                content_goal: contentGoal,
-                selected_channels: channels,
-                brand_template_id: formData.brandTemplateId || null,
-                brand_voice_variant_id: formData.brandVoiceVariantId || null,
-                brand_name: brandName,
-                status: initialStatus,
-                industry_template_version: industryMemory?.version || null,
-                // Self-critique metadata
+            // EXPAND MODE: Update existing content | CREATE MODE: Insert new
+            let savedContent: any;
+            let dbError: any;
+            
+            if (formData.action === 'expand' && formData.contentId) {
+              // EXPAND MODE: Update existing content, merge channels
+              const { data: existingContent } = await supabase
+                .from('multi_channel_contents')
+                .select('selected_channels, channel_statuses')
+                .eq('id', formData.contentId)
+                .single();
+              
+              const existingChannels = existingContent?.selected_channels || [];
+              const existingStatuses = existingContent?.channel_statuses || {};
+              
+              // Build update payload with new channel contents
+              const updatePayload: Record<string, any> = {
+                selected_channels: [...existingChannels, ...channels],
                 critique_score: critiqueResult?.overall_score || null,
                 critique_details: critiqueResult || null,
                 was_refined: wasRefined,
                 refinement_count: refinementCount,
                 needs_manual_review: needsManualReview,
-                // Channel contents
-                website_content: channelResults.website || null,
-                facebook_content: channelResults.facebook || null,
-                instagram_content: channelResults.instagram || null,
-                twitter_content: channelResults.twitter || null,
-                google_maps_content: channelResults.google_maps || null,
-                linkedin_content: channelResults.linkedin || null,
-                email_content: channelResults.email || null,
-                youtube_content: channelResults.youtube || null,
-                zalo_oa_content: channelResults.zalo_oa || null,
-                telegram_content: channelResults.telegram || null,
-                tiktok_content: channelResults.tiktok || null,
-                threads_content: channelResults.threads || null,
-              })
-              .select()
-              .single();
+              };
+              
+              // Add new channel contents
+              for (const channel of channels) {
+                const columnName = CHANNEL_COLUMN_MAP[channel];
+                if (columnName && channelResults[channel]) {
+                  updatePayload[columnName] = channelResults[channel];
+                }
+              }
+              
+              // Update channel_statuses for new channels
+              const updatedStatuses = { ...existingStatuses };
+              for (const channel of channels) {
+                updatedStatuses[channel] = 'draft';
+              }
+              updatePayload.channel_statuses = updatedStatuses;
+              
+              const result = await supabase
+                .from('multi_channel_contents')
+                .update(updatePayload)
+                .eq('id', formData.contentId)
+                .select()
+                .single();
+              
+              savedContent = result.data;
+              dbError = result.error;
+              console.log(`[streaming-mode][expand] Updated content ${formData.contentId} with ${channels.length} new channels`);
+            } else {
+              // CREATE MODE: Insert new content
+              const result = await supabase
+                .from('multi_channel_contents')
+                .insert({
+                  user_id: userId,
+                  organization_id: organizationId || null,
+                  title: formData.topic.slice(0, 100),
+                  topic: formData.topic,
+                  content_goal: contentGoal,
+                  selected_channels: channels,
+                  brand_template_id: formData.brandTemplateId || null,
+                  brand_voice_variant_id: formData.brandVoiceVariantId || null,
+                  brand_name: brandName,
+                  status: initialStatus,
+                  industry_template_version: industryMemory?.version || null,
+                  // Self-critique metadata
+                  critique_score: critiqueResult?.overall_score || null,
+                  critique_details: critiqueResult || null,
+                  was_refined: wasRefined,
+                  refinement_count: refinementCount,
+                  needs_manual_review: needsManualReview,
+                  // Channel contents
+                  website_content: channelResults.website || null,
+                  facebook_content: channelResults.facebook || null,
+                  instagram_content: channelResults.instagram || null,
+                  twitter_content: channelResults.twitter || null,
+                  google_maps_content: channelResults.google_maps || null,
+                  linkedin_content: channelResults.linkedin || null,
+                  email_content: channelResults.email || null,
+                  youtube_content: channelResults.youtube || null,
+                  zalo_oa_content: channelResults.zalo_oa || null,
+                  telegram_content: channelResults.telegram || null,
+                  tiktok_content: channelResults.tiktok || null,
+                  threads_content: channelResults.threads || null,
+                })
+                .select()
+                .single();
+              
+              savedContent = result.data;
+              dbError = result.error;
+            }
             
             if (dbError) {
               console.error('[streaming-mode] DB error:', dbError);
@@ -3043,49 +3170,111 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     }
 
     // Save to database with Industry Memory version tracking + critique metadata
-    const { data: content, error: dbError } = await supabase
-      .from("multi_channel_contents")
-      .insert({
-        user_id: userId,
-        organization_id: organizationId,
-        title: generatedData.title,
-        topic: formData.topic,
-        industry: industry,
-        content_goal: formData.contentGoal || 'engagement', // Default fallback to avoid NOT NULL constraint
-        selected_channels: formData.channels,
-        brand_template_id: formData.brandTemplateId || null,
-        brand_voice_variant_id: formData.brandVoiceVariantId || null,
-        brand_name: brandName,
-        brand_guideline: brandGuideline,
-        primary_color: primaryColor,
-        status: initialStatus,
-        // Track Industry Memory version for audit trail
-        industry_template_version: industryMemory?.version || null,
-        // Self-critique metadata
+    // EXPAND MODE: Update existing content | CREATE MODE: Insert new
+    let content: any;
+    let dbError: any;
+    
+    if (formData.action === 'expand' && formData.contentId) {
+      // EXPAND MODE: Update existing content, merge channels
+      const { data: existingContent } = await supabase
+        .from('multi_channel_contents')
+        .select('selected_channels, channel_statuses')
+        .eq('id', formData.contentId)
+        .single();
+      
+      const existingChannels = existingContent?.selected_channels || [];
+      const existingStatuses = existingContent?.channel_statuses || {};
+      
+      // Build update payload with new channel contents
+      const updatePayload: Record<string, any> = {
+        selected_channels: [...existingChannels, ...formData.channels],
         critique_score: critiqueResult?.overall_score || null,
         critique_details: critiqueResult || null,
         was_refined: wasRefined,
         refinement_count: refinementCount,
-        needs_manual_review: needsManualReview, // NEW: Flag for manual review
-        // Channel contents - Handle website SEO structured data
-        website_content: typeof generatedData.website_content === 'object' 
-          ? generatedData.website_content?.content || null 
-          : generatedData.website_content || null,
-        website_seo_data: typeof generatedData.website_content === 'object' 
-          ? generatedData.website_content 
-          : null,
-        facebook_content: generatedData.facebook_content || null,
-        instagram_content: generatedData.instagram_content || null,
-        twitter_content: generatedData.twitter_content || null,
-        google_maps_content: generatedData.google_maps_content || null,
-        linkedin_content: generatedData.linkedin_content || null,
-        email_content: generatedData.email_content || null,
-        youtube_content: generatedData.youtube_content || null,
-        zalo_oa_content: generatedData.zalo_oa_content || null,
-        telegram_content: generatedData.telegram_content || null,
-      })
-      .select()
-      .single();
+        needs_manual_review: needsManualReview,
+      };
+      
+      // Add new channel contents
+      for (const channel of formData.channels) {
+        const columnName = CHANNEL_COLUMN_MAP[channel];
+        if (columnName) {
+          if (channel === 'website') {
+            updatePayload[columnName] = typeof generatedData.website_content === 'object' 
+              ? generatedData.website_content?.content || null 
+              : generatedData.website_content || null;
+            if (typeof generatedData.website_content === 'object') {
+              updatePayload.website_seo_data = generatedData.website_content;
+            }
+          } else {
+            updatePayload[columnName] = generatedData[`${channel}_content`] || null;
+          }
+        }
+      }
+      
+      // Update channel_statuses for new channels
+      const updatedStatuses = { ...existingStatuses };
+      for (const channel of formData.channels) {
+        updatedStatuses[channel] = 'draft';
+      }
+      updatePayload.channel_statuses = updatedStatuses;
+      
+      const result = await supabase
+        .from('multi_channel_contents')
+        .update(updatePayload)
+        .eq('id', formData.contentId)
+        .select()
+        .single();
+      
+      content = result.data;
+      dbError = result.error;
+      console.log(`[expand-mode] Updated content ${formData.contentId} with ${formData.channels.length} new channels`);
+    } else {
+      // CREATE MODE: Insert new content
+      const result = await supabase
+        .from("multi_channel_contents")
+        .insert({
+          user_id: userId,
+          organization_id: organizationId,
+          title: generatedData.title,
+          topic: formData.topic,
+          industry: industry,
+          content_goal: formData.contentGoal || 'engagement',
+          selected_channels: formData.channels,
+          brand_template_id: formData.brandTemplateId || null,
+          brand_voice_variant_id: formData.brandVoiceVariantId || null,
+          brand_name: brandName,
+          brand_guideline: brandGuideline,
+          primary_color: primaryColor,
+          status: initialStatus,
+          industry_template_version: industryMemory?.version || null,
+          critique_score: critiqueResult?.overall_score || null,
+          critique_details: critiqueResult || null,
+          was_refined: wasRefined,
+          refinement_count: refinementCount,
+          needs_manual_review: needsManualReview,
+          website_content: typeof generatedData.website_content === 'object' 
+            ? generatedData.website_content?.content || null 
+            : generatedData.website_content || null,
+          website_seo_data: typeof generatedData.website_content === 'object' 
+            ? generatedData.website_content 
+            : null,
+          facebook_content: generatedData.facebook_content || null,
+          instagram_content: generatedData.instagram_content || null,
+          twitter_content: generatedData.twitter_content || null,
+          google_maps_content: generatedData.google_maps_content || null,
+          linkedin_content: generatedData.linkedin_content || null,
+          email_content: generatedData.email_content || null,
+          youtube_content: generatedData.youtube_content || null,
+          zalo_oa_content: generatedData.zalo_oa_content || null,
+          telegram_content: generatedData.telegram_content || null,
+        })
+        .select()
+        .single();
+      
+      content = result.data;
+      dbError = result.error;
+    }
     
     if (industryMemory) {
       console.log("Content saved with Industry Memory version:", industryMemory.version);
