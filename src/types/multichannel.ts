@@ -234,6 +234,50 @@ export interface MultiChannelFormData {
   qualityMode?: QualityMode;
   // Footer Info control - whether to append contact info after generation
   includeFooterInfo?: boolean; // Default: true
+  // Hook integration - hooks cho từng kênh hoặc hook chung
+  selectedHooks?: MultiChannelSelectedHook[];
+  globalHook?: GlobalHook;
+}
+
+// ============================================
+// HOOK INTEGRATION TYPES
+// ============================================
+
+/**
+ * Hook được chọn cho một kênh cụ thể
+ * Khi user chọn hook từ MultiChannelHookGenerator
+ */
+export interface MultiChannelSelectedHook {
+  channel: Channel;           // Kênh áp dụng hook
+  opening_line: string;       // Câu hook chính
+  visual_direction?: string;  // Hướng dẫn visual (cho video/image)
+  hook_type?: string;         // Loại hook: question, story, bold_statement, etc.
+  psychology?: string;        // Lý do tâm lý tại sao hook này hiệu quả
+  text_overlay?: string;      // Text hiển thị trên hình/video
+}
+
+/**
+ * Hook chung áp dụng cho tất cả kênh
+ * Khi user muốn dùng 1 hook cho toàn bộ content
+ */
+export interface GlobalHook {
+  opening_line: string;
+  visual_direction?: string;
+  hook_type?: string;
+  psychology?: string;
+  text_overlay?: string;
+}
+
+/**
+ * Kết quả đánh giá chất lượng hook từ AI Hook Evaluator
+ */
+export interface HookEvaluationResult {
+  combined_score: number;     // 0-100
+  regex_score: number;        // 0-100 (quick evaluation)
+  ai_score?: number;          // 0-100 (deep evaluation, optional)
+  curiosity_gap?: number;     // 0-10
+  scroll_stopping?: number;   // 0-10
+  suggestions?: string[];     // Gợi ý cải thiện
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [
