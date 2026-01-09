@@ -117,9 +117,9 @@ describe('useTopicAI', () => {
       });
 
       expect(supabase.functions.invoke).toHaveBeenCalledWith(
-        'analyze-topic-gaps',
+        'topic-ai',
         expect.objectContaining({
-          body: expect.objectContaining({ analysisType: 'gap' }),
+          body: expect.objectContaining({ action: 'gap_analysis' }),
         })
       );
     });
@@ -162,7 +162,7 @@ describe('useTopicAI', () => {
   });
 
   describe('trending module', () => {
-    it('fetch calls discover-trending-topics', async () => {
+    it('fetch calls topic-ai with trending action', async () => {
       vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
         data: { topics: mockTrendingTopics, source: 'ai' },
         error: null,
@@ -174,7 +174,12 @@ describe('useTopicAI', () => {
         await result.current.trending.fetch();
       });
 
-      expect(supabase.functions.invoke).toHaveBeenCalledWith('discover-trending-topics', expect.any(Object));
+      expect(supabase.functions.invoke).toHaveBeenCalledWith(
+        'topic-ai',
+        expect.objectContaining({
+          body: expect.objectContaining({ action: 'trending' }),
+        })
+      );
     });
 
     it('clear resets trending state', async () => {
