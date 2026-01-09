@@ -62,6 +62,7 @@ import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementS
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
+import { SelectedHooksSummary } from '@/components/multichannel/SelectedHooksSummary';
 import { QualityModeQuickSelector } from '@/components/multichannel/QualityModeQuickSelector';
 import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
@@ -495,74 +496,15 @@ export function MultiChannelFormWizard({
 
                 {/* Hook Generator - moved to Step 3 after channel selection */}
 
-                {/* Selected Hooks Display */}
-                {formData.selectedHooks && formData.selectedHooks.length > 0 && (
-                  <Card className="border-amber-500/30 bg-amber-500/5">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-amber-500" />
-                          <span className="text-sm font-medium">Hooks đã chọn</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {formData.selectedHooks.length}
-                          </Badge>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={handleClearAllHooks}
-                          disabled={isGenerating}
-                        >
-                          <X className="w-3 h-3 mr-1" />
-                          Xóa tất cả
-                        </Button>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        {formData.selectedHooks.map((hook) => {
-                          const channelInfo = CHANNELS.find(c => c.value === hook.channel);
-                          return (
-                            <div 
-                              key={hook.channel}
-                              className="flex items-start gap-3 p-2 rounded-lg bg-background/50 group"
-                            >
-                              <div className="flex-shrink-0 w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
-                                {channelIcons[hook.channel]}
-                              </div>
-                              
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs font-medium">{channelInfo?.label}</span>
-                                  {hook.hook_type && (
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                                      {hook.hook_type}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground line-clamp-2">
-                                  "{hook.opening_line}"
-                                </p>
-                              </div>
-                              
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => handleRemoveHook(hook.channel)}
-                                disabled={isGenerating}
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Selected Hooks Summary */}
+                <SelectedHooksSummary
+                  selectedHooks={formData.selectedHooks || []}
+                  onRemoveHook={handleRemoveHook}
+                  onClearAll={handleClearAllHooks}
+                  disabled={isGenerating}
+                  collapsible
+                  defaultCollapsed={false}
+                />
               </div>
             </div>
           )}
