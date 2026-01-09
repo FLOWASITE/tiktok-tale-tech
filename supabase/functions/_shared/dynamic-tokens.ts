@@ -51,10 +51,10 @@ const CHANNEL_TOKEN_CONFIGS: Record<string, ChannelTokenConfig> = {
     bufferMultiplier: 1.3,
   },
   
-  // Short-form content
+  // Short-form content (Facebook needs more tokens for 250-500 word requirement)
   facebook: {
-    minTokens: 300,
-    maxTokens: 800,
+    minTokens: 500,
+    maxTokens: 1500,  // Increased to support 500 Vietnamese words
     bufferMultiplier: 1.5, // Emoji + formatting
   },
   instagram: {
