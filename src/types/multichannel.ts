@@ -200,6 +200,15 @@ export interface AiSuggestionContext {
   angle?: string;
 }
 
+// Quality Mode - Controls speed vs quality tradeoff
+export type QualityMode = 'fast' | 'balanced' | 'quality';
+
+export const QUALITY_MODES: { value: QualityMode; label: string; description: string; icon: string; badgeColor: string }[] = [
+  { value: 'fast', label: 'Nhanh', description: 'Bỏ qua đánh giá, tốc độ tối đa', icon: '⚡', badgeColor: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
+  { value: 'balanced', label: 'Cân bằng', description: 'Đánh giá + 1 lần tinh chỉnh', icon: '⚖️', badgeColor: 'bg-blue-500/15 text-blue-600 border-blue-500/30' },
+  { value: 'quality', label: 'Chất lượng', description: 'Đánh giá + 2 lần tinh chỉnh', icon: '✨', badgeColor: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
+];
+
 export interface MultiChannelFormData {
   topic: string;
   industry?: string;
@@ -221,6 +230,8 @@ export interface MultiChannelFormData {
   aiSuggestion?: AiSuggestionContext;
   // Campaign linking
   campaignId?: string;
+  // Quality mode for speed vs quality tradeoff
+  qualityMode?: QualityMode;
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [

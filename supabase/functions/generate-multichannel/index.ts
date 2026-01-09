@@ -37,6 +37,15 @@ interface EditedPreview {
   edited: string;
 }
 
+type QualityMode = 'fast' | 'balanced' | 'quality';
+
+// Quality Mode configurations - controls speed vs quality tradeoff
+const QUALITY_MODE_CONFIG: Record<QualityMode, { skipCritique: boolean; maxRefinements: number }> = {
+  fast: { skipCritique: true, maxRefinements: 0 },
+  balanced: { skipCritique: false, maxRefinements: 1 },
+  quality: { skipCritique: false, maxRefinements: 2 },
+};
+
 interface FormData {
   topic: string;
   industry?: string;
@@ -54,6 +63,7 @@ interface FormData {
   targetProductId?: string;
   stream?: boolean; // NEW: Enable real-time SSE streaming
   campaignId?: string;
+  qualityMode?: QualityMode; // NEW: Speed vs quality tradeoff
   // Action mode parameters
   action?: 'create' | 'expand' | 'regenerate' | 'preview'; // 'create' = default, 'preview' = ultra-fast no-save
   contentId?: string; // Required when action='expand' or 'regenerate'
@@ -2386,58 +2396,69 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             
             // ============================================
             // SELF-CRITIQUE LOOP (Post-streaming)
+            // Based on qualityMode: fast skips, balanced/quality runs
             // ============================================
-            emit({ type: 'progress', step: 'critique', progress: 78, message: 'Đang đánh giá chất lượng...' });
+            const qualityMode = formData.qualityMode || 'balanced';
+            const qualityConfig = QUALITY_MODE_CONFIG[qualityMode];
+            console.log(`[streaming-mode][quality-mode] Using '${qualityMode}': skipCritique=${qualityConfig.skipCritique}`);
             
             let critiqueResult: CritiqueResult | null = null;
             let wasRefined = false;
             let refinementCount = 0;
             let needsManualReview = false;
             
-            try {
-              // Prepare content object for critique (match normal mode structure)
-              const contentForCritique: Record<string, any> = {
-                title: formData.topic.slice(0, 100),
-              };
-              for (const [ch, content] of Object.entries(channelResults)) {
-                contentForCritique[`${ch}_content`] = content;
-              }
+            if (!qualityConfig.skipCritique) {
+              emit({ type: 'progress', step: 'critique', progress: 78, message: 'Đang đánh giá chất lượng...' });
               
-              const critiqueLoop = await runSelfCritiqueLoop({
-                content: contentForCritique,
-                contentType: 'multichannel',
-                brandVoice: streamingContext.brandVoice,
-                mergedRules: streamingContext.mergedRules,
-                additionalContext: `Channels: ${channels.join(', ')}`,
-                apiKey: LOVABLE_API_KEY,
-              });
+              try {
+                // Prepare content object for critique (match normal mode structure)
+                const contentForCritique: Record<string, any> = {
+                  title: formData.topic.slice(0, 100),
+                };
+                for (const [ch, content] of Object.entries(channelResults)) {
+                  contentForCritique[`${ch}_content`] = content;
+                }
+                
+                const critiqueLoop = await runSelfCritiqueLoop({
+                  content: contentForCritique,
+                  contentType: 'multichannel',
+                  brandVoice: streamingContext.brandVoice,
+                  mergedRules: streamingContext.mergedRules,
+                  additionalContext: `Channels: ${channels.join(', ')}`,
+                  apiKey: LOVABLE_API_KEY,
+                  maxRefinements: qualityConfig.maxRefinements,
+                });
 
-              // Update channelResults with refined content
-              if (critiqueLoop.wasRefined) {
-                for (const channel of channels) {
-                  const key = `${channel}_content`;
-                  if (critiqueLoop.finalContent[key]) {
-                    channelResults[channel] = critiqueLoop.finalContent[key];
+                // Update channelResults with refined content
+                if (critiqueLoop.wasRefined) {
+                  for (const channel of channels) {
+                    const key = `${channel}_content`;
+                    if (critiqueLoop.finalContent[key]) {
+                      channelResults[channel] = critiqueLoop.finalContent[key];
+                    }
                   }
                 }
+
+                critiqueResult = critiqueLoop.critiqueResult;
+                wasRefined = critiqueLoop.wasRefined;
+                refinementCount = critiqueLoop.refinementCount;
+                needsManualReview = critiqueLoop.needsManualReview;
+
+                emit({ 
+                  type: 'progress', 
+                  step: 'critique', 
+                  progress: 82, 
+                  message: `Đánh giá: ${critiqueResult.overall_score}/100 ${wasRefined ? '(đã tinh chỉnh)' : ''}` 
+                });
+                console.log(`[streaming-mode] Self-Critique: score=${critiqueResult.overall_score}, refined=${wasRefined}, needsReview=${needsManualReview}`);
+              } catch (critiqueError) {
+                console.error('[streaming-mode] Self-critique failed:', critiqueError);
+                needsManualReview = true;
+                emit({ type: 'progress', step: 'critique', progress: 82, message: 'Đánh giá: (đã bỏ qua)' });
               }
-
-              critiqueResult = critiqueLoop.critiqueResult;
-              wasRefined = critiqueLoop.wasRefined;
-              refinementCount = critiqueLoop.refinementCount;
-              needsManualReview = critiqueLoop.needsManualReview;
-
-              emit({ 
-                type: 'progress', 
-                step: 'critique', 
-                progress: 82, 
-                message: `Đánh giá: ${critiqueResult.overall_score}/100 ${wasRefined ? '(đã tinh chỉnh)' : ''}` 
-              });
-              console.log(`[streaming-mode] Self-Critique: score=${critiqueResult.overall_score}, refined=${wasRefined}, needsReview=${needsManualReview}`);
-            } catch (critiqueError) {
-              console.error('[streaming-mode] Self-critique failed:', critiqueError);
-              needsManualReview = true;
-              emit({ type: 'progress', step: 'critique', progress: 82, message: 'Đánh giá: (đã bỏ qua)' });
+            } else {
+              console.log(`[streaming-mode][quality-mode] Skipping self-critique (fast mode)`);
+              emit({ type: 'progress', step: 'critique', progress: 82, message: 'Bỏ qua đánh giá (chế độ nhanh)' });
             }
             
             emit({ type: 'progress', step: 'finalize', progress: 88, message: 'Đang lưu kết quả...' });
@@ -3437,14 +3458,20 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
 
     // ============================================
     // SELF-CRITIQUE LOOP - Evaluate and refine content
+    // Based on qualityMode: fast skips, balanced/quality runs
     // ============================================
     let critiqueResult: CritiqueResult | null = null;
     let wasRefined = false;
     let refinementCount = 0;
     let needsManualReview = false;
 
-    // Only run critique if not from cache
-    if (!fromCache) {
+    // Get quality mode config (default: balanced)
+    const qualityMode = formData.qualityMode || 'balanced';
+    const qualityConfig = QUALITY_MODE_CONFIG[qualityMode];
+    console.log(`[quality-mode] Using '${qualityMode}': skipCritique=${qualityConfig.skipCritique}, maxRefinements=${qualityConfig.maxRefinements}`);
+
+    // Only run critique if not from cache AND quality mode allows it
+    if (!fromCache && !qualityConfig.skipCritique) {
       try {
         const critiqueLoop = await runSelfCritiqueLoop({
           content: generatedData,
@@ -3453,6 +3480,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           mergedRules,
           additionalContext: `Channels: ${formData.channels.join(', ')}`,
           apiKey: LOVABLE_API_KEY,
+          maxRefinements: qualityConfig.maxRefinements,
         });
 
         generatedData = critiqueLoop.finalContent;
@@ -3467,6 +3495,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         // Flag for manual review when critique system fails
         needsManualReview = true;
       }
+    } else if (qualityConfig.skipCritique) {
+      console.log(`[quality-mode] Skipping self-critique (fast mode)`);
     }
 
     // ============================================
