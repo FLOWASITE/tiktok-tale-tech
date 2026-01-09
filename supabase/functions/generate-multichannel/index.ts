@@ -89,6 +89,25 @@ const QUALITY_MODE_CONFIG: Record<QualityMode, { skipCritique: boolean; maxRefin
   quality: { skipCritique: false, maxRefinements: 2 },
 };
 
+// Selected hook structure for multichannel
+interface SelectedHook {
+  channel: string;
+  opening_line: string;
+  visual_direction?: string;
+  hook_type?: string;
+  psychology?: string;
+  text_overlay?: string;
+}
+
+// Global hook applied to all channels
+interface GlobalHook {
+  opening_line: string;
+  visual_direction?: string;
+  hook_type?: string;
+  psychology?: string;
+  text_overlay?: string;
+}
+
 interface FormData {
   topic: string;
   industry?: string;
@@ -116,6 +135,9 @@ interface FormData {
   enableCritique?: boolean; // Optional for regenerate: run Self-Critique (default: false)
   // Footer Info control - whether to append contact info after generation
   includeFooterInfo?: boolean; // Default: true
+  // Hook integration - hooks cho từng kênh hoặc hook chung
+  selectedHooks?: SelectedHook[];
+  globalHook?: GlobalHook;
 }
 
 // Channel content column mapping (for expand mode)
@@ -414,6 +436,95 @@ const getBrandVoicePrompt = (
   
   return parts.join("\n");
 };
+
+// ============================================
+// HOOK SECTION BUILDER
+// Builds hook instruction for AI prompt based on selected hooks
+// Priority: Channel-specific hook > Global hook > AI generates
+// ============================================
+
+/**
+ * Build hook section for a specific channel
+ * @param channel - Target channel (e.g., 'facebook', 'instagram')
+ * @param selectedHooks - Array of channel-specific hooks
+ * @param globalHook - Global hook to apply if no channel-specific hook exists
+ * @returns Hook instruction string to include in prompt
+ */
+function buildHookSection(
+  channel: string,
+  selectedHooks?: SelectedHook[],
+  globalHook?: GlobalHook
+): string {
+  // Find channel-specific hook first
+  const channelHook = selectedHooks?.find(h => h.channel === channel);
+  const hook = channelHook || globalHook;
+  
+  if (!hook?.opening_line) {
+    return ''; // No hook provided - AI will generate based on channel settings
+  }
+  
+  const parts: string[] = [];
+  parts.push(`\n## 🎯 HOOK ĐÃ CHỌN (BẮT BUỘC SỬ DỤNG)`);
+  parts.push(`### Câu mở đầu (sử dụng nguyên văn hoặc biến thể nhẹ phù hợp kênh):`);
+  parts.push(`"${hook.opening_line}"`);
+  
+  if (hook.visual_direction) {
+    parts.push(`\n### Hướng dẫn visual: ${hook.visual_direction}`);
+  }
+  if (hook.hook_type) {
+    parts.push(`### Loại hook: ${hook.hook_type}`);
+  }
+  if (hook.psychology) {
+    parts.push(`### Tâm lý đánh trúng: ${hook.psychology}`);
+  }
+  if (hook.text_overlay) {
+    parts.push(`### Text overlay (nếu dùng hình/video): ${hook.text_overlay}`);
+  }
+  
+  parts.push(`\n**LƯU Ý QUAN TRỌNG:**`);
+  parts.push(`- BẮT BUỘC mở đầu bài bằng hook này`);
+  parts.push(`- Có thể điều chỉnh nhẹ cho phù hợp tone/độ dài của kênh ${channel.toUpperCase()}`);
+  parts.push(`- KHÔNG thay đổi ý nghĩa cốt lõi của hook`);
+  
+  return parts.join('\n');
+}
+
+/**
+ * Build hook context for all channels (overview in user prompt)
+ * @param selectedHooks - Array of channel-specific hooks
+ * @param globalHook - Global hook to apply to all channels
+ * @returns Overview string for user prompt
+ */
+function buildHookOverview(
+  selectedHooks?: SelectedHook[],
+  globalHook?: GlobalHook
+): string {
+  if ((!selectedHooks || selectedHooks.length === 0) && !globalHook) {
+    return '';
+  }
+  
+  const parts: string[] = [];
+  parts.push(`\n## 🎣 HOOK HƯỚNG DẪN`);
+  
+  if (globalHook?.opening_line) {
+    parts.push(`### Hook chung cho tất cả kênh:`);
+    parts.push(`"${globalHook.opening_line}"`);
+    if (globalHook.hook_type) {
+      parts.push(`Loại: ${globalHook.hook_type}`);
+    }
+  }
+  
+  if (selectedHooks && selectedHooks.length > 0) {
+    parts.push(`\n### Hook riêng theo kênh:`);
+    for (const hook of selectedHooks) {
+      parts.push(`- **${hook.channel.toUpperCase()}**: "${hook.opening_line.substring(0, 80)}${hook.opening_line.length > 80 ? '...' : ''}"`);
+    }
+  }
+  
+  parts.push(`\n⚡ MỖI KÊNH: Sử dụng hook được chỉ định (nếu có) làm câu mở đầu. Điều chỉnh nhẹ cho phù hợp kênh.`);
+  
+  return parts.join('\n');
+}
 
 // ============================================
 // CHANNEL SETTINGS ENGINE - Chi tiết rules cho từng kênh
@@ -1908,6 +2019,9 @@ ${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPers
         }
       }
       
+      // Build hook overview for all channels
+      const hookOverview = buildHookOverview(formData.selectedHooks, formData.globalHook);
+      
       // Build base user prompt
       let userPrompt = `Tạo nội dung đa kênh cho chủ đề:
 "${formData.topic}"
@@ -1915,6 +2029,7 @@ ${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPers
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
 ${targetedProductContext}
 ${targetedPersonaContext}
+${hookOverview}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
 
@@ -2057,11 +2172,20 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             const channelResults: Record<string, string> = {};
             const completedChannelsSet = new Set<string>();
             
-            // Build user prompt for each channel
-            const buildChannelUserPrompt = (channel: string) => `${userPrompt}
+            // Build user prompt for each channel (with channel-specific hook)
+            const buildChannelUserPrompt = (channel: string) => {
+              const channelHookSection = buildHookSection(channel, formData.selectedHooks, formData.globalHook);
+              return `${userPrompt}
+${channelHookSection}
 
 Bây giờ viết nội dung cho kênh: ${channel.toUpperCase()}
 Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
+            };
+            
+            // Log hook usage
+            if (formData.selectedHooks?.length || formData.globalHook) {
+              console.log(`[streaming-mode] Using hooks: ${formData.selectedHooks?.length || 0} channel-specific, globalHook: ${!!formData.globalHook}`);
+            }
             
             // Generate content for ALL channels in PARALLEL
             console.log(`[streaming-mode] Starting PARALLEL generation for ${channels.length} channels`);
@@ -2521,6 +2645,20 @@ ${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPers
       }
     }
 
+    // Build hook overview for all channels (non-streaming)
+    const hookOverviewNonStreaming = buildHookOverview(formData.selectedHooks, formData.globalHook);
+    
+    // Build channel-specific hook sections for each channel
+    const channelHookSections = formData.channels.reduce((acc, channel) => {
+      acc[channel] = buildHookSection(channel, formData.selectedHooks, formData.globalHook);
+      return acc;
+    }, {} as Record<string, string>);
+    
+    // Log hook usage for non-streaming
+    if (formData.selectedHooks?.length || formData.globalHook) {
+      console.log(`Using hooks: ${formData.selectedHooks?.length || 0} channel-specific, globalHook: ${!!formData.globalHook}`);
+    }
+
     // Build user prompt with optional edited previews as examples
     let userPrompt = `Tạo nội dung đa kênh cho chủ đề:
 "${formData.topic}"
@@ -2528,12 +2666,22 @@ ${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPers
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
 ${targetedProductContext}
 ${targetedPersonaContext}
+${hookOverviewNonStreaming}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
 
 Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy ước đã cho.
 Đảm bảo thông điệp lõi nhất quán nhưng format và tone khác nhau theo từng nền tảng.
 Nội dung sẵn sàng đăng ngay.`;
+
+    // Add channel-specific hook instructions
+    const channelsWithHooks = Object.entries(channelHookSections).filter(([_, section]) => section.length > 0);
+    if (channelsWithHooks.length > 0) {
+      userPrompt += `\n\n## HOOK INSTRUCTIONS PER CHANNEL`;
+      for (const [channel, hookSection] of channelsWithHooks) {
+        userPrompt += `\n\n### ${channel.toUpperCase()}${hookSection}`;
+      }
+    }
 
     // If user has edited any previews, use them as examples for the AI to learn from
     if (formData.editedPreviews && Object.keys(formData.editedPreviews).length > 0) {
