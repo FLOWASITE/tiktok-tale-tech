@@ -30,6 +30,7 @@ interface LocationState {
   topicHistoryId?: string;
   contentPurpose?: string;
   marketingFramework?: string;
+  viewContentId?: string;
 }
 
 export default function MultiChannel() {
@@ -71,6 +72,19 @@ export default function MultiChannel() {
       window.history.replaceState({}, document.title);
     }
   }, [prefillData, navigate]);
+
+  // Handle viewContentId from Create page - auto-open viewer
+  useEffect(() => {
+    if (prefillData?.viewContentId && !loading) {
+      const contentToView = contents.find(c => c.id === prefillData.viewContentId);
+      if (contentToView) {
+        setSelectedContent(contentToView);
+        setViewerOpen(true);
+        // Clear state to prevent re-opening on refresh
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [prefillData?.viewContentId, contents, loading]);
   
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
