@@ -321,13 +321,17 @@ export function useHookAI(options: UseHookAIOptions = {}) {
 
       if (fnError) throw fnError;
 
-      const generatedHooks: MultiChannelHook[] = (data?.hooks || []).map((hook: any, idx: number) => ({
-        channel: channels[idx] || channels[0],
-        opening_line: hook.opening_line,
-        hook_type: hook.framework || CHANNEL_HOOK_TYPES[channels[idx]]?.[0] || 'General',
-        psychology: hook.psychology_reason,
-        evaluation: hook.evaluation, // Include evaluation from API
-      }));
+      // Map hooks using platform field from API (not by index)
+      const generatedHooks: MultiChannelHook[] = (data?.hooks || []).map((hook: any) => {
+        const hookChannel = (hook.platform as Channel) || channels[0];
+        return {
+          channel: hookChannel,
+          opening_line: hook.opening_line,
+          hook_type: hook.framework || CHANNEL_HOOK_TYPES[hookChannel]?.[0] || 'General',
+          psychology: hook.psychology_reason,
+          evaluation: hook.evaluation,
+        };
+      });
 
       setMultiChannelHooks(generatedHooks);
       multiChannelCache.set(multiChannelCacheKey, generatedHooks);
