@@ -558,16 +558,19 @@ interface ChannelSettings {
   line_break_style: 'many' | 'short' | 'normal' | 'minimal';
   link_position: 'body' | 'end' | 'allowed' | 'none';
   format_description?: string;
+  tone_adjustment?: 'keep' | 'shorten' | 'concise';
   // SEO-specific settings (for website)
   seo_optimized?: boolean;
   heading_structure_required?: boolean;
   featured_snippet_format?: boolean;
 }
 
-// Partial override type
+// Partial override type - includes ALL overrideable settings
 type ChannelOverride = Partial<Pick<ChannelSettings, 
   'max_length' | 'min_length' | 'hook_required' | 'cta_policy' | 
-  'emoji_allowed' | 'emoji_limit' | 'hashtag_limit' | 'link_position'
+  'emoji_allowed' | 'emoji_limit' | 'hashtag_limit' | 'link_position' |
+  'hashtag_position' | 'line_break_style' | 'hook_style' | 'length_unit' |
+  'tone_adjustment' | 'format_description' | 'bullet_allowed' | 'has_subject_line'
 >>;
 
 type ChannelOverrides = Record<string, ChannelOverride> | null;
@@ -777,7 +780,7 @@ function buildChannelRulesPrompt(
   return parts.join('\n');
 }
 
-// Helper: Merge default settings with brand overrides
+// Helper: Merge default settings with brand overrides (ALL settings)
 function mergeChannelSettings(channel: string, overrides: ChannelOverrides): ChannelSettings {
   const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
   if (!defaults) return DEFAULT_CHANNEL_SETTINGS.facebook; // Fallback
@@ -786,14 +789,28 @@ function mergeChannelSettings(channel: string, overrides: ChannelOverrides): Cha
   const override = overrides[channel];
   return {
     ...defaults,
+    // Core content settings
     max_length: override.max_length ?? defaults.max_length,
     min_length: override.min_length ?? defaults.min_length,
+    length_unit: override.length_unit ?? defaults.length_unit,
+    // Hook settings
     hook_required: override.hook_required ?? defaults.hook_required,
+    hook_style: override.hook_style ?? defaults.hook_style,
+    // CTA & formatting
     cta_policy: override.cta_policy ?? defaults.cta_policy,
+    bullet_allowed: override.bullet_allowed ?? defaults.bullet_allowed,
+    line_break_style: override.line_break_style ?? defaults.line_break_style,
+    format_description: override.format_description ?? defaults.format_description,
+    // Emoji & hashtag
     emoji_allowed: override.emoji_allowed ?? defaults.emoji_allowed,
     emoji_limit: override.emoji_limit ?? defaults.emoji_limit,
     hashtag_limit: override.hashtag_limit ?? defaults.hashtag_limit,
+    hashtag_position: override.hashtag_position ?? defaults.hashtag_position,
+    // Link & tone
     link_position: override.link_position ?? defaults.link_position,
+    tone_adjustment: override.tone_adjustment ?? defaults.tone_adjustment,
+    // Special
+    has_subject_line: override.has_subject_line ?? defaults.has_subject_line,
   };
 }
 
