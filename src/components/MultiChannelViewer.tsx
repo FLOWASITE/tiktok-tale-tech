@@ -62,6 +62,8 @@ import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
 import { AutoImageGenerator } from '@/components/multichannel/AutoImageGenerator';
 import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
+import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
+import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -274,6 +276,30 @@ export function MultiChannelViewer({
   // Content validation hook
   const { validateContent, hasIndustryRules } = useContentValidation(content?.brand_template_id);
 
+  // Streaming regenerate hook
+  const {
+    regenerate: streamingRegenerate,
+    cancel: cancelStreamingRegenerate,
+    streamingText: regenerateStreamingText,
+    isRegenerating: isStreamingRegenerating,
+    regeneratingChannel: streamingRegeneratingChannel,
+    progress: regenerateProgress,
+  } = useStreamingRegenerate({
+    onComplete: (channel, newContent) => {
+      // Refresh content after regeneration completes
+      if (onUpdateContent && content) {
+        onUpdateContent(content.id, channel, newContent);
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: '❌ Lỗi tạo lại',
+        description: error,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Undo/Redo hook for edit content
   const {
     value: editContent,
@@ -437,10 +463,11 @@ export function MultiChannelViewer({
   };
 
   const handleRegenerate = async (channel: Channel) => {
-    if (!onRegenerate || regeneratingChannel) return;
+    if (isStreamingRegenerating || regeneratingChannel) return;
     setEditingChannel(null);
     setPreviewContent(null);
-    await onRegenerate(content.id, channel);
+    // Use streaming regenerate for real-time feedback
+    await streamingRegenerate(content.id, channel);
   };
 
   const handleStartEdit = (channel: Channel) => {
@@ -1522,6 +1549,21 @@ export function MultiChannelViewer({
           setShowExpandDialog(false);
         }}
       />
+
+      {/* Regenerate Streaming Overlay */}
+      {isStreamingRegenerating && streamingRegeneratingChannel && (
+        <RegenerateStreamingOverlay
+          channel={streamingRegeneratingChannel}
+          streamingText={regenerateStreamingText}
+          progress={regenerateProgress.progress}
+          message={regenerateProgress.message}
+          isComplete={regenerateProgress.isComplete}
+          onCancel={cancelStreamingRegenerate}
+          onComplete={() => {
+            // Content already updated via onComplete callback
+          }}
+        />
+      )}
     </Dialog>
   );
 }
