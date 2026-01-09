@@ -1715,6 +1715,53 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_preferences_learned: {
+        Row: {
+          brand_template_id: string
+          channel: string
+          confidence_score: number
+          created_at: string
+          id: string
+          last_edit_at: string | null
+          preference_key: string
+          preference_value: Json
+          sample_count: number
+          updated_at: string
+        }
+        Insert: {
+          brand_template_id: string
+          channel: string
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          last_edit_at?: string | null
+          preference_key: string
+          preference_value: Json
+          sample_count?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_template_id?: string
+          channel?: string
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          last_edit_at?: string | null
+          preference_key?: string
+          preference_value?: Json
+          sample_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_preferences_learned_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_products: {
         Row: {
           benefits: string[] | null
@@ -2818,6 +2865,66 @@ export type Database = {
           },
           {
             foreignKeyName: "content_embeddings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_learnings: {
+        Row: {
+          brand_template_id: string | null
+          channel: string
+          content_id: string | null
+          content_type: string
+          created_at: string
+          edit_diff: Json | null
+          edit_type: string
+          edited_snippet: string | null
+          id: string
+          organization_id: string | null
+          original_snippet: string | null
+          user_id: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          channel: string
+          content_id?: string | null
+          content_type?: string
+          created_at?: string
+          edit_diff?: Json | null
+          edit_type: string
+          edited_snippet?: string | null
+          id?: string
+          organization_id?: string | null
+          original_snippet?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          channel?: string
+          content_id?: string | null
+          content_type?: string
+          created_at?: string
+          edit_diff?: Json | null
+          edit_type?: string
+          edited_snippet?: string | null
+          id?: string
+          organization_id?: string | null
+          original_snippet?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_learnings_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_learnings_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -6327,6 +6434,10 @@ export type Database = {
       }
     }
     Functions: {
+      aggregate_content_learnings: {
+        Args: { p_brand_template_id: string }
+        Returns: undefined
+      }
       calculate_next_sync_at: { Args: { frequency: string }; Returns: string }
       can_use_feature: {
         Args: {
