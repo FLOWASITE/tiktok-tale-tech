@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-
+import { TokenExpiryBadge } from '@/components/social/TokenExpiryBadge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertCircle } from 'lucide-react';
@@ -317,17 +317,20 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                   </span>
                 )}
                 {connection.is_active ? (
-                  connection.last_verified_at ? (
-                    <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
-                      <ShieldCheck className="w-3 h-3 mr-1" />
-                      Đã xác thực
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-xs">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      Đã kết nối
-                    </Badge>
-                  )
+                  <>
+                    {connection.last_verified_at ? (
+                      <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Đã xác thực
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Đã kết nối
+                      </Badge>
+                    )}
+                    <TokenExpiryBadge expiresAt={connection.token_expires_at} />
+                  </>
                 ) : (
                   <Badge variant="secondary" className="text-xs">
                     Đã ngắt
