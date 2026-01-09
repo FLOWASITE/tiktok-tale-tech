@@ -88,7 +88,7 @@ export function useExpandChannelsStreaming(options: UseExpandChannelsStreamingOp
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expand-multichannel-channels`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-multichannel`,
         {
           method: 'POST',
           headers: {
@@ -96,6 +96,7 @@ export function useExpandChannelsStreaming(options: UseExpandChannelsStreamingOp
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({ 
+            action: 'expand', // Use expand mode
             contentId, 
             newChannels,
             stream: true, // Enable streaming mode
