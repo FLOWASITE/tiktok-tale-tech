@@ -78,6 +78,8 @@ interface MultiChannelViewerProps {
   onDeleteChannelImage?: (contentId: string, channel: Channel) => Promise<MultiChannelContent | void>;
   onUpdateChannelStatus?: (contentId: string, channel: Channel, status: ContentStatus) => Promise<MultiChannelContent | null>;
   onExpandChannels?: (contentId: string, newChannels: Channel[]) => Promise<MultiChannelContent | null>;
+  /** Notify parent to update the viewer content object (e.g., after expanding channels). */
+  onContentUpdated?: (content: MultiChannelContent) => void;
   regeneratingChannel?: string | null;
   aiEditingChannel?: string | null;
   expandingChannels?: boolean;
@@ -234,6 +236,7 @@ export function MultiChannelViewer({
   onDeleteChannelImage,
   onUpdateChannelStatus,
   onExpandChannels,
+  onContentUpdated,
   regeneratingChannel,
   aiEditingChannel,
   expandingChannels,
@@ -1546,16 +1549,19 @@ export function MultiChannelViewer({
         onOpenChange={setShowExpandDialog}
         content={content}
         onComplete={(updatedContent) => {
+          // Ensure newly added channels immediately appear in the channel sidebar
+          onContentUpdated?.(updatedContent);
+
           // Find the newly added channels by comparing old and new selected_channels
           const oldChannels = content.selected_channels || [];
           const newChannels = updatedContent.selected_channels || [];
           const addedChannels = newChannels.filter(ch => !oldChannels.includes(ch));
-          
+
           // Switch to the first newly added channel
           if (addedChannels.length > 0) {
             setSelectedChannel(addedChannels[0]);
           }
-          
+
           setShowExpandDialog(false);
         }}
       />
