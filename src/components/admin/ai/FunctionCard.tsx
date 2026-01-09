@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { AIFunctionType, AIFunctionConfig, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
 import { ProviderIndicator } from './ModelCard';
-import { Settings, Check, X, Zap, Star, Sparkles, Clock, ChevronDown } from 'lucide-react';
+import { Settings, Check, X, Zap, Star, Sparkles, Clock, ChevronDown, Coins, Scale, LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,11 +47,118 @@ const CATEGORY_BORDER: Record<string, string> = {
   analysis: 'border-l-cyan-500',
 };
 
-const QUICK_PRESETS = [
-  { id: 'default', label: 'Mặc định', model: null, icon: Sparkles },
-  { id: 'fast', label: 'Nhanh', model: 'google/gemini-2.5-flash-lite', icon: Zap },
-  { id: 'quality', label: 'Pro', model: 'google/gemini-3-pro-preview', icon: Star },
+interface QuickPreset {
+  id: string;
+  label: string;
+  model: string | null;
+  icon: LucideIcon;
+  description: string;
+  speed: 'fast' | 'medium' | 'slow';
+  cost: 'low' | 'medium' | 'high';
+  useCase: string;
+  color: string;
+}
+
+const QUICK_PRESETS: QuickPreset[] = [
+  { 
+    id: 'default', 
+    label: 'Mặc định', 
+    model: null, 
+    icon: Sparkles,
+    description: 'Cấu hình mặc định hệ thống',
+    speed: 'fast',
+    cost: 'low',
+    useCase: 'Phù hợp cho hầu hết tác vụ',
+    color: 'blue',
+  },
+  { 
+    id: 'economy', 
+    label: 'Tiết kiệm', 
+    model: 'google/gemini-2.5-flash-lite', 
+    icon: Coins,
+    description: 'Chi phí thấp nhất, tốc độ nhanh',
+    speed: 'fast',
+    cost: 'low',
+    useCase: 'Tác vụ đơn giản, khối lượng lớn',
+    color: 'green',
+  },
+  { 
+    id: 'fast', 
+    label: 'Nhanh', 
+    model: 'google/gemini-2.5-flash', 
+    icon: Zap,
+    description: 'Cân bằng tốc độ và chất lượng',
+    speed: 'fast',
+    cost: 'low',
+    useCase: 'Phản hồi realtime, chat',
+    color: 'yellow',
+  },
+  { 
+    id: 'balanced', 
+    label: 'Cân bằng', 
+    model: 'openai/gpt-5-mini', 
+    icon: Scale,
+    description: 'Chất lượng tốt, chi phí hợp lý',
+    speed: 'medium',
+    cost: 'medium',
+    useCase: 'Nội dung marketing, blog',
+    color: 'cyan',
+  },
+  { 
+    id: 'quality', 
+    label: 'Chất lượng', 
+    model: 'google/gemini-3-pro-preview', 
+    icon: Star,
+    description: 'Model mạnh nhất, tính năng mới',
+    speed: 'medium',
+    cost: 'high',
+    useCase: 'Nội dung quan trọng, sáng tạo',
+    color: 'purple',
+  },
 ];
+
+const shortenModelName = (model: string): string => {
+  const parts = model.split('/');
+  const name = parts.length > 1 ? parts[1] : model;
+  return name.replace(/-\d{8}$/, '').replace(/-preview$/, '');
+};
+
+const getSpeedLabel = (speed: 'fast' | 'medium' | 'slow') => {
+  switch (speed) {
+    case 'fast': return { icon: '⚡', text: 'Nhanh' };
+    case 'medium': return { icon: '🕐', text: 'Trung bình' };
+    case 'slow': return { icon: '🐢', text: 'Chậm' };
+  }
+};
+
+const getCostLabel = (cost: 'low' | 'medium' | 'high') => {
+  switch (cost) {
+    case 'low': return { icon: '💵', text: 'Thấp' };
+    case 'medium': return { icon: '💵💵', text: 'Trung bình' };
+    case 'high': return { icon: '💵💵💵', text: 'Cao' };
+  }
+};
+
+const getPresetColorClasses = (color: string, isSelected: boolean) => {
+  if (isSelected) {
+    switch (color) {
+      case 'blue': return 'bg-blue-500 text-white border-blue-500';
+      case 'green': return 'bg-green-500 text-white border-green-500';
+      case 'yellow': return 'bg-yellow-500 text-white border-yellow-500';
+      case 'cyan': return 'bg-cyan-500 text-white border-cyan-500';
+      case 'purple': return 'bg-purple-500 text-white border-purple-500';
+      default: return 'bg-primary text-primary-foreground';
+    }
+  }
+  switch (color) {
+    case 'blue': return 'hover:border-blue-500/50 hover:bg-blue-500/10';
+    case 'green': return 'hover:border-green-500/50 hover:bg-green-500/10';
+    case 'yellow': return 'hover:border-yellow-500/50 hover:bg-yellow-500/10';
+    case 'cyan': return 'hover:border-cyan-500/50 hover:bg-cyan-500/10';
+    case 'purple': return 'hover:border-purple-500/50 hover:bg-purple-500/10';
+    default: return '';
+  }
+};
 
 export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange, compact }: FunctionCardProps) {
   const typeBadge = TYPE_BADGES[fn.type];
@@ -67,6 +174,10 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
     const preset = QUICK_PRESETS.find(p => p.model === config.modelOverride);
     return preset?.id || 'custom';
   };
+
+  const currentPresetId = getCurrentPreset();
+  const currentPreset = QUICK_PRESETS.find(p => p.id === currentPresetId);
+  const isCustom = currentPresetId === 'custom';
 
   if (compact) {
     return (
@@ -137,29 +248,68 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-7 w-full text-xs justify-between">
                   <span className="flex items-center gap-1">
-                    {(() => {
-                      const PresetIcon = QUICK_PRESETS.find(p => p.id === getCurrentPreset())?.icon || Sparkles;
-                      return <PresetIcon className="h-3 w-3" />;
-                    })()}
-                    {QUICK_PRESETS.find(p => p.id === getCurrentPreset())?.label || 'Custom'}
+                    {isCustom ? (
+                      <>
+                        <Settings className="h-3 w-3" />
+                        <span className="truncate max-w-[100px]">{shortenModelName(config?.modelOverride || '')}</span>
+                      </>
+                    ) : (
+                      <>
+                        {currentPreset && <currentPreset.icon className="h-3 w-3" />}
+                        {currentPreset?.label || 'Mặc định'}
+                      </>
+                    )}
                   </span>
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                {QUICK_PRESETS.map((preset) => (
-                  <DropdownMenuItem
-                    key={preset.id}
-                    onClick={() => onQuickModelChange(preset.model)}
-                    className="text-xs"
-                  >
-                    <preset.icon className="h-3.5 w-3.5 mr-2" />
-                    {preset.label}
-                    {getCurrentPreset() === preset.id && (
-                      <Check className="h-3 w-3 ml-auto" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
+              <DropdownMenuContent align="start" className="w-64">
+                {QUICK_PRESETS.map((preset) => {
+                  const speed = getSpeedLabel(preset.speed);
+                  const cost = getCostLabel(preset.cost);
+                  const isSelected = currentPresetId === preset.id;
+                  
+                  return (
+                    <DropdownMenuItem
+                      key={preset.id}
+                      onClick={() => onQuickModelChange(preset.model)}
+                      className="flex flex-col items-start py-2 cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="flex items-center gap-2 font-medium">
+                          <preset.icon className="h-3.5 w-3.5" />
+                          {preset.label}
+                        </span>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
+                      </div>
+                      {preset.model && (
+                        <span className="text-[10px] text-muted-foreground ml-5.5 mt-0.5">
+                          {shortenModelName(preset.model)} • {speed.icon} {speed.text} • {cost.icon}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground/70 ml-5.5">
+                        {preset.useCase}
+                      </span>
+                    </DropdownMenuItem>
+                  );
+                })}
+                
+                {isCustom && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="flex flex-col items-start py-2 bg-muted/50" disabled>
+                      <span className="flex items-center gap-2 font-medium">
+                        <Settings className="h-3.5 w-3.5" />
+                        Custom
+                        <Check className="h-3.5 w-3.5 text-primary ml-auto" />
+                      </span>
+                      <span className="text-[10px] text-muted-foreground ml-5.5 mt-0.5">
+                        {shortenModelName(config?.modelOverride || '')}
+                      </span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onEdit} className="text-xs">
                   <Settings className="h-3.5 w-3.5 mr-2" />
@@ -233,25 +383,44 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
           
           {fn.type === 'text' && onQuickModelChange && (
             <div className="flex items-center gap-1">
-              {QUICK_PRESETS.map((preset) => (
-                <TooltipProvider key={preset.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={getCurrentPreset() === preset.id ? "default" : "outline"}
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => onQuickModelChange(preset.model)}
-                      >
-                        <preset.icon className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p className="text-xs">{preset.label}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ))}
+              {QUICK_PRESETS.map((preset) => {
+                const isSelected = currentPresetId === preset.id;
+                const speed = getSpeedLabel(preset.speed);
+                const cost = getCostLabel(preset.cost);
+                
+                return (
+                  <TooltipProvider key={preset.id}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className={cn(
+                            "h-7 w-7 transition-all",
+                            getPresetColorClasses(preset.color, isSelected)
+                          )}
+                          onClick={() => onQuickModelChange(preset.model)}
+                        >
+                          <preset.icon className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px]">
+                        <p className="font-medium text-xs">{preset.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{preset.description}</p>
+                        {preset.model && (
+                          <p className="text-[10px] mt-1 font-mono">{shortenModelName(preset.model)}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1 text-[10px]">
+                          <span>{speed.icon} {speed.text}</span>
+                          <span>•</span>
+                          <span>{cost.icon} Chi phí {cost.text.toLowerCase()}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/70 mt-1 italic">{preset.useCase}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })}
             </div>
           )}
         </div>
