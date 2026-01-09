@@ -230,14 +230,38 @@ function buildChannelRulesPrompt(
   return parts.join('\n');
 }
 
-// Merge default settings with overrides
+// Merge default settings with overrides (ALL settings explicitly)
 function getMergedSettings(channel: Channel, overrides?: ChannelOverrides): ChannelSettings {
   const defaultSettings = DEFAULT_CHANNEL_SETTINGS[channel];
   const channelOverride = overrides?.[channel];
   
   if (!channelOverride) return defaultSettings;
   
-  return { ...defaultSettings, ...channelOverride };
+  return {
+    ...defaultSettings,
+    // Core content settings
+    max_length: channelOverride.max_length ?? defaultSettings.max_length,
+    min_length: channelOverride.min_length ?? defaultSettings.min_length,
+    length_unit: channelOverride.length_unit ?? defaultSettings.length_unit,
+    // Hook settings
+    hook_required: channelOverride.hook_required ?? defaultSettings.hook_required,
+    hook_style: channelOverride.hook_style ?? defaultSettings.hook_style,
+    // CTA & formatting
+    cta_policy: channelOverride.cta_policy ?? defaultSettings.cta_policy,
+    bullet_allowed: channelOverride.bullet_allowed ?? defaultSettings.bullet_allowed,
+    line_break_style: channelOverride.line_break_style ?? defaultSettings.line_break_style,
+    format_description: channelOverride.format_description ?? defaultSettings.format_description,
+    // Emoji & hashtag
+    emoji_allowed: channelOverride.emoji_allowed ?? defaultSettings.emoji_allowed,
+    emoji_limit: channelOverride.emoji_limit ?? defaultSettings.emoji_limit,
+    hashtag_limit: channelOverride.hashtag_limit ?? defaultSettings.hashtag_limit,
+    hashtag_position: channelOverride.hashtag_position ?? defaultSettings.hashtag_position,
+    // Link & tone
+    link_position: channelOverride.link_position ?? defaultSettings.link_position,
+    tone_adjustment: channelOverride.tone_adjustment ?? defaultSettings.tone_adjustment,
+    // Special
+    has_subject_line: channelOverride.has_subject_line ?? defaultSettings.has_subject_line,
+  };
 }
 
 interface RequestBody {
