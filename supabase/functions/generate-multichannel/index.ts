@@ -2113,6 +2113,40 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             }
             
             // ============================================
+            // SEMANTIC DEDUPLICATION CHECK (Streaming mode)
+            // ============================================
+            let dedupResult: DuplicateCheckResult | null = null;
+            if (organizationId && formData.action !== 'expand') {
+              try {
+                const textToCheck = extractMultichannelText(channelResults);
+                if (textToCheck.length > 50) {
+                  dedupResult = await checkSemanticDuplicate(
+                    supabase,
+                    textToCheck,
+                    organizationId,
+                    formData.brandTemplateId,
+                    formData.contentId,
+                    'multichannel'
+                  );
+                  
+                  if (dedupResult.isDuplicate || dedupResult.isWarning) {
+                    emit({
+                      type: 'progress',
+                      step: 'ai',
+                      progress: 77,
+                      message: dedupResult.isDuplicate 
+                        ? `⚠️ Phát hiện nội dung tương tự (${(dedupResult.similarity! * 100).toFixed(0)}%)`
+                        : `📝 Có nội dung liên quan (${(dedupResult.similarity! * 100).toFixed(0)}%)`,
+                    });
+                  }
+                  console.log(`[streaming-mode][dedup] Check: unique=${!dedupResult.isDuplicate && !dedupResult.isWarning}, similarity=${dedupResult.similarity?.toFixed(3) || 'N/A'}`);
+                }
+              } catch (dedupError) {
+                console.warn('[streaming-mode][dedup] Check failed:', dedupError);
+              }
+            }
+            
+            // ============================================
             // SELF-CRITIQUE LOOP (Post-streaming)
             // Based on qualityMode: fast skips, balanced/quality runs
             // ============================================
@@ -2354,8 +2388,19 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
             await streamDelay(100);
             
-            // Return saved content
-            emit({ type: 'result', data: savedContent });
+            // Return saved content with dedup warning if applicable
+            emit({ 
+              type: 'result', 
+              data: {
+                ...savedContent,
+                dedupWarning: dedupResult?.isWarning || dedupResult?.isDuplicate ? {
+                  isDuplicate: dedupResult.isDuplicate,
+                  similarity: dedupResult.similarity,
+                  matchedContentPreview: dedupResult.matchedContentPreview,
+                  matchedContentId: dedupResult.matchedContentId,
+                } : null,
+              }
+            });
             
             // Send done signal
             if (!clientDisconnected) {
