@@ -4444,6 +4444,7 @@ export type Database = {
           deadline: string | null
           email_content: string | null
           facebook_content: string | null
+          global_hook: Json | null
           google_maps_content: string | null
           id: string
           industry: string | null
@@ -4456,6 +4457,7 @@ export type Database = {
           priority: string | null
           refinement_count: number | null
           selected_channels: string[]
+          selected_hooks: Json | null
           status: string | null
           tags: string[] | null
           telegram_content: string | null
@@ -4487,6 +4489,7 @@ export type Database = {
           deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
+          global_hook?: Json | null
           google_maps_content?: string | null
           id?: string
           industry?: string | null
@@ -4499,6 +4502,7 @@ export type Database = {
           priority?: string | null
           refinement_count?: number | null
           selected_channels: string[]
+          selected_hooks?: Json | null
           status?: string | null
           tags?: string[] | null
           telegram_content?: string | null
@@ -4530,6 +4534,7 @@ export type Database = {
           deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
+          global_hook?: Json | null
           google_maps_content?: string | null
           id?: string
           industry?: string | null
@@ -4542,6 +4547,7 @@ export type Database = {
           priority?: string | null
           refinement_count?: number | null
           selected_channels?: string[]
+          selected_hooks?: Json | null
           status?: string | null
           tags?: string[] | null
           telegram_content?: string | null
