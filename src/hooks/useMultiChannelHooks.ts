@@ -44,6 +44,8 @@ export function useMultiChannelHooks({
     isLoading: multiChannel.isLoading,
     error: multiChannel.error,
     refresh: multiChannel.refresh,
+    regenerateForChannel: multiChannel.regenerateForChannel,
+    regeneratingChannel: multiChannel.regeneratingChannel,
     channelHookTypes: CHANNEL_HOOK_TYPES,
   };
 }
