@@ -6,6 +6,7 @@ import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";
 import { callAI, iterateStreamDeltas } from "../_shared/ai-provider.ts";
 import {
   generateChannelStreaming,
+  generateChannelsParallel,
   getChannelDisplayName,
   createSSEResponse,
   delay as streamDelay,
@@ -26,6 +27,25 @@ import {
   CRITIQUE_CONFIG,
   type CritiqueResult,
 } from "../_shared/self-critique.ts";
+
+// ============================================
+// EDGE OPTIMIZATIONS
+// ============================================
+
+// Pre-initialized Supabase client for the request lifecycle
+let _supabaseClient: ReturnType<typeof createClient> | null = null;
+
+const getSupabaseClient = () => {
+  if (!_supabaseClient) {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    _supabaseClient = createClient(supabaseUrl, supabaseKey);
+  }
+  return _supabaseClient;
+};
+
+// Pre-computed static values
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
