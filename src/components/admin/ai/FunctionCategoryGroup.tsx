@@ -5,13 +5,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { AIFunctionConfig, getModelInfo } from '@/hooks/useAIConfig';
 import { FunctionCard, AIFunction } from './FunctionCard';
-import { ChevronDown, ChevronRight, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Zap, MessageSquare, Lightbulb, Search, Image, Wand2, RotateCcw, HelpCircle, AlertTriangle, Globe } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { CategoryConfig } from '@/hooks/useCategoryConfig';
+import { getIconByName } from './IconPicker';
 
 interface FunctionCategoryGroupProps {
   category: string;
@@ -22,9 +24,11 @@ interface FunctionCategoryGroupProps {
   onBulkReset?: (functionNames: string[]) => void;
   defaultExpanded?: boolean;
   getEnhancedModelInfo: (modelId: string) => ReturnType<typeof getModelInfo>;
+  categoryConfig?: CategoryConfig;
 }
 
-const CATEGORY_CONFIG: Record<string, { 
+// Fallback config for hardcoded categories (legacy support)
+const FALLBACK_CATEGORY_CONFIG: Record<string, { 
   label: string; 
   icon: React.ReactNode; 
   color: string;
@@ -54,7 +58,7 @@ const CATEGORY_CONFIG: Record<string, {
   },
   research: { 
     label: 'Research', 
-    icon: <Search className="h-4 w-4" />, 
+    icon: <Globe className="h-4 w-4" />, 
     color: 'text-purple-600',
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/30',
@@ -80,6 +84,34 @@ const CATEGORY_CONFIG: Record<string, {
     bgColor: 'bg-cyan-500/10',
     borderColor: 'border-cyan-500/30',
   },
+  other: { 
+    label: 'Other/Unknown', 
+    icon: <HelpCircle className="h-4 w-4" />, 
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-500/10',
+    borderColor: 'border-amber-500/30',
+  },
+};
+
+// Convert hex color to Tailwind-compatible classes
+const getColorClasses = (hexColor: string) => {
+  // Map common hex colors to Tailwind classes
+  const colorMap: Record<string, { color: string; bgColor: string; borderColor: string }> = {
+    '#3b82f6': { color: 'text-blue-600', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/30' },
+    '#22c55e': { color: 'text-green-600', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/30' },
+    '#eab308': { color: 'text-yellow-600', bgColor: 'bg-yellow-500/10', borderColor: 'border-yellow-500/30' },
+    '#f97316': { color: 'text-orange-600', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/30' },
+    '#ec4899': { color: 'text-pink-600', bgColor: 'bg-pink-500/10', borderColor: 'border-pink-500/30' },
+    '#a855f7': { color: 'text-purple-600', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/30' },
+    '#06b6d4': { color: 'text-cyan-600', bgColor: 'bg-cyan-500/10', borderColor: 'border-cyan-500/30' },
+    '#6b7280': { color: 'text-gray-600', bgColor: 'bg-gray-500/10', borderColor: 'border-gray-500/30' },
+  };
+  
+  return colorMap[hexColor] || { 
+    color: 'text-amber-600', 
+    bgColor: 'bg-amber-500/10', 
+    borderColor: 'border-amber-500/30' 
+  };
 };
 
 export function FunctionCategoryGroup({
@@ -91,16 +123,27 @@ export function FunctionCategoryGroup({
   onBulkReset,
   defaultExpanded = true,
   getEnhancedModelInfo,
+  categoryConfig: dbCategoryConfig,
 }: FunctionCategoryGroupProps) {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
   
-  const categoryConfig = CATEGORY_CONFIG[category] || {
-    label: category,
-    icon: <Zap className="h-4 w-4" />,
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted',
-    borderColor: 'border-border',
-  };
+  // Determine if this is an unknown category
+  const isUnknownCategory = category === 'other' || (!dbCategoryConfig && !FALLBACK_CATEGORY_CONFIG[category]);
+  
+  // Build display config from database config, fallback, or default
+  const displayConfig = dbCategoryConfig 
+    ? {
+        label: dbCategoryConfig.label,
+        icon: getIconByName(dbCategoryConfig.icon),
+        ...getColorClasses(dbCategoryConfig.color),
+      }
+    : FALLBACK_CATEGORY_CONFIG[category] || {
+        label: category,
+        icon: <HelpCircle className="h-4 w-4" />,
+        color: 'text-amber-600',
+        bgColor: 'bg-amber-500/10',
+        borderColor: 'border-amber-500/30',
+      };
 
   const getConfig = (name: string): AIFunctionConfig | undefined => {
     return configs.get(name);
@@ -117,23 +160,32 @@ export function FunctionCategoryGroup({
   }).length;
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-lg bg-card">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={cn(
+      "border rounded-lg bg-card",
+      isUnknownCategory && "border-amber-500/30"
+    )}>
       <CollapsibleTrigger asChild>
         <div className="flex items-center justify-between p-3 sm:p-4 cursor-pointer hover:bg-accent/50 transition-colors rounded-lg">
           <div className="flex items-center gap-3">
             <div className={cn(
               "h-8 w-8 rounded-lg flex items-center justify-center",
-              categoryConfig.bgColor,
-              categoryConfig.color
+              displayConfig.bgColor,
+              displayConfig.color
             )}>
-              {categoryConfig.icon}
+              {displayConfig.icon}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm sm:text-base">{categoryConfig.label}</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-semibold text-sm sm:text-base">{displayConfig.label}</h3>
                 <Badge variant="secondary" className="text-xs">
                   {functions.length}
                 </Badge>
+                {isUnknownCategory && (
+                  <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Uncategorized
+                  </Badge>
+                )}
                 {overrideCount > 0 && (
                   <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
                     {overrideCount} override

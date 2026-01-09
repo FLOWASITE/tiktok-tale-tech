@@ -11,11 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionConfig as FunctionConfigType, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
+import { useCategoryConfig } from '@/hooks/useCategoryConfig';
 import { ModelSelector } from './ModelSelector';
 import { QuickSelectButton, ProviderIndicator } from './ModelCard';
 import { FunctionCategoryGroup } from './FunctionCategoryGroup';
+import { CategoryManager } from './CategoryManager';
 import { AIFunction } from './FunctionCard';
-import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List } from 'lucide-react';
+import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -40,9 +42,11 @@ const QUICK_PRESETS = {
 
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
   const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
+  const { categories, isLoading: categoriesLoading, getCategoryConfig } = useCategoryConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -107,26 +111,28 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     return result;
   }, [searchQuery, typeFilter]);
 
-  // Group functions by category
+  // Group functions by category using database categories
   const groupedFunctions = useMemo(() => {
     const groups = new Map<string, AIFunction[]>();
+    const knownSlugs = categories.map(c => c.slug);
     
     filteredFunctions.forEach(fn => {
-      const category = fn.category;
-      if (!groups.has(category)) {
-        groups.set(category, []);
+      // Check if category exists in database categories
+      const categorySlug = knownSlugs.includes(fn.category) ? fn.category : 'other';
+      if (!groups.has(categorySlug)) {
+        groups.set(categorySlug, []);
       }
-      groups.get(category)!.push(fn);
+      groups.get(categorySlug)!.push(fn);
     });
 
-    // Sort by category order
+    // Sort by category order from database
     const sortedGroups = new Map<string, AIFunction[]>();
-    CATEGORY_ORDER.forEach(category => {
-      if (groups.has(category)) {
-        sortedGroups.set(category, groups.get(category)!);
+    categories.forEach(category => {
+      if (groups.has(category.slug)) {
+        sortedGroups.set(category.slug, groups.get(category.slug)!);
       }
     });
-    // Add any remaining categories
+    // Add any remaining categories (edge case)
     groups.forEach((fns, category) => {
       if (!sortedGroups.has(category)) {
         sortedGroups.set(category, fns);
@@ -134,7 +140,12 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     });
 
     return sortedGroups;
-  }, [filteredFunctions]);
+  }, [filteredFunctions, categories]);
+
+  // Count unknown functions for CategoryManager
+  const unknownFunctionsCount = useMemo(() => {
+    return groupedFunctions.get('other')?.length || 0;
+  }, [groupedFunctions]);
 
   // Stats
   const stats = useMemo(() => {
@@ -213,7 +224,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const currentModel = editingFunction?.modelOverride || currentFunctionMeta?.currentModel || '';
   const currentModelInfo = getEnhancedModelInfo(currentModel);
 
-  if (isLoading) {
+  if (isLoading || categoriesLoading) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -234,7 +245,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
               Cấu hình AI model và parameters cho từng edge function
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
             <Badge variant="secondary">{stats.total} functions</Badge>
             {stats.overrides > 0 && (
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
@@ -244,6 +255,15 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
             {stats.disabled > 0 && (
               <Badge variant="outline">{stats.disabled} disabled</Badge>
             )}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 text-xs"
+              onClick={() => setIsCategoryManagerOpen(true)}
+            >
+              <FolderOpen className="h-3.5 w-3.5 mr-1" />
+              Categories
+            </Button>
           </div>
         </div>
 
@@ -317,6 +337,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
             onEdit={openEditDialog}
             onQuickModelChange={handleQuickModelChange}
             onBulkReset={handleBulkReset}
+            categoryConfig={getCategoryConfig(category)}
             defaultExpanded={category === 'content' || category === 'ideation'}
             getEnhancedModelInfo={getEnhancedModelInfo}
           />
@@ -572,6 +593,19 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
           hasOpenRouterApiKey={hasOpenRouterApiKey}
         />
       )}
+
+      {/* Category Manager Dialog */}
+      <Dialog open={isCategoryManagerOpen} onOpenChange={setIsCategoryManagerOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quản lý Categories</DialogTitle>
+          </DialogHeader>
+          <CategoryManager 
+            organizationId={organizationId} 
+            unknownFunctionsCount={unknownFunctionsCount}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
