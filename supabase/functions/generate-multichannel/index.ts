@@ -705,9 +705,14 @@ function buildChannelRulesPrompt(
   // Channel name
   parts.push(`### ${channel.toUpperCase()}`);
   
-  // Length - with strong enforcement
+  // Length - with STRONGER enforcement for high min_length
   const lengthLabel = settings.length_unit === 'chars' ? 'ký tự' : 'chữ';
-  if (settings.min_length) {
+  if (settings.min_length && settings.min_length >= 200) {
+    // Strong enforcement for high min_length (e.g., Facebook 250+ words)
+    parts.push(`- Độ dài: 🚨 **BẮT BUỘC TỐI THIỂU ${settings.min_length} ${lengthLabel}** (max: ${settings.max_length})`);
+    parts.push(`  ⚠️ NẾU DƯỚI ${settings.min_length} ${lengthLabel} → TỰ ĐỘNG VIẾT THÊM: chi tiết, ví dụ, giải thích, mở rộng từng điểm`);
+    parts.push(`  ❌ NỘI DUNG DƯỚI ${settings.min_length} ${lengthLabel} SẼ BỊ REJECT`);
+  } else if (settings.min_length) {
     parts.push(`- Độ dài: **BẮT BUỘC** ${settings.min_length}–${settings.max_length} ${lengthLabel}`);
     parts.push(`  ⚠️ NẾU DƯỚI ${settings.min_length} ${lengthLabel} → TỰ ĐỘNG VIẾT THÊM NỘI DUNG CHI TIẾT`);
   } else {
@@ -1034,11 +1039,13 @@ ${channelOptimizationSection}
 - Word count: 800-2000 từ | Pure Markdown (KHÔNG HTML)
 - seo_score_estimate: Title(15) + Meta(15) + Keyword trong title(15) + H1(10) + 100 từ đầu(10) + H2(10) + Words(10) + Snippet(10) + Links(5)
 
-## KIỂM TRA CUỐI (BẮT BUỘC)
-1. **ĐỘ DÀI TỐI THIỂU**: Đếm số từ. Nếu DƯỚI min_length → VIẾT THÊM nội dung chi tiết, ví dụ, giải thích
-2. **ĐỘ DÀI TỐI ĐA**: Nếu VƯỢT max_length → RÚT GỌN
-3. Emoji/hashtag sai? TỰ SỬA | Format sai? TỰ ĐIỀU CHỈNH
-4. Website có pure Markdown? TỰ CHUYỂN ĐỔI nếu HTML
+## KIỂM TRA CUỐI (BẮT BUỘC - CHẠY TRƯỚC KHI OUTPUT)
+1. 📊 **ĐẾM TỪ TỪNG KÊNH** - so với min_length trong CHANNEL SETTINGS ở trên
+2. 🚨 **DƯỚI min_length?** → VIẾT THÊM ngay: chi tiết, ví dụ minh họa, giải thích sâu, case study, mở rộng từng điểm
+3. ❌ **KHÔNG OUTPUT** nếu chưa đạt min_length - TIẾP TỤC VIẾT THÊM
+4. 📝 **VƯỢT max_length?** → RÚT GỌN nhưng giữ giá trị
+5. ✅ Emoji/hashtag/format đúng theo channel settings
+6. Website có pure Markdown? TỰ CHUYỂN ĐỔI nếu HTML
 
 ## CẤM
 - Giải thích/bình luận | Thêm kênh không yêu cầu | Copy giữa kênh | Hiển thị cài đặt`;
@@ -1405,6 +1412,15 @@ Mục tiêu nội dung: ${goalLabel}`;
         // Extract Channel Overrides
         channelOverrides = template.channel_overrides || null;
         console.log("Brand Voice loaded:", brandVoice.brand_positioning, brandVoice.tone_of_voice);
+        
+        // DEBUG: Log channel overrides to verify they're being applied
+        console.log("[channel-overrides] Raw from DB:", JSON.stringify(channelOverrides));
+        if (channelOverrides) {
+          for (const channel of Object.keys(channelOverrides)) {
+            const merged = mergeChannelSettings(channel, channelOverrides);
+            console.log(`[channel-overrides] ${channel}: min=${merged.min_length}, max=${merged.max_length}, unit=${merged.length_unit}`);
+          }
+        }
         
         // Build Extended Brand Context for enhanced prompts
         extendedBrandContext = {
