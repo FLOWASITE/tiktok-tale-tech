@@ -94,21 +94,14 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
-  'recommend-topics': {
+  // Unified topic AI function (replaces recommend-topics, discover-trending-topics, analyze-topic-gaps, generate-topic-suggestions)
+  'topic-ai': {
     model: 'google/gemini-2.5-flash',
     temperature: 0.7,
     max_tokens: 4096,
     cache_ttl_seconds: 3600,
     is_enabled: true,
-    priority_level: 'low',
-  },
-  'discover-trending-topics': {
-    model: 'google/gemini-2.5-flash',
-    temperature: 0.7,
-    max_tokens: 4096,
-    cache_ttl_seconds: 3600,
-    is_enabled: true,
-    priority_level: 'low',
+    priority_level: 'normal',
   },
   // Brand functions
   'generate-brand-voice': {
