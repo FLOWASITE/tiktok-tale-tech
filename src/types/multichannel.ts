@@ -232,6 +232,8 @@ export interface MultiChannelFormData {
   campaignId?: string;
   // Quality mode for speed vs quality tradeoff
   qualityMode?: QualityMode;
+  // Footer Info control - whether to append contact info after generation
+  includeFooterInfo?: boolean; // Default: true
 }
 
 export const CONTENT_GOALS: { value: ContentGoal; label: string; description: string; icon: LucideIcon }[] = [

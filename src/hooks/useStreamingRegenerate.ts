@@ -20,7 +20,11 @@ export function useStreamingRegenerate(options: UseStreamingRegenerateOptions = 
   const [progress, setProgress] = useState<RegenerateProgress>({ progress: 0, message: '', isComplete: false });
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const regenerate = useCallback(async (contentId: string, channel: Channel): Promise<string | null> => {
+  const regenerate = useCallback(async (
+    contentId: string, 
+    channel: Channel,
+    regenerateOptions?: { includeFooterInfo?: boolean }
+  ): Promise<string | null> => {
     // Cancel any existing regeneration
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -53,6 +57,7 @@ export function useStreamingRegenerate(options: UseStreamingRegenerateOptions = 
             contentId,
             channel,
             stream: true,
+            includeFooterInfo: regenerateOptions?.includeFooterInfo !== false, // Default: true
           }),
           signal: abortControllerRef.current.signal,
         }

@@ -31,6 +31,8 @@ export interface StreamingContext {
   brandAllowEmoji: boolean;
   companyName: string | null;
   tagline: string | null;
+  // Footer control - whether to append footer after generation
+  includeFooterInfo: boolean; // Default: true
   // Model configs per channel
   channelModelConfigs: Map<string, { model: string; temperature: number; maxTokens: number | null }>;
   defaultModel: string;
@@ -240,22 +242,24 @@ export async function generateChannelStreaming(
     // Build final content efficiently
     let fullContent = contentParts.join('');
 
-    // Append footer if needed
-    const footerText = formatFooterInfo(
-      context.footerInfo,
-      channel,
-      context.brandAllowEmoji,
-      context.channelOverrides,
-      context.companyName,
-      context.tagline
-    );
+    // Append footer if user opted in (default: true)
+    if (context.includeFooterInfo !== false) {
+      const footerText = formatFooterInfo(
+        context.footerInfo,
+        channel,
+        context.brandAllowEmoji,
+        context.channelOverrides,
+        context.companyName,
+        context.tagline
+      );
 
-    if (footerText) {
-      fullContent += footerText;
-      emit({
-        type: 'streaming_text',
-        streamingChunk: { channel, text: footerText, isComplete: false },
-      });
+      if (footerText) {
+        fullContent += footerText;
+        emit({
+          type: 'streaming_text',
+          streamingChunk: { channel, text: footerText, isComplete: false },
+        });
+      }
     }
 
     return { content: fullContent, success: true };

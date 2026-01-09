@@ -726,32 +726,10 @@ export function buildContentGuidelinesSection(brand: BrandContext): string {
     parts.push(`→ Có thể dùng làm content pillars hoặc góc tiếp cận`);
   }
 
-  // Contact Information for CTA
-  if (brand.footerInfo) {
-    const footer = brand.footerInfo;
-    const contacts: string[] = [];
-    
-    if (footer.phone) contacts.push(`📞 Hotline: ${footer.phone}`);
-    if (footer.email) contacts.push(`📧 Email: ${footer.email}`);
-    if (footer.website) contacts.push(`🌐 Website: ${footer.website}`);
-    if (footer.address) contacts.push(`📍 Địa chỉ: ${footer.address}`);
-    
-    if (contacts.length > 0) {
-      parts.push(`\n### Contact Info (CHÍNH XÁC - Dùng cho CTA):`);
-      contacts.forEach(c => parts.push(`- ${c}`));
-      
-      // Social links
-      if (footer.social_links && Object.keys(footer.social_links).length > 0) {
-        parts.push(`\nKênh social:`);
-        Object.entries(footer.social_links).forEach(([platform, link]) => {
-          parts.push(`- ${platform}: ${link}`);
-        });
-      }
-      
-      parts.push(`→ Khi CTA cần thông tin liên hệ, SỬ DỤNG CHÍNH XÁC thông tin trên`);
-      parts.push(`→ KHÔNG tự bịa số điện thoại, email, website`);
-    }
-  }
+  // NOTE: Footer Info (contact info) is now handled by the application layer
+  // and appended AFTER AI generation. This prevents duplication and gives
+  // users control via the includeFooterInfo checkbox.
+  // AI should NOT include contact info in generated content.
 
   return parts.join('\n');
 }
