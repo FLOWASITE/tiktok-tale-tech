@@ -63,6 +63,13 @@ const getScoreIcon = (score: number) => {
   return AlertTriangle;
 };
 
+interface MultiChannelSelectedHook {
+  channel: Channel;
+  opening_line: string;
+  hook_type?: string;
+  psychology?: string;
+}
+
 interface MultiChannelHookGeneratorProps {
   topic: string;
   channels: Channel[];
@@ -71,6 +78,7 @@ interface MultiChannelHookGeneratorProps {
     tone_of_voice?: string[];
     formality_level?: string;
   };
+  selectedHooks?: MultiChannelSelectedHook[];
   onSelectHook?: (hook: MultiChannelHook) => void;
   disabled?: boolean;
   className?: string;
@@ -122,6 +130,7 @@ export function MultiChannelHookGenerator({
   topic,
   channels,
   brandVoice,
+  selectedHooks = [],
   onSelectHook,
   disabled,
   className,
@@ -130,6 +139,13 @@ export function MultiChannelHookGenerator({
 }: MultiChannelHookGeneratorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  // Check if a hook is selected
+  const isHookSelected = (hook: MultiChannelHook) => {
+    return selectedHooks.some(
+      h => h.channel === hook.channel && h.opening_line === hook.opening_line
+    );
+  };
 
   const { hooks, isLoading, refresh } = useMultiChannelHooks({
     topic,
@@ -265,7 +281,12 @@ export function MultiChannelHookGenerator({
               <div className="flex items-center justify-between px-1 mb-2">
                 <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                  Click để sử dụng hook
+                  Click để chọn hook (có thể chọn nhiều)
+                  {selectedHooks.length > 0 && (
+                    <Badge variant="default" className="ml-1 text-[10px] px-1.5">
+                      {selectedHooks.length} đã chọn
+                    </Badge>
+                  )}
                 </p>
                 <Button
                   type="button"
@@ -288,6 +309,7 @@ export function MultiChannelHookGenerator({
                     const channelInfo = getChannelInfo(hook.channel);
                     const isCopied = copiedIndex === index;
                     const ScoreIcon = hook.evaluation ? getScoreIcon(hook.evaluation.score) : null;
+                    const isSelected = isHookSelected(hook);
 
                     return (
                       <motion.div
@@ -308,10 +330,24 @@ export function MultiChannelHookGenerator({
                             "p-3 cursor-pointer transition-all duration-200",
                             "hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm",
                             "group/hook relative overflow-hidden",
-                            disabled && "opacity-50 cursor-not-allowed"
+                            disabled && "opacity-50 cursor-not-allowed",
+                            // Selected state styling
+                            isSelected && "border-primary bg-primary/10 ring-2 ring-primary/30"
                           )}
                           onClick={() => !disabled && onSelectHook?.(hook)}
                         >
+                          {/* Selected checkmark indicator */}
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              className="absolute top-2 right-2 z-10"
+                            >
+                              <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                <Check className="w-3 h-3 text-primary-foreground" />
+                              </div>
+                            </motion.div>
+                          )}
                           {/* Subtle gradient overlay on hover */}
                           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/hook:opacity-100 transition-opacity pointer-events-none" />
                           
