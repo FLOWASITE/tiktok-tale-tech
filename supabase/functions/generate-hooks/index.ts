@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAI } from "../_shared/ai-provider.ts";
 import { evaluateHook, type HookEvaluation } from "../_shared/ai-hook-evaluator.ts";
+import { 
+  getChannelOptimization, 
+  buildOptimizedPromptSection, 
+  applyTokenOptimization,
+  type ChannelOptimization 
+} from "../_shared/channel-optimization.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,6 +46,21 @@ serve(async (req) => {
       );
     }
 
+    // Initialize Supabase client for channel optimization lookup
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch channel optimization for the target platform
+    const targetChannel = platform || 'facebook';
+    let channelOptimization: ChannelOptimization | null = null;
+    try {
+      channelOptimization = await getChannelOptimization(supabase, targetChannel);
+      console.log('[generate-hooks] Channel optimization loaded for:', targetChannel, channelOptimization);
+    } catch (optErr) {
+      console.warn('[generate-hooks] Failed to load channel optimization, using defaults:', optErr);
+    }
+
     // Build brand voice context
     let brandContext = '';
     if (brandVoice) {
@@ -55,6 +77,12 @@ serve(async (req) => {
       }
     }
 
+    // Build channel optimization context
+    let channelOptimizationContext = '';
+    if (channelOptimization) {
+      channelOptimizationContext = buildOptimizedPromptSection(targetChannel, channelOptimization);
+    }
+
     const platformContext = platform ? `\nTarget Platform: ${platform}` : '';
     const durationContext = duration ? `\nVideo Duration: ${duration}` : '';
 
@@ -67,7 +95,7 @@ Mỗi hook cần có:
 3. text_overlay: Text hiển thị trên video
 4. framework: Loại hook (question, bold_statement, transformation, story, number, negative, social_proof, direct_address, shocking_fact, challenge)
 5. psychology_reason: Giải thích tại sao hook này hiệu quả (tâm lý học)
-6. engagement_level: Dự đoán mức độ engagement (high, medium, low)${brandContext}${platformContext}${durationContext}
+6. engagement_level: Dự đoán mức độ engagement (high, medium, low)${brandContext}${platformContext}${durationContext}${channelOptimizationContext ? `\n\n${channelOptimizationContext}` : ''}
 
 QUAN TRỌNG:
 - Hook phải bằng tiếng Việt
@@ -91,6 +119,12 @@ Trả về JSON array với format:
 
     console.log('[generate-hooks] Calling AI with topic:', topic);
 
+    // Calculate optimized max tokens based on channel optimization
+    const baseMaxTokens = 2048;
+    const optimizedMaxTokens = channelOptimization 
+      ? applyTokenOptimization(baseMaxTokens, channelOptimization)
+      : baseMaxTokens;
+
     // Use shared callAI utility instead of direct fetch
     const result = await callAI({
       functionName: 'generate-hooks',
@@ -99,6 +133,7 @@ Trả về JSON array với format:
         { role: 'user', content: userPrompt }
       ],
       temperatureOverride: 0.8,
+      maxTokensOverride: optimizedMaxTokens,
     });
 
     if (!result.success) {
