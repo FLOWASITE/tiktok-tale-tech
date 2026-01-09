@@ -206,6 +206,19 @@ export interface AIMetrics {
   hadError: boolean;
   errorType?: string;
   errorMessage?: string;
+  
+  // NEW: Generation-specific fields (Phase 1: Analytics & Intelligence)
+  channels?: string[];
+  qualityMode?: string;
+  modelsUsed?: Record<string, string>;          // { channel: model }
+  channelDurations?: Record<string, number>;    // { channel: ms }
+  cacheHit?: boolean;
+  estimatedCostUsd?: number;
+  usedFallback?: boolean;
+  fallbackModel?: string;
+  retryCount?: number;
+  contentId?: string;
+  actionType?: string;  // 'create' | 'expand' | 'regenerate' | 'preview'
 }
 
 /**
@@ -269,6 +282,18 @@ export async function saveMetrics(supabase: any, metrics: AIMetrics): Promise<vo
       had_error: metrics.hadError,
       error_type: metrics.errorType || null,
       error_message: metrics.errorMessage || null,
+      // NEW: Generation-specific fields (Phase 1)
+      channels: metrics.channels || null,
+      quality_mode: metrics.qualityMode || null,
+      models_used: metrics.modelsUsed || null,
+      channel_durations: metrics.channelDurations || null,
+      cache_hit: metrics.cacheHit ?? false,
+      estimated_cost_usd: metrics.estimatedCostUsd || null,
+      used_fallback: metrics.usedFallback ?? false,
+      fallback_model: metrics.fallbackModel || null,
+      retry_count: metrics.retryCount ?? 0,
+      content_id: metrics.contentId || null,
+      action_type: metrics.actionType || null,
     });
 
     if (error) {

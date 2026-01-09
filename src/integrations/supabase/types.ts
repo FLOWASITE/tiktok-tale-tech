@@ -1356,69 +1356,102 @@ export type Database = {
       }
       ai_metrics: {
         Row: {
+          action_type: string | null
           ai_call_duration_ms: number | null
           brand_template_id: string | null
+          cache_hit: boolean | null
+          channel_durations: Json | null
+          channels: string[] | null
+          content_id: string | null
           context_fetch_duration_ms: number | null
           context_richness_score: number | null
           context_sources: string[] | null
           created_at: string
           error_message: string | null
           error_type: string | null
+          estimated_cost_usd: number | null
           exit_reason: string | null
+          fallback_model: string | null
           function_name: string
           had_error: boolean | null
           id: string
           input_tokens_estimated: number | null
+          models_used: Json | null
           organization_id: string | null
           output_tokens_estimated: number | null
+          quality_mode: string | null
+          retry_count: number | null
           tools_executed: string[] | null
           total_duration_ms: number
           total_turns: number | null
           trace_id: string
+          used_fallback: boolean | null
           user_id: string | null
         }
         Insert: {
+          action_type?: string | null
           ai_call_duration_ms?: number | null
           brand_template_id?: string | null
+          cache_hit?: boolean | null
+          channel_durations?: Json | null
+          channels?: string[] | null
+          content_id?: string | null
           context_fetch_duration_ms?: number | null
           context_richness_score?: number | null
           context_sources?: string[] | null
           created_at?: string
           error_message?: string | null
           error_type?: string | null
+          estimated_cost_usd?: number | null
           exit_reason?: string | null
+          fallback_model?: string | null
           function_name: string
           had_error?: boolean | null
           id?: string
           input_tokens_estimated?: number | null
+          models_used?: Json | null
           organization_id?: string | null
           output_tokens_estimated?: number | null
+          quality_mode?: string | null
+          retry_count?: number | null
           tools_executed?: string[] | null
           total_duration_ms: number
           total_turns?: number | null
           trace_id: string
+          used_fallback?: boolean | null
           user_id?: string | null
         }
         Update: {
+          action_type?: string | null
           ai_call_duration_ms?: number | null
           brand_template_id?: string | null
+          cache_hit?: boolean | null
+          channel_durations?: Json | null
+          channels?: string[] | null
+          content_id?: string | null
           context_fetch_duration_ms?: number | null
           context_richness_score?: number | null
           context_sources?: string[] | null
           created_at?: string
           error_message?: string | null
           error_type?: string | null
+          estimated_cost_usd?: number | null
           exit_reason?: string | null
+          fallback_model?: string | null
           function_name?: string
           had_error?: boolean | null
           id?: string
           input_tokens_estimated?: number | null
+          models_used?: Json | null
           organization_id?: string | null
           output_tokens_estimated?: number | null
+          quality_mode?: string | null
+          retry_count?: number | null
           tools_executed?: string[] | null
           total_duration_ms?: number
           total_turns?: number | null
           trace_id?: string
+          used_fallback?: boolean | null
           user_id?: string | null
         }
         Relationships: [

@@ -78,6 +78,15 @@ const MAX_PARALLEL_CHANNELS = 4;
 // Pre-allocated buffers for streaming - reduces GC pressure
 const STREAM_BUFFER_SIZE = 64 * 1024; // 64KB
 
+export interface ChannelGenerationResult {
+  content: string;
+  success: boolean;
+  error?: string;
+  tokenUsage?: { inputTokens: number; outputTokens: number };
+  modelUsed?: string;
+  usedFallback?: boolean;
+}
+
 export interface ParallelStreamingResult {
   channelResults: Record<string, string>;
   completedChannels: string[];
@@ -85,6 +94,13 @@ export interface ParallelStreamingResult {
   stats: {
     totalDurationMs: number;
     channelDurations: Record<string, number>;
+    // NEW: Token and model tracking for metrics
+    modelsUsed: Record<string, string>;
+    tokenUsage: Record<string, { input: number; output: number }>;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    usedFallback: boolean;
+    fallbackModels: string[];
   };
 }
 
@@ -92,6 +108,7 @@ export interface ParallelStreamingResult {
  * Generate content for multiple channels in PARALLEL with interleaved streaming
  * OPTIMIZED: Uses Promise.allSettled for resilience, pre-allocated results
  * ENHANCED: Emits 'channel_complete' event immediately when each channel finishes
+ * NEW: Tracks token usage and models for metrics
  */
 export async function generateChannelsParallel(params: {
   channels: string[];
@@ -109,12 +126,16 @@ export async function generateChannelsParallel(params: {
   const errors: Record<string, string> = Object.create(null);
   const channelDurations: Record<string, number> = Object.create(null);
   
+  // NEW: Metrics tracking
+  const modelsUsed: Record<string, string> = Object.create(null);
+  const tokenUsage: Record<string, { input: number; output: number }> = Object.create(null);
+  let usedFallback = false;
+  const fallbackModels: string[] = [];
+  
   const startTime = Date.now();
   
   // Optimized batch processor using allSettled for resilience
   const processBatch = async (batch: string[]): Promise<void> => {
-    const batchStart = Date.now();
-    
     const results = await Promise.allSettled(
       batch.map(async (channel) => {
         const channelStart = Date.now();
@@ -140,6 +161,23 @@ export async function generateChannelsParallel(params: {
         if (result.success) {
           channelResults[channel] = result.content;
           completedChannels.push(channel);
+          
+          // Track model and token usage
+          if (result.modelUsed) {
+            modelsUsed[channel] = result.modelUsed;
+          }
+          if (result.tokenUsage) {
+            tokenUsage[channel] = {
+              input: result.tokenUsage.inputTokens,
+              output: result.tokenUsage.outputTokens,
+            };
+          }
+          if (result.usedFallback) {
+            usedFallback = true;
+            if (result.modelUsed) {
+              fallbackModels.push(result.modelUsed);
+            }
+          }
           
           // EARLY RETURN: Emit channel_complete immediately so UI can show it
           emit({
@@ -181,8 +219,16 @@ export async function generateChannelsParallel(params: {
   
   const totalDuration = Date.now() - startTime;
   
+  // Calculate total tokens
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  for (const usage of Object.values(tokenUsage)) {
+    totalInputTokens += usage.input;
+    totalOutputTokens += usage.output;
+  }
+  
   // Log performance stats
-  console.log(`[parallel-streaming] Completed ${completedChannels.length}/${channels.length} channels in ${totalDuration}ms`);
+  console.log(`[parallel-streaming] Completed ${completedChannels.length}/${channels.length} channels in ${totalDuration}ms, tokens: ${totalInputTokens}+${totalOutputTokens}`);
   if (Object.keys(errors).length > 0) {
     console.warn(`[parallel-streaming] Errors:`, errors);
   }
@@ -194,6 +240,12 @@ export async function generateChannelsParallel(params: {
     stats: {
       totalDurationMs: totalDuration,
       channelDurations,
+      modelsUsed,
+      tokenUsage,
+      totalInputTokens,
+      totalOutputTokens,
+      usedFallback,
+      fallbackModels,
     },
   };
 }
@@ -201,10 +253,11 @@ export async function generateChannelsParallel(params: {
 /**
  * Generate content for a single channel with real-time token streaming
  * OPTIMIZED: Reduced logging, batch token accumulation, streamlined error handling
+ * NEW: Returns token usage and model info for metrics
  */
 export async function generateChannelStreaming(
   params: GenerateChannelStreamingParams
-): Promise<{ content: string; success: boolean; error?: string }> {
+): Promise<ChannelGenerationResult> {
   const { channel, systemPrompt, userPrompt, context, emit } = params;
   
   // Get model config - use nullish coalescing for speed
@@ -219,6 +272,9 @@ export async function generateChannelStreaming(
     channelMaxLength: channelConfig?.maxTokens ?? undefined,
   });
   
+  // Estimate input tokens (rough: ~3 chars per token for mixed content)
+  const inputTokensEstimate = Math.ceil((systemPrompt.length + userPrompt.length) / 3);
+  
   const startTime = Date.now();
 
   try {
@@ -227,7 +283,7 @@ export async function generateChannelStreaming(
       organizationId: context.organizationId || undefined,
       modelOverride: effectiveModel,
       temperatureOverride: effectiveTemperature,
-      maxTokensOverride: dynamicMaxTokens, // NEW: Use dynamic tokens
+      maxTokensOverride: dynamicMaxTokens,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -239,13 +295,16 @@ export async function generateChannelStreaming(
       return { 
         content: '', 
         success: false, 
-        error: aiResult.error || 'AI call failed'
+        error: aiResult.error || 'AI call failed',
+        modelUsed: effectiveModel,
+        tokenUsage: { inputTokens: inputTokensEstimate, outputTokens: 0 },
+        usedFallback: false,
       };
     }
 
     // Optimized streaming with array join (faster than string concat)
     const contentParts: string[] = [];
-    let tokenCount = 0;
+    let outputTokenCount = 0;
 
     try {
       for await (const delta of iterateStreamDeltas(aiResult.data)) {
@@ -253,7 +312,7 @@ export async function generateChannelStreaming(
 
         if (delta.content) {
           contentParts.push(delta.content);
-          tokenCount++;
+          outputTokenCount++;
 
           // Emit every token - SSE is already optimized
           emit({
@@ -299,12 +358,27 @@ export async function generateChannelStreaming(
       }
     }
 
-    return { content: fullContent, success: true };
+    // Estimate output tokens based on content length
+    const outputTokensEstimate = Math.max(outputTokenCount, Math.ceil(fullContent.length / 3));
+
+    return { 
+      content: fullContent, 
+      success: true,
+      modelUsed: effectiveModel,
+      tokenUsage: { 
+        inputTokens: inputTokensEstimate, 
+        outputTokens: outputTokensEstimate 
+      },
+      usedFallback: false, // TODO: Get from circuit breaker when integrated
+    };
   } catch (error) {
     return { 
       content: '', 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      modelUsed: effectiveModel,
+      tokenUsage: { inputTokens: inputTokensEstimate, outputTokens: 0 },
+      usedFallback: false,
     };
   }
 }
