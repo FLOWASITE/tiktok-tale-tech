@@ -200,14 +200,73 @@ export interface AiSuggestionContext {
   angle?: string;
 }
 
+// ============================================
+// CHANNEL OPTIMIZATION TYPES
+// ============================================
+
 // Quality Mode - Controls speed vs quality tradeoff
 export type QualityMode = 'fast' | 'balanced' | 'quality';
+
+// Prompt Style - How AI structures and presents content
+export type PromptStyle = 'default' | 'concise' | 'detailed' | 'creative' | 'analytical';
+
+// Hook Intensity - Aggressiveness of opening hooks
+export type HookIntensity = 'subtle' | 'moderate' | 'aggressive' | 'soft' | 'medium' | 'strong' | 'viral';
+
+// Cost Priority - Token optimization strategy
+export type CostPriority = 'speed' | 'balanced' | 'quality' | 'economy';
+
+// Channel Optimization config for a single channel
+export interface ChannelOptimization {
+  qualityMode: QualityMode;
+  promptStyle: PromptStyle;
+  hookIntensity: HookIntensity;
+  costPriority: CostPriority;
+  preferredHookTypes: string[];
+  maxTokensOverride?: number;
+  allowUserOverride: boolean;
+}
 
 export const QUALITY_MODES: { value: QualityMode; label: string; description: string; icon: string; badgeColor: string }[] = [
   { value: 'fast', label: 'Nhanh', description: 'Bỏ qua đánh giá, tốc độ tối đa', icon: '⚡', badgeColor: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
   { value: 'balanced', label: 'Cân bằng', description: 'Đánh giá + 1 lần tinh chỉnh', icon: '⚖️', badgeColor: 'bg-blue-500/15 text-blue-600 border-blue-500/30' },
   { value: 'quality', label: 'Chất lượng', description: 'Đánh giá + 2 lần tinh chỉnh', icon: '✨', badgeColor: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
 ];
+
+export const PROMPT_STYLES: { value: PromptStyle; label: string; description: string }[] = [
+  { value: 'default', label: 'Mặc định', description: 'Cân bằng giữa ngắn gọn và chi tiết' },
+  { value: 'concise', label: 'Ngắn gọn', description: 'Tập trung, trực tiếp, ít từ' },
+  { value: 'detailed', label: 'Chi tiết', description: 'Giải thích kỹ lưỡng, nhiều context' },
+  { value: 'creative', label: 'Sáng tạo', description: 'Tự do, độc đáo, phá cách' },
+  { value: 'analytical', label: 'Phân tích', description: 'Logic, data-driven, có cấu trúc' },
+];
+
+export const HOOK_INTENSITIES: { value: HookIntensity; label: string; description: string }[] = [
+  { value: 'subtle', label: 'Nhẹ nhàng', description: 'Tinh tế, không gây áp lực' },
+  { value: 'moderate', label: 'Vừa phải', description: 'Cân bằng giữa thu hút và chuyên nghiệp' },
+  { value: 'aggressive', label: 'Mạnh mẽ', description: 'Bold, urgency, gây chú ý ngay' },
+];
+
+export const COST_PRIORITIES: { value: CostPriority; label: string; description: string }[] = [
+  { value: 'speed', label: 'Tốc độ', description: 'Ít token hơn, nhanh hơn, rẻ hơn' },
+  { value: 'balanced', label: 'Cân bằng', description: 'Token vừa đủ cho chất lượng tốt' },
+  { value: 'quality', label: 'Chất lượng', description: 'Nhiều token hơn để chi tiết hơn' },
+];
+
+// Preferred hook types for content generation
+export const HOOK_TYPES = [
+  'question',      // Câu hỏi gợi mở
+  'statistic',     // Số liệu thống kê
+  'story',         // Mở đầu bằng câu chuyện
+  'controversy',   // Quan điểm tranh luận
+  'benefit',       // Lợi ích trực tiếp
+  'curiosity',     // Tạo sự tò mò
+  'urgency',       // Tạo cảm giác cấp bách
+  'social_proof',  // Bằng chứng xã hội
+  'pain_point',    // Điểm đau khách hàng
+] as const;
+
+export type HookType = typeof HOOK_TYPES[number];
 
 export interface MultiChannelFormData {
   topic: string;

@@ -51,17 +51,22 @@ import {
 import {
   useBrandChannelOptimizations,
   type BrandChannelOptimization,
+} from '@/hooks/useBrandChannelOptimizations';
+import { 
+  Channel,
+  CHANNELS,
   type QualityMode,
   type PromptStyle,
   type HookIntensity,
   type CostPriority,
-} from '@/hooks/useBrandChannelOptimizations';
-import { Channel } from '@/types/multichannel';
+  QUALITY_MODES,
+  PROMPT_STYLES,
+  HOOK_INTENSITIES,
+  COST_PRIORITIES,
+  HOOK_TYPES,
+} from '@/types/multichannel';
 
-const ALL_CHANNELS: Channel[] = [
-  'website', 'facebook', 'instagram', 'twitter', 'google_maps',
-  'linkedin', 'email', 'youtube', 'zalo_oa', 'telegram', 'tiktok', 'threads'
-];
+const ALL_CHANNELS = CHANNELS.map(c => c.value);
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
@@ -78,50 +83,9 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   threads: <AtSign className="w-4 h-4" />,
 };
 
-const channelLabels: Record<Channel, string> = {
-  website: 'Website',
-  facebook: 'Facebook',
-  instagram: 'Instagram',
-  twitter: 'X (Twitter)',
-  google_maps: 'Google Maps',
-  linkedin: 'LinkedIn',
-  email: 'Email',
-  youtube: 'YouTube',
-  zalo_oa: 'Zalo OA',
-  telegram: 'Telegram',
-  tiktok: 'TikTok',
-  threads: 'Threads',
-};
-
-const QUALITY_MODES: { value: QualityMode; label: string; description: string }[] = [
-  { value: 'fast', label: 'Nhanh', description: 'Bỏ qua tinh chỉnh' },
-  { value: 'balanced', label: 'Cân bằng', description: '1 vòng tinh chỉnh' },
-  { value: 'quality', label: 'Chất lượng', description: '2 vòng tinh chỉnh' },
-];
-
-const PROMPT_STYLES: { value: PromptStyle; label: string }[] = [
-  { value: 'concise', label: 'Ngắn gọn' },
-  { value: 'detailed', label: 'Chi tiết' },
-  { value: 'creative', label: 'Sáng tạo' },
-  { value: 'analytical', label: 'Phân tích' },
-];
-
-const HOOK_INTENSITIES: { value: HookIntensity; label: string }[] = [
-  { value: 'subtle', label: 'Nhẹ nhàng' },
-  { value: 'moderate', label: 'Vừa phải' },
-  { value: 'aggressive', label: 'Mạnh mẽ' },
-];
-
-const COST_PRIORITIES: { value: CostPriority; label: string }[] = [
-  { value: 'speed', label: 'Tốc độ' },
-  { value: 'balanced', label: 'Cân bằng' },
-  { value: 'quality', label: 'Chất lượng' },
-];
-
-const HOOK_TYPES = [
-  'question', 'statistic', 'story', 'controversy', 'benefit',
-  'curiosity', 'urgency', 'social_proof', 'pain_point'
-];
+const channelLabels: Record<Channel, string> = Object.fromEntries(
+  CHANNELS.map(c => [c.value, c.label])
+) as Record<Channel, string>;
 
 interface BrandChannelOptimizationEditorProps {
   brandTemplateId: string;

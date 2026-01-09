@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import type { QualityMode, PromptStyle, HookIntensity, CostPriority } from '@/types/multichannel';
 
-export type QualityMode = 'fast' | 'balanced' | 'quality';
-export type PromptStyle = 'concise' | 'detailed' | 'creative' | 'analytical';
-export type HookIntensity = 'subtle' | 'moderate' | 'aggressive';
-export type CostPriority = 'speed' | 'balanced' | 'quality';
+export type { QualityMode, PromptStyle, HookIntensity, CostPriority };
 
 export interface BrandChannelOptimization {
   id: string;
