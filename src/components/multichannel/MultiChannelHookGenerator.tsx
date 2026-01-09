@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Sparkles, 
   RefreshCw, 
@@ -39,6 +46,10 @@ import {
   CheckCircle2,
   Info,
   Zap,
+  RotateCw,
+  CheckCheck,
+  XCircle,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Channel, CHANNELS } from '@/types/multichannel';
 import { MultiChannelHook, useMultiChannelHooks } from '@/hooks/useMultiChannelHooks';
@@ -139,6 +150,7 @@ export function MultiChannelHookGenerator({
 }: MultiChannelHookGeneratorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<'channel' | 'score'>('channel');
 
   // Check if a hook is selected
   const isHookSelected = (hook: MultiChannelHook) => {
@@ -147,7 +159,7 @@ export function MultiChannelHookGenerator({
     );
   };
 
-  const { hooks, isLoading, refresh } = useMultiChannelHooks({
+  const { hooks, isLoading, refresh, regenerateForChannel, regeneratingChannel } = useMultiChannelHooks({
     topic,
     channels,
     brandVoice,
@@ -155,6 +167,37 @@ export function MultiChannelHookGenerator({
     organizationId,
     brandTemplateId,
   });
+
+  // Sorted hooks
+  const sortedHooks = useMemo(() => {
+    if (sortBy === 'score') {
+      return [...hooks].sort((a, b) => (b.evaluation?.score || 0) - (a.evaluation?.score || 0));
+    }
+    // Sort by channel order
+    return [...hooks].sort((a, b) => channels.indexOf(a.channel) - channels.indexOf(b.channel));
+  }, [hooks, sortBy, channels]);
+
+  // Select all / Deselect all handlers
+  const handleSelectAll = () => {
+    hooks.forEach(hook => {
+      if (!isHookSelected(hook)) {
+        onSelectHook?.(hook);
+      }
+    });
+  };
+
+  const handleDeselectAll = () => {
+    hooks.forEach(hook => {
+      if (isHookSelected(hook)) {
+        onSelectHook?.(hook); // Toggle to deselect
+      }
+    });
+  };
+
+  const handleRegenerateHook = async (channel: Channel, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await regenerateForChannel(channel);
+  };
 
   const handleCopy = async (text: string, index: number) => {
     try {
@@ -270,46 +313,103 @@ export function MultiChannelHookGenerator({
                 ))}
               </div>
             </motion.div>
-          ) : hooks.length > 0 ? (
+          ) : sortedHooks.length > 0 ? (
             <motion.div
               key="hooks"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-1 mb-2">
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                  Click để chọn hook (có thể chọn nhiều)
+              {/* Header with actions */}
+              <div className="flex items-center justify-between px-1 mb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                    Click để chọn hook
+                  </p>
                   {selectedHooks.length > 0 && (
-                    <Badge variant="default" className="ml-1 text-[10px] px-1.5">
-                      {selectedHooks.length} đã chọn
+                    <Badge variant="default" className="text-[10px] px-1.5">
+                      {selectedHooks.length}/{sortedHooks.length} đã chọn
                     </Badge>
                   )}
-                </p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1.5"
-                  onClick={refresh}
-                  disabled={disabled || isLoading}
-                >
-                  <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
-                  Tạo lại
-                </Button>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  {/* Select All / Deselect All */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={handleSelectAll}
+                        disabled={disabled || selectedHooks.length === sortedHooks.length}
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Chọn tất cả</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={handleDeselectAll}
+                        disabled={disabled || selectedHooks.length === 0}
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Bỏ chọn tất cả</TooltipContent>
+                  </Tooltip>
+                  
+                  {/* Sort */}
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'channel' | 'score')}>
+                    <SelectTrigger className="h-7 w-[110px] text-xs">
+                      <ArrowUpDown className="w-3 h-3 mr-1" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="channel">Theo kênh</SelectItem>
+                      <SelectItem value="score">Điểm cao nhất</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* Refresh all */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={refresh}
+                        disabled={disabled || isLoading}
+                      >
+                        <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Tạo lại tất cả</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
 
               {/* Hook cards with staggered animation */}
               <div className="grid gap-2">
                 <AnimatePresence>
-                  {hooks.map((hook, index) => {
+                  {sortedHooks.map((hook, index) => {
                     const Icon = channelIcons[hook.channel];
                     const channelInfo = getChannelInfo(hook.channel);
                     const isCopied = copiedIndex === index;
                     const ScoreIcon = hook.evaluation ? getScoreIcon(hook.evaluation.score) : null;
                     const isSelected = isHookSelected(hook);
+                    const isRegenerating = regeneratingChannel === hook.channel;
+                    const isLowScore = hook.evaluation && hook.evaluation.score < 10;
 
                     return (
                       <motion.div
@@ -451,44 +551,93 @@ export function MultiChannelHookGenerator({
                               )}
                             </div>
 
-                            {/* Copy Button */}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className={cn(
-                                "h-8 w-8 p-0 transition-all duration-200",
-                                "opacity-0 group-hover/hook:opacity-100",
-                                "hover:bg-primary/10"
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopy(hook.opening_line, index);
-                              }}
-                            >
-                              <AnimatePresence mode="wait">
-                                {isCopied ? (
-                                  <motion.div
-                                    key="check"
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    exit={{ scale: 0 }}
+                            {/* Action buttons - right side */}
+                            <div className="flex flex-col gap-1 opacity-0 group-hover/hook:opacity-100 transition-opacity">
+                              {/* Regenerate Button */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn(
+                                      "h-7 w-7 p-0 hover:bg-primary/10",
+                                      isRegenerating && "opacity-100"
+                                    )}
+                                    onClick={(e) => handleRegenerateHook(hook.channel, e)}
+                                    disabled={disabled || isRegenerating}
                                   >
-                                    <Check className="w-4 h-4 text-emerald-500" />
-                                  </motion.div>
-                                ) : (
-                                  <motion.div
-                                    key="copy"
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    exit={{ scale: 0 }}
+                                    <RotateCw className={cn("w-3.5 h-3.5", isRegenerating && "animate-spin")} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Tạo lại hook này</TooltipContent>
+                              </Tooltip>
+
+                              {/* Copy Button */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 hover:bg-primary/10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopy(hook.opening_line, index);
+                                    }}
                                   >
-                                    <Copy className="w-4 h-4" />
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </Button>
+                                    <AnimatePresence mode="wait">
+                                      {isCopied ? (
+                                        <motion.div
+                                          key="check"
+                                          initial={{ scale: 0 }}
+                                          animate={{ scale: 1 }}
+                                          exit={{ scale: 0 }}
+                                        >
+                                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                        </motion.div>
+                                      ) : (
+                                        <motion.div
+                                          key="copy"
+                                          initial={{ scale: 0 }}
+                                          animate={{ scale: 1 }}
+                                          exit={{ scale: 0 }}
+                                        >
+                                          <Copy className="w-3.5 h-3.5" />
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>{isCopied ? 'Đã copy!' : 'Copy hook'}</TooltipContent>
+                              </Tooltip>
+                            </div>
                           </div>
+
+                          {/* Low score warning banner */}
+                          {isLowScore && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="mt-2 pt-2 border-t border-destructive/20"
+                            >
+                              <div className="flex items-center gap-2 text-xs text-destructive">
+                                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span>Hook có thể cần cải thiện</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-2 text-[10px] text-destructive hover:text-destructive ml-auto"
+                                  onClick={(e) => handleRegenerateHook(hook.channel, e)}
+                                  disabled={isRegenerating}
+                                >
+                                  <RotateCw className={cn("w-3 h-3 mr-1", isRegenerating && "animate-spin")} />
+                                  Tạo lại
+                                </Button>
+                              </div>
+                            </motion.div>
+                          )}
                         </Card>
                       </motion.div>
                     );
