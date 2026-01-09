@@ -702,10 +702,11 @@ function buildChannelRulesPrompt(
   // Channel name
   parts.push(`### ${channel.toUpperCase()}`);
   
-  // Length
+  // Length - with strong enforcement
   const lengthLabel = settings.length_unit === 'chars' ? 'ký tự' : 'chữ';
   if (settings.min_length) {
-    parts.push(`- Độ dài: ${settings.min_length}–${settings.max_length} ${lengthLabel}`);
+    parts.push(`- Độ dài: **BẮT BUỘC** ${settings.min_length}–${settings.max_length} ${lengthLabel}`);
+    parts.push(`  ⚠️ NẾU DƯỚI ${settings.min_length} ${lengthLabel} → TỰ ĐỘNG VIẾT THÊM NỘI DUNG CHI TIẾT`);
   } else {
     parts.push(`- Độ dài: Tối đa ${settings.max_length} ${lengthLabel}`);
   }
@@ -1016,9 +1017,11 @@ ${channelOptimizationSection}
 - Word count: 800-2000 từ | Pure Markdown (KHÔNG HTML)
 - seo_score_estimate: Title(15) + Meta(15) + Keyword trong title(15) + H1(10) + 100 từ đầu(10) + H2(10) + Words(10) + Snippet(10) + Links(5)
 
-## KIỂM TRA CUỐI
-- Max length? TỰ RÚT GỌN | Emoji/hashtag sai? TỰ SỬA | Format sai? TỰ ĐIỀU CHỈNH
-- Website có pure Markdown? TỰ CHUYỂN ĐỔI nếu HTML
+## KIỂM TRA CUỐI (BẮT BUỘC)
+1. **ĐỘ DÀI TỐI THIỂU**: Đếm số từ. Nếu DƯỚI min_length → VIẾT THÊM nội dung chi tiết, ví dụ, giải thích
+2. **ĐỘ DÀI TỐI ĐA**: Nếu VƯỢT max_length → RÚT GỌN
+3. Emoji/hashtag sai? TỰ SỬA | Format sai? TỰ ĐIỀU CHỈNH
+4. Website có pure Markdown? TỰ CHUYỂN ĐỔI nếu HTML
 
 ## CẤM
 - Giải thích/bình luận | Thêm kênh không yêu cầu | Copy giữa kênh | Hiển thị cài đặt`;
@@ -1672,8 +1675,9 @@ Brand Voice là LUẬT NỀN. Channel Settings là LUẬT TRIỂN KHAI.
 ${channelRulesPrompt}
 
 ## KIỂM TRA CUỐI (BẮT BUỘC)
-- Có vượt max length không? → TỰ RÚT GỌN
-- Có vi phạm emoji / hashtag không? → TỰ ĐIỀU CHỈNH
+1. **DƯỚI min length?** → VIẾT THÊM nội dung chi tiết, ví dụ, giải thích
+2. **VƯỢT max length?** → RÚT GỌN
+3. Emoji/hashtag sai? → TỰ ĐIỀU CHỈNH
 
 ## NGUYÊN TẮC BẮT BUỘC
 1. Tạo nội dung MỚI HOÀN TOÀN, khác với phiên bản trước
