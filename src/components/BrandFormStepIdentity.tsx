@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { BrandColorPicker } from '@/components/BrandColorPicker';
 import { BrandFooterInfo } from '@/components/BrandForm';
 import { User, Building2, Search, ShieldCheck, X, ChevronDown, Upload, Trash2, Phone, Mail, Globe, MapPin, Building, ImageIcon, Target, Lightbulb, Quote, Eye } from 'lucide-react';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Collapsible,
@@ -106,6 +106,8 @@ interface BrandFormStepIdentityProps {
   setUniqueValueProposition: (value: string) => void;
   tagline: string;
   setTagline: (value: string) => void;
+  // Focus props
+  focusFooterInfo?: boolean;
 }
 
 export function BrandFormStepIdentity({
@@ -151,17 +153,30 @@ export function BrandFormStepIdentity({
   setUniqueValueProposition,
   tagline,
   setTagline,
+  // Focus props
+  focusFooterInfo = false,
 }: BrandFormStepIdentityProps) {
   const { currentOrganization } = useOrganizationContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [showIndustrySelector, setShowIndustrySelector] = useState(!industryTemplateId);
-  const [showFooterInfo, setShowFooterInfo] = useState(false);
+  const [showFooterInfo, setShowFooterInfo] = useState(focusFooterInfo);
   const [showStrategy, setShowStrategy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const footerInfoRef = useRef<HTMLDivElement>(null);
   const { templates, isLoading } = useIndustryTemplates({
     countryCode: 'VN',
     languageCode: 'vi',
   });
+
+  // Auto-scroll to footer info when focusFooterInfo is true
+  useEffect(() => {
+    if (focusFooterInfo && footerInfoRef.current) {
+      setShowFooterInfo(true);
+      setTimeout(() => {
+        footerInfoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [focusFooterInfo]);
 
   const filteredTemplates = useMemo(() => {
     if (!searchQuery.trim()) return templates;
@@ -505,24 +520,28 @@ export function BrandFormStepIdentity({
       <Separator />
 
       {/* Footer Info Section (Collapsible) */}
-      <Collapsible open={showFooterInfo} onOpenChange={setShowFooterInfo}>
-        <CollapsibleTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full justify-between h-10 px-3"
-          >
-            <span className="flex items-center gap-2 text-sm font-medium">
-              <Phone className="w-4 h-4" />
-              Thông tin liên hệ (tuỳ chọn)
-            </span>
-            <ChevronDown className={cn(
-              "w-4 h-4 transition-transform",
-              showFooterInfo && "rotate-180"
-            )} />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-2">
+      <div ref={footerInfoRef}>
+        <Collapsible open={showFooterInfo} onOpenChange={setShowFooterInfo}>
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-between h-10 px-3"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <Phone className="w-4 h-4" />
+                Thông tin liên hệ (tuỳ chọn)
+              </span>
+              <ChevronDown className={cn(
+                "w-4 h-4 transition-transform",
+                showFooterInfo && "rotate-180"
+              )} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <p className="text-xs text-muted-foreground mb-3 px-1">
+              💡 Thông tin này sẽ được tự động thêm vào cuối mỗi bài viết (Facebook, Threads, Email...) để khách hàng dễ dàng liên hệ với bạn.
+            </p>
           <div className="space-y-3 p-4 rounded-lg border bg-muted/20">
             <div className="grid gap-3">
               <div className="space-y-1.5">
@@ -592,12 +611,10 @@ export function BrandFormStepIdentity({
               </div>
             </div>
             
-            <p className="text-xs text-muted-foreground pt-2 border-t">
-              💡 Thông tin này sẽ hiển thị ở cuối nội dung khi cần
-            </p>
           </div>
         </CollapsibleContent>
       </Collapsible>
+    </div>
 
       {/* Strategy Section (Collapsible) */}
       <Collapsible open={showStrategy} onOpenChange={setShowStrategy}>

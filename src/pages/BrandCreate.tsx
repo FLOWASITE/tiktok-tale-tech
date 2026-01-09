@@ -32,6 +32,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 interface LocationState {
   editTemplate?: BrandTemplate;
+  focusFooterInfo?: boolean;
 }
 
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
@@ -40,9 +41,19 @@ export default function BrandCreate() {
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as LocationState | null;
-  const editingTemplate = locationState?.editTemplate || null;
+  const editingTemplateFromState = locationState?.editTemplate || null;
+  const focusFooterInfo = locationState?.focusFooterInfo || false;
 
-  const { saveTemplate, updateTemplate, uploadLogo, deleteLogo, refetch } = useBrandTemplates();
+  const { templates, saveTemplate, updateTemplate, uploadLogo, deleteLogo, refetch } = useBrandTemplates();
+
+  // If we only have the ID, find the full template from the hook
+  const editingTemplate = useMemo(() => {
+    if (!editingTemplateFromState) return null;
+    // If full template is provided, use it
+    if (editingTemplateFromState.name) return editingTemplateFromState;
+    // Otherwise, find it from templates list by ID
+    return templates.find(t => t.id === editingTemplateFromState.id) || null;
+  }, [editingTemplateFromState, templates]);
 
   // UI state
   const [currentStep, setCurrentStep] = useState(editingTemplate ? 1 : 0);
@@ -667,6 +678,7 @@ export default function BrandCreate() {
                   setUniqueValueProposition={setUniqueValueProposition}
                   tagline={tagline}
                   setTagline={setTagline}
+                  focusFooterInfo={focusFooterInfo}
                 />
               )}
 
