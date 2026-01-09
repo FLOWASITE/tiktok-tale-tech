@@ -664,7 +664,7 @@ export function MultiChannelFormWizard({
                               className="h-8 px-2 text-muted-foreground hover:text-primary"
                               asChild
                             >
-                              <Link to="/brands/new" state={{ editTemplate: { id: brandTemplateId } }}>
+                              <Link to="/brands/new" state={{ editTemplate: { id: brandTemplateId }, focusFooterInfo: true }}>
                                 <ExternalLink className="w-4 h-4 mr-1" />
                                 Sửa
                               </Link>
