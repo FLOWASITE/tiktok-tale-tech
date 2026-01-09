@@ -35,6 +35,17 @@ import {
   getContextSources,
   type AIMetrics 
 } from "../_shared/logger.ts";
+// Per-Channel Optimization imports
+import {
+  getMultiChannelOptimizations,
+  buildOptimizedPromptSection,
+  applyTokenOptimization,
+  getEffectiveQualityMode,
+  type ChannelOptimization,
+  type QualityMode as ChannelQualityMode,
+  type PromptStyle,
+  type HookIntensity,
+} from "../_shared/channel-optimization.ts";
 import { estimateTotalCost } from "../_shared/cost-estimator.ts";
 // Phase 2: Compliance Pre-check import
 import { 
@@ -885,7 +896,8 @@ const getSystemPrompt = (
   channelOverrides?: ChannelOverrides,
   mergedRules?: MergedRules,
   industryMemory?: IndustryMemory | null,
-  extendedBrandContext?: ExtendedBrandContext | null
+  extendedBrandContext?: ExtendedBrandContext | null,
+  channelOptimizations?: Record<string, ChannelOptimization> // NEW: Per-channel optimization configs
 ): string => {
   const goalDescriptions: Record<string, string> = {
     education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
@@ -943,6 +955,28 @@ ${angleDescriptions[contentAngle] || contentAngle}
 - Tone và cách diễn đạt phải nhất quán với góc tiếp cận đã chọn`
     : "";
 
+  // NEW: Build per-channel optimization sections
+  let channelOptimizationSection = "";
+  if (channelOptimizations && Object.keys(channelOptimizations).length > 0) {
+    const optimizationParts: string[] = [];
+    optimizationParts.push("## PER-CHANNEL AI OPTIMIZATION");
+    
+    for (const channel of channels) {
+      const opt = channelOptimizations[channel];
+      if (opt) {
+        const optSection = buildOptimizedPromptSection(channel, opt);
+        if (optSection) {
+          optimizationParts.push(`### ${channel.toUpperCase()} OPTIMIZATION`);
+          optimizationParts.push(optSection);
+        }
+      }
+    }
+    
+    if (optimizationParts.length > 1) {
+      channelOptimizationSection = optimizationParts.join("\n");
+    }
+  }
+
   return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
@@ -972,6 +1006,7 @@ ${contentAngleSection}
 
 ## CHANNEL SETTINGS
 ${selectedChannelRules}
+${channelOptimizationSection}
 
 ## WEBSITE SEO (CHỈ áp dụng cho website)
 - SEO Title: 50-60 ký tự, keyword đầu | Meta: 150-160 ký tự
@@ -1309,6 +1344,13 @@ Mục tiêu nội dung: ${goalLabel}`;
     // This runs concurrently while we load brand data
     const aiConfigPromise = getAIConfig('generate-multichannel', organizationId || undefined);
     const channelModelConfigsPromise = getChannelModelConfigs(organizationId || undefined);
+    // NEW: Fetch per-channel optimization configs in parallel
+    const channelOptimizationsPromise = getMultiChannelOptimizations(
+      supabase,
+      formData.channels,
+      organizationId || undefined,
+      formData.brandTemplateId || undefined
+    );
 
     if (formData.brandTemplateId) {
       // STEP 1: Fetch brand template first (needed for industry_template_id)
@@ -1513,11 +1555,13 @@ Mục tiêu nội dung: ${goalLabel}`;
     }
     
     // Await AI configs that were fetched in parallel
-    const [aiConfig, channelModelConfigs] = await Promise.all([
+    const [aiConfig, channelModelConfigs, channelOptimizations] = await Promise.all([
       aiConfigPromise,
-      channelModelConfigsPromise
+      channelModelConfigsPromise,
+      channelOptimizationsPromise
     ]);
     console.log("[parallel-db] AI configs loaded:", aiConfig ? "custom" : "default");
+    console.log("[parallel-db] Channel optimizations loaded:", Object.keys(channelOptimizations).length, "channels");
 
     // ============================================
     // COMPLIANCE PRE-CHECK (for 'create' action only)
@@ -1956,7 +2000,8 @@ Nội dung sẵn sàng đăng ngay.`;
         channelOverrides,
         mergedRules,
         industryMemory,
-        extendedBrandContext
+        extendedBrandContext,
+        channelOptimizations // NEW: Pass channel optimizations
       );
       
       // ============================================
@@ -2091,10 +2136,16 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         channelModelConfigs: new Map(
           formData.channels.map(ch => {
             const cfg = channelModelConfigs.get(ch);
+            const channelOpt = channelOptimizations[ch];
+            // Apply cost priority to maxTokens
+            const baseMaxTokens = cfg?.maxTokens ?? null;
+            const optimizedMaxTokens = baseMaxTokens && channelOpt
+              ? applyTokenOptimization(baseMaxTokens, channelOpt)
+              : baseMaxTokens;
             return [ch, {
               model: cfg?.model || aiConfig.model,
               temperature: cfg?.temperature ?? aiConfig.temperature,
-              maxTokens: cfg?.maxTokens ?? null,
+              maxTokens: optimizedMaxTokens,
             }];
           })
         ),
@@ -2103,6 +2154,8 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
         // Critique context
         brandVoice,
         mergedRules,
+        // NEW: Per-channel optimizations for quality mode
+        channelOptimizations,
       };
       
       // Track client disconnect
@@ -2587,7 +2640,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
       channelOverrides,
       mergedRules,
       industryMemory,
-      extendedBrandContext
+      extendedBrandContext,
+      channelOptimizations // NEW: Pass channel optimizations
     );
 
     // Fetch targeted product/persona if specified
