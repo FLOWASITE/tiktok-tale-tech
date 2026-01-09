@@ -13,6 +13,7 @@ import { AIGenerationProgress } from './AIGenerationProgress';
 import { ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { CHANNELS } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
 
@@ -43,6 +44,7 @@ export function MobileGenerationSheet({
   onCreateAnother,
   onClose,
 }: MobileGenerationSheetProps) {
+  const isMobile = useIsMobile();
   const progressPercent = sseProgress?.progress ?? 0;
   const isGenerating = generationState === 'generating';
   const isComplete = generationState === 'complete';
@@ -51,6 +53,9 @@ export function MobileGenerationSheet({
   const getChannelLabel = (ch: string) => {
     return CHANNELS.find(c => c.value === ch)?.label || ch;
   };
+
+  // Only show on mobile/tablet (below lg breakpoint)
+  if (!isMobile) return null;
 
   return (
     <Drawer 
