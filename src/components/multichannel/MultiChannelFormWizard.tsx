@@ -72,6 +72,8 @@ import {
   JOURNEY_TO_GOAL_MAP,
   JOURNEY_TO_ANGLE_MAP,
   AiSuggestionContext,
+  QualityMode,
+  QUALITY_MODES,
 } from '@/types/multichannel';
 import { JourneyStage } from '@/types/customerPersona';
 import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
@@ -149,6 +151,7 @@ export function MultiChannelFormWizard({
     marketingFramework: initialData?.marketingFramework,
     journeyStage: initialData?.journeyStage,
     campaignId: initialData?.campaignId,
+    qualityMode: initialData?.qualityMode || 'balanced',
   });
 
   // Sync brand template
@@ -589,11 +592,60 @@ export function MultiChannelFormWizard({
                 </div>
               ))}
 
+              {/* Quality Mode Selector */}
+              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+                <CardContent className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Settings2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">Chế độ chất lượng</h3>
+                      <p className="text-xs text-muted-foreground">Cân bằng tốc độ và chất lượng</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {QUALITY_MODES.map((mode) => (
+                      <Tooltip key={mode.value}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, qualityMode: mode.value }))}
+                            disabled={isGenerating}
+                            className={cn(
+                              "flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all text-center",
+                              formData.qualityMode === mode.value
+                                ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                : 'border-border/50 hover:border-border hover:bg-muted/30',
+                              isGenerating && 'opacity-50 cursor-not-allowed'
+                            )}
+                          >
+                            <span className="text-xl">{mode.icon}</span>
+                            <span className="text-sm font-medium">{mode.label}</span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[180px]">
+                          <p className="text-xs">{mode.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Estimated Time */}
               {formData.channels.length > 0 && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Timer className="w-4 h-4" />
-                  <span>Ước tính: ~{estimatedTime} giây</span>
+                  <span>
+                    Ước tính: ~{formData.qualityMode === 'fast' 
+                      ? Math.round(estimatedTime * 0.6) 
+                      : formData.qualityMode === 'quality' 
+                        ? Math.round(estimatedTime * 1.3) 
+                        : estimatedTime} giây
+                    {formData.qualityMode === 'fast' && <Badge variant="outline" className="ml-2 text-[10px]">Nhanh hơn 40%</Badge>}
+                  </span>
                 </div>
               )}
             </div>

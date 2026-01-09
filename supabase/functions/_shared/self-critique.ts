@@ -637,6 +637,7 @@ export async function runSelfCritiqueLoop(options: {
   mergedRules?: MergedRules;
   additionalContext?: string;
   apiKey: string;
+  maxRefinements?: number; // NEW: Override max refinements (for quality modes)
 }): Promise<{
   finalContent: any;
   critiqueResult: CritiqueResult;
@@ -644,7 +645,7 @@ export async function runSelfCritiqueLoop(options: {
   refinementCount: number;
   needsManualReview: boolean;
 }> {
-  const { content, contentType, brandVoice, mergedRules, additionalContext, apiKey } = options;
+  const { content, contentType, brandVoice, mergedRules, additionalContext, apiKey, maxRefinements: maxRefinementsOverride } = options;
   
   let currentContent = content;
   let refinementCount = 0;
@@ -666,7 +667,10 @@ export async function runSelfCritiqueLoop(options: {
   
   // Get refinement strategy based on score
   const strategy = getRefinementStrategy(critiqueResult.overall_score);
-  const maxRefinements = Math.min(strategy.maxTries, CRITIQUE_CONFIG.MAX_REFINEMENTS);
+  // Use override if provided, otherwise use strategy limit capped by config
+  const maxRefinements = maxRefinementsOverride !== undefined 
+    ? maxRefinementsOverride 
+    : Math.min(strategy.maxTries, CRITIQUE_CONFIG.MAX_REFINEMENTS);
   
   // Refine loop (up to maxRefinements times)
   while (shouldRefine(critiqueResult) && refinementCount < maxRefinements) {
