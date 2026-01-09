@@ -493,22 +493,7 @@ export function MultiChannelFormWizard({
                   />
                 )}
 
-                {/* Hook Generator */}
-                {formData.topic.trim().length >= 10 && formData.channels.length > 0 && (
-                  <MultiChannelHookGenerator
-                    topic={formData.topic}
-                    channels={formData.channels}
-                    organizationId={organizationId}
-                    brandTemplateId={brandTemplateId}
-                    brandVoice={brandTemplate ? {
-                      brand_name: brandTemplate.brand_name,
-                      tone_of_voice: brandTemplate.tone_of_voice || [],
-                      formality_level: brandTemplate.formality_level || undefined,
-                    } : undefined}
-                    onSelectHook={handleSelectHook}
-                    disabled={isGenerating}
-                  />
-                )}
+                {/* Hook Generator - moved to Step 3 after channel selection */}
 
                 {/* Selected Hooks Display */}
                 {formData.selectedHooks && formData.selectedHooks.length > 0 && (
@@ -783,6 +768,23 @@ export function MultiChannelFormWizard({
                 selectedChannels={formData.channels}
                 showBrandHints={true}
               />
+
+              {/* Hook Generator - only show after channels selected */}
+              {formData.topic.trim().length >= 10 && formData.channels.length > 0 && (
+                <MultiChannelHookGenerator
+                  topic={formData.topic}
+                  channels={formData.channels}
+                  organizationId={organizationId}
+                  brandTemplateId={brandTemplateId}
+                  brandVoice={brandTemplate ? {
+                    brand_name: brandTemplate.brand_name,
+                    tone_of_voice: brandTemplate.tone_of_voice || [],
+                    formality_level: brandTemplate.formality_level || undefined,
+                  } : undefined}
+                  onSelectHook={handleSelectHook}
+                  disabled={isGenerating}
+                />
+              )}
 
               {/* Footer Info Option */}
               <Card className="bg-card/50 backdrop-blur-sm border-border/50">
