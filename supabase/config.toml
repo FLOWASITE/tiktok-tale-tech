@@ -85,6 +85,9 @@ verify_jwt = false
 [functions.chat-topics]
 verify_jwt = false
 
+[functions.topic-ai]
+verify_jwt = false
+
 [functions.generate-journey-messaging]
 verify_jwt = false
 
