@@ -52,11 +52,11 @@ export const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
   },
   facebook: {
-    min_length: 120,
-    max_length: 300,
+    min_length: 250,
+    max_length: 400,
     length_unit: 'words',
     hook_required: true,
-    hook_style: 'BẮT BUỘC 2 dòng đầu là hook mạnh',
+    hook_style: 'BẮT BUỘC 2 dòng đầu là hook mạnh, gây tò mò',
     bullet_allowed: true,
     cta_policy: 'optional',
     emoji_allowed: true,
@@ -67,7 +67,7 @@ export const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     link_position: 'body',
     tone_adjustment: 'keep',
     format_type: 'plain',
-    format_description: 'Xuống dòng ngắn, chia đoạn 2-3 dòng',
+    format_description: 'Xuống dòng ngắn, chia đoạn 2-3 dòng, nội dung chi tiết và đầy đủ',
   },
   instagram: {
     min_length: 50,
