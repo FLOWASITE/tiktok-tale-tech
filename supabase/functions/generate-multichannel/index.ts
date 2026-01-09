@@ -2428,6 +2428,9 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   was_refined: wasRefined,
                   refinement_count: refinementCount,
                   needs_manual_review: needsManualReview,
+                  // Hook integration - save selected hooks with content
+                  selected_hooks: formData.selectedHooks || [],
+                  global_hook: formData.globalHook || null,
                   // Channel contents
                   website_content: channelResults.website || null,
                   facebook_content: channelResults.facebook || null,
@@ -3802,6 +3805,9 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           was_refined: wasRefined,
           refinement_count: refinementCount,
           needs_manual_review: needsManualReview,
+          // Hook integration - save selected hooks with content
+          selected_hooks: formData.selectedHooks || [],
+          global_hook: formData.globalHook || null,
           website_content: typeof generatedData.website_content === 'object' 
             ? generatedData.website_content?.content || null 
             : generatedData.website_content || null,
