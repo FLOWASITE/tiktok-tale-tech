@@ -8,12 +8,14 @@ import {
   BarChart3,
   Database,
   LayoutDashboard,
+  DollarSign,
 } from "lucide-react";
 import CacheAnalytics from "@/components/admin/CacheAnalytics";
 import { AIDashboard } from "@/components/admin/ai/AIDashboard";
 import { AIProviderManager } from "@/components/admin/ai/AIProviderManager";
 import { AIFunctionConfigComponent } from "@/components/admin/ai/AIFunctionConfig";
 import { AIChannelModelConfig } from "@/components/admin/ai/AIChannelModelConfig";
+import { CostDashboard } from "@/components/admin/ai/CostDashboard";
 
 export default function AdminAIManagement() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -31,10 +33,14 @@ export default function AdminAIManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-6 w-full max-w-3xl mb-6">
+        <TabsList className="grid grid-cols-7 w-full max-w-4xl mb-6">
           <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="costs" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <DollarSign className="h-4 w-4" />
+            <span className="hidden sm:inline">Costs</span>
           </TabsTrigger>
           <TabsTrigger value="providers" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Plug className="h-4 w-4" />
@@ -60,6 +66,10 @@ export default function AdminAIManagement() {
         
         <TabsContent value="dashboard">
           <AIDashboard />
+        </TabsContent>
+        
+        <TabsContent value="costs">
+          <CostDashboard />
         </TabsContent>
         
         <TabsContent value="providers">
