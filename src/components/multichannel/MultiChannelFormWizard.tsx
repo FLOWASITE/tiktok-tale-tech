@@ -362,6 +362,31 @@ export function MultiChannelFormWizard({
     }));
   };
 
+  // Auto-replace selected hook when regenerated
+  const handleHookRegenerated = (channel: Channel, newHook: MultiChannelHook) => {
+    setFormData(prev => {
+      const existingSelected = (prev.selectedHooks || []).find(h => h.channel === channel);
+      if (!existingSelected) {
+        // Hook wasn't selected, no need to update
+        return prev;
+      }
+      
+      // Replace the old hook with the new one
+      const updatedHooks = (prev.selectedHooks || []).map(h => 
+        h.channel === channel
+          ? {
+              channel: newHook.channel,
+              opening_line: newHook.opening_line,
+              hook_type: newHook.hook_type,
+              psychology: newHook.psychology,
+            }
+          : h
+      );
+      
+      return { ...prev, selectedHooks: updatedHooks };
+    });
+  };
+
   const submittingRef = useRef(false);
 
   const handleSubmit = async () => {
@@ -725,6 +750,7 @@ export function MultiChannelFormWizard({
                   } : undefined}
                   selectedHooks={formData.selectedHooks}
                   onSelectHook={handleSelectHook}
+                  onHookRegenerated={handleHookRegenerated}
                   disabled={isGenerating}
                 />
               )}

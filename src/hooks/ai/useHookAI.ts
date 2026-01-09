@@ -274,7 +274,7 @@ export function useHookAI(options: UseHookAIOptions = {}) {
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
 
   const channelsKey = channels.sort().join(',');
-  const multiChannelCacheKey = `mc-${topic}-${channelsKey}-${brandVoiceKey}`;
+  const multiChannelCacheKey = `mc-${topic}-${channelsKey}-${brandVoiceKey}-${organizationId || 'no-org'}-${brandTemplateId || 'no-brand'}`;
   const mcPendingRef = useRef<string | null>(null);
   const mcAbortRef = useRef<AbortController | null>(null);
 
