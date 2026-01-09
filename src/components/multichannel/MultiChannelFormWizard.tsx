@@ -100,6 +100,7 @@ interface MultiChannelFormWizardProps {
   brandTemplateId?: string;
   brandTemplate?: BrandTemplate | null;
   voiceVariantId?: string;
+  organizationId?: string;
   initialData?: Partial<MultiChannelFormData>;
   topicHistoryId?: string;
   isGenerating: boolean;
@@ -135,6 +136,7 @@ export function MultiChannelFormWizard({
   brandTemplateId,
   brandTemplate,
   voiceVariantId,
+  organizationId,
   initialData,
   topicHistoryId,
   isGenerating,
@@ -496,6 +498,8 @@ export function MultiChannelFormWizard({
                   <MultiChannelHookGenerator
                     topic={formData.topic}
                     channels={formData.channels}
+                    organizationId={organizationId}
+                    brandTemplateId={brandTemplateId}
                     brandVoice={brandTemplate ? {
                       brand_name: brandTemplate.brand_name,
                       tone_of_voice: brandTemplate.tone_of_voice || [],

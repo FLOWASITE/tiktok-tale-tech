@@ -10,6 +10,7 @@ import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { MultiChannelFormData, ContentGoal, Channel } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ export default function MultiChannelCreate() {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const { refetch } = useMultiChannelContents();
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { currentOrganization } = useOrganizationContext();
   
   // Form state
   const [selectedBrandId, setSelectedBrandId] = useState<string | undefined>();
@@ -239,6 +241,7 @@ export default function MultiChannelCreate() {
               brandTemplateId={selectedBrandId}
               brandTemplate={selectedTemplate}
               voiceVariantId={selectedVoiceVariantId}
+              organizationId={currentOrganization?.id}
               initialData={formData}
               topicHistoryId={topicHistoryId}
               isGenerating={isGenerating}
