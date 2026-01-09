@@ -1562,7 +1562,13 @@ Mục tiêu nội dung: ${goalLabel}`;
       // Continue to brand loading, then branch to lightweight regenerate path
     }
 
-    // Load brand template if provided
+    // ============================================
+    // PHASE 2 OPTIMIZATION: Parallel DB Queries
+    // Fetch brand template, AI configs, and related data concurrently
+    // Saves ~300-400ms by avoiding sequential await chains
+    // ============================================
+    
+    // Initialize default values
     let brandName = "Thương hiệu";
     let brandGuideline: string | null = null;
     let primaryColor: string | null = null;
@@ -1574,8 +1580,14 @@ Mục tiêu nội dung: ${goalLabel}`;
     let industryMemory: IndustryMemory | null = null;
     let mergedRules: MergedRules | undefined;
     let extendedBrandContext: ExtendedBrandContext | null = null;
+    
+    // Pre-fetch AI configs in parallel with brand template (needed later for all modes)
+    // This runs concurrently while we load brand data
+    const aiConfigPromise = getAIConfig('generate-multichannel', organizationId || undefined);
+    const channelModelConfigsPromise = getChannelModelConfigs(organizationId || undefined);
 
     if (formData.brandTemplateId) {
+      // STEP 1: Fetch brand template first (needed for industry_template_id)
       const { data: template } = await supabase
         .from("brand_templates")
         .select("*")
@@ -1641,26 +1653,49 @@ Mục tiêu nội dung: ${goalLabel}`;
           footerInfo: template.footer_info as any || undefined,
         };
         
-        // Fetch customer personas for this brand
-        const [personasResult, mappingsResult] = await Promise.all([
+        // STEP 2: PARALLEL FETCH - Personas, Mappings, AND Industry Memory concurrently
+        // This is the key optimization: fetch all dependent data in parallel
+        console.log("[parallel-db] Starting parallel fetch: personas, mappings, industry memory...");
+        const parallelStartTime = Date.now();
+        
+        const [personasResult, mappingsResult, fetchedIndustryMemory] = await Promise.all([
+          // Fetch customer personas
           supabase
             .from('customer_personas')
             .select('*')
             .eq('brand_template_id', formData.brandTemplateId)
             .order('is_primary', { ascending: false }),
+          // Fetch product-persona mappings  
           supabase
             .from('product_persona_mappings')
             .select(`
-              product_id, persona_id, relevance_score, is_primary_product,
+              id, product_id, persona_id, relevance_score, is_primary_product,
               custom_pitch, key_benefits, objection_handlers, preferred_content_angles, avoid_topics,
               product:brand_products(id, name, category, unique_selling_points),
               persona:customer_personas(id, name, occupation)
             `)
             .eq('brand_template_id', formData.brandTemplateId)
             .order('relevance_score', { ascending: false })
-            .limit(15)
+            .limit(15),
+          // Fetch Industry Memory (if available) - now in parallel!
+          industryTemplateId 
+            ? fetchIndustryMemory(supabase, industryTemplateId)
+            : Promise.resolve(null)
         ]);
         
+        console.log(`[parallel-db] Parallel fetch completed in ${Date.now() - parallelStartTime}ms`);
+        
+        // Process Industry Memory result
+        if (fetchedIndustryMemory) {
+          industryMemory = fetchedIndustryMemory;
+          console.log("Industry Memory loaded:", industryMemory.name, "v" + industryMemory.version);
+          // Build merged rules with correct priority cascade
+          mergedRules = buildMergedRules(industryMemory, brandVoice);
+          console.log("Merged rules - forbidden_terms:", mergedRules.forbidden_terms.length, 
+                      "compliance_rules:", mergedRules.compliance_rules.length);
+        }
+        
+        // Process personas result
         if (personasResult.data && personasResult.data.length > 0) {
           const mapPersona = (p: any): CustomerPersona => ({
             name: p.name,
@@ -1750,20 +1785,15 @@ Mục tiêu nội dung: ${goalLabel}`;
             }
           }
         }
-        
-        // CRITICAL: Fetch Industry Memory from database (Single Source of Truth)
-        if (industryTemplateId) {
-          industryMemory = await fetchIndustryMemory(supabase, industryTemplateId);
-          if (industryMemory) {
-            console.log("Industry Memory loaded:", industryMemory.name, "v" + industryMemory.version);
-            // Build merged rules with correct priority cascade
-            mergedRules = buildMergedRules(industryMemory, brandVoice);
-            console.log("Merged rules - forbidden_terms:", mergedRules.forbidden_terms.length, 
-                        "compliance_rules:", mergedRules.compliance_rules.length);
-          }
-        }
       }
     }
+    
+    // Await AI configs that were fetched in parallel
+    const [aiConfig, channelModelConfigs] = await Promise.all([
+      aiConfigPromise,
+      channelModelConfigsPromise
+    ]);
+    console.log("[parallel-db] AI configs loaded:", aiConfig ? "custom" : "default");
 
     // ============================================
     // REGENERATE MODE - Lightweight single channel path
@@ -1774,9 +1804,7 @@ Mục tiêu nội dung: ${goalLabel}`;
       const channel = formData.channel!;
       const contentId = formData.contentId!;
       
-      // Get AI config and channel model configs
-      const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
-      const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
+      // AI configs already fetched in parallel above - use them directly
       
       // Detect target audience
       const targetAudience = await detectTargetAudience(industryArray, supabase);
@@ -2903,12 +2931,8 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     const MAX_RETRIES = 2;
     const hasWebsiteChannel = formData.channels.includes('website');
 
-    // Fetch AI config from database for runtime configuration
-    const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
+    // AI configs already fetched in parallel above
     console.log(`[ai-config] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}, max_tokens: ${aiConfig.max_tokens}`);
-
-    // Fetch channel-specific model configs
-    const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
     if (channelModelConfigs.size > 0) {
       console.log(`[ai-config] Channel model overrides: ${Array.from(channelModelConfigs.entries()).map(([ch, cfg]) => `${ch}=${cfg.model}`).join(', ')}`);
     }
