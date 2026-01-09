@@ -14,6 +14,7 @@ import {
   X,
   SquareCheck,
   Square,
+  RefreshCw,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, isPast, isFuture } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -43,6 +44,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useRetryPublish } from '@/hooks/useRetryPublish';
 
 interface ContentInfo {
   id: string;
@@ -107,6 +109,7 @@ export function PublishingQueue({ onViewContent }: PublishingQueueProps) {
   
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
+  const { retryPublish, isRetrying } = useRetryPublish();
 
   const fetchSchedules = async () => {
     if (!user || !currentOrganization?.id) {
@@ -681,6 +684,32 @@ export function PublishingQueue({ onViewContent }: PublishingQueueProps) {
                                     title="Xem nội dung"
                                   >
                                     <Eye className="w-4 h-4" />
+                                  </Button>
+                                )}
+
+                                {/* Retry button for failed */}
+                                {schedule.publish_status === 'failed' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={async () => {
+                                      await retryPublish({
+                                        scheduleId: schedule.id,
+                                        contentId: schedule.content_id,
+                                        channel: schedule.channel as Channel,
+                                        organizationId: currentOrganization?.id,
+                                      });
+                                      fetchSchedules();
+                                    }}
+                                    disabled={isRetrying === schedule.id}
+                                    title="Thử lại"
+                                  >
+                                    {isRetrying === schedule.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="w-4 h-4" />
+                                    )}
                                   </Button>
                                 )}
 
