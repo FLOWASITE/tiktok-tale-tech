@@ -2362,53 +2362,50 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             
             // Store results for each channel
             const channelResults: Record<string, string> = {};
-            const completedChannels: string[] = [];
+            const completedChannelsSet = new Set<string>();
             
-            // Generate content for each channel SEQUENTIALLY
-            for (let i = 0; i < channels.length; i++) {
-              const channel = channels[i];
-              if (clientDisconnected) break;
-              
-              const displayName = getChannelDisplayName(channel);
-              const channelProgress = 20 + ((i / channels.length) * 55);
-              
-              emit({
-                type: 'progress',
-                step: 'ai',
-                progress: channelProgress,
-                message: `Đang tạo ${displayName}...`,
-                currentChannel: channel,
-                completedChannels: [...completedChannels],
-                totalChannels: channels,
-              });
-              
-              // Build channel-specific user prompt
-              const channelUserPrompt = `${userPrompt}
+            // Build user prompt for each channel
+            const buildChannelUserPrompt = (channel: string) => `${userPrompt}
 
 Bây giờ viết nội dung cho kênh: ${channel.toUpperCase()}
 Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
-              
-              const result = await generateChannelStreaming({
-                channel,
-                systemPrompt,
-                userPrompt: channelUserPrompt,
-                context: streamingContext,
-                emit,
-              });
-              
-              completedChannels.push(channel);
-              channelResults[channel] = result.content;
-              
-              const completionProgress = 20 + (((i + 1) / channels.length) * 55);
-              emit({
-                type: 'progress',
-                step: 'ai',
-                progress: completionProgress,
-                message: `✓ ${displayName} hoàn thành`,
-                currentChannel: channels[i + 1],
-                completedChannels: [...completedChannels],
-                totalChannels: channels,
-              });
+            
+            // Generate content for ALL channels in PARALLEL
+            console.log(`[streaming-mode] Starting PARALLEL generation for ${channels.length} channels`);
+            
+            const { generateChannelsParallel } = await import("../_shared/streaming-handler.ts");
+            
+            const parallelResult = await generateChannelsParallel({
+              channels,
+              systemPrompt,
+              buildUserPrompt: buildChannelUserPrompt,
+              context: streamingContext,
+              emit,
+              onChannelComplete: (channel, content) => {
+                completedChannelsSet.add(channel);
+                channelResults[channel] = content;
+                
+                const displayName = getChannelDisplayName(channel);
+                const completionProgress = 20 + ((completedChannelsSet.size / channels.length) * 55);
+                
+                emit({
+                  type: 'progress',
+                  step: 'ai',
+                  progress: completionProgress,
+                  message: `✓ ${displayName} hoàn thành`,
+                  completedChannels: Array.from(completedChannelsSet),
+                  totalChannels: channels,
+                });
+              },
+            });
+            
+            // Merge results
+            Object.assign(channelResults, parallelResult.channelResults);
+            const completedChannels = Array.from(completedChannelsSet);
+            
+            console.log(`[streaming-mode] Parallel generation complete: ${completedChannels.length}/${channels.length} channels`);
+            if (Object.keys(parallelResult.errors).length > 0) {
+              console.warn(`[streaming-mode] Errors:`, parallelResult.errors);
             }
             
             // Stop heartbeat

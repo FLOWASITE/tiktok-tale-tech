@@ -68,6 +68,80 @@ export interface GenerateChannelStreamingParams {
 // STREAMING GENERATION
 // ============================================
 
+// Max concurrent channel generations
+const MAX_PARALLEL_CHANNELS = 4;
+
+export interface ParallelStreamingResult {
+  channelResults: Record<string, string>;
+  completedChannels: string[];
+  errors: Record<string, string>;
+}
+
+/**
+ * Generate content for multiple channels in PARALLEL with interleaved streaming
+ * This significantly reduces total generation time (time = max(channels) instead of sum(channels))
+ */
+export async function generateChannelsParallel(params: {
+  channels: string[];
+  systemPrompt: string;
+  buildUserPrompt: (channel: string) => string;
+  context: StreamingContext;
+  emit: (event: StreamingProgressEvent) => boolean;
+  onChannelComplete?: (channel: string, content: string) => void;
+}): Promise<ParallelStreamingResult> {
+  const { channels, systemPrompt, buildUserPrompt, context, emit, onChannelComplete } = params;
+  
+  const channelResults: Record<string, string> = {};
+  const completedChannels: string[] = [];
+  const errors: Record<string, string> = {};
+  
+  console.log(`[parallel-streaming] Starting ${channels.length} channels in parallel (max ${MAX_PARALLEL_CHANNELS} concurrent)`);
+  const startTime = Date.now();
+  
+  // Process channels in batches for controlled parallelism
+  const processBatch = async (batch: string[]) => {
+    const promises = batch.map(async (channel) => {
+      const userPrompt = buildUserPrompt(channel);
+      
+      const result = await generateChannelStreaming({
+        channel,
+        systemPrompt,
+        userPrompt,
+        context,
+        emit,
+      });
+      
+      if (result.success) {
+        channelResults[channel] = result.content;
+        completedChannels.push(channel);
+        onChannelComplete?.(channel, result.content);
+      } else {
+        errors[channel] = result.error || 'Unknown error';
+      }
+      
+      return { channel, result };
+    });
+    
+    return Promise.all(promises);
+  };
+  
+  // Split channels into batches
+  const batches: string[][] = [];
+  for (let i = 0; i < channels.length; i += MAX_PARALLEL_CHANNELS) {
+    batches.push(channels.slice(i, i + MAX_PARALLEL_CHANNELS));
+  }
+  
+  // Process batches sequentially, but channels within batch in parallel
+  for (const batch of batches) {
+    await processBatch(batch);
+  }
+  
+  const totalDuration = Date.now() - startTime;
+  console.log(`[parallel-streaming] All ${channels.length} channels completed in ${totalDuration}ms`);
+  
+  return { channelResults, completedChannels, errors };
+}
+
 /**
  * Generate content for a single channel with real-time token streaming
  */
