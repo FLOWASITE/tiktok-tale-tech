@@ -13,6 +13,11 @@
 import { callAI, iterateStreamDeltas } from "./ai-provider.ts";
 import { formatFooterInfo, type FooterInfo } from "./channel-prompt-builder.ts";
 import { calculateChannelMaxTokens } from "./dynamic-tokens.ts";
+import { 
+  type ChannelOptimization,
+  getEffectiveQualityMode,
+  applyTokenOptimization,
+} from "./channel-optimization.ts";
 
 // ============================================
 // TYPES
@@ -42,6 +47,8 @@ export interface StreamingContext {
   // Critique context (for post-streaming self-critique)
   brandVoice?: any;
   mergedRules?: any;
+  // NEW: Per-channel optimization configs
+  channelOptimizations?: Record<string, ChannelOptimization>;
 }
 
 export interface StreamingProgressEvent {
