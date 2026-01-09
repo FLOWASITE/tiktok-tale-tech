@@ -272,12 +272,20 @@ export async function generateChannelStreaming(
   const effectiveModel = channelConfig?.model ?? context.defaultModel;
   const effectiveTemperature = channelConfig?.temperature ?? context.defaultTemperature;
   
+  // Get channel optimization for token adjustment
+  const channelOpt = context.channelOptimizations?.[channel];
+  
   // Calculate dynamic max_tokens based on channel and context
-  const dynamicMaxTokens = calculateChannelMaxTokens(channel, {
+  let dynamicMaxTokens = calculateChannelMaxTokens(channel, {
     contentGoal: context.contentGoal,
     qualityMode: context.qualityMode,
     channelMaxLength: channelConfig?.maxTokens ?? undefined,
   });
+  
+  // Apply channel optimization token adjustment (costPriority affects token count)
+  if (channelOpt) {
+    dynamicMaxTokens = applyTokenOptimization(dynamicMaxTokens, channelOpt);
+  }
   
   // Estimate input tokens (rough: ~3 chars per token for mixed content)
   const inputTokensEstimate = Math.ceil((systemPrompt.length + userPrompt.length) / 3);
