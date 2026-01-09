@@ -99,6 +99,7 @@ interface MultiChannelHookGeneratorProps {
   };
   selectedHooks?: MultiChannelSelectedHook[];
   onSelectHook?: (hook: MultiChannelHook) => void;
+  onHookRegenerated?: (channel: Channel, newHook: MultiChannelHook) => void;
   disabled?: boolean;
   className?: string;
   organizationId?: string;
@@ -151,6 +152,7 @@ export function MultiChannelHookGenerator({
   brandVoice,
   selectedHooks = [],
   onSelectHook,
+  onHookRegenerated,
   disabled,
   className,
   organizationId,
@@ -221,7 +223,10 @@ export function MultiChannelHookGenerator({
 
   const handleRegenerateHook = async (channel: Channel, e: React.MouseEvent) => {
     e.stopPropagation();
-    await regenerateForChannel(channel);
+    const newHook = await regenerateForChannel(channel);
+    if (newHook && onHookRegenerated) {
+      onHookRegenerated(channel, newHook);
+    }
   };
 
   const handleCopy = async (text: string, index: number) => {
