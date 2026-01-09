@@ -210,11 +210,11 @@ export type QualityMode = 'fast' | 'balanced' | 'quality';
 // Prompt Style - How AI structures and presents content
 export type PromptStyle = 'default' | 'concise' | 'detailed' | 'creative' | 'analytical';
 
-// Hook Intensity - Aggressiveness of opening hooks
-export type HookIntensity = 'subtle' | 'moderate' | 'aggressive' | 'soft' | 'medium' | 'strong' | 'viral';
+// Hook Intensity - Aggressiveness of opening hooks (matches backend)
+export type HookIntensity = 'soft' | 'medium' | 'strong' | 'viral';
 
-// Cost Priority - Token optimization strategy
-export type CostPriority = 'speed' | 'balanced' | 'quality' | 'economy';
+// Cost Priority - Token optimization strategy (matches backend)
+export type CostPriority = 'economy' | 'balanced' | 'quality';
 
 // Channel Optimization config for a single channel
 export interface ChannelOptimization {
@@ -242,15 +242,16 @@ export const PROMPT_STYLES: { value: PromptStyle; label: string; description: st
 ];
 
 export const HOOK_INTENSITIES: { value: HookIntensity; label: string; description: string }[] = [
-  { value: 'subtle', label: 'Nhẹ nhàng', description: 'Tinh tế, không gây áp lực' },
-  { value: 'moderate', label: 'Vừa phải', description: 'Cân bằng giữa thu hút và chuyên nghiệp' },
-  { value: 'aggressive', label: 'Mạnh mẽ', description: 'Bold, urgency, gây chú ý ngay' },
+  { value: 'soft', label: 'Nhẹ nhàng', description: 'Tinh tế, chuyên nghiệp, B2B' },
+  { value: 'medium', label: 'Vừa phải', description: 'Cân bằng thu hút và chuyên nghiệp' },
+  { value: 'strong', label: 'Mạnh mẽ', description: 'Bold, gây chú ý nhanh, scroll-stopping' },
+  { value: 'viral', label: 'Viral', description: 'Tối đa engagement, có thể controversial' },
 ];
 
 export const COST_PRIORITIES: { value: CostPriority; label: string; description: string }[] = [
-  { value: 'speed', label: 'Tốc độ', description: 'Ít token hơn, nhanh hơn, rẻ hơn' },
+  { value: 'economy', label: 'Tiết kiệm', description: 'Ít token, nhanh, rẻ (−25%)' },
   { value: 'balanced', label: 'Cân bằng', description: 'Token vừa đủ cho chất lượng tốt' },
-  { value: 'quality', label: 'Chất lượng', description: 'Nhiều token hơn để chi tiết hơn' },
+  { value: 'quality', label: 'Chất lượng', description: 'Nhiều token hơn, chi tiết (+25%)' },
 ];
 
 // Preferred hook types for content generation

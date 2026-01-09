@@ -3,9 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type QualityMode = 'fast' | 'balanced' | 'quality';
-export type PromptStyle = 'concise' | 'detailed' | 'creative' | 'analytical';
-export type HookIntensity = 'subtle' | 'moderate' | 'aggressive';
-export type CostPriority = 'economy' | 'balanced' | 'performance';
+export type PromptStyle = 'default' | 'concise' | 'detailed' | 'creative' | 'analytical';
+export type HookIntensity = 'soft' | 'medium' | 'strong' | 'viral';
+export type CostPriority = 'economy' | 'balanced' | 'quality';
 
 export interface ChannelModelConfig {
   id: string;
