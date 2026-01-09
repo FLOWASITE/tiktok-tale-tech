@@ -26,11 +26,165 @@ interface BrandVoice {
 interface GenerateHooksRequest {
   topic: string;
   brandVoice?: BrandVoice;
-  platform?: string;
+  platform?: string;       // Single platform (backward compatible)
+  platforms?: string[];    // Multi-platform mode - tạo hook riêng cho từng platform
   duration?: string;
   count?: number;
   organizationId?: string;
   brandTemplateId?: string;
+}
+
+interface GeneratedHook {
+  opening_line: string;
+  visual_direction: string;
+  text_overlay: string;
+  framework: string;
+  psychology_reason: string;
+  engagement_level: string;
+  platform?: string;
+  evaluation?: {
+    score: number;
+    issues: string[];
+    strengths: string[];
+  };
+}
+
+// Tạo hook cho 1 platform cụ thể
+async function generateHookForPlatform(
+  supabase: any,
+  topic: string,
+  platform: string,
+  brandVoice: BrandVoice | undefined,
+  duration: string | undefined,
+  organizationId: string | undefined,
+  brandTemplateId: string | undefined
+): Promise<GeneratedHook> {
+  // Fetch channel optimization for this platform
+  let channelOptimization: ChannelOptimization | null = null;
+  try {
+    channelOptimization = await getChannelOptimization(supabase, platform, organizationId, brandTemplateId);
+  } catch (optErr) {
+    console.warn(`[generate-hooks] Failed to load optimization for ${platform}:`, optErr);
+  }
+
+  // Build brand voice context
+  let brandContext = '';
+  if (brandVoice) {
+    const parts = [];
+    if (brandVoice.brand_name) parts.push(`Brand: ${brandVoice.brand_name}`);
+    if (brandVoice.tone_of_voice?.length) parts.push(`Tone: ${brandVoice.tone_of_voice.join(', ')}`);
+    if (brandVoice.formality_level) parts.push(`Formality: ${brandVoice.formality_level}`);
+    if (brandVoice.brand_positioning) parts.push(`Positioning: ${brandVoice.brand_positioning}`);
+    if (brandVoice.preferred_words?.length) parts.push(`Preferred words: ${brandVoice.preferred_words.join(', ')}`);
+    if (brandVoice.forbidden_words?.length) parts.push(`Avoid words: ${brandVoice.forbidden_words.join(', ')}`);
+    
+    if (parts.length > 0) {
+      brandContext = `\n\nBrand Voice Guidelines:\n${parts.join('\n')}`;
+    }
+  }
+
+  // Build channel optimization context
+  let channelOptimizationContext = '';
+  if (channelOptimization) {
+    channelOptimizationContext = buildOptimizedPromptSection(platform, channelOptimization);
+  }
+
+  const durationContext = duration ? `\nVideo Duration: ${duration}` : '';
+
+  const systemPrompt = `Bạn là chuyên gia sáng tạo nội dung video ngắn với 10+ năm kinh nghiệm. 
+Nhiệm vụ của bạn là tạo ra 1 HOOK (câu mở đầu) hấp dẫn RIÊNG CHO ${platform.toUpperCase()} để thu hút người xem trong 3 giây đầu tiên.
+
+Hook cần có:
+1. opening_line: Câu nói đầu tiên (trong 3 giây đầu)
+2. visual_direction: Hướng dẫn hình ảnh trên màn hình
+3. text_overlay: Text hiển thị trên video
+4. framework: Loại hook (question, bold_statement, transformation, story, number, negative, social_proof, direct_address, shocking_fact, challenge)
+5. psychology_reason: Giải thích tại sao hook này hiệu quả (tâm lý học)
+6. engagement_level: Dự đoán mức độ engagement (high, medium, low)${brandContext}
+
+Target Platform: ${platform}${durationContext}${channelOptimizationContext ? `\n\n${channelOptimizationContext}` : ''}
+
+QUAN TRỌNG:
+- Hook phải bằng tiếng Việt
+- Phải gây tò mò hoặc shock để dừng scroll
+- TỐI ƯU CHO ${platform.toUpperCase()} - phong cách, độ dài, tone phù hợp với nền tảng này
+- Phù hợp với Brand Voice nếu được cung cấp
+- Không sử dụng từ cấm (forbidden words) nếu có`;
+
+  const userPrompt = `Tạo 1 hook cho chủ đề: "${topic}" - TỐI ƯU CHO ${platform.toUpperCase()}
+
+Trả về JSON object (không phải array):
+{
+  "opening_line": "...",
+  "visual_direction": "...",
+  "text_overlay": "...",
+  "framework": "question|bold_statement|transformation|story|number|negative|social_proof|direct_address|shocking_fact|challenge",
+  "psychology_reason": "...",
+  "engagement_level": "high|medium|low"
+}`;
+
+  // Calculate optimized max tokens
+  const baseMaxTokens = 1024; // Smaller since only 1 hook
+  const optimizedMaxTokens = channelOptimization 
+    ? applyTokenOptimization(baseMaxTokens, channelOptimization)
+    : baseMaxTokens;
+
+  const result = await callAI({
+    functionName: 'generate-hooks',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperatureOverride: 0.8,
+    maxTokensOverride: optimizedMaxTokens,
+  });
+
+  if (!result.success) {
+    throw new Error(result.error || 'AI call failed');
+  }
+
+  const content = result.data?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('No content in AI response');
+  }
+
+  // Parse JSON
+  let hook: GeneratedHook;
+  let jsonStr = content.trim();
+  
+  // Strip markdown code blocks
+  const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    jsonStr = codeBlockMatch[1].trim();
+  } else {
+    const objStart = jsonStr.indexOf('{');
+    const objEnd = jsonStr.lastIndexOf('}');
+    if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+      jsonStr = jsonStr.slice(objStart, objEnd + 1);
+    }
+  }
+  
+  hook = JSON.parse(jsonStr);
+  hook.platform = platform; // Gán platform vào hook
+
+  // Evaluate hook
+  try {
+    const evaluation = await evaluateHook(
+      hook.opening_line || '',
+      platform,
+      { brandVoice: brandVoice?.tone_of_voice?.join(', ') }
+    );
+    
+    hook.evaluation = {
+      score: evaluation.combinedScore,
+      issues: evaluation.issues,
+      strengths: evaluation.strengths,
+    };
+  } catch (evalErr) {
+    console.warn(`[generate-hooks] Evaluation failed for ${platform}:`, evalErr);
+  }
+
+  return hook;
 }
 
 serve(async (req) => {
@@ -39,7 +193,16 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, brandVoice, platform, duration, count = 5, organizationId, brandTemplateId } = await req.json() as GenerateHooksRequest;
+    const { 
+      topic, 
+      brandVoice, 
+      platform, 
+      platforms,  // New: array of platforms
+      duration, 
+      count = 5, 
+      organizationId, 
+      brandTemplateId 
+    } = await req.json() as GenerateHooksRequest;
     
     if (!topic) {
       return new Response(
@@ -48,19 +211,48 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client for channel optimization lookup
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch channel optimization for the target platform (supports brand/org overrides)
+    // =====================================================
+    // MODE 1: Multi-platform - tạo hook riêng cho từng platform
+    // =====================================================
+    if (platforms && platforms.length > 0) {
+      console.log('[generate-hooks] Multi-platform mode for:', platforms.join(', '));
+
+      // Tạo hook song song cho tất cả platforms
+      const hookPromises = platforms.map(p => 
+        generateHookForPlatform(supabase, topic, p, brandVoice, duration, organizationId, brandTemplateId)
+          .catch(err => {
+            console.error(`[generate-hooks] Failed for ${p}:`, err);
+            return null; // Return null for failed platforms
+          })
+      );
+
+      const results = await Promise.all(hookPromises);
+      const hooks = results.filter((h): h is GeneratedHook => h !== null);
+
+      console.log('[generate-hooks] Generated', hooks.length, 'hooks for', platforms.length, 'platforms');
+
+      return new Response(
+        JSON.stringify({ hooks }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // =====================================================
+    // MODE 2: Single platform (backward compatible)
+    // =====================================================
     const targetChannel = platform || 'facebook';
+    console.log('[generate-hooks] Single platform mode for:', targetChannel, 'count:', count);
+
     let channelOptimization: ChannelOptimization | null = null;
     try {
       channelOptimization = await getChannelOptimization(supabase, targetChannel, organizationId, brandTemplateId);
-      console.log('[generate-hooks] Channel optimization loaded for:', targetChannel, 'org:', organizationId, 'brand:', brandTemplateId);
     } catch (optErr) {
-      console.warn('[generate-hooks] Failed to load channel optimization, using defaults:', optErr);
+      console.warn('[generate-hooks] Failed to load channel optimization:', optErr);
     }
 
     // Build brand voice context
@@ -79,7 +271,6 @@ serve(async (req) => {
       }
     }
 
-    // Build channel optimization context
     let channelOptimizationContext = '';
     if (channelOptimization) {
       channelOptimizationContext = buildOptimizedPromptSection(targetChannel, channelOptimization);
@@ -119,15 +310,12 @@ Trả về JSON array với format:
   }
 ]`;
 
-    console.log('[generate-hooks] Calling AI with topic:', topic);
-
-    // Calculate optimized max tokens based on channel optimization
+    // Calculate optimized max tokens
     const baseMaxTokens = 2048;
     const optimizedMaxTokens = channelOptimization 
       ? applyTokenOptimization(baseMaxTokens, channelOptimization)
       : baseMaxTokens;
 
-    // Use shared callAI utility instead of direct fetch
     const result = await callAI({
       functionName: 'generate-hooks',
       messages: [
@@ -175,13 +363,10 @@ Trả về JSON array với format:
     try {
       let jsonStr = content.trim();
       
-      // Strip markdown code blocks if present (handle various formats)
-      // Match ```json ... ``` or ``` ... ```
       const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (codeBlockMatch) {
         jsonStr = codeBlockMatch[1].trim();
       } else {
-        // Also try to find array start/end if wrapped in other text
         const arrayStart = jsonStr.indexOf('[');
         const arrayEnd = jsonStr.lastIndexOf(']');
         if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
@@ -191,21 +376,18 @@ Trả về JSON array với format:
       
       hooks = JSON.parse(jsonStr);
       
-      // Ensure it's an array
       if (!Array.isArray(hooks)) {
         hooks = [hooks];
       }
     } catch (parseError) {
-      console.error('[generate-hooks] Failed to parse response:', parseError, 'Content:', content.substring(0, 200));
+      console.error('[generate-hooks] Failed to parse response:', parseError);
       return new Response(
         JSON.stringify({ error: 'Failed to parse AI response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Phase 2: Evaluate each hook with AI Hook Evaluator
-    console.log('[generate-hooks] Evaluating', hooks.length, 'hooks with AI Hook Evaluator');
-    
+    // Evaluate each hook
     const hooksWithEvaluations = await Promise.all(
       hooks.map(async (hook: any, idx: number) => {
         const hookChannel = platform || 'facebook';
@@ -218,6 +400,7 @@ Trả về JSON array với format:
           
           return {
             ...hook,
+            platform: hookChannel, // Add platform to each hook
             evaluation: {
               score: evaluation.combinedScore,
               issues: evaluation.issues,
@@ -226,13 +409,12 @@ Trả về JSON array với format:
           };
         } catch (evalErr) {
           console.warn('[generate-hooks] Evaluation failed for hook', idx, ':', evalErr);
-          // Return hook without evaluation if evaluation fails
-          return hook;
+          return { ...hook, platform: hookChannel };
         }
       })
     );
 
-    console.log('[generate-hooks] Successfully generated and evaluated', hooksWithEvaluations.length, 'hooks via', result.provider);
+    console.log('[generate-hooks] Generated', hooksWithEvaluations.length, 'hooks via', result.provider);
 
     return new Response(
       JSON.stringify({ hooks: hooksWithEvaluations }),
