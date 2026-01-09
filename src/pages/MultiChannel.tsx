@@ -527,6 +527,7 @@ export default function MultiChannel() {
         onDeleteChannelImage={deleteChannelImage}
         onUpdateChannelStatus={handleUpdateChannelStatus}
         onExpandChannels={handleExpandChannels}
+        onContentUpdated={(updated) => setSelectedContent(updated)}
         regeneratingChannel={regeneratingChannel}
         aiEditingChannel={aiEditingChannel}
         expandingChannels={expandingChannels}
