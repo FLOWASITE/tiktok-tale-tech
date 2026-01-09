@@ -26,7 +26,9 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MultiChannelContent, Channel, CONTENT_GOALS, CONTENT_STATUSES, ChannelImage, ContentStatus } from '@/types/multichannel';
-import { DEFAULT_CHANNEL_SETTINGS } from '@/types/channelSettings';
+import { DEFAULT_CHANNEL_SETTINGS, ChannelSettings, getChannelLengthDisplay } from '@/types/channelSettings';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useDraft } from '@/hooks/useDraft';
@@ -382,22 +384,23 @@ export function MultiChannelViewer({
   // Fetch Industry Memory for brand template
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryForBrand(content?.brand_template_id);
 
-  // Fetch brand template for logo URL
-  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (content?.brand_template_id) {
-      import('@/integrations/supabase/client').then(({ supabase }) => {
-        supabase
-          .from('brand_templates')
-          .select('logo_url')
-          .eq('id', content.brand_template_id!)
-          .single()
-          .then(({ data }) => {
-            setBrandLogoUrl(data?.logo_url || null);
-          });
-      });
-    }
-  }, [content?.brand_template_id]);
+  // Fetch brand template for logo URL and channel overrides
+  const { data: brandTemplateData } = useQuery({
+    queryKey: ['brand-template-viewer', content?.brand_template_id],
+    queryFn: async () => {
+      if (!content?.brand_template_id) return null;
+      const { data } = await supabase
+        .from('brand_templates')
+        .select('logo_url, channel_overrides')
+        .eq('id', content.brand_template_id)
+        .single();
+      return data;
+    },
+    enabled: !!content?.brand_template_id,
+  });
+  
+  const brandLogoUrl = brandTemplateData?.logo_url || null;
+  const channelOverrides = brandTemplateData?.channel_overrides as Record<string, Partial<ChannelSettings>> | null;
 
   // Check for industry version upgrade
   const { isOutdated: hasVersionUpgrade, latestVersion, industryName: upgradeIndustryName } = useContentVersionCheck(
@@ -1097,7 +1100,14 @@ export function MultiChannelViewer({
                         <div>
                           <h3 className="font-semibold text-sm">{config.label}</h3>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{config.maxLength}</span>
+                            <span className="flex items-center gap-1">
+                              {getChannelLengthDisplay(channel, channelOverrides)}
+                              {channelOverrides?.[channel] && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-primary/10 border-primary/20">
+                                  Brand
+                                </Badge>
+                              )}
+                            </span>
                             <span>•</span>
                             <span>{wordCount} từ / {charCount} ký tự</span>
                           </div>

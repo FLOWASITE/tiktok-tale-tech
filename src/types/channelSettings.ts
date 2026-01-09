@@ -334,3 +334,33 @@ export function buildAllChannelRulesPrompt(
     .map(ch => buildChannelRulesPrompt(ch, DEFAULT_CHANNEL_SETTINGS[ch], brandAllowEmoji))
     .join('\n\n');
 }
+
+// Helper: Merge channel settings with brand overrides
+export function mergeChannelSettings(
+  channel: Channel,
+  channelOverrides: Record<string, Partial<ChannelSettings>> | null | undefined
+): ChannelSettings {
+  const defaults = DEFAULT_CHANNEL_SETTINGS[channel];
+  if (!channelOverrides || !channelOverrides[channel]) {
+    return defaults;
+  }
+  return { ...defaults, ...channelOverrides[channel] };
+}
+
+// Helper: Get display string for channel length (dynamic from brand overrides)
+export function getChannelLengthDisplay(
+  channel: Channel,
+  channelOverrides: Record<string, Partial<ChannelSettings>> | null | undefined
+): string {
+  const settings = mergeChannelSettings(channel, channelOverrides);
+  const unitLabel = settings.length_unit === 'chars' ? 'ký tự' : 'từ';
+  
+  // Special cases for specific channels
+  if (channel === 'twitter') return 'Thread 5-7 tweets';
+  if (channel === 'youtube') return `Script ${settings.min_length}-${settings.max_length} từ`;
+  
+  if (settings.min_length) {
+    return `${settings.min_length}-${settings.max_length} ${unitLabel}`;
+  }
+  return `Tối đa ${settings.max_length} ${unitLabel}`;
+}
