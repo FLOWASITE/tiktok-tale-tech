@@ -50,7 +50,7 @@ export function RegenerateStreamingOverlay({
   const wordCount = streamingText.trim().split(/\s+/).filter(Boolean).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in-0">
+    <div className="flex items-center justify-center w-full h-full bg-background/80 backdrop-blur-sm animate-in fade-in-0">
       <Card className="w-full max-w-2xl mx-4 shadow-2xl border-primary/20">
         <CardHeader className="pb-3 space-y-3">
           <div className="flex items-center justify-between">
