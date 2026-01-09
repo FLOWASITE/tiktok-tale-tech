@@ -28,6 +28,14 @@ import {
   type CritiqueResult,
 } from "../_shared/self-critique.ts";
 import { calculateChannelMaxTokens, calculateTotalMaxTokens } from "../_shared/dynamic-tokens.ts";
+// Phase 1: Analytics & Intelligence imports
+import { 
+  generateTraceId, 
+  saveMetrics, 
+  getContextSources,
+  type AIMetrics 
+} from "../_shared/logger.ts";
+import { estimateTotalCost } from "../_shared/cost-estimator.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -2231,6 +2239,57 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             
             console.log('[streaming-mode] Saved content with ID:', savedContent.id);
             
+            // ============================================
+            // PHASE 1: METRICS LOGGING (Streaming mode)
+            // ============================================
+            try {
+              const metricsTraceId = generateTraceId();
+              const streamingEndTime = Date.now();
+              
+              // Calculate estimated cost
+              const estimatedCost = estimateTotalCost(
+                parallelResult.stats.modelsUsed,
+                parallelResult.stats.tokenUsage
+              );
+              
+              // Get context sources
+              const contextSources = getContextSources({
+                industryMemory,
+                brandContext: extendedBrandContext,
+                personas: formData.targetPersonaId ? [{ id: formData.targetPersonaId }] : undefined,
+                products: formData.targetProductId ? [{ id: formData.targetProductId }] : undefined,
+              });
+              
+              await saveMetrics(supabase, {
+                traceId: metricsTraceId,
+                functionName: 'generate-multichannel',
+                organizationId: organizationId || undefined,
+                userId: userId || undefined,
+                brandTemplateId: formData.brandTemplateId,
+                totalDurationMs: parallelResult.stats.totalDurationMs,
+                inputTokensEstimated: parallelResult.stats.totalInputTokens,
+                outputTokensEstimated: parallelResult.stats.totalOutputTokens,
+                contextSources,
+                hadError: false,
+                // Generation-specific fields
+                channels: channels,
+                qualityMode: qualityMode,
+                modelsUsed: parallelResult.stats.modelsUsed,
+                channelDurations: parallelResult.stats.channelDurations,
+                cacheHit: false,
+                estimatedCostUsd: estimatedCost,
+                usedFallback: parallelResult.stats.usedFallback,
+                fallbackModel: parallelResult.stats.fallbackModels[0] || undefined,
+                retryCount: 0,
+                contentId: savedContent.id,
+                actionType: formData.action || 'create',
+              });
+              
+              console.log(`[streaming-mode][metrics] Saved: cost=$${estimatedCost.toFixed(6)}, tokens=${parallelResult.stats.totalInputTokens}+${parallelResult.stats.totalOutputTokens}`);
+            } catch (metricsError) {
+              console.warn('[streaming-mode][metrics] Failed to save metrics:', metricsError);
+            }
+            
             emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
             await streamDelay(100);
             
@@ -3481,6 +3540,39 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     }
 
     console.log("Content saved with ID:", content.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
+
+    // ============================================
+    // PHASE 1: METRICS LOGGING (Non-streaming mode)
+    // ============================================
+    try {
+      const metricsTraceId = generateTraceId();
+      const contextSources = getContextSources({
+        industryMemory,
+        brandContext: extendedBrandContext,
+        personas: formData.targetPersonaId ? [{ id: formData.targetPersonaId }] : undefined,
+        products: formData.targetProductId ? [{ id: formData.targetProductId }] : undefined,
+      });
+      
+      await saveMetrics(supabase, {
+        traceId: metricsTraceId,
+        functionName: 'generate-multichannel',
+        organizationId: organizationId || undefined,
+        userId: userId || undefined,
+        brandTemplateId: formData.brandTemplateId,
+        totalDurationMs: 0, // TODO: Track full request duration
+        contextSources,
+        hadError: false,
+        channels: formData.channels,
+        qualityMode: formData.qualityMode || 'balanced',
+        cacheHit: fromCache,
+        contentId: content.id,
+        actionType: formData.action || 'create',
+      });
+      
+      console.log(`[metrics] Saved for content ${content.id}`);
+    } catch (metricsError) {
+      console.warn('[metrics] Failed to save:', metricsError);
+    }
 
     return new Response(JSON.stringify({ ...content, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
