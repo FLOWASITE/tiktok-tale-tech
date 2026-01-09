@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";
-import { callAI } from "../_shared/ai-provider.ts";
+import { callAI, iterateStreamDeltas } from "../_shared/ai-provider.ts";
 import {
   generateChannelStreaming,
   getChannelDisplayName,
@@ -1764,8 +1764,9 @@ Mục tiêu nội dung: ${goalLabel}`;
       const channel = formData.channel!;
       const contentId = formData.contentId!;
       
-      // Get AI config
+      // Get AI config and channel model configs
       const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
+      const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
       
       // Detect target audience
       const targetAudience = await detectTargetAudience(industryArray, supabase);
@@ -1868,69 +1869,53 @@ Nội dung sẵn sàng đăng ngay.`;
               
               emit({ type: 'progress', step: 'init', progress: 10, message: 'Đang khởi tạo...' });
               
-              // Call AI with streaming
+              // Call AI with streaming via callAI utility
               emit({ type: 'progress', step: 'generate', progress: 30, message: `Đang tạo lại nội dung ${channel}...` });
               
-              const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  model: aiConfig.model || "google/gemini-2.5-flash",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt },
-                  ],
-                  stream: true,
-                }),
+              // Get channel-specific model if available
+              const channelConfig = channelModelConfigs.get(channel);
+              const effectiveModel = channelConfig?.model || aiConfig.model;
+              const effectiveTemp = channelConfig?.temperature ?? aiConfig.temperature;
+              
+              console.log(`[regenerate-mode][streaming] Using model: ${effectiveModel}`);
+              
+              const streamResult = await callAI({
+                functionName: 'generate-multichannel',
+                organizationId: organizationId || undefined,
+                modelOverride: effectiveModel,
+                temperatureOverride: effectiveTemp,
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: userPrompt },
+                ],
+                stream: true,
+                maxTokensOverride: channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096,
               });
               
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error("[regenerate-mode][streaming] AI API error:", response.status);
-                if (response.status === 429) {
+              if (!streamResult.success || !streamResult.data) {
+                console.error("[regenerate-mode][streaming] AI API error:", streamResult.error);
+                if (streamResult.error?.includes('Rate limit') || streamResult.error?.includes('429')) {
                   emit({ type: 'error', message: 'Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.' });
                   controller.close();
                   return;
                 }
-                if (response.status === 402) {
+                if (streamResult.error?.includes('Payment required') || streamResult.error?.includes('402')) {
                   emit({ type: 'error', message: 'Cần nạp thêm credits để tiếp tục sử dụng.' });
                   controller.close();
                   return;
                 }
-                throw new Error(`AI API error: ${response.status}`);
+                throw new Error(`AI API error: ${streamResult.error}`);
               }
               
-              // Stream tokens
-              const reader = response.body!.getReader();
-              const decoder = new TextDecoder();
-              let generatedContent = '';
-              let buffer = '';
+              console.log(`[regenerate-mode][streaming] Streaming from ${streamResult.provider}${streamResult.fromFallback ? ' (fallback)' : ''}`);
               
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-                
-                for (const line of lines) {
-                  if (line.startsWith('data: ')) {
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') continue;
-                    
-                    try {
-                      const parsed = JSON.parse(data);
-                      const content = parsed.choices?.[0]?.delta?.content;
-                      if (content) {
-                        generatedContent += content;
-                        emit({ type: 'streaming_text', channel, content });
-                      }
-                    } catch {}
-                  }
+              // Stream tokens using shared iterator
+              let generatedContent = '';
+              for await (const delta of iterateStreamDeltas(streamResult.data)) {
+                if (delta.done) break;
+                if (delta.content) {
+                  generatedContent += delta.content;
+                  emit({ type: 'streaming_text', channel, content: delta.content });
                 }
               }
               
@@ -2010,32 +1995,41 @@ Nội dung sẵn sàng đăng ngay.`;
       };
       
       const generateAIContent = async (): Promise<string> => {
-        console.log("[regenerate-mode] Calling AI...");
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: aiConfig.model || "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            tools,
-            tool_choice: { type: "function", function: { name: "generate_channel_content" } },
-          }),
+        // Get channel-specific model if available
+        const channelConfig = channelModelConfigs.get(channel);
+        const effectiveModel = channelConfig?.model || aiConfig.model;
+        const effectiveTemp = channelConfig?.temperature ?? aiConfig.temperature;
+        
+        console.log(`[regenerate-mode] Calling AI via callAI, model: ${effectiveModel}`);
+        
+        const result = await callAI({
+          functionName: 'generate-multichannel',
+          organizationId: organizationId || undefined,
+          modelOverride: effectiveModel,
+          temperatureOverride: effectiveTemp,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools,
+          toolChoice: { type: "function", function: { name: "generate_channel_content" } },
+          maxTokensOverride: channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096,
         });
-        
-        if (!response.ok) {
-          if (response.status === 429) throw { status: 429, message: "Đã vượt giới hạn yêu cầu." };
-          if (response.status === 402) throw { status: 402, message: "Cần nạp thêm credits." };
-          throw new Error(`AI API error: ${response.status}`);
+
+        if (!result.success) {
+          console.error(`[regenerate-mode] AI error from ${result.provider}:`, result.error);
+          if (result.error?.includes('Rate limit') || result.error?.includes('429')) {
+            throw { status: 429, message: "Đã vượt giới hạn yêu cầu." };
+          }
+          if (result.error?.includes('Payment required') || result.error?.includes('402')) {
+            throw { status: 402, message: "Cần nạp thêm credits." };
+          }
+          throw new Error(`AI error: ${result.error}`);
         }
+
+        console.log(`[regenerate-mode] AI response from ${result.provider}${result.fromFallback ? ' (fallback)' : ''}`);
         
-        const aiResponse = await response.json();
-        const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+        const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
         if (!toolCall || toolCall.function.name !== "generate_channel_content") {
           throw new Error("Invalid AI response format");
         }
