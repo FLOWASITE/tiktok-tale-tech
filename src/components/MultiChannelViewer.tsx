@@ -1546,7 +1546,16 @@ export function MultiChannelViewer({
         onOpenChange={setShowExpandDialog}
         content={content}
         onComplete={(updatedContent) => {
-          // Optionally refresh parent state
+          // Find the newly added channels by comparing old and new selected_channels
+          const oldChannels = content.selected_channels || [];
+          const newChannels = updatedContent.selected_channels || [];
+          const addedChannels = newChannels.filter(ch => !oldChannels.includes(ch));
+          
+          // Switch to the first newly added channel
+          if (addedChannels.length > 0) {
+            setSelectedChannel(addedChannels[0]);
+          }
+          
           setShowExpandDialog(false);
         }}
       />
