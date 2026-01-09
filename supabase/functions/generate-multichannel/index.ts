@@ -55,9 +55,11 @@ interface FormData {
   stream?: boolean; // NEW: Enable real-time SSE streaming
   campaignId?: string;
   // Expand mode parameters
-  action?: 'create' | 'expand'; // 'create' = default, 'expand' = add channels to existing content
-  contentId?: string; // Required when action='expand'
+  action?: 'create' | 'expand' | 'regenerate'; // 'create' = default, 'expand' = add channels, 'regenerate' = single channel
+  contentId?: string; // Required when action='expand' or 'regenerate'
   newChannels?: string[]; // Required when action='expand' - channels to add
+  channel?: string; // Required when action='regenerate' - single channel to regenerate
+  enableCritique?: boolean; // Optional for regenerate: run Self-Critique (default: false)
 }
 
 // Channel content column mapping (for expand mode)
@@ -1366,6 +1368,54 @@ serve(async (req) => {
       console.log(`[expand-mode] Using context from existing content: topic="${formData.topic}", channels=${formData.channels.join(',')}`);
     }
 
+    // ============================================
+    // REGENERATE MODE HANDLER
+    // Regenerates content for a single channel (lightweight path)
+    // ============================================
+    if (formData.action === 'regenerate') {
+      console.log(`[regenerate-mode] Regenerating ${formData.channel} for content ${formData.contentId}`);
+      
+      if (!formData.contentId || !formData.channel) {
+        return new Response(
+          JSON.stringify({ error: 'Missing contentId or channel for regenerate action' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Validate channel
+      if (!CHANNEL_COLUMN_MAP[formData.channel]) {
+        return new Response(
+          JSON.stringify({ error: `Invalid channel: ${formData.channel}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch existing content
+      const { data: existingContent, error: fetchError } = await supabase
+        .from('multi_channel_contents')
+        .select('*')
+        .eq('id', formData.contentId)
+        .single();
+
+      if (fetchError || !existingContent) {
+        console.error('[regenerate-mode] Content not found:', fetchError);
+        return new Response(
+          JSON.stringify({ error: 'Content not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Override formData with existing content context
+      formData.topic = existingContent.topic;
+      formData.channels = [formData.channel]; // Single channel only
+      formData.brandTemplateId = existingContent.brand_template_id;
+      formData.contentGoal = existingContent.content_goal;
+      organizationId = existingContent.organization_id;
+
+      console.log(`[regenerate-mode] Using context: topic="${formData.topic}", channel=${formData.channel}`);
+      // Continue to brand loading, then branch to lightweight regenerate path
+    }
+
     // Load brand template if provided
     let brandName = "Thương hiệu";
     let brandGuideline: string | null = null;
@@ -1570,8 +1620,343 @@ serve(async (req) => {
     }
 
     // ============================================
-    // STREAMING MODE - Real-time token-by-token SSE
+    // REGENERATE MODE - Lightweight single channel path
     // ============================================
+    if (formData.action === 'regenerate') {
+      console.log("[regenerate-mode] Starting lightweight regeneration path...");
+      
+      const channel = formData.channel!;
+      const contentId = formData.contentId!;
+      
+      // Get AI config
+      const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
+      
+      // Detect target audience
+      const targetAudience = await detectTargetAudience(industryArray, supabase);
+      
+      // Build channel settings
+      const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
+      const channelSettings = mergeChannelSettings(channel, channelOverrides);
+      const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings, brandAllowEmoji);
+      
+      // Build Brand Voice section
+      const brandVoiceSection = brandVoice 
+        ? getBrandVoicePrompt(brandVoice, mergedRules, industryMemory) 
+        : "";
+      
+      // Content goal
+      const contentGoal = formData.contentGoal || 'education';
+      const goalDescriptions: Record<string, string> = {
+        education: "Giáo dục - Chia sẻ kiến thức chuyên sâu",
+        awareness: "Nhận diện - Tăng nhận biết thương hiệu",
+        engagement: "Tương tác - Khuyến khích bình luận, chia sẻ",
+        expertise: "Xây chuyên gia - Thể hiện chuyên môn sâu",
+        conversion: "Chuyển đổi - Thúc đẩy hành động",
+      };
+      
+      // Target audience description
+      const targetAudienceDesc = targetAudience === 'B2B' 
+        ? 'doanh nghiệp (B2B)' 
+        : targetAudience === 'B2C' 
+          ? 'người tiêu dùng (B2C)' 
+          : 'cả doanh nghiệp và người tiêu dùng (B2B + B2C)';
+      
+      // Build system prompt for regeneration
+      const systemPrompt = `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - hệ thống AI tạo NỘI DUNG cho ${targetAudienceDesc}.
+
+${brandVoiceSection}
+
+## BRAND CONTEXT
+Brand name: ${brandName}
+${brandGuideline ? `Brand guideline: ${brandGuideline}` : ""}
+${primaryColor ? `Màu chủ đạo: ${primaryColor}` : ""}
+${industry ? `Ngành: ${industry}` : ""}
+Target Audience: ${targetAudience}
+
+## MỤC TIÊU NỘI DUNG
+${goalDescriptions[contentGoal] || contentGoal}
+
+## QUY ƯỚC CHO KÊNH (SOCIAL CHANNEL SETTINGS)
+Brand Voice là LUẬT NỀN. Channel Settings là LUẬT TRIỂN KHAI.
+
+${channelRulesPrompt}
+
+## KIỂM TRA CUỐI (BẮT BUỘC)
+- Có vượt max length không? → TỰ RÚT GỌN
+- Có vi phạm emoji / hashtag không? → TỰ ĐIỀU CHỈNH
+
+## NGUYÊN TẮC BẮT BUỘC
+1. Tạo nội dung MỚI HOÀN TOÀN, khác với phiên bản trước
+2. Giữ cùng thông điệp lõi nhưng thay đổi cách diễn đạt
+3. Giọng văn: Chuyên nghiệp, rõ ràng, phù hợp ${targetAudience}
+4. Tuân thủ chính xác format của kênh
+
+## ĐIỀU TUYỆT ĐỐI KHÔNG LÀM
+- Không giải thích vì sao viết như vậy
+- Không bình luận ngoài nội dung${brandVoice && !brandVoice.allow_emoji ? "\n- KHÔNG dùng emoji (Brand Voice yêu cầu)" : ""}`;
+
+      const userPrompt = `Viết lại nội dung cho kênh ${channel.toUpperCase()} với chủ đề:
+"${formData.topic}"
+
+${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
+
+Tạo một phiên bản MỚI, KHÁC BIỆT với nội dung cũ, nhưng vẫn giữ thông điệp lõi.
+Nội dung sẵn sàng đăng ngay.`;
+
+      // ============================================
+      // REGENERATE WITH STREAMING
+      // ============================================
+      if (formData.stream === true) {
+        console.log("[regenerate-mode][streaming] Starting SSE stream for single channel");
+        
+        const encoder = new TextEncoder();
+        let clientDisconnected = false;
+        
+        const stream = new ReadableStream({
+          async start(controller) {
+            let heartbeatInterval: any = null;
+            
+            const emit = (event: any) => {
+              if (clientDisconnected) return;
+              try {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+              } catch {}
+            };
+            
+            try {
+              heartbeatInterval = setInterval(() => {
+                if (!clientDisconnected) {
+                  try { controller.enqueue(encoder.encode(': heartbeat\n\n')); } catch {}
+                }
+              }, 10000);
+              
+              emit({ type: 'progress', step: 'init', progress: 10, message: 'Đang khởi tạo...' });
+              
+              // Call AI with streaming
+              emit({ type: 'progress', step: 'generate', progress: 30, message: `Đang tạo lại nội dung ${channel}...` });
+              
+              const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: aiConfig.model || "google/gemini-2.5-flash",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                  ],
+                  stream: true,
+                }),
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error("[regenerate-mode][streaming] AI API error:", response.status);
+                if (response.status === 429) {
+                  emit({ type: 'error', message: 'Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.' });
+                  controller.close();
+                  return;
+                }
+                if (response.status === 402) {
+                  emit({ type: 'error', message: 'Cần nạp thêm credits để tiếp tục sử dụng.' });
+                  controller.close();
+                  return;
+                }
+                throw new Error(`AI API error: ${response.status}`);
+              }
+              
+              // Stream tokens
+              const reader = response.body!.getReader();
+              const decoder = new TextDecoder();
+              let generatedContent = '';
+              let buffer = '';
+              
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                  if (line.startsWith('data: ')) {
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    
+                    try {
+                      const parsed = JSON.parse(data);
+                      const content = parsed.choices?.[0]?.delta?.content;
+                      if (content) {
+                        generatedContent += content;
+                        emit({ type: 'streaming_text', channel, content });
+                      }
+                    } catch {}
+                  }
+                }
+              }
+              
+              emit({ type: 'channel_complete', channel, content: generatedContent });
+              emit({ type: 'progress', step: 'finalize', progress: 85, message: 'Đang lưu...' });
+              
+              if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+              }
+              
+              // Update database
+              const columnName = CHANNEL_COLUMN_MAP[channel];
+              const { data: updatedContent, error: updateError } = await supabase
+                .from('multi_channel_contents')
+                .update({ [columnName]: generatedContent })
+                .eq('id', contentId)
+                .select()
+                .single();
+              
+              if (updateError) {
+                emit({ type: 'error', message: 'Không thể lưu nội dung' });
+                controller.close();
+                return;
+              }
+              
+              emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
+              emit({ type: 'result', data: updatedContent });
+              
+              try { controller.enqueue(encoder.encode('data: [DONE]\n\n')); } catch {}
+              controller.close();
+            } catch (error) {
+              if (heartbeatInterval) clearInterval(heartbeatInterval);
+              console.error('[regenerate-mode][streaming] Error:', error);
+              emit({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
+              try { controller.close(); } catch {}
+            }
+          }
+        });
+        
+        return createSSEResponse(stream, corsHeaders);
+      }
+      
+      // ============================================
+      // REGENERATE WITHOUT STREAMING (Fast path)
+      // ============================================
+      console.log("[regenerate-mode][non-streaming] Generating content...");
+      
+      const tools = [
+        {
+          type: "function",
+          function: {
+            name: "generate_channel_content",
+            description: `Generate new content for ${channel}`,
+            parameters: {
+              type: "object",
+              properties: {
+                content: { type: "string", description: `Nội dung mới cho ${channel}` },
+              },
+              required: ["content"],
+            },
+          },
+        },
+      ];
+      
+      // Use cache wrapper
+      const cacheInput = {
+        contentId,
+        channel,
+        topic: formData.topic,
+        industry,
+        brandVoice: brandVoice ? {
+          positioning: brandVoice.brand_positioning,
+          tone: brandVoice.tone_of_voice,
+          formality: brandVoice.formality_level,
+        } : null,
+      };
+      
+      const generateAIContent = async (): Promise<string> => {
+        console.log("[regenerate-mode] Calling AI...");
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: aiConfig.model || "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            tools,
+            tool_choice: { type: "function", function: { name: "generate_channel_content" } },
+          }),
+        });
+        
+        if (!response.ok) {
+          if (response.status === 429) throw { status: 429, message: "Đã vượt giới hạn yêu cầu." };
+          if (response.status === 402) throw { status: 402, message: "Cần nạp thêm credits." };
+          throw new Error(`AI API error: ${response.status}`);
+        }
+        
+        const aiResponse = await response.json();
+        const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+        if (!toolCall || toolCall.function.name !== "generate_channel_content") {
+          throw new Error("Invalid AI response format");
+        }
+        
+        const generatedData = JSON.parse(toolCall.function.arguments);
+        return generatedData.content;
+      };
+      
+      let newContent: string;
+      let fromCache = false;
+      
+      try {
+        const cacheResult = await withCache({
+          functionName: 'generate-multichannel',
+          scope: 'org',
+          organizationId: organizationId || undefined,
+          brandTemplateId: formData.brandTemplateId || undefined,
+          input: { ...cacheInput, action: 'regenerate' },
+          versions: { brandVoice: brandVoice?.formality_level || undefined },
+          ttlDays: 1, // Short TTL for regeneration
+          generateFn: generateAIContent,
+        });
+        
+        newContent = cacheResult.data;
+        fromCache = cacheResult.fromCache;
+        console.log(`[regenerate-mode] ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}`);
+      } catch (err: any) {
+        if (err.status === 429 || err.status === 402) {
+          return new Response(
+            JSON.stringify({ error: err.message }),
+            { status: err.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        throw err;
+      }
+      
+      // Update database
+      const columnName = CHANNEL_COLUMN_MAP[channel];
+      const { data: updatedContent, error: updateError } = await supabase
+        .from('multi_channel_contents')
+        .update({ [columnName]: newContent })
+        .eq('id', contentId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error("[regenerate-mode] Update error:", updateError);
+        throw new Error("Không thể cập nhật nội dung");
+      }
+      
+      console.log(`[regenerate-mode] Successfully regenerated ${channel}, fromCache: ${fromCache}`);
+      
+      return new Response(
+        JSON.stringify({ ...updatedContent, fromCache }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     if (formData.stream === true) {
       console.log("[streaming-mode] Streaming mode enabled, starting SSE response...");
       

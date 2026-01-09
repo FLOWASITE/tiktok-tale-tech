@@ -158,11 +158,21 @@ export function useMultiChannelContents() {
     }
   };
 
-  const regenerateChannel = async (contentId: string, channel: Channel): Promise<MultiChannelContent | null> => {
+  const regenerateChannel = async (
+    contentId: string, 
+    channel: Channel,
+    options?: { stream?: boolean; enableCritique?: boolean }
+  ): Promise<MultiChannelContent | null> => {
     setRegeneratingChannel(channel);
     try {
-      const { data, error } = await supabase.functions.invoke('regenerate-channel', {
-        body: { contentId, channel },
+      const { data, error } = await supabase.functions.invoke('generate-multichannel', {
+        body: { 
+          action: 'regenerate',
+          contentId, 
+          channel,
+          stream: options?.stream ?? false,
+          enableCritique: options?.enableCritique ?? false,
+        },
       });
 
       if (error) {

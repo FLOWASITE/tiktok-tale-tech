@@ -24,9 +24,7 @@ verify_jwt = false
 [functions.generate-multichannel-stream]
 verify_jwt = false
 
-[functions.regenerate-channel]
-verify_jwt = false
-
+# [functions.regenerate-channel] - merged into generate-multichannel with action='regenerate'
 [functions.ai-edit-channel]
 verify_jwt = false
 
@@ -132,9 +130,7 @@ verify_jwt = false
 [functions.fetch-openrouter-models]
 verify_jwt = false
 
-[functions.expand-multichannel-channels]
-verify_jwt = false
-
+# [functions.expand-multichannel-channels] - merged into generate-multichannel with action='expand'
 [functions.help-chatbot]
 verify_jwt = false
 
