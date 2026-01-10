@@ -21,16 +21,26 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'openai/gpt-5-nano': { input: 0.075, output: 0.30 },
   'openai/gpt-5.2': { input: 3.0, output: 12.0 },
   
-  // Third-party models (via OpenRouter - estimated)
+  // Moonshot/Kimi family (via OpenRouter - estimated)
   'moonshotai/kimi-k2': { input: 0.15, output: 0.55 },
+  'moonshotai/kimi-k2-0905': { input: 0.15, output: 0.55 },
   'moonshotai/moonshot-v1-8k': { input: 0.12, output: 0.40 },
   'moonshotai/moonshot-v1-32k': { input: 0.18, output: 0.60 },
   'moonshotai/moonshot-v1-128k': { input: 0.30, output: 1.0 },
+  
+  // DeepSeek family (via OpenRouter - estimated)
   'deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
   'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
+  
+  // Anthropic family (via OpenRouter - estimated)
   'anthropic/claude-sonnet-4': { input: 3.0, output: 15.0 },
+  'anthropic/claude-sonnet-4.5': { input: 3.0, output: 15.0 },
   'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 },
+  'anthropic/claude-3.5-haiku': { input: 0.80, output: 4.0 },
   'anthropic/claude-3-haiku': { input: 0.25, output: 1.25 },
+  'anthropic/claude-3-opus': { input: 15.0, output: 75.0 },
+  
+  // Qwen family (via OpenRouter - estimated)
   'qwen/qwen-turbo': { input: 0.05, output: 0.20 },
   'qwen/qwen-plus': { input: 0.10, output: 0.40 },
   'qwen/qwen-max': { input: 0.40, output: 1.60 },
