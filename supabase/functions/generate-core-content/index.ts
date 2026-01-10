@@ -26,6 +26,7 @@ import { evaluateCoreContentQuality, QualityMetrics } from '../_shared/quality-g
 import { saveMetrics, generateTraceId } from '../_shared/logger.ts';
 import { estimateCost, estimateTotalCost } from '../_shared/cost-estimator.ts';
 import { getAIConfig } from '../_shared/ai-config.ts';
+import { callAI as callAIProvider } from '../_shared/ai-provider.ts';
 
 // ============================================
 // SSE STREAMING HELPERS
@@ -98,7 +99,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+// NOTE: Removed hardcoded AI_GATEWAY_URL - now using multi-provider system via ai-provider.ts
 
 interface GenerateCoreContentRequest {
   topic: string;
@@ -215,53 +216,48 @@ function calculateQualityScore(content: string, wordCount: number, keyMessages: 
 }
 
 // ============================================
-// AI CALL HELPER
+// AI CALL HELPER - Multi-Provider Support
+// Uses ai-provider.ts for OpenRouter, OpenAI, Anthropic, Gemini, etc.
 // ============================================
 
+// Organization ID for provider config lookup (set in main handler)
+let currentOrganizationId: string | undefined;
+
 async function callAI(
-  apiKey: string,
+  _apiKey: string, // Kept for backward compatibility, but now uses provider system
   model: string,
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number = 4000,
   temperature: number = 0.7
 ): Promise<string> {
-  const response = await fetch(AI_GATEWAY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature,
-      max_tokens: maxTokens,
-    }),
+  console.log(`[callAI] Model: ${model}, OrgId: ${currentOrganizationId || 'none'}`);
+  
+  const result = await callAIProvider({
+    functionName: 'generate-core-content',
+    organizationId: currentOrganizationId,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    maxTokensOverride: maxTokens,
+    temperatureOverride: temperature,
+    modelOverride: model,
   });
   
-  if (!response.ok) {
-    if (response.status === 429) {
-      throw new Error('Rate limits exceeded. Please try again later.');
-    }
-    if (response.status === 402) {
-      throw new Error('Payment required. Please add credits to your workspace.');
-    }
-    const errorText = await response.text();
-    console.error(`[AI] Error ${response.status}:`, errorText);
-    throw new Error(`AI API error: ${response.status}`);
+  if (!result.success) {
+    console.error(`[callAI] Provider call failed:`, result.error);
+    throw new Error(result.error || 'AI call failed');
   }
   
-  const result = await response.json();
-  return result.choices?.[0]?.message?.content || '';
+  const content = result.data?.choices?.[0]?.message?.content || '';
+  console.log(`[callAI] Success via ${result.provider}, content length: ${content.length}`);
+  return content;
 }
 
-// AI Call with Streaming support
+// AI Call with Streaming support - uses multi-provider system
 async function callAIStreaming(
-  apiKey: string,
+  _apiKey: string, // Kept for backward compatibility
   model: string,
   systemPrompt: string,
   userPrompt: string,
@@ -269,39 +265,35 @@ async function callAIStreaming(
   temperature: number = 0.7,
   onChunk?: (text: string) => void
 ): Promise<string> {
-  const response = await fetch(AI_GATEWAY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature,
-      max_tokens: maxTokens,
-      stream: true,
-    }),
+  console.log(`[callAIStreaming] Model: ${model}, OrgId: ${currentOrganizationId || 'none'}`);
+  
+  const result = await callAIProvider({
+    functionName: 'generate-core-content',
+    organizationId: currentOrganizationId,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    maxTokensOverride: maxTokens,
+    temperatureOverride: temperature,
+    modelOverride: model,
+    stream: true,
   });
   
-  if (!response.ok) {
-    if (response.status === 429) {
-      throw new Error('Rate limits exceeded. Please try again later.');
-    }
-    if (response.status === 402) {
-      throw new Error('Payment required. Please add credits to your workspace.');
-    }
-    const errorText = await response.text();
-    console.error(`[AI] Error ${response.status}:`, errorText);
-    throw new Error(`AI API error: ${response.status}`);
+  if (!result.success) {
+    console.error(`[callAIStreaming] Provider call failed:`, result.error);
+    throw new Error(result.error || 'AI streaming call failed');
   }
   
-  const reader = response.body?.getReader();
+  // Handle streaming response
+  const reader = result.data?.getReader?.();
   if (!reader) {
-    throw new Error('No response body');
+    // Non-streaming fallback - provider might not support streaming
+    const content = result.data?.choices?.[0]?.message?.content || '';
+    if (onChunk && content) {
+      onChunk(content);
+    }
+    return content;
   }
   
   const decoder = new TextDecoder();
@@ -335,6 +327,7 @@ async function callAIStreaming(
     }
   }
   
+  console.log(`[callAIStreaming] Success via ${result.provider}, content length: ${fullText.length}`);
   return fullText;
 }
 
@@ -716,6 +709,9 @@ serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    // Set organization ID for multi-provider AI calls
+    currentOrganizationId = organizationId;
     
     console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Mode: ${qualityMode}, Stream: ${stream}`);
     
