@@ -8,8 +8,7 @@ import { executeToolsParallel, executeToolsWithMetrics, estimateSpeedup, type Pa
 import { withRetry, isRetryableError, RetryableError } from "./error-utils.ts";
 import { estimateTokenCount, MODEL_LIMITS } from "./token-manager.ts";
 import { getAIConfig } from "./ai-config.ts";
-
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+import { callAI as callAIProvider } from "./ai-provider.ts";
 
 interface ExecutionContext {
   supabase: any;
@@ -243,34 +242,30 @@ export async function executeAgenticLoop(
       });
     }
 
-    // Call AI with retry logic
-    const response = await withRetry(
+    // Call AI with retry logic via multi-provider system
+    const aiResult = await withRetry(
       async () => {
-        const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: aiConfig.model,
-            messages: aiMessages,
-            tools: CHAT_TOOLS,
-            tool_choice: 'auto',
-            temperature: aiConfig.temperature,
-            stream: true,
-          }),
+        const result = await callAIProvider({
+          functionName: 'agentic-loop',
+          organizationId: options.executionContext.organizationId,
+          messages: aiMessages.map(m => ({ role: m.role, content: m.content || '' })),
+          tools: CHAT_TOOLS,
+          toolChoice: 'auto',
+          stream: true,
+          modelOverride: aiConfig.model || undefined,
+          temperatureOverride: aiConfig.temperature,
         });
 
-        if (!res.ok) {
-          const status = res.status;
+        if (!result.success) {
+          const errorMsg = result.error || 'Unknown AI error';
           // Throw retryable error for 429, 500+
-          if (status === 429 || (status >= 500 && status !== 501)) {
-            throw new RetryableError(`AI API error: ${status}`, { statusCode: status });
+          if (errorMsg.includes('429') || errorMsg.includes('Rate limit') || errorMsg.includes('500')) {
+            throw new RetryableError(`AI API error: ${errorMsg}`, { statusCode: 429 });
           }
-          throw new Error(`AI API error: ${status}`);
+          throw new Error(`AI API error: ${errorMsg}`);
         }
-        return res;
+        // Return a Response-like object for parseStreamingResponse
+        return new Response(result.data, { headers: { 'content-type': 'text/event-stream' } });
       },
       {
         maxRetries: 3,
@@ -285,6 +280,8 @@ export async function executeAgenticLoop(
       console.error('[AgenticLoop] AI call failed after retries:', err.message);
       return null;
     });
+
+    const response = aiResult;
 
     if (!response) {
       exitReason = 'error';
@@ -415,21 +412,17 @@ export async function executeAgenticLoop(
       summaryMessage,
     ];
 
-    const finalResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        messages: finalMessages,
-        temperature: aiConfig.temperature,
-        stream: true,
-      }),
+    const finalAiResult = await callAIProvider({
+      functionName: 'agentic-loop',
+      organizationId: options.executionContext.organizationId,
+      messages: finalMessages.map(m => ({ role: m.role, content: m.content || '' })),
+      stream: true,
+      modelOverride: aiConfig.model || undefined,
+      temperatureOverride: aiConfig.temperature,
     });
 
-    if (finalResponse.ok) {
+    if (finalAiResult.success && finalAiResult.data) {
+      const finalResponse = new Response(finalAiResult.data, { headers: { 'content-type': 'text/event-stream' } });
       const { content } = await parseStreamingResponse(
         finalResponse,
         (chunk) => {

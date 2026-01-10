@@ -15,6 +15,7 @@ import {
   getRefinementStrategy,
 } from './critique-criteria.ts';
 import { getAIConfig } from './ai-config.ts';
+import { callAI as callAIProvider } from './ai-provider.ts';
 import { evaluateHook, type HookEvaluation } from './ai-hook-evaluator.ts';
 
 // ================== CONFIGURATION ==================
@@ -504,32 +505,26 @@ export async function critiqueContent(options: {
   console.log(`[Self-Critique] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
   
   const doFetch = async (): Promise<CritiqueResult> => {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a strict content quality analyst with 10+ years experience in content marketing. Always respond with valid JSON only. Be critical and honest in your scoring." 
-          },
-          { role: "user", content: critiquePrompt }
-        ],
-        temperature: aiConfig.temperature,
-      }),
+    const aiResult = await callAIProvider({
+      functionName: 'critique-content',
+      organizationId,
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a strict content quality analyst with 10+ years experience in content marketing. Always respond with valid JSON only. Be critical and honest in your scoring." 
+        },
+        { role: "user", content: critiquePrompt }
+      ],
+      modelOverride: aiConfig.model || undefined,
+      temperatureOverride: aiConfig.temperature,
     });
 
-    if (!response.ok) {
-      console.error(`[Self-Critique] AI error: ${response.status}`);
+    if (!aiResult.success) {
+      console.error(`[Self-Critique] AI error: ${aiResult.error}`);
       return createDefaultCritiqueResult(true);
     }
 
-    const data = await response.json();
-    const aiContent = data.choices?.[0]?.message?.content || '';
+    const aiContent = aiResult.data?.choices?.[0]?.message?.content || '';
     
     const result = parseCritiqueResult(aiContent);
     console.log(`[Self-Critique] Score: ${result.overall_score}/100, Tier: ${result.quality_tier}, Passed: ${result.passed}, Issues: ${result.issues.length}`);
@@ -572,32 +567,26 @@ export async function refineContent(options: {
   console.log(`[Self-Critique] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
   
   const doFetch = async (): Promise<any> => {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a professional content editor. Fix the issues while maintaining the original structure and format. Focus on making hooks compelling and CTAs specific." 
-          },
-          { role: "user", content: refinePrompt }
-        ],
-        temperature: aiConfig.temperature,
-      }),
+    const aiResult = await callAIProvider({
+      functionName: 'refine-content',
+      organizationId,
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a professional content editor. Fix the issues while maintaining the original structure and format. Focus on making hooks compelling and CTAs specific." 
+        },
+        { role: "user", content: refinePrompt }
+      ],
+      modelOverride: aiConfig.model || undefined,
+      temperatureOverride: aiConfig.temperature,
     });
 
-    if (!response.ok) {
-      console.error(`[Self-Critique] Refinement error: ${response.status}`);
+    if (!aiResult.success) {
+      console.error(`[Self-Critique] Refinement error: ${aiResult.error}`);
       return originalContent;
     }
 
-    const data = await response.json();
-    const aiContent = data.choices?.[0]?.message?.content || '';
+    const aiContent = aiResult.data?.choices?.[0]?.message?.content || '';
     
     // Parse based on content type
     if (contentType === 'script') {
