@@ -266,7 +266,7 @@ serve(async (req: Request) => {
     
     console.log(`[generate-core-content] Calling AI model: ${aiModel}`);
     
-    const aiResponse = await fetch('https://ai-gateway.lovable.ai/v1/chat/completions', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
