@@ -39,26 +39,44 @@ export type AIFunctionType = 'text' | 'image' | 'image-direct' | 'search';
 
 // Known AI functions in the project with type metadata
 export const AI_FUNCTIONS = [
-  // Text Generation Functions (Lovable AI)
+  // Text Generation Functions (Lovable AI) - Content
   { name: 'generate-multichannel', description: 'Tạo nội dung đa kênh', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-3-pro-preview' },
+  { name: 'generate-core-content', description: 'Tạo Core Content chất lượng cao', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-3-pro-preview' },
   { name: 'generate-script', description: 'Tạo kịch bản video', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-carousel', description: 'Tạo carousel slides', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'chat-topics', description: 'AI chat assistant', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'analyze-script', description: 'Phân tích kịch bản', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-hooks', description: 'Tạo hook hấp dẫn', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  // 'recommend-topics', 'discover-trending-topics', 'analyze-topic-gaps', 'generate-topic-suggestions' are now merged into 'topic-ai'
-  { name: 'topic-ai', description: 'Topic AI (suggest, refine, trending, analysis)', category: 'ideation', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-journey-messaging', description: 'Tạo messaging theo journey', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-sample-text', description: 'Tạo text mẫu', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'generate-brand-voice', description: 'Tạo brand voice', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'generate-brand-guideline', description: 'Tạo brand guideline', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-storyboard', description: 'Tạo storyboard', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'chat-conversations', description: 'Summarize conversations', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'ai-edit-channel', description: 'AI edit cho kênh', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'critique-content', description: 'Đánh giá nội dung', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'refine-content', description: 'Tinh chỉnh nội dung', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-ad-copy', description: 'Tạo ad copy đa nền tảng', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'suggest-ad-fix', description: 'Đề xuất sửa ad copy', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'optimize-ad-copy', description: 'Tối ưu hóa ad copy', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  
+  // Chat Functions
+  { name: 'chat-topics', description: 'AI chat assistant', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'chat-conversations', description: 'Summarize conversations', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'help-chatbot', description: 'Chatbot hỗ trợ người dùng', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'sales-chatbot', description: 'Chatbot bán hàng AI', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'summarize-conversation', description: 'Tóm tắt cuộc hội thoại', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  
+  // Analysis Functions
+  { name: 'analyze-script', description: 'Phân tích kịch bản', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'critique-content', description: 'Đánh giá nội dung', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'kpi-ai', description: 'AI phân tích và gợi ý KPI', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'analyze-dashboard-insights', description: 'Phân tích insights từ dashboard', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'learn-from-edits', description: 'Học từ chỉnh sửa của user', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'learn-from-feedback', description: 'Học từ feedback của user', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'predict-ad-performance', description: 'Dự đoán hiệu quả quảng cáo', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'score-ad-creative', description: 'Chấm điểm creative quảng cáo', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  
+  // Ideation Functions
+  { name: 'topic-ai', description: 'Topic AI (suggest, refine, trending, analysis)', category: 'ideation', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  
+  // Brand Functions
+  { name: 'generate-brand-voice', description: 'Tạo brand voice', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'generate-brand-guideline', description: 'Tạo brand guideline', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   
   // Image Generation Functions  
   { name: 'generate-brand-image', description: 'Tạo hình ảnh thương hiệu', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
@@ -66,7 +84,11 @@ export const AI_FUNCTIONS = [
   { name: 'overlay-brand-logo', description: 'Overlay logo', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
   { name: 'generate-carousel-image', description: 'Tạo hình carousel', category: 'image', type: 'image-direct' as AIFunctionType, currentModel: 'gemini-2.0-flash-exp-image-generation' },
   
-  // 'generate-topic-suggestions' is now merged into 'topic-ai' with action='suggest'
+  // Research & Search Functions
+  { name: 'firecrawl-trends', description: 'Crawl và phân tích trends', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar-pro' },
+  { name: 'semantic-search', description: 'Tìm kiếm ngữ nghĩa', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar' },
+  { name: 'help-article-search', description: 'Tìm kiếm bài viết hỗ trợ', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar' },
+  { name: 'generate-embedding', description: 'Tạo embeddings cho semantic search', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
 ] as const;
 
 // Models by function type for filtering
