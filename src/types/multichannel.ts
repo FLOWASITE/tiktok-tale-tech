@@ -297,6 +297,8 @@ export interface MultiChannelFormData {
   // Hook integration - hooks cho từng kênh hoặc hook chung
   selectedHooks?: MultiChannelSelectedHook[];
   globalHook?: GlobalHook;
+  // Core Content Layer - derive content from approved Core Content
+  coreContentId?: string; // Optional: transform from Core Content instead of topic-only generation
 }
 
 // ============================================

@@ -69,6 +69,7 @@ import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
+import { CoreContentSelector } from '@/components/core-content/CoreContentSelector';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -167,7 +168,11 @@ export function MultiChannelFormWizard({
     includeFooterInfo: initialData?.includeFooterInfo !== false, // Default: true
     selectedHooks: initialData?.selectedHooks || [],
     globalHook: initialData?.globalHook,
+    coreContentId: initialData?.coreContentId,
   });
+  
+  // State for Core Content toggle
+  const [useCoreContent, setUseCoreContent] = useState(!!initialData?.coreContentId);
 
   // Sync brand template
   useEffect(() => {
@@ -484,6 +489,57 @@ export function MultiChannelFormWizard({
                   <MessageSquare className="w-4 h-4" />
                   Brainstorm với AI
                 </Button>
+
+                {/* Core Content Selector - Transform from approved content */}
+                <Separator className="my-3" />
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="use-core-content"
+                      checked={useCoreContent}
+                      onCheckedChange={(checked) => {
+                        setUseCoreContent(!!checked);
+                        if (!checked) {
+                          setFormData(prev => ({ ...prev, coreContentId: undefined }));
+                        }
+                      }}
+                      disabled={isGenerating}
+                    />
+                    <Label 
+                      htmlFor="use-core-content" 
+                      className="text-sm cursor-pointer flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4 text-primary" />
+                      Sử dụng Core Content có sẵn
+                      <Badge variant="outline" className="text-xs">
+                        Khuyên dùng
+                      </Badge>
+                    </Label>
+                  </div>
+                  
+                  {useCoreContent && (
+                    <div className="pl-6">
+                      <CoreContentSelector
+                        organizationId={organizationId}
+                        value={formData.coreContentId}
+                        onValueChange={(id, content) => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            coreContentId: id || undefined,
+                            // Auto-fill topic from Core Content if empty
+                            topic: content?.topic && !prev.topic ? content.topic : prev.topic,
+                          }));
+                        }}
+                        disabled={isGenerating}
+                        placeholder="Chọn Core Content đã approve..."
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Nội dung sẽ được transform từ Core Content, đảm bảo nhất quán across platforms.
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Topic Refinement */}
                 {formData.topic.trim().length >= 10 && (
