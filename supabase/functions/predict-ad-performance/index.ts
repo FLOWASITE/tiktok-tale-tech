@@ -1,6 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -174,47 +176,41 @@ Trả về JSON với cấu trúc sau:
 
 CHỈ trả về JSON hợp lệ, không có markdown hay giải thích.`;
 
-    // Call Lovable AI Gateway
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    // Get AI config from Admin Panel
+    const aiConfig = await getAIConfig('predict-ad-performance', adCopy.organization_id);
+    const adminModel = aiConfig?.model || undefined;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${lovableApiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Phân tích và dự đoán hiệu suất cho ad copy sau:\n\n${contentSummary}` },
-        ],
-      }),
+    // Use multi-provider system
+    const aiResult = await callAIProvider({
+      functionName: 'predict-ad-performance',
+      organizationId: adCopy.organization_id,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Phân tích và dự đoán hiệu suất cho ad copy sau:\n\n${contentSummary}` },
+      ],
+      modelOverride: adminModel,
+      temperatureOverride: aiConfig?.temperature,
     });
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
+    if (!aiResult.success) {
+      console.error('[predict-ad-performance] AI error:', aiResult.error);
+      
+      if (aiResult.error?.includes('429') || aiResult.error?.includes('rate')) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded, please try again later.' }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (aiResponse.status === 402) {
+      if (aiResult.error?.includes('402')) {
         return new Response(JSON.stringify({ error: 'Payment required, please add credits.' }), {
           status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const errorText = await aiResponse.text();
-      console.error('[predict-ad-performance] AI error:', errorText);
-      throw new Error(`AI call failed: ${aiResponse.status}`);
+      throw new Error(aiResult.error || 'AI call failed');
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || '';
+    const content = aiResult.data?.choices?.[0]?.message?.content || '';
 
     // Parse JSON response
     let prediction: PerformancePrediction;

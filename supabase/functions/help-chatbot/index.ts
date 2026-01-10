@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -349,34 +351,33 @@ serve(async (req) => {
 
     console.log(`[help-chatbot] Processing request from route: ${currentRoute}, context:`, context ? JSON.stringify(context) : 'none');
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: contextPrompt },
-          ...messages,
-        ],
-        stream: true,
-        max_tokens: 1024,
-      }),
+    // Get AI config from Admin Panel (no organizationId for public chatbot)
+    const aiConfig = await getAIConfig('help-chatbot');
+    const adminModel = aiConfig?.model || undefined;
+
+    // Use multi-provider system
+    const aiResult = await callAIProvider({
+      functionName: 'help-chatbot',
+      messages: [
+        { role: "system", content: contextPrompt },
+        ...messages,
+      ],
+      modelOverride: adminModel,
+      maxTokensOverride: aiConfig?.max_tokens || 1024,
+      temperatureOverride: aiConfig?.temperature,
+      stream: true,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[help-chatbot] AI Gateway error: ${response.status}`, errorText);
+    if (!aiResult.success) {
+      console.error(`[help-chatbot] AI error:`, aiResult.error);
       
-      if (response.status === 429) {
+      if (aiResult.error?.includes('429') || aiResult.error?.includes('rate')) {
         return new Response(JSON.stringify({ error: "Quá nhiều yêu cầu, vui lòng thử lại sau." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
+      if (aiResult.error?.includes('402')) {
         return new Response(JSON.stringify({ error: "Cần nạp thêm credits để sử dụng." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -388,6 +389,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // For streaming, aiResult.data contains the response body stream
+    const streamBody = aiResult.data;
 
     // Save AI metrics with cost
     try {
@@ -416,7 +420,7 @@ serve(async (req) => {
       console.warn('[help-chatbot] Failed to save metrics:', metricsErr);
     }
 
-    return new Response(response.body, {
+    return new Response(streamBody, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {

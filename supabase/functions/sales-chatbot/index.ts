@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -527,36 +529,34 @@ serve(async (req) => {
     const timeGreeting = getVietnameseTimeGreeting();
     const systemPrompt = buildSystemPrompt(timeGreeting);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
+    // Get AI config from Admin Panel (no organizationId for public chatbot)
+    const aiConfig = await getAIConfig('sales-chatbot');
+    const adminModel = aiConfig?.model || undefined;
+
+    // Use multi-provider system
+    const aiResult = await callAIProvider({
+      functionName: 'sales-chatbot',
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ],
+      modelOverride: adminModel,
+      maxTokensOverride: aiConfig?.max_tokens || 1024,
+      temperatureOverride: aiConfig?.temperature || 0.7,
+      stream: true,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[sales-chatbot] AI gateway error:", response.status, errorText);
+    if (!aiResult.success) {
+      console.error("[sales-chatbot] AI error:", aiResult.error);
       
-      if (response.status === 429) {
+      if (aiResult.error?.includes('429') || aiResult.error?.includes('rate')) {
         return new Response(
           JSON.stringify({ error: "Hệ thống đang bận, vui lòng thử lại sau ít phút." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      if (response.status === 402) {
+      if (aiResult.error?.includes('402')) {
         return new Response(
           JSON.stringify({ error: "Đã hết quota, vui lòng liên hệ support." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -568,6 +568,9 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // For streaming, aiResult.data contains the response body stream
+    const streamBody = aiResult.data;
 
     // Track analytics in background (non-blocking)
     if (supabase && sessionId) {
@@ -647,7 +650,7 @@ serve(async (req) => {
     }
 
     // Return streaming response with lead signals in header
-    return new Response(response.body, {
+    return new Response(streamBody, {
       headers: { 
         ...corsHeaders, 
         "Content-Type": "text/event-stream",

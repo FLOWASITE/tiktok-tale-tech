@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -557,12 +559,11 @@ serve(async (req) => {
     // Build prompt and call AI
     const prompt = buildPrompt(stats);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    // Get AI config from Admin Panel
+    const aiConfig = await getAIConfig('analyze-dashboard-insights', organizationId);
+    const adminModel = aiConfig?.model || undefined;
 
-    console.log(`[analyze-dashboard-insights] Calling AI...`);
+    console.log(`[analyze-dashboard-insights] Calling AI with model override: ${adminModel || 'default'}...`);
 
     // Retry logic for transient AI errors (MALFORMED_FUNCTION_CALL, empty tool_calls)
     const MAX_RETRIES = 2;
@@ -571,49 +572,45 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: prompt },
-              { role: "user", content: "Analyze dữ liệu và generate insights cho user này." }
-            ],
-            tools: [insightsTool],
-            tool_choice: { type: "function", function: { name: "generate_insights" } }
-          }),
+        // Use multi-provider system
+        const aiResult = await callAIProvider({
+          functionName: 'analyze-dashboard-insights',
+          organizationId,
+          messages: [
+            { role: "system", content: prompt },
+            { role: "user", content: "Analyze dữ liệu và generate insights cho user này." }
+          ],
+          tools: [insightsTool],
+          toolChoice: { type: "function", function: { name: "generate_insights" } },
+          modelOverride: adminModel,
+          temperatureOverride: aiConfig?.temperature,
         });
 
-        if (!aiResponse.ok) {
-          const errorText = await aiResponse.text();
-          console.error(`[analyze-dashboard-insights] AI error (attempt ${attempt + 1}):`, aiResponse.status, errorText);
+        if (!aiResult.success) {
+          console.error(`[analyze-dashboard-insights] AI error (attempt ${attempt + 1}):`, aiResult.error);
           
-          if (aiResponse.status === 429) {
+          if (aiResult.error?.includes('429') || aiResult.error?.includes('rate')) {
             return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later" }), {
               status: 429,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
           
-          throw new Error(`AI gateway error: ${aiResponse.status}`);
+          throw new Error(aiResult.error || 'AI call failed');
         }
 
-        const aiData = await aiResponse.json();
+        const aiData = aiResult.data;
         console.log(`[analyze-dashboard-insights] AI response (attempt ${attempt + 1}):`, JSON.stringify(aiData, null, 2));
 
         // Check for malformed function call or missing tool_calls
-        const finishReason = aiData.choices?.[0]?.native_finish_reason || aiData.choices?.[0]?.finish_reason;
+        const finishReason = aiData?.choices?.[0]?.native_finish_reason || aiData?.choices?.[0]?.finish_reason;
         if (finishReason === "MALFORMED_FUNCTION_CALL") {
           console.warn(`[analyze-dashboard-insights] AI returned MALFORMED_FUNCTION_CALL, retrying...`);
           throw new Error("AI returned malformed function call");
         }
 
         // Extract insights from tool call
-        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+        const toolCall = aiData?.choices?.[0]?.message?.tool_calls?.[0];
         if (!toolCall || toolCall.function.name !== "generate_insights") {
           console.warn(`[analyze-dashboard-insights] Missing or invalid tool_calls, retrying...`);
           throw new Error("Invalid AI response format - no tool_calls");
