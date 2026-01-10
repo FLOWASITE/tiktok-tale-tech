@@ -2,11 +2,14 @@
 // Multi-Provider AI Caller
 // Dynamically routes AI calls to user's provider or Lovable Gateway
 // Includes Circuit Breaker pattern and Auto-Retry for resilience
+// Now with automatic metrics and cost tracking
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { getAIConfig, AIFunctionConfig } from "./ai-config.ts";
 import { decrypt, isEncryptionConfigured } from "./crypto.ts";
+import { saveMetrics, estimateTokens, generateTraceId, AIMetrics } from "./logger.ts";
+import { estimateCost } from "./cost-estimator.ts";
 import { 
   getEffectiveModel, 
   recordSuccess, 
@@ -66,6 +69,16 @@ export interface AICallOptions {
   temperatureOverride?: number;
 }
 
+// Extended options for callAIWithMetrics - includes user context for tracking
+export interface AICallWithMetricsOptions extends AICallOptions {
+  userId?: string;
+  brandTemplateId?: string;
+  contentId?: string;
+  actionType?: string;
+  channels?: string[];
+  qualityMode?: string;
+}
+
 export interface AICallResult {
   success: boolean;
   data?: any;
@@ -73,6 +86,13 @@ export interface AICallResult {
   provider: string;
   model: string;
   fromFallback?: boolean;
+  // Auto-captured metrics (when using callAIWithMetrics)
+  metrics?: {
+    inputTokens: number;
+    outputTokens: number;
+    durationMs: number;
+    estimatedCostUsd: number;
+  };
 }
 
 interface ProviderConfig {
@@ -774,9 +794,240 @@ async function callWithCircuitBreaker(
   }
 }
 
+// ============================================
+// AI CALL WITH AUTOMATIC METRICS TRACKING
+// Wrapper that auto-captures timing, tokens, and costs
+// ============================================
+
 /**
- * Simplified call for direct use (without all options)
+ * Estimate input tokens from messages array
  */
+function estimateInputTokensFromMessages(messages: Array<{ role: string; content: string }>): number {
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+}
+
+/**
+ * Extract output tokens from AI result
+ * Tries to get actual tokens from usage, falls back to estimation
+ */
+function extractOutputTokensFromResult(result: AICallResult): number {
+  if (!result.success || !result.data) return 0;
+  
+  // Try to get from usage object (OpenAI/Anthropic format)
+  if (result.data.usage?.completion_tokens) {
+    return result.data.usage.completion_tokens;
+  }
+  if (result.data.usage?.output_tokens) {
+    return result.data.usage.output_tokens;
+  }
+  
+  // Estimate from response content
+  const content = result.data.choices?.[0]?.message?.content || '';
+  return estimateTokens(content);
+}
+
+/**
+ * Extract input tokens from AI result
+ * Tries to get actual tokens from usage, falls back to estimation
+ */
+function extractInputTokensFromResult(result: AICallResult, messages: Array<{ role: string; content: string }>): number {
+  if (!result.success || !result.data) {
+    return estimateInputTokensFromMessages(messages);
+  }
+  
+  // Try to get from usage object
+  if (result.data.usage?.prompt_tokens) {
+    return result.data.usage.prompt_tokens;
+  }
+  if (result.data.usage?.input_tokens) {
+    return result.data.usage.input_tokens;
+  }
+  
+  // Fall back to estimation
+  return estimateInputTokensFromMessages(messages);
+}
+
+/**
+ * AI call with automatic metrics and cost tracking
+ * 
+ * This wrapper:
+ * 1. Calls the AI (via callAI)
+ * 2. Measures duration
+ * 3. Estimates/extracts tokens
+ * 4. Calculates cost using model pricing
+ * 5. Saves metrics to ai_metrics table (non-blocking)
+ * 6. Returns result with attached metrics
+ * 
+ * Usage:
+ * ```ts
+ * const result = await callAIWithMetrics(supabase, {
+ *   functionName: 'generate-hooks',
+ *   organizationId,
+ *   userId,
+ *   messages: [...]
+ * });
+ * // result.metrics contains { inputTokens, outputTokens, durationMs, estimatedCostUsd }
+ * ```
+ */
+export async function callAIWithMetrics(
+  supabase: any,
+  options: AICallWithMetricsOptions
+): Promise<AICallResult> {
+  const startTime = performance.now();
+  const traceId = generateTraceId();
+  
+  // Call the original AI function
+  const result = await callAI(options);
+  
+  const durationMs = Math.round(performance.now() - startTime);
+  
+  // Extract or estimate tokens
+  const inputTokens = extractInputTokensFromResult(result, options.messages);
+  const outputTokens = extractOutputTokensFromResult(result);
+  
+  // Calculate cost using model pricing
+  const estimatedCostUsd = estimateCost(result.model, inputTokens, outputTokens);
+  
+  // Attach metrics to result
+  result.metrics = { 
+    inputTokens, 
+    outputTokens, 
+    durationMs, 
+    estimatedCostUsd 
+  };
+  
+  // Auto-save to ai_metrics (non-blocking)
+  const metrics: AIMetrics = {
+    traceId,
+    functionName: options.functionName,
+    organizationId: options.organizationId,
+    userId: options.userId,
+    brandTemplateId: options.brandTemplateId,
+    totalDurationMs: durationMs,
+    aiCallDurationMs: durationMs,
+    inputTokensEstimated: inputTokens,
+    outputTokensEstimated: outputTokens,
+    modelsUsed: { default: result.model },
+    estimatedCostUsd,
+    hadError: !result.success,
+    errorMessage: result.error,
+    contextSources: [],
+    // Optional extended fields
+    channels: options.channels,
+    qualityMode: options.qualityMode,
+    contentId: options.contentId,
+    actionType: options.actionType,
+    usedFallback: result.fromFallback,
+    fallbackModel: result.fromFallback ? result.model : undefined,
+  };
+  
+  saveMetrics(supabase, metrics).catch(err => {
+    console.warn('[callAIWithMetrics] Failed to save metrics:', err);
+  });
+  
+  return result;
+}
+
+/**
+ * Batch call AI with metrics for multiple channels
+ * Useful for multi-channel content generation
+ */
+export async function callAIWithMetricsBatch(
+  supabase: any,
+  baseOptions: Omit<AICallWithMetricsOptions, 'messages' | 'modelOverride'>,
+  calls: Array<{
+    channel: string;
+    messages: Array<{ role: string; content: string }>;
+    modelOverride?: string;
+  }>
+): Promise<{
+  results: Map<string, AICallResult>;
+  totalMetrics: {
+    inputTokens: number;
+    outputTokens: number;
+    durationMs: number;
+    estimatedCostUsd: number;
+  };
+}> {
+  const startTime = performance.now();
+  const results = new Map<string, AICallResult>();
+  const channelDurations: Record<string, number> = {};
+  const modelsUsed: Record<string, string> = {};
+  
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCost = 0;
+  let hadAnyError = false;
+  
+  // Run all calls in parallel
+  await Promise.all(calls.map(async (call) => {
+    const channelStart = performance.now();
+    
+    const result = await callAI({
+      ...baseOptions,
+      messages: call.messages,
+      modelOverride: call.modelOverride,
+    });
+    
+    const channelDuration = Math.round(performance.now() - channelStart);
+    channelDurations[call.channel] = channelDuration;
+    modelsUsed[call.channel] = result.model;
+    
+    const inputTokens = extractInputTokensFromResult(result, call.messages);
+    const outputTokens = extractOutputTokensFromResult(result);
+    const cost = estimateCost(result.model, inputTokens, outputTokens);
+    
+    result.metrics = { inputTokens, outputTokens, durationMs: channelDuration, estimatedCostUsd: cost };
+    
+    totalInputTokens += inputTokens;
+    totalOutputTokens += outputTokens;
+    totalCost += cost;
+    if (!result.success) hadAnyError = true;
+    
+    results.set(call.channel, result);
+  }));
+  
+  const totalDuration = Math.round(performance.now() - startTime);
+  
+  // Save aggregated metrics
+  const traceId = generateTraceId();
+  const metrics: AIMetrics = {
+    traceId,
+    functionName: baseOptions.functionName,
+    organizationId: baseOptions.organizationId,
+    userId: baseOptions.userId,
+    brandTemplateId: baseOptions.brandTemplateId,
+    totalDurationMs: totalDuration,
+    aiCallDurationMs: totalDuration,
+    inputTokensEstimated: totalInputTokens,
+    outputTokensEstimated: totalOutputTokens,
+    modelsUsed,
+    channelDurations,
+    estimatedCostUsd: totalCost,
+    hadError: hadAnyError,
+    contextSources: [],
+    channels: calls.map(c => c.channel),
+    qualityMode: baseOptions.qualityMode,
+    contentId: baseOptions.contentId,
+    actionType: baseOptions.actionType,
+  };
+  
+  saveMetrics(supabase, metrics).catch(err => {
+    console.warn('[callAIWithMetricsBatch] Failed to save metrics:', err);
+  });
+  
+  return {
+    results,
+    totalMetrics: {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      durationMs: totalDuration,
+      estimatedCostUsd: totalCost,
+    },
+  };
+}
+
+
 export async function callAISimple(
   functionName: string,
   systemPrompt: string,

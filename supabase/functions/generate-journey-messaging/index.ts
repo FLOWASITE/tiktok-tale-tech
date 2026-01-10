@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callAI } from "../_shared/ai-provider.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -259,9 +259,10 @@ Lưu ý:
       }
     }];
 
-    const aiResponse = await callAI({
+    const aiResponse = await callAIWithMetrics(supabase, {
       functionName: 'generate-journey-messaging',
       organizationId,
+      brandTemplateId,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

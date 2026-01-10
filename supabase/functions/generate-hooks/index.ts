@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAI } from "../_shared/ai-provider.ts";
+import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { evaluateHook, type HookEvaluation } from "../_shared/ai-hook-evaluator.ts";
 import { 
   getChannelOptimization, 
@@ -129,8 +129,11 @@ Trả về JSON object (không phải array):
     ? applyTokenOptimization(baseMaxTokens, channelOptimization)
     : baseMaxTokens;
 
-  const result = await callAI({
+  const result = await callAIWithMetrics(supabase, {
     functionName: 'generate-hooks',
+    organizationId,
+    brandTemplateId,
+    channels: [platform],
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -325,8 +328,11 @@ Trả về JSON array với format:
       ? applyTokenOptimization(baseMaxTokens, channelOptimization)
       : baseMaxTokens;
 
-    const result = await callAI({
+    const result = await callAIWithMetrics(supabase, {
       functionName: 'generate-hooks',
+      organizationId,
+      brandTemplateId,
+      channels: platform ? [platform] : undefined,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

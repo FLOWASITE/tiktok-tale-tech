@@ -10,7 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callAI } from "../_shared/ai-provider.ts";
+import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import {
   corsHeaders,
@@ -201,11 +201,13 @@ async function handleSuggest(
     audienceQA,
   });
 
-  // Call AI
+  // Call AI with metrics tracking
   const config = await getAIConfig('topic-ai', organizationId);
-  const result = await callAI({
+  const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    brandTemplateId,
+    actionType: 'suggest',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -310,10 +312,12 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`);
 
   const finalPrompt = promptParts.join('\n\n');
 
-  // Call AI
-  const result = await callAI({
+  // Call AI with metrics
+  const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    brandTemplateId,
+    actionType: 'refine',
     messages: [{ role: 'user', content: finalPrompt }],
   });
 
@@ -435,10 +439,12 @@ What should we learn from this to improve future recommendations? Respond in Vie
       break;
   }
 
-  // Call AI
-  const result = await callAI({
+  // Call AI with metrics
+  const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    brandTemplateId,
+    actionType: action,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -587,9 +593,10 @@ ${webSearchContext}
 
 Phân tích và tạo danh sách trending topics. Respond in Vietnamese.`;
 
-  const result = await callAI({
+  const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    actionType: 'trending',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -750,10 +757,12 @@ Trả về JSON: {
 }`;
   }
 
-  // Call AI
-  const result = await callAI({
+  // Call AI with metrics
+  const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    brandTemplateId,
+    actionType: action,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -827,10 +836,11 @@ Viết lại topic này để:
 
 CHỈ TRẢ VỀ TOPIC MỚI, KHÔNG GIẢI THÍCH.`;
 
-  // Call AI
-  const result = await callAI({
+  // Call AI with metrics
+  const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    actionType: 'suggest_compliant',
     messages: [
       { 
         role: 'system', 

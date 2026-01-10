@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAI } from "../_shared/ai-provider.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -154,7 +159,7 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả bổ 
       }
     ];
 
-    const aiResponse = await callAI({
+    const aiResponse = await callAIWithMetrics(supabase, {
       functionName: 'generate-brand-voice',
       messages: [
         { role: 'system', content: systemPrompt },
