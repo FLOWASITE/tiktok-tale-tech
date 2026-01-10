@@ -25,6 +25,7 @@ import { buildSmartContext, SmartContextResult } from '../_shared/smart-context.
 import { evaluateCoreContentQuality, QualityMetrics } from '../_shared/quality-gate.ts';
 import { saveMetrics, generateTraceId } from '../_shared/logger.ts';
 import { estimateCost, estimateTotalCost } from '../_shared/cost-estimator.ts';
+import { getAIConfig } from '../_shared/ai-config.ts';
 
 // ============================================
 // SSE STREAMING HELPERS
@@ -349,7 +350,8 @@ interface StreamingCallbacks {
 
 async function generateWithPipeline(
   apiKey: string,
-  config: CoreContentConfig
+  config: CoreContentConfig,
+  adminModelOverride?: string | null
 ): Promise<{
   content: string;
   outline: GeneratedOutline | null;
@@ -359,7 +361,7 @@ async function generateWithPipeline(
     totalTokensEstimated: number;
   };
 }> {
-  const models = getModelsForMode(config.qualityMode);
+  const models = getModelsForMode(config.qualityMode, adminModelOverride);
   const wordBudget = getWordBudget(config.qualityMode);
   const stepsCompleted: string[] = [];
   const modelsUsed: string[] = [];
@@ -487,7 +489,8 @@ async function generateWithPipeline(
 async function generateWithPipelineStreaming(
   apiKey: string,
   config: CoreContentConfig,
-  callbacks: StreamingCallbacks
+  callbacks: StreamingCallbacks,
+  adminModelOverride?: string | null
 ): Promise<{
   content: string;
   outline: GeneratedOutline | null;
@@ -497,7 +500,7 @@ async function generateWithPipelineStreaming(
     totalTokensEstimated: number;
   };
 }> {
-  const models = getModelsForMode(config.qualityMode);
+  const models = getModelsForMode(config.qualityMode, adminModelOverride);
   const wordBudget = getWordBudget(config.qualityMode);
   const stepsCompleted: string[] = [];
   const modelsUsed: string[] = [];
@@ -796,6 +799,18 @@ serve(async (req: Request) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
     
+    // ========== FETCH ADMIN AI CONFIG ==========
+    let adminModelOverride: string | null = null;
+    try {
+      const aiConfig = await getAIConfig('generate-core-content', organizationId);
+      if (aiConfig.model && aiConfig.model !== 'google/gemini-2.5-flash') {
+        adminModelOverride = aiConfig.model;
+        console.log(`[generate-core-content] Admin model override: ${adminModelOverride}`);
+      }
+    } catch (configErr) {
+      console.warn('[generate-core-content] Failed to fetch admin config, using defaults:', configErr);
+    }
+    
     // ========== AUTO RESEARCH (Step 0) ==========
     let researchContext = '';
     let researchData: ResearchResult | null = null;
@@ -885,7 +900,8 @@ serve(async (req: Request) => {
               sendProgress: sse.sendProgress,
               sendText: sse.sendText,
               sendSectionComplete: sse.sendSectionComplete,
-            }
+            },
+            adminModelOverride
           );
           
           if (!result.content || result.content.length < 300) {
@@ -1032,7 +1048,7 @@ serve(async (req: Request) => {
     }
     
     // ========== NON-STREAMING MODE ==========
-    const result = await generateWithPipeline(LOVABLE_API_KEY, pipelineConfig);
+    const result = await generateWithPipeline(LOVABLE_API_KEY, pipelineConfig, adminModelOverride);
     
     if (!result.content || result.content.length < 300) {
       throw new Error('Generated content too short');
@@ -1057,8 +1073,8 @@ serve(async (req: Request) => {
       console.log(`[generate-core-content] Quality issues:`, qualityMetrics.issues);
     }
     
-    // Get primary model used
-    const models = getModelsForMode(qualityMode as CoreContentQualityMode);
+    // Get primary model used (considering admin override)
+    const models = getModelsForMode(qualityMode as CoreContentQualityMode, adminModelOverride);
     const primaryModel = qualityMode === 'quality' ? models.compile : models.section;
     
     console.log(`[generate-core-content] Generated ${wordCount} words, score: ${qualityScore}, time: ${duration}ms`);
