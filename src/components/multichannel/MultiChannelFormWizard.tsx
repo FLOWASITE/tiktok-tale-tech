@@ -70,12 +70,14 @@ import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSele
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { CoreContentSelector } from '@/components/core-content/CoreContentSelector';
+import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
   MultiChannelSelectedHook,
   ContentGoal, 
   ContentAngle,
+  ContentRole,
   Channel, 
   CHANNELS,
   CONTENT_GOALS,
@@ -85,6 +87,7 @@ import {
   QualityMode,
   QUALITY_MODES,
 } from '@/types/multichannel';
+import { GOAL_TO_ROLE_MAP } from '@/types/coreContent';
 import { MultiChannelHook } from '@/hooks/useMultiChannelHooks';
 import { JourneyStage } from '@/types/customerPersona';
 import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
@@ -169,6 +172,7 @@ export function MultiChannelFormWizard({
     selectedHooks: initialData?.selectedHooks || [],
     globalHook: initialData?.globalHook,
     coreContentId: initialData?.coreContentId,
+    contentRole: initialData?.contentRole,
   });
   
   // State for Core Content toggle
@@ -270,6 +274,10 @@ export function MultiChannelFormWizard({
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
+        // If using Core Content, require contentRole
+        if (useCoreContent && formData.coreContentId) {
+          return formData.topic.trim().length >= 10 && !!formData.brandTemplateId && !!formData.contentRole;
+        }
         return formData.topic.trim().length >= 10 && !!formData.brandTemplateId;
       case 2:
         return true;
@@ -280,7 +288,7 @@ export function MultiChannelFormWizard({
       default:
         return false;
     }
-  }, [currentStep, formData]);
+  }, [currentStep, formData, useCoreContent]);
 
   const handleNext = () => {
     if (currentStep < 4 && canProceed) {
@@ -519,7 +527,7 @@ export function MultiChannelFormWizard({
                   </div>
                   
                   {useCoreContent && (
-                    <div className="pl-6">
+                    <div className="pl-6 space-y-4">
                       <CoreContentSelector
                         organizationId={organizationId}
                         value={formData.coreContentId}
@@ -529,14 +537,38 @@ export function MultiChannelFormWizard({
                             coreContentId: id || undefined,
                             // Auto-fill topic from Core Content if empty
                             topic: content?.topic && !prev.topic ? content.topic : prev.topic,
+                            // Suggest role based on content goal
+                            contentRole: content?.content_goal 
+                              ? GOAL_TO_ROLE_MAP[content.content_goal as ContentGoal] || prev.contentRole 
+                              : prev.contentRole,
                           }));
                         }}
                         disabled={isGenerating}
                         placeholder="Chọn Core Content đã approve..."
                       />
-                      <p className="text-xs text-muted-foreground mt-2">
+                      <p className="text-xs text-muted-foreground">
                         Nội dung sẽ được transform từ Core Content, đảm bảo nhất quán across platforms.
                       </p>
+
+                      {/* Role Selector - Required when using Core Content */}
+                      {formData.coreContentId && (
+                        <div className="pt-2 border-t border-border/50">
+                          <Label className="text-foreground font-semibold flex items-center gap-2 mb-3">
+                            <Compass className="w-4 h-4 text-primary" />
+                            Vai trò nội dung (Content Role)
+                            <span className="text-primary">*</span>
+                          </Label>
+                          <RoleSelectorCard
+                            value={formData.contentRole}
+                            onValueChange={(role) => setFormData(prev => ({ ...prev, contentRole: role }))}
+                            contentGoal={formData.contentGoal}
+                            disabled={isGenerating}
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Role quyết định style transform: Seed (awareness), Sprout (trust), Harvest (conversion)
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
