@@ -19,6 +19,7 @@ import {
   BrandProductContext,
 } from '../_shared/core-content-pipeline.ts';
 import { BrandContext } from '../_shared/types/chat-types.ts';
+import { performResearch, buildResearchContext, ResearchResult, ResearchRecency } from '../_shared/research-helper.ts';
 
 // ============================================
 // SSE STREAMING HELPERS
@@ -105,6 +106,9 @@ interface GenerateCoreContentRequest {
   additionalContext?: string;
   topicHistoryId?: string;
   stream?: boolean;
+  // New: Research options
+  enableResearch?: boolean;
+  researchRecency?: ResearchRecency;
 }
 
 interface CoreContentResponse {
@@ -686,6 +690,8 @@ serve(async (req: Request) => {
       additionalContext,
       topicHistoryId,
       stream = false,
+      enableResearch = false,
+      researchRecency = 'month',
     } = body;
     
     // Validate required fields
@@ -780,6 +786,32 @@ serve(async (req: Request) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
     
+    // ========== AUTO RESEARCH (Step 0) ==========
+    let researchContext = '';
+    let researchData: ResearchResult | null = null;
+    
+    if (enableResearch) {
+      console.log(`[generate-core-content] Performing auto research for: "${topic.slice(0, 50)}..."`);
+      
+      researchData = await performResearch({
+        topic,
+        industry: brandContext?.industry,
+        recency: researchRecency,
+        maxFacts: 8,
+        organizationId,
+      });
+      
+      if (researchData.success && researchData.facts.length > 0) {
+        researchContext = buildResearchContext(researchData);
+        console.log(`[generate-core-content] Research found ${researchData.facts.length} facts`);
+      } else {
+        console.log(`[generate-core-content] Research returned no results, continuing without`);
+      }
+    }
+    
+    // Combine additional context with research
+    const enrichedContext = [additionalContext, researchContext].filter(Boolean).join('\n\n');
+    
     // Build pipeline config
     const pipelineConfig: CoreContentConfig = {
       topic,
@@ -791,12 +823,17 @@ serve(async (req: Request) => {
       personas,
       products,
       targetAudience,
-      additionalContext,
+      additionalContext: enrichedContext || undefined,
     };
     
     // ========== STREAMING MODE ==========
     if (stream) {
       const sse = createSSEStream();
+      
+      // Send research progress if enabled
+      if (enableResearch && researchData) {
+        sse.sendProgress('research', 5, `Đã thu thập ${researchData.facts.length} facts từ web`);
+      }
       
       // Run pipeline in background
       (async () => {
@@ -852,10 +889,13 @@ serve(async (req: Request) => {
               outline: result.outline,
               generation_metadata: {
                 qualityMode,
-                stepsCompleted: result.metadata.stepsCompleted,
+                stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
                 totalTokensEstimated: result.metadata.totalTokensEstimated,
                 modelsUsed: result.metadata.modelsUsed,
                 generationTimeMs: duration,
+                researchEnabled: enableResearch,
+                researchFacts: researchData?.facts?.length || 0,
+                researchSources: researchData?.sources?.length || 0,
               },
             })
             .select('id')
@@ -947,10 +987,13 @@ serve(async (req: Request) => {
         outline: result.outline,
         generation_metadata: {
           qualityMode,
-          stepsCompleted: result.metadata.stepsCompleted,
+          stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
           totalTokensEstimated: result.metadata.totalTokensEstimated,
           modelsUsed: result.metadata.modelsUsed,
           generationTimeMs: duration,
+          researchEnabled: enableResearch,
+          researchFacts: researchData?.facts?.length || 0,
+          researchSources: researchData?.sources?.length || 0,
         },
       })
       .select('id')
@@ -975,7 +1018,7 @@ serve(async (req: Request) => {
       outline: result.outline || undefined,
       generationMetadata: {
         qualityMode,
-        stepsCompleted: result.metadata.stepsCompleted,
+        stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
         totalTokensEstimated: result.metadata.totalTokensEstimated,
         modelsUsed: result.metadata.modelsUsed,
         generationTimeMs: duration,

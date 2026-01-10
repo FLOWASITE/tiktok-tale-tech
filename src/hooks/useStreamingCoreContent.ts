@@ -44,6 +44,9 @@ interface GenerateRequest {
   organizationId: string;
   targetAudience?: string;
   additionalContext?: string;
+  // New: Research options
+  enableResearch?: boolean;
+  researchRecency?: 'day' | 'week' | 'month' | 'year';
 }
 
 export function useStreamingCoreContent(options: UseStreamingCoreContentOptions = {}) {
