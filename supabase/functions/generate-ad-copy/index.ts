@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Import shared modules
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { fetchIndustryMemory } from "../_shared/data-fetchers/industry-fetcher.ts";
 import { buildIndustryContextSection } from "../_shared/context-builders/industry-context.ts";
 
@@ -217,49 +218,7 @@ function checkCharLimits(text: string | null, field: string, limits: CharLimitCo
   return warnings;
 }
 
-// ============================================
-// Retry Logic with Exponential Backoff
-// ============================================
-async function callAIWithRetry(
-  url: string,
-  options: RequestInit,
-  maxRetries: number = 2
-): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      
-      // Don't retry on these status codes
-      if (response.status === 429 || response.status === 402) {
-        return response;
-      }
-      
-      // Retry on server errors or timeouts
-      if (response.status >= 500 || response.status === 408) {
-        if (attempt < maxRetries) {
-          const delay = Math.pow(2, attempt) * 1000;
-          console.log(`[generate-ad-copy] Retry attempt ${attempt + 1} after ${delay}ms`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-      }
-      
-      return response;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error('Unknown error');
-      console.error(`[generate-ad-copy] Attempt ${attempt + 1} failed:`, error);
-      
-      if (attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  throw lastError || new Error('All retry attempts failed');
-}
+// Note: Retry logic is now handled by ai-provider.ts with circuit breaker pattern
 
 // ============================================
 // AI Metrics Logging with Cost
@@ -667,71 +626,27 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
     // Estimate input tokens
     const inputTokensEstimated = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
 
-    // Call Lovable AI Gateway with retry logic
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    // Call AI via multi-provider system (supports OpenRouter, Anthropic, Gemini, etc.)
+    console.log('[generate-ad-copy] Calling AI via multi-provider system:', {
+      functionName: 'generate-ad-copy',
+      organizationId,
+      modelOverride: aiConfig.model,
+    });
 
-    // Build request body - only include optional params if they're valid
-    // NOTE: generate-ad-copy currently calls the Lovable AI Gateway directly.
-    // Some admin configs may point to non-Lovable models (e.g. anthropic/*, meta-llama/*),
-    // which will return 400 from this gateway. In that case, we fall back to a known-good model.
-    const requestedModel = aiConfig.model || 'google/gemini-2.5-flash';
-    const isLovableGatewayModel = (model: string) =>
-      model.startsWith('google/gemini-') ||
-      model.startsWith('openai/gpt-') ||
-      model.startsWith('openai/o');
-
-    const effectiveModel = isLovableGatewayModel(requestedModel)
-      ? requestedModel
-      : 'google/gemini-2.5-flash';
-
-    if (effectiveModel !== requestedModel) {
-      console.warn('[generate-ad-copy] Model not supported by Lovable gateway, falling back:', {
-        requestedModel,
-        effectiveModel,
-      });
-    }
-
-    const aiRequestBody: Record<string, unknown> = {
-      model: effectiveModel,
+    const aiResult = await callAIProvider({
+      functionName: 'generate-ad-copy',
+      organizationId,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-    };
-    
-    // Only add temperature and max_tokens if they're valid numbers
-    if (typeof aiConfig.temperature === 'number' && aiConfig.temperature >= 0 && aiConfig.temperature <= 2) {
-      aiRequestBody.temperature = aiConfig.temperature;
-    }
-    if (typeof aiConfig.max_tokens === 'number' && aiConfig.max_tokens > 0) {
-      aiRequestBody.max_tokens = aiConfig.max_tokens;
-    }
-    
-    console.log('[generate-ad-copy] AI request body:', JSON.stringify({
-      model: aiRequestBody.model,
-      temperature: aiRequestBody.temperature,
-      max_tokens: aiRequestBody.max_tokens,
-      messageCount: 2
-    }));
+      modelOverride: aiConfig.model || undefined,
+      temperatureOverride: aiConfig.temperature,
+      maxTokensOverride: aiConfig.max_tokens,
+    });
 
-    const aiResponse = await callAIWithRetry(
-      'https://ai.gateway.lovable.dev/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${lovableApiKey}`,
-        },
-        body: JSON.stringify(aiRequestBody),
-      }
-    );
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('[generate-ad-copy] AI error:', aiResponse.status, errorText);
+    if (!aiResult.success) {
+      console.error('[generate-ad-copy] AI error:', aiResult.error);
       
       // Log error metrics
       await logAIMetrics(supabase, traceId, 'generate-ad-copy', Date.now() - startTime, {
@@ -739,11 +654,11 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
         brandTemplateId,
         contextSources,
         hadError: true,
-        errorType: `http_${aiResponse.status}`,
-        errorMessage: errorText.substring(0, 500),
+        errorType: 'ai_provider_error',
+        errorMessage: aiResult.error?.substring(0, 500),
       });
       
-      if (aiResponse.status === 429) {
+      if (aiResult.error?.includes('Rate limit') || aiResult.error?.includes('429')) {
         return new Response(JSON.stringify({ 
           error: 'Hệ thống đang quá tải, vui lòng thử lại sau.' 
         }), {
@@ -752,7 +667,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
         });
       }
       
-      if (aiResponse.status === 402) {
+      if (aiResult.error?.includes('Payment') || aiResult.error?.includes('402')) {
         return new Response(JSON.stringify({ 
           error: 'Đã hết quota AI, vui lòng liên hệ admin.' 
         }), {
@@ -761,11 +676,11 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
         });
       }
       
-      throw new Error(`AI call failed: ${aiResponse.status}`);
+      throw new Error(`AI call failed: ${aiResult.error}`);
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || '';
+    console.log('[generate-ad-copy] AI response received from provider:', aiResult.provider, 'model:', aiResult.model);
+    const content = aiResult.data?.choices?.[0]?.message?.content || '';
     
     // Estimate output tokens
     const outputTokensEstimated = Math.ceil(content.length / 4);
