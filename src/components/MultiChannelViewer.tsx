@@ -672,6 +672,7 @@ export function MultiChannelViewer({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl w-[98vw] h-[95vh] max-h-[95vh] p-0 overflow-hidden flex flex-col">
         {/* Premium 2-Row Header */}
@@ -1634,14 +1635,16 @@ export function MultiChannelViewer({
         </DialogPortal>
       )}
 
-      {/* Core Content Viewer Sheet */}
-      {viewingCoreContent && (
-        <CoreContentViewer
-          coreContent={viewingCoreContent}
-          open={!!viewingCoreContent}
-          onOpenChange={(open) => !open && setViewingCoreContent(null)}
-        />
-      )}
     </Dialog>
+
+    {/* Core Content Viewer Sheet - OUTSIDE Dialog to avoid portal conflicts */}
+    {viewingCoreContent && (
+      <CoreContentViewer
+        coreContent={viewingCoreContent}
+        open={!!viewingCoreContent}
+        onOpenChange={(open) => !open && setViewingCoreContent(null)}
+      />
+    )}
+  </>
   );
 }
