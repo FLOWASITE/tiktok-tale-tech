@@ -75,11 +75,45 @@ export function useCoreContents(options: UseCoreContentsOptions = {}) {
       
       if (error) throw error;
       
-      // Parse key_messages from JSONB
-      return (data || []).map(item => ({
-        ...item,
-        key_messages: Array.isArray(item.key_messages) ? item.key_messages : [],
-      })) as CoreContent[];
+      // Get core content IDs
+      const coreContentIds = (data || []).map(c => c.id);
+      
+      // Fetch derived variants info for all core contents
+      let variantsByCore: Record<string, { channels: Set<string>; roles: Set<string>; count: number }> = {};
+      
+      if (coreContentIds.length > 0) {
+        const { data: variantsData } = await supabase
+          .from('multi_channel_contents')
+          .select('core_content_id, selected_channels, content_role')
+          .in('core_content_id', coreContentIds);
+        
+        variantsByCore = (variantsData || []).reduce((acc, v) => {
+          if (!v.core_content_id) return acc;
+          if (!acc[v.core_content_id]) {
+            acc[v.core_content_id] = { 
+              channels: new Set(), 
+              roles: new Set(),
+              count: 0 
+            };
+          }
+          (v.selected_channels || []).forEach((ch: string) => acc[v.core_content_id!].channels.add(ch));
+          if (v.content_role) acc[v.core_content_id].roles.add(v.content_role);
+          acc[v.core_content_id].count++;
+          return acc;
+        }, {} as Record<string, { channels: Set<string>; roles: Set<string>; count: number }>);
+      }
+      
+      // Parse key_messages from JSONB and attach derived info
+      return (data || []).map(item => {
+        const variantInfo = variantsByCore[item.id];
+        return {
+          ...item,
+          key_messages: Array.isArray(item.key_messages) ? item.key_messages : [],
+          derived_count: variantInfo?.count || 0,
+          derived_channels: variantInfo ? Array.from(variantInfo.channels) : [],
+          derived_roles: variantInfo ? Array.from(variantInfo.roles) : [],
+        };
+      }) as (CoreContent & { derived_count: number; derived_channels: string[]; derived_roles: string[] })[];
     },
     enabled: enabled && !!organizationId,
   });

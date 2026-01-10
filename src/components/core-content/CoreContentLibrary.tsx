@@ -274,7 +274,7 @@ export function CoreContentLibrary() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredContents.map((content) => (
+          {filteredContents.map((content: any) => (
             <CoreContentCard
               key={content.id}
               coreContent={content}
@@ -286,6 +286,9 @@ export function CoreContentLibrary() {
                 setDeleteDialogOpen(true);
               }}
               onTransform={handleTransform}
+              derivedCount={content.derived_count}
+              derivedChannels={content.derived_channels}
+              derivedRoles={content.derived_roles}
             />
           ))}
         </div>

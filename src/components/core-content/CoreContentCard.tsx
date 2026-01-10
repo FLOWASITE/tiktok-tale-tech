@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   FileText,
   MoreVertical,
@@ -23,7 +28,8 @@ import {
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import type { CoreContent, CORE_CONTENT_STATUSES, CONTENT_ROLES } from '@/types/coreContent';
+import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
+import type { CoreContent } from '@/types/coreContent';
 
 interface CoreContentCardProps {
   coreContent: CoreContent;
@@ -33,6 +39,8 @@ interface CoreContentCardProps {
   onDelete?: (id: string) => void;
   onTransform?: (id: string) => void;
   derivedCount?: number;
+  derivedChannels?: string[];
+  derivedRoles?: string[];
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -63,6 +71,8 @@ export function CoreContentCard({
   onDelete,
   onTransform,
   derivedCount = 0,
+  derivedChannels = [],
+  derivedRoles = [],
 }: CoreContentCardProps) {
   const status = statusConfig[coreContent.status] || statusConfig.draft;
   const role = coreContent.content_role ? roleConfig[coreContent.content_role] : null;
@@ -150,6 +160,44 @@ export function CoreContentCard({
           {truncatedContent}
         </p>
 
+        {/* Derived Channels Row */}
+        {derivedChannels.length > 0 && (
+          <TooltipProvider>
+            <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+              <span className="text-xs text-muted-foreground">Đã transform:</span>
+              <div className="flex items-center gap-1">
+                {derivedChannels.slice(0, 4).map((channel) => (
+                  <Tooltip key={channel}>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <ChannelIcon channel={channel} size="sm" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{getChannelLabel(channel)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+                {derivedChannels.length > 4 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        +{derivedChannels.length - 4}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{derivedChannels.slice(4).map(getChannelLabel).join(', ')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {derivedCount} variant{derivedCount > 1 ? 's' : ''}
+              </span>
+            </div>
+          </TooltipProvider>
+        )}
+
         {/* Stats row */}
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
           <div className="flex items-center gap-3">
@@ -163,12 +211,6 @@ export function CoreContentCard({
               <span className="flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-500" />
                 {coreContent.quality_score}/10
-              </span>
-            )}
-            {derivedCount > 0 && (
-              <span className="flex items-center gap-1">
-                <Layers className="w-3 h-3 text-primary" />
-                {derivedCount} variants
               </span>
             )}
           </div>
