@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callAI } from "../_shared/ai-provider.ts";
+import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -374,9 +374,10 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
 
   console.log('Calling AI for KPI suggestions...');
 
-  const aiResult = await callAI({
+  const aiResult = await callAIWithMetrics(supabase, {
     functionName: 'kpi-ai',
     organizationId,
+    actionType: 'suggest',
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
@@ -580,9 +581,10 @@ ${JSON.stringify(analysisContext, null, 2)}
 
 Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
 
-  const aiResult = await callAI({
+  const aiResult = await callAIWithMetrics(supabase, {
     functionName: 'kpi-ai',
     organizationId,
+    actionType: 'adjust',
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
