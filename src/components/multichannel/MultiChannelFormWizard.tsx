@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Sparkles, 
   Loader2, 
@@ -48,16 +55,18 @@ import {
   Compass,
   Rocket,
   ChevronDown,
-  X,
   Settings2,
   Phone,
   ExternalLink,
-  Zap,
+  RefreshCw,
+  Eye,
+  BookOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
-import { useCompliancePrecheck, type ComplianceIssue } from '@/hooks/useCompliancePrecheck';
+import { useCompliancePrecheck } from '@/hooks/useCompliancePrecheck';
+import { useCoreContents } from '@/hooks/useCoreContents';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
@@ -69,7 +78,6 @@ import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
-import { CoreContentSelector } from '@/components/core-content/CoreContentSelector';
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { cn } from '@/lib/utils';
 import { 
@@ -81,16 +89,13 @@ import {
   Channel, 
   CHANNELS,
   CONTENT_GOALS,
+  CONTENT_ANGLES,
   JOURNEY_TO_GOAL_MAP,
   JOURNEY_TO_ANGLE_MAP,
   AiSuggestionContext,
-  QualityMode,
-  QUALITY_MODES,
 } from '@/types/multichannel';
 import { GOAL_TO_ROLE_MAP } from '@/types/coreContent';
 import { MultiChannelHook } from '@/hooks/useMultiChannelHooks';
-import { JourneyStage } from '@/types/customerPersona';
-import { JOURNEY_STAGE_CONFIG } from '@/types/journeyStageMessaging';
 
 interface BrandTemplate {
   id: string;
@@ -113,11 +118,12 @@ interface MultiChannelFormWizardProps {
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
 }
 
+// NEW: 4-step flow as per user request
 const STEPS: Step[] = [
   { id: 1, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
-  { id: 2, title: 'Nhắm mục tiêu', icon: <Target className="w-4 h-4" /> },
-  { id: 3, title: 'Kênh', icon: <Layers className="w-4 h-4" /> },
-  { id: 4, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
+  { id: 2, title: 'Core Content', icon: <BookOpen className="w-4 h-4" /> },
+  { id: 3, title: 'Vai trò', icon: <Compass className="w-4 h-4" /> },
+  { id: 4, title: 'Đa kênh', icon: <Layers className="w-4 h-4" /> },
 ];
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -137,6 +143,17 @@ const channelIcons: Record<Channel, React.ReactNode> = {
 
 const MAX_TOPIC_LENGTH = 500;
 
+// Core Content data structure for inline generation
+interface GeneratedCoreContent {
+  id: string;
+  title: string;
+  content: string;
+  wordCount: number;
+  qualityScore: number;
+  keyMessages: string[];
+  contentGoal?: ContentGoal;
+}
+
 export function MultiChannelFormWizard({ 
   brandTemplateId,
   brandTemplate,
@@ -154,9 +171,18 @@ export function MultiChannelFormWizard({
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
 
+  // NEW: Core Content generation state
+  const [coreContentData, setCoreContentData] = useState<GeneratedCoreContent | null>(null);
+  const [isGeneratingCoreContent, setIsGeneratingCoreContent] = useState(false);
+  const [showCoreContentPreview, setShowCoreContentPreview] = useState(false);
+  
+  // Core Content generation settings
+  const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
+  const [coreContentAudience, setCoreContentAudience] = useState('');
+
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialData?.topic || '',
-    contentGoal: initialData?.contentGoal,
+    contentGoal: initialData?.contentGoal || 'education',
     contentAngle: initialData?.contentAngle,
     channels: initialData?.channels || ['facebook', 'instagram'],
     brandTemplateId: brandTemplateId,
@@ -168,15 +194,15 @@ export function MultiChannelFormWizard({
     journeyStage: initialData?.journeyStage,
     campaignId: initialData?.campaignId,
     qualityMode: initialData?.qualityMode || 'balanced',
-    includeFooterInfo: initialData?.includeFooterInfo !== false, // Default: true
+    includeFooterInfo: initialData?.includeFooterInfo !== false,
     selectedHooks: initialData?.selectedHooks || [],
     globalHook: initialData?.globalHook,
     coreContentId: initialData?.coreContentId,
     contentRole: initialData?.contentRole,
   });
-  
-  // State for Core Content toggle
-  const [useCoreContent, setUseCoreContent] = useState(!!initialData?.coreContentId);
+
+  // Hook for Core Content generation
+  const { generateCoreContent } = useCoreContents({ organizationId, enabled: false });
 
   // Sync brand template
   useEffect(() => {
@@ -191,7 +217,7 @@ export function MultiChannelFormWizard({
     }
   }, [voiceVariantId]);
 
-  // Notify parent of form data changes - use ref to avoid infinite loops
+  // Notify parent of form data changes
   const onFormDataChangeRef = useRef(onFormDataChange);
   onFormDataChangeRef.current = onFormDataChange;
   
@@ -203,7 +229,7 @@ export function MultiChannelFormWizard({
   useEffect(() => {
     if (formData.journeyStage) {
       const derivedGoal = JOURNEY_TO_GOAL_MAP[formData.journeyStage];
-      const suggestedAngle = !formData.contentAngle && !formData.aiSuggestion?.suggestedContentAngle
+      const suggestedAngle = !formData.contentAngle
         ? JOURNEY_TO_ANGLE_MAP[formData.journeyStage]
         : undefined;
       
@@ -228,22 +254,18 @@ export function MultiChannelFormWizard({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 
-  // Compliance Pre-check - real-time validation of topic
-  // IMPORTANT: memoize options to avoid recreating callbacks every render (prevents update-depth loop)
+  // Compliance Pre-check
   const complianceOptions = useMemo(() => ({
-    industryForbiddenTerms: [], // Will be populated from brand template
+    industryForbiddenTerms: [],
     brandForbiddenWords: [],
   }), []);
 
   const {
-    quickCheck,
     fullCheck,
     suggestCompliantTopic,
     isChecking: isCheckingCompliance,
-    lastResult: complianceResult,
   } = useCompliancePrecheck(complianceOptions);
 
-  // Run quick compliance check when topic changes
   const [complianceCheckResult, setComplianceCheckResult] = useState<ReturnType<typeof fullCheck> | null>(null);
   
   useEffect(() => {
@@ -270,27 +292,80 @@ export function MultiChannelFormWizard({
     return baseTime + (formData.channels.length * perChannelTime);
   }, [formData.channels.length]);
 
-  // Can proceed
+  // NEW: Generate Core Content inline
+  const handleGenerateCoreContent = useCallback(async () => {
+    if (!formData.topic.trim() || !organizationId) {
+      toast.error('Vui lòng nhập chủ đề');
+      return;
+    }
+
+    setIsGeneratingCoreContent(true);
+    
+    try {
+      const result = await generateCoreContent({
+        topic: formData.topic.trim(),
+        contentGoal: formData.contentGoal || 'education',
+        contentAngle: coreContentAngle === '__none__' ? undefined : coreContentAngle,
+        brandTemplateId: brandTemplateId,
+        organizationId,
+        targetAudience: coreContentAudience || undefined,
+      });
+      
+      setCoreContentData({
+        id: result.id,
+        title: result.title,
+        content: result.content,
+        wordCount: result.wordCount,
+        qualityScore: result.qualityScore,
+        keyMessages: result.keyMessages || [],
+        contentGoal: formData.contentGoal,
+      });
+      
+      // Link to form data
+      setFormData(prev => ({ 
+        ...prev, 
+        coreContentId: result.id,
+        // Auto-suggest role based on content goal
+        contentRole: prev.contentRole || GOAL_TO_ROLE_MAP[formData.contentGoal || 'education'],
+      }));
+      
+      toast.success('Đã tạo Core Content thành công!');
+      
+    } catch (error) {
+      console.error('Core Content generation error:', error);
+      toast.error('Không thể tạo Core Content. Vui lòng thử lại.');
+    } finally {
+      setIsGeneratingCoreContent(false);
+    }
+  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, brandTemplateId, organizationId, generateCoreContent]);
+
+  // Can proceed logic - NEW for 4-step flow
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
-        // If using Core Content, require contentRole
-        if (useCoreContent && formData.coreContentId) {
-          return formData.topic.trim().length >= 10 && !!formData.brandTemplateId && !!formData.contentRole;
-        }
+        // Step 1: Topic + Brand required
         return formData.topic.trim().length >= 10 && !!formData.brandTemplateId;
       case 2:
-        return true;
+        // Step 2: Core Content must be generated
+        return !!coreContentData?.id || !!formData.coreContentId;
       case 3:
-        return formData.channels.length > 0;
+        // Step 3: Role must be selected
+        return !!formData.contentRole;
       case 4:
-        return true;
+        // Step 4: At least 1 channel
+        return formData.channels.length > 0;
       default:
         return false;
     }
-  }, [currentStep, formData, useCoreContent]);
+  }, [currentStep, formData, coreContentData]);
 
   const handleNext = () => {
+    // Validation before proceeding
+    if (currentStep === 2 && !coreContentData?.id && !formData.coreContentId) {
+      toast.error('Vui lòng tạo Core Content trước khi tiếp tục');
+      return;
+    }
+    
     if (currentStep < 4 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
@@ -326,7 +401,7 @@ export function MultiChannelFormWizard({
     setFormData(prev => ({ ...prev, channels: [] }));
   };
 
-  // Hook selection handlers - Toggle logic for multi-select
+  // Hook selection handlers
   const handleSelectHook = (hook: MultiChannelHook) => {
     setFormData(prev => {
       const hookKey = `${hook.channel}-${hook.opening_line}`;
@@ -337,13 +412,11 @@ export function MultiChannelFormWizard({
       let newSelectedHooks: MultiChannelSelectedHook[];
       
       if (existingHook) {
-        // Already exists -> remove (toggle off)
         newSelectedHooks = (prev.selectedHooks || []).filter(
           h => `${h.channel}-${h.opening_line}` !== hookKey
         );
         toast.info(`Đã bỏ chọn hook cho ${CHANNELS.find(c => c.value === hook.channel)?.label || hook.channel}`);
       } else {
-        // Not exists -> add (toggle on)
         newSelectedHooks = [
           ...(prev.selectedHooks || []),
           {
@@ -375,16 +448,11 @@ export function MultiChannelFormWizard({
     }));
   };
 
-  // Auto-replace selected hook when regenerated
   const handleHookRegenerated = (channel: Channel, newHook: MultiChannelHook) => {
     setFormData(prev => {
       const existingSelected = (prev.selectedHooks || []).find(h => h.channel === channel);
-      if (!existingSelected) {
-        // Hook wasn't selected, no need to update
-        return prev;
-      }
+      if (!existingSelected) return prev;
       
-      // Replace the old hook with the new one
       const updatedHooks = (prev.selectedHooks || []).map(h => 
         h.channel === channel
           ? {
@@ -430,7 +498,7 @@ export function MultiChannelFormWizard({
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        {/* Step Indicator - Larger on Desktop */}
+        {/* Step Indicator */}
         <StepIndicator
           steps={STEPS}
           currentStep={currentStep}
@@ -440,7 +508,7 @@ export function MultiChannelFormWizard({
 
         {/* Step Content */}
         <div className="min-h-[350px]">
-          {/* Step 1: Topic Input */}
+          {/* ========== STEP 1: CHỦ ĐỀ ========== */}
           {currentStep === 1 && (
             <div className="space-y-5 animate-fade-in">
               <div className="space-y-3">
@@ -477,7 +545,7 @@ export function MultiChannelFormWizard({
                   </p>
                 )}
 
-                {/* Compliance Warning Badge */}
+                {/* Compliance Warning */}
                 {formData.topic.trim().length >= 10 && complianceCheckResult && (
                   <ComplianceWarningBadge
                     result={complianceCheckResult}
@@ -486,7 +554,7 @@ export function MultiChannelFormWizard({
                   />
                 )}
 
-                {/* Brainstorm with AI Button */}
+                {/* Brainstorm Button */}
                 <Button
                   variant="outline"
                   size="sm"
@@ -498,79 +566,27 @@ export function MultiChannelFormWizard({
                   Brainstorm với AI
                 </Button>
 
-                {/* Core Content Selector - Transform from approved content */}
-                <Separator className="my-3" />
-                
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="use-core-content"
-                      checked={useCoreContent}
-                      onCheckedChange={(checked) => {
-                        setUseCoreContent(!!checked);
-                        if (!checked) {
-                          setFormData(prev => ({ ...prev, coreContentId: undefined }));
-                        }
-                      }}
-                      disabled={isGenerating}
-                    />
-                    <Label 
-                      htmlFor="use-core-content" 
-                      className="text-sm cursor-pointer flex items-center gap-2"
-                    >
-                      <FileText className="w-4 h-4 text-primary" />
-                      Sử dụng Core Content có sẵn
-                      <Badge variant="outline" className="text-xs">
-                        Khuyên dùng
-                      </Badge>
-                    </Label>
-                  </div>
-                  
-                  {useCoreContent && (
-                    <div className="pl-6 space-y-4">
-                      <CoreContentSelector
-                        organizationId={organizationId}
-                        value={formData.coreContentId}
-                        onValueChange={(id, content) => {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            coreContentId: id || undefined,
-                            // Auto-fill topic from Core Content if empty
-                            topic: content?.topic && !prev.topic ? content.topic : prev.topic,
-                            // Suggest role based on content goal
-                            contentRole: content?.content_goal 
-                              ? GOAL_TO_ROLE_MAP[content.content_goal as ContentGoal] || prev.contentRole 
-                              : prev.contentRole,
-                          }));
-                        }}
-                        disabled={isGenerating}
-                        placeholder="Chọn Core Content đã approve..."
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Nội dung sẽ được transform từ Core Content, đảm bảo nhất quán across platforms.
-                      </p>
-
-                      {/* Role Selector - Required when using Core Content */}
-                      {formData.coreContentId && (
-                        <div className="pt-2 border-t border-border/50">
-                          <Label className="text-foreground font-semibold flex items-center gap-2 mb-3">
-                            <Compass className="w-4 h-4 text-primary" />
-                            Vai trò nội dung (Content Role)
-                            <span className="text-primary">*</span>
-                          </Label>
-                          <RoleSelectorCard
-                            value={formData.contentRole}
-                            onValueChange={(role) => setFormData(prev => ({ ...prev, contentRole: role }))}
-                            contentGoal={formData.contentGoal}
-                            disabled={isGenerating}
-                          />
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Role quyết định style transform: Seed (awareness), Sprout (trust), Harvest (conversion)
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {/* Content Goal Selector */}
+                <div className="space-y-2 pt-2">
+                  <Label className="text-sm text-muted-foreground">Mục tiêu nội dung</Label>
+                  <Select
+                    value={formData.contentGoal || 'education'}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, contentGoal: v as ContentGoal }))}
+                    disabled={isGenerating}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn mục tiêu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTENT_GOALS.map((goal) => (
+                        <SelectItem key={goal.value} value={goal.value}>
+                          <div className="flex items-center gap-2">
+                            <span>{goal.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Topic Refinement */}
@@ -606,25 +622,232 @@ export function MultiChannelFormWizard({
                     disabled={isGenerating}
                   />
                 )}
+              </div>
+            </div>
+          )}
 
-                {/* Hook Generator - moved to Step 3 after channel selection */}
+          {/* ========== STEP 2: TẠO CORE CONTENT ========== */}
+          {currentStep === 2 && (
+            <div className="space-y-5 animate-fade-in">
+              {/* Topic Preview */}
+              <Card className="bg-muted/30 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <FileText className="w-5 h-5 text-primary mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground mb-1">Chủ đề đã chọn</p>
+                      <p className="font-medium text-sm">{formData.topic}</p>
+                    </div>
+                    <Badge variant="outline">
+                      {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label || 'Education'}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Selected Hooks Summary */}
-                <SelectedHooksSummary
-                  selectedHooks={formData.selectedHooks || []}
-                  onRemoveHook={handleRemoveHook}
-                  onClearAll={handleClearAllHooks}
+              {/* Core Content Generation Form */}
+              {!coreContentData && !formData.coreContentId && (
+                <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <BookOpen className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Tạo Core Content</h3>
+                        <p className="text-xs text-muted-foreground">Nội dung gốc 800-2000 từ làm nguồn cho đa kênh</p>
+                      </div>
+                    </div>
+
+                    {/* Optional Settings - Collapsible */}
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
+                          <span className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Settings2 className="w-4 h-4" />
+                            Tuỳ chọn nâng cao
+                          </span>
+                          <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-3 space-y-3">
+                        {/* Content Angle */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Góc tiếp cận</Label>
+                          <Select
+                            value={coreContentAngle}
+                            onValueChange={(v) => setCoreContentAngle(v as ContentAngle | '__none__')}
+                            disabled={isGeneratingCoreContent}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Tự động" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Tự động</SelectItem>
+                              {CONTENT_ANGLES.map((angle) => (
+                                <SelectItem key={angle.value} value={angle.value}>
+                                  {angle.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Target Audience */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Đối tượng mục tiêu (tuỳ chọn)</Label>
+                          <Textarea
+                            value={coreContentAudience}
+                            onChange={(e) => setCoreContentAudience(e.target.value)}
+                            placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
+                            className="min-h-[60px] text-sm resize-none"
+                            disabled={isGeneratingCoreContent}
+                          />
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    {/* Generate Button */}
+                    <Button
+                      onClick={handleGenerateCoreContent}
+                      disabled={isGeneratingCoreContent || !formData.topic.trim()}
+                      className="w-full gap-2 gradient-primary"
+                    >
+                      {isGeneratingCoreContent ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Đang tạo Core Content...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Tạo Core Content
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Core Content Preview - After Generation */}
+              {coreContentData && (
+                <Card className="bg-card/50 backdrop-blur-sm border-primary/30">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-foreground">Core Content đã tạo</h3>
+                          <p className="text-xs text-muted-foreground">{coreContentData.wordCount} từ • Điểm: {coreContentData.qualityScore}/100</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowCoreContentPreview(!showCoreContentPreview)}
+                          className="gap-1.5 text-xs"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          {showCoreContentPreview ? 'Ẩn' : 'Xem'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setCoreContentData(null);
+                            setFormData(prev => ({ ...prev, coreContentId: undefined }));
+                          }}
+                          className="gap-1.5 text-xs"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Tạo lại
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Tiêu đề</p>
+                      <p className="font-medium text-sm">{coreContentData.title}</p>
+                    </div>
+
+                    {/* Key Messages */}
+                    {coreContentData.keyMessages.length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">Thông điệp chính</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {coreContentData.keyMessages.slice(0, 4).map((msg, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {msg}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Full Content Preview */}
+                    {showCoreContentPreview && (
+                      <div className="border-t border-border/50 pt-4">
+                        <p className="text-xs text-muted-foreground mb-2">Nội dung đầy đủ</p>
+                        <div className="max-h-[300px] overflow-y-auto p-3 bg-muted/30 rounded-lg text-sm whitespace-pre-wrap">
+                          {coreContentData.content}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* ========== STEP 3: VAI TRÒ ========== */}
+          {currentStep === 3 && (
+            <div className="space-y-5 animate-fade-in">
+              {/* Core Content Summary */}
+              {coreContentData && (
+                <Card className="bg-muted/30 border-border/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <BookOpen className="w-5 h-5 text-primary mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground mb-1">Core Content</p>
+                        <p className="font-medium text-sm line-clamp-1">{coreContentData.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {coreContentData.wordCount} từ • {coreContentData.keyMessages.length} thông điệp
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Role Selector */}
+              <div className="space-y-3">
+                <Label className="text-foreground font-semibold flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-primary" />
+                  Chọn vai trò nội dung (Content Role)
+                  <span className="text-primary">*</span>
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Vai trò quyết định cách AI transform Core Content thành nội dung đa kênh
+                </p>
+                
+                <RoleSelectorCard
+                  value={formData.contentRole}
+                  onValueChange={(role) => setFormData(prev => ({ ...prev, contentRole: role }))}
+                  contentGoal={coreContentData?.contentGoal || formData.contentGoal}
                   disabled={isGenerating}
-                  collapsible
-                  defaultCollapsed={false}
                 />
               </div>
             </div>
           )}
 
-          {/* Step 2: Targeting */}
-          {currentStep === 2 && (
-            <div className="space-y-4 animate-fade-in">
+          {/* ========== STEP 4: NỘI DUNG ĐA KÊNH ========== */}
+          {currentStep === 4 && (
+            <div className="space-y-5 animate-fade-in">
               {/* Targeting Card */}
               {formData.brandTemplateId && (
                 <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -667,30 +890,18 @@ export function MultiChannelFormWizard({
                         />
                       </div>
                     </div>
+
+                    {/* Content Angle */}
+                    <div className="pt-2 border-t border-border/30">
+                      <ContentAngleSelector
+                        value={formData.contentAngle}
+                        onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
+                        disabled={isGenerating}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               )}
-
-              {/* Content Angle */}
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardContent className="p-5 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Compass className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">Góc tiếp cận nội dung</h3>
-                      <p className="text-xs text-muted-foreground">Cách triển khai chủ đề</p>
-                    </div>
-                  </div>
-
-                  <ContentAngleSelector
-                    value={formData.contentAngle}
-                    onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
-                    disabled={isGenerating}
-                  />
-                </CardContent>
-              </Card>
 
               {/* Journey Stage - Collapsible */}
               <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -725,94 +936,92 @@ export function MultiChannelFormWizard({
                   </CollapsibleContent>
                 </Collapsible>
               </Card>
-            </div>
-          )}
 
-          {/* Step 3: Channel Selection */}
-          {currentStep === 3 && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <Label className="text-foreground font-semibold flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-primary" />
-                  Kênh xuất bản
-                </Label>
-                <Badge variant="secondary">
-                  {formData.channels.length}/{CHANNELS.length} kênh
-                </Badge>
-              </div>
-
-              {/* Quick Select */}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSelectAll}
-                  disabled={isGenerating}
-                  className="text-xs h-8"
-                >
-                  <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
-                  Tất cả
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDeselectAll}
-                  disabled={isGenerating}
-                  className="text-xs h-8"
-                >
-                  <Square className="w-3.5 h-3.5 mr-1.5" />
-                  Bỏ chọn
-                </Button>
-              </div>
-
-              {/* Channel Grid - 3 columns on Desktop */}
-              {channelCategories.map((category) => (
-                <div key={category.key} className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">{category.name}</p>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                    {category.channels.map((channel) => {
-                      const hasOverride = brandTemplate?.channel_overrides && 
-                        Object.keys(brandTemplate.channel_overrides).includes(channel.value);
-                      return (
-                        <Tooltip key={channel.value}>
-                          <TooltipTrigger asChild>
-                            <label
-                              className={cn(
-                                "flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all",
-                                formData.channels.includes(channel.value)
-                                  ? 'border-primary bg-primary/5'
-                                  : 'border-border/50 hover:border-border',
-                                isGenerating && 'opacity-50 cursor-not-allowed'
-                              )}
-                            >
-                              <Checkbox
-                                checked={formData.channels.includes(channel.value)}
-                                onCheckedChange={() => handleChannelToggle(channel.value)}
-                                disabled={isGenerating}
-                                className="w-4 h-4"
-                              />
-                              <span className="text-primary">
-                                {channelIcons[channel.value]}
-                              </span>
-                              <span className="text-sm truncate flex-1">{channel.label}</span>
-                              {hasOverride && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-purple-300 text-purple-600 dark:border-purple-700 dark:text-purple-400">
-                                  <Settings2 className="w-2.5 h-2.5 mr-0.5" />
-                                </Badge>
-                              )}
-                            </label>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[200px]">
-                            <p className="text-xs">{channel.description}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
+              {/* Channel Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-foreground font-semibold flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-primary" />
+                    Kênh xuất bản
+                  </Label>
+                  <Badge variant="secondary">
+                    {formData.channels.length}/{CHANNELS.length} kênh
+                  </Badge>
                 </div>
-              ))}
+
+                {/* Quick Select */}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    disabled={isGenerating}
+                    className="text-xs h-8"
+                  >
+                    <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+                    Tất cả
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    disabled={isGenerating}
+                    className="text-xs h-8"
+                  >
+                    <Square className="w-3.5 h-3.5 mr-1.5" />
+                    Bỏ chọn
+                  </Button>
+                </div>
+
+                {/* Channel Grid */}
+                {channelCategories.map((category) => (
+                  <div key={category.key} className="space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium">{category.name}</p>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                      {category.channels.map((channel) => {
+                        const hasOverride = brandTemplate?.channel_overrides && 
+                          Object.keys(brandTemplate.channel_overrides).includes(channel.value);
+                        return (
+                          <Tooltip key={channel.value}>
+                            <TooltipTrigger asChild>
+                              <label
+                                className={cn(
+                                  "flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all",
+                                  formData.channels.includes(channel.value)
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-border/50 hover:border-border',
+                                  isGenerating && 'opacity-50 cursor-not-allowed'
+                                )}
+                              >
+                                <Checkbox
+                                  checked={formData.channels.includes(channel.value)}
+                                  onCheckedChange={() => handleChannelToggle(channel.value)}
+                                  disabled={isGenerating}
+                                  className="w-4 h-4"
+                                />
+                                <span className="text-primary">
+                                  {channelIcons[channel.value]}
+                                </span>
+                                <span className="text-sm truncate flex-1">{channel.label}</span>
+                                {hasOverride && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-purple-300 text-purple-600 dark:border-purple-700 dark:text-purple-400">
+                                    <Settings2 className="w-2.5 h-2.5 mr-0.5" />
+                                  </Badge>
+                                )}
+                              </label>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[200px]">
+                              <p className="text-xs">{channel.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               {/* Quality Mode Selector */}
               <QualityModeQuickSelector
@@ -824,7 +1033,7 @@ export function MultiChannelFormWizard({
                 showBrandHints={true}
               />
 
-              {/* Hook Generator - only show after channels selected */}
+              {/* Hook Generator */}
               {formData.topic.trim().length >= 10 && formData.channels.length > 0 && (
                 <MultiChannelHookGenerator
                   topic={formData.topic}
@@ -842,6 +1051,16 @@ export function MultiChannelFormWizard({
                   disabled={isGenerating}
                 />
               )}
+
+              {/* Selected Hooks Summary */}
+              <SelectedHooksSummary
+                selectedHooks={formData.selectedHooks || []}
+                onRemoveHook={handleRemoveHook}
+                onClearAll={handleClearAllHooks}
+                disabled={isGenerating}
+                collapsible
+                defaultCollapsed={false}
+              />
 
               {/* Footer Info Option */}
               <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -904,79 +1123,6 @@ export function MultiChannelFormWizard({
                   </span>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Step 4: Review & Generate */}
-          {currentStep === 4 && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="text-center py-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="font-bold text-xl text-foreground">Sẵn sàng tạo nội dung!</h3>
-                <p className="text-muted-foreground">Xem lại thông tin trước khi tạo</p>
-              </div>
-
-              {/* Summary Card */}
-              <Card className="border-border">
-                <CardContent className="p-5 space-y-4">
-                  {brandTemplate && (
-                    <div className="flex items-start gap-3">
-                      <Sparkles className="w-5 h-5 text-primary mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Thương hiệu</p>
-                        <p className="font-medium">{brandTemplate.name}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-start gap-3">
-                    <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Chủ đề</p>
-                      <p className="font-medium line-clamp-2">{formData.topic}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Target className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Mục tiêu</p>
-                      <p>
-                        {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label || 'Mặc định'}
-                        {formData.contentAngle && (
-                          <span className="text-muted-foreground"> • {formData.contentAngle}</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Layers className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Kênh ({formData.channels.length})</p>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {formData.channels.slice(0, 6).map(ch => (
-                          <Badge key={ch} variant="outline" className="text-xs">
-                            {CHANNELS.find(c => c.value === ch)?.label}
-                          </Badge>
-                        ))}
-                        {formData.channels.length > 6 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{formData.channels.length - 6}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <p className="text-center text-sm text-muted-foreground">
-                <Timer className="w-4 h-4 inline mr-1" />
-                Thời gian ước tính: ~{estimatedTime} giây
-              </p>
             </div>
           )}
         </div>
