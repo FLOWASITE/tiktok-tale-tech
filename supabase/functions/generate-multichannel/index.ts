@@ -170,6 +170,8 @@ interface FormData {
   // Hook integration - hooks cho từng kênh hoặc hook chung
   selectedHooks?: SelectedHook[];
   globalHook?: GlobalHook;
+  // Core Content Layer - derive content from approved Core Content
+  coreContentId?: string; // Optional: transform from Core Content instead of topic-only generation
 }
 
 // Channel content column mapping (for expand mode)
@@ -1146,6 +1148,48 @@ serve(async (req) => {
       organizationId = orgMember?.organization_id || null;
     }
     console.log("Using organization_id:", organizationId, "(from request:", !!formData.organization_id, ")");
+
+    // ============================================
+    // CORE CONTENT MODE
+    // Fetch source material if coreContentId provided
+    // Transform from approved Core Content instead of topic-only generation
+    // ============================================
+    interface CoreContentData {
+      id: string;
+      content: string;
+      key_messages: string[];
+      title: string;
+      topic: string;
+      content_goal: string;
+      word_count: number;
+    }
+    
+    let coreContent: CoreContentData | null = null;
+
+    if (formData.coreContentId) {
+      const { data, error } = await supabase
+        .from('core_contents')
+        .select('id, content, key_messages, title, topic, content_goal, word_count')
+        .eq('id', formData.coreContentId)
+        .eq('status', 'approved') // Only use approved content
+        .single();
+      
+      if (error || !data) {
+        console.warn(`Core Content ${formData.coreContentId} not found or not approved, falling back to topic-based generation`);
+      } else {
+        coreContent = data as CoreContentData;
+        console.log(`[core-content-mode] Using Core Content: "${coreContent.title}" (${coreContent.word_count || 0} words, ${coreContent.content?.length || 0} chars)`);
+        
+        // Use Core Content's topic if form topic is empty
+        if (!formData.topic && coreContent.topic) {
+          formData.topic = coreContent.topic;
+        }
+        // Use Core Content's goal if not specified
+        if (!formData.contentGoal && coreContent.content_goal) {
+          formData.contentGoal = coreContent.content_goal;
+        }
+      }
+    }
 
     // ============================================
     // PREVIEW MODE HANDLER
@@ -2197,6 +2241,43 @@ ${hookOverview}
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
 
 Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy ước đã cho.`;
+
+      // ============================================
+      // CORE CONTENT MODE - SOURCE MATERIAL INJECTION
+      // When coreContentId is provided, inject as source material for transformation
+      // ============================================
+      if (coreContent) {
+        const wordCount = coreContent.word_count || coreContent.content?.split(/\s+/).length || 0;
+        const keyMessages = coreContent.key_messages || [];
+        
+        let keyMessagesSection = '';
+        if (keyMessages.length > 0) {
+          const formattedMessages = keyMessages.map((m: string, i: number) => `${i + 1}. ${m}`).join('\n');
+          keyMessagesSection = `### Key Messages cần giữ nguyên:
+${formattedMessages}`;
+        }
+        
+        userPrompt += `
+
+## 📄 SOURCE MATERIAL (Core Content - Single Source of Truth)
+
+Đây là nội dung gốc đã được approve. Nhiệm vụ của bạn là **TRANSFORM** nội dung này sang format phù hợp với từng platform, **KHÔNG viết lại từ đầu**.
+
+### Nội dung gốc (${wordCount} từ):
+${coreContent.content}
+
+${keyMessagesSection}
+
+### Yêu cầu Transform:
+- **GIỮ NGUYÊN** thông điệp chính từ Core Content
+- **ADAPT** format phù hợp platform (độ dài, tone, hashtag, emoji...)
+- **KHÔNG thêm** thông tin mới không có trong Core Content
+- **CÓ THỂ lược bỏ** chi tiết để phù hợp giới hạn platform
+- Với social media: trích xuất key points, tạo hook hấp dẫn từ nội dung gốc
+- Với email/website: có thể giữ nhiều chi tiết hơn`;
+        
+        console.log(`[streaming-mode][core-content] Injected source material: "${coreContent.title}" (${wordCount} words, ${keyMessages.length} key messages)`);
+      }
 
       // ============================================
       // EDITED PREVIEWS LEARNING (Streaming mode)
@@ -4002,6 +4083,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           // Hook integration - save selected hooks with content
           selected_hooks: formData.selectedHooks || [],
           global_hook: formData.globalHook || null,
+          // Core Content Layer - link to parent Core Content
+          core_content_id: formData.coreContentId || null,
           website_content: typeof generatedData.website_content === 'object' 
             ? generatedData.website_content?.content || null 
             : generatedData.website_content || null,
