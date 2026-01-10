@@ -428,6 +428,7 @@ ${config.targetAudience ? `\n## ĐỐI TƯỢNG MỤC TIÊU\n${config.targetAudi
 ${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalContext}` : ''}
 ${buildProofRequirementsBlock()}
 ${buildCompetitiveContextBlock(config.brandContext)}
+${buildStyleGuideBlock(config.brandContext)}
 ${config.smartContextInjection || ''}
 
 ## CẤU TRÚC BẮT BUỘC (5 phần)
@@ -555,6 +556,7 @@ ${config.targetAudience ? `\n## ĐỐI TƯỢNG MỤC TIÊU\n${config.targetAudi
 ${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalContext}` : ''}
 ${buildProofRequirementsBlock()}
 ${buildCompetitiveContextBlock(config.brandContext)}
+${buildStyleGuideBlock(config.brandContext)}
 ${config.smartContextInjection || ''}
 
 ## YÊU CẦU BẮT BUỘC
