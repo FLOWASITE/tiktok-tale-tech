@@ -68,6 +68,7 @@ import { AutoImageGenerator } from '@/components/multichannel/AutoImageGenerator
 import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
+import { CoreContentSourceBadge } from '@/components/viewer/CoreContentSourceBadge';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -752,6 +753,14 @@ export function MultiChannelViewer({
                     <Target className="w-3 h-3" />
                     {goalLabel}
                   </Badge>
+
+                  {/* Core Content Source Badge */}
+                  {content.core_content_id && (
+                    <CoreContentSourceBadge
+                      coreContentId={content.core_content_id}
+                      className="hidden sm:flex"
+                    />
+                  )}
 
                   {/* Quality Score */}
                   {content.critique_score && (
