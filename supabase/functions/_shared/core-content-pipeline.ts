@@ -101,8 +101,24 @@ const MODEL_CONFIGS: Record<CoreContentQualityMode, ModelConfig> = {
   },
 };
 
-export function getModelsForMode(mode: CoreContentQualityMode): ModelConfig {
-  return MODEL_CONFIGS[mode];
+export function getModelsForMode(
+  mode: CoreContentQualityMode,
+  adminModelOverride?: string | null
+): ModelConfig {
+  const baseConfig = MODEL_CONFIGS[mode];
+  
+  // If admin has configured a model override, use it for the main generation model (compile)
+  // Also apply to section generation for consistency
+  if (adminModelOverride) {
+    console.log(`[getModelsForMode] Using admin model override: ${adminModelOverride}`);
+    return {
+      outline: baseConfig.outline, // Keep lightweight model for outline (structured output)
+      section: adminModelOverride,  // Use admin model for section generation
+      compile: adminModelOverride,  // Use admin model for final compilation
+    };
+  }
+  
+  return baseConfig;
 }
 
 // ============================================
