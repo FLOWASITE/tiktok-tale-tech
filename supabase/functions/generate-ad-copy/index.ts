@@ -262,8 +262,10 @@ async function callAIWithRetry(
 }
 
 // ============================================
-// AI Metrics Logging
+// AI Metrics Logging with Cost
 // ============================================
+import { estimateCost } from "../_shared/cost-estimator.ts";
+
 async function logAIMetrics(
   supabase: any,
   traceId: string,
@@ -281,6 +283,13 @@ async function logAIMetrics(
   }
 ) {
   try {
+    const model = 'google/gemini-2.5-flash';
+    const estimatedCostUsd = estimateCost(
+      model, 
+      options.inputTokensEstimated || 0, 
+      options.outputTokensEstimated || 0
+    );
+    
     await supabase.from('ai_metrics').insert({
       trace_id: traceId,
       function_name: functionName,
@@ -293,7 +302,11 @@ async function logAIMetrics(
       had_error: options.hadError || false,
       error_type: options.errorType || null,
       error_message: options.errorMessage || null,
+      // NEW: Cost tracking
+      models_used: { default: model },
+      estimated_cost_usd: estimatedCostUsd,
     });
+    console.log(`[generate-ad-copy] Metrics saved: cost=$${estimatedCostUsd.toFixed(6)}`);
   } catch (error) {
     console.error('[generate-ad-copy] Failed to log metrics:', error);
   }

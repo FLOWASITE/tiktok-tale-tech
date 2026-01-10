@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -385,6 +387,33 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Save AI metrics with cost
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        const model = 'google/gemini-2.5-flash';
+        const inputTokensEstimated = 3000; // Large knowledge base prompt
+        const outputTokensEstimated = 300;
+        const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+        
+        await saveMetrics(adminClient, {
+          traceId: generateTraceId(),
+          functionName: 'help-chatbot',
+          totalDurationMs: 0,
+          inputTokensEstimated,
+          outputTokensEstimated,
+          modelsUsed: { default: model },
+          estimatedCostUsd,
+          hadError: false,
+          contextSources: relevantArticles.length > 0 ? ['help_articles'] : [],
+        });
+      }
+    } catch (metricsErr) {
+      console.warn('[help-chatbot] Failed to save metrics:', metricsErr);
     }
 
     return new Response(response.body, {

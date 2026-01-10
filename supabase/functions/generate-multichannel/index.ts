@@ -4211,6 +4211,23 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         products: formData.targetProductId ? [{ id: formData.targetProductId }] : undefined,
       });
       
+      // Estimate tokens and cost from channel data
+      const channelCount = formData.channels.length;
+      const avgTokensPerChannel = 800;
+      const inputTokensEstimated = 2000 + (channelCount * 500); // Base prompt + per-channel context
+      const outputTokensEstimated = channelCount * avgTokensPerChannel;
+      
+      // Build models used map - default model for all channels
+      const modelsUsed: Record<string, string> = {};
+      formData.channels.forEach(ch => {
+        modelsUsed[ch] = 'google/gemini-2.5-flash'; // Default model
+      });
+      
+      // Calculate estimated cost
+      const estimatedCostUsd = estimateTotalCost(modelsUsed, 
+        Object.fromEntries(formData.channels.map(ch => [ch, { input: inputTokensEstimated / channelCount, output: outputTokensEstimated / channelCount }]))
+      );
+      
       await saveMetrics(supabase, {
         traceId: metricsTraceId,
         functionName: 'generate-multichannel',
@@ -4225,6 +4242,11 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         cacheHit: fromCache,
         contentId: content.id,
         actionType: formData.action || 'create',
+        // NEW: Cost tracking fields
+        inputTokensEstimated,
+        outputTokensEstimated,
+        modelsUsed,
+        estimatedCostUsd,
       });
       
       console.log(`[metrics] Saved for content ${content.id}`);
