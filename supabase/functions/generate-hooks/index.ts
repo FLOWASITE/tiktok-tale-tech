@@ -148,23 +148,32 @@ Trả về JSON object (không phải array):
     throw new Error('No content in AI response');
   }
 
-  // Parse JSON
+  // Parse JSON with robust handling
   let hook: GeneratedHook;
   let jsonStr = content.trim();
   
-  // Strip markdown code blocks
-  const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // Strip markdown code blocks (handle ```json, ``` variations)
+  jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  
+  // Also handle case where backticks are in the middle
+  const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (codeBlockMatch) {
     jsonStr = codeBlockMatch[1].trim();
-  } else {
-    const objStart = jsonStr.indexOf('{');
-    const objEnd = jsonStr.lastIndexOf('}');
-    if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
-      jsonStr = jsonStr.slice(objStart, objEnd + 1);
-    }
   }
   
-  hook = JSON.parse(jsonStr);
+  // Extract JSON object if there's surrounding text
+  const objStart = jsonStr.indexOf('{');
+  const objEnd = jsonStr.lastIndexOf('}');
+  if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+    jsonStr = jsonStr.slice(objStart, objEnd + 1);
+  }
+  
+  try {
+    hook = JSON.parse(jsonStr);
+  } catch (parseErr) {
+    console.error('[generate-hooks] JSON parse error for platform:', platform, 'Raw:', content.substring(0, 200));
+    throw new Error(`Failed to parse hook JSON: ${parseErr}`);
+  }
   hook.platform = platform; // Gán platform vào hook
 
   // Evaluate hook
@@ -358,20 +367,33 @@ Trả về JSON array với format:
       );
     }
 
-    // Parse the JSON from the response
+    // Parse the JSON from the response with robust handling
     let hooks;
     try {
       let jsonStr = content.trim();
       
-      const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+      // Strip markdown code blocks (handle ```json, ``` variations)
+      jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+      
+      // Also handle case where backticks are in the middle
+      const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/i);
       if (codeBlockMatch) {
         jsonStr = codeBlockMatch[1].trim();
-      } else {
-        const arrayStart = jsonStr.indexOf('[');
-        const arrayEnd = jsonStr.lastIndexOf(']');
-        if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
-          jsonStr = jsonStr.slice(arrayStart, arrayEnd + 1);
-        }
+      }
+      
+      // Try to find array first
+      const arrayStart = jsonStr.indexOf('[');
+      const arrayEnd = jsonStr.lastIndexOf(']');
+      
+      // If no array, try object
+      const objStart = jsonStr.indexOf('{');
+      const objEnd = jsonStr.lastIndexOf('}');
+      
+      if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart && 
+          (arrayStart < objStart || objStart === -1)) {
+        jsonStr = jsonStr.slice(arrayStart, arrayEnd + 1);
+      } else if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+        jsonStr = jsonStr.slice(objStart, objEnd + 1);
       }
       
       hooks = JSON.parse(jsonStr);
@@ -380,7 +402,7 @@ Trả về JSON array với format:
         hooks = [hooks];
       }
     } catch (parseError) {
-      console.error('[generate-hooks] Failed to parse response:', parseError);
+      console.error('[generate-hooks] Failed to parse response:', parseError, 'Raw:', content.substring(0, 300));
       return new Response(
         JSON.stringify({ error: 'Failed to parse AI response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
