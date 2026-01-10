@@ -80,6 +80,7 @@ import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSele
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
+import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -695,8 +696,19 @@ export function MultiChannelFormWizard({
                 </CardContent>
               </Card>
 
-              {/* Core Content Generation Form */}
-              {!coreContentData && !formData.coreContentId && (
+              {/* Streaming UI when generating */}
+              {isGeneratingCoreContent && (
+                <CoreContentStreamingCard
+                  streamingText={coreContentStreamingText}
+                  progress={coreContentProgress}
+                  isStreaming={true}
+                  qualityMode={coreContentQualityMode}
+                  onCancel={cancelCoreContentGeneration}
+                />
+              )}
+
+              {/* Core Content Generation Form - Hidden when generating */}
+              {!coreContentData && !formData.coreContentId && !isGeneratingCoreContent && (
                 <Card className="bg-card/50 backdrop-blur-sm border-border/50">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -727,7 +739,6 @@ export function MultiChannelFormWizard({
                           <Select
                             value={coreContentAngle}
                             onValueChange={(v) => setCoreContentAngle(v as ContentAngle | '__none__')}
-                            disabled={isGeneratingCoreContent}
                           >
                             <SelectTrigger className="h-9">
                               <SelectValue placeholder="Tự động" />
@@ -751,7 +762,6 @@ export function MultiChannelFormWizard({
                             onChange={(e) => setCoreContentAudience(e.target.value)}
                             placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
                             className="min-h-[60px] text-sm resize-none"
-                            disabled={isGeneratingCoreContent}
                           />
                         </div>
 
@@ -764,7 +774,6 @@ export function MultiChannelFormWizard({
                                 key={mode.value}
                                 type="button"
                                 onClick={() => setCoreContentQualityMode(mode.value)}
-                                disabled={isGeneratingCoreContent}
                                 className={cn(
                                   "p-2 rounded-lg border text-left transition-all",
                                   coreContentQualityMode === mode.value
@@ -787,27 +796,18 @@ export function MultiChannelFormWizard({
                     {/* Generate Button */}
                     <Button
                       onClick={handleGenerateCoreContent}
-                      disabled={isGeneratingCoreContent || !formData.topic.trim()}
+                      disabled={!formData.topic.trim()}
                       className="w-full gap-2 gradient-primary"
                     >
-                      {isGeneratingCoreContent ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Đang tạo Core Content...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          Tạo Core Content
-                        </>
-                      )}
+                      <Sparkles className="w-4 h-4" />
+                      Tạo Core Content
                     </Button>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Core Content Preview - After Generation */}
-              {coreContentData && (
+              {/* Core Content Preview - After Generation (hidden while streaming) */}
+              {coreContentData && !isGeneratingCoreContent && (
                 <Card className="bg-card/50 backdrop-blur-sm border-primary/30">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
