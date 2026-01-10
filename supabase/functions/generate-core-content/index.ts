@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   CoreContentQualityMode,
   CoreContentConfig,
+  EnhancedPromptConfig,
   GeneratedOutline,
   GeneratedSection,
   getModelsForMode,
@@ -20,6 +21,8 @@ import {
 } from '../_shared/core-content-pipeline.ts';
 import { BrandContext } from '../_shared/types/chat-types.ts';
 import { performResearch, buildResearchContext, ResearchResult, ResearchRecency } from '../_shared/research-helper.ts';
+import { buildSmartContext, SmartContextResult } from '../_shared/smart-context.ts';
+import { evaluateCoreContentQuality, QualityMetrics } from '../_shared/quality-gate.ts';
 
 // ============================================
 // SSE STREAMING HELPERS
@@ -812,8 +815,37 @@ serve(async (req: Request) => {
     // Combine additional context with research
     const enrichedContext = [additionalContext, researchContext].filter(Boolean).join('\n\n');
     
+    // ========== SMART CONTEXT (Few-shot Learning) ==========
+    let smartContextInjection = '';
+    let smartContextRichness = 0;
+    
+    if (qualityMode !== 'fast') {
+      try {
+        const smartContext = await buildSmartContext(supabase, {
+          qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+          brandTemplateId,
+          organizationId,
+          includeHookPatterns: false,  // Core Content không cần hook patterns mạnh
+          includeCTAPatterns: false,   // Core Content không cần CTA patterns mạnh
+          includeLearning: true,       // Có inject few-shot từ top performers
+        });
+        
+        // Chỉ lấy few-shot examples và negative patterns (không lấy hook/CTA)
+        if (smartContext.fewShotExamples || smartContext.negativePatterns) {
+          smartContextInjection = [
+            smartContext.fewShotExamples,
+            smartContext.negativePatterns,
+          ].filter(Boolean).join('\n\n');
+          smartContextRichness = smartContext.contextRichnessScore;
+          console.log(`[generate-core-content] Smart context loaded, richness: ${smartContextRichness}`);
+        }
+      } catch (err) {
+        console.warn('[generate-core-content] Failed to build smart context:', err);
+      }
+    }
+    
     // Build pipeline config
-    const pipelineConfig: CoreContentConfig = {
+    const pipelineConfig: EnhancedPromptConfig = {
       topic,
       contentGoal: contentGoal || 'education',
       contentAngle,
@@ -824,6 +856,7 @@ serve(async (req: Request) => {
       products,
       targetAudience,
       additionalContext: enrichedContext || undefined,
+      smartContextInjection: smartContextInjection || undefined,
     };
     
     // ========== STREAMING MODE ==========
