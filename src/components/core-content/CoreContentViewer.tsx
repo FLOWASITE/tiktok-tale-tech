@@ -68,7 +68,7 @@ export function CoreContentViewer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
+      <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col z-[60]">
         <SheetHeader className="flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
