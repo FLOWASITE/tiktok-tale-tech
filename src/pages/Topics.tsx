@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lightbulb, Bookmark, BarChart3, Brain, MessageSquare, Compass, Sparkles, Menu, TrendingUp } from 'lucide-react';
+import { Lightbulb, Bookmark, BarChart3, Brain, MessageSquare, Compass, Sparkles, Menu, TrendingUp, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -266,7 +266,19 @@ const Topics = () => {
                 </div>
               </div>
             </div>
-            <BrandSelectorDropdown brand={selectedBrand} onOpen={() => setBrandDialogOpen(true)} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-2"
+                onClick={refresh}
+                disabled={!selectedBrandId || suggestionsLoading || isEnhancing}
+              >
+                <RefreshCw className={cn('h-4 w-4', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
+                Làm mới gợi ý
+              </Button>
+              <BrandSelectorDropdown brand={selectedBrand} onOpen={() => setBrandDialogOpen(true)} />
+            </div>
           </div>
         </div>
       )}
