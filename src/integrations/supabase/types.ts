@@ -4597,6 +4597,7 @@ export type Database = {
           channel_statuses: Json | null
           content_calendar_color: string | null
           content_goal: string
+          content_role: string | null
           core_content_id: string | null
           created_at: string
           critique_details: Json | null
@@ -4644,6 +4645,7 @@ export type Database = {
           channel_statuses?: Json | null
           content_calendar_color?: string | null
           content_goal: string
+          content_role?: string | null
           core_content_id?: string | null
           created_at?: string
           critique_details?: Json | null
@@ -4691,6 +4693,7 @@ export type Database = {
           channel_statuses?: Json | null
           content_calendar_color?: string | null
           content_goal?: string
+          content_role?: string | null
           core_content_id?: string | null
           created_at?: string
           critique_details?: Json | null

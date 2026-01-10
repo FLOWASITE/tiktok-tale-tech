@@ -140,6 +140,9 @@ interface GlobalHook {
   text_overlay?: string;
 }
 
+// Content Role for Content Orchestration Flow
+type ContentRole = 'seed' | 'sprout' | 'harvest';
+
 interface FormData {
   topic: string;
   industry?: string;
@@ -172,6 +175,71 @@ interface FormData {
   globalHook?: GlobalHook;
   // Core Content Layer - derive content from approved Core Content
   coreContentId?: string; // Optional: transform from Core Content instead of topic-only generation
+  // Content Role for Content Orchestration Flow (used with Core Content)
+  contentRole?: ContentRole; // seed = awareness, sprout = trust, harvest = conversion
+}
+
+// ============================================
+// CONTENT ROLE TEMPLATES - Inject role-specific instructions
+// ============================================
+function getContentRoleTemplate(role: ContentRole | undefined): string {
+  if (!role) return '';
+  
+  const templates: Record<ContentRole, string> = {
+    seed: `
+## VAI TRÒ NỘI DUNG: SEED (Gieo hạt - Awareness)
+- Mục đích: Mở rộng nhận thức, thu hút attention, khơi gợi vấn đề
+- Người đọc sẽ: HIỂU VẤN ĐỀ MỚI
+- Phong cách: Insight mạnh, câu hỏi kích thích tư duy, KHÔNG bán hàng
+- CTA: Nhẹ nhàng - "Bạn nghĩ sao?", "Tag người cần biết", "Đã gặp trường hợp này chưa?"
+- KPI theo dõi: Reach, Hook rate, Impressions
+- ⚠️ QUAN TRỌNG: TUYỆT ĐỐI KHÔNG đề cập sản phẩm/dịch vụ cụ thể
+- ⚠️ QUAN TRỌNG: Không push conversion, chỉ tạo awareness
+
+PHONG CÁCH SEED:
+• Mở đầu bằng insight hoặc statistic gây shock
+• Đặt câu hỏi tạo suy ngẫm
+• Share góc nhìn mới về vấn đề quen thuộc
+• Kết thúc mở, để người đọc tự suy nghĩ
+`,
+    sprout: `
+## VAI TRÒ NỘI DUNG: SPROUT (Nuôi dưỡng - Trust Building)
+- Mục đích: Xây dựng niềm tin, thể hiện expertise
+- Người đọc sẽ: TIN TƯỞNG chuyên gia/thương hiệu
+- Phong cách: Phân tích sâu, case study, giải thích chi tiết, data-driven
+- CTA: Vừa phải - "Lưu lại để tham khảo", "Share cho người cần", "Bình luận chia sẻ kinh nghiệm"
+- KPI theo dõi: Time spent, Save, Comment, Share
+- ⚠️ QUAN TRỌNG: Có thể nhắc đến expertise nhưng chưa push conversion
+- ⚠️ QUAN TRỌNG: Focus vào giá trị, không vội vàng bán hàng
+
+PHONG CÁCH SPROUT:
+• Phân tích vấn đề có chiều sâu
+• Đưa ra framework/methodology rõ ràng
+• Chia sẻ case study thực tế (anonymized nếu cần)
+• Cung cấp actionable insights người đọc có thể áp dụng ngay
+• Thể hiện chuyên môn qua cách phân tích, không qua việc tự khen
+`,
+    harvest: `
+## VAI TRÒ NỘI DUNG: HARVEST (Thu hoạch - Conversion)
+- Mục đích: Thúc đẩy hành động cụ thể, chuyển đổi
+- Người đọc sẽ: HÀNH ĐỘNG (mua/inbox/đăng ký)
+- Phong cách: Giải pháp rõ ràng, social proof mạnh, urgency, offer cụ thể
+- CTA: Mạnh mẽ - "Inbox ngay", "Đăng ký hôm nay", "Liên hệ tư vấn", "Nhận ưu đãi"
+- KPI theo dõi: Lead, Inbox, Click CTA, Conversion
+- ⚠️ QUAN TRỌNG: Bao gồm offer cụ thể, proof rõ ràng, và urgency hợp lý
+- ⚠️ QUAN TRỌNG: Đây là lúc push conversion mạnh
+
+PHONG CÁCH HARVEST:
+• Bắt đầu bằng pain point hoặc kết quả đạt được
+• Social proof: testimonial, con số, case study thành công
+• Giải pháp/sản phẩm được present như answer cho problem
+• Urgency: limited time, limited slot, seasonal offer
+• CTA rõ ràng, multiple touchpoints (inbox, hotline, website)
+• Giảm friction: "Tư vấn miễn phí", "Không cam kết"
+`,
+  };
+  
+  return templates[role] || '';
 }
 
 // Channel content column mapping (for expand mode)
@@ -945,7 +1013,8 @@ const getSystemPrompt = (
   extendedBrandContext?: ExtendedBrandContext | null,
   channelOptimizations?: Record<string, ChannelOptimization>, // Per-channel optimization configs
   smartContext?: SmartContextResult | null, // NEW: Smart context for enhanced generation
-  qualityMode?: QualityMode // NEW: Quality mode for prompt complexity
+  qualityMode?: QualityMode, // NEW: Quality mode for prompt complexity
+  contentRole?: ContentRole // NEW: Content role for orchestration flow
 ): string => {
   const goalDescriptions: Record<string, string> = {
     education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
@@ -1033,12 +1102,16 @@ ${angleDescriptions[contentAngle] || contentAngle}
     ? buildWordBudgetInstruction(channels, channelOverrides as Record<string, { min_length?: number }> | undefined)
     : '';
 
+  // NEW: Build Content Role section for orchestration flow
+  const contentRoleSection = getContentRoleTemplate(contentRole);
+
   return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
 ${extendedBrandSection}
 ${productTargetingSection}
 ${smartContextSection}
+${contentRoleSection}
 
 ## NGUYÊN TẮC LÕI
 ONE TOPIC → MULTI-CHANNEL CONTENT
@@ -2163,7 +2236,8 @@ Nội dung sẵn sàng đăng ngay.`;
         extendedBrandContext,
         channelOptimizations,
         smartContext,
-        qualityMode
+        qualityMode,
+        formData.contentRole // NEW: Content role for orchestration flow
       );
       
       // ============================================
@@ -2863,7 +2937,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
       extendedBrandContext,
       channelOptimizations,
       smartContext,
-      qualityMode
+      qualityMode,
+      formData.contentRole // NEW: Content role for orchestration flow
     );
 
     // Fetch targeted product/persona if specified
@@ -4085,6 +4160,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           global_hook: formData.globalHook || null,
           // Core Content Layer - link to parent Core Content
           core_content_id: formData.coreContentId || null,
+          // Content Role for orchestration flow (seed/sprout/harvest)
+          content_role: formData.contentRole || null,
           website_content: typeof generatedData.website_content === 'object' 
             ? generatedData.website_content?.content || null 
             : generatedData.website_content || null,

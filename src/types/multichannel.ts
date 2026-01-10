@@ -269,6 +269,9 @@ export const HOOK_TYPES = [
 
 export type HookType = typeof HOOK_TYPES[number];
 
+// Content Role for Content Orchestration Flow
+export type ContentRole = 'seed' | 'sprout' | 'harvest';
+
 export interface MultiChannelFormData {
   topic: string;
   industry?: string;
@@ -299,6 +302,8 @@ export interface MultiChannelFormData {
   globalHook?: GlobalHook;
   // Core Content Layer - derive content from approved Core Content
   coreContentId?: string; // Optional: transform from Core Content instead of topic-only generation
+  // Content Role for Content Orchestration Flow (required when using Core Content)
+  contentRole?: ContentRole;
 }
 
 // ============================================
