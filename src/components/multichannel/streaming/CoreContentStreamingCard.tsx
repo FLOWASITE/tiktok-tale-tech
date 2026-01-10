@@ -11,15 +11,20 @@ import { CoreContentProgress } from "@/hooks/useStreamingCoreContent";
 // Step labels mapping
 const STEP_LABELS: Record<string, string> = {
   init: "Khởi tạo...",
-  outline: "Đang tạo outline...",
+  research: "Đang thu thập dữ liệu từ web...",
+  outline: "Đang tạo dàn ý...",
+  outline_done: "Đã tạo dàn ý",
   section_1: "Đang viết phần 1/5...",
   section_2: "Đang viết phần 2/5...",
   section_3: "Đang viết phần 3/5...",
   section_4: "Đang viết phần 4/5...",
   section_5: "Đang viết phần 5/5...",
   compile: "Đang hoàn thiện...",
+  saving: "Đang lưu...",
   complete: "Hoàn thành!",
   error: "Lỗi xảy ra",
+  generating: "Đang tạo nội dung...",
+  fallback: "Chuyển chế độ đơn giản...",
 };
 
 // Quality mode labels

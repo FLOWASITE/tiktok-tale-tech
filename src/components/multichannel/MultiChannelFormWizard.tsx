@@ -223,6 +223,7 @@ export function MultiChannelFormWizard({
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
   const [coreContentAudience, setCoreContentAudience] = useState('');
   const [coreContentQualityMode, setCoreContentQualityMode] = useState<CoreContentQualityMode>('balanced');
+  const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
 
   // Streaming Core Content hook
   const {
@@ -384,11 +385,12 @@ export function MultiChannelFormWizard({
         brandTemplateId: brandTemplateId,
         organizationId,
         targetAudience: coreContentAudience || undefined,
+        enableResearch, // NEW: Pass research flag
       });
     } catch (error) {
       console.error('Core Content generation error:', error);
     }
-  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentQualityMode, brandTemplateId, organizationId, generateCoreContentStreaming]);
+  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentQualityMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
   // Can proceed logic - NEW for 4-step flow
   const canProceed = useMemo(() => {
@@ -788,6 +790,24 @@ export function MultiChannelFormWizard({
                                 <p className="text-[10px] text-muted-foreground">{mode.time}</p>
                               </button>
                             ))}
+                          </div>
+                        </div>
+                        
+                        {/* Auto Research Toggle - NEW */}
+                        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
+                          <Checkbox
+                            id="enable-research"
+                            checked={enableResearch}
+                            onCheckedChange={(checked) => setEnableResearch(checked === true)}
+                          />
+                          <div className="flex-1">
+                            <label htmlFor="enable-research" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-primary" />
+                              Tự động nghiên cứu từ internet
+                            </label>
+                            <p className="text-xs text-muted-foreground">
+                              AI tìm kiếm facts và số liệu mới nhất trước khi viết
+                            </p>
                           </div>
                         </div>
                       </CollapsibleContent>
