@@ -67,6 +67,7 @@ import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { useCompliancePrecheck } from '@/hooks/useCompliancePrecheck';
 import { useCoreContents } from '@/hooks/useCoreContents';
+import { useStreamingCoreContent } from '@/hooks/useStreamingCoreContent';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
@@ -215,13 +216,45 @@ export function MultiChannelFormWizard({
 
   // NEW: Core Content generation state
   const [coreContentData, setCoreContentData] = useState<GeneratedCoreContent | null>(null);
-  const [isGeneratingCoreContent, setIsGeneratingCoreContent] = useState(false);
   const [showCoreContentPreview, setShowCoreContentPreview] = useState(false);
   
   // Core Content generation settings
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
   const [coreContentAudience, setCoreContentAudience] = useState('');
   const [coreContentQualityMode, setCoreContentQualityMode] = useState<CoreContentQualityMode>('balanced');
+
+  // Streaming Core Content hook
+  const {
+    generate: generateCoreContentStreaming,
+    cancel: cancelCoreContentGeneration,
+    streamingText: coreContentStreamingText,
+    isGenerating: isGeneratingCoreContent,
+    progress: coreContentProgress,
+  } = useStreamingCoreContent({
+    onComplete: (result) => {
+      setCoreContentData({
+        id: result.id,
+        title: result.title,
+        content: result.content,
+        wordCount: result.wordCount,
+        qualityScore: result.qualityScore,
+        keyMessages: result.keyMessages || [],
+        contentGoal: formData.contentGoal,
+        generationMetadata: result.generationMetadata,
+      });
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        coreContentId: result.id,
+        contentRole: prev.contentRole || GOAL_TO_ROLE_MAP[formData.contentGoal || 'education'],
+      }));
+      
+      toast.success('Đã tạo Core Content thành công!');
+    },
+    onError: (error) => {
+      toast.error(error || 'Không thể tạo Core Content');
+    },
+  });
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialData?.topic || '',
@@ -244,8 +277,7 @@ export function MultiChannelFormWizard({
     contentRole: initialData?.contentRole,
   });
 
-  // Hook for Core Content generation
-  const { generateCoreContent } = useCoreContents({ organizationId, enabled: false });
+  // Removed: useCoreContents - now using useStreamingCoreContent
 
   // Sync brand template
   useEffect(() => {
@@ -335,17 +367,15 @@ export function MultiChannelFormWizard({
     return baseTime + (formData.channels.length * perChannelTime);
   }, [formData.channels.length]);
 
-  // NEW: Generate Core Content inline
+  // NEW: Generate Core Content inline with streaming
   const handleGenerateCoreContent = useCallback(async () => {
     if (!formData.topic.trim() || !organizationId) {
       toast.error('Vui lòng nhập chủ đề');
       return;
     }
 
-    setIsGeneratingCoreContent(true);
-    
     try {
-      const result = await generateCoreContent({
+      await generateCoreContentStreaming({
         topic: formData.topic.trim(),
         contentGoal: formData.contentGoal || 'education',
         contentAngle: coreContentAngle === '__none__' ? undefined : coreContentAngle,
@@ -354,35 +384,10 @@ export function MultiChannelFormWizard({
         organizationId,
         targetAudience: coreContentAudience || undefined,
       });
-      
-      setCoreContentData({
-        id: result.id,
-        title: result.title,
-        content: result.content,
-        wordCount: result.wordCount,
-        qualityScore: result.qualityScore,
-        keyMessages: result.keyMessages || [],
-        contentGoal: formData.contentGoal,
-        generationMetadata: result.generationMetadata,
-      });
-      
-      // Link to form data
-      setFormData(prev => ({ 
-        ...prev, 
-        coreContentId: result.id,
-        // Auto-suggest role based on content goal
-        contentRole: prev.contentRole || GOAL_TO_ROLE_MAP[formData.contentGoal || 'education'],
-      }));
-      
-      toast.success('Đã tạo Core Content thành công!');
-      
     } catch (error) {
       console.error('Core Content generation error:', error);
-      toast.error('Không thể tạo Core Content. Vui lòng thử lại.');
-    } finally {
-      setIsGeneratingCoreContent(false);
     }
-  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, brandTemplateId, organizationId, generateCoreContent]);
+  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentQualityMode, brandTemplateId, organizationId, generateCoreContentStreaming]);
 
   // Can proceed logic - NEW for 4-step flow
   const canProceed = useMemo(() => {
