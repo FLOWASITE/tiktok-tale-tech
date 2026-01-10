@@ -58,6 +58,7 @@ import FacebookCallback from "./pages/FacebookCallback";
 import ThreadsCallback from "./pages/ThreadsCallback";
 import ZaloCallback from "./pages/ZaloCallback";
 import GoogleBusinessCallback from "./pages/GoogleBusinessCallback";
+import CoreContentPage from "./pages/CoreContentPage";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +123,16 @@ function AppRoutes() {
                       >
                         <Topics />
                       </TopicErrorBoundary>
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/core-content"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <CoreContentPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }
