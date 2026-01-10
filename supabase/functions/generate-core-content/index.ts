@@ -968,6 +968,33 @@ serve(async (req: Request) => {
             return;
           }
           
+          // Save metrics for cost tracking (streaming mode)
+          try {
+            const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
+            const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
+            const estimatedCostUsd = estimateCost(primaryModel, inputTokensEstimated, outputTokensEstimated);
+            
+            await saveMetrics(supabase, {
+              traceId: generateTraceId(),
+              functionName: 'generate-core-content',
+              organizationId,
+              userId: userId || undefined,
+              brandTemplateId: brandTemplateId || undefined,
+              totalDurationMs: duration,
+              inputTokensEstimated,
+              outputTokensEstimated,
+              modelsUsed: Object.fromEntries(result.metadata.modelsUsed.map((m, i) => [`step_${i}`, m])),
+              estimatedCostUsd,
+              hadError: false,
+              qualityMode,
+              contentId: coreContent.id,
+              contextSources: enableResearch ? ['research'] : [],
+            });
+            console.log(`[generate-core-content] Streaming metrics saved: cost=$${estimatedCostUsd.toFixed(6)}, tokens=${result.metadata.totalTokensEstimated}`);
+          } catch (metricsErr) {
+            console.warn(`[generate-core-content] Failed to save streaming metrics:`, metricsErr);
+          }
+          
           // Send final result
           sse.sendResult({
             id: coreContent.id,
