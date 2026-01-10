@@ -247,6 +247,71 @@ Brand đang cạnh tranh với: ${brandContext.mainCompetitors.slice(0, 3).join(
 }
 
 // ============================================
+// STYLE GUIDE BLOCK (NEW)
+// ============================================
+
+/**
+ * Build style guide block for writing consistency
+ * Includes preferred/banned words, sentence style, emoji policy
+ */
+export function buildStyleGuideBlock(brandContext: BrandContext | null): string {
+  if (!brandContext) return '';
+  
+  const hasPreferred = brandContext.preferredWords && brandContext.preferredWords.length > 0;
+  const hasBanned = brandContext.bannedWords && brandContext.bannedWords.length > 0;
+  const hasSentenceStyle = brandContext.sentenceStyle && brandContext.sentenceStyle !== 'balanced';
+  const hasEmojiPolicy = brandContext.emojiPolicy;
+  
+  if (!hasPreferred && !hasBanned && !hasSentenceStyle && !hasEmojiPolicy) return '';
+  
+  let block = `
+## ✍️ STYLE GUIDE (Brand Writing Rules)
+`;
+
+  if (hasPreferred && brandContext.preferredWords) {
+    block += `
+### ✅ Từ ngữ ƯU TIÊN sử dụng:
+${brandContext.preferredWords.slice(0, 15).map(w => `- "${w}"`).join('\n')}
+→ Lồng ghép tự nhiên khi phù hợp ngữ cảnh
+`;
+  }
+
+  if (hasBanned && brandContext.bannedWords) {
+    block += `
+### ❌ Từ ngữ CẤM sử dụng:
+${brandContext.bannedWords.slice(0, 15).map(w => `- "${w}"`).join('\n')}
+→ TUYỆT ĐỐI không dùng các từ này
+`;
+  }
+
+  if (hasSentenceStyle) {
+    const styleGuides: Record<string, string> = {
+      short: 'Câu ngắn gọn (10-18 từ/câu), súc tích, dễ đọc trên mobile',
+      balanced: 'Câu vừa phải (15-25 từ/câu), cân bằng chi tiết và súc tích',
+      long: 'Câu chi tiết hơn (20-35 từ/câu), phân tích sâu, học thuật',
+    };
+    block += `
+### 📝 Phong cách câu: ${brandContext.sentenceStyle?.toUpperCase()}
+${styleGuides[brandContext.sentenceStyle || 'balanced']}
+`;
+  }
+
+  if (hasEmojiPolicy) {
+    const emojiGuides: Record<string, string> = {
+      none: 'KHÔNG sử dụng emoji trong nội dung',
+      minimal: 'Dùng emoji rất hạn chế (1-2 emoji toàn bài, chỉ ở tiêu đề/kết luận)',
+      moderate: 'Có thể dùng emoji vừa phải để tăng sự sinh động (tối đa 5-7 emoji)',
+    };
+    block += `
+### 😊 Chính sách Emoji: ${brandContext.emojiPolicy?.toUpperCase()}
+${emojiGuides[brandContext.emojiPolicy || 'minimal']}
+`;
+  }
+
+  return block;
+}
+
+// ============================================
 // PROMPT BUILDERS
 // ============================================
 

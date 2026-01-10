@@ -39,6 +39,11 @@ export interface BrandContext {
   brandHashtags?: string[];
   mainCompetitors?: string[];
   industryTemplateId?: string;
+  // Style Guide fields
+  preferredWords?: string[];
+  bannedWords?: string[];
+  sentenceStyle?: 'short' | 'balanced' | 'long';
+  emojiPolicy?: 'none' | 'minimal' | 'moderate';
 }
 
 export interface IndustryMemory {

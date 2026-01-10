@@ -890,8 +890,21 @@ serve(async (req: Request) => {
           const wordCount = countWords(result.content);
           const keyMessages = extractKeyMessages(result.content);
           const title = generateTitle(topic, result.content);
-          const qualityScore = calculateQualityScore(result.content, wordCount, keyMessages);
           const duration = Date.now() - startTime;
+          
+          // ========== QUALITY GATE EVALUATION ==========
+          const qualityMetrics = evaluateCoreContentQuality(
+            result.content,
+            brandContext,
+            result.outline,
+            qualityMode as CoreContentQualityMode
+          );
+          const qualityScore = qualityMetrics.overall;
+          
+          console.log(`[generate-core-content] Quality Gate: ${qualityScore}/100, passes: ${qualityMetrics.passesThreshold}`);
+          if (qualityMetrics.issues.length > 0) {
+            console.log(`[generate-core-content] Quality issues:`, qualityMetrics.issues);
+          }
           
           const models = getModelsForMode(qualityMode as CoreContentQualityMode);
           const primaryModel = qualityMode === 'quality' ? models.compile : models.section;
@@ -929,6 +942,13 @@ serve(async (req: Request) => {
                 researchEnabled: enableResearch,
                 researchFacts: researchData?.facts?.length || 0,
                 researchSources: researchData?.sources?.length || 0,
+                qualityMetrics: {
+                  overall: qualityMetrics.overall,
+                  breakdown: qualityMetrics.breakdown,
+                  issues: qualityMetrics.issues,
+                  suggestions: qualityMetrics.suggestions,
+                  passesThreshold: qualityMetrics.passesThreshold,
+                },
               },
             })
             .select('id')
@@ -987,8 +1007,21 @@ serve(async (req: Request) => {
     const wordCount = countWords(result.content);
     const keyMessages = extractKeyMessages(result.content);
     const title = generateTitle(topic, result.content);
-    const qualityScore = calculateQualityScore(result.content, wordCount, keyMessages);
     const duration = Date.now() - startTime;
+    
+    // ========== QUALITY GATE EVALUATION ==========
+    const qualityMetrics = evaluateCoreContentQuality(
+      result.content,
+      brandContext,
+      result.outline,
+      qualityMode as CoreContentQualityMode
+    );
+    const qualityScore = qualityMetrics.overall;
+    
+    console.log(`[generate-core-content] Quality Gate: ${qualityScore}/100, passes: ${qualityMetrics.passesThreshold}`);
+    if (qualityMetrics.issues.length > 0) {
+      console.log(`[generate-core-content] Quality issues:`, qualityMetrics.issues);
+    }
     
     // Get primary model used
     const models = getModelsForMode(qualityMode as CoreContentQualityMode);
@@ -1027,6 +1060,13 @@ serve(async (req: Request) => {
           researchEnabled: enableResearch,
           researchFacts: researchData?.facts?.length || 0,
           researchSources: researchData?.sources?.length || 0,
+          qualityMetrics: {
+            overall: qualityMetrics.overall,
+            breakdown: qualityMetrics.breakdown,
+            issues: qualityMetrics.issues,
+            suggestions: qualityMetrics.suggestions,
+            passesThreshold: qualityMetrics.passesThreshold,
+          },
         },
       })
       .select('id')
