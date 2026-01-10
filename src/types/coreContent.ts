@@ -69,12 +69,48 @@ export interface CoreContent {
 }
 
 /**
+ * Quality mode for Core Content generation
+ */
+export type CoreContentQualityMode = 'fast' | 'balanced' | 'quality';
+
+/**
+ * Outline section from multi-step generation
+ */
+export interface CoreContentOutlineSection {
+  title: string;
+  bulletPoints: string[];
+  wordBudget: number;
+}
+
+/**
+ * Generated outline structure
+ */
+export interface CoreContentOutline {
+  sections: CoreContentOutlineSection[];
+  totalWordBudget: number;
+  estimatedTokens: number;
+}
+
+/**
+ * Generation metadata from multi-step pipeline
+ */
+export interface CoreContentGenerationMetadata {
+  qualityMode: CoreContentQualityMode;
+  stepsCompleted: string[];
+  totalTokensEstimated: number;
+  modelsUsed: string[];
+  generationTimeMs: number;
+}
+
+/**
  * Request to generate core content
  */
 export interface GenerateCoreContentRequest {
   topic: string;
   contentGoal: ContentGoal;
   contentAngle?: ContentAngle;
+  contentRole?: ContentRole;
+  qualityMode?: CoreContentQualityMode;
   brandTemplateId?: string;
   organizationId: string;
   targetAudience?: string;
@@ -93,6 +129,8 @@ export interface GenerateCoreContentResponse {
   keyMessages: string[];
   qualityScore: number;
   aiModel: string;
+  outline?: CoreContentOutline;
+  generationMetadata?: CoreContentGenerationMetadata;
 }
 
 /**

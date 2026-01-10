@@ -143,6 +143,43 @@ const channelIcons: Record<Channel, React.ReactNode> = {
 
 const MAX_TOPIC_LENGTH = 500;
 
+// Quality mode for Core Content generation
+type CoreContentQualityMode = 'fast' | 'balanced' | 'quality';
+
+const CORE_CONTENT_QUALITY_MODES: {
+  value: CoreContentQualityMode;
+  label: string;
+  icon: string;
+  description: string;
+  time: string;
+  words: string;
+}[] = [
+  {
+    value: 'fast',
+    label: 'Nhanh',
+    icon: '⚡',
+    description: 'Single-pass generation',
+    time: '5-10s',
+    words: '~800 từ',
+  },
+  {
+    value: 'balanced',
+    label: 'Cân bằng',
+    icon: '⚖️',
+    description: 'Multi-step với outline',
+    time: '15-25s',
+    words: '~1200 từ',
+  },
+  {
+    value: 'quality',
+    label: 'Chất lượng',
+    icon: '✨',
+    description: 'Full pipeline với refine',
+    time: '30-45s',
+    words: '~1500 từ',
+  },
+];
+
 // Core Content data structure for inline generation
 interface GeneratedCoreContent {
   id: string;
@@ -152,6 +189,11 @@ interface GeneratedCoreContent {
   qualityScore: number;
   keyMessages: string[];
   contentGoal?: ContentGoal;
+  generationMetadata?: {
+    qualityMode: string;
+    stepsCompleted: string[];
+    generationTimeMs: number;
+  };
 }
 
 export function MultiChannelFormWizard({ 
@@ -179,6 +221,7 @@ export function MultiChannelFormWizard({
   // Core Content generation settings
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
   const [coreContentAudience, setCoreContentAudience] = useState('');
+  const [coreContentQualityMode, setCoreContentQualityMode] = useState<CoreContentQualityMode>('balanced');
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialData?.topic || '',
@@ -306,6 +349,7 @@ export function MultiChannelFormWizard({
         topic: formData.topic.trim(),
         contentGoal: formData.contentGoal || 'education',
         contentAngle: coreContentAngle === '__none__' ? undefined : coreContentAngle,
+        qualityMode: coreContentQualityMode,
         brandTemplateId: brandTemplateId,
         organizationId,
         targetAudience: coreContentAudience || undefined,
@@ -319,6 +363,7 @@ export function MultiChannelFormWizard({
         qualityScore: result.qualityScore,
         keyMessages: result.keyMessages || [],
         contentGoal: formData.contentGoal,
+        generationMetadata: result.generationMetadata,
       });
       
       // Link to form data
@@ -703,6 +748,33 @@ export function MultiChannelFormWizard({
                             className="min-h-[60px] text-sm resize-none"
                             disabled={isGeneratingCoreContent}
                           />
+                        </div>
+
+                        {/* Quality Mode Selector */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Chế độ chất lượng</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {CORE_CONTENT_QUALITY_MODES.map((mode) => (
+                              <button
+                                key={mode.value}
+                                type="button"
+                                onClick={() => setCoreContentQualityMode(mode.value)}
+                                disabled={isGeneratingCoreContent}
+                                className={cn(
+                                  "p-2 rounded-lg border text-left transition-all",
+                                  coreContentQualityMode === mode.value
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border/50 hover:bg-muted/30"
+                                )}
+                              >
+                                <div className="text-sm font-medium flex items-center gap-1">
+                                  <span>{mode.icon}</span>
+                                  <span>{mode.label}</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">{mode.time}</p>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </CollapsibleContent>
                     </Collapsible>

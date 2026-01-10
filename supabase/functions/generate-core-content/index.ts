@@ -1,8 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import {
+  CoreContentQualityMode,
+  CoreContentConfig,
+  GeneratedOutline,
+  GeneratedSection,
+  getModelsForMode,
+  getWordBudget,
+  buildOutlinePrompt,
+  buildSectionPrompt,
+  buildCompilePrompt,
+  buildSinglePassPrompt,
+  parseOutlineJSON,
+  buildBrandContextBlock,
+  buildPersonaContextBlock,
+  buildProductContextBlock,
+  CustomerPersonaContext,
+  BrandProductContext,
+} from '../_shared/core-content-pipeline.ts';
+import { BrandContext } from '../_shared/types/chat-types.ts';
 
 // ============================================
-// GENERATE CORE CONTENT - Long-form Single Source of Truth
+// GENERATE CORE CONTENT - Multi-Step Pipeline
 // ============================================
 
 const corsHeaders = {
@@ -10,10 +29,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+
 interface GenerateCoreContentRequest {
   topic: string;
   contentGoal: string;
   contentAngle?: string;
+  contentRole?: 'seed' | 'sprout' | 'harvest';
+  qualityMode?: CoreContentQualityMode;
   brandTemplateId?: string;
   organizationId?: string;
   targetAudience?: string;
@@ -29,19 +52,29 @@ interface CoreContentResponse {
   keyMessages: string[];
   qualityScore: number;
   aiModel: string;
+  outline?: GeneratedOutline;
+  generationMetadata?: {
+    qualityMode: string;
+    stepsCompleted: string[];
+    totalTokensEstimated: number;
+    modelsUsed: string[];
+    generationTimeMs: number;
+  };
 }
 
-// Helper: Count words in Vietnamese/English text
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
 function countWords(text: string): number {
   if (!text) return 0;
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 
-// Helper: Extract key messages from content
 function extractKeyMessages(content: string): string[] {
   const messages: string[] = [];
   
-  // Look for numbered lists or bullet points
+  // Look for bullet points
   const bulletMatches = content.match(/^[\-\*•]\s+(.+)$/gm);
   if (bulletMatches) {
     bulletMatches.slice(0, 5).forEach(m => {
@@ -63,7 +96,7 @@ function extractKeyMessages(content: string): string[] {
     });
   }
   
-  // Look for bold/emphasis patterns
+  // Look for bold patterns
   const boldMatches = content.match(/\*\*([^*]+)\*\*/g);
   if (boldMatches) {
     boldMatches.slice(0, 3).forEach(m => {
@@ -74,111 +107,227 @@ function extractKeyMessages(content: string): string[] {
     });
   }
   
-  // Deduplicate
   return [...new Set(messages)].slice(0, 5);
 }
 
-// Build system prompt for long-form content generation
-function buildSystemPrompt(
-  topic: string,
-  contentGoal: string,
-  contentAngle: string | undefined,
-  brandContext: any | null,
-  targetAudience: string | undefined,
-  additionalContext: string | undefined
-): string {
-  let prompt = `Bạn là một chuyên gia viết nội dung cấp cao. Nhiệm vụ của bạn là tạo ra nội dung gốc (Core Content) chất lượng cao.
-
-## ĐỊNH NGHĨA CORE CONTENT
-Core Content là nội dung nguồn đầy đủ (Single Source of Truth) - bài phân tích dài, logic hoàn chỉnh, CHƯA tối ưu cho bất kỳ nền tảng cụ thể nào. Nội dung này sẽ được transform sang các platform-specific variants sau.
-
-## YÊU CẦU BẮT BUỘC
-1. **Độ dài**: 800-2000 từ (tiếng Việt)
-2. **Cấu trúc hoàn chỉnh**:
-   - Mở bài hấp dẫn (hook + context)
-   - Phân tích vấn đề sâu sắc
-   - Giải pháp/Insights cụ thể
-   - Ví dụ minh họa thực tế
-   - Kết luận + Call-to-action
-3. **Chất lượng**: Chuyên sâu, có giá trị, không chung chung
-4. **Tone**: Chuyên nghiệp nhưng dễ hiểu
-
-## CHỦ ĐỀ
-${topic}
-
-## MỤC TIÊU NỘI DUNG
-${contentGoal === 'education' ? 'Giáo dục - Chia sẻ kiến thức hữu ích, hướng dẫn chi tiết' : ''}
-${contentGoal === 'awareness' ? 'Nhận diện - Tăng nhận biết về vấn đề/giải pháp' : ''}
-${contentGoal === 'engagement' ? 'Tương tác - Khuyến khích suy nghĩ, thảo luận' : ''}
-${contentGoal === 'expertise' ? 'Xây dựng chuyên gia - Thể hiện chuyên môn sâu' : ''}
-${contentGoal === 'conversion' ? 'Chuyển đổi - Thúc đẩy hành động, quyết định' : ''}
-`;
-
-  if (contentAngle) {
-    prompt += `
-## GÓC TIẾP CẬN
-${contentAngle === 'educational' ? 'Chia sẻ kiến thức - Tips, hướng dẫn, thông tin hữu ích' : ''}
-${contentAngle === 'storytelling' ? 'Kể chuyện - Narrative flow, cảm xúc, câu chuyện thực' : ''}
-${contentAngle === 'promotional' ? 'Quảng cáo - CTA mạnh, urgency, ưu đãi rõ ràng' : ''}
-${contentAngle === 'social_proof' ? 'Social Proof - Đánh giá, testimonial, case study' : ''}
-${contentAngle === 'behind_the_scenes' ? 'Hậu trường - Quy trình, đội ngũ, behind-the-scenes' : ''}
-${contentAngle === 'qa_faq' ? 'Q&A - Giải đáp thắc mắc, FAQ phổ biến' : ''}
-`;
-  }
-
-  if (brandContext) {
-    prompt += `
-## BRAND CONTEXT
-- Thương hiệu: ${brandContext.brand_name || 'N/A'}
-- Định vị: ${brandContext.brand_positioning || 'N/A'}
-- Tone of voice: ${(brandContext.tone_of_voice || []).join(', ') || 'N/A'}
-- USP: ${brandContext.unique_value_proposition || 'N/A'}
-`;
-    
-    if (brandContext.content_pillars && brandContext.content_pillars.length > 0) {
-      prompt += `- Content pillars: ${brandContext.content_pillars.map((p: any) => p.name).join(', ')}\n`;
-    }
-  }
-
-  if (targetAudience) {
-    prompt += `
-## ĐỐI TƯỢNG MỤC TIÊU
-${targetAudience}
-`;
-  }
-
-  if (additionalContext) {
-    prompt += `
-## BỐI CẢNH BỔ SUNG
-${additionalContext}
-`;
-  }
-
-  prompt += `
-## OUTPUT FORMAT
-Viết trực tiếp nội dung, KHÔNG thêm tiêu đề "Core Content" hay metadata.
-Sử dụng Markdown formatting (##, **, -, 1.) cho cấu trúc rõ ràng.
-Đảm bảo có ít nhất 5 điểm chính (key messages) được highlight bằng bold hoặc bullet points.
-`;
-
-  return prompt;
-}
-
-// Generate title from content
 function generateTitle(topic: string, content: string): string {
-  // Try to extract first heading
   const h1Match = content.match(/^#\s+(.+)$/m);
   if (h1Match) return h1Match[1].slice(0, 200);
   
   const h2Match = content.match(/^##\s+(.+)$/m);
   if (h2Match) return h2Match[1].slice(0, 200);
   
-  // Use topic as title
   return topic.length > 200 ? topic.slice(0, 197) + '...' : topic;
 }
 
+function calculateQualityScore(content: string, wordCount: number, keyMessages: string[]): number {
+  let score = 50;
+  
+  // Word count scoring
+  if (wordCount >= 800 && wordCount <= 2000) {
+    score += 20;
+  } else if (wordCount >= 600) {
+    score += 10;
+  }
+  
+  // Key messages scoring
+  score += Math.min(keyMessages.length * 4, 15);
+  
+  // Structure scoring
+  if (content.includes('##')) score += 5;
+  if (content.includes('**')) score += 5;
+  if (content.match(/^\d+[\.\)]/m)) score += 5;
+  
+  return Math.min(score, 100);
+}
+
+// ============================================
+// AI CALL HELPER
+// ============================================
+
+async function callAI(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 4000,
+  temperature: number = 0.7
+): Promise<string> {
+  const response = await fetch(AI_GATEWAY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature,
+      max_tokens: maxTokens,
+    }),
+  });
+  
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('Rate limits exceeded. Please try again later.');
+    }
+    if (response.status === 402) {
+      throw new Error('Payment required. Please add credits to your workspace.');
+    }
+    const errorText = await response.text();
+    console.error(`[AI] Error ${response.status}:`, errorText);
+    throw new Error(`AI API error: ${response.status}`);
+  }
+  
+  const result = await response.json();
+  return result.choices?.[0]?.message?.content || '';
+}
+
+// ============================================
+// MULTI-STEP PIPELINE
+// ============================================
+
+async function generateWithPipeline(
+  apiKey: string,
+  config: CoreContentConfig
+): Promise<{
+  content: string;
+  outline: GeneratedOutline | null;
+  metadata: {
+    stepsCompleted: string[];
+    modelsUsed: string[];
+    totalTokensEstimated: number;
+  };
+}> {
+  const models = getModelsForMode(config.qualityMode);
+  const wordBudget = getWordBudget(config.qualityMode);
+  const stepsCompleted: string[] = [];
+  const modelsUsed: string[] = [];
+  let totalTokensEstimated = 0;
+  
+  console.log(`[Pipeline] Starting ${config.qualityMode} mode generation`);
+  
+  // ========== FAST MODE: Single-pass ==========
+  if (config.qualityMode === 'fast') {
+    console.log('[Pipeline] Fast mode: single-pass generation');
+    
+    const prompt = buildSinglePassPrompt(config);
+    const content = await callAI(
+      apiKey,
+      models.compile,
+      prompt,
+      `Viết Core Content chất lượng cao về: ${config.topic}`,
+      4000
+    );
+    
+    stepsCompleted.push('single_pass');
+    modelsUsed.push(models.compile);
+    totalTokensEstimated = 4000;
+    
+    return {
+      content,
+      outline: null,
+      metadata: { stepsCompleted, modelsUsed, totalTokensEstimated },
+    };
+  }
+  
+  // ========== BALANCED/QUALITY: Multi-step ==========
+  
+  // Step 1: Generate Outline
+  console.log('[Pipeline] Step 1: Generating outline...');
+  const outlinePrompt = buildOutlinePrompt(config);
+  const outlineResponse = await callAI(
+    apiKey,
+    models.outline,
+    'Bạn là content strategist. Trả lời CHÍNH XÁC bằng JSON theo format yêu cầu.',
+    outlinePrompt,
+    2000,
+    0.5
+  );
+  
+  stepsCompleted.push('outline');
+  modelsUsed.push(models.outline);
+  totalTokensEstimated += 2000;
+  
+  let outline: GeneratedOutline;
+  try {
+    outline = parseOutlineJSON(outlineResponse);
+    console.log(`[Pipeline] Outline parsed: ${outline.sections.length} sections`);
+  } catch (err) {
+    console.error('[Pipeline] Outline parsing failed, falling back to single-pass');
+    // Fallback to single-pass
+    const prompt = buildSinglePassPrompt(config);
+    const content = await callAI(apiKey, models.compile, prompt, `Viết Core Content về: ${config.topic}`, 4000);
+    return {
+      content,
+      outline: null,
+      metadata: { stepsCompleted: ['fallback_single_pass'], modelsUsed: [models.compile], totalTokensEstimated: 4000 },
+    };
+  }
+  
+  // Step 2-5: Generate each section
+  console.log('[Pipeline] Steps 2-5: Generating sections...');
+  const sections: GeneratedSection[] = [];
+  
+  for (let i = 0; i < outline.sections.length; i++) {
+    const section = outline.sections[i];
+    console.log(`[Pipeline] Generating section ${i + 1}: ${section.title}`);
+    
+    const sectionPrompt = buildSectionPrompt(config, outline, i);
+    const sectionContent = await callAI(
+      apiKey,
+      models.section,
+      'Bạn là content writer. Viết nội dung theo yêu cầu.',
+      sectionPrompt,
+      Math.max(800, section.wordBudget * 2),
+      0.7
+    );
+    
+    sections.push({
+      index: i,
+      title: section.title,
+      content: sectionContent,
+      wordCount: countWords(sectionContent),
+    });
+    
+    stepsCompleted.push(`section_${i + 1}`);
+    modelsUsed.push(models.section);
+    totalTokensEstimated += section.wordBudget * 2;
+  }
+  
+  // Step Final: Compile & Refine
+  console.log('[Pipeline] Final step: Compiling and refining...');
+  const compilePrompt = buildCompilePrompt(config, sections, wordBudget);
+  const compiledContent = await callAI(
+    apiKey,
+    models.compile,
+    'Bạn là senior editor. Polish và hoàn thiện nội dung.',
+    compilePrompt,
+    4000,
+    0.6
+  );
+  
+  stepsCompleted.push('compile');
+  modelsUsed.push(models.compile);
+  totalTokensEstimated += 4000;
+  
+  console.log(`[Pipeline] Complete! ${stepsCompleted.length} steps, ~${totalTokensEstimated} tokens`);
+  
+  return {
+    content: compiledContent,
+    outline,
+    metadata: { stepsCompleted, modelsUsed, totalTokensEstimated },
+  };
+}
+
+// ============================================
+// MAIN HANDLER
+// ============================================
+
 serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -207,6 +356,8 @@ serve(async (req: Request) => {
       topic,
       contentGoal,
       contentAngle,
+      contentRole,
+      qualityMode = 'balanced',
       brandTemplateId,
       organizationId,
       targetAudience,
@@ -229,10 +380,10 @@ serve(async (req: Request) => {
       );
     }
     
-    console.log(`[generate-core-content] Starting for topic: "${topic.slice(0, 50)}..."`);
+    console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Mode: ${qualityMode}`);
     
-    // Fetch brand template if provided
-    let brandContext: any = null;
+    // Fetch brand template
+    let brandContext: BrandContext | null = null;
     if (brandTemplateId) {
       const { data: brandData } = await supabase
         .from('brand_templates')
@@ -241,86 +392,103 @@ serve(async (req: Request) => {
         .single();
       
       if (brandData) {
-        brandContext = brandData;
+        brandContext = {
+          brandName: brandData.brand_name,
+          brandPositioning: brandData.brand_positioning || undefined,
+          toneOfVoice: brandData.tone_of_voice || undefined,
+          uniqueValueProposition: brandData.unique_value_proposition || undefined,
+          contentPillars: brandData.content_pillars || undefined,
+          evergreenThemes: brandData.evergreen_themes || undefined,
+          industry: brandData.industry || undefined,
+          targetAgeRange: brandData.target_age_range || undefined,
+          targetGender: brandData.target_gender || undefined,
+          brandHashtags: brandData.brand_hashtags || undefined,
+          mainCompetitors: brandData.main_competitors || undefined,
+        };
         console.log(`[generate-core-content] Loaded brand: ${brandData.brand_name}`);
       }
     }
     
-    // Build system prompt
-    const systemPrompt = buildSystemPrompt(
-      topic,
-      contentGoal || 'education',
-      contentAngle,
-      brandContext,
-      targetAudience,
-      additionalContext
-    );
+    // Fetch personas if brand exists
+    let personas: CustomerPersonaContext[] = [];
+    if (brandTemplateId) {
+      const { data: personaData } = await supabase
+        .from('customer_personas')
+        .select('name, short_description, pain_points, psychological_triggers, communication_style')
+        .eq('brand_template_id', brandTemplateId)
+        .eq('is_active', true)
+        .limit(3);
+      
+      if (personaData) {
+        personas = personaData.map(p => ({
+          name: p.name,
+          description: p.short_description || undefined,
+          pain_points: p.pain_points || undefined,
+          triggers: p.psychological_triggers || undefined,
+          communication_style: p.communication_style || undefined,
+        }));
+      }
+    }
     
-    // Call AI via Lovable Gateway
+    // Fetch products if brand exists
+    let products: BrandProductContext[] = [];
+    if (brandTemplateId) {
+      const { data: productData } = await supabase
+        .from('brand_products')
+        .select('name, description, unique_selling_points, benefits, suggested_content_angles')
+        .eq('brand_template_id', brandTemplateId)
+        .eq('is_active', true)
+        .limit(3);
+      
+      if (productData) {
+        products = productData.map(p => ({
+          name: p.name,
+          description: p.description || undefined,
+          unique_selling_points: p.unique_selling_points || undefined,
+          benefits: p.benefits || undefined,
+          content_angles: p.suggested_content_angles || undefined,
+        }));
+      }
+    }
+    
+    // Get API key
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
     
-    const aiModel = 'google/gemini-2.5-flash';
+    // Build pipeline config
+    const pipelineConfig: CoreContentConfig = {
+      topic,
+      contentGoal: contentGoal || 'education',
+      contentAngle,
+      role: contentRole,
+      qualityMode: qualityMode as CoreContentQualityMode,
+      brandContext,
+      personas,
+      products,
+      targetAudience,
+      additionalContext,
+    };
     
-    console.log(`[generate-core-content] Calling AI model: ${aiModel}`);
+    // Generate content with pipeline
+    const result = await generateWithPipeline(LOVABLE_API_KEY, pipelineConfig);
     
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: aiModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Viết Core Content chất lượng cao về chủ đề: ${topic}` }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-      }),
-    });
-    
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error(`[generate-core-content] AI error:`, errorText);
-      throw new Error(`AI API error: ${aiResponse.status}`);
-    }
-    
-    const aiResult = await aiResponse.json();
-    const content = aiResult.choices?.[0]?.message?.content || '';
-    
-    if (!content || content.length < 500) {
+    if (!result.content || result.content.length < 300) {
       throw new Error('Generated content too short');
     }
     
-    const wordCount = countWords(content);
-    const keyMessages = extractKeyMessages(content);
-    const title = generateTitle(topic, content);
+    const wordCount = countWords(result.content);
+    const keyMessages = extractKeyMessages(result.content);
+    const title = generateTitle(topic, result.content);
+    const qualityScore = calculateQualityScore(result.content, wordCount, keyMessages);
+    const duration = Date.now() - startTime;
     
-    // Calculate quality score based on various factors
-    let qualityScore = 50; // Base score
+    // Get primary model used
+    const models = getModelsForMode(qualityMode as CoreContentQualityMode);
+    const primaryModel = qualityMode === 'quality' ? models.compile : models.section;
     
-    // Word count scoring (800-2000 is ideal)
-    if (wordCount >= 800 && wordCount <= 2000) {
-      qualityScore += 20;
-    } else if (wordCount >= 600) {
-      qualityScore += 10;
-    }
-    
-    // Key messages scoring
-    qualityScore += Math.min(keyMessages.length * 4, 15);
-    
-    // Structure scoring (has headings)
-    if (content.includes('##')) qualityScore += 5;
-    if (content.includes('**')) qualityScore += 5;
-    if (content.match(/^\d+[\.\)]/m)) qualityScore += 5;
-    
-    qualityScore = Math.min(qualityScore, 100);
-    
-    console.log(`[generate-core-content] Generated ${wordCount} words, score: ${qualityScore}`);
+    console.log(`[generate-core-content] Generated ${wordCount} words, score: ${qualityScore}, time: ${duration}ms`);
     
     // Save to database
     const { data: coreContent, error: insertError } = await supabase
@@ -328,10 +496,11 @@ serve(async (req: Request) => {
       .insert({
         title,
         topic,
-        content,
+        content: result.content,
         word_count: wordCount,
         content_goal: contentGoal || 'education',
         content_angle: contentAngle || null,
+        content_role: contentRole || null,
         target_audience: targetAudience || null,
         key_messages: keyMessages,
         brand_template_id: brandTemplateId || null,
@@ -340,8 +509,16 @@ serve(async (req: Request) => {
         source_type: 'ai_generated',
         source_topic_history_id: topicHistoryId || null,
         quality_score: qualityScore,
-        ai_model_used: aiModel,
+        ai_model_used: primaryModel,
         status: 'draft',
+        outline: result.outline,
+        generation_metadata: {
+          qualityMode,
+          stepsCompleted: result.metadata.stepsCompleted,
+          totalTokensEstimated: result.metadata.totalTokensEstimated,
+          modelsUsed: result.metadata.modelsUsed,
+          generationTimeMs: duration,
+        },
       })
       .select('id')
       .single();
@@ -351,18 +528,25 @@ serve(async (req: Request) => {
       throw new Error(`Failed to save core content: ${insertError.message}`);
     }
     
-    const duration = Date.now() - startTime;
-    console.log(`[generate-core-content] Completed in ${duration}ms, ID: ${coreContent.id}`);
+    console.log(`[generate-core-content] Saved with ID: ${coreContent.id}`);
     
     // Return response
     const response: CoreContentResponse = {
       id: coreContent.id,
       title,
-      content,
+      content: result.content,
       wordCount,
       keyMessages,
       qualityScore,
-      aiModel,
+      aiModel: primaryModel,
+      outline: result.outline || undefined,
+      generationMetadata: {
+        qualityMode,
+        stepsCompleted: result.metadata.stepsCompleted,
+        totalTokensEstimated: result.metadata.totalTokensEstimated,
+        modelsUsed: result.metadata.modelsUsed,
+        generationTimeMs: duration,
+      },
     };
     
     return new Response(
@@ -373,12 +557,16 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error(`[generate-core-content] Error:`, error);
     
+    const status = error instanceof Error && error.message.includes('Rate limits') ? 429 
+      : error instanceof Error && error.message.includes('Payment required') ? 402 
+      : 500;
+    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
       { 
-        status: 500, 
+        status, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );

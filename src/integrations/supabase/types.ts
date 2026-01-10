@@ -3282,9 +3282,11 @@ export type Database = {
           content_goal: string
           content_role: string | null
           created_at: string
+          generation_metadata: Json | null
           id: string
           key_messages: Json | null
           organization_id: string | null
+          outline: Json | null
           quality_score: number | null
           source_topic_history_id: string | null
           source_type: string
@@ -3304,9 +3306,11 @@ export type Database = {
           content_goal?: string
           content_role?: string | null
           created_at?: string
+          generation_metadata?: Json | null
           id?: string
           key_messages?: Json | null
           organization_id?: string | null
+          outline?: Json | null
           quality_score?: number | null
           source_topic_history_id?: string | null
           source_type?: string
@@ -3326,9 +3330,11 @@ export type Database = {
           content_goal?: string
           content_role?: string | null
           created_at?: string
+          generation_metadata?: Json | null
           id?: string
           key_messages?: Json | null
           organization_id?: string | null
+          outline?: Json | null
           quality_score?: number | null
           source_topic_history_id?: string | null
           source_type?: string
