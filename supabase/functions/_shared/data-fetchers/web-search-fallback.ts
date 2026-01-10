@@ -6,8 +6,9 @@
 import { withRetry, withFallback, withTimeout, createCircuitBreaker, isRetryableError } from "../error-utils.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSocialTrends, type NormalizedTrend, type MergedTrendResults } from "./social-trend-scraper.ts";
+import { callAI as callAIProvider } from "../ai-provider.ts";
+import { getAIConfig } from "../ai-config.ts";
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
 const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -336,12 +337,9 @@ async function searchWithPerplexity(
 async function searchWithLovableAI(
   query: string,
   searchType: string,
-  industry?: string
+  industry?: string,
+  organizationId?: string
 ): Promise<WebSearchResponse> {
-  if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
   const today = new Date().toISOString().split('T')[0];
   const industryContext = industry ? ` trong ngành ${industry}` : "";
 
@@ -359,32 +357,28 @@ Tối đa 5 kết quả. Ưu tiên thông tin thực tế và actionable.`;
     ? `Phân tích chiến lược content marketing của đối thủ trong lĩnh vực: ${query}`
     : `Thông tin về: ${query}`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.4,
-    }),
+  // Get AI config for model override
+  const aiConfig = await getAIConfig('web-search-fallback', organizationId);
+
+  const aiResult = await callAIProvider({
+    functionName: 'web-search-fallback',
+    organizationId,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    modelOverride: aiConfig.model || undefined,
+    temperatureOverride: 0.4,
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    const error = new Error(`Lovable AI error: ${response.status}`);
-    (error as any).statusCode = response.status;
-    console.error('[WebSearchFallback] Lovable AI error:', response.status, errorText);
+  if (!aiResult.success) {
+    const error = new Error(`Lovable AI error: ${aiResult.error}`);
+    (error as any).statusCode = aiResult.error?.includes('429') ? 429 : 500;
+    console.error('[WebSearchFallback] Lovable AI error:', aiResult.error);
     throw error;
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || "";
+  const content = aiResult.data?.choices?.[0]?.message?.content || "";
 
   const results = parseSearchResults(content, query, searchType, []);
 
@@ -646,13 +640,13 @@ export async function enhancedWebSearch(options: WebSearchOptions): Promise<WebS
     }
   }
 
-  // 4. Fallback to Lovable AI
-  if (!result && LOVABLE_API_KEY) {
+  // 4. Fallback to Lovable AI (always available via multi-provider system)
+  if (!result) {
     try {
       result = await lovableAICircuit.execute(() =>
         withTimeout(
           () => withRetry(
-            () => searchWithLovableAI(query, searchType, industry),
+            () => searchWithLovableAI(query, searchType, industry, options.organizationId),
             {
               maxRetries: 2,
               baseDelayMs: 500,
