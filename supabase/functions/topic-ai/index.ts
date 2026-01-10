@@ -161,8 +161,9 @@ async function handleSuggest(
 ): Promise<Response> {
   const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh } = params;
 
-  // Build cache key
-  const cacheKey = `topic-suggestions-v5:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}`;
+  // Build cache key with 4-hour time bucket for automatic refresh
+  const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets
+  const cacheKey = `topic-suggestions-v6:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${hourBucket}`;
   
   // Check cache first
   if (!forceRefresh) {
@@ -569,9 +570,33 @@ async function handleTrending(
 
   const brandContextStr = brandContext ? buildBrandContextString(brandContext) : '';
 
-  // Call AI for analysis
+  // Fetch recent trending topics to avoid repetition
+  const { data: recentTrending } = await supabase
+    .from('trending_topics')
+    .select('topic')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
+    .limit(30);
+  
+  const avoidTopics = recentTrending?.map((t: any) => t.topic) || [];
+
+  // Generate random seed for variation
+  const randomSeed = Math.random().toString(36).substring(2, 8);
+  const currentHour = new Date().getHours();
+  const dayOfWeek = new Date().toLocaleDateString('vi-VN', { weekday: 'long' });
+
+  // Call AI for analysis with randomization
   const systemPrompt = `Bạn là chuyên gia phân tích xu hướng content social media tại Việt Nam.
 Phân tích DỮ LIỆU THỰC TẾ và tạo danh sách 10-12 trending topics.
+
+🎲 Variation Seed: ${randomSeed}
+📅 Thời điểm: ${dayOfWeek}, ${currentHour}h
+
+QUAN TRỌNG - TRÁNH LẶP LẠI:
+- Mỗi lần generate, tạo MIX MỚI từ các nguồn dữ liệu
+- Ưu tiên góc độ/angle MỚI cho các xu hướng đang hot
+- Kết hợp sáng tạo giữa các nguồn khác nhau
+- KHÔNG sử dụng lại chính xác các topics đã có
 
 Trả về JSON array với format:
 [{
@@ -587,11 +612,18 @@ Trả về JSON array với format:
   "source": "curated_event" | "curated_news" | "web_search" | "ai"
 }]`;
 
+  // Build exclusion context if there are recent topics
+  let exclusionContext = '';
+  if (avoidTopics.length > 0) {
+    exclusionContext = `\n⚠️ TRÁNH LẶP LẠI (đã generate gần đây, TẠO TOPICS MỚI HOÀN TOÀN):\n${avoidTopics.slice(0, 15).join(', ')}\n`;
+  }
+
   const userPrompt = `${brandContextStr}
 ${curatedContext}
 ${webSearchContext}
+${exclusionContext}
 
-Phân tích và tạo danh sách trending topics. Respond in Vietnamese.`;
+Phân tích và tạo danh sách trending topics MỚI. Respond in Vietnamese.`;
 
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
