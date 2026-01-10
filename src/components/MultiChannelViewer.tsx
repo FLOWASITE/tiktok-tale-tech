@@ -69,6 +69,8 @@ import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandC
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
 import { CoreContentSourceBadge } from '@/components/viewer/CoreContentSourceBadge';
+import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
+import type { CoreContent } from '@/types/coreContent';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -267,6 +269,7 @@ export function MultiChannelViewer({
   const [showImageHistory, setShowImageHistory] = useState(false);
   const [historyChannel, setHistoryChannel] = useState<Channel | null>(null);
   const [showExpandDialog, setShowExpandDialog] = useState(false);
+  const [viewingCoreContent, setViewingCoreContent] = useState<CoreContent | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Edit Title/Topic state
@@ -759,6 +762,7 @@ export function MultiChannelViewer({
                     <CoreContentSourceBadge
                       coreContentId={content.core_content_id}
                       className="hidden sm:flex"
+                      onViewSource={(coreContent) => setViewingCoreContent(coreContent)}
                     />
                   )}
 
@@ -1628,6 +1632,15 @@ export function MultiChannelViewer({
             />
           </div>
         </DialogPortal>
+      )}
+
+      {/* Core Content Viewer Sheet */}
+      {viewingCoreContent && (
+        <CoreContentViewer
+          coreContent={viewingCoreContent}
+          open={!!viewingCoreContent}
+          onOpenChange={(open) => !open && setViewingCoreContent(null)}
+        />
       )}
     </Dialog>
   );
