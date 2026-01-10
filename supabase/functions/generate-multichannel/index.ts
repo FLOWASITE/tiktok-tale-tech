@@ -2082,6 +2082,27 @@ Nội dung sẵn sàng đăng ngay.`;
         contentGoal = JOURNEY_TO_GOAL_MAP[formData.targetJourneyStage] || 'education';
       }
       
+      // NEW: Build Smart Context for enhanced generation
+      const qualityMode: QualityMode = (formData.qualityMode || 'balanced') as QualityMode;
+      let smartContext: SmartContextResult | null = null;
+
+      if (qualityMode !== 'fast') {
+        try {
+          smartContext = await buildSmartContext(supabase, {
+            qualityMode,
+            brandTemplateId: formData.brandTemplateId,
+            organizationId: organizationId || undefined,
+            targetPersonaId: formData.targetPersonaId,
+            includeHookPatterns: true,
+            includeCTAPatterns: true,
+            includeLearning: true,
+          });
+          console.log(`[streaming-mode] Smart context built, richness: ${smartContext.contextRichnessScore}/100`);
+        } catch (err) {
+          console.warn('[streaming-mode] Failed to build smart context:', err);
+        }
+      }
+      
       // Build system prompt with all context
       const systemPrompt = getSystemPrompt(
         brandName,
@@ -2096,7 +2117,9 @@ Nội dung sẵn sàng đăng ngay.`;
         mergedRules,
         industryMemory,
         extendedBrandContext,
-        channelOptimizations // NEW: Pass channel optimizations
+        channelOptimizations,
+        smartContext,
+        qualityMode
       );
       
       // ============================================
@@ -2723,6 +2746,27 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
       console.log("Content goal auto-derived from journey stage:", formData.targetJourneyStage, "→", contentGoal);
     }
 
+    // NEW: Build Smart Context for enhanced generation
+    const qualityMode: QualityMode = (formData.qualityMode || 'balanced') as QualityMode;
+    let smartContext: SmartContextResult | null = null;
+
+    if (qualityMode !== 'fast') {
+      try {
+        smartContext = await buildSmartContext(supabase, {
+          qualityMode,
+          brandTemplateId: formData.brandTemplateId,
+          organizationId: organizationId || undefined,
+          targetPersonaId: formData.targetPersonaId,
+          includeHookPatterns: true,
+          includeCTAPatterns: true,
+          includeLearning: true,
+        });
+        console.log(`[normal-mode] Smart context built, richness: ${smartContext.contextRichnessScore}/100`);
+      } catch (err) {
+        console.warn('[normal-mode] Failed to build smart context:', err);
+      }
+    }
+
     const systemPrompt = getSystemPrompt(
       brandName,
       brandGuideline,
@@ -2736,7 +2780,9 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
       mergedRules,
       industryMemory,
       extendedBrandContext,
-      channelOptimizations // NEW: Pass channel optimizations
+      channelOptimizations,
+      smartContext,
+      qualityMode
     );
 
     // Fetch targeted product/persona if specified
@@ -3619,8 +3665,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     let refinementCount = 0;
     let needsManualReview = false;
 
-    // Get quality mode config (default: balanced)
-    const qualityMode = formData.qualityMode || 'balanced';
+    // Get quality mode config (reuse qualityMode from earlier)
     const qualityConfig = QUALITY_MODE_CONFIG[qualityMode];
     console.log(`[quality-mode] Using '${qualityMode}': skipCritique=${qualityConfig.skipCritique}, maxRefinements=${qualityConfig.maxRefinements}`);
 
