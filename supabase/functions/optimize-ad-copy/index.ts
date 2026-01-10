@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -96,30 +96,27 @@ Trả về JSON theo format:
 
 Chỉ trả về JSON, không có text khác. Đảm bảo nội dung đề xuất phù hợp với thị trường Việt Nam.`;
 
-    // Use Lovable AI Gateway
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "You are an expert ad copy optimizer. Always respond with valid JSON only." },
-          { role: "user", content: prompt }
-        ],
-      }),
+    // Get AI config from Admin Panel
+    const aiConfig = await getAIConfig('optimize-ad-copy');
+    const adminModel = aiConfig?.model || undefined;
+
+    // Use multi-provider system
+    const aiResult = await callAIProvider({
+      functionName: 'optimize-ad-copy',
+      messages: [
+        { role: "system", content: "You are an expert ad copy optimizer. Always respond with valid JSON only." },
+        { role: "user", content: prompt }
+      ],
+      modelOverride: adminModel,
+      temperatureOverride: aiConfig?.temperature,
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", aiResponse.status, errorText);
-      throw new Error(`AI call failed: ${aiResponse.status}`);
+    if (!aiResult.success) {
+      console.error("AI error:", aiResult.error);
+      throw new Error(aiResult.error || 'AI call failed');
     }
 
-    const result = await aiResponse.json();
-    const text = result.choices?.[0]?.message?.content || "";
+    const text = aiResult.data?.choices?.[0]?.message?.content || "";
     
     // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);

@@ -1,12 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 interface SummarizeRequest {
   conversationId: string;
@@ -25,10 +25,6 @@ serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-    }
-
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -120,34 +116,31 @@ serve(async (req) => {
 3. Format preferences if any
 
 Conversation:
-${conversationText.slice(0, 4000)} // Limit to ~4k chars
+${conversationText.slice(0, 4000)}
 
 Provide summary in Vietnamese. Be brief and factual.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          { role: 'user', content: summaryPrompt }
-        ],
-        max_tokens: 200,
-        temperature: 0.3,
-      }),
+    // Get AI config from Admin Panel
+    const aiConfig = await getAIConfig('summarize-conversation');
+    const adminModel = aiConfig?.model || undefined;
+
+    // Use multi-provider system
+    const aiResult = await callAIProvider({
+      functionName: 'summarize-conversation',
+      messages: [
+        { role: 'user', content: summaryPrompt }
+      ],
+      modelOverride: adminModel,
+      maxTokensOverride: aiConfig?.max_tokens || 200,
+      temperatureOverride: aiConfig?.temperature || 0.3,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI summarization error:', response.status, errorText);
+    if (!aiResult.success) {
+      console.error('AI summarization error:', aiResult.error);
       throw new Error('Failed to generate summary');
     }
 
-    const aiResult = await response.json();
-    const summary = aiResult.choices?.[0]?.message?.content?.trim() || '';
+    const summary = aiResult.data?.choices?.[0]?.message?.content?.trim() || '';
 
     if (!summary) {
       throw new Error('Empty summary generated');
