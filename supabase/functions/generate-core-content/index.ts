@@ -986,6 +986,12 @@ serve(async (req: Request) => {
             const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
             const estimatedCostUsd = estimateCost(primaryModel, inputTokensEstimated, outputTokensEstimated);
             
+            // Filter out research model from modelsUsed - only log generation models
+            // Research model (step_0 when enableResearch=true) is typically gemini-2.5-flash-lite
+            const generationModels = enableResearch && result.metadata.modelsUsed.length > 1
+              ? result.metadata.modelsUsed.slice(1) // Skip first model (research)
+              : result.metadata.modelsUsed;
+            
             await saveMetrics(supabase, {
               traceId: generateTraceId(),
               functionName: 'generate-core-content',
@@ -995,14 +1001,14 @@ serve(async (req: Request) => {
               totalDurationMs: duration,
               inputTokensEstimated,
               outputTokensEstimated,
-              modelsUsed: Object.fromEntries(result.metadata.modelsUsed.map((m, i) => [`step_${i}`, m])),
+              modelsUsed: Object.fromEntries(generationModels.map((m, i) => [`step_${i}`, m])),
               estimatedCostUsd,
               hadError: false,
               qualityMode,
               contentId: coreContent.id,
               contextSources: enableResearch ? ['research'] : [],
             });
-            console.log(`[generate-core-content] Streaming metrics saved: cost=$${estimatedCostUsd.toFixed(6)}, tokens=${result.metadata.totalTokensEstimated}`);
+            console.log(`[generate-core-content] Streaming metrics saved: cost=$${estimatedCostUsd.toFixed(6)}, tokens=${result.metadata.totalTokensEstimated}, research=${enableResearch}`);
           } catch (metricsErr) {
             console.warn(`[generate-core-content] Failed to save streaming metrics:`, metricsErr);
           }
@@ -1125,11 +1131,17 @@ serve(async (req: Request) => {
     
     // ============ SAVE AI METRICS WITH COST ============
     try {
-      const modelsUsed = result.metadata.modelsUsed;
-      const primaryModel = modelsUsed[modelsUsed.length - 1] || 'google/gemini-2.5-flash';
+      const allModels = result.metadata.modelsUsed;
+      const primaryModel = allModels[allModels.length - 1] || 'google/gemini-2.5-flash';
       const inputTokensEstimated = result.metadata.totalTokensEstimated * 0.3; // ~30% input
       const outputTokensEstimated = result.metadata.totalTokensEstimated * 0.7; // ~70% output
       const estimatedCostUsd = estimateCost(primaryModel, inputTokensEstimated, outputTokensEstimated);
+      
+      // Filter out research model from modelsUsed - only log generation models
+      // Research model (first in array when enableResearch=true) is typically gemini-2.5-flash-lite
+      const generationModels = enableResearch && allModels.length > 1
+        ? allModels.slice(1) // Skip first model (research)
+        : allModels;
       
       await saveMetrics(supabase, {
         traceId: generateTraceId(),
@@ -1140,13 +1152,13 @@ serve(async (req: Request) => {
         totalDurationMs: duration,
         inputTokensEstimated: Math.round(inputTokensEstimated),
         outputTokensEstimated: Math.round(outputTokensEstimated),
-        modelsUsed: Object.fromEntries(modelsUsed.map((m, i) => [`step_${i}`, m])),
+        modelsUsed: Object.fromEntries(generationModels.map((m, i) => [`step_${i}`, m])),
         estimatedCostUsd,
         hadError: false,
         qualityMode: qualityMode,
         contextSources: enableResearch ? ['research'] : [],
       });
-      console.log(`[generate-core-content] Metrics saved: cost=$${estimatedCostUsd.toFixed(6)}`);
+      console.log(`[generate-core-content] Metrics saved: cost=$${estimatedCostUsd.toFixed(6)}, research=${enableResearch}`);
     } catch (metricsErr) {
       console.warn(`[generate-core-content] Failed to save metrics:`, metricsErr);
     }
