@@ -245,13 +245,20 @@ export function useCostAnalytics(days: number = 30) {
 
       return (data || []).map((m) => {
         const models = m.models_used as Record<string, string> | null;
-        const firstModel = models ? Object.values(models)[0] : "unknown";
+        // Show all unique models used in this request
+        let modelDisplay = "unknown";
+        if (models) {
+          const uniqueModels = [...new Set(Object.values(models))];
+          modelDisplay = uniqueModels
+            .map(model => model?.split("/").pop() || model)
+            .join(", ");
+        }
         
         return {
           id: m.id,
           createdAt: m.created_at,
           functionName: m.function_name,
-          model: firstModel?.split("/").pop() || firstModel || "unknown",
+          model: modelDisplay,
           inputTokens: m.input_tokens_estimated || 0,
           outputTokens: m.output_tokens_estimated || 0,
           estimatedCostUsd: m.estimated_cost_usd || 0,
