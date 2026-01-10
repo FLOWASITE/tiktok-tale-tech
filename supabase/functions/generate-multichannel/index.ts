@@ -61,6 +61,27 @@ import {
   buildDifferentiationInstruction,
   type DuplicateCheckResult,
 } from "../_shared/semantic-dedup.ts";
+// NEW: Smart Context for enhanced AI content generation
+import {
+  buildSmartContext,
+  buildSmartPromptInjection,
+  buildHookPatternsSection,
+  buildCTAPatternsSection,
+  buildPersonaAdaptationSection,
+  buildDifferentiationSection,
+  type SmartContextOptions,
+  type SmartContextResult,
+} from "../_shared/smart-context.ts";
+// NEW: Length Validator for intelligent length enforcement
+import {
+  buildWordBudgetInstruction,
+  validateAllChannels,
+  getChannelsNeedingExpansion,
+  buildExpansionPrompt,
+  type LengthValidationResult,
+} from "../_shared/length-validator.ts";
+// Learning Context for RAG-enhanced generation
+import { fetchLearningContext } from "../_shared/learning-context.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -920,7 +941,9 @@ const getSystemPrompt = (
   mergedRules?: MergedRules,
   industryMemory?: IndustryMemory | null,
   extendedBrandContext?: ExtendedBrandContext | null,
-  channelOptimizations?: Record<string, ChannelOptimization> // NEW: Per-channel optimization configs
+  channelOptimizations?: Record<string, ChannelOptimization>, // Per-channel optimization configs
+  smartContext?: SmartContextResult | null, // NEW: Smart context for enhanced generation
+  qualityMode?: QualityMode // NEW: Quality mode for prompt complexity
 ): string => {
   const goalDescriptions: Record<string, string> = {
     education: "Giáo dục - Chia sẻ kiến thức chuyên sâu, hướng dẫn thực hành. Tone: Chuyên gia, rõ ràng, có giá trị.",
@@ -1000,11 +1023,20 @@ ${angleDescriptions[contentAngle] || contentAngle}
     }
   }
 
+  // NEW: Build Smart Context sections (hook patterns, CTA patterns, learning)
+  const smartContextSection = smartContext ? buildSmartPromptInjection(smartContext) : '';
+  
+  // NEW: Build Word Budget instruction based on quality mode
+  const wordBudgetSection = qualityMode !== 'fast' 
+    ? buildWordBudgetInstruction(channels, channelOverrides as Record<string, { min_length?: number }> | undefined)
+    : '';
+
   return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
 ${brandVoiceSection}
 ${extendedBrandSection}
 ${productTargetingSection}
+${smartContextSection}
 
 ## NGUYÊN TẮC LÕI
 ONE TOPIC → MULTI-CHANNEL CONTENT
@@ -1030,6 +1062,7 @@ ${contentAngleSection}
 ## CHANNEL SETTINGS
 ${selectedChannelRules}
 ${channelOptimizationSection}
+${wordBudgetSection}
 
 ## WEBSITE SEO (CHỈ áp dụng cho website)
 - SEO Title: 50-60 ký tự, keyword đầu | Meta: 150-160 ký tự
