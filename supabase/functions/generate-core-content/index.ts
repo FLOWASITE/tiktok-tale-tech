@@ -21,6 +21,68 @@ import {
 import { BrandContext } from '../_shared/types/chat-types.ts';
 
 // ============================================
+// SSE STREAMING HELPERS
+// ============================================
+
+function createSSEStream() {
+  const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+  
+  const stream = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c;
+    },
+    cancel() {
+      controller = null;
+    },
+  });
+  
+  const send = (event: Record<string, unknown>) => {
+    if (controller) {
+      try {
+        const data = `data: ${JSON.stringify(event)}\n\n`;
+        controller.enqueue(encoder.encode(data));
+      } catch (e) {
+        console.error('[SSE] Error sending:', e);
+      }
+    }
+  };
+  
+  const sendProgress = (step: string, progress: number, message: string) => {
+    send({ type: 'progress', step, progress, message });
+  };
+  
+  const sendText = (content: string) => {
+    send({ type: 'streaming_text', content });
+  };
+  
+  const sendSectionComplete = (content: string, sectionIndex: number) => {
+    send({ type: 'section_complete', content, sectionIndex });
+  };
+  
+  const sendResult = (data: Record<string, unknown>) => {
+    send({ type: 'result', data });
+  };
+  
+  const sendError = (message: string) => {
+    send({ type: 'error', message });
+  };
+  
+  const close = () => {
+    if (controller) {
+      try {
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      } catch (e) {
+        console.error('[SSE] Error closing:', e);
+      }
+    }
+  };
+  
+  return { stream, send, sendProgress, sendText, sendSectionComplete, sendResult, sendError, close };
+}
+
+// ============================================
 // GENERATE CORE CONTENT - Multi-Step Pipeline
 // ============================================
 
@@ -42,6 +104,7 @@ interface GenerateCoreContentRequest {
   targetAudience?: string;
   additionalContext?: string;
   topicHistoryId?: string;
+  stream?: boolean;
 }
 
 interface CoreContentResponse {
@@ -186,9 +249,94 @@ async function callAI(
   return result.choices?.[0]?.message?.content || '';
 }
 
+// AI Call with Streaming support
+async function callAIStreaming(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 4000,
+  temperature: number = 0.7,
+  onChunk?: (text: string) => void
+): Promise<string> {
+  const response = await fetch(AI_GATEWAY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature,
+      max_tokens: maxTokens,
+      stream: true,
+    }),
+  });
+  
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('Rate limits exceeded. Please try again later.');
+    }
+    if (response.status === 402) {
+      throw new Error('Payment required. Please add credits to your workspace.');
+    }
+    const errorText = await response.text();
+    console.error(`[AI] Error ${response.status}:`, errorText);
+    throw new Error(`AI API error: ${response.status}`);
+  }
+  
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body');
+  }
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') continue;
+        
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const delta = parsed.choices?.[0]?.delta?.content || '';
+          if (delta) {
+            fullText += delta;
+            onChunk?.(delta);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+  }
+  
+  return fullText;
+}
+
 // ============================================
 // MULTI-STEP PIPELINE
 // ============================================
+
+interface StreamingCallbacks {
+  sendProgress: (step: string, progress: number, message: string) => void;
+  sendText: (content: string) => void;
+  sendSectionComplete: (content: string, sectionIndex: number) => void;
+}
 
 async function generateWithPipeline(
   apiKey: string,
@@ -324,6 +472,180 @@ async function generateWithPipeline(
 }
 
 // ============================================
+// STREAMING PIPELINE
+// ============================================
+
+async function generateWithPipelineStreaming(
+  apiKey: string,
+  config: CoreContentConfig,
+  callbacks: StreamingCallbacks
+): Promise<{
+  content: string;
+  outline: GeneratedOutline | null;
+  metadata: {
+    stepsCompleted: string[];
+    modelsUsed: string[];
+    totalTokensEstimated: number;
+  };
+}> {
+  const models = getModelsForMode(config.qualityMode);
+  const wordBudget = getWordBudget(config.qualityMode);
+  const stepsCompleted: string[] = [];
+  const modelsUsed: string[] = [];
+  let totalTokensEstimated = 0;
+  
+  console.log(`[Pipeline-Stream] Starting ${config.qualityMode} mode generation`);
+  callbacks.sendProgress('init', 5, 'Đang khởi tạo...');
+  
+  // ========== FAST MODE: Single-pass with streaming ==========
+  if (config.qualityMode === 'fast') {
+    console.log('[Pipeline-Stream] Fast mode: single-pass generation');
+    callbacks.sendProgress('generating', 10, 'Đang tạo nội dung...');
+    
+    const prompt = buildSinglePassPrompt(config);
+    const content = await callAIStreaming(
+      apiKey,
+      models.compile,
+      prompt,
+      `Viết Core Content chất lượng cao về: ${config.topic}`,
+      4000,
+      0.7,
+      (chunk) => callbacks.sendText(chunk)
+    );
+    
+    stepsCompleted.push('single_pass');
+    modelsUsed.push(models.compile);
+    totalTokensEstimated = 4000;
+    
+    callbacks.sendProgress('complete', 95, 'Đang hoàn thiện...');
+    
+    return {
+      content,
+      outline: null,
+      metadata: { stepsCompleted, modelsUsed, totalTokensEstimated },
+    };
+  }
+  
+  // ========== BALANCED/QUALITY: Multi-step with streaming ==========
+  
+  // Step 1: Generate Outline
+  callbacks.sendProgress('outline', 10, 'Đang tạo dàn ý...');
+  console.log('[Pipeline-Stream] Step 1: Generating outline...');
+  
+  const outlinePrompt = buildOutlinePrompt(config);
+  const outlineResponse = await callAI(
+    apiKey,
+    models.outline,
+    'Bạn là content strategist. Trả lời CHÍNH XÁC bằng JSON theo format yêu cầu.',
+    outlinePrompt,
+    2000,
+    0.5
+  );
+  
+  stepsCompleted.push('outline');
+  modelsUsed.push(models.outline);
+  totalTokensEstimated += 2000;
+  
+  let outline: GeneratedOutline;
+  try {
+    outline = parseOutlineJSON(outlineResponse);
+    console.log(`[Pipeline-Stream] Outline parsed: ${outline.sections.length} sections`);
+    callbacks.sendProgress('outline_done', 20, `Dàn ý: ${outline.sections.length} phần`);
+  } catch (err) {
+    console.error('[Pipeline-Stream] Outline parsing failed, falling back to single-pass');
+    callbacks.sendProgress('fallback', 15, 'Chuyển sang chế độ đơn giản...');
+    
+    const prompt = buildSinglePassPrompt(config);
+    const content = await callAIStreaming(
+      apiKey,
+      models.compile,
+      prompt,
+      `Viết Core Content về: ${config.topic}`,
+      4000,
+      0.7,
+      (chunk) => callbacks.sendText(chunk)
+    );
+    
+    return {
+      content,
+      outline: null,
+      metadata: { stepsCompleted: ['fallback_single_pass'], modelsUsed: [models.compile], totalTokensEstimated: 4000 },
+    };
+  }
+  
+  // Step 2-N: Generate each section with streaming
+  const sections: GeneratedSection[] = [];
+  const totalSections = outline.sections.length;
+  let accumulatedContent = '';
+  
+  for (let i = 0; i < totalSections; i++) {
+    const section = outline.sections[i];
+    const sectionProgress = 20 + Math.floor((i / totalSections) * 50);
+    callbacks.sendProgress(`section_${i + 1}`, sectionProgress, `Đang viết: ${section.title}`);
+    console.log(`[Pipeline-Stream] Generating section ${i + 1}: ${section.title}`);
+    
+    const sectionPrompt = buildSectionPrompt(config, outline, i);
+    
+    // Stream each section
+    let sectionText = '';
+    const sectionContent = await callAIStreaming(
+      apiKey,
+      models.section,
+      'Bạn là content writer. Viết nội dung theo yêu cầu.',
+      sectionPrompt,
+      Math.max(800, section.wordBudget * 2),
+      0.7,
+      (chunk) => {
+        sectionText += chunk;
+        callbacks.sendText(chunk);
+      }
+    );
+    
+    sections.push({
+      index: i,
+      title: section.title,
+      content: sectionContent,
+      wordCount: countWords(sectionContent),
+    });
+    
+    accumulatedContent += `\n\n## ${section.title}\n\n${sectionContent}`;
+    callbacks.sendSectionComplete(accumulatedContent.trim(), i);
+    
+    stepsCompleted.push(`section_${i + 1}`);
+    modelsUsed.push(models.section);
+    totalTokensEstimated += section.wordBudget * 2;
+  }
+  
+  // Step Final: Compile & Refine (no streaming for this step, it rewrites everything)
+  callbacks.sendProgress('compile', 75, 'Đang biên tập và hoàn thiện...');
+  console.log('[Pipeline-Stream] Final step: Compiling and refining...');
+  
+  const compilePrompt = buildCompilePrompt(config, sections, wordBudget);
+  const compiledContent = await callAIStreaming(
+    apiKey,
+    models.compile,
+    'Bạn là senior editor. Polish và hoàn thiện nội dung.',
+    compilePrompt,
+    4000,
+    0.6,
+    (chunk) => callbacks.sendText(chunk)
+  );
+  
+  stepsCompleted.push('compile');
+  modelsUsed.push(models.compile);
+  totalTokensEstimated += 4000;
+  
+  callbacks.sendProgress('saving', 95, 'Đang lưu...');
+  console.log(`[Pipeline-Stream] Complete! ${stepsCompleted.length} steps, ~${totalTokensEstimated} tokens`);
+  
+  return {
+    content: compiledContent,
+    outline,
+    metadata: { stepsCompleted, modelsUsed, totalTokensEstimated },
+  };
+}
+
+// ============================================
 // MAIN HANDLER
 // ============================================
 
@@ -363,6 +685,7 @@ serve(async (req: Request) => {
       targetAudience,
       additionalContext,
       topicHistoryId,
+      stream = false,
     } = body;
     
     // Validate required fields
@@ -380,7 +703,7 @@ serve(async (req: Request) => {
       );
     }
     
-    console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Mode: ${qualityMode}`);
+    console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Mode: ${qualityMode}, Stream: ${stream}`);
     
     // Fetch brand template
     let brandContext: BrandContext | null = null;
@@ -471,7 +794,117 @@ serve(async (req: Request) => {
       additionalContext,
     };
     
-    // Generate content with pipeline
+    // ========== STREAMING MODE ==========
+    if (stream) {
+      const sse = createSSEStream();
+      
+      // Run pipeline in background
+      (async () => {
+        try {
+          const result = await generateWithPipelineStreaming(
+            LOVABLE_API_KEY, 
+            pipelineConfig,
+            {
+              sendProgress: sse.sendProgress,
+              sendText: sse.sendText,
+              sendSectionComplete: sse.sendSectionComplete,
+            }
+          );
+          
+          if (!result.content || result.content.length < 300) {
+            sse.sendError('Generated content too short');
+            sse.close();
+            return;
+          }
+          
+          const wordCount = countWords(result.content);
+          const keyMessages = extractKeyMessages(result.content);
+          const title = generateTitle(topic, result.content);
+          const qualityScore = calculateQualityScore(result.content, wordCount, keyMessages);
+          const duration = Date.now() - startTime;
+          
+          const models = getModelsForMode(qualityMode as CoreContentQualityMode);
+          const primaryModel = qualityMode === 'quality' ? models.compile : models.section;
+          
+          console.log(`[generate-core-content] Stream complete: ${wordCount} words, score: ${qualityScore}`);
+          
+          // Save to database
+          const { data: coreContent, error: insertError } = await supabase
+            .from('core_contents')
+            .insert({
+              title,
+              topic,
+              content: result.content,
+              word_count: wordCount,
+              content_goal: contentGoal || 'education',
+              content_angle: contentAngle || null,
+              content_role: contentRole || null,
+              target_audience: targetAudience || null,
+              key_messages: keyMessages,
+              brand_template_id: brandTemplateId || null,
+              organization_id: organizationId,
+              user_id: userId,
+              source_type: 'ai_generated',
+              source_topic_history_id: topicHistoryId || null,
+              quality_score: qualityScore,
+              ai_model_used: primaryModel,
+              status: 'draft',
+              outline: result.outline,
+              generation_metadata: {
+                qualityMode,
+                stepsCompleted: result.metadata.stepsCompleted,
+                totalTokensEstimated: result.metadata.totalTokensEstimated,
+                modelsUsed: result.metadata.modelsUsed,
+                generationTimeMs: duration,
+              },
+            })
+            .select('id')
+            .single();
+          
+          if (insertError) {
+            console.error(`[generate-core-content] Insert error:`, insertError);
+            sse.sendError(`Failed to save: ${insertError.message}`);
+            sse.close();
+            return;
+          }
+          
+          // Send final result
+          sse.sendResult({
+            id: coreContent.id,
+            title,
+            content: result.content,
+            wordCount,
+            keyMessages,
+            qualityScore,
+            aiModel: primaryModel,
+            generationMetadata: {
+              qualityMode,
+              stepsCompleted: result.metadata.stepsCompleted,
+              totalTokensEstimated: result.metadata.totalTokensEstimated,
+              modelsUsed: result.metadata.modelsUsed,
+              generationTimeMs: duration,
+            },
+          });
+          
+          sse.close();
+        } catch (error) {
+          console.error(`[generate-core-content] Stream error:`, error);
+          sse.sendError(error instanceof Error ? error.message : 'Unknown error');
+          sse.close();
+        }
+      })();
+      
+      return new Response(sse.stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+    
+    // ========== NON-STREAMING MODE ==========
     const result = await generateWithPipeline(LOVABLE_API_KEY, pipelineConfig);
     
     if (!result.content || result.content.length < 300) {
