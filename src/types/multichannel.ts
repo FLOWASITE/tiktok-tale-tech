@@ -142,6 +142,8 @@ export interface MultiChannelContent {
   campaign_id: string | null;
   user_id: string | null;
   industry_template_version: string | null;
+  // Core Content source link
+  core_content_id: string | null;
   // Self-Critique fields
   critique_score: number | null;
   critique_details: CritiqueDetails | null;
