@@ -44,8 +44,8 @@ export function CoreContentGenerateDialog({
 
   const [topic, setTopic] = useState(initialTopic);
   const [contentGoal, setContentGoal] = useState<ContentGoal>('education');
-  const [contentAngle, setContentAngle] = useState<ContentAngle | ''>('');
-  const [brandTemplateId, setBrandTemplateId] = useState<string>('');
+  const [contentAngle, setContentAngle] = useState<ContentAngle | '__none__'>('__none__');
+  const [brandTemplateId, setBrandTemplateId] = useState<string>('__none__');
   const [targetAudience, setTargetAudience] = useState('');
   const [additionalContext, setAdditionalContext] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -66,8 +66,8 @@ export function CoreContentGenerateDialog({
       const result = await generateCoreContent({
         topic: topic.trim(),
         contentGoal,
-        contentAngle: contentAngle || undefined,
-        brandTemplateId: brandTemplateId || undefined,
+        contentAngle: contentAngle === '__none__' ? undefined : contentAngle,
+        brandTemplateId: brandTemplateId === '__none__' ? undefined : brandTemplateId,
         organizationId: currentOrganization.id,
         targetAudience: targetAudience || undefined,
         additionalContext: additionalContext || undefined,
@@ -83,8 +83,8 @@ export function CoreContentGenerateDialog({
       // Reset form
       setTopic('');
       setContentGoal('education');
-      setContentAngle('');
-      setBrandTemplateId('');
+      setContentAngle('__none__');
+      setBrandTemplateId('__none__');
       setTargetAudience('');
       setAdditionalContext('');
     } catch (error) {
@@ -156,14 +156,14 @@ export function CoreContentGenerateDialog({
             <Label>Góc tiếp cận (tùy chọn)</Label>
             <Select
               value={contentAngle}
-              onValueChange={(v) => setContentAngle(v as ContentAngle | '')}
+              onValueChange={(v) => setContentAngle(v as ContentAngle | '__none__')}
               disabled={isGenerating}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Chọn góc tiếp cận" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Không chọn</SelectItem>
+                <SelectItem value="__none__">Không chọn</SelectItem>
                 {CONTENT_ANGLES.map((angle) => (
                   <SelectItem key={angle.value} value={angle.value}>
                     <div className="flex flex-col">
@@ -190,7 +190,7 @@ export function CoreContentGenerateDialog({
                 <SelectValue placeholder="Chọn brand template" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Không chọn</SelectItem>
+                <SelectItem value="__none__">Không chọn</SelectItem>
               </SelectContent>
             </Select>
           </div>
