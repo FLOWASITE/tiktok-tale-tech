@@ -14,6 +14,8 @@ import {
   CRITIQUE_CONFIG,
   type CritiqueResult,
 } from "../_shared/self-critique.ts";
+import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1790,6 +1792,35 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
     }
 
     console.log("Script saved with ID:", savedScript.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
+
+    // ============ SAVE AI METRICS WITH COST ============
+    if (!fromCache) {
+      try {
+        const model = 'google/gemini-2.5-flash';
+        const inputTokensEstimated = 2000; // System prompt + context
+        const outputTokensEstimated = Math.round(content.length / 4); // Approx 4 chars per token
+        const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+        
+        await saveMetrics(supabase, {
+          traceId: generateTraceId(),
+          functionName: 'generate-script',
+          organizationId: organizationId || undefined,
+          userId: userId || undefined,
+          brandTemplateId: brandTemplateId || undefined,
+          totalDurationMs: 0,
+          inputTokensEstimated,
+          outputTokensEstimated,
+          modelsUsed: { default: model },
+          estimatedCostUsd,
+          hadError: false,
+          cacheHit: false,
+          contextSources: [],
+        });
+        console.log(`[generate-script] Metrics saved: cost=$${estimatedCostUsd.toFixed(6)}`);
+      } catch (metricsErr) {
+        console.warn(`[generate-script] Failed to save metrics:`, metricsErr);
+      }
+    }
 
     return new Response(JSON.stringify({ ...savedScript, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

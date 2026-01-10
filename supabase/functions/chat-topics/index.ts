@@ -32,6 +32,7 @@ import { withFallback, withRetry, withTimeout, isRetryableError } from "../_shar
 
 // Import observability utilities
 import { createLogger, saveMetrics, getContextSources, estimateTokens, AIMetrics } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 // Import token management utilities
 import { 
@@ -738,6 +739,11 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
           const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
           const totalDurationMs = Math.round(performance.now() - requestStartTime);
           
+          // Estimate output tokens from agentic loop turns
+          const outputTokensEstimated = totalTurns * 500; // Estimate 500 tokens per turn
+          const model = 'google/gemini-2.5-flash'; // Default model
+          const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+          
           saveMetrics(supabase, {
             traceId: logger.getTraceId(),
             functionName: 'chat-topics',
@@ -748,6 +754,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
             aiCallDurationMs,
             contextFetchDurationMs,
             inputTokensEstimated,
+            outputTokensEstimated,
             contextSources,
             contextRichnessScore: contextMetadata.context_richness_score,
             totalTurns,
@@ -756,6 +763,9 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
             hadError,
             errorType,
             errorMessage,
+            // NEW: Cost tracking fields
+            modelsUsed: { default: model },
+            estimatedCostUsd,
           }).catch(err => logger.warn('Failed to save metrics', { error: err.message }));
         }
       })();

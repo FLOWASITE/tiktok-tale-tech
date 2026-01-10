@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -618,6 +620,30 @@ serve(async (req) => {
           console.error("[sales-chatbot] Failed to auto-save lead:", err);
         }
       }
+    }
+
+    // Save AI metrics with cost
+    try {
+      if (supabase) {
+        const model = 'google/gemini-2.5-flash';
+        const inputTokensEstimated = 4000; // Large knowledge base prompt
+        const outputTokensEstimated = 400;
+        const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+        
+        await saveMetrics(supabase, {
+          traceId: generateTraceId(),
+          functionName: 'sales-chatbot',
+          totalDurationMs: 0,
+          inputTokensEstimated,
+          outputTokensEstimated,
+          modelsUsed: { default: model },
+          estimatedCostUsd,
+          hadError: false,
+          contextSources: ['flowa_knowledge_base'],
+        });
+      }
+    } catch (metricsErr) {
+      console.warn('[sales-chatbot] Failed to save metrics:', metricsErr);
     }
 
     // Return streaming response with lead signals in header

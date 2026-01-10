@@ -23,6 +23,8 @@ import { BrandContext } from '../_shared/types/chat-types.ts';
 import { performResearch, buildResearchContext, ResearchResult, ResearchRecency } from '../_shared/research-helper.ts';
 import { buildSmartContext, SmartContextResult } from '../_shared/smart-context.ts';
 import { evaluateCoreContentQuality, QualityMetrics } from '../_shared/quality-gate.ts';
+import { saveMetrics, generateTraceId } from '../_shared/logger.ts';
+import { estimateCost, estimateTotalCost } from '../_shared/cost-estimator.ts';
 
 // ============================================
 // SSE STREAMING HELPERS
@@ -1080,6 +1082,34 @@ serve(async (req: Request) => {
     if (insertError) {
       console.error(`[generate-core-content] Insert error:`, insertError);
       throw new Error(`Failed to save core content: ${insertError.message}`);
+    }
+    
+    // ============ SAVE AI METRICS WITH COST ============
+    try {
+      const modelsUsed = result.metadata.modelsUsed;
+      const primaryModel = modelsUsed[modelsUsed.length - 1] || 'google/gemini-2.5-flash';
+      const inputTokensEstimated = result.metadata.totalTokensEstimated * 0.3; // ~30% input
+      const outputTokensEstimated = result.metadata.totalTokensEstimated * 0.7; // ~70% output
+      const estimatedCostUsd = estimateCost(primaryModel, inputTokensEstimated, outputTokensEstimated);
+      
+      await saveMetrics(supabase, {
+        traceId: generateTraceId(),
+        functionName: 'generate-core-content',
+        organizationId: organizationId || undefined,
+        userId: userId || undefined,
+        brandTemplateId: brandTemplateId || undefined,
+        totalDurationMs: duration,
+        inputTokensEstimated: Math.round(inputTokensEstimated),
+        outputTokensEstimated: Math.round(outputTokensEstimated),
+        modelsUsed: Object.fromEntries(modelsUsed.map((m, i) => [`step_${i}`, m])),
+        estimatedCostUsd,
+        hadError: false,
+        qualityMode: qualityMode,
+        contextSources: enableResearch ? ['research'] : [],
+      });
+      console.log(`[generate-core-content] Metrics saved: cost=$${estimatedCostUsd.toFixed(6)}`);
+    } catch (metricsErr) {
+      console.warn(`[generate-core-content] Failed to save metrics:`, metricsErr);
     }
     
     console.log(`[generate-core-content] Saved with ID: ${coreContent.id}`);
