@@ -736,6 +736,11 @@ serve(async (req: Request) => {
           targetGender: brandData.target_gender || undefined,
           brandHashtags: brandData.brand_hashtags || undefined,
           mainCompetitors: brandData.main_competitors || undefined,
+          // Style Guide fields
+          preferredWords: brandData.preferred_words || undefined,
+          bannedWords: brandData.forbidden_words || undefined,
+          sentenceStyle: brandData.sentence_style || undefined,
+          emojiPolicy: brandData.emoji_policy || undefined,
         };
         console.log(`[generate-core-content] Loaded brand: ${brandData.brand_name}`);
       }

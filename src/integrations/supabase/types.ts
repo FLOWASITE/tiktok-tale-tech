@@ -1936,6 +1936,7 @@ export type Database = {
           cta_templates: string[] | null
           deleted_at: string | null
           deleted_by: string | null
+          emoji_policy: string | null
           evergreen_themes: string[] | null
           footer_info: Json | null
           forbidden_words: string[] | null
@@ -1957,6 +1958,7 @@ export type Database = {
           primary_color: string | null
           sample_texts: Json | null
           secondary_colors: string[] | null
+          sentence_style: string | null
           signature_phrases: string[] | null
           tagline: string | null
           target_age_range: string | null
@@ -1983,6 +1985,7 @@ export type Database = {
           cta_templates?: string[] | null
           deleted_at?: string | null
           deleted_by?: string | null
+          emoji_policy?: string | null
           evergreen_themes?: string[] | null
           footer_info?: Json | null
           forbidden_words?: string[] | null
@@ -2004,6 +2007,7 @@ export type Database = {
           primary_color?: string | null
           sample_texts?: Json | null
           secondary_colors?: string[] | null
+          sentence_style?: string | null
           signature_phrases?: string[] | null
           tagline?: string | null
           target_age_range?: string | null
@@ -2030,6 +2034,7 @@ export type Database = {
           cta_templates?: string[] | null
           deleted_at?: string | null
           deleted_by?: string | null
+          emoji_policy?: string | null
           evergreen_themes?: string[] | null
           footer_info?: Json | null
           forbidden_words?: string[] | null
@@ -2051,6 +2056,7 @@ export type Database = {
           primary_color?: string | null
           sample_texts?: Json | null
           secondary_colors?: string[] | null
+          sentence_style?: string | null
           signature_phrases?: string[] | null
           tagline?: string | null
           target_age_range?: string | null
