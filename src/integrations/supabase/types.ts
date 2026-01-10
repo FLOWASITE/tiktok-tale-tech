@@ -3273,6 +3273,97 @@ export type Database = {
           },
         ]
       }
+      core_contents: {
+        Row: {
+          ai_model_used: string | null
+          brand_template_id: string | null
+          content: string
+          content_angle: string | null
+          content_goal: string
+          content_role: string | null
+          created_at: string
+          id: string
+          key_messages: Json | null
+          organization_id: string | null
+          quality_score: number | null
+          source_topic_history_id: string | null
+          source_type: string
+          status: string | null
+          target_audience: string | null
+          title: string
+          topic: string
+          updated_at: string
+          user_id: string | null
+          word_count: number | null
+        }
+        Insert: {
+          ai_model_used?: string | null
+          brand_template_id?: string | null
+          content: string
+          content_angle?: string | null
+          content_goal?: string
+          content_role?: string | null
+          created_at?: string
+          id?: string
+          key_messages?: Json | null
+          organization_id?: string | null
+          quality_score?: number | null
+          source_topic_history_id?: string | null
+          source_type?: string
+          status?: string | null
+          target_audience?: string | null
+          title: string
+          topic: string
+          updated_at?: string
+          user_id?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          ai_model_used?: string | null
+          brand_template_id?: string | null
+          content?: string
+          content_angle?: string | null
+          content_goal?: string
+          content_role?: string | null
+          created_at?: string
+          id?: string
+          key_messages?: Json | null
+          organization_id?: string | null
+          quality_score?: number | null
+          source_topic_history_id?: string | null
+          source_type?: string
+          status?: string | null
+          target_audience?: string | null
+          title?: string
+          topic?: string
+          updated_at?: string
+          user_id?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_contents_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "core_contents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "core_contents_source_topic_history_id_fkey"
+            columns: ["source_topic_history_id"]
+            isOneToOne: false
+            referencedRelation: "topic_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       countries: {
         Row: {
           code: string
@@ -4506,6 +4597,7 @@ export type Database = {
           channel_statuses: Json | null
           content_calendar_color: string | null
           content_goal: string
+          core_content_id: string | null
           created_at: string
           critique_details: Json | null
           critique_score: number | null
@@ -4552,6 +4644,7 @@ export type Database = {
           channel_statuses?: Json | null
           content_calendar_color?: string | null
           content_goal: string
+          core_content_id?: string | null
           created_at?: string
           critique_details?: Json | null
           critique_score?: number | null
@@ -4598,6 +4691,7 @@ export type Database = {
           channel_statuses?: Json | null
           content_calendar_color?: string | null
           content_goal?: string
+          core_content_id?: string | null
           created_at?: string
           critique_details?: Json | null
           critique_score?: number | null
@@ -4648,6 +4742,13 @@ export type Database = {
             columns: ["brand_voice_variant_id"]
             isOneToOne: false
             referencedRelation: "brand_voice_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multi_channel_contents_core_content_id_fkey"
+            columns: ["core_content_id"]
+            isOneToOne: false
+            referencedRelation: "core_contents"
             referencedColumns: ["id"]
           },
           {
