@@ -16,6 +16,8 @@ import {
 } from "../_shared/self-critique.ts";
 import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1399,14 +1401,8 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      return new Response(
-        JSON.stringify({ error: "API key chưa được cấu hình" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Note: AI calls now use the multi-provider system (ai-provider.ts)
+    // which handles API key management internally
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1577,43 +1573,44 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
 
     const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style);
 
-    // Define AI generation function
+    // Get AI config from Admin Panel for model override
+    const aiConfig = await getAIConfig('generate-script', requestOrgId || undefined);
+    console.log('[generate-script] Using AI config:', { model: aiConfig.model, temperature: aiConfig.temperature });
+
+    // Define AI generation function using multi-provider system
     const generateAIContent = async (): Promise<string> => {
-      console.log("Calling Lovable AI for script (no cache hit)...");
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Hãy tạo kịch bản video TikTok về chủ đề: "${topic}"` },
-          ],
-        }),
+      console.log("Calling AI for script via multi-provider system...");
+      
+      const result = await callAIProvider({
+        functionName: 'generate-script',
+        organizationId: requestOrgId || undefined,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Hãy tạo kịch bản video TikTok về chủ đề: "${topic}"` },
+        ],
+        modelOverride: aiConfig.model || undefined,
+        temperatureOverride: aiConfig.temperature,
+        maxTokensOverride: aiConfig.max_tokens,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("AI Gateway error:", response.status, errorText);
+      if (!result.success) {
+        console.error("AI Provider error:", result.error);
 
-        if (response.status === 429) {
+        if (result.error?.includes('Rate limit') || result.error?.includes('429')) {
           throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
         }
-        if (response.status === 402) {
+        if (result.error?.includes('Payment') || result.error?.includes('402')) {
           throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
         }
 
         throw new Error("Không thể tạo kịch bản. Vui lòng thử lại.");
       }
 
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
+      console.log('[generate-script] AI response from provider:', result.provider, 'model:', result.model);
+      const content = result.data?.choices?.[0]?.message?.content;
 
       if (!content) {
-        console.error("No content in AI response:", data);
+        console.error("No content in AI response:", result.data);
         throw new Error("AI không trả về nội dung");
       }
 
@@ -1694,7 +1691,8 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
           brandVoice,
           mergedRules,
           additionalContext: `Video type: ${video_type}, Character: ${character_type}, Duration: ${duration}`,
-          apiKey: LOVABLE_API_KEY,
+          apiKey: Deno.env.get("LOVABLE_API_KEY") || '',
+          organizationId: requestOrgId || undefined,
         });
 
         content = critiqueLoop.finalContent;

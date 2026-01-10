@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,8 +42,6 @@ interface ConversationRequest {
   limit?: number;
   offset?: number;
 }
-
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -384,12 +384,12 @@ serve(async (req) => {
           });
         }
 
-        if (!LOVABLE_API_KEY) {
-          return new Response(JSON.stringify({ error: 'AI not configured' }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
+        // Get conversation to retrieve organization_id for AI config
+        const { data: convData } = await supabase
+          .from('chat_conversations')
+          .select('organization_id')
+          .eq('id', conversationId)
+          .single();
 
         // Get messages
         const { data: messages, error: msgError } = await supabase
@@ -443,29 +443,29 @@ Rules:
 - Return empty array [] if no significant learnings found
 - Return ONLY valid JSON array, no markdown`;
 
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-lite',
-            messages: [{ role: 'user', content: extractionPrompt }],
-            max_tokens: 500,
-            temperature: 0.3,
-          }),
+        // Get AI config from Admin Panel
+        const aiConfig = await getAIConfig('chat-conversations', convData?.organization_id);
+        console.log('[chat-conversations] extract_learnings using AI config:', { model: aiConfig.model });
+
+        // Call AI via multi-provider system
+        const result = await callAIProvider({
+          functionName: 'chat-conversations',
+          organizationId: convData?.organization_id,
+          messages: [{ role: 'user', content: extractionPrompt }],
+          modelOverride: aiConfig.model || undefined,
+          maxTokensOverride: 500,
+          temperatureOverride: 0.3,
         });
 
-        if (!response.ok) {
-          console.error('AI extraction error:', response.status);
+        if (!result.success) {
+          console.error('AI extraction error:', result.error);
           return new Response(JSON.stringify({ learnings: [], error: 'AI error' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
-        const aiResult = await response.json();
-        const rawContent = aiResult.choices?.[0]?.message?.content?.trim() || '[]';
+        console.log('[chat-conversations] AI response from provider:', result.provider, 'model:', result.model);
+        const rawContent = result.data?.choices?.[0]?.message?.content?.trim() || '[]';
         
         let learnings: SessionLearning[] = [];
         try {
