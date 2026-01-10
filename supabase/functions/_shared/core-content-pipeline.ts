@@ -150,6 +150,103 @@ export function getWordBudget(mode: CoreContentQualityMode): WordBudget {
 }
 
 // ============================================
+// PROOF ELEMENTS & COMPETITIVE CONTEXT (NEW)
+// ============================================
+
+/**
+ * Build proof requirements block for Core Content prompts
+ * Forces inclusion of statistics, case studies, and expert references
+ */
+export function buildProofRequirementsBlock(): string {
+  return `
+## 📊 PROOF ELEMENTS (BẮT BUỘC)
+
+Mỗi phần chính PHẢI có ít nhất 1-2 proof elements từ danh sách sau:
+
+### LOẠI PROOF ĐƯỢC CHẤP NHẬN:
+- ✅ **Statistics/Số liệu**: Con số cụ thể + nguồn (VD: "Theo Forbes 2025, 78%...")
+- ✅ **Case Study/Ví dụ thực tế**: Câu chuyện cụ thể, tên thật nếu có
+- ✅ **Expert Reference**: Trích dẫn chuyên gia, nghiên cứu học thuật
+- ✅ **Data Comparison**: So sánh trước/sau, benchmark với thị trường
+- ✅ **Research Citation**: Dẫn nguồn từ báo cáo, khảo sát uy tín
+
+### QUY TẮC:
+⚠️ MỖI CLAIM QUAN TRỌNG phải có PROOF đi kèm
+❌ KHÔNG viết: "Nhiều người cho rằng...", "Hầu hết đều...", "Theo nghiên cứu gần đây..."
+✅ VIẾT: "Theo khảo sát của McKinsey (2025), 78% doanh nghiệp...", "Ông John Smith, CEO của X, nhận định..."
+
+### MỤC TIÊU PROOF:
+- Intro: Ít nhất 1 số liệu gây chú ý
+- Analysis: 2-3 proofs cho các điểm chính
+- Impact: 1-2 data points về hậu quả
+- Solution: Case study hoặc expert insight
+- Conclusion: Reinforcement với key stat
+`;
+}
+
+/**
+ * Build competitive context block for subtle brand differentiation
+ * Only triggers if brand has competitors defined
+ */
+export function buildCompetitiveContextBlock(brandContext: BrandContext | null): string {
+  if (!brandContext) return '';
+  
+  const hasCompetitors = brandContext.mainCompetitors && brandContext.mainCompetitors.length > 0;
+  const hasUSP = brandContext.uniqueValueProposition;
+  // Use brand positioning as fallback for competitive advantages
+  const hasBrandPositioning = brandContext.brandPositioning;
+  
+  if (!hasCompetitors && !hasUSP && !hasBrandPositioning) return '';
+  
+  let block = `
+## 🎯 COMPETITIVE POSITIONING (Tinh tế - Không Attack)
+
+### NGUYÊN TẮC:
+1. ✅ Address pain points mà cách tiếp cận thông thường chưa giải quyết tốt
+2. ✅ Highlight unique value của brand một cách TỰ NHIÊN
+3. ❌ KHÔNG nhắc tên đối thủ trực tiếp
+4. ❌ KHÔNG counter-positioning mạnh hay tiêu cực
+
+### CÁCH VIẾT:
+- VD tốt: "Khác với cách làm phổ biến hiện nay, phương pháp này..."
+- VD tốt: "Trong khi nhiều giải pháp tập trung vào X, chúng ta nhìn từ góc độ Y..."
+- VD xấu: "Đối thủ X không làm được điều này..."
+- VD xấu: "Sản phẩm của chúng tôi tốt hơn các hãng khác..."
+`;
+
+  if (hasUSP) {
+    block += `
+### UNIQUE VALUE PROPOSITION (lồng ghép tự nhiên):
+"${brandContext.uniqueValueProposition}"
+`;
+  }
+
+  if (hasBrandPositioning) {
+    block += `
+### BRAND POSITIONING (đề cập tinh tế):
+${brandContext.brandPositioning}
+`;
+  }
+
+  if (hasCompetitors && brandContext.mainCompetitors) {
+    block += `
+### COMPETITIVE LANDSCAPE (chỉ tham khảo, KHÔNG nhắc tên):
+Brand đang cạnh tranh với: ${brandContext.mainCompetitors.slice(0, 3).join(', ')}
+→ Nội dung cần address những gì đối thủ CHƯA làm tốt
+`;
+  }
+
+  block += `
+⚡ NỘI DUNG NÊN:
+- Đề cập 1-2 lần unique angles của brand
+- Lồng ghép USP vào phần Solution một cách tự nhiên
+- Không quá bán hàng, giữ tone chuyên gia khách quan
+`;
+
+  return block;
+}
+
+// ============================================
 // PROMPT BUILDERS
 // ============================================
 
@@ -239,7 +336,12 @@ export function buildRoleContext(role?: CoreContentRole): string {
 // OUTLINE GENERATION PROMPT
 // ============================================
 
-export function buildOutlinePrompt(config: CoreContentConfig): string {
+export interface EnhancedPromptConfig extends CoreContentConfig {
+  smartContextInjection?: string;
+  researchContext?: string;
+}
+
+export function buildOutlinePrompt(config: EnhancedPromptConfig): string {
   const wordBudget = getWordBudget(config.qualityMode);
   
   let prompt = `Bạn là content strategist chuyên nghiệp.
@@ -259,6 +361,9 @@ ${buildPersonaContextBlock(config.personas)}
 ${buildProductContextBlock(config.products)}
 ${config.targetAudience ? `\n## ĐỐI TƯỢNG MỤC TIÊU\n${config.targetAudience}` : ''}
 ${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalContext}` : ''}
+${buildProofRequirementsBlock()}
+${buildCompetitiveContextBlock(config.brandContext)}
+${config.smartContextInjection || ''}
 
 ## CẤU TRÚC BẮT BUỘC (5 phần)
 1. Giới thiệu/Context (~${wordBudget.intro} từ): Hook + bối cảnh vấn đề
@@ -290,7 +395,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG THÊM TEXT KHÁC.`;
 // ============================================
 
 export function buildSectionPrompt(
-  config: CoreContentConfig,
+  config: EnhancedPromptConfig,
   outline: GeneratedOutline,
   sectionIndex: number
 ): string {
@@ -313,6 +418,7 @@ Viết phần ${sectionIndex + 1}: "${section.title}"
 ${section.bulletPoints.map(bp => `  - ${bp}`).join('\n')}
 ${buildBrandContextBlock(config.brandContext)}
 ${buildRoleContext(config.role)}
+${buildProofRequirementsBlock()}
 
 ## QUY TẮC
 - Tone: Trung lập, chuyên gia
@@ -320,6 +426,7 @@ ${buildRoleContext(config.role)}
 - Viết mạch lạc, tự nhiên
 - Sử dụng ví dụ cụ thể khi cần
 - KHÔNG thêm hook mạnh hoặc emoji
+- PHẢI có proof elements (số liệu, ví dụ, trích dẫn)
 
 ## OUTPUT
 Viết trực tiếp nội dung phần này dạng Markdown.
@@ -364,7 +471,7 @@ KHÔNG thêm tiêu đề "Core Content" hay metadata.`;
 // FAST MODE: SINGLE-PASS PROMPT
 // ============================================
 
-export function buildSinglePassPrompt(config: CoreContentConfig): string {
+export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
   const wordBudget = getWordBudget(config.qualityMode);
   
   return `Bạn là content writer chuyên nghiệp. Viết Core Content (nội dung gốc) hoàn chỉnh.
@@ -381,6 +488,9 @@ ${buildPersonaContextBlock(config.personas)}
 ${buildProductContextBlock(config.products)}
 ${config.targetAudience ? `\n## ĐỐI TƯỢNG MỤC TIÊU\n${config.targetAudience}` : ''}
 ${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalContext}` : ''}
+${buildProofRequirementsBlock()}
+${buildCompetitiveContextBlock(config.brandContext)}
+${config.smartContextInjection || ''}
 
 ## YÊU CẦU BẮT BUỘC
 1. Độ dài: ${wordBudget.total - 100} - ${wordBudget.total + 100} từ
@@ -393,6 +503,7 @@ ${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalCo
 3. Tone: Chuyên nghiệp, chuyên gia
 4. Có ít nhất 5 điểm chính (bullet hoặc bold)
 5. Sử dụng Markdown (## heading, **bold**, - bullet)
+6. PHẢI có proof elements (số liệu, ví dụ, trích dẫn) trong mỗi phần chính
 
 ## OUTPUT
 Viết trực tiếp nội dung Core Content.
