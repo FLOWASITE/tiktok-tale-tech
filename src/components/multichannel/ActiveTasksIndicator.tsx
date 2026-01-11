@@ -80,7 +80,8 @@ const TaskCard = memo(function TaskCard({
 
   const isActive = task.status === 'pending' || task.status === 'generating';
   const isFailed = task.status === 'failed';
-  const taskLabel = task.task_type === 'core_content' ? 'Core Content' : 'Multi-channel';
+  const isCompleted = task.status === 'completed';
+  const taskLabel = task.task_type === 'core_content' ? 'Core Content' : 'Đa kênh';
 
   return (
     <motion.div
@@ -117,7 +118,7 @@ const TaskCard = memo(function TaskCard({
               
               <p className="text-xs text-muted-foreground truncate mb-2">
                 {task.progress_message || (isActive ? 'Đang xử lý...' : 
-                  task.status === 'completed' ? 'Hoàn thành' : 'Thất bại')}
+                  isCompleted ? 'Hoàn thành - Nhấn để xem' : 'Thất bại')}
               </p>
 
               {isActive && (
