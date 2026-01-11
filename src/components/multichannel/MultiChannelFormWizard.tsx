@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -213,6 +214,7 @@ export function MultiChannelFormWizard({
   onFormDataChange,
   onGenerate,
 }: MultiChannelFormWizardProps) {
+  const navigate = useNavigate();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -270,7 +272,9 @@ export function MultiChannelFormWizard({
           action: {
             label: 'Xem ngay',
             onClick: () => {
-              window.location.href = `/multichannel?view=${task.result_id}`;
+              navigate('/multichannel', { 
+                state: { viewContentId: task.result_id } 
+              });
             },
           },
           duration: 10000,
@@ -722,8 +726,9 @@ export function MultiChannelFormWizard({
       
       // NEW: Handle Multi-channel result - navigate to viewer
       if (result?.type === 'multichannel' && result.data) {
-        // Navigate to multichannel viewer with the content ID
-        window.location.href = `/multichannel?view=${result.data.id}`;
+        navigate('/multichannel', { 
+          state: { viewContentId: result.data.id } 
+        });
         dismissTask(task.id);
       }
     }
