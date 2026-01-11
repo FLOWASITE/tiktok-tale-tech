@@ -59,9 +59,13 @@ interface GenerateRequest {
   researchRecency?: 'day' | 'week' | 'month' | 'year';
 }
 
+const MAX_RETRIES = 2;
+
 export function useStreamingCoreContent(options: UseStreamingCoreContentOptions = {}) {
   const [streamingText, setStreamingText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [progress, setProgress] = useState<CoreContentProgress>({
     step: '',
     progress: 0,
@@ -69,8 +73,9 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
     isComplete: false,
   });
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastRequestRef = useRef<GenerateRequest | null>(null);
 
-  const generate = useCallback(async (request: GenerateRequest): Promise<StreamingCoreContentResult | null> => {
+  const generateInternal = useCallback(async (request: GenerateRequest, currentRetry: number): Promise<StreamingCoreContentResult | null> => {
     // Cancel any existing generation
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -78,8 +83,14 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
 
     abortControllerRef.current = new AbortController();
     setIsGenerating(true);
-    setStreamingText('');
-    setProgress({ step: 'init', progress: 0, message: 'Đang khởi tạo...', isComplete: false });
+    setLastError(null);
+    
+    if (currentRetry === 0) {
+      setStreamingText('');
+      setProgress({ step: 'init', progress: 0, message: 'Đang khởi tạo...', isComplete: false });
+    } else {
+      setProgress({ step: 'retrying', progress: 0, message: `Đang thử lại (${currentRetry}/${MAX_RETRIES})...`, isComplete: false });
+    }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -222,6 +233,7 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
       }
 
       if (watchdogTimer) clearTimeout(watchdogTimer);
+      setRetryCount(0); // Reset retry count on success
 
       return finalResult;
     } catch (error) {
@@ -230,6 +242,22 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
       }
 
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+      const isNetworkError = errorMessage.toLowerCase().includes('network') || 
+                            errorMessage.toLowerCase().includes('timeout') ||
+                            errorMessage.toLowerCase().includes('connection');
+
+      // Auto-retry for network errors
+      if (isNetworkError && currentRetry < MAX_RETRIES) {
+        console.log(`[StreamingCoreContent] Network error, retrying... (${currentRetry + 1}/${MAX_RETRIES})`);
+        setRetryCount(currentRetry + 1);
+        
+        // Small delay before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * (currentRetry + 1)));
+        
+        return generateInternal(request, currentRetry + 1);
+      }
+
+      setLastError(errorMessage);
       setProgress({ step: 'error', progress: 0, message: errorMessage, isComplete: false });
       options.onError?.(errorMessage);
       throw error;
@@ -238,26 +266,49 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
     }
   }, [options]);
 
+  const generate = useCallback(async (request: GenerateRequest): Promise<StreamingCoreContentResult | null> => {
+    lastRequestRef.current = request;
+    setRetryCount(0);
+    return generateInternal(request, 0);
+  }, [generateInternal]);
+
+  const retry = useCallback(async (): Promise<StreamingCoreContentResult | null> => {
+    if (!lastRequestRef.current) {
+      console.warn('[StreamingCoreContent] No previous request to retry');
+      return null;
+    }
+    setRetryCount(0);
+    return generateInternal(lastRequestRef.current, 0);
+  }, [generateInternal]);
+
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsGenerating(false);
       setStreamingText('');
       setProgress({ step: '', progress: 0, message: '', isComplete: false });
+      setLastError(null);
+      setRetryCount(0);
     }
   }, []);
 
   const reset = useCallback(() => {
     setStreamingText('');
     setProgress({ step: '', progress: 0, message: '', isComplete: false });
+    setLastError(null);
+    setRetryCount(0);
   }, []);
 
   return {
     generate,
+    retry,
     cancel,
     reset,
     streamingText,
     isGenerating,
     progress,
+    retryCount,
+    lastError,
+    canRetry: !!lastRequestRef.current && !isGenerating,
   };
 }
