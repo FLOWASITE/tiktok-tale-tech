@@ -18,12 +18,15 @@ import {
   Beaker, 
   History,
   Filter,
-  RefreshCw
+  RefreshCw,
+  FolderOpen,
+  AlertTriangle
 } from "lucide-react";
 import { PromptList } from "./PromptList";
 import { PromptEditor } from "./PromptEditor";
 import { ABTestManager } from "./ABTestManager";
 import { PromptHistoryViewer } from "./PromptHistoryViewer";
+import { useCategoryConfig } from "@/hooks/useCategoryConfig";
 import { toast } from "sonner";
 
 export interface Prompt {
@@ -51,6 +54,10 @@ export function PromptManager() {
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [filterFunction, setFilterFunction] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+
+  // Fetch categories
+  const { categories } = useCategoryConfig();
 
   // Fetch all prompts
   const { data: prompts, isLoading, refetch } = useQuery({
@@ -85,9 +92,19 @@ export function PromptManager() {
       
       const matchesFunction = !filterFunction || prompt.function_name === filterFunction;
       
-      return matchesSearch && matchesFunction;
+      const matchesCategory = !filterCategory || 
+        prompt.category_id === filterCategory ||
+        (filterCategory === 'uncategorized' && !prompt.category_id);
+      
+      return matchesSearch && matchesFunction && matchesCategory;
     });
-  }, [prompts, searchQuery, filterFunction]);
+  }, [prompts, searchQuery, filterFunction, filterCategory]);
+
+  // Count uncategorized prompts
+  const uncategorizedCount = useMemo(() => {
+    if (!prompts) return 0;
+    return prompts.filter(p => !p.category_id).length;
+  }, [prompts]);
 
   const handleCreatePrompt = () => {
     setSelectedPrompt(null);
@@ -124,6 +141,7 @@ export function PromptManager() {
           description: data.description,
           variables: data.variables,
           tags: data.tags,
+          category_id: data.category_id,
           version: 1,
           is_active: true,
           is_default: false,
@@ -208,10 +226,21 @@ export function PromptManager() {
                 <option key={fn} value={fn}>{fn}</option>
               ))}
             </select>
+            <select
+              value={filterCategory || ""}
+              onChange={(e) => setFilterCategory(e.target.value || null)}
+              className="px-3 py-2 border rounded-md bg-background text-sm min-w-[180px]"
+            >
+              <option value="">Tất cả categories</option>
+              <option value="uncategorized">⚠ Chưa phân loại ({uncategorizedCount})</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <Card className="bg-muted/30">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold">{prompts?.length || 0}</div>
@@ -242,6 +271,15 @@ export function PromptManager() {
                 <div className="text-xs text-muted-foreground">Defaults</div>
               </CardContent>
             </Card>
+            <Card className={`bg-muted/30 ${uncategorizedCount > 0 ? 'border-amber-500/50' : ''}`}>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-amber-500 flex items-center gap-1">
+                  {uncategorizedCount}
+                  {uncategorizedCount > 0 && <AlertTriangle className="h-4 w-4" />}
+                </div>
+                <div className="text-xs text-muted-foreground">Chưa phân loại</div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Prompt List */}
@@ -250,6 +288,7 @@ export function PromptManager() {
             isLoading={isLoading}
             onEdit={handleEditPrompt}
             onRefresh={refetch}
+            categories={categories}
           />
         </TabsContent>
 
@@ -269,6 +308,7 @@ export function PromptManager() {
         onOpenChange={setIsEditorOpen}
         onSave={handleSavePrompt}
         functionNames={functionNames}
+        categories={categories}
       />
     </div>
   );
