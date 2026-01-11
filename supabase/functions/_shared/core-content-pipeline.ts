@@ -18,6 +18,7 @@ export interface CoreContentConfig {
   contentAngle?: string;
   role?: CoreContentRole;
   qualityMode: CoreContentQualityMode;
+  lengthMode?: CoreContentLengthMode;
   brandContext: BrandContext | null;
   personas?: CustomerPersonaContext[];
   products?: BrandProductContext[];
@@ -122,7 +123,7 @@ export function getModelsForMode(
 }
 
 // ============================================
-// WORD BUDGET CALCULATION
+// WORD BUDGET CALCULATION - Quality Mode (Legacy)
 // ============================================
 
 interface WordBudget {
@@ -163,6 +164,76 @@ const WORD_BUDGETS: Record<CoreContentQualityMode, WordBudget> = {
 
 export function getWordBudget(mode: CoreContentQualityMode): WordBudget {
   return WORD_BUDGETS[mode];
+}
+
+// ============================================
+// WORD BUDGET CALCULATION - Length Mode (NEW)
+// ============================================
+
+export type CoreContentLengthMode = 'short' | 'medium' | 'long';
+
+interface LengthConfig {
+  minWords: number;
+  maxWords: number;
+  targetWords: number;
+  sectionBudgets: {
+    intro: number;
+    analysis: number;
+    impact: number;
+    solution: number;
+    conclusion: number;
+  };
+}
+
+const LENGTH_CONFIGS: Record<CoreContentLengthMode, LengthConfig> = {
+  short: {
+    minWords: 500,
+    maxWords: 700,
+    targetWords: 600,
+    sectionBudgets: {
+      intro: 80,
+      analysis: 180,
+      impact: 80,
+      solution: 160,
+      conclusion: 60,
+    },
+  },
+  medium: {
+    minWords: 700,
+    maxWords: 1200,
+    targetWords: 950,
+    sectionBudgets: {
+      intro: 130,
+      analysis: 300,
+      impact: 130,
+      solution: 280,
+      conclusion: 100,
+    },
+  },
+  long: {
+    minWords: 1200,
+    maxWords: 2000,
+    targetWords: 1500,
+    sectionBudgets: {
+      intro: 200,
+      analysis: 480,
+      impact: 200,
+      solution: 420,
+      conclusion: 160,
+    },
+  },
+};
+
+export function getLengthConfig(lengthMode: CoreContentLengthMode): LengthConfig {
+  return LENGTH_CONFIGS[lengthMode];
+}
+
+export function getWordBudgetByLength(lengthMode: CoreContentLengthMode): WordBudget {
+  const config = LENGTH_CONFIGS[lengthMode];
+  return {
+    total: config.targetWords,
+    ...config.sectionBudgets,
+  };
 }
 
 // ============================================
@@ -423,7 +494,21 @@ export interface EnhancedPromptConfig extends CoreContentConfig {
 }
 
 export function buildOutlinePrompt(config: EnhancedPromptConfig): string {
-  const wordBudget = getWordBudget(config.qualityMode);
+  // Use lengthMode if provided, otherwise fall back to qualityMode
+  const wordBudget = config.lengthMode 
+    ? getWordBudgetByLength(config.lengthMode) 
+    : getWordBudget(config.qualityMode);
+  
+  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
+  
+  // Build strict word count instruction if lengthMode is specified
+  const wordCountInstruction = lengthConfig ? `
+## 📏 ĐỘ DÀI BẮT BUỘC
+- Tổng số từ mục tiêu: ${lengthConfig.targetWords} từ
+- ⚠️ KHÔNG được viết ít hơn ${lengthConfig.minWords} từ
+- ⚠️ KHÔNG được viết nhiều hơn ${lengthConfig.maxWords} từ
+- Đây là YÊU CẦU CỨNG, phải tuân thủ tuyệt đối
+` : '';
   
   let prompt = `Bạn là content strategist chuyên nghiệp.
 
@@ -442,6 +527,7 @@ ${buildPersonaContextBlock(config.personas)}
 ${buildProductContextBlock(config.products)}
 ${config.targetAudience ? `\n## ĐỐI TƯỢNG MỤC TIÊU\n${config.targetAudience}` : ''}
 ${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalContext}` : ''}
+${wordCountInstruction}
 ${buildProofRequirementsBlock()}
 ${buildCompetitiveContextBlock(config.brandContext)}
 ${buildStyleGuideBlock(config.brandContext)}
@@ -554,7 +640,31 @@ KHÔNG thêm tiêu đề "Core Content" hay metadata.`;
 // ============================================
 
 export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
-  const wordBudget = getWordBudget(config.qualityMode);
+  // Use lengthMode if provided, otherwise fall back to qualityMode
+  const wordBudget = config.lengthMode 
+    ? getWordBudgetByLength(config.lengthMode) 
+    : getWordBudget(config.qualityMode);
+  
+  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
+  
+  // Build strict word count instruction if lengthMode is specified
+  const wordCountInstruction = lengthConfig ? `
+## 📏 ĐỘ DÀI BẮT BUỘC
+- Tổng số từ mục tiêu: ${lengthConfig.targetWords} từ
+- ⚠️ KHÔNG được viết ít hơn ${lengthConfig.minWords} từ
+- ⚠️ KHÔNG được viết nhiều hơn ${lengthConfig.maxWords} từ
+- Đây là YÊU CẦU CỨNG, phải tuân thủ tuyệt đối
+
+📝 Phân bổ cho từng phần:
+- Mở đầu: ~${lengthConfig.sectionBudgets.intro} từ
+- Phân tích: ~${lengthConfig.sectionBudgets.analysis} từ
+- Tác động: ~${lengthConfig.sectionBudgets.impact} từ
+- Giải pháp: ~${lengthConfig.sectionBudgets.solution} từ
+- Kết luận: ~${lengthConfig.sectionBudgets.conclusion} từ
+` : `
+## YÊU CẦU ĐỘ DÀI
+- Độ dài: ${wordBudget.total - 100} - ${wordBudget.total + 100} từ
+`;
   
   return `Bạn là content writer chuyên nghiệp. Viết Core Content (nội dung gốc) hoàn chỉnh.
 
@@ -570,23 +680,23 @@ ${buildPersonaContextBlock(config.personas)}
 ${buildProductContextBlock(config.products)}
 ${config.targetAudience ? `\n## ĐỐI TƯỢNG MỤC TIÊU\n${config.targetAudience}` : ''}
 ${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalContext}` : ''}
+${wordCountInstruction}
 ${buildProofRequirementsBlock()}
 ${buildCompetitiveContextBlock(config.brandContext)}
 ${buildStyleGuideBlock(config.brandContext)}
 ${config.smartContextInjection || ''}
 
 ## YÊU CẦU BẮT BUỘC
-1. Độ dài: ${wordBudget.total - 100} - ${wordBudget.total + 100} từ
-2. Cấu trúc 5 phần:
+1. Cấu trúc 5 phần:
    - Giới thiệu/Context (hook + bối cảnh)
    - Phân tích nguyên nhân/Tác động
    - Hậu quả đối với đối tượng mục tiêu
    - Giải pháp/Case study
    - Kết luận + CTA
-3. Tone: Chuyên nghiệp, chuyên gia
-4. Có ít nhất 5 điểm chính (bullet hoặc bold)
-5. Sử dụng Markdown (## heading, **bold**, - bullet)
-6. PHẢI có proof elements (số liệu, ví dụ, trích dẫn) trong mỗi phần chính
+2. Tone: Chuyên nghiệp, chuyên gia
+3. Có ít nhất 5 điểm chính (bullet hoặc bold)
+4. Sử dụng Markdown (## heading, **bold**, - bullet)
+5. PHẢI có proof elements (số liệu, ví dụ, trích dẫn) trong mỗi phần chính
 
 ## OUTPUT
 Viết trực tiếp nội dung Core Content.

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CoreContentQualityMode } from '@/types/coreContent';
+import { CoreContentQualityMode, CoreContentLengthMode } from '@/types/coreContent';
 import { ContentGoal, ContentAngle } from '@/types/multichannel';
 
 // ============================================
@@ -50,6 +50,7 @@ interface GenerateRequest {
   contentGoal: ContentGoal;
   contentAngle?: ContentAngle;
   qualityMode?: CoreContentQualityMode;
+  lengthMode?: CoreContentLengthMode;
   brandTemplateId?: string;
   organizationId: string;
   targetAudience?: string;

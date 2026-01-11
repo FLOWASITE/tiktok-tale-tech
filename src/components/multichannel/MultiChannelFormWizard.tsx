@@ -101,7 +101,7 @@ import {
   JOURNEY_TO_ANGLE_MAP,
   AiSuggestionContext,
 } from '@/types/multichannel';
-import { GOAL_TO_ROLE_MAP } from '@/types/coreContent';
+import { GOAL_TO_ROLE_MAP, CoreContentLengthMode, CORE_CONTENT_LENGTH_MODES } from '@/types/coreContent';
 import { MultiChannelHook } from '@/hooks/useMultiChannelHooks';
 
 interface BrandTemplate {
@@ -159,7 +159,6 @@ const CORE_CONTENT_QUALITY_MODES: {
   icon: string;
   description: string;
   time: string;
-  words: string;
 }[] = [
   {
     value: 'fast',
@@ -167,7 +166,6 @@ const CORE_CONTENT_QUALITY_MODES: {
     icon: '⚡',
     description: 'Single-pass generation',
     time: '5-10s',
-    words: '~800 từ',
   },
   {
     value: 'balanced',
@@ -175,7 +173,6 @@ const CORE_CONTENT_QUALITY_MODES: {
     icon: '⚖️',
     description: 'Multi-step với outline',
     time: '15-25s',
-    words: '~1200 từ',
   },
   {
     value: 'quality',
@@ -183,7 +180,6 @@ const CORE_CONTENT_QUALITY_MODES: {
     icon: '✨',
     description: 'Full pipeline với refine',
     time: '30-45s',
-    words: '~1500 từ',
   },
 ];
 
@@ -238,6 +234,7 @@ export function MultiChannelFormWizard({
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
   const [coreContentAudience, setCoreContentAudience] = useState('');
   const [coreContentQualityMode, setCoreContentQualityMode] = useState<CoreContentQualityMode>('balanced');
+  const [coreContentLengthMode, setCoreContentLengthMode] = useState<CoreContentLengthMode>('medium');
   const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
 
   // Background generation tracking - for tasks that continue when user navigates away
@@ -471,6 +468,7 @@ export function MultiChannelFormWizard({
         contentGoal: formData.contentGoal || 'education',
         contentAngle: coreContentAngle === '__none__' ? undefined : coreContentAngle,
         qualityMode: coreContentQualityMode,
+        lengthMode: coreContentLengthMode,
         brandTemplateId: brandTemplateId,
         organizationId,
         targetAudience: coreContentAudience || undefined,
@@ -479,7 +477,7 @@ export function MultiChannelFormWizard({
     } catch (error) {
       console.error('Core Content generation error:', error);
     }
-  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentQualityMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
+  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentQualityMode, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
   // Can proceed logic - NEW for 4-step flow with parallel workflow
   const canProceed = useMemo(() => {
@@ -992,6 +990,39 @@ export function MultiChannelFormWizard({
                             placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
                             className="min-h-[60px] text-sm resize-none"
                           />
+                        </div>
+
+                        {/* Length Mode Selector - NEW */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Độ dài nội dung</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {CORE_CONTENT_LENGTH_MODES.map((mode) => (
+                              <button
+                                key={mode.value}
+                                type="button"
+                                onClick={() => setCoreContentLengthMode(mode.value)}
+                                className={cn(
+                                  "p-2.5 rounded-lg border text-left transition-all relative",
+                                  coreContentLengthMode === mode.value
+                                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                    : "border-border/50 hover:bg-muted/30"
+                                )}
+                              >
+                                {mode.recommended && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30"
+                                  >
+                                    Khuyến khích
+                                  </Badge>
+                                )}
+                                <div className="text-sm font-medium">{mode.labelVi}</div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {mode.minWords}-{mode.maxWords} từ
+                                </p>
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         {/* Quality Mode Selector */}
