@@ -228,11 +228,13 @@ Trả về JSON hợp lệ.`;
         totalDurationMs: durationMs,
         organizationId,
         actionType: 'generate',
-        promptInfo: pm.getPromptInfo(),
       });
     } catch (err) {
       console.warn('[generate-storyboard] Failed to save metrics:', err);
     }
+
+    // Log prompt info for debugging
+    console.log('[generate-storyboard] Prompts used:', pm.getPromptInfo());
 
     return new Response(
       JSON.stringify({
