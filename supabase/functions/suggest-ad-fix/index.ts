@@ -1,5 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,15 +54,34 @@ serve(async (req) => {
       'linkedin': 'LinkedIn Ads',
     };
 
-    const systemPrompt = `Bạn là chuyên gia viết quảng cáo (copywriter) với kinh nghiệm sâu về các nền tảng quảng cáo số.
+    // Try to fetch system prompt from registry with fallback
+    const FALLBACK_SYSTEM = `Bạn là chuyên gia viết quảng cáo (copywriter) với kinh nghiệm sâu về các nền tảng quảng cáo số.
 Nhiệm vụ: Sửa lại nội dung quảng cáo để tuân thủ chính sách và tối ưu hiệu quả.
 
 Nguyên tắc:
 1. Giữ nguyên ý nghĩa và thông điệp cốt lõi
 2. Sửa tất cả các vấn đề được nêu
 3. Giữ độ dài tương đương hoặc ngắn hơn
-4. Tối ưu cho nền tảng ${platformNames[platform] || platform}
+4. Tối ưu cho nền tảng quảng cáo
 5. Dùng ngôn ngữ tự nhiên, không gượng gạo`;
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let systemPrompt = '';
+    try {
+      const promptManager = createPromptManager(supabase, 'suggest-ad-fix');
+      systemPrompt = await promptManager.get('system_fix', { 
+        field,
+        platform,
+        issues: JSON.stringify(issues.map(i => i.ruleName))
+      });
+      console.log('[suggest-ad-fix] Using prompt from registry');
+    } catch (err) {
+      console.warn('[suggest-ad-fix] Failed to fetch prompt from registry, using hardcoded fallback');
+    }
+    const finalSystemPrompt = (systemPrompt || FALLBACK_SYSTEM) + `\nTối ưu cho nền tảng ${platformNames[platform] || platform}`;
 
     const userPrompt = `Nội dung gốc (${field}):
 "${text}"
@@ -79,7 +100,7 @@ Hãy viết lại nội dung đã sửa và giải thích ngắn gọn những t
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: finalSystemPrompt },
           { role: 'user', content: userPrompt },
         ],
         tools: [

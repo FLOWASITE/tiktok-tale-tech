@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -40,15 +42,10 @@ serve(async (req) => {
       );
     }
 
-    const prompt = `Bạn là chuyên gia đánh giá chất lượng quảng cáo digital. Hãy phân tích và chấm điểm nội dung ad copy sau:
-
-${contentParts.join('\n')}
-
-Platform: ${platform || 'Facebook'}
-Objective: ${objective || 'conversions'}
+    // Try to fetch system prompt from registry with fallback
+    const FALLBACK_SYSTEM = `Bạn là chuyên gia đánh giá chất lượng quảng cáo digital.
 
 Hãy đánh giá theo các tiêu chí sau (mỗi tiêu chí 0-100 điểm):
-
 1. **Headline Score** (nếu có): Đánh giá sức thu hút, độ rõ ràng, power words
 2. **Primary Text Score** (nếu có): Đánh giá storytelling, benefit focus, emotional appeal
 3. **CTA Score** (nếu có): Đánh giá action-oriented, urgency, clarity
@@ -57,10 +54,37 @@ Hãy đánh giá theo các tiêu chí sau (mỗi tiêu chí 0-100 điểm):
 6. **Urgency Score**: Tính cấp bách, FOMO
 7. **Relevance Score**: Độ phù hợp với platform và objective
 
+Grade mapping:
+- A+: 95-100, A: 85-94, B: 70-84, C: 55-69, D: 40-54, F: 0-39`;
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let systemPrompt = '';
+    try {
+      const promptManager = createPromptManager(supabase, 'score-ad-creative');
+      systemPrompt = await promptManager.get('system_score', { 
+        platform: platform || 'Facebook',
+        objective: objective || 'conversions'
+      });
+      console.log('[score-ad-creative] Using prompt from registry');
+    } catch (err) {
+      console.warn('[score-ad-creative] Failed to fetch prompt from registry, using hardcoded fallback');
+    }
+    const finalSystemPrompt = systemPrompt || FALLBACK_SYSTEM;
+
+    const prompt = `Hãy phân tích và chấm điểm nội dung ad copy sau:
+
+${contentParts.join('\n')}
+
+Platform: ${platform || 'Facebook'}
+Objective: ${objective || 'conversions'}
+
 Cũng xác định:
 - **Strengths**: 2-4 điểm mạnh chính (tiếng Việt)
 - **Weaknesses**: 2-4 điểm yếu cần cải thiện (tiếng Việt)
-- **Optimization Priority**: Thành phần cần ưu tiên tối ưu nhất ('headline', 'primary_text', 'cta', hoặc 'overall')
+- **Optimization Priority**: Thành phần cần ưu tiên tối ưu nhất
 
 Trả về JSON theo format:
 {
@@ -73,32 +97,11 @@ Trả về JSON theo format:
   "clarity_score": number,
   "urgency_score": number,
   "relevance_score": number,
-  "score_breakdown": {
-    "headline": {
-      "score": number,
-      "factors": [{"name": "string", "score": number, "feedback": "string"}]
-    },
-    "primary_text": {
-      "score": number,
-      "factors": [{"name": "string", "score": number, "feedback": "string"}]
-    },
-    "cta": {
-      "score": number,
-      "factors": [{"name": "string", "score": number, "feedback": "string"}]
-    }
-  },
+  "score_breakdown": {...},
   "strengths": ["string"],
   "weaknesses": ["string"],
   "optimization_priority": "string"
 }
-
-Grade mapping:
-- A+: 95-100
-- A: 85-94
-- B: 70-84
-- C: 55-69
-- D: 40-54
-- F: 0-39
 
 Chỉ trả về JSON, không có text khác.`;
 
@@ -112,7 +115,7 @@ Chỉ trả về JSON, không có text khác.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are an expert ad copy analyst. Always respond with valid JSON only." },
+          { role: "system", content: finalSystemPrompt },
           { role: "user", content: prompt }
         ],
       }),
