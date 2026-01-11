@@ -66,6 +66,7 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
   const [isGenerating, setIsGenerating] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [progress, setProgress] = useState<CoreContentProgress>({
     step: '',
     progress: 0,
@@ -92,12 +93,40 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
       setProgress({ step: 'retrying', progress: 0, message: `Đang thử lại (${currentRetry}/${MAX_RETRIES})...`, isComplete: false });
     }
 
+    let taskId: string | null = null;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
 
-      if (!accessToken) {
+      if (!accessToken || !session?.user?.id) {
         throw new Error('Vui lòng đăng nhập để tạo nội dung');
+      }
+
+      // Create a background task for tracking (only on first try)
+      if (currentRetry === 0) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: task, error: taskError } = await (supabase as any)
+            .from('generation_tasks')
+            .insert({
+              user_id: session.user.id,
+              organization_id: request.organizationId || null,
+              task_type: 'core_content',
+              status: 'pending',
+              progress: 0,
+              input_params: request,
+            })
+            .select()
+            .single();
+
+          if (!taskError && task?.id) {
+            taskId = task.id;
+            setCurrentTaskId(taskId);
+          }
+        } catch (err) {
+          console.warn('[StreamingCoreContent] Failed to create task:', err);
+        }
       }
 
       const response = await fetch(
@@ -111,6 +140,7 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
           body: JSON.stringify({
             ...request,
             stream: true,
+            taskId, // Pass taskId to edge function for progress tracking
           }),
           signal: abortControllerRef.current.signal,
         }
@@ -297,6 +327,7 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
     setProgress({ step: '', progress: 0, message: '', isComplete: false });
     setLastError(null);
     setRetryCount(0);
+    setCurrentTaskId(null);
   }, []);
 
   return {
@@ -309,6 +340,7 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
     progress,
     retryCount,
     lastError,
+    currentTaskId,
     canRetry: !!lastRequestRef.current && !isGenerating,
   };
 }

@@ -125,89 +125,14 @@ interface GenerateCoreContentRequest {
 }
 
 // ============================================
-// TASK TRACKING HELPER
-// Updates generation_tasks table for background processing
+// TASK TRACKING HELPER - Import from shared module
 // ============================================
 
-// deno-lint-ignore no-explicit-any
-async function updateTaskProgress(
-  supabase: any,
-  taskId: string | undefined,
-  progress: number,
-  message: string,
-  step: string,
-  status: 'pending' | 'generating' | 'completed' | 'failed' = 'generating'
-): Promise<void> {
-  if (!taskId) return;
-  
-  try {
-    // Use raw SQL-style update to avoid type issues with new table
-    const updateData: Record<string, unknown> = {
-      status,
-      progress,
-      progress_message: message,
-      current_step: step,
-    };
-    if (status === 'generating' && progress === 0) {
-      updateData.started_at = new Date().toISOString();
-    }
-    
-    await (supabase as unknown as { from: (table: string) => { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } } })
-      .from('generation_tasks')
-      .update(updateData)
-      .eq('id', taskId);
-  } catch (err) {
-    console.warn(`[TaskTracking] Failed to update progress:`, err);
-  }
-}
-
-// deno-lint-ignore no-explicit-any
-async function completeTask(
-  supabase: any,
-  taskId: string | undefined,
-  resultId: string,
-  resultType: 'core_contents' | 'multi_channel_contents'
-): Promise<void> {
-  if (!taskId) return;
-  
-  try {
-    await (supabase as unknown as { from: (table: string) => { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } } })
-      .from('generation_tasks')
-      .update({
-        status: 'completed',
-        progress: 100,
-        progress_message: 'Hoàn thành',
-        result_id: resultId,
-        result_type: resultType,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', taskId);
-  } catch (err) {
-    console.warn(`[TaskTracking] Failed to complete task:`, err);
-  }
-}
-
-// deno-lint-ignore no-explicit-any
-async function failTask(
-  supabase: any,
-  taskId: string | undefined,
-  errorMessage: string
-): Promise<void> {
-  if (!taskId) return;
-  
-  try {
-    await (supabase as unknown as { from: (table: string) => { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } } })
-      .from('generation_tasks')
-      .update({
-        status: 'failed',
-        error_message: errorMessage,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', taskId);
-  } catch (err) {
-    console.warn(`[TaskTracking] Failed to fail task:`, err);
-  }
-}
+import { 
+  updateTaskProgress, 
+  completeTask, 
+  failTask 
+} from '../_shared/task-tracking.ts';
 
 interface CoreContentResponse {
   id: string;

@@ -84,7 +84,7 @@ import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
 import { ActiveTasksIndicator } from '@/components/multichannel/ActiveTasksIndicator';
-import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
+import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -236,15 +236,35 @@ export function MultiChannelFormWizard({
   const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
 
   // Background generation tracking - for tasks that continue when user navigates away
-  const { activeTasks, dismissTask } = useBackgroundGeneration({
-    onTaskComplete: (task) => {
+  const { activeTasks, completedTasks, getTaskResult, dismissTask, isChecking: isCheckingTasks } = useBackgroundGeneration({
+    onTaskComplete: async (task) => {
       if (task.task_type === 'core_content') {
-        toast.success('Core Content đã hoàn tất!', {
-          description: 'Bạn có thể tiếp tục tạo nội dung đa kênh',
-        });
+        // Fetch and apply result
+        const result = await getTaskResult(task.id);
+        if (result?.type === 'core_content' && result.data) {
+          setCoreContentData({
+            id: result.data.id,
+            title: result.data.title,
+            content: result.data.content,
+            wordCount: result.data.word_count || 0,
+            qualityScore: result.data.quality_score || 0,
+            keyMessages: Array.isArray(result.data.key_messages) ? result.data.key_messages as string[] : [],
+            contentGoal: result.data.content_goal as ContentGoal | undefined,
+          });
+          setFormData(prev => ({ 
+            ...prev, 
+            coreContentId: result.data.id,
+          }));
+          toast.success('Core Content đã hoàn tất!', {
+            description: 'Bạn có thể tiếp tục tạo nội dung đa kênh',
+          });
+        }
       }
     },
   });
+
+  // Track if we're resuming from a background task
+  const [isResumedFromBackground, setIsResumedFromBackground] = useState(false);
 
   // Streaming Core Content hook with retry support
   const {
@@ -627,6 +647,48 @@ export function MultiChannelFormWizard({
         });
     }
   }, [coreContentData?.id, formData.coreContentId, pendingMultiChannelGeneration, isGenerating, isGeneratingCoreContent]);
+
+  // Resume from background tasks on mount
+  useEffect(() => {
+    if (isCheckingTasks) return;
+    
+    const coreContentTask = activeTasks.find(
+      t => t.task_type === 'core_content' && 
+      (t.status === 'pending' || t.status === 'generating')
+    );
+    
+    if (coreContentTask && !isResumedFromBackground) {
+      setIsResumedFromBackground(true);
+      // Resume UI with progress from background task
+      toast.info('Đang tiếp tục tạo Core Content...', {
+        description: `Tiến độ: ${coreContentTask.progress}%`,
+      });
+    }
+  }, [activeTasks, isCheckingTasks, isResumedFromBackground]);
+
+  // Handle clicking on a background task
+  const handleTaskClick = useCallback(async (task: GenerationTask) => {
+    if (task.status === 'completed' && task.result_id) {
+      const result = await getTaskResult(task.id);
+      if (result?.type === 'core_content' && result.data) {
+        setCoreContentData({
+          id: result.data.id,
+          title: result.data.title,
+          content: result.data.content,
+          wordCount: result.data.word_count || 0,
+          qualityScore: result.data.quality_score || 0,
+          keyMessages: Array.isArray(result.data.key_messages) ? result.data.key_messages as string[] : [],
+          contentGoal: result.data.content_goal as ContentGoal | undefined,
+        });
+        setFormData(prev => ({ 
+          ...prev, 
+          coreContentId: result.data.id,
+        }));
+        setShowPreviewPopup(true);
+        dismissTask(task.id);
+      }
+    }
+  }, [getTaskResult, dismissTask]);
 
   // Channel categories
   const channelCategories = [
@@ -1435,8 +1497,9 @@ export function MultiChannelFormWizard({
 
         {/* Background Tasks Indicator - shows tasks that continue when user navigates away */}
         <ActiveTasksIndicator
-          tasks={activeTasks}
+          tasks={[...activeTasks, ...completedTasks]}
           onDismiss={dismissTask}
+          onTaskClick={handleTaskClick}
         />
 
         {/* Core Content Preview Popup */}
