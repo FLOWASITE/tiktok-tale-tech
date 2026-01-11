@@ -1374,6 +1374,8 @@ export type Database = {
       }
       ai_metrics: {
         Row: {
+          ab_test_id: string | null
+          ab_test_variant: string | null
           action_type: string | null
           ai_call_duration_ms: number | null
           brand_template_id: string | null
@@ -1397,6 +1399,8 @@ export type Database = {
           models_used: Json | null
           organization_id: string | null
           output_tokens_estimated: number | null
+          prompt_id: string | null
+          prompt_version: number | null
           quality_mode: string | null
           retry_count: number | null
           tools_executed: string[] | null
@@ -1407,6 +1411,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          ab_test_id?: string | null
+          ab_test_variant?: string | null
           action_type?: string | null
           ai_call_duration_ms?: number | null
           brand_template_id?: string | null
@@ -1430,6 +1436,8 @@ export type Database = {
           models_used?: Json | null
           organization_id?: string | null
           output_tokens_estimated?: number | null
+          prompt_id?: string | null
+          prompt_version?: number | null
           quality_mode?: string | null
           retry_count?: number | null
           tools_executed?: string[] | null
@@ -1440,6 +1448,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          ab_test_id?: string | null
+          ab_test_variant?: string | null
           action_type?: string | null
           ai_call_duration_ms?: number | null
           brand_template_id?: string | null
@@ -1463,6 +1473,8 @@ export type Database = {
           models_used?: Json | null
           organization_id?: string | null
           output_tokens_estimated?: number | null
+          prompt_id?: string | null
+          prompt_version?: number | null
           quality_mode?: string | null
           retry_count?: number | null
           tools_executed?: string[] | null
@@ -1474,6 +1486,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "ai_metrics_ab_test_id_fkey"
+            columns: ["ab_test_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_ab_tests"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ai_metrics_brand_template_id_fkey"
             columns: ["brand_template_id"]
             isOneToOne: false
@@ -1482,6 +1501,257 @@ export type Database = {
           },
           {
             foreignKeyName: "ai_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_metrics_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompt_ab_tests: {
+        Row: {
+          completed_at: string | null
+          confidence_level: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          function_name: string
+          id: string
+          min_sample_size: number | null
+          name: string
+          organization_id: string | null
+          prompt_key: string
+          start_date: string | null
+          status: string | null
+          updated_at: string | null
+          variant_a_avg_score: number | null
+          variant_a_avg_time_ms: number | null
+          variant_a_id: string | null
+          variant_a_impressions: number | null
+          variant_a_weight: number | null
+          variant_b_avg_score: number | null
+          variant_b_avg_time_ms: number | null
+          variant_b_id: string | null
+          variant_b_impressions: number | null
+          winner_variant: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          confidence_level?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          function_name: string
+          id?: string
+          min_sample_size?: number | null
+          name: string
+          organization_id?: string | null
+          prompt_key: string
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          variant_a_avg_score?: number | null
+          variant_a_avg_time_ms?: number | null
+          variant_a_id?: string | null
+          variant_a_impressions?: number | null
+          variant_a_weight?: number | null
+          variant_b_avg_score?: number | null
+          variant_b_avg_time_ms?: number | null
+          variant_b_id?: string | null
+          variant_b_impressions?: number | null
+          winner_variant?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          confidence_level?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          function_name?: string
+          id?: string
+          min_sample_size?: number | null
+          name?: string
+          organization_id?: string | null
+          prompt_key?: string
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          variant_a_avg_score?: number | null
+          variant_a_avg_time_ms?: number | null
+          variant_a_id?: string | null
+          variant_a_impressions?: number | null
+          variant_a_weight?: number | null
+          variant_b_avg_score?: number | null
+          variant_b_avg_time_ms?: number | null
+          variant_b_id?: string | null
+          variant_b_impressions?: number | null
+          winner_variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_ab_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_ab_tests_variant_a_id_fkey"
+            columns: ["variant_a_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_ab_tests_variant_b_id_fkey"
+            columns: ["variant_b_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompt_history: {
+        Row: {
+          avg_generation_time_ms: number | null
+          avg_quality_score: number | null
+          change_reason: string | null
+          change_type: string | null
+          changed_by: string | null
+          content: string
+          created_at: string | null
+          id: string
+          organization_id: string | null
+          prompt_id: string | null
+          usage_count: number | null
+          variables: Json | null
+          version: number
+        }
+        Insert: {
+          avg_generation_time_ms?: number | null
+          avg_quality_score?: number | null
+          change_reason?: string | null
+          change_type?: string | null
+          changed_by?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          prompt_id?: string | null
+          usage_count?: number | null
+          variables?: Json | null
+          version: number
+        }
+        Update: {
+          avg_generation_time_ms?: number | null
+          avg_quality_score?: number | null
+          change_reason?: string | null
+          change_type?: string | null
+          changed_by?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          prompt_id?: string | null
+          usage_count?: number | null
+          variables?: Json | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_history_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompts: {
+        Row: {
+          category_id: string | null
+          content: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          function_name: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          organization_id: string | null
+          prompt_key: string
+          prompt_type: string
+          tags: string[] | null
+          updated_at: string | null
+          variables: Json | null
+          version: number
+        }
+        Insert: {
+          category_id?: string | null
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          function_name: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          organization_id?: string | null
+          prompt_key: string
+          prompt_type: string
+          tags?: string[] | null
+          updated_at?: string | null
+          variables?: Json | null
+          version?: number
+        }
+        Update: {
+          category_id?: string | null
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          function_name?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string | null
+          prompt_key?: string
+          prompt_type?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          variables?: Json | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "ai_function_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompts_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
