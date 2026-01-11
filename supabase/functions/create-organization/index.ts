@@ -1,7 +1,7 @@
 // Lovable Cloud backend function: create-organization
 // Creates a new organization and adds the requesting user as owner.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
