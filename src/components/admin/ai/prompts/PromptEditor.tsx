@@ -41,8 +41,8 @@ interface PromptEditorProps {
 const PROMPT_TYPES = [
   { value: "system", label: "System Prompt" },
   { value: "user", label: "User Template" },
-  { value: "assistant", label: "Assistant Template" },
-  { value: "few-shot", label: "Few-shot Example" },
+  { value: "template", label: "Generation Template" },
+  { value: "component", label: "Component/Partial" },
 ];
 
 export function PromptEditor({ 
