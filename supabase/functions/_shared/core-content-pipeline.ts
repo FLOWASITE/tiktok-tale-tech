@@ -574,6 +574,20 @@ export function buildSectionPrompt(
     .map((s, i) => `${i + 1}. ${s.title} (${s.wordBudget} từ)`)
     .join('\n');
   
+  // Get length config for strict enforcement
+  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
+  const totalWordBudget = outline.sections.reduce((sum, s) => sum + s.wordBudget, 0);
+  
+  // Strict word count instruction for this section
+  const sectionWordInstruction = lengthConfig 
+    ? `
+⚠️ YÊU CẦU CỨNG VỀ ĐỘ DÀI:
+- Phần này PHẢI có ĐÚNG ${section.wordBudget} từ (±10%, tức ${Math.round(section.wordBudget * 0.9)}-${Math.round(section.wordBudget * 1.1)} từ)
+- Tổng bài viết sẽ có ${lengthConfig.minWords}-${lengthConfig.maxWords} từ
+- KHÔNG được viết ngắn hơn hoặc dài hơn budget này!
+` 
+    : '';
+  
   return `Bạn là content writer chuyên nghiệp. Viết một phần của Core Content.
 
 ## OUTLINE TỔNG THỂ
@@ -584,6 +598,7 @@ Viết phần ${sectionIndex + 1}: "${section.title}"
 - Word budget: ${section.wordBudget} từ (±10%)
 - Bullet points cần cover:
 ${section.bulletPoints.map(bp => `  - ${bp}`).join('\n')}
+${sectionWordInstruction}
 ${buildBrandContextBlock(config.brandContext)}
 ${buildRoleContext(config.role)}
 ${buildProofRequirementsBlock()}
@@ -595,6 +610,7 @@ ${buildProofRequirementsBlock()}
 - Sử dụng ví dụ cụ thể khi cần
 - KHÔNG thêm hook mạnh hoặc emoji
 - PHẢI có proof elements (số liệu, ví dụ, trích dẫn)
+- PHẢI TUÂN THỦ WORD BUDGET: ${section.wordBudget} từ ±10%
 
 ## OUTPUT
 Viết trực tiếp nội dung phần này dạng Markdown.
@@ -615,20 +631,36 @@ export function buildCompilePrompt(
     .map(s => s.content)
     .join('\n\n');
   
+  // Get strict word limits from lengthMode if available
+  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
+  
+  const wordLimitInstruction = lengthConfig 
+    ? `
+## 📏 ĐỘ DÀI BẮT BUỘC
+- ⚠️ Tổng bài PHẢI có ${lengthConfig.minWords}-${lengthConfig.maxWords} từ
+- Mục tiêu: ${lengthConfig.targetWords} từ
+- KHÔNG được viết ngắn hơn ${lengthConfig.minWords} từ
+- KHÔNG được viết dài hơn ${lengthConfig.maxWords} từ
+- Nếu thiếu từ: BỔ SUNG ví dụ, số liệu, phân tích sâu hơn
+- Nếu thừa từ: TINH GỌN câu văn, loại bỏ nội dung trùng lặp
+`
+    : `4. Giữ độ dài tổng: ${wordBudget.total - 100} - ${wordBudget.total + 100} từ`;
+  
   return `Bạn là senior editor. Ghép và polish các phần sau thành Core Content hoàn chỉnh.
 
 ## NỘI DUNG CÁC PHẦN
 ${allContent}
 ${buildBrandContextBlock(config.brandContext)}
 ${buildRoleContext(config.role)}
+${wordLimitInstruction}
 
 ## YÊU CẦU
 1. Đảm bảo logic chảy mượt giữa các phần
 2. Nhất quán tone và brand voice toàn bài
 3. KHÔNG thêm hook mạnh, emoji quá mức
-4. Giữ độ dài tổng: ${wordBudget.total - 100} - ${wordBudget.total + 100} từ
-5. Sử dụng Markdown (## heading, **bold**, bullet points)
-6. Đảm bảo có ít nhất 5 điểm chính được highlight
+4. Sử dụng Markdown (## heading, **bold**, bullet points)
+5. Đảm bảo có ít nhất 5 điểm chính được highlight
+6. ⚠️ ĐẢM BẢO WORD COUNT NẰM TRONG GIỚI HẠN ĐÃ CHỈ ĐỊNH
 
 ## OUTPUT
 Full Core Content dạng Markdown.
