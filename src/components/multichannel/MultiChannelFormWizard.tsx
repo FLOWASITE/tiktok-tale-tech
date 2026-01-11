@@ -83,6 +83,8 @@ import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarn
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
+import { ActiveTasksIndicator } from '@/components/multichannel/ActiveTasksIndicator';
+import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -232,6 +234,17 @@ export function MultiChannelFormWizard({
   const [coreContentAudience, setCoreContentAudience] = useState('');
   const [coreContentQualityMode, setCoreContentQualityMode] = useState<CoreContentQualityMode>('balanced');
   const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
+
+  // Background generation tracking - for tasks that continue when user navigates away
+  const { activeTasks, dismissTask } = useBackgroundGeneration({
+    onTaskComplete: (task) => {
+      if (task.task_type === 'core_content') {
+        toast.success('Core Content đã hoàn tất!', {
+          description: 'Bạn có thể tiếp tục tạo nội dung đa kênh',
+        });
+      }
+    },
+  });
 
   // Streaming Core Content hook with retry support
   const {
@@ -1418,6 +1431,12 @@ export function MultiChannelFormWizard({
             setFormData(prev => ({ ...prev, topic }));
             toast.success('Đã chọn chủ đề từ AI!');
           }}
+        />
+
+        {/* Background Tasks Indicator - shows tasks that continue when user navigates away */}
+        <ActiveTasksIndicator
+          tasks={activeTasks}
+          onDismiss={dismissTask}
         />
 
         {/* Core Content Preview Popup */}
