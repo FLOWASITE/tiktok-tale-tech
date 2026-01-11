@@ -630,16 +630,30 @@ export function MultiChannelFormWizard({
                   />
                 )}
 
-                {/* Brainstorm Button */}
+                {/* AI Brainstorm Button - Special Design */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowBrainstormSheet(true)}
-                  className="gap-2 text-primary border-primary/30 hover:bg-primary/5"
+                  className={cn(
+                    "relative gap-2 overflow-hidden group",
+                    "bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-fuchsia-500/10",
+                    "border-violet-400/40 hover:border-violet-400/60",
+                    "text-violet-600 dark:text-violet-400",
+                    "hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]",
+                    "transition-all duration-300"
+                  )}
                   disabled={isGenerating}
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  Brainstorm với AI
+                  {/* Animated gradient background */}
+                  <span className="absolute inset-0 bg-gradient-to-r from-violet-500/0 via-purple-500/20 to-fuchsia-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse" />
+                  
+                  {/* Sparkle icon with animation */}
+                  <Sparkles className="w-4 h-4 group-hover:animate-spin transition-transform duration-700" />
+                  <span className="relative font-medium">Brainstorm với AI</span>
+                  
+                  {/* Decorative glow dot */}
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
                 </Button>
 
                 {/* Content Goal Selector */}
