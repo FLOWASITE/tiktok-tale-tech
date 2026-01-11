@@ -263,6 +263,19 @@ export function MultiChannelFormWizard({
           });
         }
       }
+      
+      // NEW: Handle multichannel task completion
+      if (task.task_type === 'multichannel') {
+        toast.success('Nội dung đa kênh đã sẵn sàng!', {
+          action: {
+            label: 'Xem ngay',
+            onClick: () => {
+              window.location.href = `/multichannel?view=${task.result_id}`;
+            },
+          },
+          duration: 10000,
+        });
+      }
     },
   });
 
@@ -660,11 +673,25 @@ export function MultiChannelFormWizard({
       (t.status === 'pending' || t.status === 'generating')
     );
     
+    // NEW: Check for multichannel tasks
+    const multiChannelTask = activeTasks.find(
+      t => t.task_type === 'multichannel' && 
+      (t.status === 'pending' || t.status === 'generating')
+    );
+    
     if (coreContentTask && !isResumedFromBackground) {
       setIsResumedFromBackground(true);
       // Resume UI with progress from background task
       toast.info('Đang tiếp tục tạo Core Content...', {
         description: `Tiến độ: ${coreContentTask.progress}%`,
+      });
+    }
+    
+    // NEW: Resume multichannel task
+    if (multiChannelTask && !isResumedFromBackground) {
+      setIsResumedFromBackground(true);
+      toast.info('Đang tiếp tục tạo nội dung đa kênh...', {
+        description: `Tiến độ: ${multiChannelTask.progress}%`,
       });
     }
   }, [activeTasks, isCheckingTasks, isResumedFromBackground]);
@@ -673,6 +700,8 @@ export function MultiChannelFormWizard({
   const handleTaskClick = useCallback(async (task: GenerationTask) => {
     if (task.status === 'completed' && task.result_id) {
       const result = await getTaskResult(task.id);
+      
+      // Handle Core Content result
       if (result?.type === 'core_content' && result.data) {
         setCoreContentData({
           id: result.data.id,
@@ -688,6 +717,13 @@ export function MultiChannelFormWizard({
           coreContentId: result.data.id,
         }));
         setShowPreviewPopup(true);
+        dismissTask(task.id);
+      }
+      
+      // NEW: Handle Multi-channel result - navigate to viewer
+      if (result?.type === 'multichannel' && result.data) {
+        // Navigate to multichannel viewer with the content ID
+        window.location.href = `/multichannel?view=${result.data.id}`;
         dismissTask(task.id);
       }
     }
