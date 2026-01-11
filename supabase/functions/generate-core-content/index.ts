@@ -56,8 +56,12 @@ function createSSEStream() {
     }
   };
   
-  const sendProgress = (step: string, progress: number, message: string) => {
-    send({ type: 'progress', step, progress, message });
+  const sendProgress = (step: string, progress: number, message: string, extra?: { stepProgress?: number; totalSteps?: number; currentStepIndex?: number; estimatedRemainingMs?: number; sectionInfo?: { current: number; total: number; title: string } }) => {
+    send({ type: 'progress', step, progress, message, ...extra });
+  };
+  
+  const sendKeepAlive = () => {
+    send({ type: 'keepalive', timestamp: Date.now() });
   };
   
   const sendText = (content: string) => {
@@ -87,7 +91,7 @@ function createSSEStream() {
     }
   };
   
-  return { stream, send, sendProgress, sendText, sendSectionComplete, sendResult, sendError, close };
+  return { stream, send, sendProgress, sendText, sendSectionComplete, sendResult, sendError, sendKeepAlive, close };
 }
 
 // ============================================
@@ -335,8 +339,21 @@ async function callAIStreaming(
 // MULTI-STEP PIPELINE
 // ============================================
 
+// Extended progress data for detailed UI
+interface DetailedProgressData {
+  stepProgress?: number;           // 0-100 for current step
+  totalSteps?: number;
+  currentStepIndex?: number;
+  estimatedRemainingMs?: number;
+  sectionInfo?: {
+    current: number;
+    total: number;
+    title: string;
+  };
+}
+
 interface StreamingCallbacks {
-  sendProgress: (step: string, progress: number, message: string) => void;
+  sendProgress: (step: string, progress: number, message: string, extra?: DetailedProgressData) => void;
   sendText: (content: string) => void;
   sendSectionComplete: (content: string, sectionIndex: number) => void;
 }
@@ -500,12 +517,33 @@ async function generateWithPipelineStreaming(
   let totalTokensEstimated = 0;
   
   console.log(`[Pipeline-Stream] Starting ${config.qualityMode} mode generation`);
-  callbacks.sendProgress('init', 5, 'Đang khởi tạo...');
+  
+  // Step duration estimates (ms) for time remaining calculation
+  const STEP_DURATIONS = {
+    fast_single: 25000,
+    outline: 4000,
+    section: 6000,
+    compile: 8000,
+    saving: 1000,
+  };
+  
+  const pipelineStartTime = Date.now();
+  
+  callbacks.sendProgress('init', 5, 'Đang khởi tạo...', {
+    totalSteps: config.qualityMode === 'fast' ? 1 : 3, // fast=1, balanced/quality=outline+sections+compile
+    currentStepIndex: 0,
+    estimatedRemainingMs: config.qualityMode === 'fast' ? STEP_DURATIONS.fast_single : STEP_DURATIONS.outline + STEP_DURATIONS.section * 5 + STEP_DURATIONS.compile,
+  });
   
   // ========== FAST MODE: Single-pass with streaming ==========
   if (config.qualityMode === 'fast') {
     console.log('[Pipeline-Stream] Fast mode: single-pass generation');
-    callbacks.sendProgress('generating', 10, 'Đang tạo nội dung...');
+    callbacks.sendProgress('generating', 10, 'Đang tạo nội dung...', {
+      totalSteps: 1,
+      currentStepIndex: 0,
+      stepProgress: 0,
+      estimatedRemainingMs: STEP_DURATIONS.fast_single,
+    });
     
     const prompt = buildSinglePassPrompt(config);
     const content = await callAIStreaming(
@@ -522,7 +560,12 @@ async function generateWithPipelineStreaming(
     modelsUsed.push(models.compile);
     totalTokensEstimated = 4000;
     
-    callbacks.sendProgress('complete', 95, 'Đang hoàn thiện...');
+    callbacks.sendProgress('complete', 95, 'Đang hoàn thiện...', {
+      totalSteps: 1,
+      currentStepIndex: 0,
+      stepProgress: 100,
+      estimatedRemainingMs: 500,
+    });
     
     return {
       content,
@@ -533,8 +576,17 @@ async function generateWithPipelineStreaming(
   
   // ========== BALANCED/QUALITY: Multi-step with streaming ==========
   
+  // Calculate total steps: 1 (outline) + N (sections) + 1 (compile)
+  const estimatedSections = 5; // Default estimate before we know actual count
+  const totalStepsEstimate = 2 + estimatedSections; // outline + sections + compile
+  
   // Step 1: Generate Outline
-  callbacks.sendProgress('outline', 10, 'Đang tạo dàn ý...');
+  callbacks.sendProgress('outline', 10, 'Đang tạo dàn ý...', {
+    totalSteps: totalStepsEstimate,
+    currentStepIndex: 0,
+    stepProgress: 0,
+    estimatedRemainingMs: STEP_DURATIONS.outline + STEP_DURATIONS.section * estimatedSections + STEP_DURATIONS.compile,
+  });
   console.log('[Pipeline-Stream] Step 1: Generating outline...');
   
   const outlinePrompt = buildOutlinePrompt(config);
@@ -555,10 +607,21 @@ async function generateWithPipelineStreaming(
   try {
     outline = parseOutlineJSON(outlineResponse);
     console.log(`[Pipeline-Stream] Outline parsed: ${outline.sections.length} sections`);
-    callbacks.sendProgress('outline_done', 20, `Dàn ý: ${outline.sections.length} phần`);
+    
+    const actualTotalSteps = 2 + outline.sections.length; // outline + sections + compile
+    callbacks.sendProgress('outline_done', 20, `Dàn ý: ${outline.sections.length} phần`, {
+      totalSteps: actualTotalSteps,
+      currentStepIndex: 1,
+      stepProgress: 100,
+      estimatedRemainingMs: STEP_DURATIONS.section * outline.sections.length + STEP_DURATIONS.compile,
+    });
   } catch (err) {
     console.error('[Pipeline-Stream] Outline parsing failed, falling back to single-pass');
-    callbacks.sendProgress('fallback', 15, 'Chuyển sang chế độ đơn giản...');
+    callbacks.sendProgress('fallback', 15, 'Chuyển sang chế độ đơn giản...', {
+      totalSteps: 1,
+      currentStepIndex: 0,
+      estimatedRemainingMs: STEP_DURATIONS.fast_single,
+    });
     
     const prompt = buildSinglePassPrompt(config);
     const content = await callAIStreaming(
@@ -581,12 +644,26 @@ async function generateWithPipelineStreaming(
   // Step 2-N: Generate each section with streaming
   const sections: GeneratedSection[] = [];
   const totalSections = outline.sections.length;
+  const actualTotalSteps = 2 + totalSections; // outline + sections + compile
   let accumulatedContent = '';
   
   for (let i = 0; i < totalSections; i++) {
     const section = outline.sections[i];
     const sectionProgress = 20 + Math.floor((i / totalSections) * 50);
-    callbacks.sendProgress(`section_${i + 1}`, sectionProgress, `Đang viết: ${section.title}`);
+    const remainingSections = totalSections - i;
+    const estimatedRemainingMs = STEP_DURATIONS.section * remainingSections + STEP_DURATIONS.compile;
+    
+    callbacks.sendProgress(`section_${i + 1}`, sectionProgress, `Đang viết: ${section.title}`, {
+      totalSteps: actualTotalSteps,
+      currentStepIndex: 1 + i, // 1 for outline + current section index
+      stepProgress: 0,
+      estimatedRemainingMs,
+      sectionInfo: {
+        current: i + 1,
+        total: totalSections,
+        title: section.title,
+      },
+    });
     console.log(`[Pipeline-Stream] Generating section ${i + 1}: ${section.title}`);
     
     const sectionPrompt = buildSectionPrompt(config, outline, i);
@@ -621,8 +698,13 @@ async function generateWithPipelineStreaming(
     totalTokensEstimated += section.wordBudget * 2;
   }
   
-  // Step Final: Compile & Refine (no streaming for this step, it rewrites everything)
-  callbacks.sendProgress('compile', 75, 'Đang biên tập và hoàn thiện...');
+  // Step Final: Compile & Refine
+  callbacks.sendProgress('compile', 75, 'Đang biên tập và hoàn thiện...', {
+    totalSteps: actualTotalSteps,
+    currentStepIndex: actualTotalSteps - 1, // Last step
+    stepProgress: 0,
+    estimatedRemainingMs: STEP_DURATIONS.compile,
+  });
   console.log('[Pipeline-Stream] Final step: Compiling and refining...');
   
   const compilePrompt = buildCompilePrompt(config, sections, wordBudget);
@@ -640,7 +722,12 @@ async function generateWithPipelineStreaming(
   modelsUsed.push(models.compile);
   totalTokensEstimated += 4000;
   
-  callbacks.sendProgress('saving', 95, 'Đang lưu...');
+  callbacks.sendProgress('saving', 95, 'Đang lưu...', {
+    totalSteps: actualTotalSteps,
+    currentStepIndex: actualTotalSteps,
+    stepProgress: 100,
+    estimatedRemainingMs: STEP_DURATIONS.saving,
+  });
   console.log(`[Pipeline-Stream] Complete! ${stepsCompleted.length} steps, ~${totalTokensEstimated} tokens`);
   
   return {
@@ -886,6 +973,11 @@ serve(async (req: Request) => {
         sse.sendProgress('research', 5, `Đã thu thập ${researchData.facts.length} facts từ web`);
       }
       
+      // Keepalive interval to prevent connection timeout
+      const keepAliveInterval = setInterval(() => {
+        sse.sendKeepAlive();
+      }, 15000); // Every 15 seconds
+      
       // Run pipeline in background
       (async () => {
         try {
@@ -901,6 +993,7 @@ serve(async (req: Request) => {
           );
           
           if (!result.content || result.content.length < 300) {
+            clearInterval(keepAliveInterval);
             sse.sendError('Generated content too short');
             sse.close();
             return;
@@ -975,6 +1068,7 @@ serve(async (req: Request) => {
           
           if (insertError) {
             console.error(`[generate-core-content] Insert error:`, insertError);
+            clearInterval(keepAliveInterval);
             sse.sendError(`Failed to save: ${insertError.message}`);
             sse.close();
             return;
@@ -1031,9 +1125,11 @@ serve(async (req: Request) => {
             },
           });
           
+          clearInterval(keepAliveInterval);
           sse.close();
         } catch (error) {
           console.error(`[generate-core-content] Stream error:`, error);
+          clearInterval(keepAliveInterval);
           sse.sendError(error instanceof Error ? error.message : 'Unknown error');
           sse.close();
         }
