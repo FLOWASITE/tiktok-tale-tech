@@ -1,12 +1,13 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // Import shared modules
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { fetchIndustryMemory } from "../_shared/data-fetchers/industry-fetcher.ts";
 import { buildIndustryContextSection } from "../_shared/context-builders/industry-context.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -591,7 +592,24 @@ Return JSON array with ${variationCount} variations:
       retention: 'Loyalty rewards, exclusive offers, community belonging',
     };
 
-    const systemPrompt = `You are an expert advertising copywriter specializing in digital ads. 
+    // Try to fetch system prompt from registry
+    let baseSystemPrompt = '';
+    try {
+      const serviceSupabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      const promptManager = createPromptManager(serviceSupabase, 'generate-ad-copy', organizationId);
+      baseSystemPrompt = await promptManager.get('system_prompt', {
+        platform,
+        objective,
+        forbiddenTerms: industryForbiddenTerms.join(', '),
+      });
+    } catch (err) {
+      console.warn('[generate-ad-copy] Failed to fetch prompt from registry, using hardcoded');
+    }
+
+    const systemPrompt = baseSystemPrompt || `You are an expert advertising copywriter specializing in digital ads. 
 Generate high-converting ad copy following these strict guidelines:
 
 ${platformInstructions}

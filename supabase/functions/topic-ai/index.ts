@@ -9,7 +9,8 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import {
@@ -274,9 +275,26 @@ async function handleRefine(
                         videoType === 'warning_mistake' ? 'cảnh báo sai lầm' :
                         videoType === 'quick_qa' ? 'hỏi đáp nhanh' : 'video marketing';
 
+  // Try to fetch system prompt from registry, fallback to hardcoded
+  let systemPrompt = '';
+  try {
+    const promptManager = createPromptManager(supabase, 'topic-ai', organizationId);
+    systemPrompt = await promptManager.get('system_refine');
+  } catch (err) {
+    console.warn('[topic-ai:refine] Failed to fetch prompt from registry, using hardcoded');
+  }
+
   // Build prompt
   const promptParts: string[] = [];
-  promptParts.push(`Bạn là Content Strategist chuyên nghiệp. Cải thiện chủ đề thô thành 3 phiên bản hay hơn, cụ thể hơn, hấp dẫn hơn.
+  const basePrompt = systemPrompt || `Bạn là Content Strategist chuyên nghiệp. Cải thiện chủ đề thô thành 3 phiên bản hay hơn, cụ thể hơn, hấp dẫn hơn.
+
+## NGUYÊN TẮC CẢI THIỆN:
+1. Cụ thể hóa: Thêm số liệu, thời gian, đối tượng cụ thể
+2. Tạo góc nhìn mới: Practical, Controversial, Educational, Storytelling
+3. Hook-friendly: Tiêu đề có thể chuyển thành hook video ngay
+4. Phù hợp thương hiệu: Không vi phạm tone và guideline`;
+
+  promptParts.push(`${basePrompt}
 
 ## CHỦ ĐỀ THÔ
 "${rawTopic}"
