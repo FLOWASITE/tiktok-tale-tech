@@ -3,7 +3,7 @@
  * Extracted common utilities for topic-related edge functions
  */
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // ========== TYPES ==========
 
