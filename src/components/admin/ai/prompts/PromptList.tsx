@@ -195,171 +195,175 @@ export function PromptList({
               )}
             >
               <CardContent className={compact ? "p-3" : "p-4"}>
-                <div className="flex items-start justify-between gap-4">
-                  {/* Selection checkbox */}
-                  {onToggleSelect && (
-                    <div className="pt-1">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => onToggleSelect(prompt.id)}
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className={cn("font-medium truncate", compact && "text-sm")}>{prompt.name}</h3>
-                      {/* Deprecated badge - show when prompt is inactive */}
-                      {!prompt.is_active && (
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs text-orange-600 border-orange-400 bg-orange-500/10"
-                        >
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Deprecated
-                        </Badge>
-                      )}
-                    {prompt.is_default && (
-                      <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
-                        <Star className="h-3 w-3 mr-1" />
-                        Default
-                      </Badge>
+                {/* Main layout - stacks on mobile, row on md+ */}
+                <div className="flex flex-col gap-3">
+                  {/* Content row */}
+                  <div className="flex items-start gap-3">
+                    {/* Selection checkbox */}
+                    {onToggleSelect && (
+                      <div className="pt-1 flex-shrink-0">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => onToggleSelect(prompt.id)}
+                        />
+                      </div>
                     )}
-                    <Badge variant="outline" className="text-xs">
-                      v{prompt.version}
-                    </Badge>
-                    {/* Category Badge - hide in compact mode since already grouped */}
-                    {!compact && (() => {
-                      const category = getCategoryById(prompt.category_id);
-                      if (category) {
-                        return (
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className={cn("font-medium truncate", compact && "text-sm")}>{prompt.name}</h3>
+                        {!prompt.is_active && (
                           <Badge 
-                            variant="secondary"
-                            className="text-xs flex items-center gap-1"
-                            style={{ 
-                              backgroundColor: `${category.color}20`, 
-                              color: category.color,
-                              borderColor: `${category.color}40`
-                            }}
+                            variant="outline" 
+                            className="text-xs text-orange-600 border-orange-400 bg-orange-500/10"
                           >
-                            {getIconByName(category.icon || 'folder')}
-                            {category.label}
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Deprecated
                           </Badge>
-                        );
-                      }
-                      return (
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs text-amber-600 border-amber-500/50 bg-amber-500/10"
-                        >
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Chưa phân loại
-                        </Badge>
-                      );
-                    })()}
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <Code className="h-3.5 w-3.5" />
-                    <span className="font-mono text-xs">{prompt.function_name}</span>
-                    <span className="text-muted-foreground/50">•</span>
-                    <span className="font-mono text-xs">{prompt.prompt_key}</span>
-                  </div>
-
-                  {prompt.description && !compact && (
-                    <p className="text-sm text-muted-foreground line-clamp-1">
-                      {prompt.description}
-                    </p>
-                  )}
-
-                  <div className={cn("flex items-center gap-2", compact ? "mt-1" : "mt-2")}>
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {prompt.prompt_type}
-                    </Badge>
-                    {!compact && prompt.tags?.map(tag => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Action buttons - responsive layout */}
-                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                  <Switch
-                    checked={prompt.is_active}
-                    onCheckedChange={() => handleToggleActive(prompt)}
-                    disabled={togglingId === prompt.id}
-                    className="mr-1"
-                  />
-                  
-                  {/* View button */}
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => onView ? onView(prompt) : onEdit(prompt)}
-                    className="h-8 px-2 sm:px-3"
-                  >
-                    <Eye className="h-4 w-4" />
-                    <span className="ml-1.5 hidden sm:inline">Xem</span>
-                  </Button>
-                  
-                  {/* Edit button */}
-                  <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={() => onEdit(prompt)}
-                    className="h-8 px-2 sm:px-3"
-                  >
-                    <Edit className="h-4 w-4" />
-                    <span className="ml-1.5 hidden sm:inline">Sửa</span>
-                  </Button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onView ? onView(prompt) : onEdit(prompt)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        Xem chi tiết
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(prompt)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Chỉnh sửa
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicate(prompt)}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Nhân đôi
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleSetDefault(prompt)}>
-                        {prompt.is_default ? (
-                          <>
-                            <StarOff className="h-4 w-4 mr-2" />
-                            Bỏ mặc định
-                          </>
-                        ) : (
-                          <>
-                            <Star className="h-4 w-4 mr-2" />
-                            Đặt làm mặc định
-                          </>
                         )}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleDelete(prompt)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Xóa
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        {prompt.is_default && (
+                          <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
+                            <Star className="h-3 w-3 mr-1" />
+                            Default
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          v{prompt.version}
+                        </Badge>
+                        {!compact && (() => {
+                          const category = getCategoryById(prompt.category_id);
+                          if (category) {
+                            return (
+                              <Badge 
+                                variant="secondary"
+                                className="text-xs flex items-center gap-1"
+                                style={{ 
+                                  backgroundColor: `${category.color}20`, 
+                                  color: category.color,
+                                  borderColor: `${category.color}40`
+                                }}
+                              >
+                                {getIconByName(category.icon || 'folder')}
+                                {category.label}
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs text-amber-600 border-amber-500/50 bg-amber-500/10"
+                            >
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Chưa phân loại
+                            </Badge>
+                          );
+                        })()}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                        <Code className="h-3.5 w-3.5" />
+                        <span className="font-mono text-xs">{prompt.function_name}</span>
+                        <span className="text-muted-foreground/50">•</span>
+                        <span className="font-mono text-xs">{prompt.prompt_key}</span>
+                      </div>
+
+                      {prompt.description && !compact && (
+                        <p className="text-sm text-muted-foreground line-clamp-1">
+                          {prompt.description}
+                        </p>
+                      )}
+
+                      <div className={cn("flex items-center gap-2", compact ? "mt-1" : "mt-2")}>
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {prompt.prompt_type}
+                        </Badge>
+                        {!compact && prompt.tags?.map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action buttons - always visible on separate row */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
+                    <Switch
+                      checked={prompt.is_active}
+                      onCheckedChange={() => handleToggleActive(prompt)}
+                      disabled={togglingId === prompt.id}
+                    />
+                    <span className="text-xs text-muted-foreground mr-2">
+                      {prompt.is_active ? "Bật" : "Tắt"}
+                    </span>
+                    
+                    {/* View button */}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onView ? onView(prompt) : onEdit(prompt)}
+                      className="h-8 px-3"
+                    >
+                      <Eye className="h-4 w-4 mr-1.5" />
+                      Xem
+                    </Button>
+                    
+                    {/* Edit button */}
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={() => onEdit(prompt)}
+                      className="h-8 px-3"
+                    >
+                      <Edit className="h-4 w-4 mr-1.5" />
+                      Sửa
+                    </Button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 ml-auto">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onView ? onView(prompt) : onEdit(prompt)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Xem chi tiết
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit(prompt)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Chỉnh sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDuplicate(prompt)}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Nhân đôi
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSetDefault(prompt)}>
+                          {prompt.is_default ? (
+                            <>
+                              <StarOff className="h-4 w-4 mr-2" />
+                              Bỏ mặc định
+                            </>
+                          ) : (
+                            <>
+                              <Star className="h-4 w-4 mr-2" />
+                              Đặt làm mặc định
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(prompt)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
+              </CardContent>
           </Card>
           );
         })}
