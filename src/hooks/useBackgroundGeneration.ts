@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // ============================================
 // BACKGROUND GENERATION HOOK
-// Allows generation to continue when user navigates away
+// Uses Realtime subscription for instant updates
 // ============================================
 
 export type TaskType = 'core_content' | 'multichannel';
@@ -31,19 +32,20 @@ export interface GenerationTask {
 }
 
 interface UseBackgroundGenerationOptions {
-  pollIntervalMs?: number;
   onTaskComplete?: (task: GenerationTask) => void;
   onTaskError?: (task: GenerationTask) => void;
+  onTaskProgress?: (task: GenerationTask) => void;
+  enableFallbackPolling?: boolean; // Default: true
 }
 
-const DEFAULT_POLL_INTERVAL = 3000; // 3 seconds
+const FALLBACK_POLL_INTERVAL = 30000; // 30 seconds fallback
 
 export function useBackgroundGeneration(options: UseBackgroundGenerationOptions = {}) {
   const { user } = useAuth();
   const [activeTasks, setActiveTasks] = useState<GenerationTask[]>([]);
   const [completedTasks, setCompletedTasks] = useState<GenerationTask[]>([]);
   const [isChecking, setIsChecking] = useState(true);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -76,48 +78,51 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
     }
   }, [user?.id]);
 
-  // Poll for updates on active tasks
-  const pollTasks = useCallback(async () => {
-    if (activeTasks.length === 0) return;
+  // Handle realtime changes
+  const handleRealtimeChange = useCallback(
+    (payload: RealtimePostgresChangesPayload<GenerationTask>) => {
+      const { eventType } = payload;
 
-    const taskIds = activeTasks.map(t => t.id);
-    
-    try {
-      const { data: updatedTasks, error } = await supabase
-        .from('generation_tasks')
-        .select('*')
-        .in('id', taskIds);
-
-      if (error) {
-        console.error('[useBackgroundGeneration] Poll error:', error);
-        return;
-      }
-
-      if (!updatedTasks) return;
-
-      const stillActive: GenerationTask[] = [];
-      const newlyCompleted: GenerationTask[] = [];
-
-      for (const task of updatedTasks as GenerationTask[]) {
+      if (eventType === 'INSERT') {
+        const task = payload.new as GenerationTask;
         if (task.status === 'pending' || task.status === 'generating') {
-          stillActive.push(task);
-        } else if (task.status === 'completed') {
-          newlyCompleted.push(task);
-          optionsRef.current.onTaskComplete?.(task);
-        } else if (task.status === 'failed') {
-          newlyCompleted.push(task);
-          optionsRef.current.onTaskError?.(task);
+          setActiveTasks(prev => {
+            if (prev.some(t => t.id === task.id)) return prev;
+            return [task, ...prev];
+          });
         }
       }
 
-      setActiveTasks(stillActive);
-      if (newlyCompleted.length > 0) {
-        setCompletedTasks(prev => [...newlyCompleted, ...prev].slice(0, 10)); // Keep last 10
+      if (eventType === 'UPDATE') {
+        const task = payload.new as GenerationTask;
+
+        if (task.status === 'completed') {
+          setActiveTasks(prev => prev.filter(t => t.id !== task.id));
+          setCompletedTasks(prev => [task, ...prev].slice(0, 10));
+          optionsRef.current.onTaskComplete?.(task);
+        } else if (task.status === 'failed') {
+          setActiveTasks(prev => prev.filter(t => t.id !== task.id));
+          setCompletedTasks(prev => [task, ...prev].slice(0, 10));
+          optionsRef.current.onTaskError?.(task);
+        } else {
+          // Still active - update progress
+          setActiveTasks(prev =>
+            prev.map(t => (t.id === task.id ? task : t))
+          );
+          optionsRef.current.onTaskProgress?.(task);
+        }
       }
-    } catch (err) {
-      console.error('[useBackgroundGeneration] Poll error:', err);
-    }
-  }, [activeTasks]);
+
+      if (eventType === 'DELETE') {
+        const taskId = (payload.old as { id?: string })?.id;
+        if (taskId) {
+          setActiveTasks(prev => prev.filter(t => t.id !== taskId));
+          setCompletedTasks(prev => prev.filter(t => t.id !== taskId));
+        }
+      }
+    },
+    []
+  );
 
   // Create a new background task
   const createTask = useCallback(async (
@@ -151,7 +156,7 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
       }
 
       const newTask = task as GenerationTask;
-      setActiveTasks(prev => [newTask, ...prev]);
+      // Note: Realtime subscription will handle adding to activeTasks
       return newTask;
     } catch (err) {
       console.error('[useBackgroundGeneration] Create task error:', err);
@@ -217,6 +222,8 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
         .delete()
         .eq('id', taskId);
       
+      // Note: Realtime subscription will handle removing from state
+      // But we also update locally for immediate feedback
       setActiveTasks(prev => prev.filter(t => t.id !== taskId));
       setCompletedTasks(prev => prev.filter(t => t.id !== taskId));
     } catch (err) {
@@ -229,31 +236,51 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
     checkActiveTasks();
   }, [checkActiveTasks]);
 
-  // Set up polling when there are active tasks
+  // Set up Realtime subscription
   useEffect(() => {
-    if (activeTasks.length === 0) {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-      return;
-    }
+    if (!user?.id) return;
 
-    const interval = options.pollIntervalMs || DEFAULT_POLL_INTERVAL;
-    pollIntervalRef.current = setInterval(pollTasks, interval);
+    const channel = supabase
+      .channel(`generation_tasks:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'generation_tasks',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          handleRealtimeChange(payload as RealtimePostgresChangesPayload<GenerationTask>);
+        }
+      )
+      .subscribe((status) => {
+        setIsConnected(status === 'SUBSCRIBED');
+        console.log('[useBackgroundGeneration] Realtime status:', status);
+      });
 
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      supabase.removeChannel(channel);
     };
-  }, [activeTasks.length, pollTasks, options.pollIntervalMs]);
+  }, [user?.id, handleRealtimeChange]);
+
+  // Optional fallback polling for reliability
+  useEffect(() => {
+    const enableFallback = optionsRef.current.enableFallbackPolling !== false;
+    if (!enableFallback || activeTasks.length === 0) return;
+
+    const fallbackInterval = setInterval(() => {
+      checkActiveTasks();
+    }, FALLBACK_POLL_INTERVAL);
+
+    return () => clearInterval(fallbackInterval);
+  }, [activeTasks.length, checkActiveTasks]);
 
   return {
     activeTasks,
     completedTasks,
     isChecking,
+    isConnected,
     hasActiveTasks: activeTasks.length > 0,
     createTask,
     getTaskResult,
