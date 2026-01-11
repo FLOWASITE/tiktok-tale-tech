@@ -212,7 +212,7 @@ export function PromptHistoryViewer() {
             <div className="space-y-4 pr-4">
               {/* Metadata */}
               <div className="grid grid-cols-3 gap-4">
-                {selectedEntry?.usage_count !== null && (
+                {selectedEntry?.usage_count != null && (
                   <Card className="bg-muted/30">
                     <CardContent className="p-3">
                       <div className="text-lg font-bold">{selectedEntry.usage_count}</div>
@@ -220,7 +220,7 @@ export function PromptHistoryViewer() {
                     </CardContent>
                   </Card>
                 )}
-                {selectedEntry?.avg_quality_score !== null && (
+                {selectedEntry?.avg_quality_score != null && (
                   <Card className="bg-muted/30">
                     <CardContent className="p-3">
                       <div className="text-lg font-bold text-green-500">
@@ -230,7 +230,7 @@ export function PromptHistoryViewer() {
                     </CardContent>
                   </Card>
                 )}
-                {selectedEntry?.avg_generation_time_ms !== null && (
+                {selectedEntry?.avg_generation_time_ms != null && (
                   <Card className="bg-muted/30">
                     <CardContent className="p-3">
                       <div className="text-lg font-bold">
