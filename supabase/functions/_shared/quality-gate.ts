@@ -4,7 +4,7 @@
 // ============================================
 
 import { BrandContext } from './types/chat-types.ts';
-import { GeneratedOutline, CoreContentQualityMode } from './core-content-pipeline.ts';
+import { GeneratedOutline, CoreContentQualityMode, CoreContentLengthMode, getLengthConfig } from './core-content-pipeline.ts';
 
 // ============================================
 // TYPES
@@ -27,9 +27,11 @@ export interface QualityMetrics {
 interface QualityCheckConfig {
   minWordCount?: number;
   maxWordCount?: number;
+  targetWordCount?: number;
   minProofElements?: number;
   minSections?: number;
   threshold?: number;
+  lengthMode?: CoreContentLengthMode;
 }
 
 const DEFAULT_CONFIG: QualityCheckConfig = {
@@ -343,7 +345,20 @@ export function evaluateCoreContentQuality(
   qualityMode: CoreContentQualityMode = 'balanced',
   config: QualityCheckConfig = {}
 ): QualityMetrics {
-  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+  // If lengthMode is provided, use it to set word count limits
+  let effectiveConfig = { ...DEFAULT_CONFIG, ...config };
+  
+  if (config.lengthMode) {
+    const lengthConfig = getLengthConfig(config.lengthMode);
+    effectiveConfig = {
+      ...effectiveConfig,
+      minWordCount: lengthConfig.minWords,
+      maxWordCount: lengthConfig.maxWords,
+      targetWordCount: lengthConfig.targetWords,
+    };
+    console.log(`[QualityGate] Using lengthMode '${config.lengthMode}': ${lengthConfig.minWords}-${lengthConfig.maxWords} words`);
+  }
+  
   const issues: string[] = [];
   const suggestions: string[] = [];
   
@@ -355,16 +370,17 @@ export function evaluateCoreContentQuality(
   };
   const multiplier = modeMultipliers[qualityMode];
   
-  // Word count check
+  // Word count check - use config values
   const wordCount = countWords(content);
-  const targetWordCount = qualityMode === 'fast' ? 800 : qualityMode === 'balanced' ? 1200 : 1500;
+  const targetWordCount = effectiveConfig.targetWordCount || 
+    (qualityMode === 'fast' ? 800 : qualityMode === 'balanced' ? 1200 : 1500);
   
-  if (wordCount < mergedConfig.minWordCount!) {
-    issues.push(`Độ dài quá ngắn (${wordCount} từ, cần ≥${mergedConfig.minWordCount})`);
+  if (wordCount < effectiveConfig.minWordCount!) {
+    issues.push(`Độ dài quá ngắn (${wordCount} từ, cần ≥${effectiveConfig.minWordCount})`);
     suggestions.push('Bổ sung thêm ví dụ, phân tích sâu hơn');
   }
-  if (wordCount > mergedConfig.maxWordCount!) {
-    issues.push(`Độ dài quá dài (${wordCount} từ, cần ≤${mergedConfig.maxWordCount})`);
+  if (wordCount > effectiveConfig.maxWordCount!) {
+    issues.push(`Độ dài quá dài (${wordCount} từ, cần ≤${effectiveConfig.maxWordCount})`);
     suggestions.push('Tinh gọn nội dung, loại bỏ phần lặp lại');
   }
   
@@ -372,8 +388,8 @@ export function evaluateCoreContentQuality(
   const structureScore = evaluateStructure(content, outline);
   
   const proofResult = evaluateProofElements(content);
-  if (proofResult.count < mergedConfig.minProofElements!) {
-    issues.push(`Thiếu proof elements (có ${proofResult.count}, cần ≥${mergedConfig.minProofElements})`);
+  if (proofResult.count < effectiveConfig.minProofElements!) {
+    issues.push(`Thiếu proof elements (có ${proofResult.count}, cần ≥${effectiveConfig.minProofElements})`);
     suggestions.push('Thêm số liệu thống kê, ví dụ thực tế, trích dẫn chuyên gia');
   }
   
@@ -413,7 +429,7 @@ export function evaluateCoreContentQuality(
   );
   
   // Adjust threshold based on mode
-  const adjustedThreshold = Math.round(mergedConfig.threshold! * multiplier);
+  const adjustedThreshold = Math.round(effectiveConfig.threshold! * multiplier);
   const passesThreshold = overall >= adjustedThreshold;
   
   if (!passesThreshold) {

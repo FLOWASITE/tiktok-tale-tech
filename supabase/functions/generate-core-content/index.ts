@@ -1040,7 +1040,8 @@ serve(async (req: Request) => {
             result.content,
             brandContext,
             result.outline,
-            qualityMode as CoreContentQualityMode
+            qualityMode as CoreContentQualityMode,
+            { lengthMode: lengthMode as 'short' | 'medium' | 'long' }
           );
           const qualityScore = qualityMetrics.overall;
           
@@ -1204,7 +1205,8 @@ serve(async (req: Request) => {
       result.content,
       brandContext,
       result.outline,
-      qualityMode as CoreContentQualityMode
+      qualityMode as CoreContentQualityMode,
+      { lengthMode: lengthMode as 'short' | 'medium' | 'long' }
     );
     const qualityScore = qualityMetrics.overall;
     
