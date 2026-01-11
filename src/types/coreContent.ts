@@ -74,6 +74,60 @@ export interface CoreContent {
 export type CoreContentQualityMode = 'fast' | 'balanced' | 'quality';
 
 /**
+ * Content length mode for Core Content generation
+ * Controls the word count target for generated content
+ */
+export type CoreContentLengthMode = 'short' | 'medium' | 'long';
+
+/**
+ * Length mode configuration with word count ranges
+ */
+export interface CoreContentLengthConfig {
+  value: CoreContentLengthMode;
+  label: string;
+  labelVi: string;
+  description: string;
+  minWords: number;
+  maxWords: number;
+  targetWords: number;
+  recommended?: boolean;
+}
+
+/**
+ * Available length modes for Core Content
+ */
+export const CORE_CONTENT_LENGTH_MODES: CoreContentLengthConfig[] = [
+  {
+    value: 'short',
+    label: 'Short',
+    labelVi: 'Ngắn',
+    description: 'Súc tích, đi thẳng vào vấn đề',
+    minWords: 500,
+    maxWords: 700,
+    targetWords: 600,
+  },
+  {
+    value: 'medium',
+    label: 'Medium',
+    labelVi: 'Trung bình',
+    description: 'Cân bằng chi tiết và ngắn gọn',
+    minWords: 700,
+    maxWords: 1200,
+    targetWords: 950,
+    recommended: true,
+  },
+  {
+    value: 'long',
+    label: 'Long',
+    labelVi: 'Dài',
+    description: 'Phân tích sâu, đầy đủ chi tiết',
+    minWords: 1200,
+    maxWords: 2000,
+    targetWords: 1500,
+  },
+];
+
+/**
  * Outline section from multi-step generation
  */
 export interface CoreContentOutlineSection {
@@ -111,6 +165,7 @@ export interface GenerateCoreContentRequest {
   contentAngle?: ContentAngle;
   contentRole?: ContentRole;
   qualityMode?: CoreContentQualityMode;
+  lengthMode?: CoreContentLengthMode;
   brandTemplateId?: string;
   organizationId: string;
   targetAudience?: string;

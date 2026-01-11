@@ -111,6 +111,7 @@ interface GenerateCoreContentRequest {
   contentAngle?: string;
   contentRole?: 'seed' | 'sprout' | 'harvest';
   qualityMode?: CoreContentQualityMode;
+  lengthMode?: 'short' | 'medium' | 'long';
   brandTemplateId?: string;
   organizationId?: string;
   targetAudience?: string;
@@ -784,6 +785,7 @@ serve(async (req: Request) => {
       contentAngle,
       contentRole,
       qualityMode = 'balanced',
+      lengthMode = 'medium',
       brandTemplateId,
       organizationId,
       targetAudience,
@@ -813,7 +815,7 @@ serve(async (req: Request) => {
     // Set organization ID for multi-provider AI calls
     currentOrganizationId = organizationId;
     
-    console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Mode: ${qualityMode}, Stream: ${stream}`);
+    console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Mode: ${qualityMode}, Length: ${lengthMode}, Stream: ${stream}`);
     
     // Fetch brand template
     let brandContext: BrandContext | null = null;
@@ -969,6 +971,7 @@ serve(async (req: Request) => {
       contentAngle,
       role: contentRole,
       qualityMode: qualityMode as CoreContentQualityMode,
+      lengthMode: lengthMode as 'short' | 'medium' | 'long',
       brandContext,
       personas,
       products,
