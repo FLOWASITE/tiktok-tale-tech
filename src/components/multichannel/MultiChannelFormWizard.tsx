@@ -225,13 +225,16 @@ export function MultiChannelFormWizard({
   const [coreContentQualityMode, setCoreContentQualityMode] = useState<CoreContentQualityMode>('balanced');
   const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
 
-  // Streaming Core Content hook
+  // Streaming Core Content hook with retry support
   const {
     generate: generateCoreContentStreaming,
+    retry: retryCoreContentGeneration,
     cancel: cancelCoreContentGeneration,
     streamingText: coreContentStreamingText,
     isGenerating: isGeneratingCoreContent,
     progress: coreContentProgress,
+    canRetry: canRetryCoreContent,
+    lastError: coreContentLastError,
   } = useStreamingCoreContent({
     onComplete: (result) => {
       setCoreContentData({
@@ -254,7 +257,27 @@ export function MultiChannelFormWizard({
       toast.success('Đã tạo Core Content thành công!');
     },
     onError: (error) => {
-      toast.error(error || 'Không thể tạo Core Content');
+      const isNetworkError = error.toLowerCase().includes('network') || 
+                            error.toLowerCase().includes('timeout') ||
+                            error.toLowerCase().includes('connection');
+      
+      if (isNetworkError) {
+        toast.error('Kết nối bị gián đoạn. Vui lòng thử lại.', {
+          action: {
+            label: 'Thử lại',
+            onClick: () => retryCoreContentGeneration(),
+          },
+          duration: 10000,
+        });
+      } else {
+        toast.error(error || 'Không thể tạo Core Content', {
+          action: canRetryCoreContent ? {
+            label: 'Thử lại',
+            onClick: () => retryCoreContentGeneration(),
+          } : undefined,
+          duration: 8000,
+        });
+      }
     },
   });
 
