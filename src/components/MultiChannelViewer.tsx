@@ -758,11 +758,11 @@ export function MultiChannelViewer({
                     {goalLabel}
                   </Badge>
 
-                  {/* Core Content Source Badge */}
+                  {/* Core Content Source Badge - Hidden on mobile, shown in sidebar instead */}
                   {content.core_content_id && (
                     <CoreContentSourceBadge
                       coreContentId={content.core_content_id}
-                      className="flex"
+                      className="hidden md:flex"
                       onViewSource={(coreContent) => setViewingCoreContent(coreContent)}
                     />
                   )}
@@ -1009,6 +1009,17 @@ export function MultiChannelViewer({
                   <PanelLeftClose className="w-3.5 h-3.5" />
                 </Button>
               </div>
+              
+              {/* Core Content Access - Mobile friendly */}
+              {content.core_content_id && (
+                <div className="p-2 border-b border-border/30">
+                  <CoreContentSourceBadge
+                    coreContentId={content.core_content_id}
+                    className="w-full justify-center"
+                    onViewSource={(coreContent) => setViewingCoreContent(coreContent)}
+                  />
+                </div>
+              )}
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
                   {(content?.selected_channels ?? []).map((channel) => {
