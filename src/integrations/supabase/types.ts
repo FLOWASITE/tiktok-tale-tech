@@ -3696,6 +3696,77 @@ export type Database = {
           },
         ]
       }
+      generation_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_step: string | null
+          error_message: string | null
+          expires_at: string | null
+          id: string
+          input_params: Json
+          organization_id: string | null
+          progress: number | null
+          progress_message: string | null
+          result_id: string | null
+          result_type: string | null
+          retry_count: number | null
+          started_at: string | null
+          status: string
+          task_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: string | null
+          error_message?: string | null
+          expires_at?: string | null
+          id?: string
+          input_params?: Json
+          organization_id?: string | null
+          progress?: number | null
+          progress_message?: string | null
+          result_id?: string | null
+          result_type?: string | null
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          task_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: string | null
+          error_message?: string | null
+          expires_at?: string | null
+          id?: string
+          input_params?: Json
+          organization_id?: string | null
+          progress?: number | null
+          progress_message?: string | null
+          result_id?: string | null
+          result_type?: string | null
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          task_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       help_articles: {
         Row: {
           category: string | null
@@ -6640,6 +6711,7 @@ export type Database = {
         Returns: boolean
       }
       cleanup_expired_cache: { Args: never; Returns: number }
+      cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
       get_cache_stats: {
         Args: { p_organization_id?: string }

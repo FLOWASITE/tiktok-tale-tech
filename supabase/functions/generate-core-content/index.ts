@@ -120,6 +120,93 @@ interface GenerateCoreContentRequest {
   // New: Research options
   enableResearch?: boolean;
   researchRecency?: ResearchRecency;
+  // NEW: Background task tracking
+  taskId?: string;
+}
+
+// ============================================
+// TASK TRACKING HELPER
+// Updates generation_tasks table for background processing
+// ============================================
+
+// deno-lint-ignore no-explicit-any
+async function updateTaskProgress(
+  supabase: any,
+  taskId: string | undefined,
+  progress: number,
+  message: string,
+  step: string,
+  status: 'pending' | 'generating' | 'completed' | 'failed' = 'generating'
+): Promise<void> {
+  if (!taskId) return;
+  
+  try {
+    // Use raw SQL-style update to avoid type issues with new table
+    const updateData: Record<string, unknown> = {
+      status,
+      progress,
+      progress_message: message,
+      current_step: step,
+    };
+    if (status === 'generating' && progress === 0) {
+      updateData.started_at = new Date().toISOString();
+    }
+    
+    await (supabase as unknown as { from: (table: string) => { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } } })
+      .from('generation_tasks')
+      .update(updateData)
+      .eq('id', taskId);
+  } catch (err) {
+    console.warn(`[TaskTracking] Failed to update progress:`, err);
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function completeTask(
+  supabase: any,
+  taskId: string | undefined,
+  resultId: string,
+  resultType: 'core_contents' | 'multi_channel_contents'
+): Promise<void> {
+  if (!taskId) return;
+  
+  try {
+    await (supabase as unknown as { from: (table: string) => { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } } })
+      .from('generation_tasks')
+      .update({
+        status: 'completed',
+        progress: 100,
+        progress_message: 'Hoàn thành',
+        result_id: resultId,
+        result_type: resultType,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', taskId);
+  } catch (err) {
+    console.warn(`[TaskTracking] Failed to complete task:`, err);
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function failTask(
+  supabase: any,
+  taskId: string | undefined,
+  errorMessage: string
+): Promise<void> {
+  if (!taskId) return;
+  
+  try {
+    await (supabase as unknown as { from: (table: string) => { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } } })
+      .from('generation_tasks')
+      .update({
+        status: 'failed',
+        error_message: errorMessage,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', taskId);
+  } catch (err) {
+    console.warn(`[TaskTracking] Failed to fail task:`, err);
+  }
 }
 
 interface CoreContentResponse {
@@ -780,6 +867,7 @@ serve(async (req: Request) => {
       stream = false,
       enableResearch = false,
       researchRecency = 'month',
+      taskId, // NEW: Background task tracking
     } = body;
     
     // Validate required fields
@@ -968,9 +1056,17 @@ serve(async (req: Request) => {
     if (stream) {
       const sse = createSSEStream();
       
+      // Mark task as generating if taskId provided
+      if (taskId) {
+        await updateTaskProgress(supabase, taskId, 0, 'Đang khởi tạo...', 'init', 'generating');
+      }
+      
       // Send research progress if enabled
       if (enableResearch && researchData) {
         sse.sendProgress('research', 5, `Đã thu thập ${researchData.facts.length} facts từ web`);
+        if (taskId) {
+          await updateTaskProgress(supabase, taskId, 5, `Đã thu thập ${researchData.facts.length} facts`, 'research');
+        }
       }
       
       // Keepalive interval to prevent connection timeout
@@ -981,14 +1077,21 @@ serve(async (req: Request) => {
       // Run pipeline in background
       (async () => {
         try {
+          // Wrap sendProgress to also update task
+          const wrappedCallbacks: StreamingCallbacks = {
+            sendProgress: (step: string, progress: number, message: string, extra?: DetailedProgressData) => {
+              sse.sendProgress(step, progress, message, extra);
+              // Update task progress in DB (fire and forget)
+              updateTaskProgress(supabase, taskId, progress, message, step);
+            },
+            sendText: sse.sendText,
+            sendSectionComplete: sse.sendSectionComplete,
+          };
+          
           const result = await generateWithPipelineStreaming(
             LOVABLE_API_KEY, 
             pipelineConfig,
-            {
-              sendProgress: sse.sendProgress,
-              sendText: sse.sendText,
-              sendSectionComplete: sse.sendSectionComplete,
-            },
+            wrappedCallbacks,
             adminModelOverride
           );
           
@@ -1107,6 +1210,11 @@ serve(async (req: Request) => {
             console.warn(`[generate-core-content] Failed to save streaming metrics:`, metricsErr);
           }
           
+          // Mark task as completed if taskId provided
+          if (taskId) {
+            await completeTask(supabase, taskId, coreContent.id, 'core_contents');
+          }
+          
           // Send final result
           sse.sendResult({
             id: coreContent.id,
@@ -1129,6 +1237,12 @@ serve(async (req: Request) => {
           sse.close();
         } catch (error) {
           console.error(`[generate-core-content] Stream error:`, error);
+          
+          // Mark task as failed if taskId provided
+          if (taskId) {
+            await failTask(supabase, taskId, error instanceof Error ? error.message : 'Unknown error');
+          }
+          
           clearInterval(keepAliveInterval);
           sse.sendError(error instanceof Error ? error.message : 'Unknown error');
           sse.close();
