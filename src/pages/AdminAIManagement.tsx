@@ -9,6 +9,7 @@ import {
   Database,
   LayoutDashboard,
   DollarSign,
+  FileText,
 } from "lucide-react";
 import CacheAnalytics from "@/components/admin/CacheAnalytics";
 import { AIDashboard } from "@/components/admin/ai/AIDashboard";
@@ -16,6 +17,7 @@ import { AIProviderManager } from "@/components/admin/ai/AIProviderManager";
 import { AIFunctionConfigComponent } from "@/components/admin/ai/AIFunctionConfig";
 import { AIChannelModelConfig } from "@/components/admin/ai/AIChannelModelConfig";
 import { CostDashboard } from "@/components/admin/ai/CostDashboard";
+import { PromptManager } from "@/components/admin/ai/prompts";
 
 export default function AdminAIManagement() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -33,7 +35,7 @@ export default function AdminAIManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-7 w-full max-w-4xl mb-6">
+        <TabsList className="grid grid-cols-8 w-full max-w-5xl mb-6">
           <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -49,6 +51,10 @@ export default function AdminAIManagement() {
           <TabsTrigger value="functions" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Functions</span>
+          </TabsTrigger>
+          <TabsTrigger value="prompts" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Prompts</span>
           </TabsTrigger>
           <TabsTrigger value="channels" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Activity className="h-4 w-4" />
@@ -78,6 +84,10 @@ export default function AdminAIManagement() {
         
         <TabsContent value="functions">
           <AIFunctionConfigComponent />
+        </TabsContent>
+        
+        <TabsContent value="prompts">
+          <PromptManager />
         </TabsContent>
         
         <TabsContent value="channels">
