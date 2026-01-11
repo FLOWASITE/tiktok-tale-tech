@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -310,7 +311,19 @@ serve(async (req) => {
 
     const brandVoicePrompt = buildBrandVoicePrompt();
 
-    const systemPrompt = `Bạn là trợ lý AI chỉnh sửa nội dung theo yêu cầu của người dùng.
+    // Try to fetch system prompt from registry
+    let baseSystemPrompt = '';
+    try {
+      const promptManager = createPromptManager(supabase, 'ai-edit-channel');
+      baseSystemPrompt = await promptManager.get('system_edit', {
+        channel,
+        instruction,
+      });
+    } catch (err) {
+      console.warn('[ai-edit-channel] Failed to fetch prompt from registry, using hardcoded');
+    }
+
+    const systemPrompt = baseSystemPrompt || `Bạn là trợ lý AI chỉnh sửa nội dung theo yêu cầu của người dùng.
 
 ## BRAND CONTEXT
 Brand: ${content.brand_name}
