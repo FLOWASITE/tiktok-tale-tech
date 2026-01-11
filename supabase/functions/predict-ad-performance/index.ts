@@ -1,8 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -135,7 +136,8 @@ Benchmark Data (${benchmark?.data_source || 'industry_report'}):
 - Sample Size: ${benchmark?.sample_count || 0}
 `.trim();
 
-    const systemPrompt = `Bạn là chuyên gia phân tích hiệu suất quảng cáo kỹ thuật số tại thị trường Việt Nam.
+    // Try to fetch system prompt from registry with fallback
+    const FALLBACK_SYSTEM = `Bạn là chuyên gia phân tích hiệu suất quảng cáo kỹ thuật số tại thị trường Việt Nam.
 Dựa trên nội dung ad copy và dữ liệu benchmark được cung cấp, hãy dự đoán hiệu suất và phân tích các yếu tố ảnh hưởng.
 
 QUAN TRỌNG:
@@ -153,28 +155,29 @@ Trả về JSON với cấu trúc sau:
   "predicted_roas": number (0-10, lần),
   "confidence_score": number (0-100),
   "confidence_level": "low" | "medium" | "high",
-  "benchmark_comparison": {
-    "ctr_vs_benchmark": "above" | "at" | "below",
-    "ctr_diff_percent": number,
-    "cpc_vs_benchmark": "above" | "at" | "below",
-    "cpc_diff_percent": number,
-    "roas_vs_benchmark": "above" | "at" | "below",
-    "roas_diff_percent": number,
-    "benchmark_source": string,
-    "benchmark_sample_size": number
-  },
-  "factors": [
-    {
-      "factor": string (tên yếu tố),
-      "impact": "positive" | "negative" | "neutral",
-      "weight": number (0-1, mức độ ảnh hưởng),
-      "explanation": string (giải thích ngắn gọn)
-    }
-  ],
-  "improvement_suggestions": [string] (3-5 gợi ý cải thiện cụ thể)
+  "benchmark_comparison": {...},
+  "factors": [...],
+  "improvement_suggestions": [...]
 }
 
 CHỈ trả về JSON hợp lệ, không có markdown hay giải thích.`;
+
+    // Initialize supabase client for service operations
+    const supabaseService = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    
+    let systemPrompt = '';
+    try {
+      const promptManager = createPromptManager(supabaseService, 'predict-ad-performance', adCopy.organization_id);
+      systemPrompt = await promptManager.get('system_predict', { 
+        platform: adCopy.platform,
+        objective: adCopy.objective,
+        audience: industry || 'General'
+      });
+      console.log('[predict-ad-performance] Using prompt from registry');
+    } catch (err) {
+      console.warn('[predict-ad-performance] Failed to fetch prompt from registry, using hardcoded fallback');
+    }
+    const finalSystemPrompt = systemPrompt || FALLBACK_SYSTEM;
 
     // Get AI config from Admin Panel
     const aiConfig = await getAIConfig('predict-ad-performance', adCopy.organization_id);
@@ -185,7 +188,7 @@ CHỈ trả về JSON hợp lệ, không có markdown hay giải thích.`;
       functionName: 'predict-ad-performance',
       organizationId: adCopy.organization_id,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: finalSystemPrompt },
         { role: 'user', content: `Phân tích và dự đoán hiệu suất cho ad copy sau:\n\n${contentSummary}` },
       ],
       modelOverride: adminModel,

@@ -1,7 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,9 +114,46 @@ BRAND CONTEXT:
 
     const stages = targetStages || ['awareness', 'consideration', 'decision', 'loyalty'];
 
-    const systemPrompt = `Bạn là chuyên gia Customer Journey Mapping và Content Strategy cho thị trường Việt Nam.
+    // Try to fetch system prompt from registry with fallback
+    const FALLBACK_SYSTEM = `Bạn là chuyên gia Customer Journey Mapping và Content Strategy cho thị trường Việt Nam.
 
 NHIỆM VỤ: Tạo messaging riêng biệt và chiến lược cho từng giai đoạn customer journey dựa trên Product và Persona context cụ thể.
+
+QUY TẮC BẮT BUỘC:
+1. Mỗi stage có emotional tone MẶC ĐỊNH nhưng có thể điều chỉnh:
+   - AWARENESS: curiosity (tò mò, muốn tìm hiểu)
+   - CONSIDERATION: trust (tin tưởng, uy tín)
+   - DECISION: urgency (khẩn cấp, cần hành động)
+   - LOYALTY: delight (vui vẻ, thích thú)
+
+2. Pain points focus PHẢI match với persona's pain_points VÀ product's pain_points_solved
+3. Benefits highlight PHẢI match với product's benefits VÀ USP
+
+4. CTA templates theo stage:
+   - AWARENESS: "Tìm hiểu thêm", "Xem ngay", "Khám phá"
+   - CONSIDERATION: "So sánh ngay", "Nhận tư vấn", "Xem đánh giá"
+   - DECISION: "Đăng ký ngay", "Mua ngay", "Nhận ưu đãi"
+   - LOYALTY: "Ưu đãi VIP", "Nâng cấp", "Giới thiệu bạn bè"
+
+5. Hook PHẢI gây tò mò, tối đa 2 câu, viết cho người Việt Nam
+6. Key message PHẢI rõ ràng, 2-3 câu, không chung chung
+7. Headline ngắn gọn 5-15 từ, tránh từ ngữ marketing generic`;
+
+    let systemPrompt = '';
+    try {
+      const promptManager = createPromptManager(supabase, 'generate-journey-messaging', organizationId, brandTemplateId);
+      systemPrompt = await promptManager.get('system_journey', { 
+        journey_stage: stages.join(', '),
+        brand_context: brandContext,
+        audience: persona.name
+      });
+      console.log('[generate-journey-messaging] Using prompt from registry');
+    } catch (err) {
+      console.warn('[generate-journey-messaging] Failed to fetch prompt from registry, using hardcoded fallback');
+    }
+
+    // Build full context prompt
+    const contextPrompt = `${systemPrompt || FALLBACK_SYSTEM}
 
 PRODUCT CONTEXT:
 - Tên sản phẩm: ${product.name}
@@ -145,36 +183,7 @@ ${mapping ? `EXISTING MAPPING DATA:
 - Topics to avoid: ${mapping.topics_to_avoid?.join(', ') || 'N/A'}
 ` : ''}
 
-${brandContext}
-
-QUY TẮC BẮT BUỘC:
-1. Mỗi stage có emotional tone MẶC ĐỊNH nhưng có thể điều chỉnh:
-   - AWARENESS: curiosity (tò mò, muốn tìm hiểu)
-   - CONSIDERATION: trust (tin tưởng, uy tín)
-   - DECISION: urgency (khẩn cấp, cần hành động)
-   - LOYALTY: delight (vui vẻ, thích thú)
-
-2. Pain points focus PHẢI match với persona's pain_points VÀ product's pain_points_solved
-3. Benefits highlight PHẢI match với product's benefits VÀ USP
-
-4. CTA templates theo stage:
-   - AWARENESS: "Tìm hiểu thêm", "Xem ngay", "Khám phá"
-   - CONSIDERATION: "So sánh ngay", "Nhận tư vấn", "Xem đánh giá"
-   - DECISION: "Đăng ký ngay", "Mua ngay", "Nhận ưu đãi"
-   - LOYALTY: "Ưu đãi VIP", "Nâng cấp", "Giới thiệu bạn bè"
-
-5. Hook PHẢI gây tò mò, tối đa 2 câu, viết cho người Việt Nam
-6. Key message PHẢI rõ ràng, 2-3 câu, không chung chung
-7. Headline ngắn gọn 5-15 từ, tránh từ ngữ marketing generic
-8. Avoid messages PHẢI bao gồm những gì không nên nói cho stage đó
-9. Content types phải phù hợp với stage (educational cho awareness, testimonial cho consideration, promotional cho decision, exclusive cho loyalty)
-10. Objection response PHẢI address một objection cụ thể của persona
-
-TRÁNH:
-- Từ ngữ marketing chung chung như "năng động", "sáng tạo", "hiệu quả", "chất lượng cao"
-- Hook nhàm chán, không gây tò mò
-- Message copy từ stage này sang stage khác
-- Ignore persona's specific pain points và objections`;
+${brandContext}`;
 
     const userPrompt = `Hãy tạo messaging cho các giai đoạn sau: ${stages.join(', ')}
 
@@ -264,7 +273,7 @@ Lưu ý:
       organizationId,
       brandTemplateId,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: contextPrompt },
         { role: "user", content: userPrompt }
       ],
       tools,

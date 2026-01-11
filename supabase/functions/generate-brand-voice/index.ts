@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -52,7 +53,8 @@ serve(async (req) => {
     const preferredStr = Array.isArray(preferred_words) ? preferred_words.join(', ') : '';
     const forbiddenStr = Array.isArray(forbidden_words) ? forbidden_words.join(', ') : '';
 
-    const systemPrompt = `Bạn là chuyên gia về Brand Voice và Content Strategy. 
+    // Try to fetch system prompt from registry with fallback
+    const FALLBACK_SYSTEM = `Bạn là chuyên gia về Brand Voice và Content Strategy. 
 
 NHIỆM VỤ: Dựa trên Brand Guideline đã có, tinh chỉnh và bổ sung Brand Voice cho thương hiệu.
 
@@ -69,6 +71,20 @@ VÍ DỤ TỐT preferred_words cho ngành Kế toán:
 
 VÍ DỤ TỐT forbidden_words:
 - "số 1", "hàng đầu", "uy tín nhất", "cam kết 100%", "giá rẻ nhất"`;
+
+    let systemPrompt = '';
+    try {
+      const promptManager = createPromptManager(supabase, 'generate-brand-voice');
+      systemPrompt = await promptManager.get('system_brand_voice', { 
+        brand_name: brand_name || '', 
+        industry: industryStr, 
+        description: effectiveGuideline 
+      });
+      console.log('[generate-brand-voice] Using prompt from registry');
+    } catch (err) {
+      console.warn('[generate-brand-voice] Failed to fetch prompt from registry, using hardcoded fallback');
+    }
+    const finalSystemPrompt = systemPrompt || FALLBACK_SYSTEM;
 
     const userPrompt = `Phân tích và bổ sung Brand Voice cho thương hiệu:
 
@@ -162,7 +178,7 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả bổ 
     const aiResponse = await callAIWithMetrics(supabase, {
       functionName: 'generate-brand-voice',
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: finalSystemPrompt },
         { role: 'user', content: userPrompt }
       ],
       tools,
