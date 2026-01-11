@@ -206,6 +206,16 @@ export function PromptList({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className={cn("font-medium truncate", compact && "text-sm")}>{prompt.name}</h3>
+                      {/* Deprecated badge - show when prompt is inactive */}
+                      {!prompt.is_active && (
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs text-orange-600 border-orange-400 bg-orange-500/10"
+                        >
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Deprecated
+                        </Badge>
+                      )}
                     {prompt.is_default && (
                       <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
                         <Star className="h-3 w-3 mr-1" />
