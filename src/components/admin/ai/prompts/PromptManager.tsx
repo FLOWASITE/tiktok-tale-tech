@@ -31,6 +31,7 @@ import { PromptEditor } from "./PromptEditor";
 import { ABTestManager } from "./ABTestManager";
 import { PromptHistoryViewer } from "./PromptHistoryViewer";
 import { PromptBulkActions } from "./PromptBulkActions";
+import { PromptDuplicateChecker } from "./PromptDuplicateChecker";
 import { useCategoryConfig } from "@/hooks/useCategoryConfig";
 import { toast } from "sonner";
 import { getIconByName } from "../IconPicker";
@@ -267,7 +268,7 @@ export function PromptManager() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 w-full max-w-md">
+        <TabsList className="grid grid-cols-4 w-full max-w-lg">
           <TabsTrigger value="prompts" className="flex items-center gap-1.5">
             <FileText className="h-4 w-4" />
             Prompts
@@ -279,6 +280,10 @@ export function PromptManager() {
           <TabsTrigger value="history" className="flex items-center gap-1.5">
             <History className="h-4 w-4" />
             History
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="flex items-center gap-1.5">
+            <AlertTriangle className="h-4 w-4" />
+            Audit
           </TabsTrigger>
         </TabsList>
 
@@ -471,6 +476,10 @@ export function PromptManager() {
 
         <TabsContent value="history" className="mt-4">
           <PromptHistoryViewer />
+        </TabsContent>
+
+        <TabsContent value="audit" className="mt-4">
+          <PromptDuplicateChecker />
         </TabsContent>
       </Tabs>
 
