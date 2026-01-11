@@ -82,6 +82,7 @@ import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormS
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
+import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -223,6 +224,9 @@ export function MultiChannelFormWizard({
   // NEW: Pending generation - when user wants to generate multichannel but Core Content not ready
   const [pendingMultiChannelGeneration, setPendingMultiChannelGeneration] = useState(false);
   
+  // NEW: Preview popup state
+  const [showPreviewPopup, setShowPreviewPopup] = useState(false);
+  
   // Core Content generation settings
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
   const [coreContentAudience, setCoreContentAudience] = useState('');
@@ -258,7 +262,12 @@ export function MultiChannelFormWizard({
         contentRole: prev.contentRole || GOAL_TO_ROLE_MAP[formData.contentGoal || 'education'],
       }));
       
-      toast.success('Đã tạo Core Content thành công!');
+      // Show preview popup instead of just toast (only if not on Step 2)
+      if (currentStep !== 2) {
+        setShowPreviewPopup(true);
+      } else {
+        toast.success('Đã tạo Core Content thành công!');
+      }
     },
     onError: (error) => {
       const isNetworkError = error.toLowerCase().includes('network') || 
@@ -1410,6 +1419,26 @@ export function MultiChannelFormWizard({
             toast.success('Đã chọn chủ đề từ AI!');
           }}
         />
+
+        {/* Core Content Preview Popup */}
+        {coreContentData && (
+          <CoreContentPreviewPopup
+            isOpen={showPreviewPopup}
+            onClose={() => setShowPreviewPopup(false)}
+            onViewFull={() => setShowCoreContentPreview(true)}
+            onContinue={() => {
+              if (currentStep < 4) {
+                setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
+                setCurrentStep(prev => prev + 1);
+              }
+            }}
+            title={coreContentData.title}
+            wordCount={coreContentData.wordCount}
+            qualityScore={coreContentData.qualityScore}
+            keyMessages={coreContentData.keyMessages}
+            contentGoal={coreContentData.contentGoal}
+          />
+        )}
       </div>
     </TooltipProvider>
   );
