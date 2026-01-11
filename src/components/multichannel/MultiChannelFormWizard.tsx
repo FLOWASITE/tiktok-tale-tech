@@ -43,6 +43,7 @@ import {
   Mail,
   Youtube,
   MessageCircle,
+  Clock,
   Send,
   Music2,
   AtSign,
@@ -218,6 +219,9 @@ export function MultiChannelFormWizard({
   // NEW: Core Content generation state
   const [coreContentData, setCoreContentData] = useState<GeneratedCoreContent | null>(null);
   const [showCoreContentPreview, setShowCoreContentPreview] = useState(false);
+  
+  // NEW: Pending generation - when user wants to generate multichannel but Core Content not ready
+  const [pendingMultiChannelGeneration, setPendingMultiChannelGeneration] = useState(false);
   
   // Core Content generation settings
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
@@ -415,15 +419,15 @@ export function MultiChannelFormWizard({
     }
   }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentQualityMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
-  // Can proceed logic - NEW for 4-step flow
+  // Can proceed logic - NEW for 4-step flow with parallel workflow
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
         // Step 1: Topic + Brand required
         return formData.topic.trim().length >= 10 && !!formData.brandTemplateId;
       case 2:
-        // Step 2: Core Content must be generated
-        return !!coreContentData?.id || !!formData.coreContentId;
+        // Step 2: Allow proceeding if generating OR already has Core Content
+        return isGeneratingCoreContent || !!coreContentData?.id || !!formData.coreContentId;
       case 3:
         // Step 3: Role must be selected
         return !!formData.contentRole;
@@ -433,11 +437,11 @@ export function MultiChannelFormWizard({
       default:
         return false;
     }
-  }, [currentStep, formData, coreContentData]);
+  }, [currentStep, formData, coreContentData, isGeneratingCoreContent]);
 
   const handleNext = () => {
-    // Validation before proceeding
-    if (currentStep === 2 && !coreContentData?.id && !formData.coreContentId) {
+    // For Step 2: If not generating and no core content, block
+    if (currentStep === 2 && !isGeneratingCoreContent && !coreContentData?.id && !formData.coreContentId) {
       toast.error('Vui lòng tạo Core Content trước khi tiếp tục');
       return;
     }
@@ -548,20 +552,59 @@ export function MultiChannelFormWizard({
 
   const handleSubmit = async () => {
     if (submittingRef.current || isGenerating) return;
-    submittingRef.current = true;
 
     if (!formData.topic.trim() || formData.channels.length === 0) {
-      submittingRef.current = false;
       toast.error('Vui lòng nhập chủ đề và chọn ít nhất 1 kênh');
       return;
     }
 
+    // Check if Core Content is ready
+    const hasCoreContent = !!coreContentData?.id || !!formData.coreContentId;
+
+    if (!hasCoreContent) {
+      if (isGeneratingCoreContent) {
+        // Core Content is still generating - set pending flag
+        setPendingMultiChannelGeneration(true);
+        toast.info('Đang chờ Core Content hoàn tất...', {
+          description: 'Nội dung đa kênh sẽ tự động được tạo khi Core Content sẵn sàng',
+          duration: 5000,
+        });
+        return;
+      } else {
+        // No Core Content and not generating - error
+        toast.error('Vui lòng tạo Core Content trước');
+        setCurrentStep(2);
+        return;
+      }
+    }
+
+    // Has Core Content - proceed with generation
+    submittingRef.current = true;
     try {
       await onGenerate({ ...formData, topicHistoryId });
     } finally {
       submittingRef.current = false;
+      setPendingMultiChannelGeneration(false);
     }
   };
+
+  // Auto-trigger multichannel generation when Core Content completes and pending
+  useEffect(() => {
+    const hasCoreContent = !!coreContentData?.id || !!formData.coreContentId;
+
+    if (pendingMultiChannelGeneration && hasCoreContent && !isGenerating && !isGeneratingCoreContent) {
+      // Core Content just completed and we have pending generation
+      toast.success('Core Content sẵn sàng! Đang tạo nội dung đa kênh...');
+      
+      // Trigger generation
+      submittingRef.current = true;
+      onGenerate({ ...formData, topicHistoryId })
+        .finally(() => {
+          submittingRef.current = false;
+          setPendingMultiChannelGeneration(false);
+        });
+    }
+  }, [coreContentData?.id, formData.coreContentId, pendingMultiChannelGeneration, isGenerating, isGeneratingCoreContent]);
 
   // Channel categories
   const channelCategories = [
@@ -1261,6 +1304,33 @@ export function MultiChannelFormWizard({
           )}
         </div>
 
+        {/* Floating Progress Indicator - Show when on Step 3/4 and Core Content generating */}
+        {currentStep > 2 && isGeneratingCoreContent && (
+          <div className="fixed bottom-24 right-4 z-50 animate-fade-in">
+            <Card className="bg-card/95 backdrop-blur-md shadow-lg border-primary/20">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="relative">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                </div>
+                <div className="text-sm min-w-[140px]">
+                  <p className="font-medium text-foreground">Đang tạo Core Content</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" />
+                    {coreContentProgress?.progress || 0}% - {coreContentProgress?.message || 'Đang xử lý...'}
+                  </p>
+                </div>
+                <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${coreContentProgress?.progress || 0}%` }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Navigation Footer */}
         <div className="sticky bottom-0 bg-background/80 backdrop-blur-sm pt-4 border-t border-border mt-6">
           <div className="flex items-center justify-between">
@@ -1286,23 +1356,37 @@ export function MultiChannelFormWizard({
                 disabled={!canProceed || isGenerating}
                 className="gap-2 gradient-primary glow-primary"
               >
-                Tiếp tục
-                <ArrowRight className="w-4 h-4" />
+                {isGeneratingCoreContent && currentStep === 2 ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Tiếp tục ({coreContentProgress?.progress || 0}%)
+                  </>
+                ) : (
+                  <>
+                    Tiếp tục
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </Button>
             ) : (
               <Button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isGenerating || !formData.topic.trim() || formData.channels.length === 0}
+                disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0}
                 className={cn(
                   "gap-2 gradient-primary min-w-[180px]",
-                  !isGenerating && "glow-primary"
+                  !isGenerating && !pendingMultiChannelGeneration && "glow-primary"
                 )}
               >
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Đang tạo...
+                  </>
+                ) : pendingMultiChannelGeneration ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Chờ Core Content ({coreContentProgress?.progress || 0}%)
                   </>
                 ) : (
                   <>
