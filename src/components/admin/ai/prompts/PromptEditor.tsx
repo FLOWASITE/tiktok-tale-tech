@@ -26,9 +26,12 @@ import {
   Save,
   X,
   Plus,
-  Info
+  Info,
+  FolderOpen
 } from "lucide-react";
 import type { Prompt } from "./PromptManager";
+import type { CategoryConfig } from "@/hooks/useCategoryConfig";
+import { getIconByName } from "../IconPicker";
 
 interface PromptEditorProps {
   prompt: Prompt | null;
@@ -36,6 +39,7 @@ interface PromptEditorProps {
   onOpenChange: (open: boolean) => void;
   onSave: (data: Partial<Prompt>) => void;
   functionNames: string[];
+  categories: CategoryConfig[];
 }
 
 const PROMPT_TYPES = [
@@ -50,7 +54,8 @@ export function PromptEditor({
   open, 
   onOpenChange, 
   onSave,
-  functionNames 
+  functionNames,
+  categories
 }: PromptEditorProps) {
   const [formData, setFormData] = useState({
     function_name: "",
@@ -61,6 +66,7 @@ export function PromptEditor({
     prompt_type: "system",
     variables: {} as Record<string, any>,
     tags: [] as string[],
+    category_id: null as string | null,
   });
   const [newTag, setNewTag] = useState("");
   const [newVarKey, setNewVarKey] = useState("");
@@ -78,6 +84,7 @@ export function PromptEditor({
         prompt_type: prompt.prompt_type,
         variables: prompt.variables || {},
         tags: prompt.tags || [],
+        category_id: prompt.category_id,
       });
     } else {
       setFormData({
@@ -89,6 +96,7 @@ export function PromptEditor({
         prompt_type: "system",
         variables: {},
         tags: [],
+        category_id: null,
       });
     }
     setActiveTab("basic");
@@ -229,22 +237,64 @@ export function PromptEditor({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Loại Prompt</Label>
-                <select
-                  value={formData.prompt_type}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    prompt_type: e.target.value 
-                  }))}
-                  className="w-full px-3 py-2 border rounded-md bg-background"
-                >
-                  {PROMPT_TYPES.map(type => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Loại Prompt</Label>
+                  <select
+                    value={formData.prompt_type}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      prompt_type: e.target.value 
+                    }))}
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                  >
+                    {PROMPT_TYPES.map(type => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    Phân loại
+                  </Label>
+                  <select
+                    value={formData.category_id || ""}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      category_id: e.target.value || null 
+                    }))}
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                  >
+                    <option value="">Không phân loại</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                  {formData.category_id && (() => {
+                    const selectedCat = categories.find(c => c.id === formData.category_id);
+                    if (selectedCat) {
+                      return (
+                        <div 
+                          className="flex items-center gap-2 p-2 rounded-md text-sm"
+                          style={{ 
+                            backgroundColor: `${selectedCat.color}20`, 
+                            color: selectedCat.color 
+                          }}
+                        >
+                          {getIconByName(selectedCat.icon || 'folder')}
+                          <span>{selectedCat.label}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
               </div>
 
               <div className="space-y-2">

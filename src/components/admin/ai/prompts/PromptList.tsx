@@ -27,19 +27,29 @@ import {
   FileText,
   Code,
   Beaker,
+  AlertTriangle,
+  FolderOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Prompt } from "./PromptManager";
+import type { CategoryConfig } from "@/hooks/useCategoryConfig";
+import { getIconByName } from "../IconPicker";
 
 interface PromptListProps {
   prompts: Prompt[];
   isLoading: boolean;
   onEdit: (prompt: Prompt) => void;
   onRefresh: () => void;
+  categories: CategoryConfig[];
 }
 
-export function PromptList({ prompts, isLoading, onEdit, onRefresh }: PromptListProps) {
+export function PromptList({ prompts, isLoading, onEdit, onRefresh, categories }: PromptListProps) {
+  // Helper to get category by ID
+  const getCategoryById = (categoryId: string | null) => {
+    if (!categoryId) return null;
+    return categories.find(c => c.id === categoryId) || null;
+  };
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const handleToggleActive = async (prompt: Prompt) => {
@@ -165,7 +175,7 @@ export function PromptList({ prompts, isLoading, onEdit, onRefresh }: PromptList
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h3 className="font-medium truncate">{prompt.name}</h3>
                     {prompt.is_default && (
                       <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
@@ -176,6 +186,35 @@ export function PromptList({ prompts, isLoading, onEdit, onRefresh }: PromptList
                     <Badge variant="outline" className="text-xs">
                       v{prompt.version}
                     </Badge>
+                    {/* Category Badge */}
+                    {(() => {
+                      const category = getCategoryById(prompt.category_id);
+                      if (category) {
+                        return (
+                          <Badge 
+                            variant="secondary"
+                            className="text-xs flex items-center gap-1"
+                            style={{ 
+                              backgroundColor: `${category.color}20`, 
+                              color: category.color,
+                              borderColor: `${category.color}40`
+                            }}
+                          >
+                            {getIconByName(category.icon || 'folder')}
+                            {category.label}
+                          </Badge>
+                        );
+                      }
+                      return (
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs text-amber-600 border-amber-500/50 bg-amber-500/10"
+                        >
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Chưa phân loại
+                        </Badge>
+                      );
+                    })()}
                   </div>
                   
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
