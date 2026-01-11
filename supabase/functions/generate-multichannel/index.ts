@@ -82,6 +82,12 @@ import {
 } from "../_shared/length-validator.ts";
 // Learning Context for RAG-enhanced generation
 import { fetchLearningContext } from "../_shared/learning-context.ts";
+// NEW: Task tracking for background generation
+import { 
+  updateTaskProgress, 
+  completeTask, 
+  failTask 
+} from '../_shared/task-tracking.ts';
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -177,6 +183,8 @@ interface FormData {
   coreContentId?: string; // Optional: transform from Core Content instead of topic-only generation
   // Content Role for Content Orchestration Flow (used with Core Content)
   contentRole?: ContentRole; // seed = awareness, sprout = trust, harvest = conversion
+  // NEW: Background task tracking
+  taskId?: string;
 }
 
 // ============================================
@@ -4194,10 +4202,19 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
 
     if (dbError) {
       console.error("Database error:", dbError);
+      // Mark task as failed if taskId provided
+      if (formData.taskId) {
+        await failTask(supabase, formData.taskId, "Failed to save content");
+      }
       throw new Error("Failed to save content");
     }
 
     console.log("Content saved with ID:", content.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
+
+    // Mark background task as completed if taskId provided
+    if (formData.taskId && content?.id) {
+      await completeTask(supabase, formData.taskId, content.id, 'multi_channel_contents');
+    }
 
     // ============================================
     // PHASE 1: METRICS LOGGING (Non-streaming mode)

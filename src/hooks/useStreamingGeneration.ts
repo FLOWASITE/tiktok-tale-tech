@@ -46,6 +46,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingTexts, setStreamingTexts] = useState<Record<string, string>>({});
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastEventTimeRef = useRef<number>(Date.now());
   const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -88,13 +89,39 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     setStreamingTexts({}); // Reset streaming texts
     setProgress({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
 
+    let taskId: string | null = null;
+
     try {
       // Get current user's access token for authentication
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
 
-      if (!accessToken) {
+      if (!accessToken || !session?.user?.id) {
         throw new Error('Vui lòng đăng nhập để tạo nội dung');
+      }
+
+      // Create a background task for tracking
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: task, error: taskError } = await (supabase as any)
+          .from('generation_tasks')
+          .insert({
+            user_id: session.user.id,
+            organization_id: formData.organization_id || null,
+            task_type: 'multichannel',
+            status: 'pending',
+            progress: 0,
+            input_params: formData,
+          })
+          .select()
+          .single();
+
+        if (!taskError && task?.id) {
+          taskId = task.id;
+          setCurrentTaskId(taskId);
+        }
+      } catch (err) {
+        console.warn('[streaming] Failed to create task:', err);
       }
 
       const response = await fetch(
@@ -105,7 +132,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ ...formData, stream: true }),
+          body: JSON.stringify({ ...formData, stream: true, taskId }),
           signal: abortControllerRef.current.signal,
         }
       );
@@ -292,6 +319,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       setIsGenerating(false);
       setProgress(null);
       setStreamingTexts({});
+      setCurrentTaskId(null);
     }
   }, [cleanupTimers]);
 
@@ -301,5 +329,6 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     progress,
     isGenerating,
     streamingTexts, // New: accumulated streaming text per channel
+    currentTaskId, // New: current task ID for background tracking
   };
 }
