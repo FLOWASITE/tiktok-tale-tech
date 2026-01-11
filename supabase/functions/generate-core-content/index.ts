@@ -27,6 +27,8 @@ import { saveMetrics, generateTraceId } from '../_shared/logger.ts';
 import { estimateCost, estimateTotalCost } from '../_shared/cost-estimator.ts';
 import { getAIConfig } from '../_shared/ai-config.ts';
 import { callAI as callAIProvider } from '../_shared/ai-provider.ts';
+// NEW: Prompt Registry Integration - Phase 4
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 // ============================================
 // SSE STREAMING HELPERS

@@ -8,6 +8,7 @@ import {
   type ChannelOptimization 
 } from "../_shared/channel-optimization.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,6 +60,9 @@ async function generateHookForPlatform(
   organizationId: string | undefined,
   brandTemplateId: string | undefined
 ): Promise<GeneratedHook> {
+  // Initialize PromptManager for this function
+  const pm = createPromptManager(supabase, 'generate-hooks', organizationId, brandTemplateId);
+  
   // Fetch channel optimization for this platform
   let channelOptimization: ChannelOptimization | null = null;
   try {
@@ -91,37 +95,20 @@ async function generateHookForPlatform(
 
   const durationContext = duration ? `\nVideo Duration: ${duration}` : '';
 
-  const systemPrompt = `Bạn là chuyên gia sáng tạo nội dung video ngắn với 10+ năm kinh nghiệm. 
-Nhiệm vụ của bạn là tạo ra 1 HOOK (câu mở đầu) hấp dẫn RIÊNG CHO ${platform.toUpperCase()} để thu hút người xem trong 3 giây đầu tiên.
+  // Fetch system prompt from registry with variables
+  const systemPrompt = await pm.get('system', {
+    platform: platform.toUpperCase(),
+    brandContext,
+    durationContext,
+    channelOptimizationContext: channelOptimizationContext ? `\n\n${channelOptimizationContext}` : '',
+  });
 
-Hook cần có:
-1. opening_line: Câu nói đầu tiên (trong 3 giây đầu)
-2. visual_direction: Hướng dẫn hình ảnh trên màn hình
-3. text_overlay: Text hiển thị trên video
-4. framework: Loại hook (question, bold_statement, transformation, story, number, negative, social_proof, direct_address, shocking_fact, challenge)
-5. psychology_reason: Giải thích tại sao hook này hiệu quả (tâm lý học)
-6. engagement_level: Dự đoán mức độ engagement (high, medium, low)${brandContext}
-
-Target Platform: ${platform}${durationContext}${channelOptimizationContext ? `\n\n${channelOptimizationContext}` : ''}
-
-QUAN TRỌNG:
-- Hook phải bằng tiếng Việt
-- Phải gây tò mò hoặc shock để dừng scroll
-- TỐI ƯU CHO ${platform.toUpperCase()} - phong cách, độ dài, tone phù hợp với nền tảng này
-- Phù hợp với Brand Voice nếu được cung cấp
-- Không sử dụng từ cấm (forbidden words) nếu có`;
-
-  const userPrompt = `Tạo 1 hook cho chủ đề: "${topic}" - TỐI ƯU CHO ${platform.toUpperCase()}
-
-Trả về JSON object (không phải array):
-{
-  "opening_line": "...",
-  "visual_direction": "...",
-  "text_overlay": "...",
-  "framework": "question|bold_statement|transformation|story|number|negative|social_proof|direct_address|shocking_fact|challenge",
-  "psychology_reason": "...",
-  "engagement_level": "high|medium|low"
-}`;
+  // Fetch generate prompt from registry
+  const userPrompt = await pm.get('generate', {
+    topic,
+    platform: platform.toUpperCase(),
+    count: '1',
+  });
 
   // Calculate optimized max tokens
   const baseMaxTokens = 1024; // Smaller since only 1 hook
@@ -260,6 +247,9 @@ serve(async (req) => {
     const targetChannel = platform || 'facebook';
     console.log('[generate-hooks] Single platform mode for:', targetChannel, 'count:', count);
 
+    // Initialize PromptManager
+    const pm = createPromptManager(supabase, 'generate-hooks', organizationId, brandTemplateId);
+
     let channelOptimization: ChannelOptimization | null = null;
     try {
       channelOptimization = await getChannelOptimization(supabase, targetChannel, organizationId, brandTemplateId);
@@ -291,36 +281,20 @@ serve(async (req) => {
     const platformContext = platform ? `\nTarget Platform: ${platform}` : '';
     const durationContext = duration ? `\nVideo Duration: ${duration}` : '';
 
-    const systemPrompt = `Bạn là chuyên gia sáng tạo nội dung video ngắn với 10+ năm kinh nghiệm. 
-Nhiệm vụ của bạn là tạo ra các HOOK (câu mở đầu) hấp dẫn để thu hút người xem trong 3 giây đầu tiên.
+    // Fetch prompts from registry
+    const systemPrompt = await pm.get('system', {
+      platform: targetChannel.toUpperCase(),
+      brandContext,
+      platformContext,
+      durationContext,
+      channelOptimizationContext: channelOptimizationContext ? `\n\n${channelOptimizationContext}` : '',
+    });
 
-Mỗi hook cần có:
-1. opening_line: Câu nói đầu tiên (trong 3 giây đầu)
-2. visual_direction: Hướng dẫn hình ảnh trên màn hình
-3. text_overlay: Text hiển thị trên video
-4. framework: Loại hook (question, bold_statement, transformation, story, number, negative, social_proof, direct_address, shocking_fact, challenge)
-5. psychology_reason: Giải thích tại sao hook này hiệu quả (tâm lý học)
-6. engagement_level: Dự đoán mức độ engagement (high, medium, low)${brandContext}${platformContext}${durationContext}${channelOptimizationContext ? `\n\n${channelOptimizationContext}` : ''}
-
-QUAN TRỌNG:
-- Hook phải bằng tiếng Việt
-- Phải gây tò mò hoặc shock để dừng scroll
-- Phù hợp với Brand Voice nếu được cung cấp
-- Không sử dụng từ cấm (forbidden words) nếu có`;
-
-    const userPrompt = `Tạo ${count} hook variations khác nhau cho chủ đề: "${topic}"
-
-Trả về JSON array với format:
-[
-  {
-    "opening_line": "...",
-    "visual_direction": "...",
-    "text_overlay": "...",
-    "framework": "question|bold_statement|transformation|story|number|negative|social_proof|direct_address|shocking_fact|challenge",
-    "psychology_reason": "...",
-    "engagement_level": "high|medium|low"
-  }
-]`;
+    const userPrompt = await pm.get('generate', {
+      topic,
+      platform: targetChannel.toUpperCase(),
+      count: String(count),
+    });
 
     // Calculate optimized max tokens
     const baseMaxTokens = 2048;
