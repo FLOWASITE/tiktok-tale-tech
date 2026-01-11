@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Edit,
+  Eye,
   MoreVertical,
   Copy,
   Trash2,
@@ -42,6 +43,7 @@ interface PromptListProps {
   prompts: Prompt[];
   isLoading: boolean;
   onEdit: (prompt: Prompt) => void;
+  onView?: (prompt: Prompt) => void;
   onRefresh: () => void;
   categories: CategoryConfig[];
   selectedIds?: Set<string>;
@@ -52,7 +54,8 @@ interface PromptListProps {
 export function PromptList({ 
   prompts, 
   isLoading, 
-  onEdit, 
+  onEdit,
+  onView,
   onRefresh, 
   categories,
   selectedIds = new Set(),
@@ -281,28 +284,48 @@ export function PromptList({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Action buttons - responsive layout */}
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                   <Switch
                     checked={prompt.is_active}
                     onCheckedChange={() => handleToggleActive(prompt)}
                     disabled={togglingId === prompt.id}
+                    className="mr-1"
                   />
                   
+                  {/* View button */}
                   <Button 
-                    variant="ghost" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onView ? onView(prompt) : onEdit(prompt)}
+                    className="h-8 px-2 sm:px-3"
+                  >
+                    <Eye className="h-4 w-4" />
+                    <span className="ml-1.5 hidden sm:inline">Xem</span>
+                  </Button>
+                  
+                  {/* Edit button */}
+                  <Button 
+                    variant="default" 
                     size="sm"
                     onClick={() => onEdit(prompt)}
+                    className="h-8 px-2 sm:px-3"
                   >
                     <Edit className="h-4 w-4" />
+                    <span className="ml-1.5 hidden sm:inline">Sửa</span>
                   </Button>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onView ? onView(prompt) : onEdit(prompt)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Xem chi tiết
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onEdit(prompt)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Chỉnh sửa
