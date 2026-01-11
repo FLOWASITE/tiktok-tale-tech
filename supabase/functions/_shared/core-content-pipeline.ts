@@ -491,6 +491,7 @@ export function buildRoleContext(role?: CoreContentRole): string {
 export interface EnhancedPromptConfig extends CoreContentConfig {
   smartContextInjection?: string;
   researchContext?: string;
+  registrySystemPrompt?: string;  // NEW: System prompt fetched from registry
 }
 
 export function buildOutlinePrompt(config: EnhancedPromptConfig): string {
@@ -672,6 +673,15 @@ KHÔNG thêm tiêu đề "Core Content" hay metadata.`;
 // ============================================
 
 export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
+  // If registry prompt is available, use it directly (already interpolated)
+  if (config.registrySystemPrompt) {
+    console.log('[buildSinglePassPrompt] Using registry system prompt');
+    return config.registrySystemPrompt;
+  }
+  
+  // HARDCODED FALLBACK: Use when registry prompt is unavailable
+  console.log('[buildSinglePassPrompt] Using hardcoded fallback prompt');
+  
   // Use lengthMode if provided, otherwise fall back to qualityMode
   const wordBudget = config.lengthMode 
     ? getWordBudgetByLength(config.lengthMode) 
@@ -739,7 +749,7 @@ KHÔNG thêm tiêu đề "Core Content" hay metadata.`;
 // HELPER FUNCTIONS
 // ============================================
 
-function getGoalDescription(goal?: string): string {
+export function getGoalDescription(goal?: string): string {
   const descriptions: Record<string, string> = {
     education: 'Giáo dục - Chia sẻ kiến thức hữu ích, hướng dẫn chi tiết',
     awareness: 'Nhận diện - Tăng nhận biết về vấn đề/giải pháp',
@@ -750,7 +760,7 @@ function getGoalDescription(goal?: string): string {
   return descriptions[goal || 'education'] || descriptions.education;
 }
 
-function getAngleDescription(angle?: string): string {
+export function getAngleDescription(angle?: string): string {
   const descriptions: Record<string, string> = {
     educational: 'Tips, hướng dẫn, thông tin hữu ích',
     storytelling: 'Narrative flow, câu chuyện thực, cảm xúc',

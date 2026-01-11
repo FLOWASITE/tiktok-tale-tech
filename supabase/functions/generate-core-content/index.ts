@@ -8,6 +8,8 @@ import {
   GeneratedSection,
   getModelsForMode,
   getWordBudget,
+  getWordBudgetByLength,
+  getLengthConfig,
   buildOutlinePrompt,
   buildSectionPrompt,
   buildCompilePrompt,
@@ -16,6 +18,11 @@ import {
   buildBrandContextBlock,
   buildPersonaContextBlock,
   buildProductContextBlock,
+  buildRoleContext,
+  buildCompetitiveContextBlock,
+  buildStyleGuideBlock,
+  getGoalDescription,
+  getAngleDescription,
   CustomerPersonaContext,
   BrandProductContext,
 } from '../_shared/core-content-pipeline.ts';
@@ -967,6 +974,55 @@ serve(async (req: Request) => {
     }
     
     // Build pipeline config
+    // ========== PROMPT MANAGER INTEGRATION ==========
+    // Fetch system_prompt from registry (with fallback to hardcoded)
+    const promptManager = createPromptManager(
+      supabase,
+      'generate-core-content',
+      organizationId,
+      brandTemplateId
+    );
+    
+    // Get length config for word budget variables
+    const lengthConfigData = lengthMode ? getLengthConfig(lengthMode as 'short' | 'medium' | 'long') : null;
+    const wordBudgetData = lengthConfigData 
+      ? getWordBudgetByLength(lengthMode as 'short' | 'medium' | 'long')
+      : getWordBudget(qualityMode as CoreContentQualityMode);
+    
+    // Prepare prompt variables
+    const promptVariables = {
+      topic,
+      contentGoalDescription: getGoalDescription(contentGoal),
+      contentAngle: contentAngle ? getAngleDescription(contentAngle) : '',
+      roleContext: buildRoleContext(contentRole),
+      brandContext: buildBrandContextBlock(brandContext),
+      personaContext: buildPersonaContextBlock(personas),
+      productContext: buildProductContextBlock(products),
+      targetAudience: targetAudience || '',
+      additionalContext: enrichedContext || '',
+      smartContextInjection: smartContextInjection || '',
+      targetWords: lengthConfigData?.targetWords?.toString() || wordBudgetData.total.toString(),
+      minWords: lengthConfigData?.minWords?.toString() || (wordBudgetData.total - 100).toString(),
+      maxWords: lengthConfigData?.maxWords?.toString() || (wordBudgetData.total + 100).toString(),
+      introWords: lengthConfigData?.sectionBudgets?.intro?.toString() || wordBudgetData.intro.toString(),
+      analysisWords: lengthConfigData?.sectionBudgets?.analysis?.toString() || wordBudgetData.analysis.toString(),
+      impactWords: lengthConfigData?.sectionBudgets?.impact?.toString() || wordBudgetData.impact.toString(),
+      solutionWords: lengthConfigData?.sectionBudgets?.solution?.toString() || wordBudgetData.solution.toString(),
+      conclusionWords: lengthConfigData?.sectionBudgets?.conclusion?.toString() || wordBudgetData.conclusion.toString(),
+      competitiveContext: buildCompetitiveContextBlock(brandContext),
+      styleGuide: buildStyleGuideBlock(brandContext),
+    };
+    
+    // Try to fetch prompt from registry
+    let registrySystemPrompt: string | null = null;
+    try {
+      registrySystemPrompt = await promptManager.get('system_prompt', promptVariables);
+      console.log(`[generate-core-content] Using registry system_prompt (${registrySystemPrompt.length} chars)`);
+    } catch (promptErr) {
+      console.warn('[generate-core-content] Failed to fetch registry prompt, will use hardcoded fallback:', promptErr);
+    }
+    
+    // Build pipeline config
     const pipelineConfig: EnhancedPromptConfig = {
       topic,
       contentGoal: contentGoal || 'education',
@@ -980,6 +1036,8 @@ serve(async (req: Request) => {
       targetAudience,
       additionalContext: enrichedContext || undefined,
       smartContextInjection: smartContextInjection || undefined,
+      // Inject registry prompt if available
+      registrySystemPrompt: registrySystemPrompt || undefined,
     };
     
     // ========== STREAMING MODE ==========

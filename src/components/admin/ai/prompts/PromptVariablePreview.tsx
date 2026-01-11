@@ -66,14 +66,15 @@ export function PromptVariablePreview({ content, variables = {} }: PromptVariabl
     }
   };
 
-  // Auto-fill with sample values
+  // Auto-fill with sample values - includes Core Content presets
   const handleAutoFill = () => {
-    const samples: Record<string, string> = {
+    // General samples
+    const generalSamples: Record<string, string> = {
       brandName: 'Acme Corp',
       productName: 'Widget Pro',
-      topic: 'Cách tăng doanh số bán hàng',
+      topic: 'Cách tăng doanh số bán hàng trong thời đại AI',
       channel: 'Facebook',
-      targetAudience: 'Chủ doanh nghiệp SMB',
+      targetAudience: 'Chủ doanh nghiệp SMB tại Việt Nam, 30-50 tuổi',
       tone: 'professional',
       style: 'friendly',
       language: 'Vietnamese',
@@ -84,16 +85,79 @@ export function PromptVariablePreview({ content, variables = {} }: PromptVariabl
       time: new Date().toLocaleTimeString('vi-VN'),
     };
 
+    // Core Content specific presets
+    const coreContentPresets: Record<string, string> = {
+      // Main content variables
+      contentGoalDescription: 'Giáo dục - Chia sẻ kiến thức hữu ích, hướng dẫn chi tiết',
+      contentAngle: 'Góc tiếp cận: Tips, hướng dẫn, thông tin hữu ích',
+      roleContext: `## CONTENT ROLE: SPROUT (Trust Building)
+- Mục tiêu: Xây dựng lòng tin, chứng minh chuyên môn
+- Focus: Case study, phân tích sâu, giải pháp cụ thể
+- Tone: Chuyên gia, đáng tin cậy, có số liệu
+- CTA: Trung bình (đăng ký, liên hệ tư vấn)`,
+      
+      // Context blocks
+      brandContext: `## BRAND CONTEXT
+- Thương hiệu: TechVN
+- Định vị: Giải pháp công nghệ hàng đầu cho SMB Việt Nam
+- Tone of voice: Chuyên nghiệp, thân thiện, đáng tin cậy
+- USP: Tích hợp AI thông minh, tiết kiệm 40% thời gian`,
+      personaContext: `## TARGET PERSONAS
+### Persona 1: Anh Minh - Chủ doanh nghiệp
+- Mô tả: Chủ doanh nghiệp nhỏ, 35-45 tuổi
+- Pain points: Thiếu nhân sự marketing; Không có thời gian làm content
+- Triggers: Thấy đối thủ thành công với digital marketing`,
+      productContext: `## SẢN PHẨM/DỊCH VỤ CHÍNH
+### 1. ContentAI Pro
+- Mô tả: Nền tảng tạo content tự động bằng AI
+- USPs: Tích hợp brand voice; Đa kênh trong 1 nền tảng
+- Lợi ích: Tiết kiệm 10 giờ/tuần; Tăng engagement 150%`,
+      
+      // Word count variables
+      targetWords: '1200',
+      minWords: '1000',
+      maxWords: '1500',
+      introWords: '180',
+      analysisWords: '380',
+      impactWords: '180',
+      solutionWords: '340',
+      conclusionWords: '120',
+      
+      // Additional context blocks
+      additionalContext: 'Bài viết này hướng đến chủ doanh nghiệp SMB đang tìm kiếm giải pháp tăng doanh số trong Q1 2025.',
+      smartContextInjection: '',
+      competitiveContext: `## 🎯 COMPETITIVE POSITIONING (Tinh tế - Không Attack)
+### UNIQUE VALUE PROPOSITION (lồng ghép tự nhiên):
+"Giải pháp duy nhất tích hợp AI + Brand Voice tại Việt Nam"`,
+      styleGuide: `## ✍️ STYLE GUIDE (Brand Writing Rules)
+### ✅ Từ ngữ ƯU TIÊN sử dụng:
+- "giải pháp", "tối ưu", "thông minh"
+### ❌ Từ ngữ CẤM sử dụng:
+- "rẻ", "miễn phí", "dễ dàng"
+### 📝 Phong cách câu: BALANCED
+Câu vừa phải (15-25 từ/câu), cân bằng chi tiết và súc tích`,
+    };
+
+    // Merge both sample sets
+    const allSamples = { ...generalSamples, ...coreContentPresets };
+
     const newMockValues: Record<string, string> = {};
     extractedVars.forEach(varName => {
       const lowerVar = varName.toLowerCase();
-      // Try to find matching sample
-      const matchingKey = Object.keys(samples).find(
+      
+      // Direct match first
+      if (allSamples[varName]) {
+        newMockValues[varName] = allSamples[varName];
+        return;
+      }
+      
+      // Try to find matching sample by fuzzy match
+      const matchingKey = Object.keys(allSamples).find(
         k => k.toLowerCase() === lowerVar || 
         lowerVar.includes(k.toLowerCase()) ||
         k.toLowerCase().includes(lowerVar)
       );
-      newMockValues[varName] = matchingKey ? samples[matchingKey] : `Sample ${varName}`;
+      newMockValues[varName] = matchingKey ? allSamples[matchingKey] : `Sample ${varName}`;
     });
     setMockValues(newMockValues);
   };
