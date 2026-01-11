@@ -11,6 +11,7 @@ import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -495,9 +496,9 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules);
-
-    const userPrompt = `Tạo ${formData.slideCount} slide carousel cho chủ đề:
+    // Initialize PromptManager and fetch prompts from registry
+    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules); // Fallback to hardcoded
+    let userPrompt = `Tạo ${formData.slideCount} slide carousel cho chủ đề:
 "${formData.topic}"
 
 Nền tảng: ${formData.platform === "facebook" ? "Facebook" : "TikTok"}
@@ -507,6 +508,35 @@ Brand: ${formData.brandName}
 Hãy tạo đầy đủ ${formData.slideCount} slides với format JSON theo tool definition.
 Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với mục tiêu của slide đó.
 Đảm bảo logic nội dung: Hook → Vấn đề → Giải thích → Giải pháp → CTA`;
+
+    // Try to fetch prompts from registry
+    try {
+      const pm = createPromptManager(supabase, 'generate-carousel', organizationId || undefined, formData.brandTemplateId);
+      const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : '';
+      
+      systemPrompt = await pm.get('system', {
+        platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
+        aiTool: formData.aiTool,
+        slideCount: String(formData.slideCount),
+        brandName: formData.brandName,
+        brandGuideline: formData.brandGuideline,
+        includeLogo: formData.includeLogo ? 'true' : 'false',
+        logoUrl: formData.logoUrl || '',
+        brandVoiceSection,
+      });
+      
+      userPrompt = await pm.get('generate', {
+        topic: formData.topic,
+        slideCount: String(formData.slideCount),
+        platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
+        aiTool: formData.aiTool,
+        brandName: formData.brandName,
+      });
+      
+      console.log('[generate-carousel] Using prompts from registry');
+    } catch (pmErr) {
+      console.warn('[generate-carousel] PromptManager fallback to hardcoded:', pmErr);
+    }
 
     // Define the tool for structured output
     const tools = [

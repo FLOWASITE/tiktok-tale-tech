@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -527,7 +528,21 @@ serve(async (req) => {
 
     // Get time-aware greeting
     const timeGreeting = getVietnameseTimeGreeting();
-    const systemPrompt = buildSystemPrompt(timeGreeting);
+    
+    // Initialize PromptManager and fetch system prompt from registry
+    let systemPrompt = buildSystemPrompt(timeGreeting); // Fallback to hardcoded
+    if (supabase) {
+      try {
+        const pm = createPromptManager(supabase, 'sales-chatbot');
+        systemPrompt = await pm.get('system', {
+          timeGreeting,
+          knowledgeBase: FLOWA_KNOWLEDGE_BASE,
+        });
+        console.log('[sales-chatbot] Using prompt from registry');
+      } catch (pmErr) {
+        console.warn('[sales-chatbot] PromptManager fallback to hardcoded:', pmErr);
+      }
+    }
 
     // Get AI config from Admin Panel (no organizationId for public chatbot)
     const aiConfig = await getAIConfig('sales-chatbot');

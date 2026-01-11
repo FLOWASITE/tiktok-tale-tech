@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -290,9 +291,17 @@ serve(async (req) => {
   try {
     const { messages, currentRoute, context } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    // Initialize Supabase client for PromptManager
+    let supabase = null;
+    if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+      supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     }
 
     // Get the latest user message for article search
@@ -302,8 +311,22 @@ serve(async (req) => {
     const relevantArticles = await searchHelpArticles(latestUserMessage, currentRoute);
     console.log(`[help-chatbot] Found ${relevantArticles.length} relevant articles`);
 
+    // Initialize PromptManager and fetch system prompt from registry
+    let baseSystemPrompt = SYSTEM_PROMPT; // Fallback to hardcoded
+    if (supabase) {
+      try {
+        const pm = createPromptManager(supabase, 'help-chatbot');
+        baseSystemPrompt = await pm.get('system', {
+          knowledgeBase: KNOWLEDGE_BASE,
+        });
+        console.log('[help-chatbot] Using prompt from registry');
+      } catch (pmErr) {
+        console.warn('[help-chatbot] PromptManager fallback to hardcoded:', pmErr);
+      }
+    }
+
     // Build context-aware system prompt
-    let contextPrompt = SYSTEM_PROMPT;
+    let contextPrompt = baseSystemPrompt;
     
     // Add dynamic help articles if found
     if (relevantArticles.length > 0) {
