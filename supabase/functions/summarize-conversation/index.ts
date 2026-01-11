@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -109,8 +110,23 @@ serve(async (req) => {
       .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
       .join('\n\n');
 
+    // Try to fetch system prompt from registry
+    let baseSummaryPrompt = '';
+    try {
+      const serviceSupabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      const promptManager = createPromptManager(serviceSupabase, 'summarize-conversation');
+      baseSummaryPrompt = await promptManager.get('system_summarize', {
+        messageCount: messages.length.toString(),
+      });
+    } catch (err) {
+      console.warn('[summarize-conversation] Failed to fetch prompt from registry, using hardcoded');
+    }
+
     // Generate summary using AI
-    const summaryPrompt = `Summarize this content marketing conversation in 2-3 concise sentences. Focus on:
+    const summaryPrompt = baseSummaryPrompt || `Summarize this content marketing conversation in 2-3 concise sentences. Focus on:
 1. Main topic/themes discussed
 2. Key decisions or topics suggested
 3. Format preferences if any

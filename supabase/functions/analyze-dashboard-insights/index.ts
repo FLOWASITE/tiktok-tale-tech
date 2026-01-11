@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -395,18 +396,17 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Validate JWT using getClaims
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("[analyze-dashboard-insights] Auth error:", claimsError);
+    // Validate JWT using getUser
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error("[analyze-dashboard-insights] Auth error:", userError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
     // Get organization - try membership first, fallback to content tables
     let organizationId: string | null = null;

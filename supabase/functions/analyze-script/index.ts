@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,7 +42,24 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `Bạn là chuyên gia phân tích kịch bản video với hơn 10 năm kinh nghiệm. 
+    // Try to fetch system prompt from registry
+    let baseSystemPrompt = '';
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      const promptManager = createPromptManager(supabase, 'analyze-script');
+      baseSystemPrompt = await promptManager.get('system_analyze', {
+        topic: topic || 'Không xác định',
+        duration: duration || 60,
+        videoType: videoType || 'Không xác định',
+      });
+    } catch (err) {
+      console.warn('[analyze-script] Failed to fetch prompt from registry, using hardcoded');
+    }
+
+    const systemPrompt = baseSystemPrompt || `Bạn là chuyên gia phân tích kịch bản video với hơn 10 năm kinh nghiệm. 
 Phân tích kịch bản và trả về JSON với cấu trúc sau:
 
 {

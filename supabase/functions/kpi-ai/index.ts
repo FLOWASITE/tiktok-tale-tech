@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -313,7 +314,20 @@ async function handleSuggest(
   const duration = calculateDuration(startDate, endDate);
   const seasonalContext = getSeasonalContext(startDate);
 
-  const systemPrompt = `Bạn là chuyên gia marketing phân tích KPI cho thị trường Việt Nam. Hãy đề xuất KPI targets phù hợp và thực tế.
+  // Try to fetch system prompt from registry
+  let baseSystemPrompt = '';
+  try {
+    const promptManager = createPromptManager(supabase, 'kpi-ai', organizationId);
+    baseSystemPrompt = await promptManager.get('system_suggest', {
+      campaignType,
+      budget: budget.toString(),
+      industry: industries?.[0] || 'General',
+    });
+  } catch (err) {
+    console.warn('[kpi-ai:suggest] Failed to fetch prompt from registry, using hardcoded');
+  }
+
+  const systemPrompt = baseSystemPrompt || `Bạn là chuyên gia marketing phân tích KPI cho thị trường Việt Nam. Hãy đề xuất KPI targets phù hợp và thực tế.
 
 ## Quy tắc:
 1. Confidence level:
