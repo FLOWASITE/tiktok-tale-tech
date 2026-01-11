@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Search, 
   Plus, 
@@ -20,14 +21,19 @@ import {
   Filter,
   RefreshCw,
   FolderOpen,
-  AlertTriangle
+  AlertTriangle,
+  List,
+  LayoutGrid,
+  ChevronDown
 } from "lucide-react";
 import { PromptList } from "./PromptList";
 import { PromptEditor } from "./PromptEditor";
 import { ABTestManager } from "./ABTestManager";
 import { PromptHistoryViewer } from "./PromptHistoryViewer";
+import { PromptBulkActions } from "./PromptBulkActions";
 import { useCategoryConfig } from "@/hooks/useCategoryConfig";
 import { toast } from "sonner";
+import { getIconByName } from "../IconPicker";
 
 export interface Prompt {
   id: string;
@@ -55,6 +61,9 @@ export function PromptManager() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [filterFunction, setFilterFunction] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'grouped'>('list');
+  const [selectedPromptIds, setSelectedPromptIds] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   // Fetch categories
   const { categories } = useCategoryConfig();
@@ -105,6 +114,75 @@ export function PromptManager() {
     if (!prompts) return 0;
     return prompts.filter(p => !p.category_id).length;
   }, [prompts]);
+
+  // Group prompts by category for grouped view
+  const groupedPrompts = useMemo(() => {
+    if (!filteredPrompts) return new Map();
+    
+    const groups = new Map<string, { category: typeof categories[0] | null; prompts: Prompt[] }>();
+    
+    // Add uncategorized group
+    const uncategorized = filteredPrompts.filter(p => !p.category_id);
+    if (uncategorized.length > 0) {
+      groups.set('__uncategorized__', {
+        category: null,
+        prompts: uncategorized
+      });
+    }
+    
+    // Add categorized groups
+    categories.forEach(cat => {
+      const categoryPrompts = filteredPrompts.filter(p => p.category_id === cat.id);
+      if (categoryPrompts.length > 0) {
+        groups.set(cat.id, {
+          category: cat,
+          prompts: categoryPrompts
+        });
+      }
+    });
+    
+    return groups;
+  }, [filteredPrompts, categories]);
+
+  // Selected prompts for bulk actions
+  const selectedPrompts = useMemo(() => {
+    if (!prompts) return [];
+    return prompts.filter(p => selectedPromptIds.has(p.id));
+  }, [prompts, selectedPromptIds]);
+
+  const togglePromptSelection = (promptId: string) => {
+    setSelectedPromptIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(promptId)) {
+        newSet.delete(promptId);
+      } else {
+        newSet.add(promptId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllPrompts = () => {
+    if (filteredPrompts) {
+      setSelectedPromptIds(new Set(filteredPrompts.map(p => p.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedPromptIds(new Set());
+  };
+
+  const toggleCategoryExpanded = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
 
   const handleCreatePrompt = () => {
     setSelectedPrompt(null);
@@ -237,6 +315,26 @@ export function PromptManager() {
                 <option key={cat.id} value={cat.id}>{cat.label}</option>
               ))}
             </select>
+            
+            {/* View Mode Toggle */}
+            <div className="flex border rounded-md overflow-hidden">
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="rounded-none"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'grouped' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grouped')}
+                className="rounded-none"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Stats */}
@@ -282,13 +380,88 @@ export function PromptManager() {
             </Card>
           </div>
 
-          {/* Prompt List */}
-          <PromptList
-            prompts={filteredPrompts}
-            isLoading={isLoading}
-            onEdit={handleEditPrompt}
-            onRefresh={refetch}
+          {/* Prompt List or Grouped View */}
+          {viewMode === 'list' ? (
+            <PromptList
+              prompts={filteredPrompts}
+              isLoading={isLoading}
+              onEdit={handleEditPrompt}
+              onRefresh={refetch}
+              categories={categories}
+              selectedIds={selectedPromptIds}
+              onToggleSelect={togglePromptSelection}
+            />
+          ) : (
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-4 pr-4">
+                {Array.from(groupedPrompts.entries()).map(([groupId, { category, prompts: groupPrompts }]) => (
+                  <Collapsible
+                    key={groupId}
+                    open={expandedCategories.has(groupId) || expandedCategories.size === 0}
+                    onOpenChange={() => toggleCategoryExpanded(groupId)}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <div 
+                        className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                        style={category ? { 
+                          backgroundColor: `${category.color}10`,
+                          borderLeft: `3px solid ${category.color}`
+                        } : {
+                          backgroundColor: 'hsl(var(--muted) / 0.5)',
+                          borderLeft: '3px solid hsl(var(--muted-foreground))'
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          {category ? (
+                            <>
+                              {getIconByName(category.icon || 'folder')}
+                              <span className="font-medium" style={{ color: category.color }}>
+                                {category.label}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="h-4 w-4 text-amber-500" />
+                              <span className="font-medium text-amber-600">
+                                Chưa phân loại
+                              </span>
+                            </>
+                          )}
+                          <Badge variant="secondary" className="ml-2">
+                            {groupPrompts.length}
+                          </Badge>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform ui-expanded:rotate-180" />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="mt-2 ml-4">
+                        <PromptList
+                          prompts={groupPrompts}
+                          isLoading={false}
+                          onEdit={handleEditPrompt}
+                          onRefresh={refetch}
+                          categories={categories}
+                          selectedIds={selectedPromptIds}
+                          onToggleSelect={togglePromptSelection}
+                          compact
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+
+          {/* Bulk Actions */}
+          <PromptBulkActions
+            selectedPrompts={selectedPrompts}
+            onClearSelection={clearSelection}
+            onSelectAll={selectAllPrompts}
+            totalCount={filteredPrompts.length}
             categories={categories}
+            onRefresh={refetch}
           />
         </TabsContent>
 
