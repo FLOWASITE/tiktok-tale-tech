@@ -18,6 +18,8 @@ import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+// NEW: Prompt Registry Integration - Phase 4
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

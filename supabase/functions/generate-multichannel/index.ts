@@ -88,6 +88,8 @@ import {
   completeTask, 
   failTask 
 } from '../_shared/task-tracking.ts';
+// NEW: Prompt Registry Integration - Phase 4
+import { createPromptManager } from "../_shared/prompt-integration.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
