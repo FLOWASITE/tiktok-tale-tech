@@ -220,19 +220,6 @@ Trả về JSON hợp lệ.`;
       console.warn('[generate-storyboard] Failed to track prompt usage:', err);
     }
 
-    // Save metrics
-    try {
-      await saveMetrics(supabase, {
-        traceId,
-        functionName: 'generate-storyboard',
-        totalDurationMs: durationMs,
-        organizationId,
-        actionType: 'generate',
-      });
-    } catch (err) {
-      console.warn('[generate-storyboard] Failed to save metrics:', err);
-    }
-
     // Log prompt info for debugging
     console.log('[generate-storyboard] Prompts used:', pm.getPromptInfo());
 
