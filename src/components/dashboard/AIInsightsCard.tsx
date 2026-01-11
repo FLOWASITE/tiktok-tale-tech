@@ -56,7 +56,7 @@ const DISMISSED_STORAGE_KEY = 'dashboard-insights-dismissed';
 const CELEBRATED_STORAGE_KEY = 'dashboard-insights-celebrated';
 
 export function AIInsightsCard({ className }: AIInsightsCardProps) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   // Load dismissed IDs from localStorage
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
@@ -105,7 +105,7 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     staleTime: 5 * 60 * 1000, // Cache 5 minutes in React Query
     refetchOnWindowFocus: false,
     retry: 1,
-    enabled: !!user, // Only run query when user is authenticated
+    enabled: !!user && !authLoading, // Only run query when user is authenticated AND auth is finished loading
   });
 
   const insights = data?.insights || [];
@@ -265,8 +265,8 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     }
   };
 
-  // Not authenticated - don't show insights
-  if (!user) {
+  // Not authenticated or auth still loading - don't show insights
+  if (!user || authLoading) {
     return null;
   }
 
