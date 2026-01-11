@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,7 @@ import { toast } from "sonner";
 import type { Prompt } from "./PromptManager";
 import type { CategoryConfig } from "@/hooks/useCategoryConfig";
 import { getIconByName } from "../IconPicker";
+import { cn } from "@/lib/utils";
 
 interface PromptListProps {
   prompts: Prompt[];
@@ -42,9 +44,21 @@ interface PromptListProps {
   onEdit: (prompt: Prompt) => void;
   onRefresh: () => void;
   categories: CategoryConfig[];
+  selectedIds?: Set<string>;
+  onToggleSelect?: (promptId: string) => void;
+  compact?: boolean;
 }
 
-export function PromptList({ prompts, isLoading, onEdit, onRefresh, categories }: PromptListProps) {
+export function PromptList({ 
+  prompts, 
+  isLoading, 
+  onEdit, 
+  onRefresh, 
+  categories,
+  selectedIds = new Set(),
+  onToggleSelect,
+  compact = false
+}: PromptListProps) {
   // Helper to get category by ID
   const getCategoryById = (categoryId: string | null) => {
     if (!categoryId) return null;
@@ -163,20 +177,35 @@ export function PromptList({ prompts, isLoading, onEdit, onRefresh, categories }
   }
 
   return (
-    <ScrollArea className="h-[600px]">
+    <ScrollArea className={compact ? "max-h-[400px]" : "h-[600px]"}>
       <div className="space-y-3 pr-4">
-        {prompts.map(prompt => (
-          <Card 
-            key={prompt.id} 
-            className={`hover:shadow-md transition-all ${
-              !prompt.is_active ? "opacity-60" : ""
-            }`}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h3 className="font-medium truncate">{prompt.name}</h3>
+        {prompts.map(prompt => {
+          const isSelected = selectedIds.has(prompt.id);
+          return (
+            <Card 
+              key={prompt.id} 
+              className={cn(
+                "hover:shadow-md transition-all",
+                !prompt.is_active && "opacity-60",
+                isSelected && "ring-2 ring-primary",
+                compact && "shadow-sm"
+              )}
+            >
+              <CardContent className={compact ? "p-3" : "p-4"}>
+                <div className="flex items-start justify-between gap-4">
+                  {/* Selection checkbox */}
+                  {onToggleSelect && (
+                    <div className="pt-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => onToggleSelect(prompt.id)}
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h3 className={cn("font-medium truncate", compact && "text-sm")}>{prompt.name}</h3>
                     {prompt.is_default && (
                       <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
                         <Star className="h-3 w-3 mr-1" />
@@ -186,8 +215,8 @@ export function PromptList({ prompts, isLoading, onEdit, onRefresh, categories }
                     <Badge variant="outline" className="text-xs">
                       v{prompt.version}
                     </Badge>
-                    {/* Category Badge */}
-                    {(() => {
+                    {/* Category Badge - hide in compact mode since already grouped */}
+                    {!compact && (() => {
                       const category = getCategoryById(prompt.category_id);
                       if (category) {
                         return (
@@ -224,17 +253,17 @@ export function PromptList({ prompts, isLoading, onEdit, onRefresh, categories }
                     <span className="font-mono text-xs">{prompt.prompt_key}</span>
                   </div>
 
-                  {prompt.description && (
+                  {prompt.description && !compact && (
                     <p className="text-sm text-muted-foreground line-clamp-1">
                       {prompt.description}
                     </p>
                   )}
 
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className={cn("flex items-center gap-2", compact ? "mt-1" : "mt-2")}>
                     <Badge variant="outline" className="text-xs capitalize">
                       {prompt.prompt_type}
                     </Badge>
-                    {prompt.tags?.map(tag => (
+                    {!compact && prompt.tags?.map(tag => (
                       <Badge key={tag} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
@@ -299,7 +328,8 @@ export function PromptList({ prompts, isLoading, onEdit, onRefresh, categories }
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </ScrollArea>
   );

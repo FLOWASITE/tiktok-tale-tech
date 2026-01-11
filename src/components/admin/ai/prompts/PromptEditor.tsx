@@ -32,6 +32,7 @@ import {
 import type { Prompt } from "./PromptManager";
 import type { CategoryConfig } from "@/hooks/useCategoryConfig";
 import { getIconByName } from "../IconPicker";
+import { PromptVariablePreview } from "./PromptVariablePreview";
 
 interface PromptEditorProps {
   prompt: Prompt | null;
@@ -360,6 +361,12 @@ Sử dụng biến: {{brandName}}, {{topic}}, {{channel}}`}
                   )}
                 </div>
               </div>
+
+              {/* Variable Preview */}
+              <PromptVariablePreview 
+                content={formData.content} 
+                variables={formData.variables} 
+              />
             </TabsContent>
 
             <TabsContent value="variables" className="space-y-4 px-1">
