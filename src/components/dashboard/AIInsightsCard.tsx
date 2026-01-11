@@ -21,6 +21,7 @@ import confetti from 'canvas-confetti';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Insight {
   id: string;
@@ -55,6 +56,8 @@ const DISMISSED_STORAGE_KEY = 'dashboard-insights-dismissed';
 const CELEBRATED_STORAGE_KEY = 'dashboard-insights-celebrated';
 
 export function AIInsightsCard({ className }: AIInsightsCardProps) {
+  const { user } = useAuth();
+  
   // Load dismissed IDs from localStorage
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
     try {
@@ -80,8 +83,12 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
   const { toast } = useToast();
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['dashboard-insights'],
+    queryKey: ['dashboard-insights', user?.id],
     queryFn: async (): Promise<AIInsightsResponse> => {
+      if (!user) {
+        return { insights: [], fromCache: false };
+      }
+      
       const { data, error } = await supabase.functions.invoke('analyze-dashboard-insights');
       
       if (error) {
@@ -98,6 +105,7 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     staleTime: 5 * 60 * 1000, // Cache 5 minutes in React Query
     refetchOnWindowFocus: false,
     retry: 1,
+    enabled: !!user, // Only run query when user is authenticated
   });
 
   const insights = data?.insights || [];
@@ -256,6 +264,11 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
         return 'bg-green-500/10 text-green-500 border-green-500/20';
     }
   };
+
+  // Not authenticated - don't show insights
+  if (!user) {
+    return null;
+  }
 
   // Loading state
   if (isLoading) {
