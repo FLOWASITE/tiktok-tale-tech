@@ -762,7 +762,7 @@ export function MultiChannelViewer({
                   {content.core_content_id && (
                     <CoreContentSourceBadge
                       coreContentId={content.core_content_id}
-                      className="hidden sm:flex"
+                      className="flex"
                       onViewSource={(coreContent) => setViewingCoreContent(coreContent)}
                     />
                   )}
