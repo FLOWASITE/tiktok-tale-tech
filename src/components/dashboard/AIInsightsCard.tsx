@@ -85,21 +85,31 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-insights', user?.id],
     queryFn: async (): Promise<AIInsightsResponse> => {
-      if (!user) {
+      // Extra safety: ensure we always send an access token explicitly.
+      // In some edge cases, `functions.invoke()` can run before the client has attached the session.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!user || !accessToken) {
         return { insights: [], fromCache: false };
       }
-      
-      const { data, error } = await supabase.functions.invoke('analyze-dashboard-insights');
-      
+
+      const { data, error } = await supabase.functions.invoke('analyze-dashboard-insights', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
       if (error) {
         console.error('Error fetching insights:', error);
         throw error;
       }
-      
+
       return {
         insights: (data?.insights || []) as Insight[],
         fromCache: data?.fromCache || false,
-        cachedAt: data?.cachedAt
+        cachedAt: data?.cachedAt,
+        metadata: data?.metadata,
       };
     },
     staleTime: 5 * 60 * 1000, // Cache 5 minutes in React Query
@@ -199,14 +209,17 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     try {
       // Force refresh bypasses cache
       if (forceRefresh) {
-        const { data: freshData, error } = await supabase.functions.invoke('analyze-dashboard-insights', {
-          body: { forceRefresh: true }
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+
+        const { error } = await supabase.functions.invoke('analyze-dashboard-insights', {
+          body: { forceRefresh: true },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         });
         if (error) throw error;
-        await refetch();
-      } else {
-        await refetch();
       }
+
+      await refetch();
       toast({
         title: "Đã cập nhật insights",
         description: forceRefresh ? "AI đã phân tích dữ liệu mới nhất" : "Insights đã được làm mới",
