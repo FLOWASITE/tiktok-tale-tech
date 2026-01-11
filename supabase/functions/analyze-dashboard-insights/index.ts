@@ -401,15 +401,17 @@ serve(async (req) => {
     });
 
     // Validate JWT using service role (more reliable in Edge runtime)
+    // IMPORTANT: In Edge runtime there is no persisted session, so we must pass the JWT explicitly.
     const authClient = createClient(supabaseUrl, serviceRoleKey || anonKey, {
-      global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
     });
+
+    const token = authHeader.replace("Bearer ", "").trim();
 
     const {
       data: { user },
       error: userError,
-    } = await authClient.auth.getUser();
+    } = await authClient.auth.getUser(token);
 
     if (userError || !user) {
       console.error("[analyze-dashboard-insights] Auth error:", userError);
