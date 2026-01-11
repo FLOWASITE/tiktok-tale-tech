@@ -1,4 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,27 +27,8 @@ interface StoryboardScene {
   notes?: string;
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { scriptContent, scriptTitle, duration, videoType, characterType, brandName } = await req.json();
-
-    if (!scriptContent) {
-      return new Response(
-        JSON.stringify({ error: "Thiếu nội dung kịch bản" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    const systemPrompt = `Bạn là chuyên gia đạo diễn video và storyboard artist chuyên nghiệp. 
+// Default system prompt fallback
+const DEFAULT_SYSTEM_PROMPT = `Bạn là chuyên gia đạo diễn video và storyboard artist chuyên nghiệp. 
 Nhiệm vụ của bạn là phân tích kịch bản video và tạo storyboard chi tiết cho từng phân cảnh.
 
 Với mỗi prompt/đoạn trong kịch bản, bạn cần tạo:
@@ -79,6 +63,50 @@ Luôn trả về JSON hợp lệ với cấu trúc sau:
   "styleNotes": "Gợi ý phong cách tổng thể cho video"
 }`;
 
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const startTime = Date.now();
+  const traceId = generateTraceId();
+
+  try {
+    const { scriptContent, scriptTitle, duration, videoType, characterType, brandName, organizationId } = await req.json();
+
+    if (!scriptContent) {
+      return new Response(
+        JSON.stringify({ error: "Thiếu nội dung kịch bản" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    // Initialize Supabase client for prompt fetching
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Create PromptManager for this function
+    const pm = createPromptManager(supabase, 'generate-storyboard', organizationId);
+
+    // Fetch system prompt from database (with fallback to hardcoded)
+    let systemPrompt: string;
+    try {
+      systemPrompt = await pm.get('system', {
+        videoType: videoType || 'short-form',
+        characterType: characterType || 'presenter',
+      });
+    } catch (err) {
+      console.warn('[generate-storyboard] Failed to fetch prompt from DB, using fallback:', err);
+      systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    }
+
+    // Build user prompt with variables
     const userPrompt = `Phân tích kịch bản sau và tạo storyboard chi tiết:
 
 **Tiêu đề:** ${scriptTitle}
@@ -100,7 +128,7 @@ Yêu cầu:
 
 Trả về JSON hợp lệ.`;
 
-    console.log("Generating storyboard for:", scriptTitle);
+    console.log(`[generate-storyboard] Generating for: ${scriptTitle}, trace: ${traceId}`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -119,7 +147,7 @@ Trả về JSON hợp lệ.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("[generate-storyboard] AI gateway error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -152,7 +180,7 @@ Trả về JSON hợp lệ.`;
       const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
       storyboardData = JSON.parse(jsonStr);
     } catch (parseError) {
-      console.error("Failed to parse storyboard JSON:", parseError);
+      console.error("[generate-storyboard] Failed to parse storyboard JSON:", parseError);
       console.log("Raw content:", content);
       throw new Error("Không thể phân tích kết quả từ AI");
     }
@@ -178,8 +206,33 @@ Trả về JSON hợp lệ.`;
     }));
 
     const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0);
+    const durationMs = Date.now() - startTime;
 
-    console.log(`Generated ${scenes.length} scenes, total duration: ${totalDuration}s`);
+    console.log(`[generate-storyboard] Generated ${scenes.length} scenes, total duration: ${totalDuration}s, took ${durationMs}ms`);
+
+    // Track prompt usage
+    try {
+      await pm.trackAll({
+        qualityScore: 85, // Default score for storyboard
+        generationTimeMs: durationMs,
+      });
+    } catch (err) {
+      console.warn('[generate-storyboard] Failed to track prompt usage:', err);
+    }
+
+    // Save metrics
+    try {
+      await saveMetrics(supabase, {
+        traceId,
+        functionName: 'generate-storyboard',
+        totalDurationMs: durationMs,
+        organizationId,
+        actionType: 'generate',
+        promptInfo: pm.getPromptInfo(),
+      });
+    } catch (err) {
+      console.warn('[generate-storyboard] Failed to save metrics:', err);
+    }
 
     return new Response(
       JSON.stringify({
@@ -190,7 +243,7 @@ Trả về JSON hợp lệ.`;
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error generating storyboard:", error);
+    console.error("[generate-storyboard] Error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Lỗi không xác định" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
