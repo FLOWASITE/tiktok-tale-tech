@@ -12,6 +12,16 @@ export interface CoreContentProgress {
   progress: number;
   message: string;
   isComplete: boolean;
+  // Detailed progress info
+  stepProgress?: number;           // 0-100 for current step
+  totalSteps?: number;
+  currentStepIndex?: number;
+  estimatedRemainingMs?: number;
+  sectionInfo?: {
+    current: number;
+    total: number;
+    title: string;
+  };
 }
 
 export interface StreamingCoreContentResult {
@@ -110,14 +120,14 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
       let accumulatedText = '';
       let finalResult: StreamingCoreContentResult | null = null;
 
-      // Watchdog timer
-      const WATCHDOG_TIMEOUT = 120000; // 2 minutes for longer generation
+      // Watchdog timer - increased to 5 minutes for quality models
+      const WATCHDOG_TIMEOUT = 300000; // 5 minutes for quality models
       let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
 
       const resetWatchdog = () => {
         if (watchdogTimer) clearTimeout(watchdogTimer);
         watchdogTimer = setTimeout(() => {
-          console.warn('[StreamingCoreContent] Watchdog timeout');
+          console.warn('[StreamingCoreContent] Watchdog timeout after 5 minutes');
           abortControllerRef.current?.abort();
         }, WATCHDOG_TIMEOUT);
       };
@@ -146,6 +156,12 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
             try {
               const event = JSON.parse(jsonStr);
 
+              // Handle keepalive events
+              if (event.type === 'keepalive') {
+                resetWatchdog();
+                continue;
+              }
+
               // Handle progress events
               if (event.type === 'progress') {
                 const progressData: CoreContentProgress = {
@@ -153,6 +169,12 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
                   progress: event.progress || 0,
                   message: event.message || '',
                   isComplete: false,
+                  // Detailed progress info
+                  stepProgress: event.stepProgress,
+                  totalSteps: event.totalSteps,
+                  currentStepIndex: event.currentStepIndex,
+                  estimatedRemainingMs: event.estimatedRemainingMs,
+                  sectionInfo: event.sectionInfo,
                 };
                 setProgress(progressData);
                 options.onProgress?.(progressData);

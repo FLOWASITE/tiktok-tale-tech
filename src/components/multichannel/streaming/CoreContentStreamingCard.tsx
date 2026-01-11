@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, X, BookOpen } from "lucide-react";
+import { Sparkles, Loader2, X, BookOpen, ListOrdered, FileText, CheckCircle, Clock, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CoreContentProgress } from "@/hooks/useStreamingCoreContent";
 
@@ -36,6 +36,119 @@ const QUALITY_MODE_LABELS: Record<QualityMode, { icon: string; label: string }> 
   quality: { icon: "✨", label: "Chất lượng cao" },
 };
 
+// Step Progress Indicator Component
+function StepProgressIndicator({ 
+  progress,
+  qualityMode 
+}: { 
+  progress: CoreContentProgress; 
+  qualityMode: QualityMode;
+}) {
+  // Calculate remaining time display
+  const remainingDisplay = useMemo(() => {
+    if (!progress.estimatedRemainingMs || progress.estimatedRemainingMs <= 0) return null;
+    const seconds = Math.ceil(progress.estimatedRemainingMs / 1000);
+    if (seconds < 60) return `~${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSecs = seconds % 60;
+    return remainingSecs > 0 ? `~${minutes}m ${remainingSecs}s` : `~${minutes}m`;
+  }, [progress.estimatedRemainingMs]);
+
+  // Define steps based on quality mode
+  const steps = useMemo(() => {
+    if (qualityMode === 'fast') {
+      return [
+        { id: 'generating', label: 'Tạo nội dung', icon: Sparkles },
+      ];
+    }
+    return [
+      { id: 'outline', label: 'Dàn ý', icon: ListOrdered },
+      { id: 'sections', label: 'Nội dung', icon: FileText },
+      { id: 'compile', label: 'Hoàn thiện', icon: CheckCircle },
+    ];
+  }, [qualityMode]);
+
+  // Determine current step state
+  const getStepState = (stepId: string) => {
+    const currentStep = progress.step || '';
+    
+    if (stepId === 'outline') {
+      if (currentStep === 'outline') return 'active';
+      if (currentStep === 'outline_done' || currentStep.startsWith('section') || currentStep === 'compile' || currentStep === 'saving' || currentStep === 'complete') return 'complete';
+      return 'pending';
+    }
+    
+    if (stepId === 'sections') {
+      if (currentStep.startsWith('section')) return 'active';
+      if (currentStep === 'compile' || currentStep === 'saving' || currentStep === 'complete') return 'complete';
+      if (currentStep === 'outline' || currentStep === 'outline_done' || currentStep === 'init') return 'pending';
+      return 'pending';
+    }
+    
+    if (stepId === 'compile') {
+      if (currentStep === 'compile' || currentStep === 'saving') return 'active';
+      if (currentStep === 'complete') return 'complete';
+      return 'pending';
+    }
+    
+    if (stepId === 'generating') {
+      if (currentStep === 'generating') return 'active';
+      if (currentStep === 'complete') return 'complete';
+      return 'pending';
+    }
+    
+    return 'pending';
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Mini stepper */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {steps.map((step, idx) => {
+          const state = getStepState(step.id);
+          const Icon = step.icon;
+          
+          return (
+            <div key={step.id} className="flex items-center gap-1">
+              <div className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all",
+                state === 'active' && "bg-primary/20 text-primary font-medium",
+                state === 'complete' && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+                state === 'pending' && "bg-muted text-muted-foreground"
+              )}>
+                <Icon className={cn(
+                  "w-3 h-3",
+                  state === 'active' && "animate-pulse"
+                )} />
+                <span>{step.label}</span>
+                {state === 'active' && progress.sectionInfo && step.id === 'sections' && (
+                  <span className="text-[10px] opacity-80">
+                    ({progress.sectionInfo.current}/{progress.sectionInfo.total})
+                  </span>
+                )}
+                {state === 'complete' && (
+                  <CheckCircle className="w-3 h-3 ml-0.5" />
+                )}
+              </div>
+              {idx < steps.length - 1 && (
+                <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Time estimate */}
+      {remainingDisplay && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock className="w-3 h-3" />
+          <span>Còn khoảng {remainingDisplay}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface CoreContentStreamingCardProps {
   streamingText: string;
   progress: CoreContentProgress;
@@ -66,8 +179,14 @@ export function CoreContentStreamingCard({
     return streamingText.trim().split(/\s+/).filter(Boolean).length;
   }, [streamingText]);
 
-  // Get step label
-  const stepLabel = STEP_LABELS[progress.step] || progress.message || "Đang xử lý...";
+  // Get step label - use section info if available
+  const stepLabel = useMemo(() => {
+    if (progress.sectionInfo) {
+      return `Đang viết phần ${progress.sectionInfo.current}/${progress.sectionInfo.total}: ${progress.sectionInfo.title}`;
+    }
+    return STEP_LABELS[progress.step] || progress.message || "Đang xử lý...";
+  }, [progress.step, progress.message, progress.sectionInfo]);
+
   const modeInfo = QUALITY_MODE_LABELS[qualityMode] || QUALITY_MODE_LABELS.balanced;
 
   return (
@@ -105,13 +224,32 @@ export function CoreContentStreamingCard({
           </div>
         </div>
 
+        {/* Step Progress Indicator */}
+        <div className="mt-3">
+          <StepProgressIndicator progress={progress} qualityMode={qualityMode} />
+        </div>
+
         {/* Progress Bar */}
         <div className="mt-3 space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Tiến độ</span>
+            <span>Tiến độ tổng</span>
             <span className="tabular-nums font-medium">{Math.round(progress.progress)}%</span>
           </div>
           <Progress value={progress.progress} className="h-2" />
+          
+          {/* Secondary progress bar for step progress */}
+          {progress.stepProgress !== undefined && progress.stepProgress > 0 && progress.stepProgress < 100 && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-muted-foreground/70">
+                <span>Bước hiện tại</span>
+                <span className="tabular-nums">{Math.round(progress.stepProgress)}%</span>
+              </div>
+              <Progress 
+                value={progress.stepProgress} 
+                className="h-1 opacity-60" 
+              />
+            </div>
+          )}
         </div>
       </CardHeader>
 
