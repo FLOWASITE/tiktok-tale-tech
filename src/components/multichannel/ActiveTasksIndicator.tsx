@@ -2,16 +2,29 @@ import { memo, useCallback, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, CheckCircle2, AlertCircle, BookOpen, Layers, RotateCcw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, X, CheckCircle2, AlertCircle, BookOpen, Layers, RotateCcw, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerationTask } from '@/hooks/useBackgroundGeneration';
 import { AnimatePresence, motion } from 'framer-motion';
+import { CHANNELS } from '@/types/multichannel';
+
+// Pending queue item for multichannel waiting on core content
+export interface PendingQueueItem {
+  id: string;
+  type: 'multichannel_pending';
+  channels: string[];
+  waitingFor: 'core_content';
+  progress: number;
+}
 
 interface ActiveTasksIndicatorProps {
   tasks: GenerationTask[];
+  pendingQueue?: PendingQueueItem[];
   onTaskClick?: (task: GenerationTask) => void;
   onDismiss?: (taskId: string) => void;
   onRetry?: (taskId: string) => Promise<GenerationTask | null>;
+  onCancelPending?: (id: string) => void;
   className?: string;
 }
 
@@ -154,14 +167,108 @@ const TaskCard = memo(function TaskCard({
   );
 });
 
+// Pending Queue Card for multichannel waiting on core content
+const PendingQueueCard = memo(function PendingQueueCard({
+  item,
+  onCancel,
+}: {
+  item: PendingQueueItem;
+  onCancel?: (id: string) => void;
+}) {
+  const handleCancel = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCancel?.(item.id);
+  }, [item.id, onCancel]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 100, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card className="bg-amber-50/95 dark:bg-amber-950/40 backdrop-blur-md shadow-lg border-amber-200/50 dark:border-amber-800/50 min-w-[280px]">
+        <CardContent className="p-3">
+          <div className="flex items-start gap-3">
+            {/* Queue Icon */}
+            <div className="relative flex-shrink-0 mt-0.5">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Đang xếp hàng...</span>
+              </div>
+              
+              <p className="text-xs text-amber-700 dark:text-amber-300/80 mb-2">
+                Chờ Core Content ({item.progress}%)
+              </p>
+
+              {/* Channel badges */}
+              <div className="flex flex-wrap gap-1 mb-2">
+                {item.channels.slice(0, 4).map(ch => {
+                  const channelInfo = CHANNELS.find(c => c.value === ch);
+                  return (
+                    <Badge 
+                      key={ch} 
+                      variant="outline" 
+                      className="text-[10px] px-1.5 py-0 h-4 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                    >
+                      {channelInfo?.label || ch}
+                    </Badge>
+                  );
+                })}
+                {item.channels.length > 4 && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] px-1.5 py-0 h-4 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                  >
+                    +{item.channels.length - 4}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Progress bar */}
+              <div className="flex items-center gap-2">
+                <Progress value={item.progress} className="h-1.5 flex-1 [&>div]:bg-amber-500" />
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-medium w-8 text-right">
+                  {item.progress}%
+                </span>
+              </div>
+            </div>
+
+            {/* Cancel Button */}
+            {onCancel && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                onClick={handleCancel}
+                title="Hủy"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+});
+
 export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({ 
   tasks, 
+  pendingQueue = [],
   onTaskClick,
   onDismiss,
   onRetry,
+  onCancelPending,
   className 
 }: ActiveTasksIndicatorProps) {
-  if (tasks.length === 0) return null;
+  if (tasks.length === 0 && pendingQueue.length === 0) return null;
 
   return (
     <div className={cn(
@@ -170,6 +277,16 @@ export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({
       className
     )}>
       <AnimatePresence mode="popLayout">
+        {/* Pending Queue Items */}
+        {pendingQueue.map(item => (
+          <PendingQueueCard 
+            key={item.id} 
+            item={item} 
+            onCancel={onCancelPending}
+          />
+        ))}
+        
+        {/* Regular Tasks */}
         {tasks.map(task => (
           <TaskCard 
             key={task.id} 

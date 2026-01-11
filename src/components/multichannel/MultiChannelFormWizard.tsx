@@ -83,7 +83,7 @@ import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarn
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
-import { ActiveTasksIndicator } from '@/components/multichannel/ActiveTasksIndicator';
+import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
 import { cn } from '@/lib/utils';
 import { 
@@ -228,6 +228,9 @@ export function MultiChannelFormWizard({
   
   // NEW: Preview popup state
   const [showPreviewPopup, setShowPreviewPopup] = useState(false);
+  
+  // Unique ID for pending queue item
+  const [pendingQueueId] = useState(() => `pending_${Date.now()}`);
   
   // Core Content generation settings
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
@@ -689,6 +692,25 @@ export function MultiChannelFormWizard({
       }
     }
   }, [getTaskResult, dismissTask]);
+
+  // Create pending queue items for the indicator
+  const pendingQueueItems: PendingQueueItem[] = useMemo(() => {
+    if (!pendingMultiChannelGeneration) return [];
+    
+    return [{
+      id: pendingQueueId,
+      type: 'multichannel_pending' as const,
+      channels: formData.channels,
+      waitingFor: 'core_content' as const,
+      progress: coreContentProgress?.progress || 0,
+    }];
+  }, [pendingMultiChannelGeneration, pendingQueueId, formData.channels, coreContentProgress?.progress]);
+
+  // Cancel pending handler
+  const handleCancelPending = useCallback(() => {
+    setPendingMultiChannelGeneration(false);
+    toast.info('Đã hủy yêu cầu xếp hàng');
+  }, []);
 
   // Channel categories
   const channelCategories = [
@@ -1498,8 +1520,10 @@ export function MultiChannelFormWizard({
         {/* Background Tasks Indicator - shows tasks that continue when user navigates away */}
         <ActiveTasksIndicator
           tasks={[...activeTasks, ...completedTasks]}
+          pendingQueue={pendingQueueItems}
           onDismiss={dismissTask}
           onTaskClick={handleTaskClick}
+          onCancelPending={handleCancelPending}
         />
 
         {/* Core Content Preview Popup */}
