@@ -231,6 +231,89 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
     }
   }, []);
 
+  // Retry a failed task by creating a new task with same input_params
+  const retryTask = useCallback(async (taskId: string): Promise<GenerationTask | null> => {
+    if (!user?.id) return null;
+
+    try {
+      // Fetch the failed task to get input_params
+      const { data: failedTask, error: fetchError } = await supabase
+        .from('generation_tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single();
+
+      if (fetchError || !failedTask) {
+        console.error('[useBackgroundGeneration] Failed task not found');
+        return null;
+      }
+
+      const typedTask = failedTask as GenerationTask;
+      
+      if (typedTask.status !== 'failed') {
+        console.error('[useBackgroundGeneration] Task is not failed, cannot retry');
+        return null;
+      }
+
+      // Create new task with same input_params
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newTask, error: createError } = await (supabase
+        .from('generation_tasks') as any)
+        .insert({
+          user_id: user.id,
+          organization_id: typedTask.organization_id,
+          task_type: typedTask.task_type,
+          status: 'pending',
+          progress: 0,
+          input_params: typedTask.input_params,
+        })
+        .select()
+        .single();
+
+      if (createError || !newTask) {
+        console.error('[useBackgroundGeneration] Retry create error:', createError);
+        return null;
+      }
+
+      // Delete the old failed task
+      await supabase
+        .from('generation_tasks')
+        .delete()
+        .eq('id', taskId);
+
+      // Remove from local state immediately
+      setCompletedTasks(prev => prev.filter(t => t.id !== taskId));
+
+      // Trigger the edge function
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      
+      if (accessToken) {
+        const endpoint = typedTask.task_type === 'core_content' 
+          ? 'generate-core-content' 
+          : 'generate-multichannel';
+          
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            ...typedTask.input_params,
+            stream: true,
+            taskId: newTask.id,
+          }),
+        }).catch(err => console.warn('[retryTask] Edge function call error:', err));
+      }
+
+      return newTask as GenerationTask;
+    } catch (err) {
+      console.error('[useBackgroundGeneration] Retry error:', err);
+      return null;
+    }
+  }, [user?.id]);
+
   // Initial check on mount
   useEffect(() => {
     checkActiveTasks();
@@ -286,6 +369,7 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
     getTaskResult,
     clearCompletedTasks,
     dismissTask,
+    retryTask,
     refresh: checkActiveTasks,
   };
 }

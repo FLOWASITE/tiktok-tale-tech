@@ -1,8 +1,8 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, CheckCircle2, AlertCircle, BookOpen, Layers } from 'lucide-react';
+import { Loader2, X, CheckCircle2, AlertCircle, BookOpen, Layers, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerationTask } from '@/hooks/useBackgroundGeneration';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -11,6 +11,7 @@ interface ActiveTasksIndicatorProps {
   tasks: GenerationTask[];
   onTaskClick?: (task: GenerationTask) => void;
   onDismiss?: (taskId: string) => void;
+  onRetry?: (taskId: string) => Promise<GenerationTask | null>;
   className?: string;
 }
 
@@ -34,12 +35,16 @@ const TaskStatusIcon = memo(function TaskStatusIcon({ status }: { status: string
 const TaskCard = memo(function TaskCard({ 
   task, 
   onTaskClick, 
-  onDismiss 
+  onDismiss,
+  onRetry,
 }: { 
   task: GenerationTask; 
   onTaskClick?: (task: GenerationTask) => void;
   onDismiss?: (taskId: string) => void;
+  onRetry?: (taskId: string) => Promise<GenerationTask | null>;
 }) {
+  const [isRetrying, setIsRetrying] = useState(false);
+
   const handleClick = useCallback(() => {
     onTaskClick?.(task);
   }, [task, onTaskClick]);
@@ -49,7 +54,19 @@ const TaskCard = memo(function TaskCard({
     onDismiss?.(task.id);
   }, [task.id, onDismiss]);
 
+  const handleRetry = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRetry || isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await onRetry(task.id);
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [task.id, onRetry, isRetrying]);
+
   const isActive = task.status === 'pending' || task.status === 'generating';
+  const isFailed = task.status === 'failed';
   const taskLabel = task.task_type === 'core_content' ? 'Core Content' : 'Multi-channel';
 
   return (
@@ -63,7 +80,8 @@ const TaskCard = memo(function TaskCard({
         className={cn(
           "bg-card/95 backdrop-blur-md shadow-lg border-border/50",
           "hover:bg-accent/50 transition-colors cursor-pointer",
-          "min-w-[280px]"
+          "min-w-[280px]",
+          isFailed && "border-destructive/30"
         )}
         onClick={handleClick}
       >
@@ -99,15 +117,36 @@ const TaskCard = memo(function TaskCard({
               )}
             </div>
 
-            {/* Dismiss Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0 opacity-50 hover:opacity-100"
-              onClick={handleDismiss}
-            >
-              <X className="w-3 h-3" />
-            </Button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Retry Button - Only for failed tasks */}
+              {isFailed && onRetry && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-primary hover:bg-primary/10"
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                  title="Thử lại"
+                >
+                  {isRetrying ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-3 h-3" />
+                  )}
+                </Button>
+              )}
+              
+              {/* Dismiss Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-50 hover:opacity-100"
+                onClick={handleDismiss}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -119,6 +158,7 @@ export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({
   tasks, 
   onTaskClick,
   onDismiss,
+  onRetry,
   className 
 }: ActiveTasksIndicatorProps) {
   if (tasks.length === 0) return null;
@@ -136,6 +176,7 @@ export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({
             task={task} 
             onTaskClick={onTaskClick}
             onDismiss={onDismiss}
+            onRetry={onRetry}
           />
         ))}
       </AnimatePresence>
