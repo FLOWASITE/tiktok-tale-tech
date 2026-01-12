@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CoreContentQualityMode, CoreContentLengthMode } from '@/types/coreContent';
+import { CoreContentLengthMode } from '@/types/coreContent';
 import { ContentGoal, ContentAngle } from '@/types/multichannel';
 
 // ============================================
@@ -12,16 +12,7 @@ export interface CoreContentProgress {
   progress: number;
   message: string;
   isComplete: boolean;
-  // Detailed progress info
-  stepProgress?: number;           // 0-100 for current step
-  totalSteps?: number;
-  currentStepIndex?: number;
   estimatedRemainingMs?: number;
-  sectionInfo?: {
-    current: number;
-    total: number;
-    title: string;
-  };
 }
 
 export interface StreamingCoreContentResult {
@@ -32,7 +23,6 @@ export interface StreamingCoreContentResult {
   qualityScore: number;
   keyMessages: string[];
   generationMetadata?: {
-    qualityMode: string;
     stepsCompleted: string[];
     generationTimeMs: number;
     modelsUsed: string[];
@@ -49,13 +39,11 @@ interface GenerateRequest {
   topic: string;
   contentGoal: ContentGoal;
   contentAngle?: ContentAngle;
-  qualityMode?: CoreContentQualityMode;
   lengthMode?: CoreContentLengthMode;
   brandTemplateId?: string;
   organizationId: string;
   targetAudience?: string;
   additionalContext?: string;
-  // New: Research options
   enableResearch?: boolean;
   researchRecency?: 'day' | 'week' | 'month' | 'year';
 }
@@ -211,12 +199,7 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
                   progress: event.progress || 0,
                   message: event.message || '',
                   isComplete: false,
-                  // Detailed progress info
-                  stepProgress: event.stepProgress,
-                  totalSteps: event.totalSteps,
-                  currentStepIndex: event.currentStepIndex,
                   estimatedRemainingMs: event.estimatedRemainingMs,
-                  sectionInfo: event.sectionInfo,
                 };
                 setProgress(progressData);
                 options.onProgress?.(progressData);
@@ -229,12 +212,6 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
                   accumulatedText += deltaText;
                   setStreamingText(accumulatedText);
                 }
-              }
-
-              // Handle section complete
-              if (event.type === 'section_complete') {
-                accumulatedText = event.content || accumulatedText;
-                setStreamingText(accumulatedText);
               }
 
               // Handle final result

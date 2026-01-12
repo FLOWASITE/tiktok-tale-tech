@@ -1,6 +1,6 @@
 // ============================================
-// CORE CONTENT MULTI-STEP PIPELINE
-// Optimized generation with outline-first approach
+// CORE CONTENT GENERATION - SIMPLIFIED SINGLE-PASS
+// Uses model from Admin Config (ai_function_configs)
 // ============================================
 
 import { BrandContext, IndustryMemory } from './types/chat-types.ts';
@@ -9,7 +9,6 @@ import { BrandContext, IndustryMemory } from './types/chat-types.ts';
 // TYPES
 // ============================================
 
-export type CoreContentQualityMode = 'fast' | 'balanced' | 'quality';
 export type CoreContentRole = 'seed' | 'sprout' | 'harvest';
 
 export interface CoreContentConfig {
@@ -17,7 +16,6 @@ export interface CoreContentConfig {
   contentGoal: string;
   contentAngle?: string;
   role?: CoreContentRole;
-  qualityMode: CoreContentQualityMode;
   lengthMode?: CoreContentLengthMode;
   brandContext: BrandContext | null;
   personas?: CustomerPersonaContext[];
@@ -42,132 +40,8 @@ export interface BrandProductContext {
   content_angles?: string[];
 }
 
-export interface OutlineSection {
-  title: string;
-  bulletPoints: string[];
-  wordBudget: number;
-}
-
-export interface GeneratedOutline {
-  sections: OutlineSection[];
-  totalWordBudget: number;
-  estimatedTokens: number;
-}
-
-export interface GeneratedSection {
-  index: number;
-  title: string;
-  content: string;
-  wordCount: number;
-}
-
-export interface PipelineResult {
-  outline: GeneratedOutline;
-  sections: GeneratedSection[];
-  compiledContent: string;
-  metadata: {
-    qualityMode: CoreContentQualityMode;
-    stepsCompleted: string[];
-    totalTokensUsed: number;
-    modelsUsed: string[];
-    generationTimeMs: number;
-  };
-}
-
 // ============================================
-// MODEL SELECTION
-// ============================================
-
-interface ModelConfig {
-  outline: string;
-  section: string;
-  compile: string;
-}
-
-const MODEL_CONFIGS: Record<CoreContentQualityMode, ModelConfig> = {
-  fast: {
-    outline: 'google/gemini-2.5-flash-lite',
-    section: 'google/gemini-2.5-flash', // Used for single-pass in fast mode
-    compile: 'google/gemini-2.5-flash',
-  },
-  balanced: {
-    outline: 'google/gemini-2.5-flash-lite',
-    section: 'google/gemini-2.5-flash',
-    compile: 'google/gemini-2.5-flash',
-  },
-  quality: {
-    outline: 'google/gemini-2.5-flash',
-    section: 'google/gemini-2.5-flash',
-    compile: 'google/gemini-2.5-pro',
-  },
-};
-
-export function getModelsForMode(
-  mode: CoreContentQualityMode,
-  adminModelOverride?: string | null
-): ModelConfig {
-  const baseConfig = MODEL_CONFIGS[mode];
-  
-  // If admin has configured a model override, use it for the main generation model (compile)
-  // Also apply to section generation for consistency
-  if (adminModelOverride) {
-    console.log(`[getModelsForMode] Using admin model override: ${adminModelOverride}`);
-    return {
-      outline: baseConfig.outline, // Keep lightweight model for outline (structured output)
-      section: adminModelOverride,  // Use admin model for section generation
-      compile: adminModelOverride,  // Use admin model for final compilation
-    };
-  }
-  
-  return baseConfig;
-}
-
-// ============================================
-// WORD BUDGET CALCULATION - Quality Mode (Legacy)
-// ============================================
-
-interface WordBudget {
-  total: number;
-  intro: number;
-  analysis: number;
-  impact: number;
-  solution: number;
-  conclusion: number;
-}
-
-const WORD_BUDGETS: Record<CoreContentQualityMode, WordBudget> = {
-  fast: {
-    total: 800,
-    intro: 120,
-    analysis: 250,
-    impact: 120,
-    solution: 220,
-    conclusion: 90,
-  },
-  balanced: {
-    total: 1200,
-    intro: 180,
-    analysis: 380,
-    impact: 180,
-    solution: 340,
-    conclusion: 120,
-  },
-  quality: {
-    total: 1500,
-    intro: 220,
-    analysis: 480,
-    impact: 220,
-    solution: 420,
-    conclusion: 160,
-  },
-};
-
-export function getWordBudget(mode: CoreContentQualityMode): WordBudget {
-  return WORD_BUDGETS[mode];
-}
-
-// ============================================
-// WORD BUDGET CALCULATION - Length Mode (NEW)
+// WORD BUDGET CALCULATION - Length Mode
 // ============================================
 
 export type CoreContentLengthMode = 'short' | 'medium' | 'long';
@@ -228,6 +102,15 @@ export function getLengthConfig(lengthMode: CoreContentLengthMode): LengthConfig
   return LENGTH_CONFIGS[lengthMode];
 }
 
+interface WordBudget {
+  total: number;
+  intro: number;
+  analysis: number;
+  impact: number;
+  solution: number;
+  conclusion: number;
+}
+
 export function getWordBudgetByLength(lengthMode: CoreContentLengthMode): WordBudget {
   const config = LENGTH_CONFIGS[lengthMode];
   return {
@@ -237,7 +120,17 @@ export function getWordBudgetByLength(lengthMode: CoreContentLengthMode): WordBu
 }
 
 // ============================================
-// PROOF ELEMENTS & COMPETITIVE CONTEXT (NEW)
+// DEFAULT MODEL (Fallback if no admin config)
+// ============================================
+
+const DEFAULT_MODEL = 'google/gemini-2.5-flash';
+
+export function getDefaultModel(): string {
+  return DEFAULT_MODEL;
+}
+
+// ============================================
+// PROOF ELEMENTS & COMPETITIVE CONTEXT
 // ============================================
 
 /**
@@ -280,7 +173,6 @@ export function buildCompetitiveContextBlock(brandContext: BrandContext | null):
   
   const hasCompetitors = brandContext.mainCompetitors && brandContext.mainCompetitors.length > 0;
   const hasUSP = brandContext.uniqueValueProposition;
-  // Use brand positioning as fallback for competitive advantages
   const hasBrandPositioning = brandContext.brandPositioning;
   
   if (!hasCompetitors && !hasUSP && !hasBrandPositioning) return '';
@@ -334,7 +226,7 @@ Brand đang cạnh tranh với: ${brandContext.mainCompetitors.slice(0, 3).join(
 }
 
 // ============================================
-// STYLE GUIDE BLOCK (NEW)
+// STYLE GUIDE BLOCK
 // ============================================
 
 /**
@@ -485,191 +377,17 @@ export function buildRoleContext(role?: CoreContentRole): string {
 }
 
 // ============================================
-// OUTLINE GENERATION PROMPT
+// ENHANCED PROMPT CONFIG
 // ============================================
 
 export interface EnhancedPromptConfig extends CoreContentConfig {
   smartContextInjection?: string;
   researchContext?: string;
-  registrySystemPrompt?: string;  // NEW: System prompt fetched from registry
-}
-
-export function buildOutlinePrompt(config: EnhancedPromptConfig): string {
-  // Use lengthMode if provided, otherwise fall back to qualityMode
-  const wordBudget = config.lengthMode 
-    ? getWordBudgetByLength(config.lengthMode) 
-    : getWordBudget(config.qualityMode);
-  
-  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
-  
-  // Build strict word count instruction if lengthMode is specified
-  const wordCountInstruction = lengthConfig ? `
-## 📏 ĐỘ DÀI BẮT BUỘC
-- Tổng số từ mục tiêu: ${lengthConfig.targetWords} từ
-- ⚠️ KHÔNG được viết ít hơn ${lengthConfig.minWords} từ
-- ⚠️ KHÔNG được viết nhiều hơn ${lengthConfig.maxWords} từ
-- Đây là YÊU CẦU CỨNG, phải tuân thủ tuyệt đối
-` : '';
-  
-  let prompt = `Bạn là content strategist chuyên nghiệp.
-
-## NHIỆM VỤ
-Tạo Outline chi tiết cho Core Content (nội dung gốc) về chủ đề sau.
-
-## CHỦ ĐỀ
-${config.topic}
-
-## MỤC TIÊU NỘI DUNG
-${getGoalDescription(config.contentGoal)}
-${config.contentAngle ? `\nGóc tiếp cận: ${getAngleDescription(config.contentAngle)}` : ''}
-${buildRoleContext(config.role)}
-${buildBrandContextBlock(config.brandContext)}
-${buildPersonaContextBlock(config.personas)}
-${buildProductContextBlock(config.products)}
-${config.targetAudience ? `\n## ĐỐI TƯỢNG MỤC TIÊU\n${config.targetAudience}` : ''}
-${config.additionalContext ? `\n## BỐI CẢNH BỔ SUNG\n${config.additionalContext}` : ''}
-${wordCountInstruction}
-${buildProofRequirementsBlock()}
-${buildCompetitiveContextBlock(config.brandContext)}
-${buildStyleGuideBlock(config.brandContext)}
-${config.smartContextInjection || ''}
-
-## CẤU TRÚC BẮT BUỘC (5 phần)
-1. Giới thiệu/Context (~${wordBudget.intro} từ): Hook + bối cảnh vấn đề
-2. Phân tích nguyên nhân (~${wordBudget.analysis} từ): 4-7 điểm chính với ví dụ
-3. Tác động/Hậu quả (~${wordBudget.impact} từ): Ảnh hưởng đến đối tượng mục tiêu
-4. Giải pháp/Case study (~${wordBudget.solution} từ): Cách giải quyết, lồng ghép sản phẩm nếu phù hợp
-5. Kết luận (~${wordBudget.conclusion} từ): Insight chính + CTA
-
-## OUTPUT FORMAT (JSON)
-Trả về JSON với cấu trúc sau:
-{
-  "sections": [
-    {
-      "title": "Tên phần",
-      "bulletPoints": ["Điểm 1 cần viết", "Điểm 2 cần viết", ...],
-      "wordBudget": 200
-    }
-  ],
-  "totalWordBudget": ${wordBudget.total}
-}
-
-CHỈ TRẢ VỀ JSON, KHÔNG THÊM TEXT KHÁC.`;
-
-  return prompt;
+  registrySystemPrompt?: string;  // System prompt fetched from registry
 }
 
 // ============================================
-// SECTION GENERATION PROMPT
-// ============================================
-
-export function buildSectionPrompt(
-  config: EnhancedPromptConfig,
-  outline: GeneratedOutline,
-  sectionIndex: number
-): string {
-  const section = outline.sections[sectionIndex];
-  if (!section) throw new Error(`Section ${sectionIndex} not found in outline`);
-  
-  const outlinePreview = outline.sections
-    .map((s, i) => `${i + 1}. ${s.title} (${s.wordBudget} từ)`)
-    .join('\n');
-  
-  // Get length config for strict enforcement
-  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
-  const totalWordBudget = outline.sections.reduce((sum, s) => sum + s.wordBudget, 0);
-  
-  // Strict word count instruction for this section
-  const sectionWordInstruction = lengthConfig 
-    ? `
-⚠️ YÊU CẦU CỨNG VỀ ĐỘ DÀI:
-- Phần này PHẢI có ĐÚNG ${section.wordBudget} từ (±10%, tức ${Math.round(section.wordBudget * 0.9)}-${Math.round(section.wordBudget * 1.1)} từ)
-- Tổng bài viết sẽ có ${lengthConfig.minWords}-${lengthConfig.maxWords} từ
-- KHÔNG được viết ngắn hơn hoặc dài hơn budget này!
-` 
-    : '';
-  
-  return `Bạn là content writer chuyên nghiệp. Viết một phần của Core Content.
-
-## OUTLINE TỔNG THỂ
-${outlinePreview}
-
-## NHIỆM VỤ
-Viết phần ${sectionIndex + 1}: "${section.title}"
-- Word budget: ${section.wordBudget} từ (±10%)
-- Bullet points cần cover:
-${section.bulletPoints.map(bp => `  - ${bp}`).join('\n')}
-${sectionWordInstruction}
-${buildBrandContextBlock(config.brandContext)}
-${buildRoleContext(config.role)}
-${buildProofRequirementsBlock()}
-
-## QUY TẮC
-- Tone: Trung lập, chuyên gia
-- Giữ nhất quán brand voice
-- Viết mạch lạc, tự nhiên
-- Sử dụng ví dụ cụ thể khi cần
-- KHÔNG thêm hook mạnh hoặc emoji
-- PHẢI có proof elements (số liệu, ví dụ, trích dẫn)
-- PHẢI TUÂN THỦ WORD BUDGET: ${section.wordBudget} từ ±10%
-
-## OUTPUT
-Viết trực tiếp nội dung phần này dạng Markdown.
-BẮT ĐẦU BẰNG HEADING: ## ${section.title}`;
-}
-
-// ============================================
-// COMPILE & REFINE PROMPT
-// ============================================
-
-export function buildCompilePrompt(
-  config: CoreContentConfig,
-  sections: GeneratedSection[],
-  wordBudget: WordBudget
-): string {
-  const allContent = sections
-    .sort((a, b) => a.index - b.index)
-    .map(s => s.content)
-    .join('\n\n');
-  
-  // Get strict word limits from lengthMode if available
-  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
-  
-  const wordLimitInstruction = lengthConfig 
-    ? `
-## 📏 ĐỘ DÀI BẮT BUỘC
-- ⚠️ Tổng bài PHẢI có ${lengthConfig.minWords}-${lengthConfig.maxWords} từ
-- Mục tiêu: ${lengthConfig.targetWords} từ
-- KHÔNG được viết ngắn hơn ${lengthConfig.minWords} từ
-- KHÔNG được viết dài hơn ${lengthConfig.maxWords} từ
-- Nếu thiếu từ: BỔ SUNG ví dụ, số liệu, phân tích sâu hơn
-- Nếu thừa từ: TINH GỌN câu văn, loại bỏ nội dung trùng lặp
-`
-    : `4. Giữ độ dài tổng: ${wordBudget.total - 100} - ${wordBudget.total + 100} từ`;
-  
-  return `Bạn là senior editor. Ghép và polish các phần sau thành Core Content hoàn chỉnh.
-
-## NỘI DUNG CÁC PHẦN
-${allContent}
-${buildBrandContextBlock(config.brandContext)}
-${buildRoleContext(config.role)}
-${wordLimitInstruction}
-
-## YÊU CẦU
-1. Đảm bảo logic chảy mượt giữa các phần
-2. Nhất quán tone và brand voice toàn bài
-3. KHÔNG thêm hook mạnh, emoji quá mức
-4. Sử dụng Markdown (## heading, **bold**, bullet points)
-5. Đảm bảo có ít nhất 5 điểm chính được highlight
-6. ⚠️ ĐẢM BẢO WORD COUNT NẰM TRONG GIỚI HẠN ĐÃ CHỈ ĐỊNH
-
-## OUTPUT
-Full Core Content dạng Markdown.
-KHÔNG thêm tiêu đề "Core Content" hay metadata.`;
-}
-
-// ============================================
-// FAST MODE: SINGLE-PASS PROMPT
+// SINGLE-PASS PROMPT (MAIN GENERATION)
 // ============================================
 
 export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
@@ -682,15 +400,11 @@ export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
   // HARDCODED FALLBACK: Use when registry prompt is unavailable
   console.log('[buildSinglePassPrompt] Using hardcoded fallback prompt');
   
-  // Use lengthMode if provided, otherwise fall back to qualityMode
-  const wordBudget = config.lengthMode 
-    ? getWordBudgetByLength(config.lengthMode) 
-    : getWordBudget(config.qualityMode);
+  const lengthMode = config.lengthMode || 'medium';
+  const wordBudget = getWordBudgetByLength(lengthMode);
+  const lengthConfig = getLengthConfig(lengthMode);
   
-  const lengthConfig = config.lengthMode ? getLengthConfig(config.lengthMode) : null;
-  
-  // Build strict word count instruction if lengthMode is specified
-  const wordCountInstruction = lengthConfig ? `
+  const wordCountInstruction = `
 ## 📏 ĐỘ DÀI BẮT BUỘC
 - Tổng số từ mục tiêu: ${lengthConfig.targetWords} từ
 - ⚠️ KHÔNG được viết ít hơn ${lengthConfig.minWords} từ
@@ -703,9 +417,6 @@ export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
 - Tác động: ~${lengthConfig.sectionBudgets.impact} từ
 - Giải pháp: ~${lengthConfig.sectionBudgets.solution} từ
 - Kết luận: ~${lengthConfig.sectionBudgets.conclusion} từ
-` : `
-## YÊU CẦU ĐỘ DÀI
-- Độ dài: ${wordBudget.total - 100} - ${wordBudget.total + 100} từ
 `;
   
   return `Bạn là content writer chuyên nghiệp. Viết Core Content (nội dung gốc) hoàn chỉnh.
@@ -773,70 +484,12 @@ export function getAngleDescription(angle?: string): string {
 }
 
 // ============================================
-// JSON PARSING HELPER
+// MAX TOKENS CALCULATION
 // ============================================
 
-export function parseOutlineJSON(text: string): GeneratedOutline {
-  // Strip markdown code blocks if present
-  let cleaned = text.trim();
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.slice(7);
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.slice(3);
-  }
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.slice(0, -3);
-  }
-  cleaned = cleaned.trim();
-  
-  // Find JSON object
-  const jsonStart = cleaned.indexOf('{');
-  const jsonEnd = cleaned.lastIndexOf('}');
-  
-  if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error('No valid JSON found in outline response');
-  }
-  
-  const jsonStr = cleaned.slice(jsonStart, jsonEnd + 1);
-  const parsed = JSON.parse(jsonStr);
-  
-  // Validate structure
-  if (!Array.isArray(parsed.sections)) {
-    throw new Error('Invalid outline structure: missing sections array');
-  }
-  
-  const sections: OutlineSection[] = parsed.sections.map((s: any) => ({
-    title: s.title || 'Untitled',
-    bulletPoints: Array.isArray(s.bulletPoints) ? s.bulletPoints : [],
-    wordBudget: typeof s.wordBudget === 'number' ? s.wordBudget : 200,
-  }));
-  
-  return {
-    sections,
-    totalWordBudget: parsed.totalWordBudget || sections.reduce((sum, s) => sum + s.wordBudget, 0),
-    estimatedTokens: Math.round((parsed.totalWordBudget || 1000) * 1.5),
-  };
-}
-
-// ============================================
-// TOKEN ESTIMATION
-// ============================================
-
-export function estimateTokens(mode: CoreContentQualityMode): {
-  outline: number;
-  sections: number;
-  compile: number;
-  total: number;
-} {
-  const estimates: Record<CoreContentQualityMode, { outline: number; sections: number; compile: number }> = {
-    fast: { outline: 1500, sections: 0, compile: 3000 },
-    balanced: { outline: 1500, sections: 8000, compile: 3500 },
-    quality: { outline: 2000, sections: 12000, compile: 4500 },
-  };
-  
-  const e = estimates[mode];
-  return {
-    ...e,
-    total: e.outline + e.sections + e.compile,
-  };
+export function getMaxTokens(lengthMode: CoreContentLengthMode): number {
+  // Tokens are approximately 1.3x word count for Vietnamese
+  const config = getLengthConfig(lengthMode);
+  // Add buffer for formatting and prompt overhead
+  return Math.round(config.maxWords * 1.5) + 500;
 }
