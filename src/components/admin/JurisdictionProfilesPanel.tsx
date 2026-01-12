@@ -64,12 +64,14 @@ export function JurisdictionProfilesPanel({ globalPackId, onBack }: Jurisdiction
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'valid':
-        return { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Valid' };
-      case 'stale':
-        return { icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'Stale' };
+      case 'current':
+        return { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Current' };
+      case 'superseded':
+        return { icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'Superseded' };
+      case 'pending':
+        return { icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-500/10', label: 'Pending' };
       default:
-        return { icon: XCircle, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Invalid' };
+        return { icon: XCircle, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Unknown' };
     }
   };
 

@@ -10,7 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import type { 
   ResolvedRules, 
   JurisdictionCode,
-  EMPTY_RESOLVED_RULES 
 } from '@/types/industryParkV2';
 
 // ============== TYPES ==============
@@ -20,7 +19,7 @@ export interface JurisdictionProfileData {
   globalPackId: string;
   jurisdictionCode: string;
   resolvedRules: ResolvedRules;
-  validityStatus: 'valid' | 'stale' | 'invalid';
+  validityStatus: 'current' | 'superseded' | 'pending';
   lastVerifiedDate: string | null;
   disclaimer: string | null;
 }
@@ -63,7 +62,7 @@ async function fetchProfileByGlobalPackAndJurisdiction(
     `)
     .eq('global_pack_id', globalPackId)
     .eq('jurisdiction_code', jurisdictionCode)
-    .eq('validity_status', 'valid')
+    .eq('validity_status', 'current')
     .maybeSingle();
 
   if (error) {
@@ -86,7 +85,7 @@ async function fetchProfileByGlobalPackAndJurisdiction(
     globalPackId: data.global_pack_id,
     jurisdictionCode: data.jurisdiction_code,
     resolvedRules: data.resolved_rules as unknown as ResolvedRules,
-    validityStatus: data.validity_status as 'valid' | 'stale' | 'invalid',
+    validityStatus: data.validity_status as 'current' | 'superseded' | 'pending',
     lastVerifiedDate: data.last_verified_date,
     disclaimer: data.disclaimer,
     globalPack: {
@@ -150,7 +149,7 @@ async function fetchAvailableJurisdictions(
   return data.map(row => ({
     code: row.jurisdiction_code,
     name: jurisdictionNames[row.jurisdiction_code] || row.jurisdiction_code,
-    isValid: row.validity_status === 'valid',
+    isValid: row.validity_status === 'current',
   }));
 }
 
@@ -259,6 +258,6 @@ export function useResolvedRules(
     rules: data?.resolvedRules ?? null,
     isLoading,
     error: error as Error | null,
-    isStale: data?.validityStatus === 'stale',
+    isStale: data?.validityStatus === 'superseded',
   };
 }
