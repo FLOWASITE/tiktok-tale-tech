@@ -258,3 +258,6 @@ verify_jwt = false
 
 [functions.test-website-connection]
 verify_jwt = false
+
+[functions.categorize-industries]
+verify_jwt = false
