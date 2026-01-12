@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useIndustryTemplates, useIndustryTemplatesAdmin } from "@/hooks/useIndustryTemplates";
 import { IndustryAdvancedFilters, defaultFilters, type IndustryFilters } from "@/components/admin/IndustryAdvancedFilters";
+import { IndustryImportDialog } from "@/components/admin/IndustryImportDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +53,7 @@ import {
   Heart,
   Factory,
   Megaphone,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -74,6 +76,7 @@ export default function AdminIndustries() {
   const [filters, setFilters] = useState<IndustryFilters>(defaultFilters);
   const [editingTemplate, setEditingTemplate] = useState<IndustryTemplate | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [inlineEditId, setInlineEditId] = useState<string | null>(null);
   const [inlineEditData, setInlineEditData] = useState<Partial<IndustryTemplate>>({});
   
@@ -244,12 +247,23 @@ export default function AdminIndustries() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Làm mới
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
           <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Thêm ngành
           </Button>
         </div>
       </div>
+
+      {/* Import Dialog */}
+      <IndustryImportDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        onSuccess={() => refetch()}
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
