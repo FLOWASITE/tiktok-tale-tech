@@ -362,77 +362,110 @@ export function BrandFormStepIdentity({
             <p className="text-xs text-muted-foreground mb-3 px-1">
               💡 Thông tin này sẽ được tự động thêm vào cuối mỗi bài viết (Facebook, Threads, Email...) để khách hàng dễ dàng liên hệ với bạn.
             </p>
-          <div className="space-y-3 p-4 rounded-lg border bg-muted/20">
-            <div className="grid gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Building className="w-3.5 h-3.5" />
-                  Tên công ty
-                </Label>
-                <Input
-                  value={footerInfo.company_name || ''}
-                  onChange={(e) => updateFooterField('company_name', e.target.value)}
-                  placeholder="VD: Công ty TNHH ABC"
-                  className="h-9"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5" />
-                    Số điện thoại
-                  </Label>
-                  <Input
-                    value={footerInfo.phone || ''}
-                    onChange={(e) => updateFooterField('phone', e.target.value)}
-                    placeholder="VD: 0901234567"
-                    className="h-9"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5" />
-                    Email
-                  </Label>
-                  <Input
-                    value={footerInfo.email || ''}
-                    onChange={(e) => updateFooterField('email', e.target.value)}
-                    placeholder="VD: info@company.vn"
-                    className="h-9"
-                  />
+            
+            {/* Visual Contact Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Company Name Card */}
+              <div className="group relative p-4 rounded-xl border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/20 text-blue-600 dark:text-blue-400 shrink-0">
+                    <Building className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Tên công ty
+                    </Label>
+                    <Input
+                      value={footerInfo.company_name || ''}
+                      onChange={(e) => updateFooterField('company_name', e.target.value)}
+                      placeholder="Công ty TNHH ABC"
+                      className="h-9 border-0 bg-transparent p-0 text-sm font-medium placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5" />
-                  Website
-                </Label>
-                <Input
-                  value={footerInfo.website || ''}
-                  onChange={(e) => updateFooterField('website', e.target.value)}
-                  placeholder="VD: https://company.vn"
-                  className="h-9"
-                />
+              {/* Phone Card */}
+              <div className="group relative p-4 rounded-xl border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-gradient-to-br from-green-500/10 to-green-600/20 text-green-600 dark:text-green-400 shrink-0">
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Hotline
+                    </Label>
+                    <Input
+                      value={footerInfo.phone || ''}
+                      onChange={(e) => updateFooterField('phone', e.target.value)}
+                      placeholder="0901 234 567"
+                      className="h-9 border-0 bg-transparent p-0 text-sm font-medium placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" />
-                  Địa chỉ
-                </Label>
-                <Input
-                  value={footerInfo.address || ''}
-                  onChange={(e) => updateFooterField('address', e.target.value)}
-                  placeholder="VD: 123 Nguyễn Văn A, Q.1, TP.HCM"
-                  className="h-9"
-                />
+              {/* Email Card */}
+              <div className="group relative p-4 rounded-xl border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-gradient-to-br from-amber-500/10 to-amber-600/20 text-amber-600 dark:text-amber-400 shrink-0">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Email
+                    </Label>
+                    <Input
+                      value={footerInfo.email || ''}
+                      onChange={(e) => updateFooterField('email', e.target.value)}
+                      placeholder="contact@company.vn"
+                      className="h-9 border-0 bg-transparent p-0 text-sm font-medium placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Website Card */}
+              <div className="group relative p-4 rounded-xl border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-600/20 text-purple-600 dark:text-purple-400 shrink-0">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Website
+                    </Label>
+                    <Input
+                      value={footerInfo.website || ''}
+                      onChange={(e) => updateFooterField('website', e.target.value)}
+                      placeholder="https://company.vn"
+                      className="h-9 border-0 bg-transparent p-0 text-sm font-medium placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Address Card - Full width */}
+              <div className="sm:col-span-2 group relative p-4 rounded-xl border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-gradient-to-br from-rose-500/10 to-rose-600/20 text-rose-600 dark:text-rose-400 shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Địa chỉ
+                    </Label>
+                    <Input
+                      value={footerInfo.address || ''}
+                      onChange={(e) => updateFooterField('address', e.target.value)}
+                      placeholder="123 Nguyễn Văn A, Quận 1, TP. Hồ Chí Minh"
+                      className="h-9 border-0 bg-transparent p-0 text-sm font-medium placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-            
-          </div>
-        </CollapsibleContent>
+          </CollapsibleContent>
       </Collapsible>
     </div>
 
