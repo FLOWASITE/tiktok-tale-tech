@@ -4249,9 +4249,12 @@ export type Database = {
           global_terminology: Json | null
           id: string
           industry_code: string
+          industry_level: string | null
           is_active: boolean | null
+          parent_pack_id: string | null
           related_industries: string[] | null
           risk_guidelines: Json | null
+          sort_order: number | null
           target_audience: string | null
           updated_at: string | null
           version: string | null
@@ -4267,9 +4270,12 @@ export type Database = {
           global_terminology?: Json | null
           id?: string
           industry_code: string
+          industry_level?: string | null
           is_active?: boolean | null
+          parent_pack_id?: string | null
           related_industries?: string[] | null
           risk_guidelines?: Json | null
+          sort_order?: number | null
           target_audience?: string | null
           updated_at?: string | null
           version?: string | null
@@ -4285,9 +4291,12 @@ export type Database = {
           global_terminology?: Json | null
           id?: string
           industry_code?: string
+          industry_level?: string | null
           is_active?: boolean | null
+          parent_pack_id?: string | null
           related_industries?: string[] | null
           risk_guidelines?: Json | null
+          sort_order?: number | null
           target_audience?: string | null
           updated_at?: string | null
           version?: string | null
@@ -4298,6 +4307,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "industry_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_global_packs_parent_pack_id_fkey"
+            columns: ["parent_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
             referencedColumns: ["id"]
           },
         ]
