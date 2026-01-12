@@ -4620,6 +4620,56 @@ export type Database = {
           },
         ]
       }
+      industry_persona_translations_v2: {
+        Row: {
+          created_at: string
+          description: string | null
+          goals: string[] | null
+          id: string
+          language_code: string
+          lifestyle: string | null
+          name: string
+          objections: string[] | null
+          pain_points: string[] | null
+          persona_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          goals?: string[] | null
+          id?: string
+          language_code?: string
+          lifestyle?: string | null
+          name: string
+          objections?: string[] | null
+          pain_points?: string[] | null
+          persona_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          goals?: string[] | null
+          id?: string
+          language_code?: string
+          lifestyle?: string | null
+          name?: string
+          objections?: string[] | null
+          pain_points?: string[] | null
+          persona_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_persona_translations_v2_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "industry_personas_v2"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industry_personas: {
         Row: {
           age_range: string | null
@@ -4763,6 +4813,137 @@ export type Database = {
             columns: ["industry_template_id"]
             isOneToOne: false
             referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_personas_v2: {
+        Row: {
+          age_range: string | null
+          avatar_url: string | null
+          buying_motivation: string[] | null
+          communication_style: string | null
+          content_consumption: string[] | null
+          content_preferences: Json | null
+          country_variants: Json | null
+          created_at: string
+          created_by: string | null
+          decision_factors: string[] | null
+          description: string | null
+          device_usage: Json | null
+          education_level: string | null
+          family_status: string | null
+          gender: string | null
+          global_pack_id: string
+          goals: string[] | null
+          id: string
+          income_level: string | null
+          interests: string[] | null
+          is_active: boolean | null
+          journey_stages: Json | null
+          lifestyle: string | null
+          location_type: string | null
+          name: string
+          objections: string[] | null
+          occupation: string | null
+          pain_points: string[] | null
+          personality_traits: string[] | null
+          preferred_channels: string[] | null
+          price_sensitivity: string | null
+          purchase_frequency: string | null
+          response_tone_hints: string[] | null
+          social_platforms: string[] | null
+          sort_order: number | null
+          tech_savviness: string | null
+          updated_at: string
+          values: string[] | null
+        }
+        Insert: {
+          age_range?: string | null
+          avatar_url?: string | null
+          buying_motivation?: string[] | null
+          communication_style?: string | null
+          content_consumption?: string[] | null
+          content_preferences?: Json | null
+          country_variants?: Json | null
+          created_at?: string
+          created_by?: string | null
+          decision_factors?: string[] | null
+          description?: string | null
+          device_usage?: Json | null
+          education_level?: string | null
+          family_status?: string | null
+          gender?: string | null
+          global_pack_id: string
+          goals?: string[] | null
+          id?: string
+          income_level?: string | null
+          interests?: string[] | null
+          is_active?: boolean | null
+          journey_stages?: Json | null
+          lifestyle?: string | null
+          location_type?: string | null
+          name: string
+          objections?: string[] | null
+          occupation?: string | null
+          pain_points?: string[] | null
+          personality_traits?: string[] | null
+          preferred_channels?: string[] | null
+          price_sensitivity?: string | null
+          purchase_frequency?: string | null
+          response_tone_hints?: string[] | null
+          social_platforms?: string[] | null
+          sort_order?: number | null
+          tech_savviness?: string | null
+          updated_at?: string
+          values?: string[] | null
+        }
+        Update: {
+          age_range?: string | null
+          avatar_url?: string | null
+          buying_motivation?: string[] | null
+          communication_style?: string | null
+          content_consumption?: string[] | null
+          content_preferences?: Json | null
+          country_variants?: Json | null
+          created_at?: string
+          created_by?: string | null
+          decision_factors?: string[] | null
+          description?: string | null
+          device_usage?: Json | null
+          education_level?: string | null
+          family_status?: string | null
+          gender?: string | null
+          global_pack_id?: string
+          goals?: string[] | null
+          id?: string
+          income_level?: string | null
+          interests?: string[] | null
+          is_active?: boolean | null
+          journey_stages?: Json | null
+          lifestyle?: string | null
+          location_type?: string | null
+          name?: string
+          objections?: string[] | null
+          occupation?: string | null
+          pain_points?: string[] | null
+          personality_traits?: string[] | null
+          preferred_channels?: string[] | null
+          price_sensitivity?: string | null
+          purchase_frequency?: string | null
+          response_tone_hints?: string[] | null
+          social_platforms?: string[] | null
+          sort_order?: number | null
+          tech_savviness?: string | null
+          updated_at?: string
+          values?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_personas_v2_global_pack_id_fkey"
+            columns: ["global_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
             referencedColumns: ["id"]
           },
         ]
