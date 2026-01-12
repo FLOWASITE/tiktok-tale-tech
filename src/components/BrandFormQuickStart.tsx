@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Target, Wand2, Sparkles, ChevronRight, Star,
+  Target, Sparkles, ChevronRight, Star,
   ShoppingCart, Coffee, Heart, Building2, Code, Palette, GraduationCap
 } from 'lucide-react';
 import { GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
@@ -22,12 +21,10 @@ const QUICK_ACCESS = [
 
 interface BrandFormQuickStartProps {
   onSelectIndustry: (pack: GlobalPackForSelection) => void;
-  onStartManual: () => void;
 }
 
 export function BrandFormQuickStart({
   onSelectIndustry,
-  onStartManual,
 }: BrandFormQuickStartProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -68,22 +65,21 @@ export function BrandFormQuickStart({
         })}
       </div>
 
-      {/* Main action buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-        {/* Browse all industries */}
+      {/* Browse all button */}
+      <div className="flex justify-center">
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
           className={cn(
-            "group p-5 rounded-2xl border-2 bg-gradient-to-br from-primary/5 to-primary/10",
+            "group px-6 py-4 rounded-2xl border-2 bg-gradient-to-br from-primary/5 to-primary/10",
             "hover:border-primary hover:shadow-xl transition-all duration-200",
-            "flex items-center gap-4 text-left"
+            "flex items-center gap-4"
           )}
         >
           <div className="p-3 rounded-xl bg-primary/20 group-hover:bg-primary/30 transition-colors">
             <Sparkles className="w-6 h-6 text-primary" />
           </div>
-          <div className="flex-1">
+          <div className="text-left">
             <h3 className="font-semibold flex items-center gap-2">
               Duyệt tất cả ngành
               <Badge variant="secondary" className="text-[10px]">460+</Badge>
@@ -93,28 +89,6 @@ export function BrandFormQuickStart({
             </p>
           </div>
           <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-        </button>
-
-        {/* Manual setup */}
-        <button
-          type="button"
-          onClick={onStartManual}
-          className={cn(
-            "group p-5 rounded-2xl border-2 bg-muted/30",
-            "hover:border-muted-foreground/30 hover:shadow-lg transition-all duration-200",
-            "flex items-center gap-4 text-left"
-          )}
-        >
-          <div className="p-3 rounded-xl bg-muted group-hover:bg-muted/80 transition-colors">
-            <Wand2 className="w-6 h-6 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold">Thiết lập thủ công</h3>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Tự tùy chỉnh Brand Voice theo ý bạn
-            </p>
-          </div>
-          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
         </button>
       </div>
 
@@ -139,7 +113,6 @@ export function BrandFormQuickStart({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSelectIndustry={onSelectIndustry}
-        onStartManual={onStartManual}
       />
     </div>
   );

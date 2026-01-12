@@ -531,10 +531,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     return (
       <BrandFormQuickStart
         onSelectIndustry={handleIndustryTemplateSelect}
-        onStartManual={() => {
-          setShowQuickStart(false);
-          setCurrentStep(1);
-        }}
       />
     );
   }
