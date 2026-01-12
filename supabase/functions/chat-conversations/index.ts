@@ -51,7 +51,7 @@ serve(async (req) => {
   try {
     // Get authorization header for user context
     const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -68,9 +68,11 @@ serve(async (req) => {
       }
     });
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Validate JWT using getUser with explicit token (works in Edge runtime)
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
+      console.error('Auth error:', userError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
