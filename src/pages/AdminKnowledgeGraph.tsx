@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Network, GitBranch, RefreshCw, Database, Scale } from "lucide-react";
+import { Network, GitBranch, RefreshCw, Database, Scale, Search, Move3D, BarChart3, Wrench, Lightbulb } from "lucide-react";
 import { 
   KnowledgeGraphViewer, 
   RegulationPropagationPanel,
   CreateNodeButton,
   BatchEmbeddingsPanel,
-  EntityExtractionPanel
+  EntityExtractionPanel,
+  GraphCanvas,
+  SemanticSearchPanel,
+  ConnectionSuggestions,
+  BulkImportExport,
+  GraphAnalyticsDashboard
 } from "@/components/admin/knowledge-graph";
+import { RealtimeStatusIndicator } from "@/hooks/useRealtimeGraph";
 
 export default function AdminKnowledgeGraph() {
   const [activeTab, setActiveTab] = useState("explorer");
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   return (
     <div className="container py-6 space-y-6">
@@ -29,17 +36,30 @@ export default function AdminKnowledgeGraph() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <RealtimeStatusIndicator />
           <CreateNodeButton />
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="flex w-full max-w-4xl overflow-x-auto">
           <TabsTrigger value="explorer" className="gap-2">
             <Network className="h-4 w-4" />
             Explorer
+          </TabsTrigger>
+          <TabsTrigger value="visualization" className="gap-2">
+            <Move3D className="h-4 w-4" />
+            Visualization
+          </TabsTrigger>
+          <TabsTrigger value="search" className="gap-2">
+            <Search className="h-4 w-4" />
+            Search
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Analytics
           </TabsTrigger>
           <TabsTrigger value="embeddings" className="gap-2">
             <Database className="h-4 w-4" />
@@ -49,9 +69,17 @@ export default function AdminKnowledgeGraph() {
             <Scale className="h-4 w-4" />
             Extract
           </TabsTrigger>
+          <TabsTrigger value="suggestions" className="gap-2">
+            <Lightbulb className="h-4 w-4" />
+            AI Suggest
+          </TabsTrigger>
           <TabsTrigger value="regulations" className="gap-2">
             <RefreshCw className="h-4 w-4" />
             Propagation
+          </TabsTrigger>
+          <TabsTrigger value="tools" className="gap-2">
+            <Wrench className="h-4 w-4" />
+            Tools
           </TabsTrigger>
         </TabsList>
 
@@ -72,6 +100,22 @@ export default function AdminKnowledgeGraph() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="visualization" className="space-y-6">
+          <GraphCanvas 
+            onNodeSelect={setSelectedNodeId}
+            selectedNodeId={selectedNodeId}
+            height={700}
+          />
+        </TabsContent>
+
+        <TabsContent value="search" className="space-y-6">
+          <SemanticSearchPanel onNodeSelect={setSelectedNodeId} />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <GraphAnalyticsDashboard />
+        </TabsContent>
+
         <TabsContent value="embeddings" className="space-y-6">
           <BatchEmbeddingsPanel />
         </TabsContent>
@@ -80,8 +124,19 @@ export default function AdminKnowledgeGraph() {
           <EntityExtractionPanel />
         </TabsContent>
 
+        <TabsContent value="suggestions" className="space-y-6">
+          <ConnectionSuggestions 
+            nodeId={selectedNodeId}
+            onConnectionCreated={() => {}}
+          />
+        </TabsContent>
+
         <TabsContent value="regulations" className="space-y-6">
           <RegulationPropagationPanel />
+        </TabsContent>
+
+        <TabsContent value="tools" className="space-y-6">
+          <BulkImportExport />
         </TabsContent>
       </Tabs>
     </div>

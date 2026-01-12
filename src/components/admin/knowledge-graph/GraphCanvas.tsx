@@ -124,6 +124,26 @@ export function GraphCanvas({
     return () => resizeObserver.disconnect();
   }, [height]);
 
+  // Apply D3 force settings when they change
+  useEffect(() => {
+    if (!graphRef.current) return;
+    
+    // Update link force distance
+    const linkForce = graphRef.current.d3Force('link');
+    if (linkForce && typeof linkForce.distance === 'function') {
+      linkForce.distance(linkDistance);
+    }
+    
+    // Update charge force strength
+    const chargeForce = graphRef.current.d3Force('charge');
+    if (chargeForce && typeof chargeForce.strength === 'function') {
+      chargeForce.strength(chargeStrength);
+    }
+    
+    // Reheat simulation to apply changes
+    graphRef.current.d3ReheatSimulation();
+  }, [linkDistance, chargeStrength]);
+
   // Transform data for force graph
   const { nodes, links } = useMemo(() => {
     if (!graphData) return { nodes: [], links: [] };
