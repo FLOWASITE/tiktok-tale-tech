@@ -54,6 +54,34 @@ export interface ResolvedRulesV2 {
   };
   related_industries: string[];
   disclaimer: string;
+  // NEW: Target Personas (v2.1.1)
+  target_personas?: ResolvedPersonaV2[];
+}
+
+// NEW: Resolved Persona type for AI generation
+export interface ResolvedPersonaV2 {
+  id: string;
+  name: string;
+  description: string | null;
+  age_range: string | null;
+  gender: string | null;
+  income_level: string | null;
+  occupation: string | null;
+  pain_points: string[];
+  goals: string[];
+  objections: string[];
+  values: string[];
+  interests: string[];
+  communication_style: string | null;
+  response_tone_hints: string[];
+  content_preferences: {
+    format?: string;
+    visual?: boolean;
+    storytelling?: boolean;
+    data_driven?: boolean;
+    emotional?: boolean;
+    practical?: boolean;
+  };
 }
 
 export interface JurisdictionProfileResult {
@@ -63,6 +91,56 @@ export interface JurisdictionProfileResult {
   resolved_rules: ResolvedRulesV2;
   validity_status: string;
   disclaimer: string | null;
+}
+
+/**
+ * Fetch target personas for a global pack with jurisdiction overrides
+ */
+export async function fetchTargetPersonas(
+  supabase: any,
+  globalPackId: string,
+  jurisdictionCode: string = 'VN'
+): Promise<ResolvedPersonaV2[]> {
+  try {
+    const { data: personas, error } = await supabase
+      .from('industry_personas_v2')
+      .select('*')
+      .eq('global_pack_id', globalPackId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .limit(5); // Max 5 personas in resolved_rules
+
+    if (error || !personas) {
+      console.log(`[industry-fetcher-v2] No personas found for pack ${globalPackId}`);
+      return [];
+    }
+
+    // Resolve with jurisdiction-specific overrides
+    return personas.map((p: any) => {
+      const countryOverrides = p.country_variants?.[jurisdictionCode] || {};
+      
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        age_range: p.age_range,
+        gender: p.gender,
+        income_level: countryOverrides.income_level || p.income_level,
+        occupation: countryOverrides.occupation || p.occupation,
+        pain_points: countryOverrides.pain_points?.length ? countryOverrides.pain_points : (p.pain_points || []),
+        goals: countryOverrides.goals?.length ? countryOverrides.goals : (p.goals || []),
+        objections: p.objections || [],
+        values: p.values || [],
+        interests: p.interests || [],
+        communication_style: p.communication_style,
+        response_tone_hints: p.response_tone_hints || [],
+        content_preferences: p.content_preferences || {},
+      };
+    });
+  } catch (error) {
+    console.error('[industry-fetcher-v2] Error fetching personas:', error);
+    return [];
+  }
 }
 
 /**
@@ -90,11 +168,16 @@ export async function fetchJurisdictionProfile(
     }
 
     if (profile) {
+      // Fetch and attach target personas
+      const personas = await fetchTargetPersonas(supabase, globalPackId, jurisdictionCode);
+      const resolvedRules = profile.resolved_rules as ResolvedRulesV2;
+      resolvedRules.target_personas = personas;
+      
       return {
         profile_id: profile.id,
         global_pack_id: profile.global_pack_id,
         jurisdiction_code: profile.jurisdiction_code,
-        resolved_rules: profile.resolved_rules as ResolvedRulesV2,
+        resolved_rules: resolvedRules,
         validity_status: profile.validity_status,
         disclaimer: profile.disclaimer,
       };
@@ -112,11 +195,15 @@ export async function fetchJurisdictionProfile(
         .maybeSingle();
 
       if (vnProfile) {
+        const personas = await fetchTargetPersonas(supabase, globalPackId, 'VN');
+        const resolvedRules = vnProfile.resolved_rules as ResolvedRulesV2;
+        resolvedRules.target_personas = personas;
+        
         return {
           profile_id: vnProfile.id,
           global_pack_id: vnProfile.global_pack_id,
           jurisdiction_code: vnProfile.jurisdiction_code,
-          resolved_rules: vnProfile.resolved_rules as ResolvedRulesV2,
+          resolved_rules: resolvedRules,
           validity_status: vnProfile.validity_status,
           disclaimer: vnProfile.disclaimer,
         };
@@ -133,11 +220,15 @@ export async function fetchJurisdictionProfile(
       .maybeSingle();
 
     if (globalProfile) {
+      const personas = await fetchTargetPersonas(supabase, globalPackId, 'GLOBAL');
+      const resolvedRules = globalProfile.resolved_rules as ResolvedRulesV2;
+      resolvedRules.target_personas = personas;
+      
       return {
         profile_id: globalProfile.id,
         global_pack_id: globalProfile.global_pack_id,
         jurisdiction_code: globalProfile.jurisdiction_code,
-        resolved_rules: globalProfile.resolved_rules as ResolvedRulesV2,
+        resolved_rules: resolvedRules,
         validity_status: globalProfile.validity_status,
         disclaimer: globalProfile.disclaimer,
       };
@@ -277,4 +368,20 @@ export async function jurisdictionProfileExists(
     .eq('jurisdiction_code', jurisdictionCode);
   
   return (count || 0) > 0;
+}
+
+/**
+ * Get personas count for a global pack
+ */
+export async function getPersonasCount(
+  supabase: any,
+  globalPackId: string
+): Promise<number> {
+  const { count } = await supabase
+    .from('industry_personas_v2')
+    .select('id', { count: 'exact', head: true })
+    .eq('global_pack_id', globalPackId)
+    .eq('is_active', true);
+  
+  return count || 0;
 }
