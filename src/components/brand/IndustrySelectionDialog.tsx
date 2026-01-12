@@ -180,7 +180,7 @@ export function IndustrySelectionDialog({
         onMouseEnter={() => setHoveredPack(pack)}
         onMouseLeave={() => setHoveredPack(null)}
         className={cn(
-          "group relative p-4 rounded-xl border-2 bg-card text-left transition-all duration-200",
+          "group relative p-5 rounded-xl border-2 bg-card text-left transition-all duration-200 min-h-[100px]",
           "hover:border-primary hover:shadow-lg hover:scale-[1.02]",
           isSelected && "border-primary bg-primary/5",
           isSub && "border-dashed"
@@ -196,33 +196,33 @@ export function IndustrySelectionDialog({
           </div>
         )}
         
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-4">
           <div className={cn(
-            "p-2.5 rounded-xl shrink-0 transition-colors",
+            "p-3 rounded-xl shrink-0 transition-colors",
             "bg-muted group-hover:bg-primary/10"
           )}>
-            {getIcon(pack.code)}
+            {getIcon(pack.code, 'lg')}
           </div>
           
-          <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm truncate">
+          <div className="flex-1 min-w-0 pr-4">
+            <h4 className="font-semibold text-base leading-snug">
               {pack.shortName || pack.name}
             </h4>
             {pack.name !== pack.shortName && pack.shortName && (
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
+              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
                 {pack.name}
               </p>
             )}
             
             {/* Sub-industries count */}
             {!isSub && subCount > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-2">
                 +{subCount} ngành phụ
               </p>
             )}
           </div>
           
-          <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          <ChevronRight className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
         </div>
       </button>
     );
