@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Network, GitBranch, RefreshCw, Database } from "lucide-react";
+import { Network, GitBranch, RefreshCw, Database, Scale } from "lucide-react";
 import { 
   KnowledgeGraphViewer, 
   RegulationPropagationPanel,
   CreateNodeButton,
-  BatchEmbeddingsPanel
+  BatchEmbeddingsPanel,
+  EntityExtractionPanel
 } from "@/components/admin/knowledge-graph";
 
 export default function AdminKnowledgeGraph() {
@@ -35,18 +36,22 @@ export default function AdminKnowledgeGraph() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-lg grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="explorer" className="gap-2">
             <Network className="h-4 w-4" />
-            Graph Explorer
+            Explorer
           </TabsTrigger>
           <TabsTrigger value="embeddings" className="gap-2">
             <Database className="h-4 w-4" />
             Embeddings
           </TabsTrigger>
+          <TabsTrigger value="extraction" className="gap-2">
+            <Scale className="h-4 w-4" />
+            Extract
+          </TabsTrigger>
           <TabsTrigger value="regulations" className="gap-2">
             <RefreshCw className="h-4 w-4" />
-            Regulations
+            Propagation
           </TabsTrigger>
         </TabsList>
 
@@ -69,6 +74,10 @@ export default function AdminKnowledgeGraph() {
 
         <TabsContent value="embeddings" className="space-y-6">
           <BatchEmbeddingsPanel />
+        </TabsContent>
+
+        <TabsContent value="extraction" className="space-y-6">
+          <EntityExtractionPanel />
         </TabsContent>
 
         <TabsContent value="regulations" className="space-y-6">

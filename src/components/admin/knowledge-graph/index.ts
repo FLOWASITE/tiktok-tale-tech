@@ -7,3 +7,4 @@ export {
   CreateNodeButton 
 } from "./GraphNodeEditor";
 export { BatchEmbeddingsPanel } from "./BatchEmbeddingsPanel";
+export { EntityExtractionPanel } from "./EntityExtractionPanel";
