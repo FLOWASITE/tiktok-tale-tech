@@ -6,3 +6,4 @@ export {
   EdgeEditorDialog, 
   CreateNodeButton 
 } from "./GraphNodeEditor";
+export { BatchEmbeddingsPanel } from "./BatchEmbeddingsPanel";
