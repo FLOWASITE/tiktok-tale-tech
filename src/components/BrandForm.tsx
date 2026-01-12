@@ -67,7 +67,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [brandGuideline, setBrandGuideline] = useState('');
   const [includeLogo, setIncludeLogo] = useState(true);
   const [isDefault, setIsDefault] = useState(false);
-  const [primaryColor, setPrimaryColor] = useState('#000000');
+  const [primaryColor, setPrimaryColor] = useState('#dd0707');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [deleteLogo, setDeleteLogo] = useState(false);
