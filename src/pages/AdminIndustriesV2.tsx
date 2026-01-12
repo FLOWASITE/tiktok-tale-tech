@@ -3,16 +3,17 @@
  */
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { GlobalPacksTable } from '@/components/admin/GlobalPacksTable';
 import { JurisdictionProfilesPanel } from '@/components/admin/JurisdictionProfilesPanel';
 import { IndustryImportDialog } from '@/components/admin/IndustryImportDialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Globe,
   Upload,
-  RefreshCw,
   Database,
   MapPin,
   Layers,
@@ -21,7 +22,24 @@ import {
 export function AdminIndustriesV2() {
   const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'packs' | 'legacy'>('packs');
+
+  // Fetch real stats from database
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['industryParkStats'],
+    queryFn: async () => {
+      const [packs, profiles, translations] = await Promise.all([
+        supabase.from('industry_global_packs').select('id', { count: 'exact', head: true }),
+        supabase.from('industry_jurisdiction_profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('industry_pack_translations').select('id', { count: 'exact', head: true }),
+      ]);
+      return {
+        packs: packs.count || 0,
+        profiles: profiles.count || 0,
+        translations: translations.count || 0,
+      };
+    },
+    staleTime: 60 * 1000, // 1 minute
+  });
 
   return (
     <div className="container py-8 space-y-6">
@@ -64,7 +82,11 @@ export function AdminIndustriesV2() {
               <Globe className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">34</p>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-12" />
+              ) : (
+                <p className="text-2xl font-bold">{stats?.packs ?? 0}</p>
+              )}
               <p className="text-sm text-muted-foreground">Global Packs</p>
             </div>
           </div>
@@ -75,7 +97,11 @@ export function AdminIndustriesV2() {
               <MapPin className="h-5 w-5 text-green-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">41</p>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-12" />
+              ) : (
+                <p className="text-2xl font-bold">{stats?.profiles ?? 0}</p>
+              )}
               <p className="text-sm text-muted-foreground">Jurisdiction Profiles</p>
             </div>
           </div>
@@ -86,7 +112,11 @@ export function AdminIndustriesV2() {
               <Database className="h-5 w-5 text-purple-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">41</p>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-12" />
+              ) : (
+                <p className="text-2xl font-bold">{stats?.translations ?? 0}</p>
+              )}
               <p className="text-sm text-muted-foreground">Translations</p>
             </div>
           </div>

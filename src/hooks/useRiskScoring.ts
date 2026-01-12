@@ -23,7 +23,7 @@ export interface RiskCheckResult {
   level: 'low' | 'medium' | 'high' | 'blocked';
   violations: {
     type: string;
-    value: string;
+    match: string;
     context?: string;
   }[];
   summary: string;
@@ -70,7 +70,7 @@ export function useRiskScoring(
       level: result.level,
       violations: result.violations.map(v => ({
         type: v.type,
-        value: v.match,
+        match: v.match,
         context: v.context,
       })),
       summary: result.summary,
@@ -125,7 +125,7 @@ export function useQuickRiskCheck() {
       return {
         score: result.score,
         level: result.level,
-        violations: result.violations.map(v => ({ type: v.type, value: v.match, context: v.context })),
+        violations: result.violations.map(v => ({ type: v.type, match: v.match, context: v.context })),
         summary: result.summary,
         color: getRiskLevelColor(result.level),
         label: getRiskLevelLabel(result.level),
@@ -150,7 +150,7 @@ export function useBatchRiskValidation(brandTemplateId: string | null | undefine
       newResults.set(id, {
         score: result.score,
         level: result.level,
-        violations: result.violations.map(v => ({ type: v.type, value: v.match, context: v.context })),
+        violations: result.violations.map(v => ({ type: v.type, match: v.match, context: v.context })),
         summary: result.summary,
         color: getRiskLevelColor(result.level),
         label: getRiskLevelLabel(result.level),

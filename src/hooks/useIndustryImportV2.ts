@@ -318,7 +318,7 @@ export function useIndustryImportV2() {
               global_pack_id: packId,
               jurisdiction_code: profile.jurisdiction_code,
               resolved_rules: {},
-              validity_status: 'valid',
+              validity_status: 'current',
             }, { onConflict: 'global_pack_id,jurisdiction_code' });
         }
 

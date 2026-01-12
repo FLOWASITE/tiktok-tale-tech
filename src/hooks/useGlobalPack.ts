@@ -45,7 +45,7 @@ export interface ProfileData {
   globalPackId: string;
   jurisdictionCode: string;
   resolvedRules: Record<string, unknown>;
-  validityStatus: 'valid' | 'stale' | 'invalid';
+  validityStatus: 'current' | 'superseded' | 'pending';
   lastVerifiedDate: string | null;
   disclaimer: string | null;
 }
@@ -153,7 +153,7 @@ async function fetchGlobalPack(
     globalPackId: p.global_pack_id,
     jurisdictionCode: p.jurisdiction_code,
     resolvedRules: p.resolved_rules || {},
-    validityStatus: p.validity_status as 'valid' | 'stale' | 'invalid',
+    validityStatus: p.validity_status as 'current' | 'superseded' | 'pending',
     lastVerifiedDate: p.last_verified_date,
     disclaimer: p.disclaimer,
   }));
