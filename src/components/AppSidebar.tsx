@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -78,6 +78,7 @@ const adminItems = [
   { title: 'AI Management', url: '/admin/ai', icon: Sparkles },
   { title: 'Social Platforms', url: '/admin/social-settings', icon: Globe },
   { title: 'Industry Park', url: '/admin/industries', icon: Layers },
+  { title: 'Knowledge Graph', url: '/admin/knowledge-graph', icon: Network },
   { title: 'Countries', url: '/admin/countries', icon: Flag },
   { title: 'Categories', url: '/admin/categories', icon: Bookmark },
   { title: 'Curated Events', url: '/admin/events', icon: CalendarDays },
