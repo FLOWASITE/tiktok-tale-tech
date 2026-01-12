@@ -339,26 +339,28 @@ export function BrandFormStepIdentity({
 
       <Separator />
 
-      {/* Footer Info Section (Collapsible) */}
+      {/* Footer Info Section (Expandable - no unmount) */}
       <div ref={footerInfoRef}>
-        <Collapsible open={showFooterInfo} onOpenChange={setShowFooterInfo}>
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full justify-between h-10 px-3"
-            >
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <Phone className="w-4 h-4" />
-                Thông tin liên hệ (tuỳ chọn)
-              </span>
-              <ChevronDown className={cn(
-                "w-4 h-4 transition-transform",
-                showFooterInfo && "rotate-180"
-              )} />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent forceMount className={cn("mt-2", !showFooterInfo && "hidden")}>
+        <div className="space-y-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-between h-10 px-3"
+            onClick={() => setShowFooterInfo(!showFooterInfo)}
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Phone className="w-4 h-4" />
+              Thông tin liên hệ (tuỳ chọn)
+            </span>
+            <ChevronDown className={cn(
+              "w-4 h-4 transition-transform duration-200",
+              showFooterInfo && "rotate-180"
+            )} />
+          </Button>
+          <div className={cn(
+            "overflow-hidden transition-all duration-200",
+            showFooterInfo ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+          )}>
             <p className="text-xs text-muted-foreground mb-3 px-1">
               💡 Thông tin này sẽ được tự động thêm vào cuối mỗi bài viết (Facebook, Threads, Email...) để khách hàng dễ dàng liên hệ với bạn.
             </p>
@@ -465,9 +467,9 @@ export function BrandFormStepIdentity({
                 </div>
               </div>
             </div>
-          </CollapsibleContent>
-      </Collapsible>
-    </div>
+          </div>
+        </div>
+      </div>
 
       {/* Strategy Section (Collapsible) */}
       <Collapsible open={showStrategy} onOpenChange={setShowStrategy}>
