@@ -87,3 +87,11 @@ export {
   getSuggestedTerms,
   getComplianceWarnings,
 } from '@/utils/jurisdictionResolver';
+
+// ============== BRAND SELECTION HOOK ==============
+
+export {
+  useGlobalPacksForBrandSelection,
+  fetchGlobalPackDetailsForBrand,
+} from './useGlobalPacksForBrandSelection';
+export type { GlobalPackForSelection } from './useGlobalPacksForBrandSelection';

@@ -10,7 +10,7 @@ import {
   Landmark, Smartphone, Gamepad2, Palette, Dumbbell, Sofa, Ship, Rocket,
   Bitcoin, UsersRound, PartyPopper, Home, Baby, PawPrint, Car, Building2
 } from 'lucide-react';
-import { useIndustryTemplates, IndustryTemplate } from '@/hooks/useIndustryTemplates';
+import { useGlobalPacksForBrandSelection, GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -59,7 +59,7 @@ const INDUSTRY_ICONS: Record<string, React.ReactNode> = {
 const POPULAR_CODES = ['ecommerce', 'fnb', 'healthcare', 'realestate', 'it', 'fashion'];
 
 interface BrandFormQuickStartProps {
-  onSelectIndustry: (template: IndustryTemplate) => void;
+  onSelectIndustry: (pack: GlobalPackForSelection) => void;
   onStartManual: () => void;
 }
 
@@ -69,34 +69,34 @@ export function BrandFormQuickStart({
 }: BrandFormQuickStartProps) {
   const [searchQuery, setSearchQuery] = useState('');
   
-  const { templates, isLoading } = useIndustryTemplates({
-    countryCode: 'VN',
+  const { data: packs = [], isLoading } = useGlobalPacksForBrandSelection({
     languageCode: 'vi',
+    includeSubIndustries: true, // Show all industries
   });
 
-  const { popularTemplates, filteredTemplates } = useMemo(() => {
-    const popular = templates.filter(t => POPULAR_CODES.includes(t.code));
+  const { popularPacks, filteredPacks } = useMemo(() => {
+    const popular = packs.filter(p => POPULAR_CODES.includes(p.code));
     
     if (!searchQuery.trim()) {
-      const others = templates.filter(t => !POPULAR_CODES.includes(t.code));
-      return { popularTemplates: popular, filteredTemplates: others };
+      const others = packs.filter(p => !POPULAR_CODES.includes(p.code));
+      return { popularPacks: popular, filteredPacks: others };
     }
     
     const query = searchQuery.toLowerCase();
-    const filtered = templates.filter(t => 
-      t.name.toLowerCase().includes(query) ||
-      (t.short_name?.toLowerCase() || '').includes(query) ||
-      (t.brand_positioning?.toLowerCase() || '').includes(query)
+    const filtered = packs.filter(p => 
+      p.name.toLowerCase().includes(query) ||
+      (p.shortName?.toLowerCase() || '').includes(query) ||
+      p.code.toLowerCase().includes(query)
     );
-    return { popularTemplates: [], filteredTemplates: filtered };
-  }, [templates, searchQuery]);
+    return { popularPacks: [], filteredPacks: filtered };
+  }, [packs, searchQuery]);
 
-  const IndustryButton = ({ template }: { template: IndustryTemplate }) => {
-    const icon = INDUSTRY_ICONS[template.code] || <Briefcase className="w-4 h-4" />;
+  const IndustryButton = ({ pack }: { pack: GlobalPackForSelection }) => {
+    const icon = INDUSTRY_ICONS[pack.code] || <Briefcase className="w-4 h-4" />;
     return (
       <button
         type="button"
-        onClick={() => onSelectIndustry(template)}
+        onClick={() => onSelectIndustry(pack)}
         className={cn(
           "p-2.5 rounded-lg border bg-background transition-all",
           "hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm",
@@ -107,7 +107,7 @@ export function BrandFormQuickStart({
           {icon}
         </div>
         <span className="text-xs font-medium truncate">
-          {template.short_name || template.name}
+          {pack.shortName || pack.name}
         </span>
       </button>
     );
@@ -163,21 +163,21 @@ export function BrandFormQuickStart({
           ) : (
             <div className="space-y-3">
               {/* Popular industries */}
-              {popularTemplates.length > 0 && !searchQuery && (
+              {popularPacks.length > 0 && !searchQuery && (
                 <div className="space-y-2">
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                     Phổ biến
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {popularTemplates.map((template) => (
-                      <IndustryButton key={template.id} template={template} />
+                    {popularPacks.map((pack) => (
+                      <IndustryButton key={pack.id} pack={pack} />
                     ))}
                   </div>
                 </div>
               )}
 
               {/* Other industries */}
-              {filteredTemplates.length > 0 && (
+              {filteredPacks.length > 0 && (
                 <div className="space-y-2">
                   {!searchQuery && (
                     <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -185,14 +185,14 @@ export function BrandFormQuickStart({
                     </p>
                   )}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[180px] overflow-y-auto pr-1">
-                    {filteredTemplates.map((template) => (
-                      <IndustryButton key={template.id} template={template} />
+                    {filteredPacks.map((pack) => (
+                      <IndustryButton key={pack.id} pack={pack} />
                     ))}
                   </div>
                 </div>
               )}
 
-              {filteredTemplates.length === 0 && popularTemplates.length === 0 && (
+              {filteredPacks.length === 0 && popularPacks.length === 0 && (
                 <div className="py-6 text-center text-muted-foreground text-sm">
                   Không tìm thấy ngành phù hợp
                 </div>

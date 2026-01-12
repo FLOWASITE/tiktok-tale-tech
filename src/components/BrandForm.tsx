@@ -18,7 +18,7 @@ import { SavedSamplesManager } from '@/components/SavedSamplesManager';
 import { VariantSampleComparison } from '@/components/VariantSampleComparison';
 import { ContentPillarsEditor } from '@/components/brand/ContentPillarsEditor';
 import { useBrandVoiceVariants, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
-import { IndustryTemplate } from '@/hooks/useIndustryTemplates';
+import { GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
 import { ContentPillar } from '@/types/topicDiscovery';
 import { CustomerPersona } from '@/types/customerPersona';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
@@ -83,7 +83,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [complianceRules, setComplianceRules] = useState<string[]>([]);
   const [channelOverrides, setChannelOverrides] = useState<ChannelOverrides>({});
   const [contentPillars, setContentPillars] = useState<ContentPillar[]>([]);
-  const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null);
+  const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null); // Legacy v1
+  const [globalPackId, setGlobalPackId] = useState<string | null>(null); // v2.1 architecture
   const [sampleTexts, setSampleTexts] = useState<Record<string, string> | null>(null);
   const [footerInfo, setFooterInfo] = useState<BrandFooterInfo>(DEFAULT_FOOTER_INFO);
   const [personas, setPersonas] = useState<CustomerPersona[]>([]);
@@ -235,19 +236,20 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     }
   };
 
-  const handleIndustryTemplateSelect = (templateData: IndustryTemplate) => {
-    setIndustryTemplateId(templateData.id);
-    setIndustries([templateData.name]);
-    setBrandPositioning(templateData.brand_positioning || '');
-    setToneOfVoice(templateData.brand_voice.tone_of_voice || []);
-    setFormalityLevel(templateData.brand_voice.formality_level || '');
-    setLanguageStyle(templateData.brand_voice.language_style || []);
-    setAllowEmoji(templateData.brand_voice.allow_emoji || false);
-    setPreferredWords(templateData.preferred_words || []);
-    setForbiddenWords(templateData.forbidden_words || []);
+  const handleIndustryTemplateSelect = (packData: GlobalPackForSelection) => {
+    // Use global_pack_id for v2.1 architecture
+    setGlobalPackId(packData.id);
+    setIndustries([packData.name]);
+    setBrandPositioning(packData.brandPositioning || '');
+    setToneOfVoice(packData.brandVoice.tone_of_voice || []);
+    setFormalityLevel(packData.brandVoice.formality_level || '');
+    setLanguageStyle(packData.brandVoice.language_style || []);
+    setAllowEmoji(packData.brandVoice.allow_emoji || false);
+    setPreferredWords(packData.preferredTerms || []);
+    setForbiddenWords(packData.forbiddenTerms || []);
     setShowQuickStart(false);
     setCurrentStep(1);
-    toast.success('Đã liên kết Industry Memory!');
+    toast.success('Đã liên kết Industry Memory v2!');
   };
 
   // Manual sample generation
@@ -395,7 +397,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       is_default: isDefault,
       primary_color: primaryColor,
       logo_url: deleteLogo ? null : template?.logo_url || null,
-      industry_template_id: industryTemplateId,
+      industry_template_id: industryTemplateId, // Legacy v1 fallback
+      global_pack_id: globalPackId, // v2.1 architecture
+      jurisdiction_code: 'VN', // Default jurisdiction
       brand_positioning: brandPositioning || null,
       tone_of_voice: toneOfVoice.length > 0 ? toneOfVoice : null,
       formality_level: formalityLevel || null,
