@@ -161,7 +161,29 @@ export function useIndustryImportV2() {
 
     const categoryMap = new Map(categories?.map(c => [c.code, c.id]) || []);
 
-    for (const code of codes) {
+    // Get existing packs for parent_pack_code resolution
+    const { data: existingPacks } = await supabase
+      .from('industry_global_packs')
+      .select('id, industry_code');
+    
+    const existingPackMap = new Map(existingPacks?.map(p => [p.industry_code, p.id]) || []);
+
+    // Track newly created packs for parent resolution
+    const newPackIdMap = new Map<string, string>();
+
+    // Two-pass import: Core industries first, then sub-industries
+    const coreIndustries = codes.filter(code => {
+      const info = grouped[code].info;
+      return !info?.industry_level || info.industry_level === 'core';
+    });
+    
+    const subIndustries = codes.filter(code => {
+      const info = grouped[code].info;
+      return info?.industry_level === 'sub';
+    });
+
+    // Helper function to import a single pack
+    const importSinglePack = async (code: string, parentPackId: string | null = null) => {
       importProgress.currentItem = code;
       importProgress.processed++;
       setProgress({ ...importProgress });
@@ -171,7 +193,7 @@ export function useIndustryImportV2() {
       
       if (!info) {
         importProgress.skipped++;
-        continue;
+        return;
       }
 
       // Check if this is a conflict
@@ -180,7 +202,7 @@ export function useIndustryImportV2() {
       if (conflict) {
         if (conflictAction === 'skip' || conflictAction === 'new_only') {
           importProgress.skipped++;
-          continue;
+          return;
         }
       }
 
@@ -190,8 +212,12 @@ export function useIndustryImportV2() {
         if (!categoryId) {
           errors.push(`${code}: Category not found: ${info.category_code}`);
           importProgress.failed++;
-          continue;
+          return;
         }
+
+        // Parse industry_level and sort_order
+        const industryLevel = info.industry_level || 'core';
+        const sortOrder = info.sort_order ? parseInt(info.sort_order) : 0;
 
         // Build global_brand_voice JSON
         const globalBrandVoice = {
@@ -254,6 +280,9 @@ export function useIndustryImportV2() {
             .from('industry_global_packs')
             .update({
               category_id: categoryId,
+              parent_pack_id: parentPackId,
+              industry_level: industryLevel,
+              sort_order: sortOrder,
               target_audience: info.target_audience || 'both',
               global_brand_voice: globalBrandVoice,
               global_terminology: globalTerminology,
@@ -275,6 +304,9 @@ export function useIndustryImportV2() {
             .insert({
               industry_code: code,
               category_id: categoryId,
+              parent_pack_id: parentPackId,
+              industry_level: industryLevel,
+              sort_order: sortOrder,
               target_audience: info.target_audience || 'both',
               global_brand_voice: globalBrandVoice,
               global_terminology: globalTerminology,
@@ -291,6 +323,9 @@ export function useIndustryImportV2() {
           if (insertError) throw insertError;
           packId = inserted.id;
         }
+
+        // Track new pack ID for sub-industry parent resolution
+        newPackIdMap.set(code, packId);
 
         // Upsert translations
         for (const trans of data.translations) {
@@ -328,6 +363,33 @@ export function useIndustryImportV2() {
         errors.push(`${code}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         importProgress.failed++;
       }
+    };
+
+    // Pass 1: Import core industries
+    for (const code of coreIndustries) {
+      await importSinglePack(code, null);
+    }
+
+    // Pass 2: Import sub-industries with parent resolution
+    for (const code of subIndustries) {
+      const info = grouped[code].info;
+      let parentPackId: string | null = null;
+      
+      if (info?.parent_pack_code) {
+        // First check newly created packs, then existing packs
+        parentPackId = newPackIdMap.get(info.parent_pack_code) 
+          || existingPackMap.get(info.parent_pack_code) 
+          || null;
+        
+        if (!parentPackId) {
+          errors.push(`${code}: Parent pack "${info.parent_pack_code}" not found`);
+          importProgress.failed++;
+          importProgress.processed++;
+          continue;
+        }
+      }
+      
+      await importSinglePack(code, parentPackId);
     }
 
     setProgress(importProgress);

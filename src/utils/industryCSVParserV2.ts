@@ -8,6 +8,9 @@ import Papa from 'papaparse';
 export interface GlobalPackInfoRow {
   code: string;
   category_code: string;
+  parent_pack_code?: string;        // For sub-industry linkage (resolved during import)
+  industry_level?: 'core' | 'sub';  // 'core' (default) or 'sub'
+  sort_order?: string;              // UI ordering (parsed as number)
   target_audience: 'B2B' | 'B2C' | 'both';
   tone_of_voice: string;
   formality_level: 'formal' | 'semi_formal' | 'casual';
@@ -110,6 +113,7 @@ const VALID_FORMALITY = ['formal', 'semi_formal', 'casual'];
 const VALID_SEVERITY = ['error', 'warning', 'info'];
 const VALID_PATTERN_TYPE = ['valid', 'forbidden'];
 const VALID_PRIORITY = ['critical', 'high', 'medium', 'low'];
+const VALID_INDUSTRY_LEVEL = ['core', 'sub'];
 const VALID_JURISDICTIONS = ['VN', 'US', 'SG', 'TH', 'ID', 'MY', 'PH', 'AU', 'EU', 'UK', 'JP', 'KR', 'TW', 'HK'];
 
 /**
@@ -156,6 +160,8 @@ export function parseCSVFileV2<T>(file: File): Promise<{ data: T[]; errors: Papa
  * Validate global pack info rows
  */
 function validateGlobalPackInfo(rows: GlobalPackInfoRow[], errors: ValidationError[], warnings: ValidationError[]) {
+  const allCodes = new Set(rows.map(r => r.code?.trim()).filter(Boolean));
+  
   rows.forEach((row, index) => {
     const rowNum = index + 2;
     
@@ -175,6 +181,26 @@ function validateGlobalPackInfo(rows: GlobalPackInfoRow[], errors: ValidationErr
     
     if (row.formality_level && !VALID_FORMALITY.includes(row.formality_level)) {
       errors.push({ file: 'global_pack_info', row: rowNum, field: 'formality_level', message: `Invalid formality level. Must be: ${VALID_FORMALITY.join(', ')}`, value: row.formality_level });
+    }
+    
+    // Validate industry_level
+    if (row.industry_level && !VALID_INDUSTRY_LEVEL.includes(row.industry_level)) {
+      errors.push({ file: 'global_pack_info', row: rowNum, field: 'industry_level', message: `Invalid industry level. Must be: ${VALID_INDUSTRY_LEVEL.join(', ')}`, value: row.industry_level });
+    }
+    
+    // Validate parent_pack_code for sub-industries
+    if (row.industry_level === 'sub') {
+      if (!row.parent_pack_code?.trim()) {
+        errors.push({ file: 'global_pack_info', row: rowNum, field: 'parent_pack_code', message: 'Sub-industry must have a parent_pack_code' });
+      } else if (!allCodes.has(row.parent_pack_code.trim())) {
+        // Parent must exist in the same import or be verified later
+        warnings.push({ file: 'global_pack_info', row: rowNum, field: 'parent_pack_code', message: `Parent pack "${row.parent_pack_code}" not found in import - will check database`, value: row.parent_pack_code });
+      }
+    }
+    
+    // Validate sort_order is a number
+    if (row.sort_order && isNaN(parseInt(row.sort_order))) {
+      errors.push({ file: 'global_pack_info', row: rowNum, field: 'sort_order', message: 'sort_order must be a number', value: row.sort_order });
     }
   });
 }
