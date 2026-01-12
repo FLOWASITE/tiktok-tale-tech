@@ -1,4 +1,4 @@
-import { ShieldCheck, Info, Lock, AlertTriangle, AlertCircle, ArrowUp } from 'lucide-react';
+import { ShieldCheck, Info, Lock, AlertTriangle, AlertCircle, ArrowUp, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,6 +8,21 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 import { IndustryMemory } from '@/hooks/useIndustryMemory';
+
+// Helper to get jurisdiction display name
+const getJurisdictionName = (code: string): string => {
+  const names: Record<string, string> = {
+    VN: 'Việt Nam',
+    SG: 'Singapore',
+    TH: 'Thailand',
+    ID: 'Indonesia',
+    US: 'United States',
+    EU: 'European Union',
+    MY: 'Malaysia',
+    PH: 'Philippines',
+  };
+  return names[code] || code;
+};
 
 interface IndustryGuardrailBadgeProps {
   industryMemory: IndustryMemory | null;
@@ -20,6 +35,8 @@ interface IndustryGuardrailBadgeProps {
   showVersionWarning?: boolean;
   /** Callback when upgrade is requested */
   onUpgrade?: () => void;
+  /** Show v2.1 jurisdiction info */
+  showJurisdiction?: boolean;
 }
 
 /**
@@ -34,7 +51,14 @@ export function IndustryGuardrailBadge({
   contentVersion,
   showVersionWarning = true,
   onUpgrade,
+  showJurisdiction = true,
 }: IndustryGuardrailBadgeProps) {
+  // Determine jurisdiction display
+  const jurisdictionCode = industryMemory?.jurisdiction_code;
+  const isV2Source = industryMemory?._source === 'v2.1';
+  const displayCountry = jurisdictionCode 
+    ? getJurisdictionName(jurisdictionCode) 
+    : countryName;
   if (isLoading) {
     return (
       <div className={`flex items-center gap-1.5 animate-pulse ${className}`}>
@@ -67,7 +91,10 @@ export function IndustryGuardrailBadge({
                 variant="secondary" 
                 className="text-[10px] px-1.5 py-0.5 h-auto bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
               >
-                {industryMemory.name} – {countryName} (v{contentVersion || industryMemory.version})
+                {industryMemory.name} – {displayCountry} (v{contentVersion || industryMemory.version})
+                {showJurisdiction && isV2Source && (
+                  <Globe className="h-3 w-3 ml-1 inline" />
+                )}
               </Badge>
             </div>
           </TooltipTrigger>

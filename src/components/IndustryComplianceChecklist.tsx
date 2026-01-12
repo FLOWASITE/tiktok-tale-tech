@@ -7,7 +7,8 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  Globe
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,6 +23,21 @@ import {
 } from '@/components/ui/tooltip';
 import { IndustryMemory } from '@/hooks/useIndustryMemory';
 import { cn } from '@/lib/utils';
+
+// Helper to get jurisdiction display name
+const getJurisdictionDisplayName = (code: string): string => {
+  const names: Record<string, string> = {
+    VN: 'Việt Nam',
+    SG: 'Singapore',
+    TH: 'Thailand',
+    ID: 'Indonesia',
+    US: 'United States',
+    EU: 'European Union',
+    MY: 'Malaysia',
+    PH: 'Philippines',
+  };
+  return names[code] || code;
+};
 
 interface ChecklistItem {
   id: string;
@@ -48,6 +64,8 @@ interface IndustryComplianceChecklistProps {
   onComplianceChange?: (result: ComplianceResult) => void;
   isReviewMode?: boolean; // true = reviewer can check items, false = view only
   className?: string;
+  /** Show jurisdiction info from v2.1 */
+  showJurisdictionInfo?: boolean;
 }
 
 /**
@@ -61,10 +79,17 @@ export function IndustryComplianceChecklist({
   onComplianceChange,
   isReviewMode = false,
   className,
+  showJurisdictionInfo = true,
 }: IndustryComplianceChecklistProps) {
   const [expanded, setExpanded] = useState(true);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [reviewerConfirmed, setReviewerConfirmed] = useState(false);
+
+  // Determine display name based on v2.1 jurisdiction
+  const jurisdictionCode = industryMemory.jurisdiction_code;
+  const displayCountry = jurisdictionCode 
+    ? getJurisdictionDisplayName(jurisdictionCode) 
+    : countryName;
 
   // Initialize checklist from industry memory
   useEffect(() => {
@@ -250,7 +275,10 @@ export function IndustryComplianceChecklist({
                 variant="secondary" 
                 className="text-[10px] px-1.5 py-0"
               >
-                {industryMemory.name} – {countryName} (v{industryMemory.version})
+                {industryMemory.name} – {displayCountry} (v{industryMemory.version})
+                {showJurisdictionInfo && jurisdictionCode && (
+                  <Globe className="h-3 w-3 ml-1 inline" />
+                )}
               </Badge>
             </h4>
             <p className="text-xs text-muted-foreground">
