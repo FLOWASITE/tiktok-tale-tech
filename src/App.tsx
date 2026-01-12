@@ -384,15 +384,7 @@ function AppRoutes() {
               />
               <Route
                 path="/admin/packs"
-                element={
-                  <ProtectedRoute>
-                    <AdminProtectedRoute>
-                      <AppLayout>
-                        <AdminIndustryPacks />
-                      </AppLayout>
-                    </AdminProtectedRoute>
-                  </ProtectedRoute>
-                }
+                element={<Navigate to="/admin/industries" replace />}
               />
               <Route
                 path="/admin/versions"
