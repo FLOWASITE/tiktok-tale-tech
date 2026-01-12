@@ -681,6 +681,7 @@ export default function BrandCreate() {
                   brandPositioning={brandPositioning}
                   brandName={brandName}
                   industryTemplateId={industryTemplateId}
+                  globalPackId={globalPackId}
                   localProducts={localProducts}
                   localMappings={localMappings}
                   onLocalMappingsChange={setLocalMappings}

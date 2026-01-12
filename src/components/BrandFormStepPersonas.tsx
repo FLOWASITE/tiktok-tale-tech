@@ -98,6 +98,7 @@ interface BrandFormStepPersonasProps {
   brandName?: string;
   disabled?: boolean;
   industryTemplateId?: string | null;
+  globalPackId?: string | null; // Industry Park v2 support
   localProducts?: LocalProduct[];
   localMappings?: LocalProductPersonaMapping[];
   onLocalMappingsChange?: (mappings: LocalProductPersonaMapping[]) => void;
@@ -110,6 +111,7 @@ export function BrandFormStepPersonas({
   brandName,
   disabled = false,
   industryTemplateId,
+  globalPackId,
   localProducts = [],
   localMappings = [],
   onLocalMappingsChange,
@@ -119,8 +121,8 @@ export function BrandFormStepPersonas({
   const [selectedIndustryPersonaIds, setSelectedIndustryPersonaIds] = useState<Set<string>>(new Set());
   const [editorTab, setEditorTab] = useState('basic');
   
-  // Fetch industry personas for import
-  const { personas: industryPersonas, isLoading: loadingIndustry } = useIndustryPersonasForImport(industryTemplateId);
+  // Fetch industry personas for import (v2 priority, v1 fallback)
+  const { personas: industryPersonas, isLoading: loadingIndustry } = useIndustryPersonasForImport(industryTemplateId, globalPackId);
 
   // Helper to calculate persona completeness
   const getPersonaCompleteness = (persona: CustomerPersona): number => {
