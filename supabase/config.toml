@@ -264,3 +264,12 @@ verify_jwt = false
 
 [functions.enrich-industry-profiles]
 verify_jwt = false
+
+[functions.generate-knowledge-embeddings]
+verify_jwt = false
+
+[functions.analyze-regulation-impact]
+verify_jwt = false
+
+[functions.apply-regulation-propagation]
+verify_jwt = false
