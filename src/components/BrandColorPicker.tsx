@@ -94,7 +94,7 @@ export function BrandColorPicker({ value, onChange }: BrandColorPickerProps) {
         <Input
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
-          placeholder="#000000"
+          placeholder="#dd0707"
           className="w-28 font-mono text-sm"
           maxLength={7}
         />
@@ -103,6 +103,9 @@ export function BrandColorPicker({ value, onChange }: BrandColorPickerProps) {
           style={{ backgroundColor: value }}
         />
       </div>
+      <p className="text-xs text-muted-foreground">
+        🎨 Chọn màu để ảnh social được tạo đúng với thương hiệu hơn
+      </p>
     </div>
   );
 }

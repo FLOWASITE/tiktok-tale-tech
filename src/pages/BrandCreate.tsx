@@ -68,7 +68,7 @@ export default function BrandCreate() {
   const [brandGuideline, setBrandGuideline] = useState(DEFAULT_BRAND_GUIDELINE);
   const [includeLogo, setIncludeLogo] = useState(true);
   const [isDefault, setIsDefault] = useState(false);
-  const [primaryColor, setPrimaryColor] = useState('#000000');
+  const [primaryColor, setPrimaryColor] = useState('#dd0707');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [deletingLogo, setDeletingLogo] = useState(false);
