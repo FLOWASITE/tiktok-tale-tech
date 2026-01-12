@@ -261,3 +261,6 @@ verify_jwt = false
 
 [functions.categorize-industries]
 verify_jwt = false
+
+[functions.enrich-industry-profiles]
+verify_jwt = false
