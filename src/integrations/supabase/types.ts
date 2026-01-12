@@ -4174,6 +4174,7 @@ export type Database = {
           icon_name: string
           id: string
           is_active: boolean
+          label: string | null
           sort_order: number
           updated_at: string
         }
@@ -4184,6 +4185,7 @@ export type Database = {
           icon_name: string
           id?: string
           is_active?: boolean
+          label?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -4194,6 +4196,7 @@ export type Database = {
           icon_name?: string
           id?: string
           is_active?: boolean
+          label?: string | null
           sort_order?: number
           updated_at?: string
         }
