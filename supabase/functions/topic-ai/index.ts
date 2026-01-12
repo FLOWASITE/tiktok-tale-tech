@@ -162,9 +162,9 @@ async function handleSuggest(
 ): Promise<Response> {
   const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh } = params;
 
-  // Build cache key with 4-hour time bucket for automatic refresh
-  const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets
-  const cacheKey = `topic-suggestions-v6:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${hourBucket}`;
+  // OPTIMIZATION: Increased cache window from 4h to 8h to reduce AI costs
+  const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 8)); // 8-hour buckets
+  const cacheKey = `topic-suggestions-v7:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${hourBucket}`;
   
   // Check cache first
   if (!forceRefresh) {
@@ -234,8 +234,8 @@ async function handleSuggest(
     suggestions = getDefaultSuggestions(contentGoal);
   }
 
-  // Cache result
-  await saveTopicCache(supabase, cacheKey, suggestions, 12, {
+  // OPTIMIZATION: Increased cache TTL from 12h to 24h for better cost savings
+  await saveTopicCache(supabase, cacheKey, suggestions, 24, {
     functionName: 'topic-ai',
     organizationId,
     brandTemplateId,
