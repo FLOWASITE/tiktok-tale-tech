@@ -75,14 +75,12 @@ interface IndustrySelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectIndustry: (pack: GlobalPackForSelection) => void;
-  onStartManual: () => void;
 }
 
 export function IndustrySelectionDialog({
   open,
   onOpenChange,
   onSelectIndustry,
-  onStartManual,
 }: IndustrySelectionDialogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -168,10 +166,6 @@ export function IndustrySelectionDialog({
     onOpenChange(false);
   };
 
-  const handleManual = () => {
-    onStartManual();
-    onOpenChange(false);
-  };
 
   // Render industry card
   const IndustryCard = ({ pack, isSelected = false }: { pack: GlobalPackForSelection; isSelected?: boolean }) => {
@@ -354,18 +348,6 @@ export function IndustrySelectionDialog({
               </div>
             </ScrollArea>
             
-            {/* Manual option at bottom */}
-            <div className="p-3 border-t bg-background">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={handleManual}
-              >
-                <Wand2 className="w-4 h-4" />
-                Thiết lập thủ công
-              </Button>
-            </div>
           </div>
 
           {/* Right content - Industry grid */}
@@ -399,15 +381,8 @@ export function IndustrySelectionDialog({
                     ) : (
                       <div className="py-12 text-center">
                         <p className="text-muted-foreground">
-                          Không tìm thấy ngành phù hợp
+                          Không tìm thấy ngành phù hợp với "{searchQuery}"
                         </p>
-                        <Button
-                          variant="link"
-                          onClick={handleManual}
-                          className="mt-2"
-                        >
-                          Thiết lập thủ công
-                        </Button>
                       </div>
                     )}
                   </div>
