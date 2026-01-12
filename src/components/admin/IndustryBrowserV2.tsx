@@ -458,7 +458,7 @@ export function IndustryBrowserV2({ onSelectPack, selectedPackId }: IndustryBrow
   return (
     <div className="flex gap-4 h-[calc(100vh-280px)]">
       {/* Category Sidebar */}
-      <Card className="w-64 flex-shrink-0">
+      <Card className="w-72 flex-shrink-0">
         <CardHeader className="pb-2 px-3 pt-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <FolderTree className="h-4 w-4" />
