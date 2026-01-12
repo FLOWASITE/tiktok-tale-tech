@@ -54,8 +54,10 @@ import {
   Factory,
   Megaphone,
   Upload,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { IndustryTemplateDownloader } from "@/components/admin/IndustryTemplateDownloader";
 import { useQueryClient } from "@tanstack/react-query";
 import type { IndustryTemplate, IndustryCategory, Country } from "@/hooks/useIndustryTemplates";
 
@@ -247,6 +249,7 @@ export default function AdminIndustries() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Làm mới
           </Button>
+          <IndustryTemplateDownloader variant="compact" />
           <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Import CSV
