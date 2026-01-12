@@ -80,7 +80,6 @@ const adminItems = [
   { title: 'Industry Park', url: '/admin/industries', icon: Layers },
   { title: 'Countries', url: '/admin/countries', icon: Flag },
   { title: 'Categories', url: '/admin/categories', icon: Bookmark },
-  { title: 'Memory Packs', url: '/admin/packs', icon: Package },
   { title: 'Curated Events', url: '/admin/events', icon: CalendarDays },
   { title: 'Curated News', url: '/admin/industry-news', icon: Newspaper },
   { title: 'Help Articles', url: '/admin/help-articles', icon: BookOpen },
