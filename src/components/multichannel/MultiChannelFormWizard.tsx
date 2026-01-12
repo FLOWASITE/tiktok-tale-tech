@@ -150,39 +150,6 @@ const channelIcons: Record<Channel, React.ReactNode> = {
 
 const MAX_TOPIC_LENGTH = 500;
 
-// Quality mode for Core Content generation
-type CoreContentQualityMode = 'fast' | 'balanced' | 'quality';
-
-const CORE_CONTENT_QUALITY_MODES: {
-  value: CoreContentQualityMode;
-  label: string;
-  icon: string;
-  description: string;
-  time: string;
-}[] = [
-  {
-    value: 'fast',
-    label: 'Nhanh',
-    icon: '⚡',
-    description: 'Single-pass generation',
-    time: '5-10s',
-  },
-  {
-    value: 'balanced',
-    label: 'Cân bằng',
-    icon: '⚖️',
-    description: 'Multi-step với outline',
-    time: '15-25s',
-  },
-  {
-    value: 'quality',
-    label: 'Chất lượng',
-    icon: '✨',
-    description: 'Full pipeline với refine',
-    time: '30-45s',
-  },
-];
-
 // Core Content data structure for inline generation
 interface GeneratedCoreContent {
   id: string;
@@ -193,9 +160,9 @@ interface GeneratedCoreContent {
   keyMessages: string[];
   contentGoal?: ContentGoal;
   generationMetadata?: {
-    qualityMode: string;
     stepsCompleted: string[];
     generationTimeMs: number;
+    modelsUsed?: string[];
   };
 }
 
@@ -233,7 +200,6 @@ export function MultiChannelFormWizard({
   // Core Content generation settings
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
   const [coreContentAudience, setCoreContentAudience] = useState('');
-  const [coreContentQualityMode, setCoreContentQualityMode] = useState<CoreContentQualityMode>('balanced');
   const [coreContentLengthMode, setCoreContentLengthMode] = useState<CoreContentLengthMode>('medium');
   const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
 
@@ -467,7 +433,6 @@ export function MultiChannelFormWizard({
         topic: formData.topic.trim(),
         contentGoal: formData.contentGoal || 'education',
         contentAngle: coreContentAngle === '__none__' ? undefined : coreContentAngle,
-        qualityMode: coreContentQualityMode,
         lengthMode: coreContentLengthMode,
         brandTemplateId: brandTemplateId,
         organizationId,
@@ -477,7 +442,7 @@ export function MultiChannelFormWizard({
     } catch (error) {
       console.error('Core Content generation error:', error);
     }
-  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentQualityMode, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
+  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
   // Can proceed logic - NEW for 4-step flow with parallel workflow
   const canProceed = useMemo(() => {
@@ -929,7 +894,7 @@ export function MultiChannelFormWizard({
                   streamingText={coreContentStreamingText}
                   progress={coreContentProgress}
                   isStreaming={true}
-                  qualityMode={coreContentQualityMode}
+                  qualityMode="balanced"
                   onCancel={cancelCoreContentGeneration}
                 />
               )}
@@ -1020,32 +985,6 @@ export function MultiChannelFormWizard({
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
                                   {mode.minWords}-{mode.maxWords} từ
                                 </p>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Quality Mode Selector */}
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Chế độ chất lượng</Label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {CORE_CONTENT_QUALITY_MODES.map((mode) => (
-                              <button
-                                key={mode.value}
-                                type="button"
-                                onClick={() => setCoreContentQualityMode(mode.value)}
-                                className={cn(
-                                  "p-2 rounded-lg border text-left transition-all",
-                                  coreContentQualityMode === mode.value
-                                    ? "border-primary bg-primary/5"
-                                    : "border-border/50 hover:bg-muted/30"
-                                )}
-                              >
-                                <div className="text-sm font-medium flex items-center gap-1">
-                                  <span>{mode.icon}</span>
-                                  <span>{mode.label}</span>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground">{mode.time}</p>
                               </button>
                             ))}
                           </div>
