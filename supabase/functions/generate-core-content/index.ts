@@ -34,6 +34,12 @@ import {
   completeTask, 
   failTask 
 } from '../_shared/task-tracking.ts';
+// NEW: Knowledge Graph Integration - Phase 6
+import {
+  fetchKnowledgeGraphContext,
+  buildKnowledgeGraphPromptSection,
+  type KnowledgeGraphContext,
+} from "../_shared/data-fetchers/knowledge-graph-fetcher.ts";
 
 // ============================================
 // SSE STREAMING HELPERS
@@ -564,6 +570,37 @@ serve(async (req: Request) => {
       console.warn('[generate-core-content] Failed to build smart context:', err);
     }
     
+    // ========== KNOWLEDGE GRAPH CONTEXT (Phase 6) ==========
+    let knowledgeGraphContext: KnowledgeGraphContext | null = null;
+    let knowledgeGraphInjection = '';
+    
+    try {
+      // Fetch industry template ID from brand template if available
+      let industryTemplateId: string | undefined;
+      if (brandTemplateId) {
+        const { data: brandData } = await supabase
+          .from('brand_templates')
+          .select('industry_template_id')
+          .eq('id', brandTemplateId)
+          .single();
+        industryTemplateId = brandData?.industry_template_id;
+      }
+      
+      knowledgeGraphContext = await fetchKnowledgeGraphContext(supabase, {
+        topic,
+        industryTemplateId,
+        organizationId,
+        limit: 10,
+      });
+      
+      if (knowledgeGraphContext.regulations.length > 0 || knowledgeGraphContext.relevantTerms.length > 0) {
+        knowledgeGraphInjection = buildKnowledgeGraphPromptSection(knowledgeGraphContext);
+        console.log(`[generate-core-content] Knowledge Graph loaded: ${knowledgeGraphContext.regulations.length} regulations, ${knowledgeGraphContext.relevantTerms.length} terms`);
+      }
+    } catch (err) {
+      console.warn('[generate-core-content] Failed to fetch Knowledge Graph context:', err);
+    }
+    
     // ========== PROMPT MANAGER INTEGRATION ==========
     const promptManager = createPromptManager(
       supabase,
@@ -586,6 +623,7 @@ serve(async (req: Request) => {
       targetAudience: targetAudience || '',
       additionalContext: enrichedContext || '',
       smartContextInjection: smartContextInjection || '',
+      knowledgeGraphContext: knowledgeGraphInjection || '',
       targetWords: lengthConfigData.targetWords.toString(),
       minWords: lengthConfigData.minWords.toString(),
       maxWords: lengthConfigData.maxWords.toString(),
@@ -617,7 +655,7 @@ serve(async (req: Request) => {
       personas,
       products,
       targetAudience,
-      additionalContext: enrichedContext || undefined,
+      additionalContext: [enrichedContext, knowledgeGraphInjection].filter(Boolean).join('\n\n') || undefined,
       smartContextInjection: smartContextInjection || undefined,
       registrySystemPrompt: registrySystemPrompt || undefined,
     };

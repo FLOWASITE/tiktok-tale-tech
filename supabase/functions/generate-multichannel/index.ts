@@ -90,6 +90,12 @@ import {
 } from '../_shared/task-tracking.ts';
 // NEW: Prompt Registry Integration - Phase 4
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+// NEW: Knowledge Graph Integration - Phase 6
+import {
+  fetchKnowledgeGraphContext,
+  buildKnowledgeGraphPromptSection,
+  type KnowledgeGraphContext,
+} from "../_shared/data-fetchers/knowledge-graph-fetcher.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -2230,6 +2236,28 @@ Nội dung sẵn sàng đăng ngay.`;
         }
       }
       
+      // NEW: Knowledge Graph Context - Phase 6
+      let knowledgeGraphContext: KnowledgeGraphContext | null = null;
+      let knowledgeGraphPromptSection = '';
+      
+      if (qualityMode !== 'fast' && industryTemplateId) {
+        try {
+          knowledgeGraphContext = await fetchKnowledgeGraphContext(supabase, {
+            topic: formData.topic,
+            industryTemplateId,
+            organizationId: organizationId || undefined,
+            limit: 10,
+          });
+          
+          if (knowledgeGraphContext.regulations.length > 0 || knowledgeGraphContext.relevantTerms.length > 0) {
+            knowledgeGraphPromptSection = buildKnowledgeGraphPromptSection(knowledgeGraphContext);
+            console.log(`[streaming-mode] Knowledge Graph loaded: ${knowledgeGraphContext.regulations.length} regulations, ${knowledgeGraphContext.relevantTerms.length} terms`);
+          }
+        } catch (err) {
+          console.warn('[streaming-mode] Failed to fetch Knowledge Graph context:', err);
+        }
+      }
+      
       // Build system prompt with all context
       const systemPrompt = getSystemPrompt(
         brandName,
@@ -2929,6 +2957,28 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
         console.log(`[normal-mode] Smart context built, richness: ${smartContext.contextRichnessScore}/100`);
       } catch (err) {
         console.warn('[normal-mode] Failed to build smart context:', err);
+      }
+    }
+
+    // NEW: Knowledge Graph Context - Phase 6
+    let knowledgeGraphContext: KnowledgeGraphContext | null = null;
+    let knowledgeGraphPromptSection = '';
+    
+    if (qualityMode !== 'fast' && industryTemplateId) {
+      try {
+        knowledgeGraphContext = await fetchKnowledgeGraphContext(supabase, {
+          topic: formData.topic,
+          industryTemplateId,
+          organizationId: organizationId || undefined,
+          limit: 10,
+        });
+        
+        if (knowledgeGraphContext.regulations.length > 0 || knowledgeGraphContext.relevantTerms.length > 0) {
+          knowledgeGraphPromptSection = buildKnowledgeGraphPromptSection(knowledgeGraphContext);
+          console.log(`[normal-mode] Knowledge Graph loaded: ${knowledgeGraphContext.regulations.length} regulations, ${knowledgeGraphContext.relevantTerms.length} terms`);
+        }
+      } catch (err) {
+        console.warn('[normal-mode] Failed to fetch Knowledge Graph context:', err);
       }
     }
 
