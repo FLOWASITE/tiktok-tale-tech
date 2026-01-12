@@ -338,18 +338,18 @@ export function BrandFormStepIdentity({
       <Separator />
 
       {/* Footer Info Section (Always visible) */}
-      <div ref={footerInfoRef} className="space-y-2">
-        <div className="flex items-center gap-2 px-1">
-          <Phone className="w-4 h-4 text-muted-foreground" />
+      <div ref={footerInfoRef} className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-primary" />
           <h2 className="text-sm font-medium">Thông tin liên hệ</h2>
         </div>
-        <p className="text-xs text-muted-foreground px-1">
-          Khuyến khích có đủ thông tin để bài viết được đầy đủ thông tin liên hệ
-        </p>
-
-        <p className="text-xs text-muted-foreground mb-3 px-1">
-          💡 Thông tin này sẽ được tự động thêm vào cuối mỗi bài viết (Facebook, Threads, Email...) để khách hàng dễ dàng liên hệ với bạn.
-        </p>
+        
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <span className="text-base">💡</span>
+          <p className="text-xs text-foreground/80">
+            Tự động thêm vào cuối bài viết (Facebook, Threads, Email...) giúp khách hàng liên hệ nhanh hơn!
+          </p>
+        </div>
 
         {/* Visual Contact Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
