@@ -77,7 +77,7 @@ const adminItems = [
   { title: 'Users', url: '/admin/users', icon: User },
   { title: 'AI Management', url: '/admin/ai', icon: Sparkles },
   { title: 'Social Platforms', url: '/admin/social-settings', icon: Globe },
-  { title: 'Industry Memory', url: '/admin/industries', icon: Layers },
+  { title: 'Industry Park', url: '/admin/industries', icon: Layers },
   { title: 'Countries', url: '/admin/countries', icon: Flag },
   { title: 'Categories', url: '/admin/categories', icon: Bookmark },
   { title: 'Memory Packs', url: '/admin/packs', icon: Package },

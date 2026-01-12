@@ -1,0 +1,220 @@
+/**
+ * GlobalPacksTable - v2 Admin component for managing Industry Global Packs
+ */
+
+import { useState } from 'react';
+import { useGlobalPacksList, useUpdateGlobalPack } from '@/hooks/useGlobalPack';
+import { useAvailableJurisdictions } from '@/hooks/useJurisdictionProfile';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Search,
+  MoreHorizontal,
+  Eye,
+  Settings,
+  Globe,
+  MapPin,
+  Users,
+  Briefcase,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+interface GlobalPacksTableProps {
+  onSelectPack?: (packId: string) => void;
+  selectedPackId?: string | null;
+}
+
+export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTableProps) {
+  const [search, setSearch] = useState('');
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
+
+  const { data: packs, isLoading, refetch } = useGlobalPacksList(
+    { 
+      search: search || undefined,
+      isActive: showActiveOnly ? true : undefined,
+    },
+    'vi'
+  );
+
+  const { mutate: updatePack } = useUpdateGlobalPack();
+
+  const handleToggleActive = (packId: string, currentActive: boolean) => {
+    updatePack(
+      { packId, updates: { is_active: !currentActive } },
+      {
+        onSuccess: () => {
+          toast.success(currentActive ? 'Đã vô hiệu hóa' : 'Đã kích hoạt');
+          refetch();
+        },
+        onError: () => toast.error('Lỗi khi cập nhật'),
+      }
+    );
+  };
+
+  const targetAudienceConfig = {
+    B2B: { icon: Briefcase, color: 'text-blue-500 bg-blue-500/10' },
+    B2C: { icon: Users, color: 'text-green-500 bg-green-500/10' },
+    both: { icon: Globe, color: 'text-purple-500 bg-purple-500/10' },
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Global Packs
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showActiveOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowActiveOnly(!showActiveOnly)}
+            >
+              {showActiveOnly ? 'Active Only' : 'All Packs'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="relative mt-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm kiếm theo code hoặc tên..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : !packs?.length ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Globe className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Không tìm thấy Global Pack nào</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Industry Code</TableHead>
+                <TableHead>Tên</TableHead>
+                <TableHead>Target</TableHead>
+                <TableHead>Profiles</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {packs.map((pack) => {
+                const targetConfig = targetAudienceConfig[pack.targetAudience];
+                const TargetIcon = targetConfig.icon;
+                const isSelected = selectedPackId === pack.id;
+
+                return (
+                  <TableRow
+                    key={pack.id}
+                    className={`cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
+                    onClick={() => onSelectPack?.(pack.id)}
+                  >
+                    <TableCell>
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                        {pack.industryCode}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{pack.name}</p>
+                        <p className="text-xs text-muted-foreground">v{pack.version}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={targetConfig.color}>
+                        <TargetIcon className="h-3 w-3 mr-1" />
+                        {pack.targetAudience}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">{pack.profileCount}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {pack.isActive ? (
+                        <Badge variant="default" className="bg-green-500/10 text-green-600">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Inactive
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onSelectPack?.(pack.id)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Xem chi tiết
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleToggleActive(pack.id, pack.isActive)}>
+                            {pack.isActive ? (
+                              <>
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Vô hiệu hóa
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Kích hoạt
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

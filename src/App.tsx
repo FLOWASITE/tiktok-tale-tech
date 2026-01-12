@@ -28,6 +28,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminAIManagement from "./pages/AdminAIManagement";
 import AdminIndustries from "./pages/AdminIndustries";
+import AdminIndustriesV2 from "./pages/AdminIndustriesV2";
 import AdminIndustryVersions from "./pages/AdminIndustryVersions";
 import AdminIndustryPacks from "./pages/AdminIndustryPacks";
 import AdminCountries from "./pages/AdminCountries";
@@ -335,6 +336,18 @@ function AppRoutes() {
               />
               <Route
                 path="/admin/industries"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminIndustriesV2 />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/industries-legacy"
                 element={
                   <ProtectedRoute>
                     <AdminProtectedRoute>
