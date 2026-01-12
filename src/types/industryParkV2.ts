@@ -7,10 +7,16 @@
 // Core Types
 // ===========================================
 
+// Industry Level Types
+export type IndustryLevel = 'core' | 'sub';
+
 export interface IndustryGlobalPack {
   id: string;
   industry_code: string;
   category_id: string | null;
+  parent_pack_id: string | null;  // For sub-industry linkage
+  industry_level: IndustryLevel;   // 'core' or 'sub'
+  sort_order: number;              // UI ordering
   target_audience: TargetAudience;
   global_brand_voice: BrandVoiceBase;
   global_terminology: GlobalTerminology;
@@ -24,6 +30,11 @@ export interface IndustryGlobalPack {
   version: string;
   created_at: string;
   updated_at: string;
+}
+
+// Helper type for hierarchical display (Core with nested Subs)
+export interface IndustryPackWithChildren extends IndustryGlobalPack {
+  children: IndustryGlobalPack[];
 }
 
 export interface JurisdictionProfile {
@@ -192,6 +203,10 @@ export interface GlobalPackWithProfiles extends IndustryGlobalPack {
 export interface GlobalPackFormData {
   industry_code: string;
   category_id: string | null;
+  parent_pack_id: string | null;   // For sub-industry linkage
+  parent_pack_code?: string;       // Helper for CSV import (resolved to parent_pack_id)
+  industry_level: IndustryLevel;   // 'core' or 'sub'
+  sort_order: number;              // UI ordering
   target_audience: TargetAudience;
   global_brand_voice: BrandVoiceBase;
   global_terminology: GlobalTerminology;
