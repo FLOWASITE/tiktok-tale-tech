@@ -283,11 +283,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const body: EnrichRequest = await req.json().catch(() => ({ mode: 'all' }))
-    const { mode = 'all', jurisdictions = ['US', 'SG'], batchSize = 10, startFrom = 0 } = body
+    const body: EnrichRequest & { skipExisting?: boolean } = await req.json().catch(() => ({ mode: 'all' }))
+    const { 
+      mode = 'all', 
+      jurisdictions = ['US', 'SG'], 
+      batchSize = 5, 
+      startFrom = 0,
+      skipExisting = true 
+    } = body
 
-    // Get packs to process
-    const { data: packs, error: packError } = await supabase
+    // Get packs to process - filter by missing compliance rules if skipExisting
+    let query = supabase
       .from('industry_global_packs')
       .select(`
         id,
@@ -303,7 +309,13 @@ Deno.serve(async (req) => {
       `)
       .eq('is_active', true)
       .order('industry_code')
-      .range(startFrom, startFrom + batchSize - 1)
+
+    // Only get packs missing compliance rules if skipExisting
+    if (skipExisting && (mode === 'enrich_global' || mode === 'all')) {
+      query = query.or('global_compliance_rules.is.null,global_compliance_rules.eq.[]')
+    }
+
+    const { data: packs, error: packError } = await query.range(startFrom, startFrom + batchSize - 1)
 
     if (packError) throw packError
 
@@ -318,12 +330,12 @@ Deno.serve(async (req) => {
       details: [] as any[]
     }
 
-    for (const pack of packs || []) {
+    // Process packs in parallel (max 3 concurrent)
+    const processPack = async (pack: any) => {
       const nameVi = (pack.industry_pack_translations as any[])?.find((t: any) => t.language_code === 'vi')?.name || pack.industry_code
       const categoryData = pack.industry_categories as any
       const categoryCode = categoryData?.code || 'unknown'
-
-      results.processed++
+      const packResults = { processed: 1, enriched: 0, profilesCreated: 0, errors: [] as any[], details: [] as any[] }
 
       // Enrich global pack if needed
       if (mode === 'enrich_global' || mode === 'all') {
@@ -335,44 +347,70 @@ Deno.serve(async (req) => {
           const enrichResult = await enrichGlobalPack(supabase, pack, nameVi, categoryCode)
           
           if (enrichResult.success) {
-            results.enriched++
-            results.details.push({ 
+            packResults.enriched++
+            packResults.details.push({ 
               industry_code: pack.industry_code, 
               action: 'enriched',
               rules_count: enrichResult.data?.global_compliance_rules?.length || 0
             })
           } else {
-            results.errors.push({ industry_code: pack.industry_code, error: enrichResult.error })
+            packResults.errors.push({ industry_code: pack.industry_code, error: enrichResult.error })
           }
-
-          // Rate limit
-          await new Promise(r => setTimeout(r, 500))
         }
       }
 
-      // Create jurisdiction profiles
+      // Create jurisdiction profiles in parallel
       if (mode === 'create_jurisdiction' || mode === 'all') {
-        for (const jurisdictionCode of jurisdictions) {
+        const profilePromises = jurisdictions.map(async (jurisdictionCode) => {
           console.log(`Creating ${jurisdictionCode} profile for: ${pack.industry_code}`)
           const profileResult = await createJurisdictionProfile(supabase, pack, nameVi, jurisdictionCode)
           
           if (profileResult.success) {
-            results.profilesCreated++
-            results.details.push({
+            return { success: true, detail: {
               industry_code: pack.industry_code,
               action: `created_${jurisdictionCode}_profile`,
               regulations: profileResult.data?.key_regulations?.length || 0
-            })
+            }}
           } else if (!profileResult.skipped) {
-            results.errors.push({ 
+            return { success: false, error: { 
               industry_code: pack.industry_code, 
               error: `${jurisdictionCode}: ${profileResult.error}` 
-            })
+            }}
           }
+          return { success: false, skipped: true }
+        })
 
-          // Rate limit
-          await new Promise(r => setTimeout(r, 500))
+        const profileResults = await Promise.all(profilePromises)
+        for (const pr of profileResults) {
+          if (pr.success) {
+            packResults.profilesCreated++
+            packResults.details.push(pr.detail)
+          } else if (!pr.skipped && pr.error) {
+            packResults.errors.push(pr.error)
+          }
         }
+      }
+
+      return packResults
+    }
+
+    // Process in chunks of 3 for parallelism
+    const chunkSize = 3
+    for (let i = 0; i < (packs?.length || 0); i += chunkSize) {
+      const chunk = packs!.slice(i, i + chunkSize)
+      const chunkResults = await Promise.all(chunk.map(processPack))
+      
+      for (const r of chunkResults) {
+        results.processed += r.processed
+        results.enriched += r.enriched
+        results.profilesCreated += r.profilesCreated
+        results.errors.push(...r.errors)
+        results.details.push(...r.details)
+      }
+
+      // Small delay between chunks to avoid rate limits
+      if (i + chunkSize < (packs?.length || 0)) {
+        await new Promise(r => setTimeout(r, 200))
       }
     }
 
@@ -381,6 +419,12 @@ Deno.serve(async (req) => {
       .from('industry_global_packs')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true)
+
+    const { count: missingCompliance } = await supabase
+      .from('industry_global_packs')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .or('global_compliance_rules.is.null,global_compliance_rules.eq.[]')
 
     const { data: profileCounts } = await supabase
       .from('industry_jurisdiction_profiles')
@@ -394,8 +438,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ...results,
       totalPacks,
+      missingCompliance,
       jurisdictionStats,
-      nextBatch: startFrom + batchSize < (totalPacks || 0) ? startFrom + batchSize : null
+      nextBatch: (packs?.length || 0) >= batchSize ? startFrom + batchSize : null
     }, null, 2), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
