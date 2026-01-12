@@ -232,23 +232,25 @@ export function IndustrySelectionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl h-[85vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-xl flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                Chọn ngành nghề
-              </DialogTitle>
-              <DialogDescription className="mt-1">
-                Chọn ngành để áp dụng Brand Voice & quy tắc tuân thủ phù hợp
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="text-xs">
-                {coreCount} ngành chính
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                {totalCount - coreCount} ngành phụ
-              </Badge>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-xl flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  Bắt đầu với Industry Memory
+                </DialogTitle>
+                <DialogDescription className="mt-1.5 text-sm">
+                  Chọn ngành nghề để tự động áp dụng Brand Voice, quy tắc tuân thủ và từ vựng chuyên ngành
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {coreCount} ngành chính
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {totalCount - coreCount} ngành phụ
+                </Badge>
+              </div>
             </div>
           </div>
           
