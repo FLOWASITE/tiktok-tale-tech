@@ -358,7 +358,7 @@ export function BrandFormStepIdentity({
               )} />
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2">
+          <CollapsibleContent forceMount className={cn("mt-2", !showFooterInfo && "hidden")}>
             <p className="text-xs text-muted-foreground mb-3 px-1">
               💡 Thông tin này sẽ được tự động thêm vào cuối mỗi bài viết (Facebook, Threads, Email...) để khách hàng dễ dàng liên hệ với bạn.
             </p>
