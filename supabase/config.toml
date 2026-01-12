@@ -273,3 +273,6 @@ verify_jwt = false
 
 [functions.apply-regulation-propagation]
 verify_jwt = false
+
+[functions.migrate-to-knowledge-graph]
+verify_jwt = false
