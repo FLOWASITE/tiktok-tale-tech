@@ -4469,6 +4469,107 @@ export type Database = {
           },
         ]
       }
+      industry_knowledge_edges: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          edge_type: string
+          id: string
+          is_bidirectional: boolean | null
+          properties: Json | null
+          source_node_id: string
+          target_node_id: string
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          edge_type: string
+          id?: string
+          is_bidirectional?: boolean | null
+          properties?: Json | null
+          source_node_id: string
+          target_node_id: string
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          edge_type?: string
+          id?: string
+          is_bidirectional?: boolean | null
+          properties?: Json | null
+          source_node_id?: string
+          target_node_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_knowledge_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "industry_knowledge_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_knowledge_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "industry_knowledge_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_knowledge_nodes: {
+        Row: {
+          created_at: string | null
+          description: Json | null
+          display_name: Json
+          embedding: string | null
+          global_pack_id: string | null
+          id: string
+          is_active: boolean | null
+          node_key: string
+          node_type: string
+          properties: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: Json | null
+          display_name?: Json
+          embedding?: string | null
+          global_pack_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          node_key: string
+          node_type: string
+          properties?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: Json | null
+          display_name?: Json
+          embedding?: string | null
+          global_pack_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          node_key?: string
+          node_type?: string
+          properties?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_knowledge_nodes_global_pack_id_fkey"
+            columns: ["global_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industry_memory_versions: {
         Row: {
           brand_voice: Json | null
@@ -5219,6 +5320,44 @@ export type Database = {
             columns: ["mapping_id"]
             isOneToOne: false
             referencedRelation: "product_persona_mappings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_graph_cache: {
+        Row: {
+          cache_key: string
+          created_at: string | null
+          expires_at: string
+          hit_count: number | null
+          id: string
+          start_node_id: string | null
+          traversal_result: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string | null
+          expires_at: string
+          hit_count?: number | null
+          id?: string
+          start_node_id?: string | null
+          traversal_result: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string | null
+          expires_at?: string
+          hit_count?: number | null
+          id?: string
+          start_node_id?: string | null
+          traversal_result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_graph_cache_start_node_id_fkey"
+            columns: ["start_node_id"]
+            isOneToOne: false
+            referencedRelation: "industry_knowledge_nodes"
             referencedColumns: ["id"]
           },
         ]
@@ -6086,6 +6225,72 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "content_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulation_propagation_log: {
+        Row: {
+          affected_pack_id: string | null
+          affected_rules: Json | null
+          change_summary: string | null
+          change_type: string
+          created_at: string | null
+          id: string
+          impact_analysis: Json | null
+          priority: string | null
+          propagated_at: string | null
+          propagation_status: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_node_id: string | null
+        }
+        Insert: {
+          affected_pack_id?: string | null
+          affected_rules?: Json | null
+          change_summary?: string | null
+          change_type: string
+          created_at?: string | null
+          id?: string
+          impact_analysis?: Json | null
+          priority?: string | null
+          propagated_at?: string | null
+          propagation_status?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_node_id?: string | null
+        }
+        Update: {
+          affected_pack_id?: string | null
+          affected_rules?: Json | null
+          change_summary?: string | null
+          change_type?: string
+          created_at?: string | null
+          id?: string
+          impact_analysis?: Json | null
+          priority?: string | null
+          propagated_at?: string | null
+          propagation_status?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_node_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulation_propagation_log_affected_pack_id_fkey"
+            columns: ["affected_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulation_propagation_log_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "industry_knowledge_nodes"
             referencedColumns: ["id"]
           },
         ]
@@ -7351,6 +7556,7 @@ export type Database = {
       }
       cleanup_expired_cache: { Args: never; Returns: number }
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
+      cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
       get_cache_stats: {
         Args: { p_organization_id?: string }
@@ -7362,6 +7568,47 @@ export type Database = {
           oldest_entry: string
           total_entries: number
           total_hits: number
+        }[]
+      }
+      get_connected_nodes: {
+        Args: {
+          p_direction?: string
+          p_edge_types?: string[]
+          p_node_id: string
+        }
+        Returns: {
+          direction: string
+          display_name: Json
+          edge_type: string
+          edge_weight: number
+          node_id: string
+          node_key: string
+          node_type: string
+        }[]
+      }
+      get_industry_regulations: {
+        Args: { p_global_pack_id: string; p_include_inherited?: boolean }
+        Returns: {
+          is_inherited: boolean
+          regulation_key: string
+          regulation_name: Json
+          regulation_node_id: string
+          regulation_properties: Json
+          relationship_type: string
+        }[]
+      }
+      get_related_industries: {
+        Args: {
+          p_global_pack_id: string
+          p_limit?: number
+          p_min_weight?: number
+        }
+        Returns: {
+          industry_code: string
+          industry_name: Json
+          industry_pack_id: string
+          relationship_type: string
+          relationship_weight: number
         }[]
       }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
@@ -7465,6 +7712,40 @@ export type Database = {
           keywords: string[]
           similarity: number
           title: string
+        }[]
+      }
+      search_knowledge_nodes: {
+        Args: {
+          p_global_pack_id?: string
+          p_limit?: number
+          p_node_types?: string[]
+          p_query_embedding: string
+          p_threshold?: number
+        }
+        Returns: {
+          display_name: Json
+          node_id: string
+          node_key: string
+          node_type: string
+          properties: Json
+          similarity: number
+        }[]
+      }
+      traverse_knowledge_graph: {
+        Args: {
+          p_edge_types?: string[]
+          p_max_depth?: number
+          p_min_weight?: number
+          p_start_node_id: string
+        }
+        Returns: {
+          depth: number
+          display_name: Json
+          node_id: string
+          node_key: string
+          node_type: string
+          path: string[]
+          path_weight: number
         }[]
       }
     }
