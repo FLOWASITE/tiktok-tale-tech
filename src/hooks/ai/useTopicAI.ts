@@ -350,10 +350,11 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       clearTimeout(refineDebounceRef.current);
     }
 
+    // OPTIMIZATION: Increased debounce from 600ms to 1200ms to reduce rapid AI calls
     refineDebounceRef.current = setTimeout(() => {
       setRefineTyping(false);
       fetchRefinements(rawTopic, videoType);
-    }, 600);
+    }, 1200);
   }, [enabled, fetchRefinements]);
 
   const refreshRefinement = useCallback(() => {
@@ -835,7 +836,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }
   }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id]);
 
-  // Auto-fetch suggestions
+  // Auto-fetch suggestions with LAZY LOADING & DEBOUNCE to reduce AI costs
+  // Only fetch after 2 seconds of stable params to avoid rapid calls
   useEffect(() => {
     const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}`;
     
@@ -847,15 +849,18 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     
     if (!enabled) return;
 
+    // Skip if already loaded with same params
     if (paramsKey === suggestPrevParamsRef.current && suggestHasLoadedRef.current) return;
     
     suggestPrevParamsRef.current = paramsKey;
 
+    // OPTIMIZATION: Increased debounce from 300ms to 2000ms to reduce duplicate calls
+    // This allows users to finish selecting options before triggering AI
     const timer = setTimeout(() => {
       fetchSuggestions().then(() => {
         suggestHasLoadedRef.current = true;
       });
-    }, 300);
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [contentGoal, brandTemplateId, format, enabled, fetchSuggestions]);
