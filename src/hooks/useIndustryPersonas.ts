@@ -265,12 +265,17 @@ export function useIndustryPersonas({ industryTemplateId, enabled = true }: UseI
 }
 
 // Hook to fetch industry personas by industry template (for import in brand form)
-export function useIndustryPersonasForImport(industryTemplateId?: string | null) {
+// Updated to support Industry Park v2 with dual-path fallback
+export function useIndustryPersonasForImport(
+  industryTemplateId?: string | null,
+  globalPackId?: string | null
+) {
   const [personas, setPersonas] = useState<IndustryPersona[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!industryTemplateId) {
+    // Priority: v2 (globalPackId) > v1 (industryTemplateId)
+    if (!globalPackId && !industryTemplateId) {
       setPersonas([]);
       return;
     }
@@ -278,53 +283,107 @@ export function useIndustryPersonasForImport(industryTemplateId?: string | null)
     const fetchPersonas = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('industry_personas')
-          .select('*')
-          .eq('industry_template_id', industryTemplateId)
-          .eq('is_active', true)
-          .order('sort_order', { ascending: true });
+        // Try v2 first if globalPackId is provided
+        if (globalPackId) {
+          const { data: v2Data, error: v2Error } = await supabase
+            .from('industry_personas_v2')
+            .select('*')
+            .eq('global_pack_id', globalPackId)
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true })
+            .limit(5);
 
-        if (error) throw error;
+          if (!v2Error && v2Data && v2Data.length > 0) {
+            // Convert v2 format to v1 format for compatibility with BrandFormStepPersonas
+            const mappedPersonas = v2Data.map((row: any): IndustryPersona => ({
+              id: row.id,
+              industry_template_id: globalPackId, // Use globalPackId as template ID for v2
+              name: row.name,
+              avatar_emoji: '👤', // v2 doesn't have avatar_emoji, use default
+              sort_order: row.sort_order || 0,
+              is_active: row.is_active ?? true,
+              age_range: row.age_range,
+              gender: row.gender,
+              income_level: row.income_level,
+              occupation: row.occupation,
+              location: row.location_type, // Map location_type to location
+              // Map v2 fields to v1 fields
+              pain_points: row.pain_points || [],
+              desires: row.goals || [], // v2 uses 'goals' instead of 'desires'
+              objections: row.objections || [],
+              values: row.values || [],
+              interests: row.interests || [],
+              buying_triggers: row.buying_motivation || [], // Map buying_motivation to buying_triggers
+              information_sources: row.content_consumption || [], // Map content_consumption to information_sources
+              preferred_channels: row.preferred_channels || [],
+              typical_funnel_stage: null, // v2 uses journey_stages instead
+              communication_style: row.communication_style,
+              response_tone_hints: row.response_tone_hints || [],
+              content_preferences: row.content_preferences || { format: 'medium', visual: true, practical: true },
+              persona_prompt_hints: row.description, // Use description as prompt hints
+              created_by: row.created_by,
+              created_at: row.created_at,
+              updated_at: row.updated_at,
+            }));
+            setPersonas(mappedPersonas);
+            setIsLoading(false);
+            return;
+          }
+        }
 
-        setPersonas((data || []).map((row: any) => ({
-          id: row.id,
-          industry_template_id: row.industry_template_id,
-          name: row.name,
-          avatar_emoji: row.avatar_emoji || '👤',
-          sort_order: row.sort_order || 0,
-          is_active: row.is_active ?? true,
-          age_range: row.age_range,
-          gender: row.gender,
-          income_level: row.income_level,
-          occupation: row.occupation,
-          location: row.location,
-          pain_points: row.pain_points || [],
-          desires: row.desires || [],
-          objections: row.objections || [],
-          values: row.values || [],
-          interests: row.interests || [],
-          buying_triggers: row.buying_triggers || [],
-          information_sources: row.information_sources || [],
-          preferred_channels: row.preferred_channels || [],
-          typical_funnel_stage: row.typical_funnel_stage,
-          communication_style: row.communication_style,
-          response_tone_hints: row.response_tone_hints || [],
-          content_preferences: row.content_preferences || { format: 'medium', visual: true, practical: true },
-          persona_prompt_hints: row.persona_prompt_hints,
-          created_by: row.created_by,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-        })));
+        // Fallback to v1 if v2 is empty or globalPackId is not provided
+        if (industryTemplateId) {
+          const { data, error } = await supabase
+            .from('industry_personas')
+            .select('*')
+            .eq('industry_template_id', industryTemplateId)
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
+
+          if (error) throw error;
+
+          setPersonas((data || []).map((row: any): IndustryPersona => ({
+            id: row.id,
+            industry_template_id: row.industry_template_id,
+            name: row.name,
+            avatar_emoji: row.avatar_emoji || '👤',
+            sort_order: row.sort_order || 0,
+            is_active: row.is_active ?? true,
+            age_range: row.age_range,
+            gender: row.gender,
+            income_level: row.income_level,
+            occupation: row.occupation,
+            location: row.location,
+            pain_points: row.pain_points || [],
+            desires: row.desires || [],
+            objections: row.objections || [],
+            values: row.values || [],
+            interests: row.interests || [],
+            buying_triggers: row.buying_triggers || [],
+            information_sources: row.information_sources || [],
+            preferred_channels: row.preferred_channels || [],
+            typical_funnel_stage: row.typical_funnel_stage,
+            communication_style: row.communication_style,
+            response_tone_hints: row.response_tone_hints || [],
+            content_preferences: row.content_preferences || { format: 'medium', visual: true, practical: true },
+            persona_prompt_hints: row.persona_prompt_hints,
+            created_by: row.created_by,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+          })));
+        } else {
+          setPersonas([]);
+        }
       } catch (err) {
         console.error('Error fetching industry personas for import:', err);
+        setPersonas([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchPersonas();
-  }, [industryTemplateId]);
+  }, [industryTemplateId, globalPackId]);
 
   return { personas, isLoading };
 }

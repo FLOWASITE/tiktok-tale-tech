@@ -612,6 +612,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               brandPositioning={brandPositioning}
               brandName={brandName}
               industryTemplateId={industryTemplateId}
+              globalPackId={globalPackId}
               localProducts={localProducts}
               localMappings={localMappings}
               onLocalMappingsChange={setLocalMappings}
