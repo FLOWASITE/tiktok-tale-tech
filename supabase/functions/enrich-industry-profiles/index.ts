@@ -292,8 +292,8 @@ Deno.serve(async (req) => {
       skipExisting = true 
     } = body
 
-    // Get packs to process - filter by missing compliance rules if skipExisting
-    let query = supabase
+    // Get packs to process
+    const { data: allPacks, error: packError } = await supabase
       .from('industry_global_packs')
       .select(`
         id,
@@ -310,16 +310,21 @@ Deno.serve(async (req) => {
       .eq('is_active', true)
       .order('industry_code')
 
-    // Only get packs missing compliance rules if skipExisting
-    if (skipExisting && (mode === 'enrich_global' || mode === 'all')) {
-      query = query.or('global_compliance_rules.is.null,global_compliance_rules.eq.[]')
-    }
-
-    const { data: packs, error: packError } = await query.range(startFrom, startFrom + batchSize - 1)
-
     if (packError) throw packError
 
-    console.log(`Processing ${packs?.length || 0} packs from index ${startFrom}`)
+    // Filter packs that need enrichment (empty or null compliance rules)
+    let filteredPacks = allPacks || []
+    if (skipExisting && (mode === 'enrich_global' || mode === 'all')) {
+      filteredPacks = filteredPacks.filter(pack => {
+        const rules = pack.global_compliance_rules
+        return !rules || (Array.isArray(rules) && rules.length === 0)
+      })
+    }
+
+    // Apply pagination on filtered results
+    const packs = filteredPacks.slice(startFrom, startFrom + batchSize)
+
+    console.log(`Processing ${packs.length} packs from index ${startFrom} (${filteredPacks.length} total missing)`)
 
     const results = {
       mode,
