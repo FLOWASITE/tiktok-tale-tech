@@ -1,6 +1,6 @@
 /**
  * Industry Template Downloader Component
- * UI for downloading CSV import templates
+ * UI for downloading Excel template for Industry Pack import
  */
 
 import { useState } from 'react';
@@ -32,7 +32,6 @@ import {
 import {
   Download,
   FileSpreadsheet,
-  FileText,
   Info,
   Package,
   CheckCircle2,
@@ -40,7 +39,6 @@ import {
   Users,
   Shield,
   Globe,
-  MessageSquare,
   Ban,
   Scale,
   Lightbulb,
@@ -48,21 +46,19 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  downloadTemplate,
-  downloadAllTemplates,
-  downloadREADME,
-  getTemplateInfo,
-} from '@/utils/industryTemplateGenerator';
+  downloadIndustryPackTemplate,
+  getSheetInfo,
+} from '@/utils/industryExcelGenerator';
 
-const TEMPLATE_ICONS: Record<string, React.ReactNode> = {
-  global_pack_info: <Package className="w-4 h-4" />,
+const SHEET_ICONS: Record<string, React.ReactNode> = {
+  pack_info: <Package className="w-4 h-4" />,
   translations: <Globe className="w-4 h-4" />,
   forbidden_terms: <Ban className="w-4 h-4" />,
   compliance_rules: <Shield className="w-4 h-4" />,
   claim_restrictions: <Scale className="w-4 h-4" />,
   argument_patterns: <Lightbulb className="w-4 h-4" />,
   system_rules: <Settings className="w-4 h-4" />,
-  jurisdiction_profiles: <Globe className="w-4 h-4" />,
+  jurisdictions: <Globe className="w-4 h-4" />,
   personas: <Users className="w-4 h-4" />,
 };
 
@@ -75,19 +71,11 @@ export function IndustryTemplateDownloader({
   className,
   variant = 'full',
 }: IndustryTemplateDownloaderProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-  const templates = getTemplateInfo();
+  const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
+  const sheets = getSheetInfo();
 
-  const handleDownloadSingle = (key: string) => {
-    downloadTemplate(key);
-  };
-
-  const handleDownloadAll = () => {
-    downloadAllTemplates();
-  };
-
-  const handleDownloadReadme = () => {
-    downloadREADME();
+  const handleDownload = () => {
+    downloadIndustryPackTemplate();
   };
 
   if (variant === 'compact') {
@@ -96,23 +84,21 @@ export function IndustryTemplateDownloader({
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" className={className}>
             <Download className="w-4 h-4 mr-2" />
-            Download Templates
+            Download Template
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5" />
-              Industry Import Templates
+              Industry Pack Import Template
             </DialogTitle>
           </DialogHeader>
-          <TemplateList
-            templates={templates}
-            selectedTemplate={selectedTemplate}
-            onSelect={setSelectedTemplate}
-            onDownload={handleDownloadSingle}
-            onDownloadAll={handleDownloadAll}
-            onDownloadReadme={handleDownloadReadme}
+          <SheetList
+            sheets={sheets}
+            selectedSheet={selectedSheet}
+            onSelect={setSelectedSheet}
+            onDownload={handleDownload}
           />
         </DialogContent>
       </Dialog>
@@ -126,39 +112,24 @@ export function IndustryTemplateDownloader({
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <FileSpreadsheet className="w-5 h-5" />
-              Industry Import Templates
+              Industry Pack Import Template
             </CardTitle>
             <CardDescription className="mt-1">
-              Download CSV templates để import dữ liệu Industry Park v2
+              Download file Excel đa sheet để import toàn bộ Industry Pack
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadReadme}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              README
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleDownloadAll}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Tải tất cả
-            </Button>
-          </div>
+          <Button size="sm" onClick={handleDownload}>
+            <Download className="w-4 h-4 mr-2" />
+            Tải Template (.xlsx)
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <TemplateList
-          templates={templates}
-          selectedTemplate={selectedTemplate}
-          onSelect={setSelectedTemplate}
-          onDownload={handleDownloadSingle}
-          onDownloadAll={handleDownloadAll}
-          onDownloadReadme={handleDownloadReadme}
+        <SheetList
+          sheets={sheets}
+          selectedSheet={selectedSheet}
+          onSelect={setSelectedSheet}
+          onDownload={handleDownload}
           showActions={false}
         />
       </CardContent>
@@ -166,84 +137,68 @@ export function IndustryTemplateDownloader({
   );
 }
 
-interface TemplateListProps {
-  templates: ReturnType<typeof getTemplateInfo>;
-  selectedTemplate: string | null;
+interface SheetListProps {
+  sheets: ReturnType<typeof getSheetInfo>;
+  selectedSheet: string | null;
   onSelect: (key: string | null) => void;
-  onDownload: (key: string) => void;
-  onDownloadAll: () => void;
-  onDownloadReadme: () => void;
+  onDownload: () => void;
   showActions?: boolean;
 }
 
-function TemplateList({
-  templates,
-  selectedTemplate,
+function SheetList({
+  sheets,
+  selectedSheet,
   onSelect,
   onDownload,
-  onDownloadAll,
-  onDownloadReadme,
   showActions = true,
-}: TemplateListProps) {
-  const selectedInfo = templates.find((t) => t.key === selectedTemplate);
+}: SheetListProps) {
+  const selectedInfo = sheets.find((s) => s.key === selectedSheet);
 
   return (
     <TooltipProvider>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Template List */}
+        {/* Sheet List */}
         <div className="space-y-2">
           {showActions && (
             <div className="flex gap-2 mb-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onDownloadReadme}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                README
-              </Button>
-              <Button size="sm" onClick={onDownloadAll}>
+              <Button size="sm" onClick={onDownload}>
                 <Download className="w-4 h-4 mr-2" />
-                Tải tất cả (9 files)
+                Tải Template (.xlsx)
               </Button>
             </div>
           )}
 
+          <div className="text-xs text-muted-foreground mb-2">
+            File Excel gồm 9 sheets + 1 sheet hướng dẫn
+          </div>
+
           <ScrollArea className="h-[400px]">
             <div className="space-y-1.5 pr-3">
-              {templates.map((template) => (
+              {sheets.map((sheet) => (
                 <div
-                  key={template.key}
+                  key={sheet.key}
                   className={cn(
                     'flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors',
-                    selectedTemplate === template.key
+                    selectedSheet === sheet.key
                       ? 'bg-primary/10 border-primary'
                       : 'hover:bg-muted/50'
                   )}
-                  onClick={() => onSelect(template.key === selectedTemplate ? null : template.key)}
+                  onClick={() => onSelect(sheet.key === selectedSheet ? null : sheet.key)}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
-                      {TEMPLATE_ICONS[template.key] || <FileSpreadsheet className="w-4 h-4" />}
+                      {SHEET_ICONS[sheet.key] || <FileSpreadsheet className="w-4 h-4" />}
                     </div>
                     <div>
-                      <div className="font-medium text-sm">{template.title}</div>
+                      <div className="font-medium text-sm">{sheet.title}</div>
                       <div className="text-xs text-muted-foreground">
-                        {template.columnCount} cột • {template.requiredCount} bắt buộc
+                        {sheet.columnCount} cột • {sheet.requiredCount} bắt buộc
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDownload(template.key);
-                    }}
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
+                  <Badge variant="outline" className="text-xs">
+                    Sheet
+                  </Badge>
                 </div>
               ))}
             </div>
@@ -256,11 +211,11 @@ function TemplateList({
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold flex items-center gap-2">
-                  {TEMPLATE_ICONS[selectedInfo.key]}
+                  {SHEET_ICONS[selectedInfo.key]}
                   {selectedInfo.title}
                 </h3>
                 <Badge variant="secondary">
-                  {selectedInfo.key}.csv
+                  Sheet trong Excel
                 </Badge>
               </div>
               <ScrollArea className="h-[350px]">
@@ -306,7 +261,7 @@ function TemplateList({
             <div className="h-full flex items-center justify-center text-muted-foreground p-8">
               <div className="text-center">
                 <FileSpreadsheet className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Chọn template để xem chi tiết các cột</p>
+                <p className="text-sm">Chọn sheet để xem chi tiết các cột</p>
               </div>
             </div>
           )}
