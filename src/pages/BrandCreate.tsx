@@ -644,16 +644,7 @@ export default function BrandCreate() {
                   setBrandName={setBrandName}
                   scope={scope}
                   setScope={setScope}
-                  industryTemplateId={industryTemplateId}
-                  setIndustryTemplateId={setIndustryTemplateId}
-                  setIndustries={setIndustries}
-                  setBrandPositioning={setBrandPositioning}
-                  setToneOfVoice={setToneOfVoice}
-                  setFormalityLevel={setFormalityLevel}
-                  setLanguageStyle={setLanguageStyle}
-                  setAllowEmoji={setAllowEmoji}
-                  setPreferredWords={setPreferredWords}
-                  setForbiddenWords={setForbiddenWords}
+                  selectedIndustryName={industries[0] || null}
                   setName={setName}
                   errors={errors}
                   setErrors={setErrors}

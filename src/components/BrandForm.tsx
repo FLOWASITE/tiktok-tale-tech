@@ -572,16 +572,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               setBrandName={setBrandName}
               scope={scope}
               setScope={setScope}
-              industryTemplateId={industryTemplateId}
-              setIndustryTemplateId={setIndustryTemplateId}
-              setIndustries={setIndustries}
-              setBrandPositioning={setBrandPositioning}
-              setToneOfVoice={setToneOfVoice}
-              setFormalityLevel={setFormalityLevel}
-              setLanguageStyle={setLanguageStyle}
-              setAllowEmoji={setAllowEmoji}
-              setPreferredWords={setPreferredWords}
-              setForbiddenWords={setForbiddenWords}
+              selectedIndustryName={industries[0] || null}
               setName={setName}
               errors={errors}
               setErrors={setErrors}
@@ -598,7 +589,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               setPrimaryColor={setPrimaryColor}
               includeLogo={includeLogo}
               setIncludeLogo={setIncludeLogo}
-// Footer props
+              // Footer props
               footerInfo={footerInfo}
               setFooterInfo={setFooterInfo}
               // Strategy props
