@@ -4,7 +4,15 @@
 // ============================================
 
 import { BrandContext } from './types/chat-types.ts';
-import { GeneratedOutline, CoreContentQualityMode, CoreContentLengthMode, getLengthConfig } from './core-content-pipeline.ts';
+import { CoreContentLengthMode, getLengthConfig } from './core-content-pipeline.ts';
+
+// Outline interface (simplified, since multi-step pipeline is removed)
+interface GeneratedOutline {
+  sections: {
+    title: string;
+    bulletPoints: string[];
+  }[];
+}
 
 // ============================================
 // TYPES
@@ -311,8 +319,8 @@ function evaluateCompleteness(
       for (const bullet of section.bulletPoints) {
         totalBullets++;
         // Simple keyword matching
-        const keywords = bullet.toLowerCase().split(' ').filter(w => w.length > 3);
-        const matchedKeywords = keywords.filter(kw => contentLower.includes(kw));
+        const keywords = bullet.toLowerCase().split(' ').filter((w: string) => w.length > 3);
+        const matchedKeywords = keywords.filter((kw: string) => contentLower.includes(kw));
         if (matchedKeywords.length >= keywords.length * 0.5) {
           bulletsCovered++;
         }
@@ -342,7 +350,7 @@ export function evaluateCoreContentQuality(
   content: string,
   brandContext: BrandContext | null,
   outline: GeneratedOutline | null,
-  qualityMode: CoreContentQualityMode = 'balanced',
+  _qualityMode: string = 'balanced', // Legacy param, kept for compatibility
   config: QualityCheckConfig = {}
 ): QualityMetrics {
   // If lengthMode is provided, use it to set word count limits
@@ -362,18 +370,12 @@ export function evaluateCoreContentQuality(
   const issues: string[] = [];
   const suggestions: string[] = [];
   
-  // Adjust thresholds based on quality mode
-  const modeMultipliers: Record<CoreContentQualityMode, number> = {
-    fast: 0.85,
-    balanced: 1.0,
-    quality: 1.15,
-  };
-  const multiplier = modeMultipliers[qualityMode];
+  // Use fixed multiplier (quality mode is legacy)
+  const multiplier = 1.0;
   
   // Word count check - use config values
   const wordCount = countWords(content);
-  const targetWordCount = effectiveConfig.targetWordCount || 
-    (qualityMode === 'fast' ? 800 : qualityMode === 'balanced' ? 1200 : 1500);
+  const targetWordCount = effectiveConfig.targetWordCount || 1200;
   
   if (wordCount < effectiveConfig.minWordCount!) {
     issues.push(`Độ dài quá ngắn (${wordCount} từ, cần ≥${effectiveConfig.minWordCount})`);

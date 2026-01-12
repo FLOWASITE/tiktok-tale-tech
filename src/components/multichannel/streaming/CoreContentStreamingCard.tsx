@@ -121,11 +121,6 @@ function StepProgressIndicator({
                   state === 'active' && "animate-pulse"
                 )} />
                 <span>{step.label}</span>
-                {state === 'active' && progress.sectionInfo && step.id === 'sections' && (
-                  <span className="text-[10px] opacity-80">
-                    ({progress.sectionInfo.current}/{progress.sectionInfo.total})
-                  </span>
-                )}
                 {state === 'complete' && (
                   <CheckCircle className="w-3 h-3 ml-0.5" />
                 )}
@@ -179,13 +174,10 @@ export function CoreContentStreamingCard({
     return streamingText.trim().split(/\s+/).filter(Boolean).length;
   }, [streamingText]);
 
-  // Get step label - use section info if available
+  // Get step label
   const stepLabel = useMemo(() => {
-    if (progress.sectionInfo) {
-      return `Đang viết phần ${progress.sectionInfo.current}/${progress.sectionInfo.total}: ${progress.sectionInfo.title}`;
-    }
     return STEP_LABELS[progress.step] || progress.message || "Đang xử lý...";
-  }, [progress.step, progress.message, progress.sectionInfo]);
+  }, [progress.step, progress.message]);
 
   const modeInfo = QUALITY_MODE_LABELS[qualityMode] || QUALITY_MODE_LABELS.balanced;
 
@@ -237,19 +229,6 @@ export function CoreContentStreamingCard({
           </div>
           <Progress value={progress.progress} className="h-2" />
           
-          {/* Secondary progress bar for step progress */}
-          {progress.stepProgress !== undefined && progress.stepProgress > 0 && progress.stepProgress < 100 && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-[10px] text-muted-foreground/70">
-                <span>Bước hiện tại</span>
-                <span className="tabular-nums">{Math.round(progress.stepProgress)}%</span>
-              </div>
-              <Progress 
-                value={progress.stepProgress} 
-                className="h-1 opacity-60" 
-              />
-            </div>
-          )}
         </div>
       </CardHeader>
 
