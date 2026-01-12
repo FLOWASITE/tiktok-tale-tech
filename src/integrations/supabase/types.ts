@@ -2211,12 +2211,14 @@ export type Database = {
           footer_info: Json | null
           forbidden_words: string[] | null
           formality_level: string | null
+          global_pack_id: string | null
           id: string
           image_style: string | null
           include_logo: boolean
           industry: string[] | null
           industry_template_id: string | null
           is_default: boolean
+          jurisdiction_code: string | null
           language_style: string[] | null
           logo_url: string | null
           main_competitors: string[] | null
@@ -2260,12 +2262,14 @@ export type Database = {
           footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
+          global_pack_id?: string | null
           id?: string
           image_style?: string | null
           include_logo?: boolean
           industry?: string[] | null
           industry_template_id?: string | null
           is_default?: boolean
+          jurisdiction_code?: string | null
           language_style?: string[] | null
           logo_url?: string | null
           main_competitors?: string[] | null
@@ -2309,12 +2313,14 @@ export type Database = {
           footer_info?: Json | null
           forbidden_words?: string[] | null
           formality_level?: string | null
+          global_pack_id?: string | null
           id?: string
           image_style?: string | null
           include_logo?: boolean
           industry?: string[] | null
           industry_template_id?: string | null
           is_default?: boolean
+          jurisdiction_code?: string | null
           language_style?: string[] | null
           logo_url?: string | null
           main_competitors?: string[] | null
@@ -2339,6 +2345,13 @@ export type Database = {
           vision?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "brand_templates_global_pack_id_fkey"
+            columns: ["global_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "brand_templates_industry_template_id_fkey"
             columns: ["industry_template_id"]
@@ -4224,6 +4237,71 @@ export type Database = {
           },
         ]
       }
+      industry_global_packs: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          global_argument_patterns: Json | null
+          global_brand_voice: Json | null
+          global_claim_restrictions: Json | null
+          global_compliance_rules: Json | null
+          global_system_rules: Json | null
+          global_terminology: Json | null
+          id: string
+          industry_code: string
+          is_active: boolean | null
+          related_industries: string[] | null
+          risk_guidelines: Json | null
+          target_audience: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          global_argument_patterns?: Json | null
+          global_brand_voice?: Json | null
+          global_claim_restrictions?: Json | null
+          global_compliance_rules?: Json | null
+          global_system_rules?: Json | null
+          global_terminology?: Json | null
+          id?: string
+          industry_code: string
+          is_active?: boolean | null
+          related_industries?: string[] | null
+          risk_guidelines?: Json | null
+          target_audience?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          global_argument_patterns?: Json | null
+          global_brand_voice?: Json | null
+          global_claim_restrictions?: Json | null
+          global_compliance_rules?: Json | null
+          global_system_rules?: Json | null
+          global_terminology?: Json | null
+          id?: string
+          industry_code?: string
+          is_active?: boolean | null
+          related_industries?: string[] | null
+          risk_guidelines?: Json | null
+          target_audience?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_global_packs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "industry_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industry_glossary: {
         Row: {
           abbreviation: string | null
@@ -4328,6 +4406,50 @@ export type Database = {
           },
         ]
       }
+      industry_jurisdiction_profiles: {
+        Row: {
+          created_at: string | null
+          disclaimer: string | null
+          global_pack_id: string | null
+          id: string
+          jurisdiction_code: string
+          last_verified_date: string | null
+          resolved_rules: Json
+          updated_at: string | null
+          validity_status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          disclaimer?: string | null
+          global_pack_id?: string | null
+          id?: string
+          jurisdiction_code: string
+          last_verified_date?: string | null
+          resolved_rules?: Json
+          updated_at?: string | null
+          validity_status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          disclaimer?: string | null
+          global_pack_id?: string | null
+          id?: string
+          jurisdiction_code?: string
+          last_verified_date?: string | null
+          resolved_rules?: Json
+          updated_at?: string | null
+          validity_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_jurisdiction_profiles_global_pack_id_fkey"
+            columns: ["global_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industry_memory_versions: {
         Row: {
           brand_voice: Json | null
@@ -4378,6 +4500,53 @@ export type Database = {
             columns: ["industry_template_id"]
             isOneToOne: false
             referencedRelation: "industry_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_pack_translations: {
+        Row: {
+          created_at: string | null
+          forbidden_terms: string[] | null
+          global_pack_id: string | null
+          glossary: Json | null
+          id: string
+          language_code: string
+          name: string
+          preferred_terms: string[] | null
+          short_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          forbidden_terms?: string[] | null
+          global_pack_id?: string | null
+          glossary?: Json | null
+          id?: string
+          language_code: string
+          name: string
+          preferred_terms?: string[] | null
+          short_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          forbidden_terms?: string[] | null
+          global_pack_id?: string | null
+          glossary?: Json | null
+          id?: string
+          language_code?: string
+          name?: string
+          preferred_terms?: string[] | null
+          short_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_pack_translations_global_pack_id_fkey"
+            columns: ["global_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
             referencedColumns: ["id"]
           },
         ]
