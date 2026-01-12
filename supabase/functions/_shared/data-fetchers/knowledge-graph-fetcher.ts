@@ -33,10 +33,17 @@ export interface KnowledgeGraphContext {
   relevantTerms: KnowledgeNode[];
   concepts: KnowledgeNode[];
   trends: KnowledgeNode[];
-  // Flattened for prompt injection
+  personas: KnowledgeNode[];
+  // Enhanced flattened context for prompt injection
   complianceNotes: string[];
   industryContext: string;
   termDefinitions: string[];
+  regulationSummaries: string[];
+  personaInsights: string[];
+  trendAnalysis: string[];
+  crossIndustryContext: string[];
+  // Token budget tracking
+  estimatedTokens: number;
 }
 
 // Empty context for fallback
@@ -46,9 +53,15 @@ const EMPTY_CONTEXT: KnowledgeGraphContext = {
   relevantTerms: [],
   concepts: [],
   trends: [],
+  personas: [],
   complianceNotes: [],
   industryContext: '',
   termDefinitions: [],
+  regulationSummaries: [],
+  personaInsights: [],
+  trendAnalysis: [],
+  crossIndustryContext: [],
+  estimatedTokens: 0,
 };
 
 /**
@@ -123,8 +136,9 @@ export async function fetchKnowledgeGraphContext(
     const relevantTerms = uniqueNodes.filter(n => n.node_type === 'term');
     const concepts = uniqueNodes.filter(n => n.node_type === 'concept');
     const trends = uniqueNodes.filter(n => n.node_type === 'trend');
+    const personas = uniqueNodes.filter(n => n.node_type === 'persona');
 
-    // Step 5: Build flattened context for prompt injection
+    // Step 5: Build enhanced flattened context for prompt injection
     const complianceNotes = regulations.map(r => 
       r.metadata?.['summary'] as string || r.description || r.name
     ).filter(Boolean);
@@ -132,19 +146,65 @@ export async function fetchKnowledgeGraphContext(
     const industryContext = buildIndustryContextString(primaryIndustry, relatedIndustries);
     
     const termDefinitions = relevantTerms.map(t => 
-      `${t.name}: ${t.description || 'N/A'}`
+      `**${t.name}**: ${t.description || 'N/A'}`
     );
+
+    // Enhanced: Detailed regulation summaries with action items
+    const regulationSummaries = regulations.map(r => {
+      const summary = r.metadata?.['summary'] as string || r.description || '';
+      const actionItems = r.metadata?.['action_items'] as string[] || [];
+      const severity = r.metadata?.['severity'] as string || 'medium';
+      return `[${severity.toUpperCase()}] ${r.name}: ${summary}${actionItems.length > 0 ? ` | Actions: ${actionItems.join('; ')}` : ''}`;
+    }).filter(Boolean);
+
+    // Enhanced: Persona insights for audience targeting
+    const personaInsights = personas.map(p => {
+      const painPoints = p.metadata?.['pain_points'] as string[] || [];
+      const motivations = p.metadata?.['motivations'] as string[] || [];
+      return `**${p.name}**: ${p.description || ''}${painPoints.length > 0 ? ` | Pain points: ${painPoints.join(', ')}` : ''}${motivations.length > 0 ? ` | Motivations: ${motivations.join(', ')}` : ''}`;
+    }).filter(Boolean);
+
+    // Enhanced: Trend analysis with impact assessment
+    const trendAnalysis = trends.map(t => {
+      const impact = t.metadata?.['impact'] as string || '';
+      const timeframe = t.metadata?.['timeframe'] as string || '';
+      return `${t.name}: ${t.description || ''}${impact ? ` [Impact: ${impact}]` : ''}${timeframe ? ` [${timeframe}]` : ''}`;
+    }).filter(Boolean);
+
+    // Enhanced: Cross-industry context for broader perspective
+    const crossIndustryContext = relatedIndustries.slice(0, 3).map(ind => {
+      const relevance = ind.metadata?.['relevance_note'] as string || '';
+      return `${ind.name}: ${ind.description || relevance || 'Related industry'}`;
+    }).filter(Boolean);
+
+    // Estimate token count for budget management
+    const contextText = [
+      industryContext,
+      ...complianceNotes,
+      ...termDefinitions,
+      ...regulationSummaries,
+      ...personaInsights,
+      ...trendAnalysis,
+      ...crossIndustryContext,
+    ].join(' ');
+    const estimatedTokens = Math.ceil(contextText.length / 4); // ~4 chars per token
 
     return {
       primaryIndustry,
       relatedIndustries: relatedIndustries.slice(0, 5),
-      regulations: regulations.slice(0, 5),
-      relevantTerms: relevantTerms.slice(0, 10),
+      regulations: regulations.slice(0, 8),
+      relevantTerms: relevantTerms.slice(0, 15),
       concepts: concepts.slice(0, 5),
       trends: trends.slice(0, 5),
+      personas: personas.slice(0, 3),
       complianceNotes,
       industryContext,
       termDefinitions,
+      regulationSummaries,
+      personaInsights,
+      trendAnalysis,
+      crossIndustryContext,
+      estimatedTokens,
     };
   } catch (error) {
     console.error('Error fetching Knowledge Graph context:', error);
@@ -205,40 +265,133 @@ export async function getRelatedIndustries(
 /**
  * Build prompt section from Knowledge Graph context
  * Used to inject graph-derived context into AI prompts
+ * Enhanced with token budget management and priority-based inclusion
  */
-export function buildKnowledgeGraphPromptSection(context: KnowledgeGraphContext): string {
+export function buildKnowledgeGraphPromptSection(
+  context: KnowledgeGraphContext,
+  options: {
+    maxTokens?: number;
+    includeRegulations?: boolean;
+    includeTerms?: boolean;
+    includeTrends?: boolean;
+    includePersonas?: boolean;
+    includeCrossIndustry?: boolean;
+    language?: 'vi' | 'en';
+  } = {}
+): string {
+  const {
+    maxTokens = 2000,
+    includeRegulations = true,
+    includeTerms = true,
+    includeTrends = true,
+    includePersonas = true,
+    includeCrossIndustry = true,
+    language = 'vi',
+  } = options;
+
   const sections: string[] = [];
+  let currentTokens = 0;
   
-  // Industry Context
+  const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+  const canAdd = (text: string) => currentTokens + estimateTokens(text) <= maxTokens;
+  
+  const labels = language === 'vi' ? {
+    industry: '## 🏭 BỐI CẢNH NGÀNH',
+    regulations: '## ⚖️ QUY ĐỊNH TUÂN THỦ',
+    terms: '## 📚 THUẬT NGỮ CHUYÊN NGÀNH',
+    trends: '## 📈 XU HƯỚNG THỊ TRƯỜNG',
+    personas: '## 👥 ĐỐI TƯỢNG MỤC TIÊU',
+    crossIndustry: '## 🔗 NGÀNH LIÊN QUAN',
+  } : {
+    industry: '## 🏭 INDUSTRY CONTEXT',
+    regulations: '## ⚖️ COMPLIANCE REQUIREMENTS',
+    terms: '## 📚 INDUSTRY TERMINOLOGY',
+    trends: '## 📈 MARKET TRENDS',
+    personas: '## 👥 TARGET AUDIENCE',
+    crossIndustry: '## 🔗 RELATED INDUSTRIES',
+  };
+  
+  // Priority 1: Industry Context (always include)
   if (context.industryContext) {
-    sections.push(`## BỐI CẢNH NGÀNH\n${context.industryContext}`);
+    const section = `${labels.industry}\n${context.industryContext}`;
+    if (canAdd(section)) {
+      sections.push(section);
+      currentTokens += estimateTokens(section);
+    }
   }
   
-  // Compliance Notes
-  if (context.complianceNotes.length > 0) {
-    sections.push(
-      `## QUY ĐỊNH TUÂN THỦ\n` +
-      context.complianceNotes.map(n => `- ${n}`).join('\n')
-    );
+  // Priority 2: Regulations (critical for compliance)
+  if (includeRegulations && context.regulationSummaries.length > 0) {
+    const items = context.regulationSummaries.slice(0, 5);
+    const section = `${labels.regulations}\n${items.map(n => `- ${n}`).join('\n')}`;
+    if (canAdd(section)) {
+      sections.push(section);
+      currentTokens += estimateTokens(section);
+    }
   }
   
-  // Term Definitions
-  if (context.termDefinitions.length > 0) {
-    sections.push(
-      `## THUẬT NGỮ LIÊN QUAN\n` +
-      context.termDefinitions.map(t => `- ${t}`).join('\n')
-    );
+  // Priority 3: Term Definitions (important for accuracy)
+  if (includeTerms && context.termDefinitions.length > 0) {
+    const items = context.termDefinitions.slice(0, 10);
+    const section = `${labels.terms}\n${items.map(t => `- ${t}`).join('\n')}`;
+    if (canAdd(section)) {
+      sections.push(section);
+      currentTokens += estimateTokens(section);
+    }
   }
   
-  // Trends
-  if (context.trends.length > 0) {
-    sections.push(
-      `## XU HƯỚNG HIỆN TẠI\n` +
-      context.trends.map(t => `- ${t.name}: ${t.description || ''}`).join('\n')
-    );
+  // Priority 4: Persona Insights (for targeting)
+  if (includePersonas && context.personaInsights.length > 0) {
+    const items = context.personaInsights.slice(0, 3);
+    const section = `${labels.personas}\n${items.map(p => `- ${p}`).join('\n')}`;
+    if (canAdd(section)) {
+      sections.push(section);
+      currentTokens += estimateTokens(section);
+    }
+  }
+  
+  // Priority 5: Trends (for relevance)
+  if (includeTrends && context.trendAnalysis.length > 0) {
+    const items = context.trendAnalysis.slice(0, 3);
+    const section = `${labels.trends}\n${items.map(t => `- ${t}`).join('\n')}`;
+    if (canAdd(section)) {
+      sections.push(section);
+      currentTokens += estimateTokens(section);
+    }
+  }
+  
+  // Priority 6: Cross-Industry Context (for broader perspective)
+  if (includeCrossIndustry && context.crossIndustryContext.length > 0) {
+    const items = context.crossIndustryContext.slice(0, 3);
+    const section = `${labels.crossIndustry}\n${items.map(c => `- ${c}`).join('\n')}`;
+    if (canAdd(section)) {
+      sections.push(section);
+      currentTokens += estimateTokens(section);
+    }
   }
   
   return sections.join('\n\n');
+}
+
+/**
+ * Build a compact context string for token-constrained scenarios
+ */
+export function buildCompactKnowledgeContext(context: KnowledgeGraphContext): string {
+  const parts: string[] = [];
+  
+  if (context.primaryIndustry) {
+    parts.push(`Industry: ${context.primaryIndustry.name}`);
+  }
+  
+  if (context.regulations.length > 0) {
+    parts.push(`Key regulations: ${context.regulations.slice(0, 3).map(r => r.name).join(', ')}`);
+  }
+  
+  if (context.relevantTerms.length > 0) {
+    parts.push(`Terms: ${context.relevantTerms.slice(0, 5).map(t => t.name).join(', ')}`);
+  }
+  
+  return parts.join(' | ');
 }
 
 // ============================================

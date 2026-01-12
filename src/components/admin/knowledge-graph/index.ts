@@ -14,3 +14,6 @@ export { GraphCanvas } from "./GraphCanvas";
 export { SemanticSearchPanel } from "./SemanticSearchPanel";
 export { ConnectionSuggestions } from "./ConnectionSuggestions";
 export { BulkImportExport } from "./BulkImportExport";
+
+// Phase 9: Analytics & Dashboard
+export { GraphAnalyticsDashboard } from "./GraphAnalyticsDashboard";
