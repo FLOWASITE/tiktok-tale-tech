@@ -23,9 +23,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Sparkles,
-  Copy,
-  Maximize2,
-  Download,
   Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,12 +46,6 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import {
   Collapsible,
   CollapsibleContent,
@@ -82,6 +73,8 @@ import { useReparseRegulations, hasHtmlLayoutArtifacts } from '@/hooks/useRepars
 import { cn } from '@/lib/utils';
 import { ContentQualityBadge, estimateContentQuality } from './ContentQualityBadge';
 import { TasksPagination } from '@/components/TasksPagination';
+import { CrawledNodeDetailSheet } from './CrawledNodeDetailSheet';
+import type { CrawledNode as CrawledNodeType, VersionHistoryEntry } from './CrawledNodeCard';
 
 // Source color mapping for visual distinction
 const getSourceColor = (sourceName: string): string => {
@@ -107,47 +100,8 @@ interface QualityBreakdown {
   readability?: number;
 }
 
-interface CrawledNode {
-  id: string;
-  node_key: string;
-  node_type: string;
-  display_name: { vi?: string; en?: string } | null;
-  description: { vi?: string; en?: string } | null;
-  properties: {
-    jurisdiction?: string;
-    category?: string;
-    published_date?: string;
-    auto_crawled?: boolean;
-    crawled_at?: string;
-    markdown?: string;
-  } | null;
-  source_url: string | null;
-  source_id: string | null;
-  content_hash: string | null;
-  last_verified_at: string | null;
-  created_at: string;
-  // New Living System fields
-  full_text: string | null;
-  extracted_data: {
-    document_number?: string;
-    document_type?: string;
-    document_title?: string;
-    effective_date?: string;
-    issuing_authority?: string;
-    summary?: string;
-    key_changes?: string[];
-    claim_restrictions?: Array<{ claim: string; restriction_type: string; alternative?: string }>;
-    compliance_impacts?: Array<{ industry_code: string; impact_type: string; description: string; severity: string }>;
-    confidence_score?: number;
-  } | null;
-  document_url: string | null;
-  document_type: string | null;
-  effective_date: string | null;
-  parse_status: 'pending' | 'parsing' | 'parsed' | 'failed' | 'skipped' | null;
-  // Quality Intelligence fields
-  content_quality_score: number | null;
-  quality_breakdown: QualityBreakdown | null;
-}
+// Re-use CrawledNode type from CrawledNodeCard
+type CrawledNode = CrawledNodeType;
 
 interface SourceInfo {
   id: string;
@@ -903,265 +857,20 @@ export function CrawledContentViewer() {
         </div>
       )}
 
-      {/* Detail Dialog - Mobile optimized */}
-      <Dialog open={!!selectedNode} onOpenChange={() => setSelectedNode(null)}>
-        <DialogContent className="w-[95vw] max-w-2xl h-[90vh] sm:h-auto sm:max-h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <span className="text-lg sm:text-xl">
-                {getJurisdictionFlag(selectedNode?.properties?.jurisdiction)}
-              </span>
-              <span className="line-clamp-2">
-                {selectedNode?.display_name?.vi || selectedNode?.display_name?.en || 'Chi tiết'}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="flex-1 pr-2 sm:pr-4">
-            {selectedNode && (
-              <div className="space-y-4">
-                {/* Meta info with Quality Score */}
-                <div className="flex flex-wrap gap-2">
-                  <ContentQualityBadge 
-                    score={selectedNode.content_quality_score ?? estimateContentQuality(selectedNode.full_text)}
-                    breakdown={selectedNode.quality_breakdown}
-                    size="md"
-                    showLabel={true}
-                  />
-                  <Badge variant="outline" className="text-xs">{selectedNode.properties?.category}</Badge>
-                  <Badge variant="secondary" className="text-xs">{selectedNode.properties?.jurisdiction}</Badge>
-                  {selectedNode.properties?.auto_crawled && (
-                    <Badge variant="default" className="bg-blue-500 text-xs">Auto-crawled</Badge>
-                  )}
-                  {selectedNode.parse_status && (
-                    <Badge 
-                      variant={selectedNode.parse_status === 'parsed' ? 'default' : 'destructive'} 
-                      className="text-xs"
-                    >
-                      {selectedNode.parse_status}
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Source URL */}
-                {selectedNode.source_url && (
-                  <div className="p-2 sm:p-3 bg-muted rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-1">URL Nguồn</p>
-                    <a
-                      href={selectedNode.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs sm:text-sm text-primary hover:underline break-all flex items-start gap-1"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      <span className="line-clamp-2 sm:line-clamp-none">{selectedNode.source_url}</span>
-                    </a>
-                  </div>
-                )}
-
-                {/* Full Text Content - NEW */}
-                {selectedNode.full_text && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" />
-                        Nội dung đã Parse ({selectedNode.full_text.length.toLocaleString()} ký tự)
-                      </p>
-                      <div className="flex items-center gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => {
-                            navigator.clipboard.writeText(selectedNode.full_text || '');
-                            toast.success('Đã copy vào clipboard');
-                          }}
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copy
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => handleExportTxt(selectedNode)}
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          TXT
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="h-7 px-2 text-xs sm:hidden"
-                          onClick={() => setShowFullTextSheet(true)}
-                        >
-                          <Maximize2 className="h-3 w-3 mr-1" />
-                          Mở rộng
-                        </Button>
-                      </div>
-                    </div>
-                    <ScrollArea className="h-[200px] sm:h-[300px]">
-                      <div className="text-xs bg-muted p-2 sm:p-3 rounded-lg whitespace-pre-wrap font-mono leading-relaxed">
-                        {selectedNode.full_text}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                )}
-
-                {/* Extracted Data Summary */}
-                {selectedNode.extracted_data?.summary && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">📋 Tóm tắt AI</p>
-                    <p className="text-xs sm:text-sm bg-muted/50 p-2 sm:p-3 rounded-lg">
-                      {selectedNode.extracted_data.summary}
-                    </p>
-                    {selectedNode.extracted_data.confidence_score && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Độ tin cậy: {(selectedNode.extracted_data.confidence_score * 100).toFixed(0)}%
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Key Changes */}
-                {selectedNode.extracted_data?.key_changes && selectedNode.extracted_data.key_changes.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">🔄 Thay đổi chính</p>
-                    <ul className="text-xs sm:text-sm list-disc list-inside space-y-1 bg-muted/50 p-2 sm:p-3 rounded-lg">
-                      {selectedNode.extracted_data.key_changes.map((change, i) => (
-                        <li key={i}>{change}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Claim Restrictions */}
-                {selectedNode.extracted_data?.claim_restrictions && selectedNode.extracted_data.claim_restrictions.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">⚠️ Hạn chế claim</p>
-                    <div className="space-y-2">
-                      {selectedNode.extracted_data.claim_restrictions.map((restriction, i) => (
-                        <div key={i} className="text-xs sm:text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded border-l-2 border-red-500">
-                          <p className="font-medium">{restriction.claim}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Loại: {restriction.restriction_type}
-                            {restriction.alternative && ` → ${restriction.alternative}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Description */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Mô tả</p>
-                  <p className="text-xs sm:text-sm">
-                    {selectedNode.description?.vi || selectedNode.description?.en || 'Không có mô tả'}
-                  </p>
-                </div>
-
-                {/* Properties - collapsible on mobile */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Thông tin chi tiết</p>
-                  <pre className="text-xs bg-muted p-2 sm:p-3 rounded-lg overflow-auto max-h-32 sm:max-h-40">
-                    {JSON.stringify(selectedNode.properties, null, 2)}
-                  </pre>
-                </div>
-
-                {/* Timestamps */}
-                <div className="grid grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Ngày tạo</p>
-                    <p>{format(new Date(selectedNode.created_at), 'dd/MM/yyyy HH:mm')}</p>
-                  </div>
-                  {selectedNode.last_verified_at && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Lần xác minh cuối</p>
-                      <p>{format(new Date(selectedNode.last_verified_at), 'dd/MM/yyyy HH:mm')}</p>
-                    </div>
-                  )}
-                  {selectedNode.properties?.crawled_at && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Ngày crawl</p>
-                      <p>{format(new Date(selectedNode.properties.crawled_at), 'dd/MM/yyyy HH:mm')}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Node Key */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Node Key</p>
-                  <code className="text-xs bg-muted px-2 py-1 rounded break-all">{selectedNode.node_key}</code>
-                </div>
-              </div>
-            )}
-          </ScrollArea>
-          {/* Re-parse button in detail dialog */}
-          {selectedNode && (hasHtmlLayoutArtifacts(selectedNode.full_text) || selectedNode.parse_status === 'failed') && selectedNode.source_url && (
-            <DialogFooter className="mt-2">
-              <Button 
-                size="sm"
-                onClick={() => {
-                  handleSingleReparse(selectedNode.id);
-                  setSelectedNode(null);
-                }}
-                disabled={isReparsing}
-              >
-                {isReparsing ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-4 w-4 mr-1" />
-                )}
-                Re-parse văn bản này
-              </Button>
-            </DialogFooter>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Full Text Sheet for Mobile */}
-      <Sheet open={showFullTextSheet} onOpenChange={setShowFullTextSheet}>
-        <SheetContent side="bottom" className="h-[85vh] flex flex-col">
-          <SheetHeader className="pb-2">
-            <SheetTitle className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Nội dung đã Parse
-              </span>
-              <div className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedNode?.full_text || '');
-                    toast.success('Đã copy vào clipboard');
-                  }}
-                >
-                  <Copy className="h-3 w-3 mr-1" />
-                  Copy
-                </Button>
-                {selectedNode && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => handleExportTxt(selectedNode)}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    TXT
-                  </Button>
-                )}
-              </div>
-            </SheetTitle>
-          </SheetHeader>
-          <ScrollArea className="flex-1 mt-2">
-            <div className="text-xs font-mono whitespace-pre-wrap leading-relaxed p-2 bg-muted rounded-lg">
-              {selectedNode?.full_text}
-            </div>
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
+      {/* Detail Dialog - Using modular component with edit support */}
+      <CrawledNodeDetailSheet
+        node={selectedNode}
+        isOpen={!!selectedNode}
+        isReparsing={parsingNodeId === selectedNode?.id}
+        showFullTextSheet={showFullTextSheet}
+        onClose={() => setSelectedNode(null)}
+        onReparse={(nodeId) => {
+          handleSingleReparse(nodeId);
+          setSelectedNode(null);
+        }}
+        onToggleFullTextSheet={setShowFullTextSheet}
+        onRefresh={() => refetch()}
+      />
 
       {/* Bulk Reparse Confirmation Dialog */}
       <Dialog open={showBulkReparseDialog} onOpenChange={setShowBulkReparseDialog}>
