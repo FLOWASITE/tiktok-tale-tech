@@ -75,50 +75,82 @@ export default function AdminKnowledgeGraph() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Organized into logical groups */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="flex w-full max-w-4xl overflow-x-auto">
-          <TabsTrigger value="explorer" className="gap-2">
-            <Network className="h-4 w-4" />
-            Explorer
-          </TabsTrigger>
-          <TabsTrigger value="visualization" className="gap-2">
-            <Move3D className="h-4 w-4" />
-            Visualization
-          </TabsTrigger>
-          <TabsTrigger value="search" className="gap-2">
-            <Search className="h-4 w-4" />
-            Search
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="embeddings" className="gap-2">
-            <Database className="h-4 w-4" />
-            Embeddings
-          </TabsTrigger>
-          <TabsTrigger value="extraction" className="gap-2">
-            <Scale className="h-4 w-4" />
-            Extract
-          </TabsTrigger>
-          <TabsTrigger value="suggestions" className="gap-2">
-            <Lightbulb className="h-4 w-4" />
-            AI Suggest
-          </TabsTrigger>
-          <TabsTrigger value="regulations" className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Propagation
-          </TabsTrigger>
-          <TabsTrigger value="sources" className="gap-2">
-            <Globe className="h-4 w-4" />
-            Sources
-          </TabsTrigger>
-          <TabsTrigger value="tools" className="gap-2">
-            <Wrench className="h-4 w-4" />
-            Tools
-          </TabsTrigger>
-        </TabsList>
+        <div className="border rounded-lg p-1 bg-muted/30">
+          <div className="flex flex-wrap gap-1 items-center">
+            {/* Group 1: Browse & View */}
+            <div className="flex items-center gap-0.5 px-1">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mr-1 hidden sm:inline">
+                Browse
+              </span>
+              <TabsList className="h-9 bg-transparent p-0">
+                <TabsTrigger value="explorer" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Network className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Explorer</span>
+                </TabsTrigger>
+                <TabsTrigger value="visualization" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Move3D className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Graph</span>
+                </TabsTrigger>
+                <TabsTrigger value="search" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Search className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Tìm kiếm</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="w-px h-6 bg-border hidden sm:block" />
+
+            {/* Group 2: Data & AI */}
+            <div className="flex items-center gap-0.5 px-1">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mr-1 hidden sm:inline">
+                Data
+              </span>
+              <TabsList className="h-9 bg-transparent p-0">
+                <TabsTrigger value="analytics" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Thống kê</span>
+                </TabsTrigger>
+                <TabsTrigger value="embeddings" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Database className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Vectors</span>
+                </TabsTrigger>
+                <TabsTrigger value="extraction" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Scale className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Trích xuất</span>
+                </TabsTrigger>
+                <TabsTrigger value="suggestions" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Lightbulb className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">AI Gợi ý</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="w-px h-6 bg-border hidden sm:block" />
+
+            {/* Group 3: Regulations & Sources */}
+            <div className="flex items-center gap-0.5 px-1">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mr-1 hidden sm:inline">
+                Quy định
+              </span>
+              <TabsList className="h-9 bg-transparent p-0">
+                <TabsTrigger value="sources" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Globe className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Nguồn</span>
+                </TabsTrigger>
+                <TabsTrigger value="regulations" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Cập nhật</span>
+                </TabsTrigger>
+                <TabsTrigger value="tools" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Wrench className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Import/Export</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          </div>
+        </div>
 
         <TabsContent value="explorer" className="space-y-6">
           <Card>
