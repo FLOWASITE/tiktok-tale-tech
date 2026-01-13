@@ -22,3 +22,8 @@ export { GraphAnalyticsDashboard } from "./GraphAnalyticsDashboard";
 export { BatchProcessingPanel } from "./BatchProcessingPanel";
 export { ContentQualityBadge, estimateContentQuality } from "./ContentQualityBadge";
 export { CrawledContentViewer } from "./CrawledContentViewer";
+
+// Unified Tab Components
+export { UnifiedExplorerTab } from "./UnifiedExplorerTab";
+export { UnifiedProcessingTab } from "./UnifiedProcessingTab";
+export { UnifiedToolsTab } from "./UnifiedToolsTab";
