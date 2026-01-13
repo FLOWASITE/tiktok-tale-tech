@@ -177,6 +177,7 @@ async function searchWithFirecrawl(
 
 // Find download link on detail page using Firecrawl
 // Enhanced v2: Priority detection for Vietnamese government document servers
+// v2.1: Added VBPL.VN support
 async function findDownloadLink(url: string): Promise<{ downloadUrl: string | null; fileType: 'pdf' | 'docx' | null; extractedMarkdown?: string }> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
   if (!apiKey) {
@@ -184,6 +185,25 @@ async function findDownloadLink(url: string): Promise<{ downloadUrl: string | nu
   }
 
   try {
+    // === PRIORITY 0: VBPL.VN specific patterns ===
+    if (url.includes('vbpl.vn')) {
+      // Extract ItemID from URL
+      const itemIdMatch = url.match(/ItemID=(\d+)/i);
+      if (itemIdMatch) {
+        const itemId = itemIdMatch[1];
+        // Convert to PDF page URL (vbpq-van-ban-goc.aspx contains download links)
+        const pdfPageUrl = `https://vbpl.vn/TW/Pages/vbpq-van-ban-goc.aspx?ItemID=${itemId}`;
+        console.log(`[auto-crawl] VBPL: Converting to PDF page: ${pdfPageUrl}`);
+        
+        // Scrape the PDF page to find actual download link
+        const vbplPdfUrl = await scrapeVbplPdfPage(pdfPageUrl);
+        if (vbplPdfUrl) {
+          const isDoc = vbplPdfUrl.toLowerCase().match(/\.docx?$/);
+          return { downloadUrl: vbplPdfUrl, fileType: isDoc ? 'docx' : 'pdf' };
+        }
+      }
+    }
+
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: {
@@ -206,6 +226,28 @@ async function findDownloadLink(url: string): Promise<{ downloadUrl: string | nu
     const links: string[] = data.data?.links || [];
     const html: string = data.data?.html || '';
     const markdown: string = data.data?.markdown || '';
+    
+    // === PRIORITY 0.5: VBPL.VN DOC/PDF links from page ===
+    if (url.includes('vbpl.vn')) {
+      for (const link of links) {
+        if (link.includes('vbpl.vn') && (link.match(/\.docx?$/i) || link.match(/\.pdf$/i))) {
+          const isDoc = link.toLowerCase().match(/\.docx?$/);
+          console.log(`[auto-crawl] VBPL: Found document link: ${link}`);
+          return { downloadUrl: link, fileType: isDoc ? 'docx' : 'pdf' };
+        }
+      }
+      // Check HTML for embedded download links
+      const vbplDocMatch = html.match(/href=["']([^"']*\.(?:pdf|docx?))["']/i);
+      if (vbplDocMatch) {
+        let docUrl = vbplDocMatch[1];
+        if (docUrl.startsWith('/')) {
+          docUrl = `https://vbpl.vn${docUrl}`;
+        }
+        const isDoc = docUrl.toLowerCase().match(/\.docx?$/);
+        console.log(`[auto-crawl] VBPL: Found embedded doc: ${docUrl}`);
+        return { downloadUrl: docUrl, fileType: isDoc ? 'docx' : 'pdf' };
+      }
+    }
     
     // === PRIORITY 1: datafiles.chinhphu.vn PDF (most reliable for VN gov docs) ===
     for (const link of links) {
@@ -309,6 +351,86 @@ async function findDownloadLink(url: string): Promise<{ downloadUrl: string | nu
   } catch (error) {
     console.log('[auto-crawl] findDownloadLink error:', error);
     return { downloadUrl: null, fileType: null };
+  }
+}
+
+/**
+ * Scrape VBPL.VN PDF page to find actual download link
+ */
+async function scrapeVbplPdfPage(pdfPageUrl: string): Promise<string | null> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) return null;
+  
+  try {
+    console.log(`[auto-crawl] VBPL: Scraping PDF page: ${pdfPageUrl}`);
+    
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: pdfPageUrl,
+        formats: ['links', 'rawHtml'],
+        onlyMainContent: false,
+        waitFor: 2000,
+        timeout: 15000,
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log(`[auto-crawl] VBPL: Scrape failed: HTTP ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    const links: string[] = data.data?.links || [];
+    const html: string = data.data?.rawHtml || '';
+    
+    // Find PDF or DOC download links
+    for (const link of links) {
+      if (link.match(/\.(pdf|docx?)$/i)) {
+        console.log(`[auto-crawl] VBPL: Found document in links: ${link}`);
+        return link;
+      }
+    }
+    
+    // Check HTML for embedded download links
+    const docMatch = html.match(/href=["']([^"']*\.(?:pdf|docx?))["']/i);
+    if (docMatch) {
+      let docUrl = docMatch[1];
+      if (docUrl.startsWith('/')) {
+        docUrl = `https://vbpl.vn${docUrl}`;
+      }
+      console.log(`[auto-crawl] VBPL: Found document in HTML: ${docUrl}`);
+      return docUrl;
+    }
+    
+    // Try to find download button/link pattern
+    const downloadPatterns = [
+      /href=["']([^"']*Download[^"']*\.(?:pdf|docx?)[^"']*)["']/i,
+      /href=["']([^"']*tailieu[^"']*\.(?:pdf|docx?)[^"']*)["']/i,
+      /href=["']([^"']*vanban[^"']*\.(?:pdf|docx?)[^"']*)["']/i,
+    ];
+    
+    for (const pattern of downloadPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        let docUrl = match[1];
+        if (docUrl.startsWith('/')) {
+          docUrl = `https://vbpl.vn${docUrl}`;
+        }
+        console.log(`[auto-crawl] VBPL: Found document via pattern: ${docUrl}`);
+        return docUrl;
+      }
+    }
+    
+    console.log('[auto-crawl] VBPL: No document link found on PDF page');
+    return null;
+  } catch (error) {
+    console.log('[auto-crawl] VBPL: scrapeVbplPdfPage error:', error);
+    return null;
   }
 }
 
