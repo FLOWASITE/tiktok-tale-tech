@@ -59,6 +59,7 @@ interface CrawledNodeDetailSheetProps {
   isOpen: boolean;
   isReparsing: boolean;
   showFullTextSheet: boolean;
+  initialEditMode?: boolean;
   onClose: () => void;
   onReparse: (nodeId: string) => void;
   onToggleFullTextSheet: (open: boolean) => void;
@@ -70,6 +71,7 @@ export function CrawledNodeDetailSheet({
   isOpen,
   isReparsing,
   showFullTextSheet,
+  initialEditMode = false,
   onClose,
   onReparse,
   onToggleFullTextSheet,
@@ -84,9 +86,14 @@ export function CrawledNodeDetailSheet({
   useEffect(() => {
     if (node?.full_text && isOpen) {
       setEditedText(node.full_text);
-      setIsEditing(false);
+      // Auto-enter edit mode if initialEditMode is true
+      if (initialEditMode) {
+        setIsEditing(true);
+      } else {
+        setIsEditing(false);
+      }
     }
-  }, [node?.full_text, isOpen]);
+  }, [node?.full_text, isOpen, initialEditMode]);
 
   if (!node) return null;
 
