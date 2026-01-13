@@ -1,6 +1,6 @@
 // ============================================
 // Semantic Search Panel
-// AI-powered vector similarity search
+// AI-powered vector similarity search with navigation
 // ============================================
 
 import { useState, useCallback } from "react";
@@ -13,12 +13,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Search,
   Sparkles,
@@ -34,6 +33,8 @@ import {
   X,
   AlertCircle,
   Zap,
+  Eye,
+  ExternalLink,
 } from "lucide-react";
 import { useSemanticSearch } from "@/hooks/useSemanticSearch";
 import type { KnowledgeNodeType, SemanticSearchResult } from "@/types/knowledgeGraph";
@@ -62,20 +63,18 @@ const NODE_TYPE_CONFIG: Record<KnowledgeNodeType, {
 
 interface SearchResultItemProps {
   result: SemanticSearchResult;
-  onClick: () => void;
+  onViewInGraph: () => void;
+  onSelect: () => void;
 }
 
-function SearchResultItem({ result, onClick }: SearchResultItemProps) {
+function SearchResultItem({ result, onViewInGraph, onSelect }: SearchResultItemProps) {
   const config = NODE_TYPE_CONFIG[result.node_type];
   const Icon = config.icon;
   const displayName = result.display_name?.vi || result.display_name?.en || result.node_key;
   const similarity = (result.similarity * 100).toFixed(1);
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-muted/50 hover:border-primary/50 transition-all group"
-    >
+    <div className="w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-muted/50 hover:border-primary/50 transition-all group">
       <div className="flex items-start gap-3">
         <div className={`p-2 rounded-lg ${config.bgColor} ${config.color}`}>
           <Icon className="h-4 w-4" />
@@ -90,32 +89,55 @@ function SearchResultItem({ result, onClick }: SearchResultItemProps) {
           <p className="text-sm text-muted-foreground truncate mt-0.5">
             {result.node_key}
           </p>
-          <Badge variant="secondary" className="mt-2 text-xs">
-            {config.label}
-          </Badge>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="secondary" className="text-xs">
+              {config.label}
+            </Badge>
+          </div>
         </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        <div className="flex flex-col gap-1 shrink-0">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewInGraph();
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Xem trong đồ thị</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect();
+                  }}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Chọn node</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
-    </button>
-  );
-}
-
-// ============================================
-// Similarity Bar
-// ============================================
-
-function SimilarityBar({ value }: { value: number }) {
-  const percentage = value * 100;
-  let colorClass = "bg-green-500";
-  if (percentage < 50) colorClass = "bg-red-500";
-  else if (percentage < 70) colorClass = "bg-yellow-500";
-
-  return (
-    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-      <div
-        className={`h-full ${colorClass} transition-all`}
-        style={{ width: `${percentage}%` }}
-      />
     </div>
   );
 }
@@ -126,10 +148,15 @@ function SimilarityBar({ value }: { value: number }) {
 
 interface SemanticSearchPanelProps {
   onNodeSelect?: (nodeId: string) => void;
+  onNavigateToVisualization?: () => void;
   className?: string;
 }
 
-export function SemanticSearchPanel({ onNodeSelect, className }: SemanticSearchPanelProps) {
+export function SemanticSearchPanel({ 
+  onNodeSelect, 
+  onNavigateToVisualization,
+  className 
+}: SemanticSearchPanelProps) {
   const [query, setQuery] = useState("");
   const [threshold, setThreshold] = useState(0.5);
   const [limit, setLimit] = useState(20);
@@ -165,6 +192,11 @@ export function SemanticSearchPanel({ onNodeSelect, className }: SemanticSearchP
     clear();
   };
 
+  const handleViewInGraph = (nodeId: string) => {
+    onNodeSelect?.(nodeId);
+    onNavigateToVisualization?.();
+  };
+
   return (
     <Card className={className}>
       <CardHeader>
@@ -173,7 +205,7 @@ export function SemanticSearchPanel({ onNodeSelect, className }: SemanticSearchP
           Semantic Search
         </CardTitle>
         <CardDescription>
-          Tìm kiếm nodes theo nghĩa sử dụng AI embeddings
+          Tìm kiếm nodes theo nghĩa sử dụng AI embeddings. Click <Eye className="h-3 w-3 inline" /> để xem trong đồ thị.
         </CardDescription>
       </CardHeader>
 
@@ -306,7 +338,8 @@ export function SemanticSearchPanel({ onNodeSelect, className }: SemanticSearchP
                   <SearchResultItem
                     key={result.node_id}
                     result={result}
-                    onClick={() => onNodeSelect?.(result.node_id)}
+                    onViewInGraph={() => handleViewInGraph(result.node_id)}
+                    onSelect={() => onNodeSelect?.(result.node_id)}
                   />
                 ))}
               </div>
