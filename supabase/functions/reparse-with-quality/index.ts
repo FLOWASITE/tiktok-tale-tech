@@ -26,6 +26,7 @@ interface ReparseRequest {
   min_quality_threshold?: number; // Default 80
   force_ai_clean?: boolean;
   dry_run?: boolean;
+  calculate_quality_only?: boolean; // Only recalculate quality score, no re-parsing
 }
 
 interface ReparseResult {
@@ -66,9 +67,10 @@ Deno.serve(async (req) => {
       min_quality_threshold = 80,
       force_ai_clean = false,
       dry_run = false,
+      calculate_quality_only = false,
     } = body;
 
-    console.log(`[reparse-quality] Starting with threshold=${min_quality_threshold}, force_ai=${force_ai_clean}, dry_run=${dry_run}`);
+    console.log(`[reparse-quality] Starting with threshold=${min_quality_threshold}, force_ai=${force_ai_clean}, dry_run=${dry_run}, quality_only=${calculate_quality_only}`);
 
     // Build query to get nodes to reparse
     let query = supabase
@@ -117,8 +119,13 @@ Deno.serve(async (req) => {
       query = query.lt('content_quality_score', min_quality_threshold).limit(50);
     }
 
-    // Also filter to only nodes with source_url
-    query = query.not('source_url', 'is', null);
+    // Only filter to nodes with source_url when NOT in calculate_quality_only mode
+    if (!calculate_quality_only) {
+      query = query.not('source_url', 'is', null);
+    } else {
+      // For quality-only mode, require full_text to exist
+      query = query.not('full_text', 'is', null);
+    }
 
     const { data: nodes, error: queryError } = await query;
 
@@ -194,6 +201,92 @@ Deno.serve(async (req) => {
     let totalQualityBefore = 0;
     let totalQualityAfter = 0;
 
+    // === CALCULATE QUALITY ONLY MODE ===
+    if (calculate_quality_only) {
+      console.log(`[reparse-quality] Running in QUALITY_ONLY mode for ${nodes.length} nodes`);
+      
+      for (const node of nodes) {
+        const qualityBefore = node.content_quality_score || 0;
+        totalQualityBefore += qualityBefore;
+        
+        if (!node.full_text || node.full_text.length < 100) {
+          results.skipped++;
+          results.details.push({
+            node_id: node.id,
+            node_key: node.node_key,
+            status: 'skipped',
+            quality_before: qualityBefore,
+            reason: 'No full_text or too short',
+          });
+          continue;
+        }
+        
+        try {
+          // Calculate quality score locally (simplified version of parse function's logic)
+          const qualityResult = calculateContentQualitySimple(node.full_text);
+          const qualityAfter = qualityResult.overall;
+          totalQualityAfter += qualityAfter;
+          
+          // Update node with new quality score
+          const { error: updateError } = await supabase
+            .from('industry_knowledge_nodes')
+            .update({
+              content_quality_score: qualityAfter,
+              quality_breakdown: qualityResult.breakdown,
+            })
+            .eq('id', node.id);
+          
+          if (updateError) {
+            throw updateError;
+          }
+          
+          if (qualityAfter > qualityBefore) {
+            results.improved++;
+            results.details.push({
+              node_id: node.id,
+              node_key: node.node_key,
+              status: 'improved',
+              quality_before: qualityBefore,
+              quality_after: qualityAfter,
+            });
+          } else {
+            results.successful++;
+            results.details.push({
+              node_id: node.id,
+              node_key: node.node_key,
+              status: 'success',
+              quality_before: qualityBefore,
+              quality_after: qualityAfter,
+            });
+          }
+          
+          console.log(`[reparse-quality] Quality calculated for ${node.node_key}: ${qualityBefore} -> ${qualityAfter}`);
+          
+        } catch (error) {
+          console.error(`[reparse-quality] Error calculating quality for ${node.node_key}:`, error);
+          results.failed++;
+          results.details.push({
+            node_id: node.id,
+            node_key: node.node_key,
+            status: 'failed',
+            quality_before: qualityBefore,
+            reason: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+      
+      results.avg_quality_before = Math.round(totalQualityBefore / nodes.length);
+      results.avg_quality_after = Math.round(totalQualityAfter / (nodes.length - results.skipped) || 0);
+      
+      console.log(`[reparse-quality] QUALITY_ONLY completed: ${results.successful} success, ${results.improved} improved, ${results.failed} failed, ${results.skipped} skipped`);
+      
+      return new Response(
+        JSON.stringify(results),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // === FULL REPARSE MODE ===
     for (const node of nodes) {
       const qualityBefore = node.content_quality_score || 0;
       totalQualityBefore += qualityBefore;
@@ -330,3 +423,125 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// ============= Helper function for quality calculation =============
+// This is a simplified version of the parse-regulation-document's calculateContentQuality
+// Used in calculate_quality_only mode to avoid calling the full parse function
+
+interface ContentQualityResult {
+  overall: number;
+  breakdown: {
+    artifact_penalty: number;
+    legal_structure: number;
+    completeness: number;
+    readability: number;
+  };
+}
+
+const ARTIFACT_PATTERNS = [
+  // General artifacts
+  { pattern: /!\[[^\]]*\]\([^)]+\)/g, penalty: 5 },
+  { pattern: /\|\s*---+\s*\|/g, penalty: 3 },
+  { pattern: /\[\s*\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /Đăng nhập|Đăng ký/gi, penalty: 4 },
+  { pattern: /Tìm kiếm/gi, penalty: 3 },
+  { pattern: /Facebook|Twitter|Zalo/gi, penalty: 4 },
+  { pattern: /reCAPTCHA/gi, penalty: 5 },
+  { pattern: /Copyright|Bản quyền/gi, penalty: 3 },
+  { pattern: /Xem thêm|Đọc thêm/gi, penalty: 2 },
+  { pattern: /\d+ lượt xem/gi, penalty: 2 },
+  
+  // TVPL specific
+  { pattern: /cdn\.thuvienphapluat\.vn/gi, penalty: 4 },
+  { pattern: /\[Lịch Âm \d+\]\([^)]+\)/gi, penalty: 4 },
+  { pattern: /\[Giá Vàng[^\]]*\]\([^)]+\)/gi, penalty: 4 },
+  { pattern: /Chủ quản: Công ty/gi, penalty: 5 },
+  { pattern: /Giấy phép[^\.]+Sở TTTT/gi, penalty: 5 },
+  { pattern: /Hãy để chúng tôi hỗ trợ bạn!/gi, penalty: 4 },
+  { pattern: /028 3930 3279/gi, penalty: 4 },
+  { pattern: /Centre Point/gi, penalty: 4 },
+  
+  // VBPL specific  
+  { pattern: /Turn on more accessible mode/gi, penalty: 5 },
+  { pattern: /VB liên quan/gi, penalty: 3 },
+  
+  // ChinhPhu specific
+  { pattern: /\[!\[Cổng thông tin điện tử Chính phủ\][^\]]*\]\([^)]+\)/g, penalty: 5 },
+];
+
+function calculateContentQualitySimple(text: string): ContentQualityResult {
+  if (!text || text.length < 100) {
+    return {
+      overall: 0,
+      breakdown: { artifact_penalty: 0, legal_structure: 0, completeness: 0, readability: 0 },
+    };
+  }
+
+  let score = 100;
+  const breakdown = {
+    artifact_penalty: 0,
+    legal_structure: 0,
+    completeness: 0,
+    readability: 0,
+  };
+
+  // Artifact detection
+  for (const { pattern, penalty } of ARTIFACT_PATTERNS) {
+    const matches = text.match(pattern);
+    if (matches) {
+      breakdown.artifact_penalty += matches.length * penalty;
+    }
+  }
+  score -= Math.min(breakdown.artifact_penalty, 70);
+
+  // Legal structure detection
+  const legalPatterns = [
+    { pattern: /CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/gi, bonus: 10 },
+    { pattern: /Độc lập - Tự do - Hạnh phúc/gi, bonus: 5 },
+    { pattern: /Điều\s+\d+/gi, bonus: 2 },
+    { pattern: /Chương\s+[IVX\d]+/gi, bonus: 3 },
+    { pattern: /QUYẾT ĐỊNH|NGHỊ ĐỊNH|THÔNG TƯ|LUẬT|CHỈ THỊ/gi, bonus: 5 },
+  ];
+
+  for (const { pattern, bonus } of legalPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      breakdown.legal_structure += Math.min(matches.length * bonus, 25);
+    }
+  }
+  score = Math.min(100, score + Math.min(breakdown.legal_structure, 20));
+
+  // Completeness check
+  const hasHeader = /CỘNG HÒA|Độc lập - Tự do/i.test(text);
+  const hasBody = /Điều\s+\d+/i.test(text);
+  const hasSignature = /Nơi nhận:|BỘ TRƯỞNG|THỦ TƯỚNG|CHỦ TỊCH/i.test(text);
+  
+  if (hasHeader) breakdown.completeness += 5;
+  if (hasBody) breakdown.completeness += 10;
+  if (hasSignature) breakdown.completeness += 5;
+  score = Math.min(100, score + breakdown.completeness);
+
+  // Readability
+  const lines = text.split('\n').filter(l => l.trim().length > 0);
+  const avgLineLength = text.length / (lines.length || 1);
+  
+  if (avgLineLength > 50 && avgLineLength < 200) {
+    breakdown.readability += 5;
+  }
+  if (text.length > 5000) {
+    breakdown.readability += 2;
+  }
+  score = Math.min(100, score + breakdown.readability);
+
+  // Hard clamps for severe artifacts
+  if (breakdown.artifact_penalty > 200) {
+    score = Math.min(score, 70);
+  } else if (breakdown.artifact_penalty > 100) {
+    score = Math.min(score, 80);
+  }
+
+  return {
+    overall: Math.max(0, Math.min(100, Math.round(score))),
+    breakdown,
+  };
+}

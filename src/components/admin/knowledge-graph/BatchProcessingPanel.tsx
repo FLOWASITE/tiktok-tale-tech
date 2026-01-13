@@ -101,6 +101,7 @@ export function BatchProcessingPanel() {
   const [isQualityReparsing, setIsQualityReparsing] = useState(false);
   const [isTvplReparsing, setIsTvplReparsing] = useState(false);
   const [isTextReparsing, setIsTextReparsing] = useState(false);
+  const [isRecalculatingQuality, setIsRecalculatingQuality] = useState(false);
   const [qualityReparseProgress, setQualityReparseProgress] = useState<{
     processed: number;
     total: number;
@@ -620,7 +621,7 @@ export function BatchProcessingPanel() {
               variant="outline"
               size="sm"
               onClick={handleReparseAllWithText}
-              disabled={isTextReparsing || isQualityReparsing || isTvplReparsing}
+              disabled={isTextReparsing || isQualityReparsing || isTvplReparsing || isRecalculatingQuality}
               className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/20"
             >
               {isTextReparsing ? (
@@ -629,6 +630,56 @@ export function BatchProcessingPanel() {
                 <FileText className="h-4 w-4 mr-1" />
               )}
               Reparse All With Text
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  setIsRecalculatingQuality(true);
+                  toast.info(`Recalculating quality for ${batchSize} nodes...`);
+                  
+                  const response = await supabase.functions.invoke('reparse-with-quality', {
+                    body: {
+                      filter: {
+                        has_text: true,
+                        no_quality_score: true,
+                        limit: batchSize,
+                      },
+                      calculate_quality_only: true,
+                    },
+                  });
+                  
+                  if (response.error) throw new Error(response.error.message);
+                  
+                  const result = response.data;
+                  if (result.success) {
+                    setQualityReparseProgress({
+                      processed: result.total_processed,
+                      total: result.total_processed,
+                      avgBefore: result.avg_quality_before || 0,
+                      avgAfter: result.avg_quality_after || 0,
+                      source: 'Recalc Quality',
+                    });
+                    toast.success(`Quality recalculated for ${result.total_processed} nodes`);
+                  }
+                  refetchStats();
+                } catch (error) {
+                  toast.error(`Error: ${error instanceof Error ? error.message : 'Unknown'}`);
+                } finally {
+                  setIsRecalculatingQuality(false);
+                }
+              }}
+              disabled={isRecalculatingQuality || isQualityReparsing || isTvplReparsing || isTextReparsing}
+              className="border-cyan-300 text-cyan-700 hover:bg-cyan-50 dark:border-cyan-600 dark:text-cyan-300 dark:hover:bg-cyan-900/20"
+            >
+              {isRecalculatingQuality ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <TrendingUp className="h-4 w-4 mr-1" />
+              )}
+              Recalculate Quality
             </Button>
           </div>
 
