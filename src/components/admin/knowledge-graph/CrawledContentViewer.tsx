@@ -65,6 +65,24 @@ interface CrawledNode {
   content_hash: string | null;
   last_verified_at: string | null;
   created_at: string;
+  // New Living System fields
+  full_text: string | null;
+  extracted_data: {
+    document_number?: string;
+    document_type?: string;
+    document_title?: string;
+    effective_date?: string;
+    issuing_authority?: string;
+    summary?: string;
+    key_changes?: string[];
+    claim_restrictions?: Array<{ claim: string; restriction_type: string; alternative?: string }>;
+    compliance_impacts?: Array<{ industry_code: string; impact_type: string; description: string; severity: string }>;
+    confidence_score?: number;
+  } | null;
+  document_url: string | null;
+  document_type: string | null;
+  effective_date: string | null;
+  parse_status: 'pending' | 'parsing' | 'parsed' | 'failed' | 'skipped' | null;
 }
 
 interface SourceInfo {
@@ -277,6 +295,22 @@ export function CrawledContentViewer() {
                               <Badge variant="outline" className="text-xs">
                                 {node.properties?.category || 'general'}
                               </Badge>
+                              {node.parse_status && (
+                                <Badge 
+                                  variant={node.parse_status === 'parsed' ? 'default' : 'secondary'}
+                                  className={`text-xs ${
+                                    node.parse_status === 'parsed' ? 'bg-green-500' :
+                                    node.parse_status === 'failed' ? 'bg-red-500' :
+                                    node.parse_status === 'parsing' ? 'bg-blue-500' :
+                                    ''
+                                  }`}
+                                >
+                                  {node.parse_status === 'parsed' ? '✓ Đã parse' :
+                                   node.parse_status === 'failed' ? '✗ Lỗi' :
+                                   node.parse_status === 'parsing' ? '⏳ Đang parse' :
+                                   node.parse_status === 'skipped' ? '⏭ Bỏ qua' : 'Chờ'}
+                                </Badge>
+                              )}
                               <span className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {formatDistanceToNow(new Date(node.created_at), { 
@@ -390,6 +424,51 @@ export function CrawledContentViewer() {
                       <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                       {selectedNode.source_url}
                     </a>
+                  </div>
+                )}
+
+                {/* Extracted Data Summary */}
+                {selectedNode.extracted_data?.summary && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">📋 Tóm tắt AI</p>
+                    <p className="text-sm bg-muted/50 p-3 rounded-lg">
+                      {selectedNode.extracted_data.summary}
+                    </p>
+                    {selectedNode.extracted_data.confidence_score && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Độ tin cậy: {(selectedNode.extracted_data.confidence_score * 100).toFixed(0)}%
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Key Changes */}
+                {selectedNode.extracted_data?.key_changes && selectedNode.extracted_data.key_changes.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">🔄 Thay đổi chính</p>
+                    <ul className="text-sm list-disc list-inside space-y-1 bg-muted/50 p-3 rounded-lg">
+                      {selectedNode.extracted_data.key_changes.map((change, i) => (
+                        <li key={i}>{change}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Claim Restrictions */}
+                {selectedNode.extracted_data?.claim_restrictions && selectedNode.extracted_data.claim_restrictions.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">⚠️ Hạn chế claim</p>
+                    <div className="space-y-2">
+                      {selectedNode.extracted_data.claim_restrictions.map((restriction, i) => (
+                        <div key={i} className="text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded border-l-2 border-red-500">
+                          <p className="font-medium">{restriction.claim}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Loại: {restriction.restriction_type}
+                            {restriction.alternative && ` → ${restriction.alternative}`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

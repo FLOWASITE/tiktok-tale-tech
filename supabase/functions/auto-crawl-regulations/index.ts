@@ -1,5 +1,6 @@
 // Auto-Crawl Regulations Edge Function
 // Automatically crawls external regulation sources and updates Knowledge Graph
+// v2.0 - Living System Upgrade: Download + Parse PDF/DOCX + AI Extract
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
@@ -27,6 +28,8 @@ interface CrawlResult {
   description: string;
   markdown?: string;
   publishedDate?: string;
+  downloadUrl?: string; // Added for PDF/DOCX download
+  fileType?: 'pdf' | 'docx' | 'html';
 }
 
 interface CrawlStats {
@@ -35,6 +38,8 @@ interface CrawlStats {
   changes_detected: number;
   new_regulations: number;
   updated_regulations: number;
+  documents_parsed: number; // Added for tracking parsed docs
+  documents_failed: number; // Added for tracking failed parses
 }
 
 // Category mapping: source.category -> industry_memory_packs.category_code
@@ -170,10 +175,143 @@ async function searchWithFirecrawl(
   }
 }
 
+// Find download link on detail page using Firecrawl
+async function findDownloadLink(url: string): Promise<{ downloadUrl: string | null; fileType: 'pdf' | 'docx' | null }> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) {
+    return { downloadUrl: null, fileType: null };
+  }
+
+  try {
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        formats: ['links', 'html'],
+        timeout: 15000,
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.success || !data.data?.links) {
+      return { downloadUrl: null, fileType: null };
+    }
+
+    // Search for PDF/DOCX download links
+    const links: string[] = data.data.links || [];
+    
+    // Priority patterns for Vietnamese gov sites
+    const pdfPatterns = [
+      /\.pdf$/i,
+      /download.*pdf/i,
+      /\/file\//i,
+      /\/download\//i,
+      /vbpq.*\.pdf/i,
+    ];
+    
+    const docxPatterns = [
+      /\.docx?$/i,
+      /download.*doc/i,
+    ];
+
+    for (const link of links) {
+      for (const pattern of pdfPatterns) {
+        if (pattern.test(link)) {
+          return { downloadUrl: link, fileType: 'pdf' };
+        }
+      }
+    }
+    
+    for (const link of links) {
+      for (const pattern of docxPatterns) {
+        if (pattern.test(link)) {
+          return { downloadUrl: link, fileType: 'docx' };
+        }
+      }
+    }
+
+    // Also check HTML content for embedded download links
+    const html = data.data.html || '';
+    const downloadMatch = html.match(/href=["']([^"']*\.(pdf|docx?)(\?[^"']*)?)["']/i);
+    if (downloadMatch) {
+      const fileType = downloadMatch[2].toLowerCase().startsWith('doc') ? 'docx' : 'pdf';
+      let downloadUrl = downloadMatch[1];
+      // Make absolute if relative
+      if (downloadUrl.startsWith('/')) {
+        const urlObj = new URL(url);
+        downloadUrl = `${urlObj.origin}${downloadUrl}`;
+      }
+      return { downloadUrl, fileType };
+    }
+
+    return { downloadUrl: null, fileType: null };
+  } catch (error) {
+    console.log('[auto-crawl] findDownloadLink error:', error);
+    return { downloadUrl: null, fileType: null };
+  }
+}
+
+// Parse document using parse-regulation-document edge function
+async function parseDocument(downloadUrl: string, nodeId?: string): Promise<{ success: boolean; text: string; fileType: string }> {
+  try {
+    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/parse-regulation-document`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: downloadUrl, node_id: nodeId }),
+    });
+
+    const data = await response.json();
+    return {
+      success: data.success && data.text?.length > 100,
+      text: data.text || '',
+      fileType: data.file_type || 'unknown',
+    };
+  } catch (error) {
+    console.log('[auto-crawl] parseDocument error:', error);
+    return { success: false, text: '', fileType: 'unknown' };
+  }
+}
+
+// Extract structured content using extract-regulation-content edge function
+async function extractContent(
+  text: string, 
+  category: string, 
+  jurisdiction: string,
+  nodeId?: string
+): Promise<{ success: boolean; data: any }> {
+  try {
+    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/extract-regulation-content`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text, category, jurisdiction, node_id: nodeId }),
+    });
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      data: data.data,
+    };
+  } catch (error) {
+    console.log('[auto-crawl] extractContent error:', error);
+    return { success: false, data: null };
+  }
+}
+
 // Process a single source
 async function processSource(
   supabase: any,
-  source: RegulationSource
+  source: RegulationSource,
+  enableFullParsing: boolean = true
 ): Promise<CrawlStats> {
   const stats: CrawlStats = {
     source_id: source.id,
@@ -181,6 +319,8 @@ async function processSource(
     changes_detected: 0,
     new_regulations: 0,
     updated_regulations: 0,
+    documents_parsed: 0,
+    documents_failed: 0,
   };
 
   console.log(`[auto-crawl] Processing source: ${source.source_name}`);
@@ -193,7 +333,7 @@ async function processSource(
   const results = await searchWithFirecrawl(searchQuery, {
     limit: 10,
     lang,
-    tbs: 'qdr:w', // Last week
+    tbs: 'qdr:m', // Changed to last month for better coverage
   });
 
   stats.results_count = results.length;
@@ -283,6 +423,7 @@ async function processSource(
               content_hash: contentHash,
               last_verified_at: new Date().toISOString(),
               is_active: true,
+              parse_status: 'pending',
             })
             .select('id')
             .single();
@@ -294,6 +435,61 @@ async function processSource(
 
           stats.new_regulations++;
           stats.changes_detected++;
+
+          // === LIVING SYSTEM: Try to find and parse document ===
+          if (enableFullParsing && newNode) {
+            console.log(`[auto-crawl] Looking for download link for: ${result.url}`);
+            const { downloadUrl, fileType } = await findDownloadLink(result.url);
+            
+            if (downloadUrl) {
+              console.log(`[auto-crawl] Found ${fileType} at: ${downloadUrl}`);
+              
+              // Update node with document URL
+              await supabase
+                .from('industry_knowledge_nodes')
+                .update({ 
+                  document_url: downloadUrl, 
+                  document_type: fileType,
+                  parse_status: 'parsing' 
+                })
+                .eq('id', newNode.id);
+              
+              // Parse document
+              const parseResult = await parseDocument(downloadUrl, newNode.id);
+              
+              if (parseResult.success && parseResult.text.length > 200) {
+                console.log(`[auto-crawl] Parsed ${parseResult.text.length} chars, extracting content...`);
+                
+                // Extract structured content
+                const extractResult = await extractContent(
+                  parseResult.text,
+                  source.category,
+                  source.jurisdiction,
+                  newNode.id
+                );
+                
+                if (extractResult.success) {
+                  stats.documents_parsed++;
+                  console.log(`[auto-crawl] Extraction complete, confidence: ${extractResult.data?.confidence_score}`);
+                } else {
+                  stats.documents_failed++;
+                }
+              } else {
+                stats.documents_failed++;
+                await supabase
+                  .from('industry_knowledge_nodes')
+                  .update({ parse_status: 'failed' })
+                  .eq('id', newNode.id);
+              }
+            } else {
+              // No download link found, skip parsing
+              await supabase
+                .from('industry_knowledge_nodes')
+                .update({ parse_status: 'skipped' })
+                .eq('id', newNode.id);
+            }
+          }
+          // === END LIVING SYSTEM ===
 
 // Create propagation log for new regulation
           if (newNode) {
@@ -320,11 +516,13 @@ async function processSource(
               change_summary: `New regulation detected: ${result.title}`,
               propagation_status: 'pending',
               priority,
+              review_status: 'pending', // Added for admin review
               impact_analysis: {
                 auto_detected: true,
                 source: source.source_name,
                 source_id: source.id,
                 crawl_url: result.url,
+                has_full_text: stats.documents_parsed > 0,
                 disclaimer: source.jurisdiction === 'VN' 
                   ? '⚠️ Quy định này được phát hiện tự động và cần được xác minh bởi chuyên gia pháp lý trước khi áp dụng.'
                   : '⚠️ This regulation was auto-detected and requires verification by legal experts before application.',
