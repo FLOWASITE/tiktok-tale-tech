@@ -533,7 +533,7 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
  * Try to find direct PDF link from Vietnamese gov sites
  * Priority check for datafiles.chinhphu.vn (most reliable source)
  * Enhanced: Uses multiple formats and waits for JS rendering
- * v2.1: Added VBPL.VN support
+ * v3: Improved VBPL.VN support with FileData URL construction
  */
 async function findDirectPdfLink(url: string): Promise<string | null> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
@@ -544,22 +544,59 @@ async function findDirectPdfLink(url: string): Promise<string | null> {
     
     // === PRIORITY 0: VBPL.VN specific handling ===
     if (url.includes('vbpl.vn')) {
-      // If on detail page (vbpq-toanvan), convert to PDF page (vbpq-van-ban-goc)
+      const itemId = extractVbplItemId(url);
+      const domain = extractVbplDomain(url);
+      
+      // Try PDF page first (vbpq-van-ban-goc.aspx)
       if (url.includes('vbpq-toanvan.aspx')) {
         const pdfPageUrl = url.replace('vbpq-toanvan.aspx', 'vbpq-van-ban-goc.aspx');
         console.log(`[parse-document] VBPL: Converting to PDF page: ${pdfPageUrl}`);
         
-        // Scrape the PDF page
         const pdfLink = await scrapeVbplForPdf(pdfPageUrl);
         if (pdfLink) {
           return pdfLink;
         }
       }
       
-      // Also check current page for direct download links
+      // Also check current page
       const pdfLink = await scrapeVbplForPdf(url);
       if (pdfLink) {
         return pdfLink;
+      }
+      
+      // Try constructing URLs based on common patterns
+      if (itemId) {
+        console.log(`[parse-document] VBPL: Trying constructed download URLs for ItemID ${itemId}`);
+        
+        // Try common VBPL filename patterns by probing
+        const possibleUrls = [
+          buildVbplDownloadUrl(itemId, `${itemId}m.signed.pdf`, domain),
+          buildVbplDownloadUrl(itemId, `${itemId}.signed.pdf`, domain),
+          buildVbplDownloadUrl(itemId, `${itemId}m.pdf`, domain),
+          buildVbplDownloadUrl(itemId, `${itemId}.pdf`, domain),
+        ];
+        
+        // Probe each URL to find a working one
+        for (const probeUrl of possibleUrls) {
+          try {
+            const headResponse = await fetch(probeUrl, {
+              method: 'HEAD',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
+            });
+            
+            if (headResponse.ok) {
+              const contentType = headResponse.headers.get('content-type') || '';
+              if (contentType.includes('pdf') || contentType.includes('octet-stream') || contentType.includes('msword')) {
+                console.log(`[parse-document] VBPL: Found working download URL: ${probeUrl}`);
+                return probeUrl;
+              }
+            }
+          } catch (probeError) {
+            // Continue to next URL
+          }
+        }
       }
     }
     
@@ -660,7 +697,73 @@ async function findDirectPdfLink(url: string): Promise<string | null> {
 }
 
 /**
+ * Build VBPL download URL from ItemID and filename
+ * VBPL URL structure: /FileData/{DOMAIN}/Lists/vbpq/Attachments/{ItemID}/{filename}
+ */
+function buildVbplDownloadUrl(itemId: string, filename: string, domain: string = 'TW'): string {
+  const encodedFilename = encodeURIComponent(filename.trim());
+  return `https://vbpl.vn/FileData/${domain}/Lists/vbpq/Attachments/${itemId}/${encodedFilename}`;
+}
+
+/**
+ * Extract VBPL domain from URL (TW, botaichinh, nganhangnhanuoc, etc.)
+ */
+function extractVbplDomain(url: string): string {
+  const domainMatch = url.match(/vbpl\.vn\/([^\/]+)/i);
+  if (domainMatch && !['Pages', 'TW'].includes(domainMatch[1])) {
+    return domainMatch[1];
+  }
+  return 'TW';
+}
+
+/**
+ * Extract ItemID from VBPL URL
+ */
+function extractVbplItemId(url: string): string | null {
+  const match = url.match(/ItemID=(\d+)/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Generate possible download URLs for VBPL documents
+ * Based on observed patterns from VBPL.vn
+ */
+function generateVbplDownloadUrls(itemId: string, domain: string, documentTitle: string): string[] {
+  const urls: string[] = [];
+  
+  // Normalize title for filename construction
+  const normalizedTitle = documentTitle
+    .replace(/\s+/g, ' ')
+    .replace(/[\/\\:*?"<>|]/g, '')
+    .trim();
+  
+  // Common VBPL filename patterns
+  const filenamePatterns = [
+    `VanBanGoc_${normalizedTitle}.signed.pdf`,
+    `VanBanGoc_${normalizedTitle}.pdf`,
+    `${normalizedTitle}.signed.pdf`,
+    `${normalizedTitle}.pdf`,
+    `${itemId}.signed.pdf`,
+    `${itemId}.pdf`,
+    `VanBanGoc_${itemId}.signed.pdf`,
+    `VanBanGoc_${itemId}.pdf`,
+  ];
+  
+  // Try both specific domain and TW
+  const domains = domain === 'TW' ? ['TW'] : [domain, 'TW'];
+  
+  for (const d of domains) {
+    for (const filename of filenamePatterns) {
+      urls.push(buildVbplDownloadUrl(itemId, filename, d));
+    }
+  }
+  
+  return urls;
+}
+
+/**
  * Scrape VBPL.VN page to find PDF/DOC download link
+ * Enhanced v3: Better pattern matching for FileData URLs and filename extraction
  */
 async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
@@ -668,6 +771,9 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
   
   try {
     console.log(`[parse-document] VBPL: Scraping for PDF: ${pageUrl}`);
+    
+    const itemId = extractVbplItemId(pageUrl);
+    const domain = extractVbplDomain(pageUrl);
     
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
@@ -679,8 +785,8 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
         url: pageUrl,
         formats: ['links', 'rawHtml', 'markdown'],
         onlyMainContent: false,
-        waitFor: 3000, // Wait longer for JS rendering
-        timeout: 20000,
+        waitFor: 5000, // Wait longer for JS rendering (increased from 3s)
+        timeout: 30000,
       }),
     });
     
@@ -693,57 +799,87 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
     const links: string[] = data.data?.links || [];
     const html: string = data.data?.rawHtml || '';
     const markdown: string = data.data?.markdown || '';
+    const allContent = html + ' ' + markdown;
     
-    // === PRIORITY 1: Check links array for PDF/DOC ===
+    // === PRIORITY 1: Direct FileData URLs (most reliable) ===
+    const fileDataPatterns = [
+      /https?:\/\/vbpl\.vn\/FileData\/[^"'\s<>]+\.(?:pdf|docx?)/gi,
+      /href=["']([^"']*FileData[^"']*\.(?:pdf|docx?))["']/gi,
+    ];
+    
+    for (const pattern of fileDataPatterns) {
+      const matches = allContent.matchAll(pattern);
+      for (const match of matches) {
+        const url = match[1] || match[0];
+        if (url && url.includes('FileData')) {
+          let cleanUrl = url.startsWith('http') ? url : `https://vbpl.vn${url}`;
+          console.log(`[parse-document] VBPL: Found FileData URL: ${cleanUrl}`);
+          return cleanUrl;
+        }
+      }
+    }
+    
+    // === PRIORITY 2: Check links array for PDF/DOC ===
     for (const link of links) {
-      if (link.match(/\.(pdf|docx?)$/i)) {
+      if (link.match(/\.(pdf|docx?)$/i) || link.includes('FileData')) {
         console.log(`[parse-document] VBPL: Found document in links: ${link}`);
         return link;
       }
     }
     
-    // === PRIORITY 2: Find .signed.pdf pattern in HTML/markdown (common VBPL pattern) ===
-    // Pattern: 66qhm.signed.pdf or similar - these appear as text near attachment icon
-    const signedPdfPatterns = [
-      /href=["']([^"']*\.signed\.pdf)["']/i,
-      /href=["']([^"']*m\.signed\.pdf)["']/i,
-      /src=["']([^"']*\.signed\.pdf)["']/i,
-      // Look for filename mentions in markdown/text (VBPL shows filename as text)
+    // === PRIORITY 3: Extract filename from divShowDialogDownload or attachment area ===
+    const filenamePatterns = [
+      // Match filename text near download/attachment elements
+      /id="VanBanGoc[^"]*"[^>]*>[^<]*<[^>]*>([^<]+\.(?:pdf|docx?))/i,
+      /VanBanGoc[_\s]?([^"<>\s]+\.(?:pdf|docx?))/i,
+      /sourcedoc=[^"]*Attachments\/\d+\/([^"&]+\.(?:pdf|docx?))/i,
+      /Attachments\/\d+\/([^"'\s<>&]+\.(?:pdf|docx?))/i,
+      // Signed PDF patterns
       /(\d+[a-z]*m?\.signed\.pdf)/i,
       /([A-Za-z0-9_-]+\.signed\.pdf)/i,
+      // Generic PDF filename in content
+      /([A-Za-zÀ-ỹ0-9_\-\s]+\.(?:pdf|docx?))/i,
     ];
     
-    const allContent = html + ' ' + markdown;
-    for (const pattern of signedPdfPatterns) {
+    for (const pattern of filenamePatterns) {
       const match = allContent.match(pattern);
-      if (match && match[1]) {
-        let docUrl = match[1];
-        // Build absolute URL
-        if (!docUrl.startsWith('http')) {
-          // Extract ItemID from page URL to help construct paths
-          const itemIdMatch = pageUrl.match(/ItemID=(\d+)/i);
-          // Extract domain part from URL
-          const domainMatch = pageUrl.match(/(https:\/\/vbpl\.vn\/[^\/]+)/);
-          const baseDomain = domainMatch ? domainMatch[1] : 'https://vbpl.vn/TW';
-          
-          if (docUrl.startsWith('/')) {
-            docUrl = `https://vbpl.vn${docUrl}`;
-          } else {
-            // Try common VBPL download paths
-            docUrl = `${baseDomain}/Pages/File/${docUrl}`;
-          }
+      if (match && match[1] && itemId) {
+        const filename = decodeURIComponent(match[1].trim());
+        // Skip if filename is too generic or too short
+        if (filename.length > 5 && !filename.match(/^\.pdf$/i)) {
+          const downloadUrl = buildVbplDownloadUrl(itemId, filename, domain);
+          console.log(`[parse-document] VBPL: Constructed URL from filename "${filename}": ${downloadUrl}`);
+          return downloadUrl;
         }
-        console.log(`[parse-document] VBPL: Found signed PDF: ${docUrl}`);
-        return docUrl;
       }
     }
     
-    // === PRIORITY 3: Generic PDF/DOC patterns in HTML ===
+    // === PRIORITY 4: WopiFrame.aspx patterns (extract from preview URLs) ===
+    const wopiPatterns = [
+      /WopiFrame\.aspx\?sourcedoc=([^"'&]+)/i,
+      /sourcedoc=([^"'&]+)/i,
+    ];
+    
+    for (const pattern of wopiPatterns) {
+      const match = allContent.match(pattern);
+      if (match && match[1]) {
+        // The sourcedoc often contains the file path
+        const sourcedoc = decodeURIComponent(match[1]);
+        const filePathMatch = sourcedoc.match(/Attachments\/(\d+)\/([^"'&]+)/);
+        if (filePathMatch) {
+          const [, extractedItemId, filename] = filePathMatch;
+          const downloadUrl = buildVbplDownloadUrl(extractedItemId, filename, domain);
+          console.log(`[parse-document] VBPL: Extracted from WopiFrame: ${downloadUrl}`);
+          return downloadUrl;
+        }
+      }
+    }
+    
+    // === PRIORITY 5: Generic PDF/DOC patterns in HTML ===
     const docPatterns = [
       /href=["']([^"']*\.pdf)["']/i,
       /href=["']([^"']*\.docx?)["']/i,
       /href=["']([^"']*Download[^"']*ItemID=\d+[^"']*)["']/i,
-      /href=["']([^"']*tailieu[^"']*\.(?:pdf|docx?))["']/i,
     ];
     
     for (const pattern of docPatterns) {
@@ -760,18 +896,115 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
       }
     }
     
-    // === PRIORITY 4: Look for any PDF/DOC URL in content ===
+    // === PRIORITY 6: Look for any PDF/DOC URL in content ===
     const genericDocMatch = allContent.match(/(https?:\/\/[^"'\s<>]+\.(?:pdf|docx?))(?=["'\s<>]|$)/i);
     if (genericDocMatch) {
       console.log(`[parse-document] VBPL: Found document via generic pattern: ${genericDocMatch[1]}`);
       return genericDocMatch[1];
     }
     
-    console.log('[parse-document] VBPL: No document link found');
+    console.log('[parse-document] VBPL: No document link found via scraping');
     return null;
   } catch (error) {
     console.log('[parse-document] VBPL: scrapeVbplForPdf error:', error);
     return null;
+  }
+}
+
+/**
+ * Try to extract full content from VBPL "toan van" (full text) page
+ * This is a fallback when PDF is not available
+ */
+async function extractVbplToanVan(url: string): Promise<{ text: string; success: boolean }> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) return { text: '', success: false };
+  
+  try {
+    // Convert to toan-van page if not already
+    let toanVanUrl = url;
+    if (url.includes('vbpq-van-ban-goc.aspx')) {
+      toanVanUrl = url.replace('vbpq-van-ban-goc.aspx', 'vbpq-toanvan.aspx');
+    } else if (!url.includes('vbpq-toanvan.aspx')) {
+      const itemId = extractVbplItemId(url);
+      if (itemId) {
+        toanVanUrl = `https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=${itemId}`;
+      }
+    }
+    
+    console.log(`[parse-document] VBPL: Extracting toan-van from: ${toanVanUrl}`);
+    
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: toanVanUrl,
+        formats: ['markdown', 'html', 'rawHtml'],
+        onlyMainContent: false, // Get full page to capture all content
+        waitFor: 5000, // Wait for JS rendering
+        timeout: 60000,
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log(`[parse-document] VBPL: Toan-van scrape failed: HTTP ${response.status}`);
+      return { text: '', success: false };
+    }
+    
+    const data = await response.json();
+    const markdown: string = data.data?.markdown || '';
+    const html: string = data.data?.rawHtml || data.data?.html || '';
+    
+    // Try to extract content from specific VBPL content divs
+    let extractedText = '';
+    
+    // Look for fulltext div content
+    const fullTextMatch = html.match(/<div[^>]*class="[^"]*fulltext[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+    if (fullTextMatch) {
+      extractedText = fullTextMatch[1]
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    
+    // Look for content div
+    if (!extractedText || extractedText.length < 1000) {
+      const contentMatch = html.match(/<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+      if (contentMatch && contentMatch[1].length > extractedText.length) {
+        extractedText = contentMatch[1]
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+    }
+    
+    // Fallback to markdown if HTML extraction didn't work well
+    if (!extractedText || extractedText.length < 1000) {
+      extractedText = cleanScrapedContent(markdown, toanVanUrl);
+    }
+    
+    // Validate content quality
+    const legalScore = detectLegalContent(extractedText);
+    const sidebarPenalty = detectSidebarContent(extractedText);
+    
+    console.log(`[parse-document] VBPL: Toan-van extracted ${extractedText.length} chars, legal=${legalScore}, sidebar=${sidebarPenalty}`);
+    
+    if (extractedText.length >= 1000 && legalScore >= 5 && sidebarPenalty < 20) {
+      return { text: extractedText, success: true };
+    }
+    
+    return { text: extractedText, success: extractedText.length >= 500 };
+  } catch (error) {
+    console.log('[parse-document] VBPL: extractVbplToanVan error:', error);
+    return { text: '', success: false };
   }
 }
 
@@ -1162,6 +1395,25 @@ async function tryFirecrawlScrape(url: string): Promise<{
           sidebarPenalty,
         },
       };
+    }
+    
+    // === VBPL FALLBACK: Try toan-van extraction if other methods failed ===
+    if (url.includes('vbpl.vn')) {
+      console.log('[parse-document] VBPL: Trying toan-van fallback extraction');
+      const toanVanResult = await extractVbplToanVan(url);
+      if (toanVanResult.success && toanVanResult.text.length > 500) {
+        return {
+          success: true,
+          text: toanVanResult.text,
+          debug: {
+            source: 'html',
+            strategy: 'vbpl_toanvan_fallback',
+            textLength: toanVanResult.text.length,
+            legalScore: detectLegalContent(toanVanResult.text),
+            sidebarPenalty: detectSidebarContent(toanVanResult.text),
+          },
+        };
+      }
     }
     
     return { success: false };
