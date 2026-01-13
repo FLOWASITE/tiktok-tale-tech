@@ -578,6 +578,69 @@ async function scrapeVbplPdfPage(pdfPageUrl: string): Promise<string | null> {
   }
 }
 
+/**
+ * Find alternative URL from ThưViệnPhápLuật.vn (TVPL) for failed VBPL/chinhphu.vn documents
+ * TVPL has easier HTML extraction compared to PDF-heavy sources
+ */
+async function findTvplAlternative(sourceUrl: string, nodeKey?: string, documentTitle?: string): Promise<string | null> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) return null;
+  
+  try {
+    // Extract document identifier from nodeKey or title
+    // e.g., "Thông tư 46/2025/TT-BXD", "Nghị định 15/2024/NĐ-CP"
+    const docPatterns = [
+      /(Luật|Nghị định|Thông tư|Quyết định|Chỉ thị|Công văn)\s*(?:số\s*)?[\d\/]+[-\/\w]*/i,
+      /(?:ND|TT|QD|CT|CV|L)[-_]?\d+[-\/]\d+[-\/]?[A-Z]*/i,
+    ];
+    
+    let searchTerm = '';
+    const sourceText = `${nodeKey || ''} ${documentTitle || ''}`.trim();
+    
+    for (const pattern of docPatterns) {
+      const match = sourceText.match(pattern);
+      if (match) {
+        searchTerm = match[0];
+        break;
+      }
+    }
+    
+    if (!searchTerm && documentTitle) {
+      // Use first 50 chars of title as search term
+      searchTerm = documentTitle.substring(0, 50);
+    }
+    
+    if (!searchTerm) {
+      console.log('[auto-crawl] TVPL: Cannot extract search term for alternative lookup');
+      return null;
+    }
+    
+    console.log(`[auto-crawl] TVPL: Searching for alternative: "${searchTerm}"`);
+    
+    // Search on TVPL
+    const searchQuery = `site:thuvienphapluat.vn "${searchTerm}"`;
+    const results = await searchWithFirecrawl(searchQuery, { limit: 3, lang: 'vi' });
+    
+    if (results.length > 0) {
+      // Filter for actual document pages (not search pages)
+      for (const result of results) {
+        if (result.url.includes('thuvienphapluat.vn') && 
+            !result.url.includes('/tim-kiem') && 
+            !result.url.includes('/search')) {
+          console.log(`[auto-crawl] TVPL: Found alternative: ${result.url}`);
+          return result.url;
+        }
+      }
+    }
+    
+    console.log('[auto-crawl] TVPL: No alternative found');
+    return null;
+  } catch (error) {
+    console.log('[auto-crawl] TVPL: findTvplAlternative error:', error);
+    return null;
+  }
+}
+
 // Clean extracted markdown content from gov sites
 function cleanExtractedMarkdown(markdown: string, sourceUrl: string): string {
   let cleaned = markdown;
@@ -609,6 +672,25 @@ function cleanExtractedMarkdown(markdown: string, sourceUrl: string): string {
     );
     if (docMatch && docMatch[1].length > 300) {
       cleaned = docMatch[1];
+    }
+  }
+  
+  // Site-specific cleaning for TVPL
+  if (sourceUrl.includes('thuvienphapluat.vn')) {
+    const tvplRemovePatterns = [
+      /Bạn Chưa Đăng Nhập Thành Viên!/gi,
+      /THƯ VIỆN PHÁP LUẬT/gi,
+      /Mọi hành vi sao chép.*?vi phạm pháp luật/gi,
+      /Download\s*(PDF|Word)/gi,
+      /Chia sẻ:/gi,
+      /Văn bản liên quan/gi,
+      /Đang cập nhật/gi,
+      /Đăng nhập để xem/gi,
+      /Copyright.*thuvienphapluat\.vn/gi,
+    ];
+    
+    for (const pattern of tvplRemovePatterns) {
+      cleaned = cleaned.replace(pattern, '');
     }
   }
   
