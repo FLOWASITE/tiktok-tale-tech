@@ -1,7 +1,9 @@
 /**
  * CrawledNodeDetailSheet - Detail view dialog for crawled node
+ * With inline editing and version tracking
  */
 
+import { useState, useEffect } from 'react';
 import { 
   FileText, 
   ExternalLink, 
@@ -10,10 +12,16 @@ import {
   Copy,
   Maximize2,
   Download,
+  Pencil,
+  Save,
+  X,
+  History,
+  RotateCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -27,11 +35,24 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { hasHtmlLayoutArtifacts } from '@/hooks/useReparseRegulations';
 import { ContentQualityBadge, estimateContentQuality } from './ContentQualityBadge';
-import { CrawledNode, getJurisdictionFlag } from './CrawledNodeCard';
+import { CrawledNode, getJurisdictionFlag, VersionHistoryEntry } from './CrawledNodeCard';
+import type { Json } from '@/integrations/supabase/types';
 
 interface CrawledNodeDetailSheetProps {
   node: CrawledNode | null;
@@ -41,6 +62,7 @@ interface CrawledNodeDetailSheetProps {
   onClose: () => void;
   onReparse: (nodeId: string) => void;
   onToggleFullTextSheet: (open: boolean) => void;
+  onRefresh?: () => void;
 }
 
 export function CrawledNodeDetailSheet({
@@ -51,7 +73,21 @@ export function CrawledNodeDetailSheet({
   onClose,
   onReparse,
   onToggleFullTextSheet,
+  onRefresh,
 }: CrawledNodeDetailSheetProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+
+  // Initialize editedText when node changes or dialog opens
+  useEffect(() => {
+    if (node?.full_text && isOpen) {
+      setEditedText(node.full_text);
+      setIsEditing(false);
+    }
+  }, [node?.full_text, isOpen]);
+
   if (!node) return null;
 
   const handleExportTxt = () => {
@@ -67,11 +103,98 @@ export function CrawledNodeDetailSheet({
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(node.full_text || '');
+    navigator.clipboard.writeText(isEditing ? editedText : (node.full_text || ''));
     toast.success('Đã copy vào clipboard');
   };
 
+  const handleStartEdit = () => {
+    setEditedText(node.full_text || '');
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedText(node.full_text || '');
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!node || editedText === node.full_text) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Calculate new quality score
+      const newQualityScore = estimateContentQuality(editedText);
+
+      // Prepare version history entry for previous content
+      const previousVersion: VersionHistoryEntry = {
+        text: node.full_text || '',
+        edited_at: new Date().toISOString(),
+        quality_score: node.content_quality_score ?? null,
+        char_count: node.full_text?.length || 0,
+      };
+
+      // Get existing version history, limit to 5 versions
+      const existingHistory = (node.properties?.version_history as VersionHistoryEntry[]) || [];
+      const updatedHistory = [...existingHistory, previousVersion].slice(-5);
+
+      // Prepare updated properties with proper typing for Supabase
+      const updatedProperties = {
+        ...(node.properties || {}),
+        version_history: updatedHistory.map(v => ({
+          text: v.text,
+          edited_at: v.edited_at,
+          quality_score: v.quality_score,
+          char_count: v.char_count,
+        })),
+        last_manual_edit: new Date().toISOString(),
+        manual_edit_count: ((node.properties?.manual_edit_count as number) || 0) + 1,
+      } as Json;
+
+      // Update the node
+      const { error } = await supabase
+        .from('industry_knowledge_nodes')
+        .update({
+          full_text: editedText,
+          content_quality_score: newQualityScore,
+          updated_at: new Date().toISOString(),
+          properties: updatedProperties,
+        })
+        .eq('id', node.id);
+
+      if (error) throw error;
+
+      toast.success('Đã lưu thay đổi', {
+        description: newQualityScore !== null 
+          ? `Điểm chất lượng mới: ${newQualityScore}` 
+          : undefined,
+      });
+      setIsEditing(false);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error saving edit:', error);
+      toast.error('Lỗi khi lưu: ' + (error as Error).message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRestoreVersion = async (version: VersionHistoryEntry) => {
+    setEditedText(version.text);
+    setIsEditing(true);
+    toast.info('Đã khôi phục phiên bản. Nhấn "Lưu" để xác nhận.');
+  };
+
   const canReparse = (hasHtmlLayoutArtifacts(node.full_text) || node.parse_status === 'failed') && node.source_url;
+
+  const versionHistory = (node.properties?.version_history as VersionHistoryEntry[]) || [];
+  const manualEditCount = (node.properties?.manual_edit_count as number) || 0;
+  const lastManualEdit = node.properties?.last_manual_edit as string | undefined;
+
+  const hasChanges = editedText !== node.full_text;
+  const newQualityPreview = hasChanges ? estimateContentQuality(editedText) : null;
 
   return (
     <>
@@ -110,6 +233,27 @@ export function CrawledNodeDetailSheet({
                     {node.parse_status}
                   </Badge>
                 )}
+                {/* Manual Edit Badge */}
+                {manualEditCount > 0 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700"
+                        >
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Đã sửa ({manualEditCount})
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {lastManualEdit && (
+                          <p>Lần sửa cuối: {format(new Date(lastManualEdit), 'dd/MM/yyyy HH:mm')}</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
 
               {/* Source URL */}
@@ -128,50 +272,143 @@ export function CrawledNodeDetailSheet({
                 </div>
               )}
 
-              {/* Full Text Content */}
-              {node.full_text && (
+              {/* Full Text Content with Edit Mode */}
+              {(node.full_text || isEditing) && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <FileText className="h-3.5 w-3.5" />
-                      Nội dung đã Parse ({node.full_text.length.toLocaleString()} ký tự)
+                      Nội dung đã Parse ({(isEditing ? editedText : node.full_text)?.length.toLocaleString() || 0} ký tự)
+                      {isEditing && hasChanges && newQualityPreview !== null && (
+                        <span className="ml-2 text-blue-600 dark:text-blue-400">
+                          → Điểm mới: {newQualityPreview}
+                        </span>
+                      )}
                     </p>
                     <div className="flex items-center gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={handleCopy}
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={handleExportTxt}
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        TXT
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-7 px-2 text-xs sm:hidden"
-                        onClick={() => onToggleFullTextSheet(true)}
-                      >
-                        <Maximize2 className="h-3 w-3 mr-1" />
-                        Mở rộng
-                      </Button>
+                      {!isEditing ? (
+                        <>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={handleStartEdit}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Sửa
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={handleCopy}
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={handleExportTxt}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            TXT
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-7 px-2 text-xs sm:hidden"
+                            onClick={() => onToggleFullTextSheet(true)}
+                          >
+                            <Maximize2 className="h-3 w-3 mr-1" />
+                            Mở rộng
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={handleCancelEdit}
+                            disabled={isSaving}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Hủy
+                          </Button>
+                          <Button 
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={handleSaveEdit}
+                            disabled={isSaving || !hasChanges}
+                          >
+                            {isSaving ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <Save className="h-3 w-3 mr-1" />
+                            )}
+                            Lưu
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <ScrollArea className="h-[200px] sm:h-[300px]">
-                    <div className="text-xs bg-muted p-2 sm:p-3 rounded-lg whitespace-pre-wrap font-mono leading-relaxed">
-                      {node.full_text}
-                    </div>
-                  </ScrollArea>
+                  
+                  {isEditing ? (
+                    <Textarea
+                      value={editedText}
+                      onChange={(e) => setEditedText(e.target.value)}
+                      className="min-h-[300px] font-mono text-xs resize-y"
+                      placeholder="Nội dung văn bản..."
+                    />
+                  ) : (
+                    <ScrollArea className="h-[200px] sm:h-[300px]">
+                      <div className="text-xs bg-muted p-2 sm:p-3 rounded-lg whitespace-pre-wrap font-mono leading-relaxed">
+                        {node.full_text}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </div>
+              )}
+
+              {/* Version History */}
+              {versionHistory.length > 0 && (
+                <Collapsible open={showVersionHistory} onOpenChange={setShowVersionHistory}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <History className="h-3.5 w-3.5" />
+                    Lịch sử phiên bản ({versionHistory.length})
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="space-y-2 bg-muted/50 p-2 rounded-lg">
+                      {versionHistory.slice().reverse().map((v, i) => (
+                        <div 
+                          key={i} 
+                          className="flex items-center justify-between p-2 bg-background rounded border text-xs"
+                        >
+                          <div className="space-y-0.5">
+                            <p className="font-medium">
+                              {format(new Date(v.edited_at), 'dd/MM/yyyy HH:mm')}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {v.char_count.toLocaleString()} ký tự
+                              {v.quality_score !== null && ` • Điểm: ${v.quality_score}`}
+                            </p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => handleRestoreVersion(v)}
+                          >
+                            <RotateCw className="h-3 w-3 mr-1" />
+                            Khôi phục
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
 
               {/* Extracted Data Summary */}
@@ -262,7 +499,7 @@ export function CrawledNodeDetailSheet({
               </div>
             </div>
           </ScrollArea>
-          {canReparse && (
+          {canReparse && !isEditing && (
             <DialogFooter className="mt-2">
               <Button 
                 size="sm"
