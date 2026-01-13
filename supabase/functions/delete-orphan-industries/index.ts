@@ -16,6 +16,8 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const { includeBrands = false } = await req.json().catch(() => ({}));
+
     // Step 1: Find all CORE industries without sub-industries
     const { data: orphanPacks, error: fetchError } = await supabase
       .from('industry_global_packs')
@@ -39,20 +41,12 @@ serve(async (req) => {
 
     const parentIds = new Set((packsWithSubs || []).map(p => p.parent_pack_id));
     
-    // Also filter out packs that have brand_templates referencing them
-    const { data: packsWithBrands } = await supabase
-      .from('brand_templates')
-      .select('global_pack_id')
-      .not('global_pack_id', 'is', null);
-
-    const brandPackIds = new Set((packsWithBrands || []).map(p => p.global_pack_id));
-    
-    const orphanIds = orphanPacks
-      .filter(p => !parentIds.has(p.id) && !brandPackIds.has(p.id))
+    let orphanIds = orphanPacks
+      .filter(p => !parentIds.has(p.id))
       .map(p => p.id);
 
-    const orphanCodes = orphanPacks
-      .filter(p => !parentIds.has(p.id) && !brandPackIds.has(p.id))
+    let orphanCodes = orphanPacks
+      .filter(p => !parentIds.has(p.id))
       .map(p => p.industry_code);
 
     console.log(`Found ${orphanIds.length} orphan CORE industries:`, orphanCodes);
@@ -61,13 +55,83 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         message: 'No orphan industries found',
-        deleted: { packs: 0, profiles: 0, translations: 0, personas: 0 }
+        deleted: { packs: 0, profiles: 0, translations: 0, personas: 0, brands: 0 }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Step 2: Delete personas first
+    let brandsCount = 0;
+
+    // If includeBrands, delete brands first
+    if (includeBrands) {
+      // Delete related brand data first (in correct order for FK constraints)
+      // 1. brand_products
+      const { data: brandIds } = await supabase
+        .from('brand_templates')
+        .select('id')
+        .in('global_pack_id', orphanIds);
+
+      const brandIdList = (brandIds || []).map(b => b.id);
+
+      if (brandIdList.length > 0) {
+        // Delete brand_products
+        await supabase.from('brand_products').delete().in('brand_template_id', brandIdList);
+        // Delete brand_channel_optimizations
+        await supabase.from('brand_channel_optimizations').delete().in('brand_template_id', brandIdList);
+        // Delete brand_voice_variants
+        await supabase.from('brand_voice_variants').delete().in('brand_template_id', brandIdList);
+        // Delete customer_personas
+        await supabase.from('customer_personas').delete().in('brand_template_id', brandIdList);
+        // Delete brand_preferences_learned
+        await supabase.from('brand_preferences_learned').delete().in('brand_template_id', brandIdList);
+        // Delete content_embeddings
+        await supabase.from('content_embeddings').delete().in('brand_template_id', brandIdList);
+        // Delete ai_response_cache
+        await supabase.from('ai_response_cache').delete().in('brand_template_id', brandIdList);
+        // Delete ai_metrics
+        await supabase.from('ai_metrics').delete().in('brand_template_id', brandIdList);
+      }
+
+      // Now delete brand_templates
+      const { data: deletedBrands, error: brandsError } = await supabase
+        .from('brand_templates')
+        .delete()
+        .in('global_pack_id', orphanIds)
+        .select('id');
+
+      if (brandsError) {
+        console.error('Brands delete error:', brandsError);
+        throw new Error(`Failed to delete brands: ${brandsError.message}`);
+      }
+      brandsCount = deletedBrands?.length || 0;
+      console.log(`Deleted ${brandsCount} brands`);
+    } else {
+      // If not including brands, filter out packs that have brands
+      const { data: packsWithBrands } = await supabase
+        .from('brand_templates')
+        .select('global_pack_id')
+        .not('global_pack_id', 'is', null);
+
+      const brandPackIds = new Set((packsWithBrands || []).map(p => p.global_pack_id));
+      
+      orphanIds = orphanIds.filter(id => !brandPackIds.has(id));
+      orphanCodes = orphanPacks
+        .filter(p => orphanIds.includes(p.id))
+        .map(p => p.industry_code);
+
+      if (orphanIds.length === 0) {
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'All remaining orphan industries have brands. Use includeBrands=true to delete them.',
+          deleted: { packs: 0, profiles: 0, translations: 0, personas: 0, brands: 0 }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // Step 2: Delete personas
     const { data: deletedPersonas, error: personasError } = await supabase
       .from('industry_personas_v2')
       .delete()
@@ -121,12 +185,13 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Successfully deleted ${packsCount} orphan CORE industries`,
+      message: `Successfully deleted ${packsCount} orphan CORE industries` + (brandsCount > 0 ? ` and ${brandsCount} brands` : ''),
       deleted: {
         packs: packsCount,
         profiles: profilesCount,
         translations: translationsCount,
-        personas: personasCount
+        personas: personasCount,
+        brands: brandsCount
       },
       deletedCodes: deletedPacks?.map(p => p.industry_code) || []
     }), {
