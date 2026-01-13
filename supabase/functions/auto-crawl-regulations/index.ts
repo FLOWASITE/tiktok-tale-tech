@@ -1077,22 +1077,45 @@ Deno.serve(async (req) => {
     // POST - Trigger crawl
     if (method === 'POST') {
       const body = await req.json().catch(() => ({}));
-      const { source_id, crawl_all } = body;
       
-      console.log('[auto-crawl] Request params:', { source_id, crawl_all });
+      // Normalize inputs safely - support both snake_case and camelCase
+      const sourceId = body.source_id || body.sourceId || null;
+      const rawCrawlAll = body.crawl_all ?? body.crawlAll ?? null;
+      
+      // Parse crawl_all as boolean strictly
+      const crawlAll = rawCrawlAll === true || rawCrawlAll === 'true' || rawCrawlAll === 1 || rawCrawlAll === '1';
+      
+      console.log('[auto-crawl] Raw body:', JSON.stringify(body));
+      console.log('[auto-crawl] Normalized params:', { sourceId, crawlAll, rawCrawlAll });
 
-      // Get sources to crawl
+      // DECISION LOGIC - fix "crawl all by default" bug:
+      // 1. If source_id provided → ONLY crawl that source (ignore crawl_all)
+      // 2. If no source_id AND crawl_all === true → crawl all active sources
+      // 3. If no source_id AND crawl_all !== true → return 400 (prevent accidental mass crawl)
+      
       let sourcesQuery = supabase
         .from('regulation_sources')
         .select('*')
         .eq('is_active', true);
 
-      // Only crawl specific source if source_id provided AND crawl_all is not explicitly true
-      if (source_id && crawl_all !== true) {
-        console.log('[auto-crawl] Filtering to single source:', source_id);
-        sourcesQuery = sourcesQuery.eq('id', source_id);
+      if (sourceId && typeof sourceId === 'string' && sourceId.trim() !== '') {
+        // Case 1: Single source crawl
+        console.log('[auto-crawl] ▶ SINGLE SOURCE CRAWL:', sourceId);
+        sourcesQuery = sourcesQuery.eq('id', sourceId.trim());
+      } else if (crawlAll === true) {
+        // Case 2: Explicit crawl all
+        console.log('[auto-crawl] ▶ CRAWL ALL SOURCES (explicit request)');
       } else {
-        console.log('[auto-crawl] Crawling all active sources');
+        // Case 3: Bad request - no source_id and no explicit crawl_all
+        console.log('[auto-crawl] ✖ BAD REQUEST: missing source_id or crawl_all');
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Missing required parameter: provide source_id to crawl a single source, or crawl_all=true to crawl all sources',
+            received: { source_id: sourceId, crawl_all: rawCrawlAll }
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       const { data: sources, error: sourcesError } = await sourcesQuery;
