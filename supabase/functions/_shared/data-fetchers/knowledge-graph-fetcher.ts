@@ -9,7 +9,7 @@ import { generateQueryEmbedding } from "./rag-fetcher.ts";
 // Types for Knowledge Graph
 export interface KnowledgeNode {
   id: string;
-  node_type: 'industry' | 'regulation' | 'term' | 'concept' | 'persona' | 'trend';
+  node_type: 'industry' | 'regulation' | 'term' | 'concept' | 'persona' | 'jurisdiction';
   name: string;
   description?: string;
   metadata?: Record<string, unknown>;
@@ -32,7 +32,7 @@ export interface KnowledgeGraphContext {
   regulations: KnowledgeNode[];
   relevantTerms: KnowledgeNode[];
   concepts: KnowledgeNode[];
-  trends: KnowledgeNode[];
+  jurisdictions: KnowledgeNode[];
   personas: KnowledgeNode[];
   // Enhanced flattened context for prompt injection
   complianceNotes: string[];
@@ -40,7 +40,7 @@ export interface KnowledgeGraphContext {
   termDefinitions: string[];
   regulationSummaries: string[];
   personaInsights: string[];
-  trendAnalysis: string[];
+  jurisdictionContext: string[];
   crossIndustryContext: string[];
   // Token budget tracking
   estimatedTokens: number;
@@ -52,14 +52,14 @@ const EMPTY_CONTEXT: KnowledgeGraphContext = {
   regulations: [],
   relevantTerms: [],
   concepts: [],
-  trends: [],
+  jurisdictions: [],
   personas: [],
   complianceNotes: [],
   industryContext: '',
   termDefinitions: [],
   regulationSummaries: [],
   personaInsights: [],
-  trendAnalysis: [],
+  jurisdictionContext: [],
   crossIndustryContext: [],
   estimatedTokens: 0,
 };
@@ -103,9 +103,11 @@ export async function fetchKnowledgeGraphContext(
       const embeddingStr = `[${embedding.join(',')}]`;
       
       const { data: searchResults, error } = await supabase.rpc('search_knowledge_nodes', {
-        query_embedding: embeddingStr,
-        match_count: limit,
-        similarity_threshold: 0.6,
+        p_query_embedding: embeddingStr,
+        p_node_types: null,
+        p_global_pack_id: null,
+        p_threshold: 0.6,
+        p_limit: limit,
       });
       
       if (!error && searchResults) {
@@ -118,8 +120,8 @@ export async function fetchKnowledgeGraphContext(
     if (primaryIndustry) {
       const { data: connected, error } = await supabase.rpc('get_connected_nodes', {
         p_node_id: primaryIndustry.id,
-        p_relationship_types: ['regulated_by', 'related_to', 'applies_to'],
-        p_max_depth: 2,
+        p_edge_types: ['regulated_by', 'related_to', 'applies_to'],
+        p_direction: 'both',
       });
       
       if (!error && connected) {
@@ -135,7 +137,7 @@ export async function fetchKnowledgeGraphContext(
     const regulations = uniqueNodes.filter(n => n.node_type === 'regulation');
     const relevantTerms = uniqueNodes.filter(n => n.node_type === 'term');
     const concepts = uniqueNodes.filter(n => n.node_type === 'concept');
-    const trends = uniqueNodes.filter(n => n.node_type === 'trend');
+    const jurisdictions = uniqueNodes.filter(n => n.node_type === 'jurisdiction');
     const personas = uniqueNodes.filter(n => n.node_type === 'persona');
 
     // Step 5: Build enhanced flattened context for prompt injection
@@ -164,11 +166,11 @@ export async function fetchKnowledgeGraphContext(
       return `**${p.name}**: ${p.description || ''}${painPoints.length > 0 ? ` | Pain points: ${painPoints.join(', ')}` : ''}${motivations.length > 0 ? ` | Motivations: ${motivations.join(', ')}` : ''}`;
     }).filter(Boolean);
 
-    // Enhanced: Trend analysis with impact assessment
-    const trendAnalysis = trends.map(t => {
-      const impact = t.metadata?.['impact'] as string || '';
-      const timeframe = t.metadata?.['timeframe'] as string || '';
-      return `${t.name}: ${t.description || ''}${impact ? ` [Impact: ${impact}]` : ''}${timeframe ? ` [${timeframe}]` : ''}`;
+    // Enhanced: Jurisdiction context for regulatory scope
+    const jurisdictionContext = jurisdictions.map(j => {
+      const scope = j.metadata?.['scope'] as string || '';
+      const authority = j.metadata?.['authority'] as string || '';
+      return `${j.name}: ${j.description || ''}${scope ? ` [Scope: ${scope}]` : ''}${authority ? ` [Authority: ${authority}]` : ''}`;
     }).filter(Boolean);
 
     // Enhanced: Cross-industry context for broader perspective
@@ -184,7 +186,7 @@ export async function fetchKnowledgeGraphContext(
       ...termDefinitions,
       ...regulationSummaries,
       ...personaInsights,
-      ...trendAnalysis,
+      ...jurisdictionContext,
       ...crossIndustryContext,
     ].join(' ');
     const estimatedTokens = Math.ceil(contextText.length / 4); // ~4 chars per token
@@ -195,14 +197,14 @@ export async function fetchKnowledgeGraphContext(
       regulations: regulations.slice(0, 8),
       relevantTerms: relevantTerms.slice(0, 15),
       concepts: concepts.slice(0, 5),
-      trends: trends.slice(0, 5),
+      jurisdictions: jurisdictions.slice(0, 5),
       personas: personas.slice(0, 3),
       complianceNotes,
       industryContext,
       termDefinitions,
       regulationSummaries,
       personaInsights,
-      trendAnalysis,
+      jurisdictionContext,
       crossIndustryContext,
       estimatedTokens,
     };
@@ -221,7 +223,8 @@ export async function getIndustryRegulations(
 ): Promise<KnowledgeNode[]> {
   try {
     const { data, error } = await supabase.rpc('get_industry_regulations', {
-      p_industry_node_id: industryNodeId,
+      p_global_pack_id: industryNodeId,
+      p_include_inherited: true,
     });
     
     if (error) {
@@ -246,7 +249,8 @@ export async function getRelatedIndustries(
 ): Promise<KnowledgeNode[]> {
   try {
     const { data, error } = await supabase.rpc('get_related_industries', {
-      p_industry_node_id: industryNodeId,
+      p_global_pack_id: industryNodeId,
+      p_min_weight: 0.5,
       p_limit: limit,
     });
     
@@ -350,10 +354,10 @@ export function buildKnowledgeGraphPromptSection(
     }
   }
   
-  // Priority 5: Trends (for relevance)
-  if (includeTrends && context.trendAnalysis.length > 0) {
-    const items = context.trendAnalysis.slice(0, 3);
-    const section = `${labels.trends}\n${items.map(t => `- ${t}`).join('\n')}`;
+  // Priority 5: Jurisdictions (for regulatory scope)
+  if (includeTrends && context.jurisdictionContext.length > 0) {
+    const items = context.jurisdictionContext.slice(0, 3);
+    const section = `${labels.trends}\n${items.map((j: string) => `- ${j}`).join('\n')}`;
     if (canAdd(section)) {
       sections.push(section);
       currentTokens += estimateTokens(section);
@@ -399,12 +403,32 @@ export function buildCompactKnowledgeContext(context: KnowledgeGraphContext): st
 // ============================================
 
 function mapToKnowledgeNode(raw: any): KnowledgeNode {
+  // Handle display_name which is JSONB with vi/en keys
+  let name = '';
+  if (raw.display_name) {
+    if (typeof raw.display_name === 'string') {
+      name = raw.display_name;
+    } else {
+      name = raw.display_name.vi || raw.display_name.en || '';
+    }
+  } else if (raw.name) {
+    name = raw.name;
+  } else if (raw.node_key) {
+    name = raw.node_key;
+  }
+
+  // Handle properties which contains description
+  let description = raw.description;
+  if (!description && raw.properties) {
+    description = raw.properties.description?.vi || raw.properties.description?.en || raw.properties.description;
+  }
+
   return {
-    id: raw.id,
+    id: raw.id || raw.node_id,
     node_type: raw.node_type,
-    name: raw.name,
-    description: raw.description,
-    metadata: raw.metadata,
+    name,
+    description,
+    metadata: raw.metadata || raw.properties,
     source_id: raw.source_id,
     source_table: raw.source_table,
   };
