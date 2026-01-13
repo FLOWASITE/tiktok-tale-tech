@@ -258,11 +258,62 @@ export function CrawledContentViewer() {
 
   const handleSingleReparse = async (nodeId: string) => {
     setParsingNodeId(nodeId);
+    
     try {
       await reparseNode(nodeId);
-      refetch();
-    } finally {
-      setParsingNodeId(null);
+      
+      // Poll for completion - handle slow/timeout scenarios
+      // Parse may succeed even if response times out (DB is updated)
+      let pollAttempts = 0;
+      const maxPollAttempts = 15; // 15 * 2s = 30s max polling
+      
+      const pollInterval = setInterval(async () => {
+        pollAttempts++;
+        const result = await refetch();
+        
+        // Find the node we're parsing
+        const updatedNode = result.data?.find(n => n.id === nodeId);
+        
+        if (updatedNode) {
+          // Stop polling if parse completed (success or fail)
+          if (updatedNode.parse_status === 'parsed' || updatedNode.parse_status === 'failed') {
+            clearInterval(pollInterval);
+            setParsingNodeId(null);
+            return;
+          }
+        }
+        
+        // Stop polling after max attempts
+        if (pollAttempts >= maxPollAttempts) {
+          clearInterval(pollInterval);
+          setParsingNodeId(null);
+        }
+      }, 2000); // Poll every 2 seconds
+      
+    } catch (error) {
+      console.error('Parse error:', error);
+      
+      // Even on error, poll to check if DB was updated
+      let pollAttempts = 0;
+      const maxPollAttempts = 10;
+      
+      const pollInterval = setInterval(async () => {
+        pollAttempts++;
+        const result = await refetch();
+        
+        const updatedNode = result.data?.find(n => n.id === nodeId);
+        
+        if (updatedNode?.parse_status === 'parsed' || updatedNode?.parse_status === 'failed') {
+          clearInterval(pollInterval);
+          setParsingNodeId(null);
+          return;
+        }
+        
+        if (pollAttempts >= maxPollAttempts) {
+          clearInterval(pollInterval);
+          setParsingNodeId(null);
+        }
+      }, 2000);
     }
   };
 
