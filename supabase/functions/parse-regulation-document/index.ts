@@ -425,6 +425,67 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
     }
   }
   
+  // Site-specific cleaning for vbpl.vn
+  if (sourceUrl.includes('vbpl.vn')) {
+    // Remove vbpl.vn sidebar navigation and metadata
+    const vbplRemovePatterns = [
+      /Các văn bản khác/gi,
+      /VB liên quan/gi,
+      /Thuộc tính\s*văn bản/gi,
+      /Lược đồ\s*văn bản/gi,
+      /Tải về/gi,
+      /In văn bản/gi,
+      /Gửi văn bản/gi,
+      /Lưu văn bản/gi,
+      /Ban hành:\s*\d{2}\/\d{2}\/\d{4}/gi,
+      /Hiệu lực:\s*\d{2}\/\d{2}\/\d{4}/gi,
+      /Trạng thái:[^\n]+/gi,
+      /Loại văn bản:[^\n]+/gi,
+      /Số ký hiệu:[^\n]+/gi,
+      /Cơ quan ban hành:[^\n]+/gi,
+      /Người ký:[^\n]+/gi,
+      /Ngày ban hành:[^\n]+/gi,
+      /Ngày hiệu lực:[^\n]+/gi,
+      /Lĩnh vực:[^\n]+/gi,
+      /Đơn vị soạn thảo:[^\n]+/gi,
+      // Navigation elements
+      /\[Trang chủ\]\([^)]+\)/gi,
+      /\[Văn bản pháp luật\]\([^)]+\)/gi,
+      /\[Hệ thống\]\([^)]+\)/gi,
+      // Empty table cells
+      /\|\s*\|\s*\|/g,
+    ];
+    
+    for (const pattern of vbplRemovePatterns) {
+      cleaned = cleaned.replace(pattern, '');
+    }
+    
+    // Try to extract main legal content section
+    const legalStartMatch = cleaned.match(/(CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM|QUYẾT ĐỊNH:|THÔNG TƯ:|NGHỊ ĐỊNH:|LUẬT:)/i);
+    if (legalStartMatch && legalStartMatch.index !== undefined) {
+      // Keep content from legal document start
+      const beforeContent = cleaned.substring(0, legalStartMatch.index);
+      // Only remove if before content is less than 30% of total
+      if (beforeContent.length < cleaned.length * 0.3) {
+        cleaned = cleaned.substring(legalStartMatch.index);
+      }
+    }
+    
+    // Remove trailing sections (related documents, etc.)
+    const trailingPatterns = [
+      /VĂN BẢN GỐC[\s\S]*$/i,
+      /LIÊN KẾT VĂN BẢN[\s\S]*$/i,
+      /VĂN BẢN LIÊN QUAN[\s\S]*$/i,
+    ];
+    
+    for (const pattern of trailingPatterns) {
+      const match = cleaned.match(pattern);
+      if (match && match.index !== undefined && match.index > cleaned.length * 0.7) {
+        cleaned = cleaned.substring(0, match.index);
+      }
+    }
+  }
+  
   // Try to extract main content between document markers - but be careful not to lose content
   const mainContentMarkers = [
     // Vietnamese legal document markers
@@ -472,6 +533,7 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
  * Try to find direct PDF link from Vietnamese gov sites
  * Priority check for datafiles.chinhphu.vn (most reliable source)
  * Enhanced: Uses multiple formats and waits for JS rendering
+ * v2.1: Added VBPL.VN support
  */
 async function findDirectPdfLink(url: string): Promise<string | null> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
@@ -479,6 +541,27 @@ async function findDirectPdfLink(url: string): Promise<string | null> {
   
   try {
     console.log(`[parse-document] Searching for PDF link on: ${url}`);
+    
+    // === PRIORITY 0: VBPL.VN specific handling ===
+    if (url.includes('vbpl.vn')) {
+      // If on detail page (vbpq-toanvan), convert to PDF page (vbpq-van-ban-goc)
+      if (url.includes('vbpq-toanvan.aspx')) {
+        const pdfPageUrl = url.replace('vbpq-toanvan.aspx', 'vbpq-van-ban-goc.aspx');
+        console.log(`[parse-document] VBPL: Converting to PDF page: ${pdfPageUrl}`);
+        
+        // Scrape the PDF page
+        const pdfLink = await scrapeVbplForPdf(pdfPageUrl);
+        if (pdfLink) {
+          return pdfLink;
+        }
+      }
+      
+      // Also check current page for direct download links
+      const pdfLink = await scrapeVbplForPdf(url);
+      if (pdfLink) {
+        return pdfLink;
+      }
+    }
     
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
@@ -572,6 +655,85 @@ async function findDirectPdfLink(url: string): Promise<string | null> {
     return null;
   } catch (error) {
     console.log('[parse-document] findDirectPdfLink error:', error);
+    return null;
+  }
+}
+
+/**
+ * Scrape VBPL.VN page to find PDF/DOC download link
+ */
+async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) return null;
+  
+  try {
+    console.log(`[parse-document] VBPL: Scraping for PDF: ${pageUrl}`);
+    
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: pageUrl,
+        formats: ['links', 'rawHtml'],
+        onlyMainContent: false,
+        waitFor: 2000,
+        timeout: 15000,
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log(`[parse-document] VBPL: Scrape failed: HTTP ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    const links: string[] = data.data?.links || [];
+    const html: string = data.data?.rawHtml || '';
+    
+    // Find PDF or DOC download links in links array
+    for (const link of links) {
+      if (link.match(/\.(pdf|docx?)$/i)) {
+        console.log(`[parse-document] VBPL: Found document in links: ${link}`);
+        return link;
+      }
+    }
+    
+    // Check HTML for embedded download links
+    const downloadPatterns = [
+      /href=["']([^"']*\.pdf)["']/i,
+      /href=["']([^"']*\.docx?)["']/i,
+      /href=["']([^"']*Download[^"']*ItemID=\d+[^"']*)["']/i,
+      /href=["']([^"']*tailieu[^"']*\.(?:pdf|docx?))["']/i,
+    ];
+    
+    for (const pattern of downloadPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        let docUrl = match[1];
+        if (docUrl.startsWith('/')) {
+          docUrl = `https://vbpl.vn${docUrl}`;
+        } else if (!docUrl.startsWith('http')) {
+          docUrl = `https://vbpl.vn/${docUrl}`;
+        }
+        console.log(`[parse-document] VBPL: Found document in HTML: ${docUrl}`);
+        return docUrl;
+      }
+    }
+    
+    // Try to find any link containing .pdf or .doc
+    const genericDocMatch = html.match(/(https?:\/\/[^"'\s<>]+\.(?:pdf|docx?))(?=["'\s<>]|$)/i);
+    if (genericDocMatch) {
+      console.log(`[parse-document] VBPL: Found document via generic pattern: ${genericDocMatch[1]}`);
+      return genericDocMatch[1];
+    }
+    
+    console.log('[parse-document] VBPL: No document link found');
+    return null;
+  } catch (error) {
+    console.log('[parse-document] VBPL: scrapeVbplForPdf error:', error);
     return null;
   }
 }
