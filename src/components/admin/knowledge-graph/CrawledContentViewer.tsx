@@ -5,6 +5,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { 
   FileText, 
   ExternalLink, 
@@ -24,6 +25,7 @@ import {
   Sparkles,
   Copy,
   Maximize2,
+  Download,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -227,6 +229,37 @@ export function CrawledContentViewer() {
     [crawledNodes]
   );
 
+  // Count pending nodes
+  const pendingNodesCount = useMemo(() => 
+    crawledNodes.filter(node => node.parse_status === 'pending').length,
+    [crawledNodes]
+  );
+
+  // Handle batch parse for pending nodes
+  const handleParsePending = async () => {
+    const pendingIds = crawledNodes
+      .filter(n => n.parse_status === 'pending')
+      .map(n => n.id);
+    if (pendingIds.length === 0) return;
+    
+    toast.info(`Đang parse ${pendingIds.length} văn bản...`);
+    await reparseNodes(pendingIds);
+    refetch();
+  };
+
+  // Export full_text to TXT file
+  const handleExportTxt = (node: CrawledNode) => {
+    if (!node.full_text) return;
+    const blob = new Blob([node.full_text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${node.node_key || 'document'}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Đã tải xuống file TXT');
+  };
+
   // Get unique jurisdictions and categories from data
   const uniqueJurisdictions = [...new Set(crawledNodes.map(n => n.properties?.jurisdiction).filter(Boolean))];
   const uniqueCategories = [...new Set(crawledNodes.map(n => n.properties?.category).filter(Boolean))];
@@ -376,6 +409,21 @@ export function CrawledContentViewer() {
                 <RotateCcw className="h-4 w-4 mr-1" />
               )}
               Re-parse ({selectedNodeIds.size})
+            </Button>
+          )}
+          {pendingNodesCount > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleParsePending}
+              disabled={isReparsing}
+            >
+              {isReparsing ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-1" />
+              )}
+              Parse Pending ({pendingNodesCount})
             </Button>
           )}
           {dirtyNodesCount > 0 && (
@@ -739,10 +787,20 @@ export function CrawledContentViewer() {
                           className="h-7 px-2 text-xs"
                           onClick={() => {
                             navigator.clipboard.writeText(selectedNode.full_text || '');
+                            toast.success('Đã copy vào clipboard');
                           }}
                         >
                           <Copy className="h-3 w-3 mr-1" />
                           Copy
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => handleExportTxt(selectedNode)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          TXT
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -884,17 +942,31 @@ export function CrawledContentViewer() {
                 <FileText className="h-4 w-4" />
                 Nội dung đã Parse
               </span>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => {
-                  navigator.clipboard.writeText(selectedNode?.full_text || '');
-                }}
-              >
-                <Copy className="h-3 w-3 mr-1" />
-                Copy
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedNode?.full_text || '');
+                    toast.success('Đã copy vào clipboard');
+                  }}
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  Copy
+                </Button>
+                {selectedNode && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => handleExportTxt(selectedNode)}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    TXT
+                  </Button>
+                )}
+              </div>
             </SheetTitle>
           </SheetHeader>
           <ScrollArea className="flex-1 mt-2">
