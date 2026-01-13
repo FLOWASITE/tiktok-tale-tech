@@ -441,51 +441,84 @@ async function processSource(
             console.log(`[auto-crawl] Looking for download link for: ${result.url}`);
             const { downloadUrl, fileType } = await findDownloadLink(result.url);
             
+            let textContent: string | null = null;
+            let docType: string = 'html';
+            let docUrl: string | null = null;
+            
             if (downloadUrl) {
+              // Priority 1: Parse PDF/DOCX
               console.log(`[auto-crawl] Found ${fileType} at: ${downloadUrl}`);
+              docUrl = downloadUrl;
+              docType = fileType || 'pdf';
               
-              // Update node with document URL
               await supabase
                 .from('industry_knowledge_nodes')
                 .update({ 
                   document_url: downloadUrl, 
-                  document_type: fileType,
+                  document_type: docType,
                   parse_status: 'parsing' 
                 })
                 .eq('id', newNode.id);
               
-              // Parse document
               const parseResult = await parseDocument(downloadUrl, newNode.id);
-              
               if (parseResult.success && parseResult.text.length > 200) {
-                console.log(`[auto-crawl] Parsed ${parseResult.text.length} chars, extracting content...`);
-                
-                // Extract structured content
-                const extractResult = await extractContent(
-                  parseResult.text,
-                  source.category,
-                  source.jurisdiction,
-                  newNode.id
-                );
-                
-                if (extractResult.success) {
-                  stats.documents_parsed++;
-                  console.log(`[auto-crawl] Extraction complete, confidence: ${extractResult.data?.confidence_score}`);
-                } else {
-                  stats.documents_failed++;
-                }
-              } else {
-                stats.documents_failed++;
-                await supabase
-                  .from('industry_knowledge_nodes')
-                  .update({ parse_status: 'failed' })
-                  .eq('id', newNode.id);
+                textContent = parseResult.text;
               }
-            } else {
-              // No download link found, skip parsing
+            }
+            
+            // Priority 2: Use markdown from Firecrawl search results
+            if (!textContent && result.markdown && result.markdown.length > 500) {
+              console.log(`[auto-crawl] Using markdown from search (${result.markdown.length} chars)`);
+              textContent = result.markdown;
+              docType = 'html';
+              docUrl = result.url;
+              
+              // Update node with full_text directly
               await supabase
                 .from('industry_knowledge_nodes')
-                .update({ parse_status: 'skipped' })
+                .update({ 
+                  full_text: textContent,
+                  document_url: result.url,
+                  document_type: 'html',
+                  parse_status: 'parsed' 
+                })
+                .eq('id', newNode.id);
+            }
+            
+            // Priority 3: Scrape HTML from original URL
+            if (!textContent) {
+              console.log(`[auto-crawl] Fallback: scraping HTML from ${result.url}`);
+              const parseResult = await parseDocument(result.url, newNode.id);
+              if (parseResult.success && parseResult.text.length > 200 && 
+                  !parseResult.text.includes('Không tìm thấy văn bản')) {
+                textContent = parseResult.text;
+                docType = 'html';
+                docUrl = result.url;
+              }
+            }
+            
+            // Extract structured content if we have text
+            if (textContent && textContent.length > 300) {
+              console.log(`[auto-crawl] Extracting content from ${textContent.length} chars...`);
+              
+              const extractResult = await extractContent(
+                textContent,
+                source.category,
+                source.jurisdiction,
+                newNode.id
+              );
+              
+              if (extractResult.success) {
+                stats.documents_parsed++;
+                console.log(`[auto-crawl] Extraction complete, confidence: ${extractResult.data?.confidence_score}`);
+              } else {
+                stats.documents_failed++;
+              }
+            } else {
+              stats.documents_failed++;
+              await supabase
+                .from('industry_knowledge_nodes')
+                .update({ parse_status: 'failed' })
                 .eq('id', newNode.id);
             }
           }
@@ -557,36 +590,57 @@ async function processSource(
           let effectiveDate: string | null = null;
           let aiConfidenceScore: number | null = null;
 
-          // 1. Find new download link
+          // Priority 1: Find new download link (PDF/DOCX)
           const downloadInfo = await findDownloadLink(result.url);
           if (downloadInfo.downloadUrl) {
             documentUrl = downloadInfo.downloadUrl;
             documentType = downloadInfo.fileType;
             console.log(`[auto-crawl] [UPDATE] Found download link: ${documentUrl} (${documentType})`);
 
-            // 2. Parse document
             const parseResult = await parseDocument(downloadInfo.downloadUrl);
-            if (parseResult.success && parseResult.text) {
+            if (parseResult.success && parseResult.text && parseResult.text.length > 200) {
               fullText = parseResult.text;
               stats.documents_parsed++;
               console.log(`[auto-crawl] [UPDATE] Document parsed successfully (${fullText.length} chars)`);
-
-              // 3. Extract content with LLM
-              const extractResult = await extractContent(
-                parseResult.text,
-                source.category,
-                source.jurisdiction
-              );
-              if (extractResult.success && extractResult.data) {
-                extractedData = extractResult.data;
-                effectiveDate = extractResult.data.effective_date || null;
-                aiConfidenceScore = extractResult.data.confidence_score || null;
-                console.log(`[auto-crawl] [UPDATE] Content extracted successfully (confidence: ${aiConfidenceScore})`);
-              }
-            } else {
-              stats.documents_failed++;
-              console.log(`[auto-crawl] [UPDATE] Document parse failed`);
             }
+          }
+
+          // Priority 2: Use markdown from Firecrawl search results
+          if (!fullText && result.markdown && result.markdown.length > 500) {
+            console.log(`[auto-crawl] [UPDATE] Using markdown from search (${result.markdown.length} chars)`);
+            fullText = result.markdown;
+            documentType = 'html';
+            documentUrl = result.url;
+          }
+
+          // Priority 3: Scrape HTML from original URL
+          if (!fullText) {
+            console.log(`[auto-crawl] [UPDATE] Fallback: scraping HTML from ${result.url}`);
+            const parseResult = await parseDocument(result.url);
+            if (parseResult.success && parseResult.text && parseResult.text.length > 200 &&
+                !parseResult.text.includes('Không tìm thấy văn bản')) {
+              fullText = parseResult.text;
+              documentType = 'html';
+              documentUrl = result.url;
+            }
+          }
+
+          // Extract content with LLM if we have text
+          if (fullText && fullText.length > 300) {
+            const extractResult = await extractContent(
+              fullText,
+              source.category,
+              source.jurisdiction
+            );
+            if (extractResult.success && extractResult.data) {
+              extractedData = extractResult.data;
+              effectiveDate = extractResult.data.effective_date || null;
+              aiConfidenceScore = extractResult.data.confidence_score || null;
+              console.log(`[auto-crawl] [UPDATE] Content extracted successfully (confidence: ${aiConfidenceScore})`);
+            }
+          } else {
+            stats.documents_failed++;
+            console.log(`[auto-crawl] [UPDATE] No valid text content found`);
           }
 
           // Update existing node WITH Living System data
