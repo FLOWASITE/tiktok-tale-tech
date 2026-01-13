@@ -1230,35 +1230,65 @@ function trimTvplHeader(text: string): string {
  */
 function trimTvplFooter(text: string): string {
   // Strong footer start patterns - match these greedily to end
+  // v6: Added login warning, concurrency modal, and enhanced company footer patterns
   const footerPatterns = [
-    /Chủ quản: Công ty[\s\S]*$/i,
-    /Giấy phép số:[\s\S]*$/i,
-    /##### Thông báo[\s\S]*$/i,
-    /Hãy để chúng tôi hỗ trợ bạn![\s\S]*$/i,
-    /-\s*\[Tra cứu Văn bản\][\s\S]*$/i,
-    /Chịu trách nhiệm chính:[\s\S]*$/i,
-    /Số điện thoại liên hệ:[\s\S]*$/i,
-    /Địa chỉ:.*Centre Point[\s\S]*$/i,
-    /Chứng nhận bản quyền[\s\S]*$/i,
-    /028 3930 3279[\s\S]*$/i,
-    // Additional strong footer markers
+    // === LOGIN/CONCURRENCY MODAL - highest priority ===
+    /CẢNH BÁO ĐĂNG NHẬP[\s\S]*$/i,
+    /Tài khoản của Quý Khách đã đăng nhập[\s\S]*$/i,
+    /Tài khoản của Quý khách đã đăng nhập quá nhiều[\s\S]*$/i,
+    /Tài khoản hiện đã đủ người dùng cùng thời điểm[\s\S]*$/i,
+    /Bạn vừa bị Đăng xuất[\s\S]*$/i,
+    /Cảm ơn đã dùng ThuVienPhapLuat\.vn[\s\S]*$/i,
+    /Cảm ơn bạn đã dùng[\s\S]*ThuVienPhapLuat[\s\S]*$/i,
+    /Xin Quý khách đăng nhập lại[\s\S]*$/i,
+    /Quý khách đã đăng nhập quá nhiều lần[\s\S]*$/i,
+    /\*\*Thoát\*\*\s*\*\*Đồng ý\*\*[\s\S]*$/i,
+    /Thoát\s+Đồng ý[\s\S]*$/i,
+    
+    // === reCAPTCHA blocks ===
     /protected by reCAPTCHA[\s\S]*$/i,
     /reCAPTCHA[\s\S]*Terms[\s\S]*$/i,
     /This site is protected[\s\S]*$/i,
-    /Địa điểm Kinh Doanh[\s\S]*$/i,
+    /Google Privacy Policy[\s\S]*$/i,
+    
+    // === Company footer info ===
+    /Chủ quản: Công ty[\s\S]*$/i,
+    /Chủ quản:\s*\n*Công ty[\s\S]*$/i,
+    /Giấy phép số:[\s\S]*$/i,
     /Giấy phép MXH[\s\S]*$/i,
+    /Chịu trách nhiệm chính:[\s\S]*$/i,
+    /Số điện thoại liên hệ:[\s\S]*$/i,
+    /Địa chỉ:.*Centre Point[\s\S]*$/i,
+    /Centre Point[\s\S]*$/i,
+    /Chứng nhận bản quyền[\s\S]*$/i,
+    /028 3930 3279[\s\S]*$/i,
+    /\(028\)\s*3930[\s\S]*$/i,
+    /Địa điểm Kinh Doanh[\s\S]*$/i,
+    
+    // === Notification/support blocks ===
+    /##### Thông báo[\s\S]*$/i,
+    /##### Thông báo\s*Bạn không có thông báo nào[\s\S]*$/i,
+    /Hãy để chúng tôi hỗ trợ bạn![\s\S]*$/i,
+    
+    // === Sidebar utility links ===
+    /-\s*\[Tra cứu Văn bản\][\s\S]*$/i,
     /- \[Lịch Âm \d{4}\][\s\S]*$/i,
     /- \[Giá Vàng Hôm Nay\][\s\S]*$/i,
-    /##### Thông báo\s*Bạn không có thông báo nào[\s\S]*$/i,
+    /-\s*\[Lịch Âm[\s\S]*$/i,
+    /-\s*\[Giá Vàng[\s\S]*$/i,
+    /-\s*\[Tra cứu[\s\S]*$/i,
+    
+    // === Related content ===
     /Bài viết liên quan[\s\S]*$/i,
+    /Xem thêm bài viết[\s\S]*$/i,
   ];
   
   let latestCut = text.length;
   for (const pattern of footerPatterns) {
     const match = text.match(pattern);
     if (match && match.index !== undefined) {
-      // Lower threshold to 60% for more aggressive footer removal
-      if (match.index > text.length * 0.6 && match.index < latestCut) {
+      // Lower threshold to 50% for more aggressive footer removal (was 60%)
+      if (match.index > text.length * 0.5 && match.index < latestCut) {
         latestCut = match.index;
       }
     }
@@ -1402,6 +1432,19 @@ function cleanTvplContent(text: string, url: string = ''): string {
     /This site is protected[\s\S]*?Terms of Service apply\./gi,
     /protected by reCAPTCHA[\s\S]*?apply\./gi,
     /reCAPTCHA[\s\S]*?Google[\s\S]*?apply\./gi,
+    /reCAPTCHA[\s\S]{0,500}Privacy Policy[\s\S]{0,200}Terms of Service/gi,
+    
+    // === LOGIN WARNING / CONCURRENCY MODAL ===
+    /CẢNH BÁO ĐĂNG NHẬP[\s\S]*?(?:Đồng ý|close|Thoát)/gi,
+    /Tài khoản của Quý Khách đã đăng nhập[\s\S]*?(?:Đồng ý|close|Thoát)/gi,
+    /Tài khoản của Quý khách đã đăng nhập quá nhiều[\s\S]*?(?:Đồng ý|Thoát|$)/gi,
+    /Tài khoản hiện đã đủ người dùng[\s\S]*?(?:Đồng ý|Thoát|$)/gi,
+    /Bạn vừa bị Đăng xuất[\s\S]*?(?:Đồng ý|close|$)/gi,
+    /Cảm ơn đã dùng ThuVienPhapLuat\.vn[\s\S]*?(?:\n\n|$)/gi,
+    /Cảm ơn bạn đã dùng[\s\S]*?ThuVienPhapLuat[\s\S]*?(?:\n\n|$)/gi,
+    /Xin Quý khách đăng nhập lại[\s\S]*?(?:\n\n|$)/gi,
+    /\*\*Thoát\*\*\s*\*\*Đồng ý\*\*/gi,
+    /Thoát\s+Đồng ý/gi,
     
     // === Empty/malformed tables ===
     /\|\s*\|\s*\|\s*\|\s*\|\s*\|/g,
@@ -2895,9 +2938,19 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
     // Calculate initial quality score
     let qualityResult = calculateContentQuality(result.text);
     
-    // Apply AI post-processing if quality is below threshold
-    if (result.success && qualityResult.overall < 85) {
-      console.log(`[parse-document] Node ${nodeId}: Quality ${qualityResult.overall} < 85, attempting AI post-process clean`);
+    // Determine if AI post-processing is needed
+    // v6: Trigger based on BOTH quality score AND artifact penalty (especially for TVPL)
+    const isTvpl = documentUrl.includes('thuvienphapluat.vn');
+    const qualityThreshold = isTvpl ? 90 : 85;
+    const artifactThreshold = isTvpl ? 20 : 30; // Lower threshold for TVPL
+    
+    const needsAiClean = result.success && (
+      qualityResult.overall < qualityThreshold ||
+      qualityResult.breakdown.artifact_penalty > artifactThreshold
+    );
+    
+    if (needsAiClean) {
+      console.log(`[parse-document] Node ${nodeId}: Needs AI clean (quality=${qualityResult.overall}, artifacts=${qualityResult.breakdown.artifact_penalty}, isTVPL=${isTvpl})`);
       
       const aiCleanResult = await aiPostProcessClean(result.text, documentUrl);
       if (aiCleanResult.wasProcessed) {
@@ -2905,7 +2958,7 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
         aiProcessed = true;
         // Recalculate quality after AI processing
         qualityResult = calculateContentQuality(finalText);
-        console.log(`[parse-document] Node ${nodeId}: After AI clean, quality = ${qualityResult.overall}`);
+        console.log(`[parse-document] Node ${nodeId}: After AI clean, quality = ${qualityResult.overall}, artifacts = ${qualityResult.breakdown.artifact_penalty}`);
       }
     }
     
