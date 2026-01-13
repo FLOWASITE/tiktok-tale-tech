@@ -430,7 +430,11 @@ function QueryPerformancePanel() {
 // Main Component
 // ============================================
 
-export function GraphAnalyticsDashboard() {
+interface GraphAnalyticsDashboardProps {
+  onNavigateToNode?: (nodeId: string) => void;
+}
+
+export function GraphAnalyticsDashboard({ onNavigateToNode }: GraphAnalyticsDashboardProps) {
   const { data: stats, isLoading, refetch, isRefetching } = useGraphStatistics();
   const { data: healthMetrics } = useGraphHealthSummary();
 
@@ -580,7 +584,7 @@ export function GraphAnalyticsDashboard() {
       
       {/* Orphan Nodes & Query Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <OrphanNodesPanel />
+        <OrphanNodesPanel onNavigateToNode={onNavigateToNode} />
         <QueryPerformancePanel />
       </div>
     </div>

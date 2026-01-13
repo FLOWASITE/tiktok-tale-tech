@@ -85,17 +85,25 @@ async function performSemanticSearch(
   const results = (data || []) as unknown as SemanticSearchResult[];
   const durationMs = Math.round(performance.now() - startTime);
 
-  // Log query to analytics (fire-and-forget)
-  try {
-    supabase.rpc('log_knowledge_graph_query', {
-      p_query_type: 'semantic_search',
-      p_query_params: { query, nodeTypes, threshold, limit },
-      p_result_count: results.length,
-      p_duration_ms: durationMs,
-    });
-  } catch {
-    // Ignore logging errors
-  }
+  // Log query to analytics (async with error handling)
+  (async () => {
+    try {
+      const { error: logError } = await supabase.rpc('log_knowledge_graph_query', {
+        p_query_type: 'semantic_search',
+        p_query_params: { query, nodeTypes, threshold, limit },
+        p_result_count: results.length,
+        p_duration_ms: durationMs,
+      });
+      
+      if (logError) {
+        console.warn('[SemanticSearch] Failed to log query:', logError.message);
+      } else {
+        console.debug('[SemanticSearch] Query logged:', { query, results: results.length, duration: durationMs });
+      }
+    } catch (err) {
+      console.warn('[SemanticSearch] Analytics logging error:', err);
+    }
+  })();
 
   return results;
 }
