@@ -2345,8 +2345,121 @@ Deno.serve(async (req) => {
 });
 
 /**
+ * Calculate content quality score (0-100)
+ * Measures how clean and complete the legal document content is
+ */
+interface ContentQualityResult {
+  overall: number;
+  breakdown: {
+    artifact_penalty: number;
+    legal_structure: number;
+    completeness: number;
+    readability: number;
+  };
+}
+
+function calculateContentQuality(text: string): ContentQualityResult {
+  if (!text || text.length < 100) {
+    return {
+      overall: 0,
+      breakdown: { artifact_penalty: 0, legal_structure: 0, completeness: 0, readability: 0 },
+    };
+  }
+
+  let score = 100;
+  const breakdown = {
+    artifact_penalty: 0,
+    legal_structure: 0,
+    completeness: 0,
+    readability: 0,
+  };
+
+  // Artifact detection (negative) - comprehensive patterns
+  const artifactPatterns = [
+    { pattern: /\[!\[\]\([^)]+\)\]/g, penalty: 5 },
+    { pattern: /Đăng nhập|Đăng ký|Tìm kiếm/gi, penalty: 3 },
+    { pattern: /Facebook|Twitter|Youtube|Zalo/gi, penalty: 2 },
+    { pattern: /Copyright|Bản quyền/gi, penalty: 2 },
+    { pattern: /^\|[\s\|]+\|$/gm, penalty: 2 },
+    { pattern: /Văn bản liên quan|Xem thêm|Đọc thêm/gi, penalty: 2 },
+    { pattern: /Trang chủ\s*>/gi, penalty: 3 },
+    { pattern: /Menu|Sidebar|Footer|Header/gi, penalty: 3 },
+    { pattern: /Liên hệ|Hotline|Điện thoại:/gi, penalty: 2 },
+    { pattern: /Bạn đánh giá.*?sao/gi, penalty: 3 },
+    { pattern: /\d+ lượt xem/gi, penalty: 2 },
+    { pattern: /Bài viết liên quan/gi, penalty: 3 },
+    { pattern: /Mục lục/gi, penalty: 1 },
+  ];
+
+  for (const { pattern, penalty } of artifactPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      breakdown.artifact_penalty += matches.length * penalty;
+    }
+  }
+  score -= Math.min(breakdown.artifact_penalty, 40);
+
+  // Legal structure detection (positive)
+  const legalPatterns = [
+    { pattern: /CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/gi, bonus: 10 },
+    { pattern: /Độc lập - Tự do - Hạnh phúc/gi, bonus: 5 },
+    { pattern: /Điều\s+\d+/gi, bonus: 2 },
+    { pattern: /Chương\s+[IVX\d]+/gi, bonus: 3 },
+    { pattern: /Khoản\s+\d+/gi, bonus: 1 },
+    { pattern: /QUYẾT ĐỊNH|NGHỊ ĐỊNH|THÔNG TƯ|LUẬT|CHỈ THỊ/gi, bonus: 5 },
+    { pattern: /Căn cứ/gi, bonus: 2 },
+    { pattern: /Xét đề nghị/gi, bonus: 2 },
+  ];
+
+  for (const { pattern, bonus } of legalPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      breakdown.legal_structure += Math.min(matches.length * bonus, 25);
+    }
+  }
+  score = Math.min(100, score + Math.min(breakdown.legal_structure, 20));
+
+  // Completeness check
+  const hasHeader = /CỘNG HÒA|Độc lập - Tự do/i.test(text);
+  const hasBody = /Điều\s+\d+/i.test(text);
+  const hasSignature = /Nơi nhận:|BỘ TRƯỞNG|THỦ TƯỚNG|CHỦ TỊCH|GIÁM ĐỐC/i.test(text);
+  
+  if (hasHeader) breakdown.completeness += 5;
+  if (hasBody) breakdown.completeness += 10;
+  if (hasSignature) breakdown.completeness += 5;
+  score = Math.min(100, score + breakdown.completeness);
+
+  // Readability (text quality)
+  const lines = text.split('\n').filter(l => l.trim().length > 0);
+  const avgLineLength = text.length / (lines.length || 1);
+  
+  // Good legal documents have moderate line lengths
+  if (avgLineLength > 50 && avgLineLength < 200) {
+    breakdown.readability += 5;
+  }
+  
+  // Check for proper paragraph structure
+  const paragraphCount = (text.match(/\n\n/g) || []).length;
+  if (paragraphCount > 5 && paragraphCount < text.length / 500) {
+    breakdown.readability += 3;
+  }
+  
+  // Check content length is substantial
+  if (text.length > 5000) {
+    breakdown.readability += 2;
+  }
+  
+  score = Math.min(100, score + breakdown.readability);
+
+  return {
+    overall: Math.max(0, Math.min(100, Math.round(score))),
+    breakdown,
+  };
+}
+
+/**
  * Helper function to update knowledge node with parse results
- * Includes debug information for diagnostics
+ * Includes debug information and content quality scoring
  */
 async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: ParseResult): Promise<void> {
   try {
@@ -2356,12 +2469,17 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
     
     const parseStatus = result.success && result.text.length > 100 ? 'parsed' : 'failed';
     
+    // Calculate content quality score
+    const qualityResult = calculateContentQuality(result.text);
+    
     // Prepare update payload
     const updatePayload: Record<string, unknown> = {
       full_text: result.text,
       document_url: documentUrl,
       document_type: result.file_type,
       parse_status: parseStatus,
+      content_quality_score: qualityResult.overall,
+      quality_breakdown: qualityResult.breakdown,
     };
     
     // Add parse debug info to extracted_data if available
@@ -2377,6 +2495,8 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
       updatePayload.extracted_data = {
         ...currentExtractedData,
         parse_debug: result.debug,
+        quality_score: qualityResult.overall,
+        quality_breakdown: qualityResult.breakdown,
       };
     }
     
@@ -2385,7 +2505,7 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
       .update(updatePayload)
       .eq('id', nodeId);
       
-    console.log(`[parse-document] Updated node ${nodeId} with status: ${parseStatus}, debug: ${JSON.stringify(result.debug)}`);
+    console.log(`[parse-document] Updated node ${nodeId} with status: ${parseStatus}, quality: ${qualityResult.overall}, debug: ${JSON.stringify(result.debug)}`);
   } catch (updateError) {
     console.error('[parse-document] Node update error:', updateError);
     // Don't fail the response for update errors

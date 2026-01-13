@@ -69,6 +69,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useReparseRegulations, hasHtmlLayoutArtifacts } from '@/hooks/useReparseRegulations';
 import { cn } from '@/lib/utils';
+import { ContentQualityBadge, estimateContentQuality } from './ContentQualityBadge';
 
 // Source color mapping for visual distinction
 const getSourceColor = (sourceName: string): string => {
@@ -86,6 +87,13 @@ const getSourceColor = (sourceName: string): string => {
   }
   return 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400';
 };
+
+interface QualityBreakdown {
+  artifact_penalty?: number;
+  legal_structure?: number;
+  completeness?: number;
+  readability?: number;
+}
 
 interface CrawledNode {
   id: string;
@@ -124,6 +132,9 @@ interface CrawledNode {
   document_type: string | null;
   effective_date: string | null;
   parse_status: 'pending' | 'parsing' | 'parsed' | 'failed' | 'skipped' | null;
+  // Quality Intelligence fields
+  content_quality_score: number | null;
+  quality_breakdown: QualityBreakdown | null;
 }
 
 interface SourceInfo {
@@ -572,6 +583,12 @@ export function CrawledContentViewer() {
                               <CardTitle className="text-sm font-medium line-clamp-1">
                                 {title}
                               </CardTitle>
+                              {/* Content Quality Badge */}
+                              <ContentQualityBadge 
+                                score={node.content_quality_score ?? estimateContentQuality(node.full_text)}
+                                breakdown={node.quality_breakdown}
+                                showLabel={false}
+                              />
                               {isDirty && (
                                 <TooltipProvider>
                                   <Tooltip>
@@ -739,8 +756,14 @@ export function CrawledContentViewer() {
           <ScrollArea className="flex-1 pr-2 sm:pr-4">
             {selectedNode && (
               <div className="space-y-4">
-                {/* Meta info */}
+                {/* Meta info with Quality Score */}
                 <div className="flex flex-wrap gap-2">
+                  <ContentQualityBadge 
+                    score={selectedNode.content_quality_score ?? estimateContentQuality(selectedNode.full_text)}
+                    breakdown={selectedNode.quality_breakdown}
+                    size="md"
+                    showLabel={true}
+                  />
                   <Badge variant="outline" className="text-xs">{selectedNode.properties?.category}</Badge>
                   <Badge variant="secondary" className="text-xs">{selectedNode.properties?.jurisdiction}</Badge>
                   {selectedNode.properties?.auto_crawled && (
