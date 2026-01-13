@@ -7,6 +7,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+// Type for tracking which crawl is currently running
+export type CrawlingTarget = 
+  | { mode: 'single'; sourceId: string }
+  | { mode: 'all' }
+  | null;
 export interface RegulationSource {
   id: string;
   source_name: string;
@@ -71,7 +76,9 @@ export const regulationSourcesKeys = {
 export function useRegulationSources() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
+  
+  // Track which crawl target is currently running
+  const [crawlingTarget, setCrawlingTarget] = useState<CrawlingTarget>(null);
   // Fetch all sources
   const {
     data: sources = [],
@@ -220,6 +227,14 @@ export function useRegulationSources() {
       if (error) throw error;
       return data as CrawlResult;
     },
+    onMutate: (variables) => {
+      // Set crawling target BEFORE the mutation starts
+      if (variables.source_id) {
+        setCrawlingTarget({ mode: 'single', sourceId: variables.source_id });
+      } else if (variables.crawl_all) {
+        setCrawlingTarget({ mode: 'all' });
+      }
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: regulationSourcesKeys.list() });
       queryClient.invalidateQueries({ queryKey: regulationSourcesKeys.history() });
@@ -238,6 +253,10 @@ export function useRegulationSources() {
         description: error instanceof Error ? error.message : 'Không thể thực hiện crawl',
         variant: 'destructive',
       });
+    },
+    onSettled: () => {
+      // Clear crawling target when done (success or error)
+      setCrawlingTarget(null);
     },
   });
 
@@ -376,6 +395,7 @@ export function useRegulationSources() {
     isLoadingSources,
     isLoadingHistory,
     isCrawling: triggerCrawlMutation.isPending,
+    crawlingTarget, // NEW: expose which target is being crawled
     isCreating: createSourceMutation.isPending,
     isUpdating: updateSourceMutation.isPending,
     isDeleting: deleteSourceMutation.isPending,
