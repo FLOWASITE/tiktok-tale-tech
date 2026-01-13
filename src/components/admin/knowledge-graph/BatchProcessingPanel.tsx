@@ -98,6 +98,13 @@ export function BatchProcessingPanel() {
   const queryClient = useQueryClient();
   const [selectedJobType, setSelectedJobType] = useState<string>('all');
   const [batchSize, setBatchSize] = useState<number>(10);
+  const [isQualityReparsing, setIsQualityReparsing] = useState(false);
+  const [qualityReparseProgress, setQualityReparseProgress] = useState<{
+    processed: number;
+    total: number;
+    avgBefore: number;
+    avgAfter: number;
+  } | null>(null);
 
   const { isReparsing, reparseNodes } = useReparseRegulations();
   const { 
@@ -218,6 +225,54 @@ export function BatchProcessingPanel() {
     } catch (error) {
       console.error('Embedding batch error:', error);
       toast.error('Lỗi khi chạy batch embeddings');
+    }
+  };
+
+  // Start AI Quality Reparse job
+  const handleQualityReparse = async () => {
+    try {
+      setIsQualityReparsing(true);
+      setQualityReparseProgress(null);
+      
+      toast.info(`Bắt đầu AI Quality Reparse (${batchSize} nodes)...`);
+      
+      const { data: session } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke('reparse-with-quality', {
+        body: {
+          limit: batchSize,
+          min_quality_score: 80,
+          dry_run: false,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Unknown error');
+      }
+
+      const result = response.data;
+      
+      if (result.success) {
+        setQualityReparseProgress({
+          processed: result.processed,
+          total: result.total_matching,
+          avgBefore: Math.round(result.avg_quality_before || 0),
+          avgAfter: Math.round(result.avg_quality_after || 0),
+        });
+        
+        toast.success(
+          `Hoàn thành! ${result.processed} nodes, Quality: ${Math.round(result.avg_quality_before || 0)} → ${Math.round(result.avg_quality_after || 0)}`
+        );
+      } else {
+        toast.error(result.error || 'Lỗi không xác định');
+      }
+      
+      refetchStats();
+      refetchJobs();
+    } catch (error) {
+      console.error('Quality reparse error:', error);
+      toast.error(`Lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsQualityReparsing(false);
     }
   };
 
@@ -424,13 +479,18 @@ export function BatchProcessingPanel() {
             </Button>
 
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              disabled={true} // Coming soon
+              onClick={handleQualityReparse}
+              disabled={isQualityReparsing}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
             >
-              <Sparkles className="h-4 w-4 mr-1" />
-              AI Cleanup ({queueStats?.quality_low || 0})
-              <Badge variant="secondary" className="ml-2 text-[10px]">Soon</Badge>
+              {isQualityReparsing ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-1" />
+              )}
+              AI Quality Reparse
             </Button>
           </div>
 
@@ -457,6 +517,42 @@ export function BatchProcessingPanel() {
                 </span>
               </div>
               <Progress value={Math.round((embedProgress.processedNodes / embedProgress.totalNodes) * 100)} className="h-2" />
+            </div>
+          )}
+
+          {isQualityReparsing && (
+            <div className="mt-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2 mb-2">
+                <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                <span className="text-sm font-medium">Đang chạy AI Quality Reparse...</span>
+              </div>
+              <Progress value={50} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-2">
+                AI đang làm sạch artifacts và cải thiện chất lượng nội dung...
+              </p>
+            </div>
+          )}
+
+          {qualityReparseProgress && !isQualityReparsing && (
+            <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium">AI Quality Reparse hoàn thành!</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-center mt-3">
+                <div>
+                  <p className="text-lg font-bold">{qualityReparseProgress.processed}</p>
+                  <p className="text-xs text-muted-foreground">Nodes</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-red-500">{qualityReparseProgress.avgBefore}</p>
+                  <p className="text-xs text-muted-foreground">Quality Trước</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-green-500">{qualityReparseProgress.avgAfter}</p>
+                  <p className="text-xs text-muted-foreground">Quality Sau</p>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
