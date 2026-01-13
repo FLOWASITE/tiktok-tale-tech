@@ -2,7 +2,7 @@
  * CrawledContentViewer - View crawled regulation content from Knowledge Graph nodes
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -26,6 +26,7 @@ import {
   Copy,
   Maximize2,
   Download,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,11 +66,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useReparseRegulations, hasHtmlLayoutArtifacts } from '@/hooks/useReparseRegulations';
 import { cn } from '@/lib/utils';
 import { ContentQualityBadge, estimateContentQuality } from './ContentQualityBadge';
+import { TasksPagination } from '@/components/TasksPagination';
 
 // Source color mapping for visual distinction
 const getSourceColor = (sourceName: string): string => {
@@ -155,6 +167,15 @@ export function CrawledContentViewer() {
   const [showBulkReparseDialog, setShowBulkReparseDialog] = useState(false);
   const [parsingNodeId, setParsingNodeId] = useState<string | null>(null);
   const [showFullTextSheet, setShowFullTextSheet] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  
+  // Delete state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ mode: 'single' | 'bulk'; nodeId?: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { 
     isReparsing, 
@@ -163,23 +184,39 @@ export function CrawledContentViewer() {
     reparseAllWithArtifacts,
     lastResult 
   } = useReparseRegulations();
+  
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedJurisdiction, selectedCategory, filterDirty, searchQuery]);
 
-  // Fetch crawled nodes (regulations that were auto-crawled)
-  const { data: crawledNodes = [], isLoading, refetch } = useQuery({
-    queryKey: ['crawled-regulation-nodes', selectedJurisdiction, selectedCategory],
+  // Fetch crawled nodes with pagination
+  const { data: queryResult, isLoading, refetch } = useQuery({
+    queryKey: ['crawled-regulation-nodes', selectedJurisdiction, selectedCategory, filterDirty, searchQuery, currentPage, itemsPerPage],
     queryFn: async () => {
-      let query = supabase
+      // First, get total count with filters
+      let countQuery = supabase
+        .from('industry_knowledge_nodes')
+        .select('*', { count: 'exact', head: true })
+        .eq('node_type', 'regulation')
+        .not('source_id', 'is', null);
+      
+      const { count } = await countQuery;
+      
+      // Then get paginated data
+      const offset = (currentPage - 1) * itemsPerPage;
+      let dataQuery = supabase
         .from('industry_knowledge_nodes')
         .select('*')
         .eq('node_type', 'regulation')
-        .not('source_id', 'is', null) // Only auto-crawled nodes
+        .not('source_id', 'is', null)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(offset, offset + itemsPerPage - 1);
 
-      const { data, error } = await query;
+      const { data, error } = await dataQuery;
       if (error) throw error;
 
-      // Filter by properties
+      // Filter by properties (client-side for now - could be optimized with DB filters)
       let filtered = (data || []) as CrawledNode[];
       
       if (selectedJurisdiction !== 'all') {
@@ -189,9 +226,13 @@ export function CrawledContentViewer() {
         filtered = filtered.filter(n => n.properties?.category === selectedCategory);
       }
 
-      return filtered;
+      return { nodes: filtered, totalCount: count || 0 };
     },
   });
+  
+  const crawledNodes = queryResult?.nodes || [];
+  const totalCount = queryResult?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   // Fetch source info for display
   const { data: sources = [] } = useQuery({
@@ -308,6 +349,70 @@ export function CrawledContentViewer() {
     clearSelection();
     refetch();
   };
+  
+  // Delete single node
+  const handleDeleteNode = async (nodeId: string) => {
+    setIsDeleting(true);
+    try {
+      // Delete related edges first
+      await supabase
+        .from('industry_knowledge_edges')
+        .delete()
+        .or(`source_node_id.eq.${nodeId},target_node_id.eq.${nodeId}`);
+      
+      // Delete node
+      const { error } = await supabase
+        .from('industry_knowledge_nodes')
+        .delete()
+        .eq('id', nodeId);
+      
+      if (error) throw error;
+      
+      toast.success('Đã xóa văn bản');
+      refetch();
+    } catch (error) {
+      toast.error('Lỗi khi xóa: ' + (error as Error).message);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setDeleteTarget(null);
+    }
+  };
+  
+  // Bulk delete nodes
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedNodeIds);
+    if (ids.length === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete related edges first
+      for (const nodeId of ids) {
+        await supabase
+          .from('industry_knowledge_edges')
+          .delete()
+          .or(`source_node_id.eq.${nodeId},target_node_id.eq.${nodeId}`);
+      }
+      
+      // Delete nodes
+      const { error } = await supabase
+        .from('industry_knowledge_nodes')
+        .delete()
+        .in('id', ids);
+      
+      if (error) throw error;
+      
+      toast.success(`Đã xóa ${ids.length} văn bản`);
+      clearSelection();
+      refetch();
+    } catch (error) {
+      toast.error('Lỗi khi xóa: ' + (error as Error).message);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setDeleteTarget(null);
+    }
+  };
 
   const handleSingleReparse = async (nodeId: string) => {
     setParsingNodeId(nodeId);
@@ -325,7 +430,7 @@ export function CrawledContentViewer() {
         const result = await refetch();
         
         // Find the node we're parsing
-        const updatedNode = result.data?.find(n => n.id === nodeId);
+        const updatedNode = result.data?.nodes?.find(n => n.id === nodeId);
         
         if (updatedNode) {
           // Stop polling if parse completed (success or fail)
@@ -354,7 +459,7 @@ export function CrawledContentViewer() {
         pollAttempts++;
         const result = await refetch();
         
-        const updatedNode = result.data?.find(n => n.id === nodeId);
+        const updatedNode = result.data?.nodes?.find(n => n.id === nodeId);
         
         if (updatedNode?.parse_status === 'parsed' || updatedNode?.parse_status === 'failed') {
           clearInterval(pollInterval);
@@ -408,19 +513,37 @@ export function CrawledContentViewer() {
         </div>
         <div className="flex items-center gap-2">
           {selectedNodeIds.size > 0 && (
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={() => setShowBulkReparseDialog(true)}
-              disabled={isReparsing}
-            >
-              {isReparsing ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <RotateCcw className="h-4 w-4 mr-1" />
-              )}
-              Re-parse ({selectedNodeIds.size})
-            </Button>
+            <>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => {
+                  setDeleteTarget({ mode: 'bulk' });
+                  setShowDeleteDialog(true);
+                }}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-1" />
+                )}
+                Xóa ({selectedNodeIds.size})
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => setShowBulkReparseDialog(true)}
+                disabled={isReparsing}
+              >
+                {isReparsing ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                )}
+                Re-parse ({selectedNodeIds.size})
+              </Button>
+            </>
           )}
           {pendingNodesCount > 0 && (
             <Button 
@@ -526,7 +649,7 @@ export function CrawledContentViewer() {
           </SelectContent>
         </Select>
         <Badge variant="secondary" className="ml-auto">
-          {filteredNodes.length} kết quả
+          {totalCount} kết quả
         </Badge>
       </div>
 
@@ -695,6 +818,28 @@ export function CrawledContentViewer() {
                               <Eye className="h-3.5 w-3.5 mr-1" />
                               Xem
                             </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteTarget({ mode: 'single', nodeId: node.id });
+                                      setShowDeleteDialog(true);
+                                    }}
+                                    disabled={isDeleting}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Xóa văn bản này</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </div>
                       </CardHeader>
@@ -738,6 +883,24 @@ export function CrawledContentViewer() {
             })}
           </div>
         </ScrollArea>
+      )}
+      
+      {/* Pagination */}
+      {!isLoading && totalCount > 0 && (
+        <div className="mt-4">
+          <TasksPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalCount}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(value) => {
+              setItemsPerPage(value);
+              setCurrentPage(1);
+            }}
+            itemsPerPageOptions={[10, 20, 50, 100]}
+          />
+        </div>
       )}
 
       {/* Detail Dialog - Mobile optimized */}
@@ -1040,6 +1203,45 @@ export function CrawledContentViewer() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {deleteTarget?.mode === 'bulk' 
+                ? `Xóa ${selectedNodeIds.size} văn bản?` 
+                : 'Xóa văn bản này?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Dữ liệu sẽ bị xóa vĩnh viễn khỏi Knowledge Graph, 
+              bao gồm cả các liên kết (edges) đến văn bản này.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget?.mode === 'bulk') {
+                  handleBulkDelete();
+                } else if (deleteTarget?.nodeId) {
+                  handleDeleteNode(deleteTarget.nodeId);
+                }
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-1" />
+              )}
+              Xóa vĩnh viễn
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
