@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Network, GitBranch, RefreshCw, Database, Scale, Search, Move3D, BarChart3, Wrench, Lightbulb } from "lucide-react";
+import { Network, GitBranch, RefreshCw, Database, Scale, Search, Move3D, BarChart3, Wrench, Lightbulb, Globe } from "lucide-react";
 import { 
   KnowledgeGraphViewer, 
   RegulationPropagationPanel,
@@ -14,6 +14,7 @@ import {
   BulkImportExport,
   GraphAnalyticsDashboard
 } from "@/components/admin/knowledge-graph";
+import { RegulationSourcesPanel } from "@/components/admin/knowledge-graph/RegulationSourcesPanel";
 import { RealtimeStatusIndicator } from "@/hooks/useRealtimeGraph";
 import type { KnowledgeNodeType, KnowledgeEdgeType } from "@/types/knowledgeGraph";
 
@@ -102,6 +103,10 @@ export default function AdminKnowledgeGraph() {
             <RefreshCw className="h-4 w-4" />
             Propagation
           </TabsTrigger>
+          <TabsTrigger value="sources" className="gap-2">
+            <Globe className="h-4 w-4" />
+            Sources
+          </TabsTrigger>
           <TabsTrigger value="tools" className="gap-2">
             <Wrench className="h-4 w-4" />
             Tools
@@ -166,6 +171,10 @@ export default function AdminKnowledgeGraph() {
 
         <TabsContent value="regulations" className="space-y-6">
           <RegulationPropagationPanel />
+        </TabsContent>
+
+        <TabsContent value="sources" className="space-y-6">
+          <RegulationSourcesPanel />
         </TabsContent>
 
         <TabsContent value="tools" className="space-y-6">

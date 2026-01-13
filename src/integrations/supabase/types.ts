@@ -4522,6 +4522,7 @@ export type Database = {
       }
       industry_knowledge_nodes: {
         Row: {
+          content_hash: string | null
           created_at: string | null
           description: Json | null
           display_name: Json
@@ -4529,12 +4530,16 @@ export type Database = {
           global_pack_id: string | null
           id: string
           is_active: boolean | null
+          last_verified_at: string | null
           node_key: string
           node_type: string
           properties: Json | null
+          source_id: string | null
+          source_url: string | null
           updated_at: string | null
         }
         Insert: {
+          content_hash?: string | null
           created_at?: string | null
           description?: Json | null
           display_name?: Json
@@ -4542,12 +4547,16 @@ export type Database = {
           global_pack_id?: string | null
           id?: string
           is_active?: boolean | null
+          last_verified_at?: string | null
           node_key: string
           node_type: string
           properties?: Json | null
+          source_id?: string | null
+          source_url?: string | null
           updated_at?: string | null
         }
         Update: {
+          content_hash?: string | null
           created_at?: string | null
           description?: Json | null
           display_name?: Json
@@ -4555,9 +4564,12 @@ export type Database = {
           global_pack_id?: string | null
           id?: string
           is_active?: boolean | null
+          last_verified_at?: string | null
           node_key?: string
           node_type?: string
           properties?: Json | null
+          source_id?: string | null
+          source_url?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -4566,6 +4578,13 @@ export type Database = {
             columns: ["global_pack_id"]
             isOneToOne: false
             referencedRelation: "industry_global_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_knowledge_nodes_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "regulation_sources"
             referencedColumns: ["id"]
           },
         ]
@@ -6270,6 +6289,59 @@ export type Database = {
           },
         ]
       }
+      regulation_crawl_history: {
+        Row: {
+          changes_detected: number | null
+          crawl_completed_at: string | null
+          crawl_data: Json | null
+          crawl_started_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          new_regulations: number | null
+          results_count: number | null
+          source_id: string | null
+          status: string | null
+          updated_regulations: number | null
+        }
+        Insert: {
+          changes_detected?: number | null
+          crawl_completed_at?: string | null
+          crawl_data?: Json | null
+          crawl_started_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          new_regulations?: number | null
+          results_count?: number | null
+          source_id?: string | null
+          status?: string | null
+          updated_regulations?: number | null
+        }
+        Update: {
+          changes_detected?: number | null
+          crawl_completed_at?: string | null
+          crawl_data?: Json | null
+          crawl_started_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          new_regulations?: number | null
+          results_count?: number | null
+          source_id?: string | null
+          status?: string | null
+          updated_regulations?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulation_crawl_history_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "regulation_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       regulation_propagation_log: {
         Row: {
           affected_pack_id: string | null
@@ -6335,6 +6407,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      regulation_sources: {
+        Row: {
+          category: string
+          crawl_frequency: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          jurisdiction: string
+          last_crawled_at: string | null
+          next_crawl_at: string | null
+          properties: Json | null
+          search_query: string | null
+          source_name: string
+          source_url: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          crawl_frequency?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction: string
+          last_crawled_at?: string | null
+          next_crawl_at?: string | null
+          properties?: Json | null
+          search_query?: string | null
+          source_name: string
+          source_url: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          crawl_frequency?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction?: string
+          last_crawled_at?: string | null
+          next_crawl_at?: string | null
+          properties?: Json | null
+          search_query?: string | null
+          source_name?: string
+          source_url?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       sales_chat_analytics: {
         Row: {
@@ -7586,6 +7706,10 @@ export type Database = {
       aggregate_content_learnings: {
         Args: { p_brand_template_id: string }
         Returns: undefined
+      }
+      calculate_next_crawl_at: {
+        Args: { frequency: string; last_crawled?: string }
+        Returns: string
       }
       calculate_next_sync_at: { Args: { frequency: string }; Returns: string }
       can_use_feature: {
