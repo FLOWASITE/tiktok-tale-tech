@@ -90,7 +90,11 @@ export const CrawledNodeMobileCard: React.FC<CrawledNodeMobileCardProps> = ({
   const parseStatus = getParseStatusDisplay(node.parse_status);
   const ParseIcon = parseStatus.icon;
   const title = node.display_name?.vi || node.display_name?.en || node.node_key;
-  const description = node.description?.vi || node.description?.en;
+  // Handle description: could be object {vi, en} or direct string
+  const rawDescription = node.description;
+  const description = typeof rawDescription === 'string' 
+    ? rawDescription 
+    : (rawDescription?.vi || rawDescription?.en || null);
   const jurisdiction = node.properties?.jurisdiction;
 
   return (
