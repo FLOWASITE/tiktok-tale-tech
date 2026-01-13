@@ -2,6 +2,7 @@
 // Batch Generate Embeddings Edge Function
 // Processes all knowledge graph nodes without embeddings
 // Uses Supabase.ai.Session with gte-small model (384 dimensions)
+// Enhanced with retry logic and better error handling
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -17,6 +18,13 @@ const corsHeaders = {
 // Initialize gte-small embedding model (384 dimensions)
 const model = new Supabase.ai.Session('gte-small');
 
+// Retry configuration
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 500,
+  maxDelayMs: 5000,
+};
+
 interface BatchRequest {
   action: 'start' | 'status' | 'resume';
   batch_size?: number;
@@ -31,24 +39,55 @@ interface BatchStatus {
   is_running: boolean;
   last_batch_at?: string;
   errors?: string[];
+  estimated_time_remaining_ms?: number;
+  avg_time_per_node_ms?: number;
 }
 
 interface BatchResult {
   processed: number;
   succeeded: number;
   failed: number;
+  retried: number;
   errors: string[];
   duration_ms: number;
+  avg_time_per_node_ms: number;
 }
 
-// Generate embedding using Supabase.ai.Session (gte-small)
-async function generateEmbedding(text: string): Promise<number[]> {
-  const output = await model.run(text, {
-    mean_pool: true,
-    normalize: true,
-  });
+// Sleep utility for delays
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Calculate exponential backoff delay
+function getRetryDelay(attempt: number): number {
+  const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
+  return Math.min(delay, RETRY_CONFIG.maxDelayMs);
+}
+
+// Generate embedding with retry logic
+async function generateEmbeddingWithRetry(text: string): Promise<number[]> {
+  let lastError: Error | null = null;
   
-  return Array.from(output as Float32Array);
+  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      const output = await model.run(text, {
+        mean_pool: true,
+        normalize: true,
+      });
+      
+      return Array.from(output as Float32Array);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[BatchEmbed] Retry ${attempt + 1}/${RETRY_CONFIG.maxRetries}: ${lastError.message}`);
+      
+      if (attempt < RETRY_CONFIG.maxRetries) {
+        const delay = getRetryDelay(attempt);
+        await sleep(delay);
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
 }
 
 // Generate text representation of a node for embedding
@@ -102,9 +141,9 @@ function nodeToText(node: Record<string, unknown>): string {
   return parts.join('\n');
 }
 
-// Get current batch status
+// Get current batch status with estimated time
 // deno-lint-ignore no-explicit-any
-async function getBatchStatus(supabase: any): Promise<BatchStatus> {
+async function getBatchStatus(supabase: any, avgTimePerNodeMs?: number): Promise<BatchStatus> {
   // Get total nodes count
   const { count: totalCount, error: totalError } = await supabase
     .from('industry_knowledge_nodes')
@@ -130,6 +169,12 @@ async function getBatchStatus(supabase: any): Promise<BatchStatus> {
   const withEmbeddings = withEmbeddingsCount || 0;
   const pending = total - withEmbeddings;
   const progress = total > 0 ? Math.round((withEmbeddings / total) * 100) : 0;
+  
+  // Calculate estimated time remaining
+  let estimatedTimeRemainingMs: number | undefined;
+  if (avgTimePerNodeMs && pending > 0) {
+    estimatedTimeRemainingMs = Math.round(pending * avgTimePerNodeMs);
+  }
 
   return {
     total_nodes: total,
@@ -137,10 +182,12 @@ async function getBatchStatus(supabase: any): Promise<BatchStatus> {
     nodes_pending: pending,
     progress_percent: progress,
     is_running: false,
+    estimated_time_remaining_ms: estimatedTimeRemainingMs,
+    avg_time_per_node_ms: avgTimePerNodeMs,
   };
 }
 
-// Process a batch of nodes
+// Process a batch of nodes with retry logic
 // deno-lint-ignore no-explicit-any
 async function processBatch(
   supabase: any,
@@ -152,6 +199,7 @@ async function processBatch(
   let processed = 0;
   let succeeded = 0;
   let failed = 0;
+  let retried = 0;
 
   // Fetch nodes without embeddings
   let query = supabase
@@ -173,8 +221,10 @@ async function processBatch(
       processed: 0,
       succeeded: 0,
       failed: 0,
+      retried: 0,
       errors: [fetchError.message],
       duration_ms: Date.now() - startTime,
+      avg_time_per_node_ms: 0,
     };
   }
 
@@ -184,23 +234,32 @@ async function processBatch(
       processed: 0,
       succeeded: 0,
       failed: 0,
+      retried: 0,
       errors: [],
       duration_ms: Date.now() - startTime,
+      avg_time_per_node_ms: 0,
     };
   }
 
-  console.log(`[BatchEmbed] Processing ${nodes.length} nodes...`);
+  console.log(`[BatchEmbed] Processing ${nodes.length} nodes with retry enabled...`);
 
   // Process nodes sequentially to avoid model overload
   for (const node of nodes) {
     processed++;
     const nodeId = node.id as string;
+    const nodeStartTime = Date.now();
     
     try {
       const nodeText = nodeToText(node);
-      console.log(`[BatchEmbed] Processing node ${nodeId}: ${nodeText.substring(0, 80)}...`);
+      console.log(`[BatchEmbed] Processing node ${processed}/${nodes.length}: ${nodeId}`);
       
-      const embedding = await generateEmbedding(nodeText);
+      // Use retry-enabled embedding generation
+      const embedding = await generateEmbeddingWithRetry(nodeText);
+      
+      // Track if retry was used
+      if (Date.now() - nodeStartTime > RETRY_CONFIG.baseDelayMs * 1.5) {
+        retried++;
+      }
       
       // Update node with embedding
       const { error: updateError } = await supabase
@@ -222,19 +281,28 @@ async function processBatch(
       failed++;
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
       errors.push(`Node ${nodeId}: ${errMsg}`);
-      console.error('[BatchEmbed] Node error:', err);
+      console.error('[BatchEmbed] Node error after retries:', err);
+    }
+    
+    // Small delay between nodes to avoid rate limiting
+    if (processed < nodes.length) {
+      await sleep(100);
     }
   }
 
   const durationMs = Date.now() - startTime;
-  console.log(`[BatchEmbed] Completed: ${succeeded}/${processed} succeeded in ${durationMs}ms`);
+  const avgTimePerNodeMs = processed > 0 ? Math.round(durationMs / processed) : 0;
+  
+  console.log(`[BatchEmbed] Completed: ${succeeded}/${processed} in ${durationMs}ms (${retried} retried)`);
 
   return {
     processed,
     succeeded,
     failed,
+    retried,
     errors: errors.slice(0, 10), // Limit error messages
     duration_ms: durationMs,
+    avg_time_per_node_ms: avgTimePerNodeMs,
   };
 }
 
@@ -249,7 +317,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: BatchRequest = await req.json();
-    // Reduced default batch size to 5 to avoid CPU timeout in edge functions
+    // Default batch size of 5 to avoid CPU timeout in edge functions
     const { action, batch_size = 5, node_types } = body;
 
     console.log('[BatchEmbed] Action:', action, 'Batch size:', batch_size);
@@ -266,7 +334,7 @@ Deno.serve(async (req) => {
     // Start or resume batch processing
     if (action === 'start' || action === 'resume') {
       const result = await processBatch(supabase, batch_size, node_types);
-      const status = await getBatchStatus(supabase);
+      const status = await getBatchStatus(supabase, result.avg_time_per_node_ms);
       
       return new Response(
         JSON.stringify({

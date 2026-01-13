@@ -7723,8 +7723,10 @@ export type Database = {
           p_threshold?: number
         }
         Returns: {
+          description: Json
           display_name: Json
-          node_id: string
+          global_pack_id: string
+          id: string
           node_key: string
           node_type: string
           properties: Json
