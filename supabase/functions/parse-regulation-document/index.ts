@@ -1087,7 +1087,7 @@ async function extractWithAI(html: string, url: string): Promise<{ text: string;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash", // Fast + cost-effective for extraction
+        model: "openai/gpt-5", // Best model for accurate legal text extraction
         messages: [
           {
             role: "system",
@@ -1719,6 +1719,18 @@ Deno.serve(async (req) => {
         // Skip to node update
         if (node_id && result.success) {
           await updateKnowledgeNode(node_id, url, result);
+          
+          // Return small response when node_id is present (avoid connection closed)
+          return new Response(
+            JSON.stringify({
+              success: true,
+              node_id,
+              text_length: result.text.length,
+              file_type: result.file_type,
+              debug: result.debug,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
         
         return new Response(
@@ -1892,6 +1904,18 @@ Deno.serve(async (req) => {
       // If we ended up using HTML/toan-van fallback, keep the original page URL as document_url
       const documentUrlForNode = result.file_type === 'html' ? url : targetUrl;
       await updateKnowledgeNode(node_id, documentUrlForNode, result);
+      
+      // Return small response when node_id is present (avoid connection closed)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          node_id,
+          text_length: result.text.length,
+          file_type: result.file_type,
+          debug: result.debug,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     return new Response(

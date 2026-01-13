@@ -272,21 +272,76 @@ Deno.serve(async (req) => {
           throw lastError || new Error('All retry attempts failed');
         }
 
-        const parseResult = await parseResponse.json();
+        // Try to parse JSON, handle connection closed errors gracefully
+        let parseResult: { success: boolean; text_length?: number; text?: string; error?: string; file_type?: string; node_id?: string } | null = null;
+        
+        try {
+          parseResult = await parseResponse.json();
+        } catch (jsonError) {
+          // Connection may have closed before response completed
+          // This is common with large responses - DB update may still have succeeded
+          console.log(`[reparse-regulations] JSON parse error for ${nodeKey}, checking DB for success`);
+          
+          // Wait a moment for any pending DB writes to complete
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          const { data: checkNode } = await supabase
+            .from('industry_knowledge_nodes')
+            .select('full_text, parse_status')
+            .eq('id', node.id)
+            .single();
+          
+          const checkLen = checkNode?.full_text?.length || 0;
+          
+          if (checkNode?.parse_status === 'parsed' && checkLen > textLengthBefore + 200) {
+            // DB was updated successfully despite response error
+            results.successful++;
+            results.details.push({
+              node_id: node.id,
+              node_key: nodeKey,
+              status: 'success',
+              reason: 'Recovered: response interrupted but DB updated',
+              text_length_before: textLengthBefore,
+              text_length_after: checkLen,
+            });
+            console.log(`[reparse-regulations] ✓ ${displayName}: recovered from response error (${textLengthBefore} → ${checkLen} chars)`);
+            continue; // Move to next node
+          } else {
+            // Truly failed
+            results.failed++;
+            results.details.push({
+              node_id: node.id,
+              node_key: nodeKey,
+              status: 'failed',
+              reason: `Response interrupted and DB not updated (status: ${checkNode?.parse_status}, length: ${checkLen})`,
+              text_length_before: textLengthBefore,
+            });
+            console.log(`[reparse-regulations] ✗ ${displayName}: response error and DB check failed`);
+            
+            await supabase
+              .from('industry_knowledge_nodes')
+              .update({ parse_status: 'failed' })
+              .eq('id', node.id);
+            continue;
+          }
+        }
 
-        if (parseResult.success) {
+        if (parseResult?.success) {
+          // Use text_length from response (new compact format) or fallback to text.length
+          const textLengthAfter = parseResult.text_length || parseResult.text?.length || 0;
+          
           results.successful++;
           results.details.push({
             node_id: node.id,
             node_key: nodeKey,
             status: 'success',
             text_length_before: textLengthBefore,
-            text_length_after: parseResult.text?.length || 0,
+            text_length_after: textLengthAfter,
           });
-          console.log(`[reparse-regulations] ✓ ${displayName}: ${textLengthBefore} → ${parseResult.text?.length || 0} chars`);
+          console.log(`[reparse-regulations] ✓ ${displayName}: ${textLengthBefore} → ${textLengthAfter} chars`);
         } else {
           // VBPL can succeed via fallback (DB updated) even if the response indicates a download error.
-          // To avoid “false failed” UX, re-check the node once.
+          // To avoid "false failed" UX, re-check the node once.
           const { data: refreshed } = await supabase
             .from('industry_knowledge_nodes')
             .select('full_text, parse_status')
@@ -308,9 +363,9 @@ Deno.serve(async (req) => {
             console.log(`[reparse-regulations] ✓ ${displayName}: recovered via fallback (${textLengthBefore} → ${refreshedLen} chars)`);
           } else {
             // More detailed error logging
-            const errorReason = parseResult.error ||
-              (parseResult.text?.length < 100 ? `Text too short: ${parseResult.text?.length} chars` : null) ||
-              `Parse returned success=false (file_type: ${parseResult.file_type}, text_length: ${parseResult.text?.length || 0})`;
+            const errorReason = parseResult?.error ||
+              (parseResult?.text?.length && parseResult.text.length < 100 ? `Text too short: ${parseResult.text.length} chars` : null) ||
+              `Parse returned success=false (file_type: ${parseResult?.file_type}, text_length: ${parseResult?.text?.length || 0})`;
 
             results.failed++;
             results.details.push({
@@ -325,21 +380,44 @@ Deno.serve(async (req) => {
           }
         }
       } catch (error) {
-        results.failed++;
-        results.details.push({
-          node_id: node.id,
-          node_key: nodeKey,
-          status: 'failed',
-          reason: error instanceof Error ? error.message : 'Unknown error',
-          text_length_before: textLengthBefore,
-        });
-        console.error(`[reparse-regulations] Error processing ${nodeKey}:`, error);
-        
-        // Reset status to failed
-        await supabase
+        // Check DB before marking as failed - the operation might have succeeded
+        const { data: checkNode } = await supabase
           .from('industry_knowledge_nodes')
-          .update({ parse_status: 'failed' })
-          .eq('id', node.id);
+          .select('full_text, parse_status')
+          .eq('id', node.id)
+          .single();
+        
+        const checkLen = checkNode?.full_text?.length || 0;
+        
+        if (checkNode?.parse_status === 'parsed' && checkLen > textLengthBefore + 200) {
+          // Actually succeeded despite error
+          results.successful++;
+          results.details.push({
+            node_id: node.id,
+            node_key: nodeKey,
+            status: 'success',
+            reason: 'Recovered: request error but DB updated',
+            text_length_before: textLengthBefore,
+            text_length_after: checkLen,
+          });
+          console.log(`[reparse-regulations] ✓ ${displayName}: recovered from error (${textLengthBefore} → ${checkLen} chars)`);
+        } else {
+          results.failed++;
+          results.details.push({
+            node_id: node.id,
+            node_key: nodeKey,
+            status: 'failed',
+            reason: error instanceof Error ? error.message : 'Unknown error',
+            text_length_before: textLengthBefore,
+          });
+          console.error(`[reparse-regulations] Error processing ${nodeKey}:`, error);
+          
+          // Reset status to failed
+          await supabase
+            .from('industry_knowledge_nodes')
+            .update({ parse_status: 'failed' })
+            .eq('id', node.id);
+        }
       }
     }
 
