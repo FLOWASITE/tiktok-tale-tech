@@ -1949,6 +1949,77 @@ export type Database = {
           },
         ]
       }
+      batch_processing_jobs: {
+        Row: {
+          completed_at: string | null
+          config: Json | null
+          created_at: string
+          created_by: string | null
+          current_item_id: string | null
+          current_item_name: string | null
+          error_log: Json | null
+          estimated_completion: string | null
+          failed_items: number
+          id: string
+          job_type: string
+          organization_id: string | null
+          processed_items: number
+          progress: number
+          started_at: string | null
+          status: string
+          total_items: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          config?: Json | null
+          created_at?: string
+          created_by?: string | null
+          current_item_id?: string | null
+          current_item_name?: string | null
+          error_log?: Json | null
+          estimated_completion?: string | null
+          failed_items?: number
+          id?: string
+          job_type: string
+          organization_id?: string | null
+          processed_items?: number
+          progress?: number
+          started_at?: string | null
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          config?: Json | null
+          created_at?: string
+          created_by?: string | null
+          current_item_id?: string | null
+          current_item_name?: string | null
+          error_log?: Json | null
+          estimated_completion?: string | null
+          failed_items?: number
+          id?: string
+          job_type?: string
+          organization_id?: string | null
+          processed_items?: number
+          progress?: number
+          started_at?: string | null
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_processing_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_comments: {
         Row: {
           author_email: string
@@ -4523,6 +4594,7 @@ export type Database = {
       industry_knowledge_nodes: {
         Row: {
           content_hash: string | null
+          content_quality_score: number | null
           created_at: string | null
           description: Json | null
           display_name: Json
@@ -4540,12 +4612,14 @@ export type Database = {
           node_type: string
           parse_status: string | null
           properties: Json | null
+          quality_breakdown: Json | null
           source_id: string | null
           source_url: string | null
           updated_at: string | null
         }
         Insert: {
           content_hash?: string | null
+          content_quality_score?: number | null
           created_at?: string | null
           description?: Json | null
           display_name?: Json
@@ -4563,12 +4637,14 @@ export type Database = {
           node_type: string
           parse_status?: string | null
           properties?: Json | null
+          quality_breakdown?: Json | null
           source_id?: string | null
           source_url?: string | null
           updated_at?: string | null
         }
         Update: {
           content_hash?: string | null
+          content_quality_score?: number | null
           created_at?: string | null
           description?: Json | null
           display_name?: Json
@@ -4586,6 +4662,7 @@ export type Database = {
           node_type?: string
           parse_status?: string | null
           properties?: Json | null
+          quality_breakdown?: Json | null
           source_id?: string | null
           source_url?: string | null
           updated_at?: string | null
@@ -6483,6 +6560,63 @@ export type Database = {
         }
         Relationships: []
       }
+      regulation_versions: {
+        Row: {
+          changed_articles: string[] | null
+          content_hash: string
+          content_quality_score: number | null
+          created_at: string
+          diff_summary: string | null
+          effective_date: string | null
+          full_text: string
+          id: string
+          node_id: string
+          previous_version_id: string | null
+          version_number: number
+        }
+        Insert: {
+          changed_articles?: string[] | null
+          content_hash: string
+          content_quality_score?: number | null
+          created_at?: string
+          diff_summary?: string | null
+          effective_date?: string | null
+          full_text: string
+          id?: string
+          node_id: string
+          previous_version_id?: string | null
+          version_number?: number
+        }
+        Update: {
+          changed_articles?: string[] | null
+          content_hash?: string
+          content_quality_score?: number | null
+          created_at?: string
+          diff_summary?: string | null
+          effective_date?: string | null
+          full_text?: string
+          id?: string
+          node_id?: string
+          previous_version_id?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulation_versions_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "industry_knowledge_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulation_versions_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "regulation_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_chat_analytics: {
         Row: {
           assistant_message_count: number | null
@@ -7750,6 +7884,16 @@ export type Database = {
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
+      get_batch_processing_stats: {
+        Args: never
+        Returns: {
+          completed_today: number
+          failed_today: number
+          job_type: string
+          pending_count: number
+          running_count: number
+        }[]
+      }
       get_cache_stats: {
         Args: { p_organization_id?: string }
         Returns: {
@@ -7776,6 +7920,14 @@ export type Database = {
           node_id: string
           node_key: string
           node_type: string
+        }[]
+      }
+      get_content_quality_stats: {
+        Args: never
+        Returns: {
+          node_count: number
+          percentage: number
+          quality_level: string
         }[]
       }
       get_graph_health_summary: {
