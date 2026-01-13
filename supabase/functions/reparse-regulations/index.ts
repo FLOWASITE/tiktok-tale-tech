@@ -245,15 +245,21 @@ Deno.serve(async (req) => {
           });
           console.log(`[reparse-regulations] ✓ ${displayName}: ${textLengthBefore} → ${parseResult.text?.length || 0} chars`);
         } else {
+          // More detailed error logging
+          const errorReason = parseResult.error || 
+                             (parseResult.text?.length < 100 ? `Text too short: ${parseResult.text?.length} chars` : null) ||
+                             `Parse returned success=false (file_type: ${parseResult.file_type}, text_length: ${parseResult.text?.length || 0})`;
+          
           results.failed++;
           results.details.push({
             node_id: node.id,
             node_key: nodeKey,
             status: 'failed',
-            reason: parseResult.error || 'Parse returned success=false',
+            reason: errorReason,
             text_length_before: textLengthBefore,
           });
-          console.log(`[reparse-regulations] ✗ ${displayName}: ${parseResult.error}`);
+          console.log(`[reparse-regulations] ✗ ${displayName}: ${errorReason}`);
+          console.log(`[reparse-regulations] Full parse result:`, JSON.stringify(parseResult).slice(0, 500));
         }
       } catch (error) {
         results.failed++;
