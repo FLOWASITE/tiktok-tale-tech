@@ -27,6 +27,8 @@ interface ParseResult {
     title?: string;
     author?: string;
     created_date?: string;
+    actual_pdf_url?: string;
+    note?: string;
   };
 }
 
@@ -276,13 +278,97 @@ function cleanText(text: string): string {
 }
 
 /**
- * Try to use Firecrawl for better extraction if available
+ * Clean scraped HTML/Markdown content to remove website layout artifacts
+ * Specific patterns for Vietnamese government websites
  */
-async function tryFirecrawlScrape(url: string): Promise<{ success: boolean; text?: string }> {
-  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
-  if (!apiKey) {
-    return { success: false };
+function cleanScrapedContent(text: string, sourceUrl: string): string {
+  let cleaned = text;
+  
+  // Remove common Vietnamese gov site layout patterns
+  const removePatterns = [
+    // Markdown table artifacts
+    /\|\s*---+\s*\|/g,
+    /\|\s*\|/g,
+    // Banner/logo images
+    /\[!\[Cổng thông tin[^\]]*\]\([^)]+\)\]/gi,
+    /\[!\[Logo[^\]]*\]\([^)]+\)\]/gi,
+    /!\[[^\]]*\]\([^)]+\)/g, // All markdown images
+    // Language switches
+    /\[English\]\([^)]+\)/gi,
+    /\[Tiếng Việt\]\([^)]+\)/gi,
+    /\[中文\]\([^)]+\)/gi,
+    // Menu/nav items
+    /- \[!\[\]\([^)]+\)[^\]]*\]\([^)]+\)/g,
+    /\*\*Tìm kiếm\*\*/gi,
+    /\*\*Đăng nhập\*\*/gi,
+    /\*\*Đăng ký\*\*/gi,
+    // Common footer patterns
+    /Bản quyền thuộc về.*$/gm,
+    /Copyright ©.*$/gm,
+    /Địa chỉ:.*Điện thoại:.*$/gm,
+    // Social media links
+    /\[Facebook\]\([^)]+\)/gi,
+    /\[Twitter\]\([^)]+\)/gi,
+    /\[Youtube\]\([^)]+\)/gi,
+    // Breadcrumb patterns
+    /Trang chủ\s*>\s*/gi,
+    /Home\s*>\s*/gi,
+    // Empty links and placeholders
+    /\[\s*\]\([^)]+\)/g,
+    /\[#\]\([^)]+\)/g,
+  ];
+  
+  for (const pattern of removePatterns) {
+    cleaned = cleaned.replace(pattern, '');
   }
+  
+  // Site-specific cleaning for vanban.chinhphu.vn
+  if (sourceUrl.includes('chinhphu.vn')) {
+    // Remove header navigation
+    cleaned = cleaned.replace(/^[\s\S]*?(?=(?:CỘNG HÒA|QUYẾT ĐỊNH|THÔNG TƯ|NGHỊ ĐỊNH|LUẬT|CHỈ THỊ|VĂN BẢN))/i, '');
+    // Remove "Văn bản liên quan" sections
+    cleaned = cleaned.replace(/Văn bản liên quan[\s\S]*$/i, '');
+    cleaned = cleaned.replace(/Văn bản được hướng dẫn[\s\S]*$/i, '');
+    cleaned = cleaned.replace(/Văn bản bị thay thế[\s\S]*$/i, '');
+  }
+  
+  // Try to extract main content between document markers
+  const mainContentMarkers = [
+    // Vietnamese legal document markers
+    /(?:CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM[\s\S]*?)((?:Điều\s+\d+|Chương\s+[IVX]+)[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i,
+    // Decree/Decision content
+    /(QUYẾT ĐỊNH:[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i,
+    // Circular content  
+    /(THÔNG TƯ:[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i,
+    // General regulation content
+    /(NỘI DUNG VĂN BẢN[\s\S]*?)(?:VĂN BẢN LIÊN QUAN|$)/i,
+  ];
+  
+  for (const pattern of mainContentMarkers) {
+    const match = cleaned.match(pattern);
+    if (match && match[1] && match[1].length > 500) {
+      cleaned = match[0];
+      break;
+    }
+  }
+  
+  // Clean up excessive newlines and whitespace
+  cleaned = cleaned
+    .replace(/\n{4,}/g, '\n\n\n')
+    .replace(/^\s*[-*]\s*$/gm, '') // Empty list items
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim();
+  
+  return cleaned;
+}
+
+/**
+ * Try to find direct PDF link from Vietnamese gov sites
+ * Priority check for datafiles.chinhphu.vn (most reliable source)
+ */
+async function findDirectPdfLink(url: string): Promise<string | null> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) return null;
   
   try {
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
@@ -293,7 +379,95 @@ async function tryFirecrawlScrape(url: string): Promise<{ success: boolean; text
       },
       body: JSON.stringify({
         url,
+        formats: ['html', 'links'],
+        timeout: 15000,
+      }),
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    const links: string[] = data.data?.links || [];
+    const html: string = data.data?.html || '';
+    
+    // Priority 1: datafiles.chinhphu.vn PDF (official document server)
+    for (const link of links) {
+      if (link.includes('datafiles.chinhphu.vn') && link.toLowerCase().endsWith('.pdf')) {
+        console.log(`[parse-document] Found official PDF: ${link}`);
+        return link;
+      }
+    }
+    
+    // Priority 2: Check HTML for embedded datafiles link
+    const datafilesMatch = html.match(
+      /href=["'](https?:\/\/datafiles\.chinhphu\.vn[^"']*\.pdf)["']/i
+    );
+    if (datafilesMatch) {
+      console.log(`[parse-document] Found embedded official PDF: ${datafilesMatch[1]}`);
+      return datafilesMatch[1];
+    }
+    
+    // Priority 3: Any PDF link with common patterns
+    const pdfPatterns = [
+      /vbpq.*\.pdf/i,
+      /\/file\/.*\.pdf/i,
+      /download.*\.pdf/i,
+      /\.signed\.pdf/i,
+    ];
+    
+    for (const link of links) {
+      for (const pattern of pdfPatterns) {
+        if (pattern.test(link)) {
+          console.log(`[parse-document] Found PDF link: ${link}`);
+          return link;
+        }
+      }
+    }
+    
+    // Priority 4: Generic PDF extension check
+    for (const link of links) {
+      if (link.toLowerCase().endsWith('.pdf')) {
+        console.log(`[parse-document] Found generic PDF: ${link}`);
+        return link;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.log('[parse-document] findDirectPdfLink error:', error);
+    return null;
+  }
+}
+
+/**
+ * Try to use Firecrawl for better extraction if available
+ * Uses onlyMainContent to exclude headers/footers
+ */
+async function tryFirecrawlScrape(url: string): Promise<{ success: boolean; text?: string; pdfUrl?: string }> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) {
+    return { success: false };
+  }
+  
+  try {
+    // First, try to find direct PDF link
+    const pdfUrl = await findDirectPdfLink(url);
+    if (pdfUrl) {
+      // If PDF found, return it for proper parsing
+      return { success: false, pdfUrl };
+    }
+    
+    // Scrape HTML with onlyMainContent for cleaner extraction
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
         formats: ['markdown'],
+        onlyMainContent: true, // CRITICAL: Exclude headers, navs, footers
         timeout: 30000,
       }),
     });
@@ -304,10 +478,16 @@ async function tryFirecrawlScrape(url: string): Promise<{ success: boolean; text
     
     const data = await response.json();
     if (data.success && data.data?.markdown) {
-      return {
-        success: true,
-        text: data.data.markdown,
-      };
+      // Apply additional cleaning for gov sites
+      const cleanedText = cleanScrapedContent(data.data.markdown, url);
+      
+      // Only return if we have meaningful content
+      if (cleanedText.length > 300) {
+        return {
+          success: true,
+          text: cleanedText,
+        };
+      }
     }
     
     return { success: false };
@@ -335,96 +515,109 @@ Deno.serve(async (req) => {
     console.log(`[parse-document] Processing: ${url}`);
     
     let result: ParseResult;
+    let targetUrl = url;
     
-    // First, try Firecrawl for better extraction
-    const firecrawlResult = await tryFirecrawlScrape(url);
-    if (firecrawlResult.success && firecrawlResult.text) {
-      console.log('[parse-document] Using Firecrawl extraction');
-      result = {
-        success: true,
-        text: cleanText(firecrawlResult.text),
-        file_type: 'html',
-      };
-    } else {
-      // Fall back to direct download and parsing
-      console.log('[parse-document] Using direct download');
+    // Check if URL is already a direct PDF/DOCX link
+    const isDirectDownload = /\.(pdf|docx?)(\?.*)?$/i.test(url);
+    
+    if (!isDirectDownload) {
+      // Try Firecrawl for HTML pages - may find PDF link or extract content
+      console.log('[parse-document] Checking for PDF link on page...');
+      const firecrawlResult = await tryFirecrawlScrape(url);
       
-      try {
-        const { buffer, contentType, size } = await downloadFile(url);
-        const fileType = detectFileType(url, contentType);
-        
-        console.log(`[parse-document] Downloaded ${size} bytes, type: ${fileType}`);
-        
-        let extractedText = '';
-        let pages: number | undefined;
-        let metadata: Record<string, string> | undefined;
-        
-        switch (fileType) {
-          case 'pdf':
-            const pdfResult = await parsePDF(buffer);
-            extractedText = pdfResult.text;
-            pages = pdfResult.pages;
-            metadata = pdfResult.metadata;
-            break;
-            
-          case 'docx':
-            const docxResult = await parseDOCX(buffer);
-            extractedText = docxResult.text;
-            metadata = docxResult.metadata;
-            break;
-            
-          case 'html':
-            const htmlResult = parseHTML(buffer);
-            extractedText = htmlResult.text;
-            break;
-            
-          default:
-            // Try as HTML fallback
-            const fallbackResult = parseHTML(buffer);
-            extractedText = fallbackResult.text;
-        }
-        
+      if (firecrawlResult.pdfUrl) {
+        // Found a PDF link - use that instead
+        console.log(`[parse-document] Found PDF, switching to: ${firecrawlResult.pdfUrl}`);
+        targetUrl = firecrawlResult.pdfUrl;
+      } else if (firecrawlResult.success && firecrawlResult.text) {
+        // Successfully extracted clean HTML content
+        console.log(`[parse-document] Using cleaned Firecrawl extraction (${firecrawlResult.text.length} chars)`);
         result = {
           success: true,
-          text: cleanText(extractedText),
-          pages,
-          file_type: fileType,
-          file_size: size,
-          metadata,
+          text: cleanText(firecrawlResult.text),
+          file_type: 'html',
         };
-      } catch (downloadError) {
-        console.error('[parse-document] Download/parse error:', downloadError);
-        result = {
-          success: false,
-          text: '',
-          file_type: 'unknown',
-          error: downloadError instanceof Error ? downloadError.message : 'Failed to download or parse document',
+        
+        // Skip to node update
+        if (node_id && result.success) {
+          await updateKnowledgeNode(node_id, url, result);
+        }
+        
+        return new Response(
+          JSON.stringify(result),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
+    // Download and parse file (PDF, DOCX, or HTML)
+    console.log(`[parse-document] Downloading: ${targetUrl}`);
+    
+    try {
+      const { buffer, contentType, size } = await downloadFile(targetUrl);
+      const fileType = detectFileType(targetUrl, contentType);
+      
+      console.log(`[parse-document] Downloaded ${size} bytes, type: ${fileType}`);
+      
+      let extractedText = '';
+      let pages: number | undefined;
+      let metadata: Record<string, string> | undefined;
+      
+      switch (fileType) {
+        case 'pdf':
+          const pdfResult = await parsePDF(buffer);
+          extractedText = pdfResult.text;
+          pages = pdfResult.pages;
+          metadata = pdfResult.metadata;
+          break;
+          
+        case 'docx':
+          const docxResult = await parseDOCX(buffer);
+          extractedText = docxResult.text;
+          metadata = docxResult.metadata;
+          break;
+          
+        case 'html':
+          const htmlResult = parseHTML(buffer);
+          // Apply cleaning for gov site HTML
+          extractedText = cleanScrapedContent(htmlResult.text, url);
+          break;
+          
+        default:
+          // Try as HTML fallback with cleaning
+          const fallbackResult = parseHTML(buffer);
+          extractedText = cleanScrapedContent(fallbackResult.text, url);
+      }
+      
+      result = {
+        success: extractedText.length > 100,
+        text: cleanText(extractedText),
+        pages,
+        file_type: fileType,
+        file_size: size,
+        metadata,
+      };
+      
+      // If PDF parsing returned limited text, note the actual download URL
+      if (fileType === 'pdf' && targetUrl !== url) {
+        result.metadata = {
+          ...result.metadata,
+          actual_pdf_url: targetUrl,
         };
       }
+    } catch (downloadError) {
+      console.error('[parse-document] Download/parse error:', downloadError);
+      result = {
+        success: false,
+        text: '',
+        file_type: 'unknown',
+        error: downloadError instanceof Error ? downloadError.message : 'Failed to download or parse document',
+      };
     }
     
     // Optionally update the knowledge node directly
     if (node_id && result.success) {
-      try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        
-        await supabase
-          .from('industry_knowledge_nodes')
-          .update({
-            full_text: result.text,
-            document_url: url,
-            document_type: result.file_type,
-            parse_status: result.text.length > 100 ? 'parsed' : 'failed',
-          })
-          .eq('id', node_id);
-          
-        console.log(`[parse-document] Updated node ${node_id}`);
-      } catch (updateError) {
-        console.error('[parse-document] Node update error:', updateError);
-        // Don't fail the response for update errors
-      }
+      await updateKnowledgeNode(node_id, targetUrl, result);
     }
     
     return new Response(
@@ -445,3 +638,31 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+/**
+ * Helper function to update knowledge node with parse results
+ */
+async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: ParseResult): Promise<void> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const parseStatus = result.success && result.text.length > 100 ? 'parsed' : 'failed';
+    
+    await supabase
+      .from('industry_knowledge_nodes')
+      .update({
+        full_text: result.text,
+        document_url: documentUrl,
+        document_type: result.file_type,
+        parse_status: parseStatus,
+      })
+      .eq('id', nodeId);
+      
+    console.log(`[parse-document] Updated node ${nodeId} with status: ${parseStatus}`);
+  } catch (updateError) {
+    console.error('[parse-document] Node update error:', updateError);
+    // Don't fail the response for update errors
+  }
+}
