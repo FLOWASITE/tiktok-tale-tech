@@ -72,7 +72,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useRegulationSources, RegulationSource, CrawlHistory } from '@/hooks/useRegulationSources';
+import { useRegulationSources, RegulationSource, CrawlHistory, CrawlingTarget } from '@/hooks/useRegulationSources';
 import { EditSourceDialog } from './EditSourceDialog';
 import { CrawledContentViewer } from './CrawledContentViewer';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -133,6 +133,7 @@ export function RegulationSourcesPanel() {
     isLoadingSources,
     isLoadingHistory,
     isCrawling,
+    crawlingTarget, // NEW: track which source is being crawled
     isCreating,
     isUpdating,
     isDeleting,
@@ -146,6 +147,21 @@ export function RegulationSourcesPanel() {
     refetchSources,
     refetchHistory,
   } = useRegulationSources();
+  
+  // Helper: check if a specific source is being crawled
+  const isSourceCrawling = (sourceId: string) => 
+    crawlingTarget?.mode === 'single' && crawlingTarget.sourceId === sourceId;
+  
+  // Helper: check if "crawl all" is running
+  const isCrawlingAll = crawlingTarget?.mode === 'all';
+  
+  // Get crawling source name for status display
+  const getCrawlingSourceName = (): string | null => {
+    if (!crawlingTarget) return null;
+    if (crawlingTarget.mode === 'all') return 'Tất cả nguồn';
+    const source = sources.find(s => s.id === crawlingTarget.sourceId);
+    return source?.source_name || 'Đang crawl...';
+  };
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<RegulationSource | null>(null);
@@ -248,6 +264,13 @@ export function RegulationSourcesPanel() {
           <p className="text-sm text-muted-foreground">
             Quản lý các nguồn crawl tự động để cập nhật Knowledge Graph
           </p>
+          {/* Crawling status indicator */}
+          {crawlingTarget && (
+            <div className="flex items-center gap-2 mt-1 text-sm text-blue-600 dark:text-blue-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Đang crawl: <strong>{getCrawlingSourceName()}</strong></span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <TooltipProvider>
@@ -290,7 +313,7 @@ export function RegulationSourcesPanel() {
             onClick={handleCrawlAll}
             disabled={isCrawling || sources.filter(s => s.is_active).length === 0}
           >
-            {isCrawling ? (
+            {isCrawlingAll ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             ) : (
               <Zap className="h-4 w-4 mr-1" />
@@ -553,9 +576,9 @@ export function RegulationSourcesPanel() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleCrawlSingle(source.id)}
-                                disabled={isCrawling || !source.is_active}
+                                disabled={isSourceCrawling(source.id) || isCrawlingAll || !source.is_active}
                               >
-                                {isCrawling ? (
+                                {isSourceCrawling(source.id) ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
                                   <Play className="h-4 w-4" />
