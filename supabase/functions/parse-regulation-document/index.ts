@@ -1279,10 +1279,26 @@ function cleanTvplContent(text: string): string {
     /\|\s*---\s*\|\s*---\s*\|/g,
     /(\|\s*\|[\s\|]*\n)+/g,
     /\|\s*---[\s\|\-]+\n/g,
+    /^\|[\s\|]+\|$/gm, // Malformed table rows with only pipes
     
     // Menu-style lists (lines that are just links)
     /^-\s*\[[^\]]+\]\([^)]+\)\s*$/gim,
     /^\*\s*\[[^\]]+\]\([^)]+\)\s*$/gim,
+    
+    // Rating/vote patterns
+    /Bạn đánh giá.*?sao/gi,
+    /\d+ lượt xem/gi,
+    /\d+ lượt đánh giá/gi,
+    
+    // Related articles at end
+    /Bài viết liên quan[\s\S]*?$/gi,
+    /Xem thêm bài viết[\s\S]*?$/gi,
+    
+    // Empty markdown headers
+    /^#+\s*$/gm,
+    
+    // Table of contents patterns at start (mục lục)
+    /^Mục lục[\s\S]*?(?=CỘNG HÒA|Điều 1|Chương I)/gi,
   ];
   
   let cleaned = text;
