@@ -440,80 +440,206 @@ async function findDirectPdfLink(url: string): Promise<string | null> {
 }
 
 /**
- * Use Firecrawl to extract content from PDF directly
- * Firecrawl can handle PDF extraction without CPU limits
+ * Multi-strategy PDF extraction configuration
+ * Each strategy uses different Firecrawl parameters to maximize content extraction
  */
-async function extractPdfWithFirecrawl(pdfUrl: string): Promise<{ success: boolean; text?: string; error?: string }> {
+interface ExtractionStrategy {
+  name: string;
+  formats: string[];
+  onlyMainContent: boolean;
+  waitFor?: number;
+  timeout: number;
+}
+
+const PDF_EXTRACTION_STRATEGIES: ExtractionStrategy[] = [
+  {
+    // Strategy 1: Full document extraction with all formats
+    name: 'full_multi_format',
+    formats: ['markdown', 'html', 'rawHtml'],
+    onlyMainContent: false,
+    timeout: 120000, // 2 minutes for large PDFs
+  },
+  {
+    // Strategy 2: Markdown only with longer timeout (may trigger OCR)
+    name: 'markdown_extended',
+    formats: ['markdown'],
+    onlyMainContent: false,
+    waitFor: 5000, // Wait for processing
+    timeout: 150000, // 2.5 minutes
+  },
+  {
+    // Strategy 3: Raw HTML extraction (sometimes captures more)
+    name: 'raw_html_only',
+    formats: ['rawHtml'],
+    onlyMainContent: false,
+    timeout: 90000,
+  },
+];
+
+/**
+ * Quality thresholds for PDF extraction
+ */
+const MIN_ACCEPTABLE_LENGTH = 500; // Minimum chars to consider successful
+const GOOD_EXTRACTION_LENGTH = 5000; // Chars indicating good extraction
+const EXCELLENT_EXTRACTION_LENGTH = 15000; // Chars indicating complete extraction
+
+/**
+ * Use Firecrawl to extract content from PDF with multi-strategy retry
+ * Tries multiple extraction strategies to maximize content capture
+ */
+async function extractPdfWithFirecrawl(pdfUrl: string): Promise<{ 
+  success: boolean; 
+  text?: string; 
+  error?: string;
+  strategy?: string;
+  qualityScore?: 'poor' | 'acceptable' | 'good' | 'excellent';
+}> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
   if (!apiKey) {
     return { success: false, error: 'Firecrawl not configured' };
   }
+
+  console.log(`[parse-document] Starting multi-strategy PDF extraction: ${pdfUrl}`);
   
-  try {
-    console.log(`[parse-document] Using Firecrawl to extract PDF: ${pdfUrl}`);
-    
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+  let bestResult = { 
+    text: '', 
+    strategy: '', 
+    length: 0 
+  };
+
+  for (const strategy of PDF_EXTRACTION_STRATEGIES) {
+    try {
+      console.log(`[parse-document] Trying strategy: ${strategy.name}`);
+      
+      const requestBody: Record<string, unknown> = {
         url: pdfUrl,
-        // Request multiple formats; PDFs can vary in what yields the most complete text
-        formats: ['markdown', 'html', 'rawHtml'],
-        // For PDFs we don't want any "main content" heuristics to drop annexes/appendices
-        onlyMainContent: false,
-        timeout: 90000, // 90s timeout for large PDFs
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.log(`[parse-document] Firecrawl PDF extraction failed: ${response.status} - ${errorData}`);
-      return { success: false, error: `Firecrawl error: ${response.status}` };
-    }
-
-    const data = await response.json();
-
-    const markdown: string = (data.data?.markdown || data.markdown || '').toString();
-    const html: string = (data.data?.html || data.html || '').toString();
-    const rawHtml: string = (data.data?.rawHtml || data.rawHtml || '').toString();
-
-    const stripHtml = (input: string) =>
-      input
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#\d+;/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    const textCandidates = [
-      { kind: 'markdown', text: markdown.trim() },
-      { kind: 'html', text: stripHtml(html) },
-      { kind: 'rawHtml', text: stripHtml(rawHtml) },
-    ].filter(c => c.text.length > 0);
-
-    const best = textCandidates.sort((a, b) => b.text.length - a.text.length)[0];
-
-    if (best) {
-      console.log(`[parse-document] Firecrawl extracted ${best.text.length} chars from PDF (${best.kind})`);
-      if (best.text.length > 300) {
-        return { success: true, text: best.text };
+        formats: strategy.formats,
+        onlyMainContent: strategy.onlyMainContent,
+        timeout: strategy.timeout,
+      };
+      
+      if (strategy.waitFor) {
+        requestBody.waitFor = strategy.waitFor;
       }
-    }
 
-    return { success: false, error: 'Firecrawl returned empty content' };
-  } catch (error) {
-    console.error('[parse-document] Firecrawl PDF extraction error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        console.log(`[parse-document] Strategy ${strategy.name} failed: HTTP ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const extractedText = extractBestText(data);
+      
+      console.log(`[parse-document] Strategy ${strategy.name} extracted ${extractedText.length} chars`);
+
+      // Keep track of best result
+      if (extractedText.length > bestResult.length) {
+        bestResult = {
+          text: extractedText,
+          strategy: strategy.name,
+          length: extractedText.length,
+        };
+      }
+
+      // If we got excellent content, stop trying more strategies
+      if (extractedText.length >= EXCELLENT_EXTRACTION_LENGTH) {
+        console.log(`[parse-document] Excellent extraction achieved with ${strategy.name}, stopping`);
+        break;
+      }
+
+      // If we got good content and it's not the last strategy, continue trying
+      // but don't wait too long
+      if (extractedText.length >= GOOD_EXTRACTION_LENGTH) {
+        console.log(`[parse-document] Good extraction with ${strategy.name}, trying one more strategy`);
+        continue;
+      }
+
+    } catch (error) {
+      console.log(`[parse-document] Strategy ${strategy.name} error:`, error);
+      continue;
+    }
   }
+
+  if (bestResult.length < MIN_ACCEPTABLE_LENGTH) {
+    console.log(`[parse-document] All strategies yielded insufficient content: ${bestResult.length} chars`);
+    return { 
+      success: false, 
+      error: `Extraction incomplete: only ${bestResult.length} chars extracted. PDF may be scanned/image-based requiring OCR service.`,
+      text: bestResult.text || undefined,
+      strategy: bestResult.strategy || undefined,
+      qualityScore: 'poor',
+    };
+  }
+
+  // Determine quality score
+  let qualityScore: 'poor' | 'acceptable' | 'good' | 'excellent' = 'acceptable';
+  if (bestResult.length >= EXCELLENT_EXTRACTION_LENGTH) {
+    qualityScore = 'excellent';
+  } else if (bestResult.length >= GOOD_EXTRACTION_LENGTH) {
+    qualityScore = 'good';
+  }
+
+  console.log(`[parse-document] Best extraction: ${bestResult.length} chars via ${bestResult.strategy} (${qualityScore})`);
+  
+  return { 
+    success: true, 
+    text: bestResult.text,
+    strategy: bestResult.strategy,
+    qualityScore,
+  };
+}
+
+/**
+ * Extract best text content from Firecrawl response
+ * Compares markdown, html, and rawHtml to find the most complete version
+ */
+function extractBestText(data: Record<string, unknown>): string {
+  const dataObj = (data.data || data) as Record<string, unknown>;
+  
+  const markdown: string = (dataObj.markdown || '').toString().trim();
+  const html: string = (dataObj.html || '').toString();
+  const rawHtml: string = (dataObj.rawHtml || '').toString();
+
+  const stripHtml = (input: string): string =>
+    input
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#\d+;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const candidates = [
+    { kind: 'markdown', text: markdown },
+    { kind: 'html', text: stripHtml(html) },
+    { kind: 'rawHtml', text: stripHtml(rawHtml) },
+  ].filter(c => c.text.length > 0);
+
+  if (candidates.length === 0) {
+    return '';
+  }
+
+  // Sort by length and return the longest
+  candidates.sort((a, b) => b.text.length - a.text.length);
+  
+  const best = candidates[0];
+  console.log(`[parse-document] Best format: ${best.kind} with ${best.text.length} chars`);
+  
+  return best.text;
 }
 
 /**
