@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Network, GitBranch, RefreshCw, Database, Scale, Search, Move3D, BarChart3, Wrench, Lightbulb } from "lucide-react";
@@ -15,10 +15,29 @@ import {
   GraphAnalyticsDashboard
 } from "@/components/admin/knowledge-graph";
 import { RealtimeStatusIndicator } from "@/hooks/useRealtimeGraph";
+import type { KnowledgeNodeType, KnowledgeEdgeType } from "@/types/knowledgeGraph";
 
 export default function AdminKnowledgeGraph() {
   const [activeTab, setActiveTab] = useState("explorer");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [highlightNodeId, setHighlightNodeId] = useState<string | null>(null);
+  
+  // Filter states for GraphCanvas
+  const [filterNodeTypes, setFilterNodeTypes] = useState<KnowledgeNodeType[]>([]);
+  const [filterEdgeTypes, setFilterEdgeTypes] = useState<KnowledgeEdgeType[]>([]);
+
+  // Handle node selection from search - navigate to visualization tab and highlight
+  const handleSearchNodeSelect = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setHighlightNodeId(nodeId);
+    setActiveTab("visualization");
+  }, []);
+
+  // Handle node selection within visualization
+  const handleVisualizationNodeSelect = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setHighlightNodeId(nodeId);
+  }, []);
 
   return (
     <div className="container py-6 space-y-6">
@@ -102,14 +121,22 @@ export default function AdminKnowledgeGraph() {
 
         <TabsContent value="visualization" className="space-y-6">
           <GraphCanvas 
-            onNodeSelect={setSelectedNodeId}
+            onNodeSelect={handleVisualizationNodeSelect}
             selectedNodeId={selectedNodeId}
+            highlightNodeId={highlightNodeId}
+            filterNodeTypes={filterNodeTypes}
+            filterEdgeTypes={filterEdgeTypes}
+            onFilterNodeTypesChange={setFilterNodeTypes}
+            onFilterEdgeTypesChange={setFilterEdgeTypes}
             height={700}
           />
         </TabsContent>
 
         <TabsContent value="search" className="space-y-6">
-          <SemanticSearchPanel onNodeSelect={setSelectedNodeId} />
+          <SemanticSearchPanel 
+            onNodeSelect={handleSearchNodeSelect}
+            onNavigateToVisualization={() => setActiveTab("visualization")}
+          />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
