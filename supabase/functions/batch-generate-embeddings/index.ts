@@ -326,12 +326,15 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-const body: BatchRequest = await req.json();
-    // Default batch size of 3 to avoid CPU timeout in edge functions
-    // Edge functions have ~400ms CPU time limit - each embedding takes ~100-200ms
-    const { action, batch_size = 3, node_types } = body;
+    const body: BatchRequest = await req.json();
 
-    console.log('[BatchEmbed] Action:', action, 'Batch size:', batch_size);
+    // Hard clamp batch size to protect compute limits (WORKER_LIMIT)
+    const requestedBatchSize = typeof body.batch_size === 'number' ? body.batch_size : undefined;
+    const safeBatchSize = Math.min(3, Math.max(1, requestedBatchSize ?? 3));
+
+    const { action, node_types } = body;
+
+    console.log('[BatchEmbed] Action:', action, 'Requested batch size:', requestedBatchSize, 'Using:', safeBatchSize);
 
     // Get current status
     if (action === 'status') {
@@ -344,9 +347,9 @@ const body: BatchRequest = await req.json();
 
     // Start or resume batch processing
     if (action === 'start' || action === 'resume') {
-      const result = await processBatch(supabase, batch_size, node_types);
+      const result = await processBatch(supabase, safeBatchSize, node_types);
       const status = await getBatchStatus(supabase, result.avg_time_per_node_ms);
-      
+
       return new Response(
         JSON.stringify({
           result,

@@ -33,7 +33,7 @@ export function BatchEmbeddingsPanel() {
     stopBatch,
   } = useBatchEmbeddings();
 
-  const [batchSize, setBatchSize] = useState(5);
+  const [batchSize, setBatchSize] = useState(3);
 
   useEffect(() => {
     fetchStatus();
@@ -89,7 +89,7 @@ export function BatchEmbeddingsPanel() {
               <span className="font-medium">{status.progress_percent}%</span>
             </div>
             <Progress value={status.progress_percent} className="h-2" />
-            
+
             <div className="grid grid-cols-3 gap-4 text-center">
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold text-foreground">
@@ -133,7 +133,7 @@ export function BatchEmbeddingsPanel() {
                 Dừng
               </Button>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -160,10 +160,10 @@ export function BatchEmbeddingsPanel() {
                 <span>Còn ~{formatTime(progress.estimatedRemainingMs)}</span>
               </div>
             </div>
-            
-            <Progress 
-              value={(progress.processedNodes / progress.totalNodes) * 100} 
-              className="h-1.5" 
+
+            <Progress
+              value={(progress.processedNodes / progress.totalNodes) * 100}
+              className="h-1.5"
             />
           </div>
         )}
@@ -177,14 +177,14 @@ export function BatchEmbeddingsPanel() {
                 id="batch-size"
                 type="number"
                 min={1}
-                max={10}
+                max={3}
                 value={batchSize}
-                onChange={(e) => setBatchSize(Math.min(10, Math.max(1, Number(e.target.value))))}
+                onChange={(e) => setBatchSize(Math.min(3, Math.max(1, Number(e.target.value))))}
                 className="mt-1"
                 disabled={isProcessing}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Số nodes xử lý mỗi batch (1-10, khuyến nghị 5 để tránh timeout)
+                Số nodes xử lý mỗi batch (1-3, khuyến nghị 2-3 để tránh WORKER_LIMIT)
               </p>
             </div>
             <div className="flex gap-2">
