@@ -554,7 +554,7 @@ Deno.serve(async (req) => {
     console.log(`[parse-document] Downloading: ${targetUrl}`);
     
     // Check file size before downloading (5MB limit for edge functions)
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
     
     try {
       // First, do a HEAD request to check file size
