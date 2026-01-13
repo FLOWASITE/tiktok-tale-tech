@@ -34,3 +34,4 @@ export { GlobalOperationStatus, useOperationStatus } from "./GlobalOperationStat
 export { CrawledNodeCard, getSourceColor, getJurisdictionFlag } from "./CrawledNodeCard";
 export type { CrawledNode, QualityBreakdown } from "./CrawledNodeCard";
 export { CrawledNodeDetailSheet } from "./CrawledNodeDetailSheet";
+export { CrawledNodeMobileCard } from "./CrawledNodeMobileCard";

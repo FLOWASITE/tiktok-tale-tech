@@ -75,6 +75,8 @@ import { cn } from '@/lib/utils';
 import { ContentQualityBadge, estimateContentQuality } from './ContentQualityBadge';
 import { TasksPagination } from '@/components/TasksPagination';
 import { CrawledNodeDetailSheet } from './CrawledNodeDetailSheet';
+import { CrawledNodeMobileCard } from './CrawledNodeMobileCard';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { CrawledNode as CrawledNodeType, VersionHistoryEntry } from './CrawledNodeCard';
 
 // Source color mapping for visual distinction
@@ -112,6 +114,7 @@ interface SourceInfo {
 }
 
 export function CrawledContentViewer() {
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -625,8 +628,8 @@ export function CrawledContentViewer() {
           </CardContent>
         </Card>
       ) : (
-        <ScrollArea className="h-[600px]">
-          <div className="space-y-2 pr-4">
+        <ScrollArea className={isMobile ? "h-[calc(100vh-280px)]" : "h-[600px]"}>
+          <div className={isMobile ? "space-y-3 px-1" : "space-y-2 pr-4"}>
             {filteredNodes.map((node) => {
               const isExpanded = expandedNodes.has(node.id);
               const title = node.display_name?.vi || node.display_name?.en || node.node_key;
@@ -634,6 +637,32 @@ export function CrawledContentViewer() {
               const isDirty = hasHtmlLayoutArtifacts(node.full_text);
               const isSelected = selectedNodeIds.has(node.id);
 
+              // Mobile Card
+              if (isMobile) {
+                return (
+                  <CrawledNodeMobileCard
+                    key={node.id}
+                    node={node}
+                    isReparsing={parsingNodeId === node.id}
+                    onReparse={handleSingleReparse}
+                    onView={(n) => {
+                      setSelectedNode(n);
+                      setEditModeOnOpen(false);
+                    }}
+                    onEdit={(n) => {
+                      setSelectedNode(n);
+                      setEditModeOnOpen(true);
+                    }}
+                    onDelete={(n) => {
+                      setDeleteTarget({ mode: 'single', nodeId: n.id });
+                      setShowDeleteDialog(true);
+                    }}
+                    getSourceName={getSourceName}
+                  />
+                );
+              }
+
+              // Desktop Card
               return (
                 <Card key={node.id} className={`overflow-hidden ${isDirty ? 'border-amber-300 dark:border-amber-700' : ''}`}>
                   <Collapsible open={isExpanded} onOpenChange={() => toggleExpand(node.id)}>
