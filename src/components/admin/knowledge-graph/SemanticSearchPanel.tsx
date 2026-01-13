@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -31,6 +32,8 @@ import {
   Loader2,
   Filter,
   X,
+  AlertCircle,
+  Zap,
 } from "lucide-react";
 import { useSemanticSearch } from "@/hooks/useSemanticSearch";
 import type { KnowledgeNodeType, SemanticSearchResult } from "@/types/knowledgeGraph";
@@ -265,9 +268,17 @@ export function SemanticSearchPanel({ onNodeSelect, className }: SemanticSearchP
 
         {/* Error */}
         {error && (
-          <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-            {error.message}
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="space-y-2">
+              <p>{error.message}</p>
+              {error.message.includes("embedding") && (
+                <p className="text-sm">
+                  💡 Có thể nodes chưa có embeddings. Vào tab <strong>Embeddings</strong> và chạy "Chạy Tất Cả" để tạo embeddings.
+                </p>
+              )}
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Results */}
@@ -302,10 +313,19 @@ export function SemanticSearchPanel({ onNodeSelect, className }: SemanticSearchP
             </ScrollArea>
           </div>
         ) : results !== null ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Không tìm thấy kết quả phù hợp</p>
-            <p className="text-xs mt-1">Thử điều chỉnh từ khóa hoặc ngưỡng tương đồng</p>
+          <div className="text-center py-8 text-muted-foreground space-y-3">
+            <Search className="h-8 w-8 mx-auto opacity-50" />
+            <div>
+              <p>Không tìm thấy kết quả phù hợp</p>
+              <p className="text-xs mt-1">Thử điều chỉnh từ khóa hoặc ngưỡng tương đồng</p>
+            </div>
+            <Alert className="text-left">
+              <Zap className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Nếu không có kết quả dù từ khóa hợp lệ, có thể nodes chưa có embeddings. 
+                Vào tab <strong>Embeddings</strong> để tạo embeddings trước.
+              </AlertDescription>
+            </Alert>
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

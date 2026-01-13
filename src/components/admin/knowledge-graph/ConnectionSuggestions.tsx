@@ -3,12 +3,13 @@
 // AI-powered relationship suggestions
 // ============================================
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -30,9 +31,12 @@ import {
   FileText,
   Users,
   Globe,
+  AlertCircle,
+  Search,
 } from "lucide-react";
 import { useFindSimilarNodes } from "@/hooks/useSemanticSearch";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import type { KnowledgeNodeType, KnowledgeEdgeType, SemanticSearchResult } from "@/types/knowledgeGraph";
 import { useToast } from "@/hooks/use-toast";
 
@@ -181,22 +185,50 @@ export function ConnectionSuggestions({
 }: ConnectionSuggestionsProps) {
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [selectedLocalNodeId, setSelectedLocalNodeId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const { data: similarNodes, isLoading, refetch } = useFindSimilarNodes(nodeId, 10);
+  // Calculate effectiveNodeId first before using it
+  const effectiveNodeId = nodeId || selectedLocalNodeId;
+
+  // Fetch nodes with embeddings for selector
+  const { data: nodesWithEmbeddings, isLoading: isLoadingNodes } = useQuery({
+    queryKey: ["nodes-with-embeddings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("industry_knowledge_nodes")
+        .select("id, node_key, node_type, display_name")
+        .not("embedding", "is", null)
+        .order("node_key")
+        .limit(200);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !nodeId, // Only fetch when no nodeId is provided
+  });
+
+  const { data: similarNodes, isLoading, refetch } = useFindSimilarNodes(effectiveNodeId, 10);
 
   // Filter out rejected suggestions
   const suggestions = similarNodes?.filter((node) => !rejectedIds.has(node.node_id)) || [];
 
+  // Reset local selection when external nodeId changes
+  useEffect(() => {
+    if (nodeId) {
+      setSelectedLocalNodeId(null);
+    }
+  }, [nodeId]);
+
   const handleApprove = async (targetId: string, edgeType: KnowledgeEdgeType) => {
-    if (!nodeId) return;
+    if (!effectiveNodeId) return;
 
     setApplyingId(targetId);
     try {
       const { error } = await supabase
         .from("industry_knowledge_edges")
         .insert({
-          source_node_id: nodeId,
+          source_node_id: effectiveNodeId,
           target_node_id: targetId,
           edge_type: edgeType,
           weight: 0.8,
@@ -232,7 +264,7 @@ export function ConnectionSuggestions({
     refetch();
   };
 
-  if (!nodeId) {
+  if (!effectiveNodeId) {
     return (
       <Card>
         <CardHeader>
@@ -241,13 +273,67 @@ export function ConnectionSuggestions({
             Connection Suggestions
           </CardTitle>
           <CardDescription>
-            Chọn một node để xem gợi ý kết nối
+            Chọn một node để xem gợi ý kết nối AI
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <Sparkles className="h-8 w-8 mr-2 opacity-50" />
-            <span>Chọn node từ Graph Explorer</span>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Để sử dụng tính năng này, bạn cần:
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                <li>Chọn node từ tab <strong>Search</strong> hoặc <strong>Explorer</strong></li>
+                <li>Hoặc chọn trực tiếp từ danh sách bên dưới</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+
+          {/* Node Selector Dropdown */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Chọn node để tìm gợi ý kết nối:</label>
+            {isLoadingNodes ? (
+              <Skeleton className="h-10 w-full" />
+            ) : nodesWithEmbeddings && nodesWithEmbeddings.length > 0 ? (
+              <Select
+                value={selectedLocalNodeId || ""}
+                onValueChange={(value) => setSelectedLocalNodeId(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn một node..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {nodesWithEmbeddings.map((node) => {
+                    const config = NODE_TYPE_CONFIG[node.node_type as KnowledgeNodeType];
+                    const Icon = config?.icon || Building2;
+                    const displayName = (node.display_name as any)?.vi || (node.display_name as any)?.en || node.node_key;
+                    return (
+                      <SelectItem key={node.id} value={node.id}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-3 w-3" />
+                          <span className="truncate">{displayName}</span>
+                          <Badge variant="outline" className="text-xs ml-1">
+                            {node.node_type}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Chưa có node nào có embedding. Vui lòng vào tab <strong>Embeddings</strong> và chạy "Chạy Tất Cả" trước.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* Quick action */}
+          <div className="flex items-center justify-center py-4 text-muted-foreground">
+            <Search className="h-6 w-6 mr-2 opacity-50" />
+            <span className="text-sm">Hoặc vào tab Search để tìm và chọn node</span>
           </div>
         </CardContent>
       </Card>
