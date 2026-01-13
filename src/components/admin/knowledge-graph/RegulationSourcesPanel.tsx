@@ -199,6 +199,43 @@ export function RegulationSourcesPanel() {
     return j?.label.split(' ')[0] || '🌐';
   };
 
+  // Get source domain badge info
+  const getSourceBadge = (sourceUrl: string): { label: string; className: string; icon: string } => {
+    if (sourceUrl.includes('vbpl.vn')) {
+      return { 
+        label: 'VBPL', 
+        className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+        icon: '⭐'
+      };
+    }
+    if (sourceUrl.includes('luatvietnam.vn')) {
+      return { 
+        label: 'LuậtVN', 
+        className: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
+        icon: '📘'
+      };
+    }
+    if (sourceUrl.includes('vanban.chinhphu.vn') || sourceUrl.includes('chinhphu.vn')) {
+      return { 
+        label: 'Chính phủ', 
+        className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+        icon: '🏛️'
+      };
+    }
+    if (sourceUrl.includes('thuvienphapluat.vn')) {
+      return { 
+        label: 'TVPL', 
+        className: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30',
+        icon: '📚'
+      };
+    }
+    return { 
+      label: 'Khác', 
+      className: 'bg-muted text-muted-foreground border-border',
+      icon: '🌐'
+    };
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -459,8 +496,14 @@ export function RegulationSourcesPanel() {
                   <CardContent className="py-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-lg">{getJurisdictionFlag(source.jurisdiction)}</span>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs font-medium ${getSourceBadge(source.source_url).className}`}
+                          >
+                            {getSourceBadge(source.source_url).icon} {getSourceBadge(source.source_url).label}
+                          </Badge>
                           <h4 className="font-medium">{source.source_name}</h4>
                           <Badge variant={source.is_active ? 'default' : 'secondary'}>
                             {source.is_active ? 'Hoạt động' : 'Tạm dừng'}
