@@ -1,14 +1,21 @@
 // ============================================
 // Generate Knowledge Embeddings Edge Function
 // Creates vector embeddings for Knowledge Graph nodes
+// Uses Supabase.ai.Session with gte-small model (384 dimensions)
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Initialize gte-small embedding model (384 dimensions)
+const model = new Supabase.ai.Session('gte-small');
 
 interface EmbedRequest {
   action: 'embed' | 'batch_embed' | 'update_node';
@@ -24,34 +31,16 @@ interface EmbeddingResponse {
   error?: string;
 }
 
-// Generate embedding using Lovable AI Gateway
+// Generate embedding using Supabase.ai.Session (gte-small)
 async function generateEmbedding(text: string): Promise<number[]> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
-  if (!apiKey) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-004',
-      input: text,
-      dimensions: 768,
-    }),
+  console.log('[Embedding] Generating for text:', text.substring(0, 100) + '...');
+  
+  const output = await model.run(text, {
+    mean_pool: true,
+    normalize: true,
   });
-
-  if (!response.ok) {
-    const errorData = await response.text();
-    console.error('[Embedding] API error:', response.status, errorData);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data?.[0]?.embedding || [];
+  
+  return Array.from(output as Float32Array);
 }
 
 // Generate text representation of a node for embedding
@@ -126,13 +115,10 @@ Deno.serve(async (req) => {
     if (action === 'batch_embed' && texts && texts.length > 0) {
       const embeddings: number[][] = [];
       
-      // Process in batches of 5 to avoid rate limits
-      for (let i = 0; i < texts.length; i += 5) {
-        const batch = texts.slice(i, i + 5);
-        const batchEmbeddings = await Promise.all(
-          batch.map(t => generateEmbedding(t))
-        );
-        embeddings.push(...batchEmbeddings);
+      // Process sequentially to avoid overwhelming the model
+      for (const t of texts) {
+        const embedding = await generateEmbedding(t);
+        embeddings.push(embedding);
       }
       
       return new Response(
@@ -163,7 +149,7 @@ Deno.serve(async (req) => {
       
       const embedding = await generateEmbedding(nodeText);
 
-      // Update node with embedding
+      // Update node with embedding (format as PostgreSQL vector)
       const { error: updateError } = await supabase
         .from('industry_knowledge_nodes')
         .update({ 
