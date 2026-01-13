@@ -12,14 +12,8 @@ import { BrandFormStepDNA } from '@/components/BrandFormStepDNA';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
-import { QuickSampleGenerator } from '@/components/QuickSampleGenerator';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
-import { SavedSamplesManager } from '@/components/SavedSamplesManager';
-import { VariantSampleComparison } from '@/components/VariantSampleComparison';
-import { ContentPillarsEditor } from '@/components/brand/ContentPillarsEditor';
-import { useBrandVoiceVariants, ChannelSampleTexts } from '@/hooks/useBrandVoiceVariants';
 import { GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
-import { ContentPillar } from '@/types/topicDiscovery';
 import { CustomerPersona } from '@/types/customerPersona';
 import { DEFAULT_BRAND_GUIDELINE } from '@/types/carousel';
 import { ChevronLeft, ChevronRight, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -82,10 +76,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [allowEmoji, setAllowEmoji] = useState(true);
   const [complianceRules, setComplianceRules] = useState<string[]>([]);
   const [channelOverrides, setChannelOverrides] = useState<ChannelOverrides>({});
-  const [contentPillars, setContentPillars] = useState<ContentPillar[]>([]);
   const [industryTemplateId, setIndustryTemplateId] = useState<string | null>(null); // Legacy v1
   const [globalPackId, setGlobalPackId] = useState<string | null>(null); // v2.1 architecture
-  const [sampleTexts, setSampleTexts] = useState<Record<string, string> | null>(null);
   const [footerInfo, setFooterInfo] = useState<BrandFooterInfo>(DEFAULT_FOOTER_INFO);
   const [personas, setPersonas] = useState<CustomerPersona[]>([]);
   const [localProducts, setLocalProducts] = useState<Array<{ id: string; name: string; sku: string; category: string; description: string; price_display: string; image_url: string; unique_selling_points: string[]; target_audience: string; pain_points_solved: string[]; benefits: string[]; keywords: string[]; suggested_content_angles: string[]; best_channels: string[]; is_featured: boolean; is_active: boolean; }>>([]);
@@ -115,18 +107,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [guidelineExampleBad, setGuidelineExampleBad] = useState('');
   const [guidelineKeyPrinciples, setGuidelineKeyPrinciples] = useState<string[]>([]);
   const [showPreview, setShowPreview] = useState(true);
-  const [isGeneratingSamples, setIsGeneratingSamples] = useState(false);
-  const [showCompareDialog, setShowCompareDialog] = useState(false);
-  const [compareVariants, setCompareVariants] = useState<any[]>([]);
-
-  // Brand voice variants hook
-  const {
-    variants,
-    loading: variantsLoading,
-    createVariant,
-    deleteVariant,
-    refetch: refetchVariants,
-  } = useBrandVoiceVariants(template?.id);
 
   // Customer personas hook
   const {
@@ -164,9 +144,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setAllowEmoji(template.allow_emoji ?? true);
       setComplianceRules(template.compliance_rules || []);
       setChannelOverrides(template.channel_overrides || {});
-      setContentPillars((template as any).content_pillars || []);
       setIndustryTemplateId(template.industry_template_id || null);
-      setSampleTexts(template.sample_texts || null);
       setFooterInfo(template.footer_info || DEFAULT_FOOTER_INFO);
       setMission(template.mission || '');
       setVision(template.vision || '');
@@ -252,134 +230,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     toast.success('Đã liên kết Industry Memory v2!');
   };
 
-  // Manual sample generation
-  const handleGenerateSample = useCallback(async () => {
-    if (!brandName.trim()) {
-      toast.error('Vui lòng nhập tên thương hiệu trước');
-      return;
-    }
-
-    setIsGeneratingSamples(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-sample-text', {
-        body: {
-          brandName,
-          positioning: brandPositioning,
-          toneOfVoice,
-          formalityLevel,
-          allowEmoji,
-          preferredWords,
-          forbiddenWords,
-          channels: ['facebook', 'linkedin', 'instagram', 'tiktok', 'email'],
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.samples) {
-        const normalizedSamples: Record<string, string> = {};
-        for (const [key, value] of Object.entries(data.samples)) {
-          if (typeof value === 'string') {
-            normalizedSamples[key] = value;
-          } else if (value && typeof value === 'object') {
-            const obj = value as Record<string, unknown>;
-            if ('subject' in obj && 'body' in obj) {
-              normalizedSamples[key] = `📧 Subject: ${obj.subject}\n\n${obj.body}`;
-            } else {
-              normalizedSamples[key] = JSON.stringify(value, null, 2);
-            }
-          } else {
-            normalizedSamples[key] = String(value || '');
-          }
-        }
-        setSampleTexts(normalizedSamples);
-        toast.success('Đã tạo nội dung mẫu!');
-      }
-    } catch (err) {
-      console.error('Failed to generate samples:', err);
-      toast.error('Không thể tạo nội dung mẫu');
-    } finally {
-      setIsGeneratingSamples(false);
-    }
-  }, [brandName, brandPositioning, toneOfVoice, formalityLevel, allowEmoji, preferredWords, forbiddenWords]);
-
-  // Track pending samples to save after brand template is created
-  const [pendingSamples, setPendingSamples] = useState<Array<{
-    name: string;
-    sample_texts: Record<string, string>;
-    brand_positioning: string | null;
-    tone_of_voice: string[] | null;
-    formality_level: string | null;
-    language_style: string[] | null;
-    preferred_words: string[] | null;
-    forbidden_words: string[] | null;
-    allow_emoji: boolean;
-  }>>([]);
-
-  // Save current sample as a variant
-  const handleSaveSample = useCallback(async (customName: string) => {
-    if (!sampleTexts) {
-      toast.error('Vui lòng tạo mẫu trước');
-      return;
-    }
-
-    const sampleData = {
-      name: customName,
-      sample_texts: sampleTexts,
-      brand_positioning: brandPositioning || null,
-      tone_of_voice: toneOfVoice.length > 0 ? toneOfVoice : null,
-      formality_level: formalityLevel || null,
-      language_style: languageStyle.length > 0 ? languageStyle : null,
-      preferred_words: preferredWords.length > 0 ? preferredWords : null,
-      forbidden_words: forbiddenWords.length > 0 ? forbiddenWords : null,
-      allow_emoji: allowEmoji,
-    };
-
-    if (template?.id) {
-      const result = await createVariant({
-        name: customName,
-        brand_template_id: template.id,
-        is_control: variants.length === 0,
-        brand_positioning: sampleData.brand_positioning,
-        tone_of_voice: sampleData.tone_of_voice,
-        formality_level: sampleData.formality_level,
-        language_style: sampleData.language_style,
-        preferred_words: sampleData.preferred_words,
-        forbidden_words: sampleData.forbidden_words,
-        allow_emoji: sampleData.allow_emoji,
-        sample_texts: sampleTexts as ChannelSampleTexts,
-      });
-
-      if (result) {
-        setSampleTexts(null);
-        refetchVariants();
-      }
-    } else {
-      setPendingSamples(prev => [...prev, sampleData]);
-      setSampleTexts(null);
-      toast.success(`Đã lưu tạm "${customName}". Mẫu sẽ được lưu khi bạn hoàn tất tạo Brand Template.`);
-    }
-  }, [
-    sampleTexts,
-    template?.id,
-    variants.length,
-    brandPositioning,
-    toneOfVoice,
-    formalityLevel,
-    languageStyle,
-    preferredWords,
-    forbiddenWords,
-    allowEmoji,
-    createVariant,
-    refetchVariants,
-  ]);
-
-  const handleCompareVariants = useCallback((variantsToCompare: any[]) => {
-    setCompareVariants(variantsToCompare);
-    setShowCompareDialog(true);
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (currentStep !== TOTAL_STEPS) return;
@@ -409,8 +259,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       allow_emoji: allowEmoji,
       compliance_rules: complianceRules.length > 0 ? complianceRules : null,
       channel_overrides: Object.keys(channelOverrides).length > 0 ? channelOverrides : null,
-      content_pillars: contentPillars.length > 0 ? contentPillars : [],
-      sample_texts: sampleTexts,
+      content_pillars: [],
+      sample_texts: null,
       footer_info: footerInfo.company_name || footerInfo.phone || footerInfo.email ? footerInfo : null,
       mission: mission || null,
       vision: vision || null,
@@ -481,35 +331,6 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       }
     }
     
-    // Save pending samples
-    if (!template && result && typeof result === 'object' && 'id' in result && pendingSamples.length > 0) {
-      const newTemplateId = result.id;
-      
-      for (let i = 0; i < pendingSamples.length; i++) {
-        const sample = pendingSamples[i];
-        try {
-          await createVariant({
-            brand_template_id: newTemplateId,
-            name: sample.name,
-            is_control: i === 0,
-            brand_positioning: sample.brand_positioning,
-            tone_of_voice: sample.tone_of_voice,
-            formality_level: sample.formality_level,
-            language_style: sample.language_style,
-            preferred_words: sample.preferred_words,
-            forbidden_words: sample.forbidden_words,
-            allow_emoji: sample.allow_emoji,
-            sample_texts: sample.sample_texts as ChannelSampleTexts,
-          });
-        } catch (error) {
-          console.error(`Failed to save pending sample "${sample.name}":`, error);
-        }
-      }
-
-      toast.success(`Đã lưu ${pendingSamples.length} mẫu nội dung!`);
-      setPendingSamples([]);
-    }
-
     // Show toast to remind user to connect social accounts (for new brands only)
     if (!template && result && typeof result === 'object' && 'id' in result) {
       const newTemplateId = result.id;
@@ -677,55 +498,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
                 companyName={brandName}
                 tagline={tagline}
               />
-              
-              {/* Content Pillars Editor */}
-              <ContentPillarsEditor
-                pillars={contentPillars}
-                onChange={setContentPillars}
-              />
-              
-              {/* Quick Sample Generator with Rules */}
-              <QuickSampleGenerator
-                brandName={brandName}
-                brandPositioning={brandPositioning}
-                toneOfVoice={toneOfVoice}
-                formalityLevel={formalityLevel}
-                allowEmoji={allowEmoji}
-                preferredWords={preferredWords}
-                forbiddenWords={forbiddenWords}
-                channelOverrides={channelOverrides}
-                onSampleGenerated={(samples) => {
-                  setSampleTexts(samples);
-                }}
-              />
-
-              {/* Sample management */}
-              <SavedSamplesManager
-                variants={variants}
-                pendingSamples={pendingSamples}
-                brandName={brandName}
-                currentSampleTexts={sampleTexts}
-                isGenerating={isGeneratingSamples}
-                isNewBrand={!template?.id}
-                onGenerateSample={handleGenerateSample}
-                onSaveSample={handleSaveSample}
-                onDeleteVariant={deleteVariant}
-                onDeletePendingSample={(index) => {
-                  setPendingSamples(prev => prev.filter((_, i) => i !== index));
-                }}
-                onCompareVariants={handleCompareVariants}
-              />
             </div>
-          )}
-
-          {/* Compare Dialog */}
-          {showCompareDialog && compareVariants.length >= 2 && (
-            <VariantSampleComparison
-              open={showCompareDialog}
-              onOpenChange={setShowCompareDialog}
-              brandName={brandName}
-              variants={compareVariants}
-            />
           )}
 
           {/* Step 6: Brand Guideline (Final step) */}
