@@ -1026,6 +1026,142 @@ async function extractVbplToanVan(url: string): Promise<{ text: string; success:
 }
 
 /**
+ * Fetch HTML directly using native fetch (bypass Firecrawl)
+ * Used when Firecrawl times out or fails
+ */
+async function fetchHtmlDirectly(url: string): Promise<string | null> {
+  try {
+    console.log(`[parse-document] Fetching HTML directly: ${url}`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+        'Cache-Control': 'no-cache',
+      },
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const html = await response.text();
+      console.log(`[parse-document] Direct fetch got ${html.length} chars`);
+      return html;
+    }
+    
+    console.log(`[parse-document] Direct fetch failed: HTTP ${response.status}`);
+    return null;
+  } catch (error) {
+    console.log(`[parse-document] Direct fetch error:`, error);
+    return null;
+  }
+}
+
+/**
+ * Extract legal content from HTML using Lovable AI (Gemini 2.5 Flash)
+ * Used as fallback when Firecrawl fails or times out
+ */
+async function extractWithAI(html: string, url: string): Promise<{ text: string; success: boolean }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
+  if (!LOVABLE_API_KEY) {
+    console.log('[parse-document] LOVABLE_API_KEY not configured, skipping AI extraction');
+    return { text: '', success: false };
+  }
+  
+  try {
+    console.log(`[parse-document] AI extraction: sending ${Math.min(html.length, 100000)} chars to Gemini`);
+    
+    // Truncate HTML if too large (Gemini has context limits)
+    const truncatedHtml = html.length > 100000 ? html.substring(0, 100000) : html;
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash", // Fast + cost-effective for extraction
+        messages: [
+          {
+            role: "system",
+            content: `Bạn là chuyên gia trích xuất văn bản pháp luật Việt Nam.
+
+NHIỆM VỤ: Trích xuất toàn bộ nội dung văn bản pháp luật từ HTML, giữ nguyên cấu trúc và nội dung đầy đủ.
+
+PHẢI GIỮ LẠI:
+- Tiêu đề, số hiệu văn bản (VD: "NGHỊ ĐỊNH 15/2024/NĐ-CP")
+- Quốc hiệu: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+- Các Chương, Mục, Điều, Khoản, Điểm - với đầy đủ nội dung
+- Ngày ban hành, ngày hiệu lực
+- Cơ quan ban hành, người ký
+- Căn cứ ban hành
+- Nội dung chi tiết của từng Điều
+
+PHẢI LOẠI BỎ:
+- Menu điều hướng, sidebar, footer
+- Quảng cáo, banner, links điều hướng
+- CSS, JavaScript, HTML tags
+- Breadcrumb, metadata website
+- "Tìm kiếm", "Đăng nhập", "Trang chủ"
+- "Văn bản liên quan", "Download", "In"
+
+ĐỊNH DẠNG OUTPUT:
+- Text thuần túy, không markdown
+- Giữ nguyên xuống dòng tự nhiên
+- Các Điều, Khoản phải có dòng trống phân cách`
+          },
+          {
+            role: "user",
+            content: `Trích xuất nội dung văn bản pháp luật từ trang ${url}:\n\n${truncatedHtml}`
+          }
+        ],
+        max_tokens: 16000,
+        temperature: 0.1, // Low temperature for accurate extraction
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log(`[parse-document] AI extraction failed: HTTP ${response.status}`, errorText.slice(0, 200));
+      
+      // Handle rate limit or credits exhausted
+      if (response.status === 429 || response.status === 402) {
+        console.log(`[parse-document] AI rate limit or credits exhausted`);
+      }
+      
+      return { text: '', success: false };
+    }
+    
+    const data = await response.json();
+    const extractedText = data.choices?.[0]?.message?.content || '';
+    
+    console.log(`[parse-document] AI extraction got ${extractedText.length} chars`);
+    
+    // Validate extraction quality
+    const legalScore = detectLegalContent(extractedText);
+    
+    if (extractedText.length >= 500 && legalScore >= 5) {
+      console.log(`[parse-document] AI extraction success: ${extractedText.length} chars, legal score=${legalScore}`);
+      return { text: extractedText, success: true };
+    }
+    
+    console.log(`[parse-document] AI extraction quality too low: ${extractedText.length} chars, legal=${legalScore}`);
+    return { text: extractedText, success: extractedText.length >= 300 };
+    
+  } catch (error) {
+    console.log(`[parse-document] AI extraction error:`, error);
+    return { text: '', success: false };
+  }
+}
+
+/**
  * Multi-strategy PDF extraction configuration
  * Each strategy uses different Firecrawl parameters to maximize content extraction
  */
@@ -1433,9 +1569,58 @@ async function tryFirecrawlScrape(url: string): Promise<{
       }
     }
     
+    // === AI FALLBACK: Use Gemini to extract from raw HTML ===
+    console.log('[parse-document] Firecrawl strategies failed, trying AI extraction fallback');
+    const rawHtml = await fetchHtmlDirectly(url);
+    if (rawHtml && rawHtml.length > 1000) {
+      const aiResult = await extractWithAI(rawHtml, url);
+      if (aiResult.success && aiResult.text.length > 500) {
+        const legalScore = detectLegalContent(aiResult.text);
+        const sidebarPenalty = detectSidebarContent(aiResult.text);
+        
+        console.log(`[parse-document] AI extraction succeeded: ${aiResult.text.length} chars`);
+        return {
+          success: true,
+          text: aiResult.text,
+          debug: {
+            source: 'html',
+            strategy: 'ai_gemini_extraction',
+            textLength: aiResult.text.length,
+            legalScore,
+            sidebarPenalty,
+          },
+        };
+      }
+    }
+    
     return { success: false };
   } catch (error) {
     console.log('[parse-document] tryFirecrawlScrape error:', error);
+    
+    // === AI FALLBACK on error: Try native fetch + AI extraction ===
+    console.log('[parse-document] Attempting AI fallback after Firecrawl error');
+    try {
+      const rawHtml = await fetchHtmlDirectly(url);
+      if (rawHtml && rawHtml.length > 1000) {
+        const aiResult = await extractWithAI(rawHtml, url);
+        if (aiResult.success && aiResult.text.length > 500) {
+          return {
+            success: true,
+            text: aiResult.text,
+            debug: {
+              source: 'html',
+              strategy: 'ai_gemini_fallback_on_error',
+              textLength: aiResult.text.length,
+              legalScore: detectLegalContent(aiResult.text),
+              sidebarPenalty: detectSidebarContent(aiResult.text),
+            },
+          };
+        }
+      }
+    } catch (fallbackError) {
+      console.log('[parse-document] AI fallback also failed:', fallbackError);
+    }
+    
     return { success: false };
   }
 }
