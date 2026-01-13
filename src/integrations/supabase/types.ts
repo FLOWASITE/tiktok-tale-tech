@@ -4611,6 +4611,7 @@ export type Database = {
           node_key: string
           node_type: string
           parse_status: string | null
+          parsed_structure: Json | null
           properties: Json | null
           quality_breakdown: Json | null
           source_id: string | null
@@ -4636,6 +4637,7 @@ export type Database = {
           node_key: string
           node_type: string
           parse_status?: string | null
+          parsed_structure?: Json | null
           properties?: Json | null
           quality_breakdown?: Json | null
           source_id?: string | null
@@ -4661,6 +4663,7 @@ export type Database = {
           node_key?: string
           node_type?: string
           parse_status?: string | null
+          parsed_structure?: Json | null
           properties?: Json | null
           quality_breakdown?: Json | null
           source_id?: string | null
