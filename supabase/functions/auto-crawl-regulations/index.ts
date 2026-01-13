@@ -267,11 +267,11 @@ async function processSource(
 
 // Create propagation log for new regulation
           if (newNode) {
-            // Find affected pack based on category
+            // Find affected pack based on category_code
             const { data: affectedPack } = await supabase
               .from('industry_memory_packs')
               .select('id')
-              .or(`category.eq.${source.category},name.ilike.%${source.category}%`)
+              .or(`category_code.eq.${source.category},name.ilike.%${source.category}%`)
               .eq('is_active', true)
               .limit(1)
               .maybeSingle();
@@ -338,11 +338,11 @@ async function processSource(
           stats.updated_regulations++;
           stats.changes_detected++;
 
-// Find affected pack based on category
+// Find affected pack based on category_code
           const { data: affectedPack } = await supabase
             .from('industry_memory_packs')
             .select('id')
-            .or(`category.eq.${source.category},name.ilike.%${source.category}%`)
+            .or(`category_code.eq.${source.category},name.ilike.%${source.category}%`)
             .eq('is_active', true)
             .limit(1)
             .maybeSingle();
