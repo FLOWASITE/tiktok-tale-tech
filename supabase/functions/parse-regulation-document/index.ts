@@ -1230,7 +1230,7 @@ function trimTvplHeader(text: string): string {
  */
 function trimTvplFooter(text: string): string {
   // Strong footer start patterns - match these greedily to end
-  // v6: Added login warning, concurrency modal, and enhanced company footer patterns
+  // v7: Enhanced with lower position threshold (30%), more patterns, and final cleanup check
   const footerPatterns = [
     // === LOGIN/CONCURRENCY MODAL - highest priority ===
     /CẢNH BÁO ĐĂNG NHẬP[\s\S]*$/i,
@@ -1244,12 +1244,16 @@ function trimTvplFooter(text: string): string {
     /Quý khách đã đăng nhập quá nhiều lần[\s\S]*$/i,
     /\*\*Thoát\*\*\s*\*\*Đồng ý\*\*[\s\S]*$/i,
     /Thoát\s+Đồng ý[\s\S]*$/i,
+    /Quý khách có đồng ý không[\s\S]*$/i,
+    /để được đăng nhập[\s\S]*$/i,
+    /đăng nhập cùng lúc[\s\S]*$/i,
     
     // === reCAPTCHA blocks ===
     /protected by reCAPTCHA[\s\S]*$/i,
     /reCAPTCHA[\s\S]*Terms[\s\S]*$/i,
     /This site is protected[\s\S]*$/i,
     /Google Privacy Policy[\s\S]*$/i,
+    /Privacy Policy and Terms of Service[\s\S]*$/i,
     
     // === Company footer info ===
     /Chủ quản: Công ty[\s\S]*$/i,
@@ -1264,11 +1268,15 @@ function trimTvplFooter(text: string): string {
     /028 3930 3279[\s\S]*$/i,
     /\(028\)\s*3930[\s\S]*$/i,
     /Địa điểm Kinh Doanh[\s\S]*$/i,
+    /P\.\d+[A-Z]?\s*,\s*Tòa nhà[\s\S]*$/i,
+    /Công ty TNHH Thư Viện Pháp Luật[\s\S]*$/i,
+    /THƯ VIỆN PHÁP LUẬT\s*\n*Giấy phép[\s\S]*$/i,
     
     // === Notification/support blocks ===
     /##### Thông báo[\s\S]*$/i,
     /##### Thông báo\s*Bạn không có thông báo nào[\s\S]*$/i,
     /Hãy để chúng tôi hỗ trợ bạn![\s\S]*$/i,
+    /Chúng tôi sẽ liên hệ[\s\S]*$/i,
     
     // === Sidebar utility links ===
     /-\s*\[Tra cứu Văn bản\][\s\S]*$/i,
@@ -1277,6 +1285,8 @@ function trimTvplFooter(text: string): string {
     /-\s*\[Lịch Âm[\s\S]*$/i,
     /-\s*\[Giá Vàng[\s\S]*$/i,
     /-\s*\[Tra cứu[\s\S]*$/i,
+    /-\s*\[Thuật ngữ pháp lý\][\s\S]*$/i,
+    /-\s*\[Cộng đồng ngành luật\][\s\S]*$/i,
     
     // === Related content ===
     /Bài viết liên quan[\s\S]*$/i,
@@ -1287,17 +1297,47 @@ function trimTvplFooter(text: string): string {
   for (const pattern of footerPatterns) {
     const match = text.match(pattern);
     if (match && match.index !== undefined) {
-      // Lower threshold to 50% for more aggressive footer removal (was 60%)
-      if (match.index > text.length * 0.5 && match.index < latestCut) {
+      // Lower threshold to 30% for more aggressive footer removal (was 50%)
+      if (match.index > text.length * 0.3 && match.index < latestCut) {
         latestCut = match.index;
       }
     }
   }
   
-  if (latestCut < text.length) {
-    return text.substring(0, latestCut).trim();
+  let result = latestCut < text.length ? text.substring(0, latestCut).trim() : text;
+  
+  // === FINAL CHECK: Scan last 500 chars for any remaining hard artifacts ===
+  // This catches artifacts that might not match footer patterns exactly
+  const hardFooterMarkers = [
+    'Chủ quản:',
+    '028 3930 3279',
+    'Centre Point',
+    'reCAPTCHA',
+    'Hãy để chúng tôi hỗ trợ bạn!',
+    'CẢNH BÁO ĐĂNG NHẬP',
+    'Tài khoản của Quý Khách',
+    'Giấy phép số:',
+    'Công ty TNHH',
+    'Privacy Policy',
+    'Terms of Service',
+  ];
+  
+  if (result.length > 600) {
+    const last500 = result.substring(result.length - 500);
+    for (const marker of hardFooterMarkers) {
+      const markerPos = last500.indexOf(marker);
+      if (markerPos >= 0) {
+        // Find in full text and cut there
+        const fullTextPos = result.length - 500 + markerPos;
+        if (fullTextPos > result.length * 0.3) {
+          result = result.substring(0, fullTextPos).trim();
+          break; // One cut is enough
+        }
+      }
+    }
   }
-  return text;
+  
+  return result;
 }
 
 /**
@@ -2674,7 +2714,14 @@ function calculateContentQuality(text: string): ContentQualityResult {
       breakdown.artifact_penalty += matches.length * penalty;
     }
   }
-  score -= Math.min(breakdown.artifact_penalty, 50); // Cap at 50 penalty
+  
+  // v2: Increased artifact penalty cap from 50 to 70, plus hard clamps for severe artifacts
+  score -= Math.min(breakdown.artifact_penalty, 70);
+  
+  // v2: Hard clamp for severe artifact contamination
+  // If artifact_penalty > 100, cap overall at 80 max
+  // If artifact_penalty > 200, cap overall at 70 max
+  // This ensures heavily contaminated docs don't get "good" scores
 
   // Legal structure detection (positive)
   const legalPatterns = [
@@ -2727,6 +2774,13 @@ function calculateContentQuality(text: string): ContentQualityResult {
   }
   
   score = Math.min(100, score + breakdown.readability);
+  
+  // v2: Apply hard clamps for severe artifacts (AFTER all bonuses calculated)
+  if (breakdown.artifact_penalty > 200) {
+    score = Math.min(score, 70);
+  } else if (breakdown.artifact_penalty > 100) {
+    score = Math.min(score, 80);
+  }
 
   return {
     overall: Math.max(0, Math.min(100, Math.round(score))),
@@ -2737,7 +2791,7 @@ function calculateContentQuality(text: string): ContentQualityResult {
 /**
  * AI Post-Processing Clean - Uses AI to remove artifacts when quality is too low
  * Only triggered when content_quality_score < threshold
- * v5: Force AI clean for TVPL if artifacts present, even with good quality score
+ * v6: Force AI clean for TVPL if artifacts > 20, force use AI output for severe contamination
  */
 async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedText: string; wasProcessed: boolean }> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -2749,22 +2803,26 @@ async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedT
   
   // Pre-check quality - stricter threshold for TVPL
   const isTvpl = url.includes('thuvienphapluat.vn');
+  const isVbpl = url.includes('vbpl.vn');
+  const isChinhPhu = url.includes('chinhphu.vn');
   const qualityThreshold = isTvpl ? 90 : 85;
-  const artifactThreshold = isTvpl ? 10 : 15;
+  const artifactThreshold = isTvpl ? 15 : (isVbpl ? 20 : 25);
   
   const preCheck = calculateContentQuality(text);
-  console.log(`[parse-document] AI Post-Process: Pre-check quality=${preCheck.overall}, artifacts=${preCheck.breakdown.artifact_penalty}, isTVPL=${isTvpl}`);
+  console.log(`[parse-document] AI Post-Process: Pre-check quality=${preCheck.overall}, artifacts=${preCheck.breakdown.artifact_penalty}, source=${isTvpl ? 'TVPL' : (isVbpl ? 'VBPL' : 'other')}`);
   
-  // Force AI clean for TVPL if artifacts > 5, even if quality is "good"
-  const forceAiClean = isTvpl && preCheck.breakdown.artifact_penalty > 5;
+  // Force AI clean for sources with artifact threshold exceeded
+  const forceAiClean = preCheck.breakdown.artifact_penalty > artifactThreshold;
+  // Force USE AI output without comparison if artifacts are severe
+  const forceTakeAiOutput = preCheck.breakdown.artifact_penalty > 100;
   
-  if (!forceAiClean && preCheck.overall >= qualityThreshold && preCheck.breakdown.artifact_penalty < artifactThreshold) {
+  if (!forceAiClean && preCheck.overall >= qualityThreshold) {
     console.log('[parse-document] AI Post-Process: Quality already good, skipping');
     return { cleanedText: text, wasProcessed: false };
   }
   
   if (forceAiClean) {
-    console.log(`[parse-document] AI Post-Process: FORCE AI clean for TVPL (artifacts=${preCheck.breakdown.artifact_penalty})`);
+    console.log(`[parse-document] AI Post-Process: FORCE AI clean (artifacts=${preCheck.breakdown.artifact_penalty}, forceTake=${forceTakeAiOutput})`);
   }
   
   try {
@@ -2850,7 +2908,7 @@ KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã là
             content: `Làm sạch văn bản sau:\n\n${truncatedText}`
           }
         ],
-        max_completion_tokens: 16000,
+        max_completion_tokens: 24000, // Increased from 16000 for longer documents
         temperature: 0.1,
       }),
     });
@@ -2872,9 +2930,15 @@ KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã là
     const postCheck = calculateContentQuality(cleanedText);
     console.log(`[parse-document] AI Post-Process: Post-check quality=${postCheck.overall}, artifacts=${postCheck.breakdown.artifact_penalty}`);
     
+    // v6: Force take AI output if original has severe contamination (artifact_penalty > 100)
+    if (forceTakeAiOutput && cleanedText.length > text.length * 0.3) {
+      console.log(`[parse-document] AI Post-Process: FORCE taking AI output (severe artifacts in original: ${preCheck.breakdown.artifact_penalty})`);
+      return { cleanedText: cleanedText, wasProcessed: true };
+    }
+    
     // Only use cleaned version if it's actually better
-    if (postCheck.overall > preCheck.overall) {
-      console.log(`[parse-document] AI Post-Process: Improved quality ${preCheck.overall} -> ${postCheck.overall}`);
+    if (postCheck.overall > preCheck.overall || postCheck.breakdown.artifact_penalty < preCheck.breakdown.artifact_penalty * 0.5) {
+      console.log(`[parse-document] AI Post-Process: Improved quality ${preCheck.overall} -> ${postCheck.overall}, artifacts ${preCheck.breakdown.artifact_penalty} -> ${postCheck.breakdown.artifact_penalty}`);
       return { cleanedText: cleanedText, wasProcessed: true };
     } else {
       console.log('[parse-document] AI Post-Process: No improvement, keeping original');
