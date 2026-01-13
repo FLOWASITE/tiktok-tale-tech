@@ -132,6 +132,7 @@ export function CrawledContentViewer() {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [showBulkReparseDialog, setShowBulkReparseDialog] = useState(false);
+  const [parsingNodeId, setParsingNodeId] = useState<string | null>(null);
 
   const { 
     isReparsing, 
@@ -256,8 +257,13 @@ export function CrawledContentViewer() {
   };
 
   const handleSingleReparse = async (nodeId: string) => {
-    await reparseNode(nodeId);
-    refetch();
+    setParsingNodeId(nodeId);
+    try {
+      await reparseNode(nodeId);
+      refetch();
+    } finally {
+      setParsingNodeId(null);
+    }
   };
 
   const toggleExpand = (nodeId: string) => {
@@ -536,15 +542,15 @@ export function CrawledContentViewer() {
                                         e.stopPropagation();
                                         handleSingleReparse(node.id);
                                       }}
-                                      disabled={isReparsing}
+                                      disabled={parsingNodeId !== null}
                                       className={isDirty || node.parse_status === 'failed' ? "bg-amber-500 hover:bg-amber-600" : ""}
                                     >
-                                      {isReparsing ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      {parsingNodeId === node.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
                                       ) : (
                                         <RotateCcw className="h-3.5 w-3.5 mr-1" />
                                       )}
-                                      Parse
+                                      {parsingNodeId === node.id ? 'Đang parse...' : 'Parse'}
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
