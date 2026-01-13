@@ -13,6 +13,10 @@ import {
   AlertCircle,
   Database,
   Loader2,
+  Square,
+  Clock,
+  TrendingUp,
+  RotateCcw,
 } from 'lucide-react';
 import { useBatchEmbeddings } from '@/hooks/useBatchEmbeddings';
 
@@ -22,12 +26,14 @@ export function BatchEmbeddingsPanel() {
     isLoading,
     isProcessing,
     lastResult,
+    progress,
     fetchStatus,
     startBatch,
     runFullBatch,
+    stopBatch,
   } = useBatchEmbeddings();
 
-  const [batchSize, setBatchSize] = useState(50);
+  const [batchSize, setBatchSize] = useState(5);
 
   useEffect(() => {
     fetchStatus();
@@ -41,6 +47,15 @@ export function BatchEmbeddingsPanel() {
     await runFullBatch(batchSize);
   };
 
+  const formatTime = (ms: number | undefined): string => {
+    if (!ms || ms <= 0) return '--';
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(0)}s`;
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -51,14 +66,14 @@ export function BatchEmbeddingsPanel() {
               Batch Generate Embeddings
             </CardTitle>
             <CardDescription>
-              Tạo vector embeddings cho tất cả nodes để kích hoạt semantic search
+              Tạo vector embeddings cho tất cả nodes để kích hoạt semantic search (gte-small, 384 dims)
             </CardDescription>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={fetchStatus}
-            disabled={isLoading}
+            disabled={isLoading || isProcessing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -105,6 +120,54 @@ export function BatchEmbeddingsPanel() {
           </div>
         )}
 
+        {/* Real-time Progress (when running full batch) */}
+        {isProcessing && progress && (
+          <div className="space-y-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-sm flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Đang xử lý...
+              </span>
+              <Button variant="outline" size="sm" onClick={stopBatch}>
+                <Square className="h-3 w-3 mr-2" />
+                Dừng
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <span>Batch {progress.currentBatch}/{progress.totalBatches}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span>{progress.succeededNodes} thành công</span>
+              </div>
+              {progress.failedNodes > 0 && (
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <span>{progress.failedNodes} thất bại</span>
+                </div>
+              )}
+              {progress.retriedNodes > 0 && (
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4 text-amber-600" />
+                  <span>{progress.retriedNodes} retry</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span>Còn ~{formatTime(progress.estimatedRemainingMs)}</span>
+              </div>
+            </div>
+            
+            <Progress 
+              value={(progress.processedNodes / progress.totalNodes) * 100} 
+              className="h-1.5" 
+            />
+          </div>
+        )}
+
         {/* Batch Controls */}
         <div className="space-y-4 pt-4 border-t">
           <div className="flex items-end gap-4">
@@ -113,20 +176,22 @@ export function BatchEmbeddingsPanel() {
               <Input
                 id="batch-size"
                 type="number"
-                min={10}
-                max={100}
+                min={1}
+                max={10}
                 value={batchSize}
-                onChange={(e) => setBatchSize(Number(e.target.value))}
+                onChange={(e) => setBatchSize(Math.min(10, Math.max(1, Number(e.target.value))))}
                 className="mt-1"
+                disabled={isProcessing}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Số nodes xử lý mỗi batch (10-100)
+                Số nodes xử lý mỗi batch (1-10, khuyến nghị 5 để tránh timeout)
               </p>
             </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleRunBatch}
                 disabled={isProcessing || status?.nodes_pending === 0}
+                variant="outline"
               >
                 {isProcessing ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -152,9 +217,9 @@ export function BatchEmbeddingsPanel() {
         </div>
 
         {/* Last Result */}
-        {lastResult && (
+        {lastResult && !isProcessing && (
           <div className="space-y-2 pt-4 border-t">
-            <h4 className="font-medium text-sm">Kết quả batch gần nhất</h4>
+            <h4 className="font-medium text-sm">Kết quả gần nhất</h4>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">
                 Xử lý: {lastResult.processed}
@@ -162,6 +227,11 @@ export function BatchEmbeddingsPanel() {
               <Badge variant="default" className="bg-green-600">
                 Thành công: {lastResult.succeeded}
               </Badge>
+              {(lastResult.retried ?? 0) > 0 && (
+                <Badge variant="secondary">
+                  Retry: {lastResult.retried}
+                </Badge>
+              )}
               {lastResult.failed > 0 && (
                 <Badge variant="destructive">
                   Thất bại: {lastResult.failed}
@@ -169,7 +239,12 @@ export function BatchEmbeddingsPanel() {
               )}
               {lastResult.duration_ms > 0 && (
                 <Badge variant="secondary">
-                  {(lastResult.duration_ms / 1000).toFixed(1)}s
+                  {formatTime(lastResult.duration_ms)}
+                </Badge>
+              )}
+              {lastResult.avg_time_per_node_ms && (
+                <Badge variant="outline">
+                  ~{lastResult.avg_time_per_node_ms}ms/node
                 </Badge>
               )}
             </div>
