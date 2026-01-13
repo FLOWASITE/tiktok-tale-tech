@@ -1120,7 +1120,7 @@ async function extractTvplContent(url: string): Promise<{ text: string; success:
       }
       
       // Clean TVPL-specific artifacts
-      extractedText = cleanTvplContent(extractedText);
+      extractedText = cleanTvplContent(extractedText, url);
       
       const legalScore = detectLegalContent(extractedText);
       const sidebarPenalty = detectSidebarContent(extractedText);
@@ -1156,7 +1156,7 @@ async function extractTvplContent(url: string): Promise<{ text: string; success:
         let markdown = data.data?.markdown || '';
         
         // Clean TVPL artifacts from markdown
-        markdown = cleanTvplContent(markdown);
+        markdown = cleanTvplContent(markdown, url);
         markdown = cleanScrapedContent(markdown, url);
         
         const legalScore = detectLegalContent(markdown);
@@ -1178,13 +1178,96 @@ async function extractTvplContent(url: string): Promise<{ text: string; success:
 }
 
 /**
- * Clean TVPL-specific artifacts from extracted text
- * Enhanced v3: More aggressive artifact removal for mobile viewing
+ * Detect TVPL URL type for differentiated cleaning
  */
-function cleanTvplContent(text: string): string {
-  // TVPL-specific patterns to remove
+function detectTvplUrlType(url: string): 'analysis' | 'legal_document' {
+  const urlLower = url.toLowerCase();
+  // Bài viết phân tích (có tham vấn, bình luận)
+  if (urlLower.includes('/chinh-sach-phap-luat-moi/')) return 'analysis';
+  if (urlLower.includes('/ho-tro-phap-luat/')) return 'analysis';
+  if (urlLower.includes('/tin-tuc/')) return 'analysis';
+  if (urlLower.includes('/tham-khao/')) return 'analysis';
+  if (urlLower.includes('/an-le/')) return 'analysis';
+  // Văn bản gốc
+  return 'legal_document';
+}
+
+/**
+ * Trim TVPL header content - find where legal content actually starts
+ */
+function trimTvplHeader(text: string): string {
+  // Legal content start patterns (priority order)
+  const legalStartPatterns = [
+    /^#+\s*\*\*[^*]+\*\*$/m,  // ## **Luật Thuế...**
+    /CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i,
+    /^##\s+Quốc hội/m,
+    /^##\s+Chính phủ/m,
+    /^Điều\s+1\./m,
+    /QUYẾT ĐỊNH:/i,
+    /NGHỊ ĐỊNH:/i,
+    /THÔNG TƯ:/i,
+    /LUẬT\s+[A-ZĐÀẢÃÁẠÈẺẼÉẸ]/i,
+  ];
+  
+  let earliestPos = text.length;
+  for (const pattern of legalStartPatterns) {
+    const match = text.match(pattern);
+    if (match && match.index !== undefined && match.index < earliestPos) {
+      earliestPos = match.index;
+    }
+  }
+  
+  // Only trim if header is < 30% of content and we found a valid start
+  if (earliestPos > 0 && earliestPos < text.length * 0.3 && earliestPos < text.length) {
+    return text.substring(earliestPos);
+  }
+  return text;
+}
+
+/**
+ * Trim TVPL footer content - remove company info, licenses, etc.
+ */
+function trimTvplFooter(text: string): string {
+  const footerPatterns = [
+    /Chủ quản: Công ty[\s\S]*$/i,
+    /Giấy phép số:[\s\S]*$/i,
+    /##### Thông báo[\s\S]*$/i,
+    /Hãy để chúng tôi hỗ trợ bạn![\s\S]*$/i,
+    /-\s*\[Tra cứu Văn bản\][\s\S]*$/i,
+    /Chịu trách nhiệm chính:[\s\S]*$/i,
+    /Số điện thoại liên hệ:[\s\S]*$/i,
+    /Địa chỉ:.*Centre Point[\s\S]*$/i,
+    /Chứng nhận bản quyền[\s\S]*$/i,
+    /028 3930 3279[\s\S]*$/i,
+  ];
+  
+  let latestCut = text.length;
+  for (const pattern of footerPatterns) {
+    const match = text.match(pattern);
+    if (match && match.index !== undefined) {
+      // Only cut if footer appears after 70% of content
+      if (match.index > text.length * 0.7 && match.index < latestCut) {
+        latestCut = match.index;
+      }
+    }
+  }
+  
+  if (latestCut < text.length) {
+    return text.substring(0, latestCut).trim();
+  }
+  return text;
+}
+
+/**
+ * Clean TVPL-specific artifacts from extracted text
+ * Enhanced v4: Complete artifact removal for all TVPL content types
+ */
+function cleanTvplContent(text: string, url: string = ''): string {
+  const urlType = detectTvplUrlType(url);
+  
+  // TVPL-specific patterns to remove (comprehensive v4)
   const tvplRemovePatterns = [
-    // Login/Registration prompts
+    // === Login/Registration prompts ===
     /Bạn Chưa Đăng Nhập Thành Viên!/gi,
     /Đăng nhập\/Đăng ký\s*/gi,
     /Đăng nhập để xem/gi,
@@ -1193,17 +1276,17 @@ function cleanTvplContent(text: string): string {
     /Dùng tài khoản \*\*LawNet\*\*.*?Đăng ký mới\]/gis,
     /Dùng tài khoản LawNet.*?Đăng ký mới/gis,
     
-    // Copyright/ownership notices
+    // === Copyright/ownership notices ===
     /Bản dịch này thuộc quyền sở hữu của \*{4}\..*?trí tuệ\./gis,
     /Bản dịch này thuộc quyền sở hữu của.*?sở hữu trí tuệ\./gis,
     
-    // Branding
+    // === Branding ===
     /THƯ VIỆN PHÁP LUẬT/gi,
     /Mọi hành vi sao chép.*?vi phạm pháp luật/gi,
     /Copyright.*thuvienphapluat\.vn/gi,
     /©.*thuvienphapluat/gi,
     
-    // Navigation menu items (sidebar)
+    // === Header navigation links (markdown) ===
     /^\s*-\s*\[Pháp luật\].*$/gim,
     /^\s*-\s*\[Pháp luật vừa ban hành\].*$/gim,
     /^\s*-\s*\[Chính sách mới\].*$/gim,
@@ -1214,16 +1297,32 @@ function cleanTvplContent(text: string): string {
     /^\s*-\s*\[Biểu mẫu\].*$/gim,
     /^\s*-\s*\[Lĩnh vực Pháp luật\].*$/gim,
     /^\s*-\s*\[Chủ đề Pháp luật nổi bật\].*$/gim,
-    /^\s*-\s*\[Lịch Âm \d+\].*$/gim,
-    /^\s*-\s*\[Giá Vàng Hôm Nay\].*$/gim,
-    /^\s*-\s*\[Pháp luật về [^\]]+\].*$/gim,
     
-    // Quick search patterns
+    // === Sidebar utility links ===
+    /\[Lịch Âm \d+\]\([^)]+\)/gi,
+    /\[Giá Vàng[^\]]*\]\([^)]+\)/gi,
+    /\[Tra cứu[^\]]*\]\([^)]+\)/gi,
+    /\[Tìm kiếm[^\]]*luật sư\]\([^)]+\)/gi,
+    /\[Thuật\\?\n?ngữ pháp lý\]\([^)]+\)/gi,
+    /\[Bảng giá\\?\n?đất\]\([^)]+\)/gi,
+    /\[Cộng đồng ngành luật\]\([^)]+\)/gi,
+    /\[Biểu thuế WTO\]\([^)]+\)/gi,
+    /\[Tra cứu Văn bản\]\([^)]+\)/gi,
+    /\[Tra cứu Công văn\]\([^)]+\)/gi,
+    
+    // === Breadcrumb patterns ===
+    /\[Chính sách mới[^\]]*\]\([^)]+\)/gi,
+    /\[Pháp luật[^\]]*\]\([^)]+\)/gi,
+    /\[Pháp luật vừa ban hành\]\([^)]+\)/gi,
+    /^\s*\[[A-ZĐ][^\]]+\]\s*>>\s*\[[^\]]+\]\([^)]+\)/gim,
+    /Chính sách mới >> /gi,
+    
+    // === Quick search patterns ===
     /Tra cứu nhanh\s*:.*?\n/gi,
     /Từ khoá:.*?Văn Bản\.+/gis,
     /Văn bản PL.*?Dự thảo.*?Công văn.*?TCVN/gis,
     
-    // Action buttons/links
+    // === Action buttons/links ===
     /\[Hỏi đáp pháp luật\]/gi,
     /Download\s*(PDF|Word)/gi,
     /Chia sẻ:/gi,
@@ -1237,7 +1336,7 @@ function cleanTvplContent(text: string): string {
     /Xem thêm/gi,
     /Đọc thêm/gi,
     
-    // Document metadata (status, dates)
+    // === Document metadata (status, dates) ===
     /Văn bản liên quan/gi,
     /Văn bản đang xem/gi,
     /Đang cập nhật/gi,
@@ -1245,65 +1344,92 @@ function cleanTvplContent(text: string): string {
     /Cập nhật:[^\n]+/gi,
     /Hiệu lực:[^\n]+/gi,
     
-    // Contact info
+    // === Footer company info ===
+    /Chủ quản: Công ty[^\.]+\./gi,
+    /Giấy phép[^\.]+Sở TTTT[^\.]+\./gi,
+    /Giấy phép số:[^\.]+\./gi,
+    /Chịu trách nhiệm chính:[^\.]+/gi,
+    /Số điện thoại liên hệ:[^\n]+/gi,
+    /028 3930 3279/gi,
+    /Địa chỉ:[^;]+;/gi,
+    /Địa điểm Kinh Doanh:[^;]+;/gi,
+    /P\.\d+[A-Z]?\s*,\s*Centre Point[^;]+;/gi,
+    /Chứng nhận bản quyền[^\.]+\./gi,
+    /cấp bởi Bộ Văn hoá[^\.]+/gi,
+    
+    // === Interactive elements ===
+    /Hãy để chúng tôi hỗ trợ bạn!/gi,
+    /Bạn không có thông báo nào/gi,
+    /##### Thông báo/gi,
+    /reCAPTCHA/gi,
+    
+    // === Contact info ===
     /hotline:[^\n]+/gi,
     /\(028\)[^\n]+/gi,
     
-    // Social media
+    // === Social media ===
     /\[Facebook\]/gi,
     /\[Zalo\]/gi,
     /\[Print\]/gi,
     /\[Twitter\]/gi,
     
-    // Author/consultant info
-    /^Tham vấn bởi Luật sư \*\*[^*]+\*\*\s*\n/gm,
-    /^Chuyên viên pháp lý \*\*[^*]+\*\*\s*\n/gm,
-    /Tham vấn bởi Luật sư.*?\n/gi,
-    /Chuyên viên pháp lý.*?\n/gi,
-    
-    // Timestamps at wrong places
-    /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2} (AM|PM)\s*$/gim,
-    
-    // Empty image markdown with CDN URLs (including tooltip images)
-    /!\[.*?\]\(https?:\/\/cdn\.thuvienphapluat\.vn\/.*?\)/gi,
+    // === Image markdown (CDN and icons) ===
+    /!\[\]\(https:\/\/thuvienphapluat\.vn\/Images\/[^)]+\)/gi,
+    /!\[\]\(https?:\/\/cdn\.thuvienphapluat\.vn\/[^)]+\)/gi,
     /!\[Mục lục bài viết\].*$/gim,
+    /!\[[^\]]*\]\(https?:\/\/cdn\.thuvienphapluat\.vn[^)]+\)/gi,
     /!\[\]\([^)]+\)/g,
-    /\[!\[\]\([^)]+\)\]\([^)]+\)/g, // Nested empty image links
+    /\[!\[\]\([^)]+\)\]\([^)]+\)/g,
     
-    // Breadcrumb patterns
-    /\[Chính sách mới >> [^\]]+\]\([^)]+\)/gi,
-    /^\s*\[[A-ZĐ][^\]]+\]\s*>>\s*\[[^\]]+\]\([^)]+\)/gim,
-    
-    // Empty/malformed tables
+    // === Empty/malformed tables ===
     /\|\s*\|\s*\|\s*\|\s*\|\s*\|/g,
     /\|\s*---\s*\|\s*---\s*\|/g,
     /(\|\s*\|[\s\|]*\n)+/g,
     /\|\s*---[\s\|\-]+\n/g,
-    /^\|[\s\|]+\|$/gm, // Malformed table rows with only pipes
+    /^\|[\s\|]+\|$/gm,
     
-    // Menu-style lists (lines that are just links)
+    // === Menu-style lists ===
     /^-\s*\[[^\]]+\]\([^)]+\)\s*$/gim,
     /^\*\s*\[[^\]]+\]\([^)]+\)\s*$/gim,
     
-    // Rating/vote patterns
+    // === Rating/vote patterns ===
     /Bạn đánh giá.*?sao/gi,
     /\d+ lượt xem/gi,
     /\d+ lượt đánh giá/gi,
     
-    // Related articles at end
+    // === Related articles at end ===
     /Bài viết liên quan[\s\S]*?$/gi,
     /Xem thêm bài viết[\s\S]*?$/gi,
     
-    // Empty markdown headers
+    // === Empty markdown headers ===
     /^#+\s*$/gm,
     
-    // Table of contents patterns at start (mục lục)
+    // === Table of contents at start ===
     /^Mục lục[\s\S]*?(?=CỘNG HÒA|Điều 1|Chương I)/gi,
   ];
   
   let cleaned = text;
+  
+  // Apply all patterns
   for (const pattern of tvplRemovePatterns) {
     cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Apply header/footer trimming
+  cleaned = trimTvplHeader(cleaned);
+  cleaned = trimTvplFooter(cleaned);
+  
+  // === Analysis-specific cleaning ===
+  if (urlType === 'analysis') {
+    // Remove consultant/author info
+    cleaned = cleaned.replace(/^Tham vấn bởi Luật sư \*\*[^*]+\*\*\s*\n/gm, '');
+    cleaned = cleaned.replace(/^Chuyên viên pháp lý \*\*[^*]+\*\*\s*\n/gm, '');
+    cleaned = cleaned.replace(/Tham vấn bởi Luật sư[^\n]+\n/gi, '');
+    cleaned = cleaned.replace(/Chuyên viên pháp lý[^\n]+\n/gi, '');
+    
+    // Remove website timestamps
+    cleaned = cleaned.replace(/^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}\s*[AP]M\s*$/gim, '');
+    cleaned = cleaned.replace(/\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}\s*[AP]M\n/gi, '');
   }
   
   // Apply general markdown artifacts cleaner
@@ -2376,6 +2502,7 @@ interface ContentQualityResult {
 /**
  * Enhanced artifact patterns for comprehensive detection
  * Includes VBPL, chinhphu.vn, TVPL specific patterns
+ * v4: Comprehensive TVPL-specific patterns added
  */
 const COMPREHENSIVE_ARTIFACT_PATTERNS = [
   // Empty/broken image links
@@ -2385,6 +2512,7 @@ const COMPREHENSIVE_ARTIFACT_PATTERNS = [
   // Login/auth prompts
   { pattern: /Đăng nhập|Đăng ký|Tìm kiếm/gi, penalty: 3 },
   { pattern: /Bạn Chưa Đăng Nhập/gi, penalty: 5 },
+  { pattern: /Đăng nhập\/Đăng ký/gi, penalty: 5 },
   
   // Social media
   { pattern: /Facebook|Twitter|Youtube|Zalo/gi, penalty: 2 },
@@ -2432,8 +2560,23 @@ const COMPREHENSIVE_ARTIFACT_PATTERNS = [
   { pattern: /\[中文\]\([^)]+\)/g, penalty: 2 },
   { pattern: /!\[.*?quoc-huy\.png.*?\]/g, penalty: 5 },
   
-  // CDN URLs (TVPL)
+  // === TVPL specific patterns (v4) ===
   { pattern: /cdn\.thuvienphapluat\.vn/gi, penalty: 4 },
+  { pattern: /\[Lịch Âm \d+\]\([^)]+\)/gi, penalty: 4 },
+  { pattern: /\[Giá Vàng[^\]]*\]\([^)]+\)/gi, penalty: 4 },
+  { pattern: /\[Tra cứu[^\]]*\]\([^)]+\)/gi, penalty: 3 },
+  { pattern: /Chủ quản: Công ty/gi, penalty: 5 },
+  { pattern: /Giấy phép[^\.]+Sở TTTT/gi, penalty: 5 },
+  { pattern: /reCAPTCHA/gi, penalty: 5 },
+  { pattern: /Hãy để chúng tôi hỗ trợ bạn!/gi, penalty: 4 },
+  { pattern: /Tham vấn bởi Luật sư/gi, penalty: 3 },
+  { pattern: /Chuyên viên pháp lý/gi, penalty: 3 },
+  { pattern: /\[Thuật\\?\n?ngữ pháp lý\]\([^)]+\)/gi, penalty: 4 },
+  { pattern: /\[Cộng đồng ngành luật\]\([^)]+\)/gi, penalty: 4 },
+  { pattern: /028 3930 3279/gi, penalty: 4 },
+  { pattern: /Centre Point/gi, penalty: 4 },
+  { pattern: /Chính sách mới >> /gi, penalty: 3 },
+  { pattern: /\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}\s*[AP]M/gi, penalty: 3 },
   
   // Empty links
   { pattern: /\[\s*\]\([^)]+\)/g, penalty: 3 },
@@ -2528,7 +2671,8 @@ function calculateContentQuality(text: string): ContentQualityResult {
 
 /**
  * AI Post-Processing Clean - Uses AI to remove artifacts when quality is too low
- * Only triggered when content_quality_score < 85 or artifact_penalty > 15
+ * Only triggered when content_quality_score < threshold
+ * v4: Enhanced TVPL-specific prompt for better cleaning
  */
 async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedText: string; wasProcessed: boolean }> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -2538,11 +2682,15 @@ async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedT
     return { cleanedText: text, wasProcessed: false };
   }
   
-  // Pre-check quality - only process if needed
-  const preCheck = calculateContentQuality(text);
-  console.log(`[parse-document] AI Post-Process: Pre-check quality=${preCheck.overall}, artifacts=${preCheck.breakdown.artifact_penalty}`);
+  // Pre-check quality - stricter threshold for TVPL
+  const isTvpl = url.includes('thuvienphapluat.vn');
+  const qualityThreshold = isTvpl ? 90 : 85;
+  const artifactThreshold = isTvpl ? 10 : 15;
   
-  if (preCheck.overall >= 85 && preCheck.breakdown.artifact_penalty < 15) {
+  const preCheck = calculateContentQuality(text);
+  console.log(`[parse-document] AI Post-Process: Pre-check quality=${preCheck.overall}, artifacts=${preCheck.breakdown.artifact_penalty}, isTVPL=${isTvpl}`);
+  
+  if (preCheck.overall >= qualityThreshold && preCheck.breakdown.artifact_penalty < artifactThreshold) {
     console.log('[parse-document] AI Post-Process: Quality already good, skipping');
     return { cleanedText: text, wasProcessed: false };
   }
@@ -2553,18 +2701,42 @@ async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedT
     // Truncate if too large
     const truncatedText = text.length > 80000 ? text.substring(0, 80000) : text;
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash", // Fast + cheap for cleaning
-        messages: [
-          {
-            role: "system",
-            content: `NHIỆM VỤ: Làm sạch văn bản pháp luật Việt Nam.
+    // TVPL-specific system prompt with detailed artifact patterns
+    const tvplSystemPrompt = `NHIỆM VỤ: Làm sạch bài viết pháp luật từ ThưViệnPhápLuật.vn
+
+BẮT BUỘC LOẠI BỎ:
+- Header navigation: "Đăng nhập/Đăng ký", "[Pháp luật](...)", "- [Chính sách mới]"
+- Breadcrumbs: "[Chính sách mới >> ...]", "Chính sách mới >> "
+- Sidebar links: "[Lịch Âm 2026]", "[Giá Vàng Hôm Nay]", "[Tra cứu...]", "[Thuật ngữ pháp lý]"
+- Sidebar links: "[Cộng đồng ngành luật]", "[Bảng giá đất]", "[Biểu thuế WTO]"
+- Consultant info: "Tham vấn bởi Luật sư...", "Chuyên viên pháp lý..."
+- Website timestamps: "02/01/2026 06:31 AM", "dd/mm/yyyy hh:mm AM/PM"
+- All images: ![Mục lục bài viết](...), ![](https://cdn.thuvienphapluat.vn/...)
+- Footer: "Chủ quản: Công ty THƯ VIỆN PHÁP LUẬT", địa chỉ, giấy phép, "028 3930 3279"
+- Footer: "Centre Point", "Giấy phép số:", "Chịu trách nhiệm chính:", "Chứng nhận bản quyền"
+- Interactive: "reCAPTCHA", "Hãy để chúng tôi hỗ trợ bạn!", "##### Thông báo"
+- Utility links: "[Tra cứu Công văn]", "[Tìm kiếm luật sư]", "[Tra cứu Văn bản]"
+- Menu items: "- [Pháp luật](...)", "- [Tra cứu](...)", "- [Công cụ](...)"
+- Actions: "In văn bản", "So sánh văn bản", "Lưu vào danh sách", "Báo cáo sai sót"
+- Statistics: "X lượt xem", "X lượt đánh giá", "Bạn đánh giá...sao"
+- Empty tables: | | |, |---|---|
+- Related articles: "Bài viết liên quan...", "Xem thêm bài viết..."
+- All markdown links that are navigation: [Link text](url) on their own lines
+
+GIỮ LẠI NGUYÊN VẸN:
+- Tiêu đề văn bản pháp luật: "LUẬT THUẾ...", "NGHỊ ĐỊNH..."
+- Quốc hiệu: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+- Toàn bộ nội dung Điều, Khoản, Điểm, Chương, Mục
+- Thông tin cơ quan ban hành, người ký
+- Ngày hiệu lực, số hiệu văn bản
+- Căn cứ ban hành
+- Nội dung phân tích, bình luận (nếu là bài viết phân tích)
+- "Nơi nhận:", danh sách nơi nhận
+
+OUTPUT: Text thuần túy, không markdown, giữ nguyên xuống dòng và cấu trúc pháp lý.
+KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã làm sạch.`;
+
+    const genericSystemPrompt = `NHIỆM VỤ: Làm sạch văn bản pháp luật Việt Nam.
 
 BẮT BUỘC LOẠI BỎ:
 - Menu điều hướng, sidebar, breadcrumb
@@ -2586,7 +2758,20 @@ BẮT BUỘC GIỮ LẠI:
 - "Nơi nhận:", danh sách nơi nhận
 
 OUTPUT: Text thuần túy, giữ nguyên xuống dòng và cấu trúc pháp lý.
-KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã làm sạch.`
+KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã làm sạch.`;
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: isTvpl ? tvplSystemPrompt : genericSystemPrompt
           },
           {
             role: "user",
@@ -2594,7 +2779,7 @@ KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã là
           }
         ],
         max_completion_tokens: 16000,
-        temperature: 0.1, // Low temp for consistent cleaning
+        temperature: 0.1,
       }),
     });
     
