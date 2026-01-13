@@ -15,6 +15,7 @@ import {
   GraphAnalyticsDashboard
 } from "@/components/admin/knowledge-graph";
 import { RegulationSourcesPanel } from "@/components/admin/knowledge-graph/RegulationSourcesPanel";
+import { PropagationNotificationsBadge } from "@/components/admin/knowledge-graph/PropagationNotificationsBadge";
 import { RealtimeStatusIndicator } from "@/hooks/useRealtimeGraph";
 import type { KnowledgeNodeType, KnowledgeEdgeType } from "@/types/knowledgeGraph";
 
@@ -46,6 +47,11 @@ export default function AdminKnowledgeGraph() {
     setActiveTab("suggestions");
   }, []);
 
+  // Handle navigate to propagation tab
+  const handleNavigateToPropagation = useCallback(() => {
+    setActiveTab("regulations");
+  }, []);
+
   return (
     <div className="container py-6 space-y-6">
       {/* Header */}
@@ -63,6 +69,7 @@ export default function AdminKnowledgeGraph() {
         </div>
         
         <div className="flex items-center gap-3">
+          <PropagationNotificationsBadge onNavigateToPropagation={handleNavigateToPropagation} />
           <RealtimeStatusIndicator />
           <CreateNodeButton />
         </div>

@@ -249,6 +249,74 @@ export function useRegulationSources() {
     [updateSourceMutation]
   );
 
+  // Seed initial VN sources
+  const seedInitialSourcesMutation = useMutation({
+    mutationFn: async () => {
+      const vnSources = [
+        {
+          source_name: 'Văn bản Chính phủ - Thuế',
+          source_url: 'https://vanban.chinhphu.vn',
+          jurisdiction: 'VN',
+          category: 'tax',
+          search_query: 'Luật Quản lý thuế mới nhất site:vanban.chinhphu.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+        },
+        {
+          source_name: 'Văn bản Chính phủ - Quảng cáo',
+          source_url: 'https://vanban.chinhphu.vn',
+          jurisdiction: 'VN',
+          category: 'advertising',
+          search_query: 'Luật Quảng cáo site:vanban.chinhphu.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+        },
+        {
+          source_name: 'Văn bản Chính phủ - Đất đai',
+          source_url: 'https://vanban.chinhphu.vn',
+          jurisdiction: 'VN',
+          category: 'land',
+          search_query: 'Luật Đất đai 2024 site:vanban.chinhphu.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+        },
+      ];
+
+      // Check existing sources to avoid duplicates
+      const { data: existing } = await supabase
+        .from('regulation_sources')
+        .select('source_name');
+
+      const existingNames = new Set((existing || []).map((s: { source_name: string }) => s.source_name));
+      const toInsert = vnSources.filter(s => !existingNames.has(s.source_name));
+
+      if (toInsert.length === 0) {
+        return { inserted: 0, skipped: vnSources.length };
+      }
+
+      const { error } = await supabase
+        .from('regulation_sources')
+        .insert(toInsert);
+
+      if (error) throw error;
+      return { inserted: toInsert.length, skipped: vnSources.length - toInsert.length };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: regulationSourcesKeys.list() });
+      toast({
+        title: 'Seed hoàn tất',
+        description: `Đã thêm ${data.inserted} nguồn VN, bỏ qua ${data.skipped} nguồn đã tồn tại`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Lỗi Seed',
+        description: error instanceof Error ? error.message : 'Không thể seed dữ liệu',
+        variant: 'destructive',
+      });
+    },
+  });
+
   return {
     // Data
     sources,
@@ -261,6 +329,7 @@ export function useRegulationSources() {
     isCreating: createSourceMutation.isPending,
     isUpdating: updateSourceMutation.isPending,
     isDeleting: deleteSourceMutation.isPending,
+    isSeeding: seedInitialSourcesMutation.isPending,
     
     // Errors
     sourcesError,
@@ -272,6 +341,7 @@ export function useRegulationSources() {
     toggleSourceActive,
     triggerCrawl: triggerCrawlMutation.mutate,
     triggerCrawlAsync: triggerCrawlMutation.mutateAsync,
+    seedInitialSources: seedInitialSourcesMutation.mutate,
     
     // Refetch
     refetchSources,

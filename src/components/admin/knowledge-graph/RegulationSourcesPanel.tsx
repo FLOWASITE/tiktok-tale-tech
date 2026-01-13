@@ -7,7 +7,6 @@ import {
   Globe, 
   Plus, 
   Play, 
-  Pause, 
   Trash2, 
   RefreshCw, 
   Clock, 
@@ -17,20 +16,20 @@ import {
   ExternalLink,
   Calendar,
   Search,
-  Settings2,
   Loader2,
   History,
-  Zap
+  Zap,
+  Pencil,
+  Download,
+  AlertTriangle,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -66,7 +65,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useRegulationSources, RegulationSource, CrawlHistory } from '@/hooks/useRegulationSources';
+import { EditSourceDialog } from './EditSourceDialog';
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -126,16 +132,21 @@ export function RegulationSourcesPanel() {
     isLoadingHistory,
     isCrawling,
     isCreating,
+    isUpdating,
     isDeleting,
+    isSeeding,
     createSource,
+    updateSource,
     deleteSource,
     toggleSourceActive,
     triggerCrawl,
+    seedInitialSources,
     refetchSources,
     refetchHistory,
   } = useRegulationSources();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingSource, setEditingSource] = useState<RegulationSource | null>(null);
   const [formData, setFormData] = useState<AddSourceFormData>(initialFormData);
   const [selectedTab, setSelectedTab] = useState('sources');
 
@@ -149,12 +160,21 @@ export function RegulationSourcesPanel() {
     setFormData(initialFormData);
   };
 
+  const handleEditSource = (data: Partial<RegulationSource> & { id: string }) => {
+    updateSource(data);
+    setEditingSource(null);
+  };
+
   const handleCrawlAll = () => {
     triggerCrawl({ crawl_all: true });
   };
 
   const handleCrawlSingle = (sourceId: string) => {
     triggerCrawl({ source_id: sourceId });
+  };
+
+  const handleSeedSources = () => {
+    seedInitialSources();
   };
 
   const getStatusIcon = (status: CrawlHistory['status']) => {
@@ -191,6 +211,30 @@ export function RegulationSourcesPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {sources.length === 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSeedSources}
+                    disabled={isSeeding}
+                  >
+                    {isSeeding ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-1" />
+                    )}
+                    Seed VN
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Thêm 3 nguồn VN mặc định (Thuế, Quảng cáo, Đất đai)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -451,18 +495,39 @@ export function RegulationSourcesPanel() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCrawlSingle(source.id)}
-                          disabled={isCrawling || !source.is_active}
-                        >
-                          {isCrawling ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Play className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCrawlSingle(source.id)}
+                                disabled={isCrawling || !source.is_active}
+                              >
+                                {isCrawling ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Play className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Crawl ngay</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingSource(source)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Chỉnh sửa</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <Switch
                           checked={source.is_active}
                           onCheckedChange={(checked) => toggleSourceActive(source.id, checked)}
@@ -529,11 +594,23 @@ export function RegulationSourcesPanel() {
                   {crawlHistory.map((history) => {
                     const source = sources.find(s => s.id === history.source_id);
                     return (
-                      <TableRow key={history.id}>
+                      <TableRow key={history.id} className={history.status === 'failed' ? 'bg-destructive/5' : ''}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getStatusIcon(history.status)}
                             <span className="capitalize text-sm">{history.status}</span>
+                            {history.status === 'failed' && history.error_message && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <AlertTriangle className="h-3 w-3 text-destructive" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="text-xs">{history.error_message}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -586,6 +663,15 @@ export function RegulationSourcesPanel() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Source Dialog */}
+      <EditSourceDialog
+        source={editingSource}
+        open={!!editingSource}
+        onOpenChange={(open) => !open && setEditingSource(null)}
+        onSave={handleEditSource}
+        isLoading={isUpdating}
+      />
     </div>
   );
 }
