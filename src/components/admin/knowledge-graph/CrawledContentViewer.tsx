@@ -2,7 +2,7 @@
  * CrawledContentViewer - View crawled regulation content from Knowledge Graph nodes
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -12,19 +12,23 @@ import {
   Tag, 
   Globe, 
   Search,
-  Filter,
   RefreshCw,
   Loader2,
   ChevronDown,
   ChevronRight,
   Eye,
   Hash,
+  RotateCcw,
+  AlertTriangle,
+  CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -37,14 +41,23 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useReparseRegulations, hasHtmlLayoutArtifacts } from '@/hooks/useReparseRegulations';
 
 interface CrawledNode {
   id: string;
@@ -96,8 +109,19 @@ export function CrawledContentViewer() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [filterDirty, setFilterDirty] = useState<boolean>(false);
   const [selectedNode, setSelectedNode] = useState<CrawledNode | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
+  const [showBulkReparseDialog, setShowBulkReparseDialog] = useState(false);
+
+  const { 
+    isReparsing, 
+    reparseNode, 
+    reparseNodes, 
+    reparseAllWithArtifacts,
+    lastResult 
+  } = useReparseRegulations();
 
   // Fetch crawled nodes (regulations that were auto-crawled)
   const { data: crawledNodes = [], isLoading, refetch } = useQuery({
@@ -147,18 +171,76 @@ export function CrawledContentViewer() {
     return source?.source_name || sourceId.slice(0, 8) + '...';
   };
 
-  // Filter by search query
-  const filteredNodes = crawledNodes.filter(node => {
-    if (!searchQuery) return true;
-    const searchLower = searchQuery.toLowerCase();
-    const title = node.display_name?.vi || node.display_name?.en || node.node_key;
-    const desc = node.description?.vi || node.description?.en || '';
-    return title.toLowerCase().includes(searchLower) || desc.toLowerCase().includes(searchLower);
-  });
+  // Filter by search query and dirty status
+  const filteredNodes = useMemo(() => {
+    let nodes = crawledNodes;
+    
+    // Filter by dirty (HTML artifacts)
+    if (filterDirty) {
+      nodes = nodes.filter(node => hasHtmlLayoutArtifacts(node.full_text));
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      nodes = nodes.filter(node => {
+        const title = node.display_name?.vi || node.display_name?.en || node.node_key;
+        const desc = node.description?.vi || node.description?.en || '';
+        return title.toLowerCase().includes(searchLower) || desc.toLowerCase().includes(searchLower);
+      });
+    }
+    
+    return nodes;
+  }, [crawledNodes, searchQuery, filterDirty]);
+
+  // Count nodes with HTML artifacts
+  const dirtyNodesCount = useMemo(() => 
+    crawledNodes.filter(node => hasHtmlLayoutArtifacts(node.full_text)).length,
+    [crawledNodes]
+  );
 
   // Get unique jurisdictions and categories from data
   const uniqueJurisdictions = [...new Set(crawledNodes.map(n => n.properties?.jurisdiction).filter(Boolean))];
   const uniqueCategories = [...new Set(crawledNodes.map(n => n.properties?.category).filter(Boolean))];
+
+  // Toggle selection for bulk actions
+  const toggleSelectNode = (nodeId: string) => {
+    setSelectedNodeIds(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  };
+
+  const selectAllDirty = () => {
+    const dirtyIds = filteredNodes
+      .filter(n => hasHtmlLayoutArtifacts(n.full_text))
+      .map(n => n.id);
+    setSelectedNodeIds(new Set(dirtyIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedNodeIds(new Set());
+  };
+
+  const handleBulkReparse = async () => {
+    const ids = Array.from(selectedNodeIds);
+    if (ids.length === 0) return;
+    
+    await reparseNodes(ids);
+    setShowBulkReparseDialog(false);
+    clearSelection();
+    refetch();
+  };
+
+  const handleSingleReparse = async (nodeId: string) => {
+    await reparseNode(nodeId);
+    refetch();
+  };
 
   const toggleExpand = (nodeId: string) => {
     setExpandedNodes(prev => {
@@ -196,11 +278,70 @@ export function CrawledContentViewer() {
             Xem và quản lý các quy định đã được crawl tự động vào Knowledge Graph
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-          Làm mới
-        </Button>
+        <div className="flex items-center gap-2">
+          {selectedNodeIds.size > 0 && (
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => setShowBulkReparseDialog(true)}
+              disabled={isReparsing}
+            >
+              {isReparsing ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-1" />
+              )}
+              Re-parse ({selectedNodeIds.size})
+            </Button>
+          )}
+          {dirtyNodesCount > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={filterDirty ? "default" : "outline"} 
+                    size="sm" 
+                    onClick={() => setFilterDirty(!filterDirty)}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-1" />
+                    Cần re-parse ({dirtyNodesCount})
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Các văn bản chứa HTML layout cần được xử lý lại</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            Làm mới
+          </Button>
+        </div>
       </div>
+
+      {/* Bulk Actions Bar */}
+      {filterDirty && dirtyNodesCount > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <span className="text-sm flex-1">
+            <strong>{dirtyNodesCount}</strong> văn bản có nội dung HTML layout cần được re-parse với logic mới
+          </span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={selectAllDirty}
+            disabled={selectedNodeIds.size === dirtyNodesCount}
+          >
+            Chọn tất cả
+          </Button>
+          {selectedNodeIds.size > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearSelection}>
+              Bỏ chọn
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3">
@@ -268,13 +409,22 @@ export function CrawledContentViewer() {
               const isExpanded = expandedNodes.has(node.id);
               const title = node.display_name?.vi || node.display_name?.en || node.node_key;
               const description = node.description?.vi || node.description?.en;
+              const isDirty = hasHtmlLayoutArtifacts(node.full_text);
+              const isSelected = selectedNodeIds.has(node.id);
 
               return (
-                <Card key={node.id} className="overflow-hidden">
+                <Card key={node.id} className={`overflow-hidden ${isDirty ? 'border-amber-300 dark:border-amber-700' : ''}`}>
                   <Collapsible open={isExpanded} onOpenChange={() => toggleExpand(node.id)}>
                     <CollapsibleTrigger asChild>
                       <CardHeader className="py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors">
                         <div className="flex items-start gap-3">
+                          {/* Selection checkbox */}
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelectNode(node.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-1"
+                          />
                           <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 mt-0.5">
                             {isExpanded ? (
                               <ChevronDown className="h-4 w-4" />
@@ -290,6 +440,21 @@ export function CrawledContentViewer() {
                               <CardTitle className="text-sm font-medium line-clamp-1">
                                 {title}
                               </CardTitle>
+                              {isDirty && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-900/30 border-amber-300 text-amber-700 dark:text-amber-400">
+                                        <AlertTriangle className="h-3 w-3 mr-1" />
+                                        HTML Layout
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Nội dung chứa layout HTML, cần re-parse</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <Badge variant="outline" className="text-xs">
@@ -332,18 +497,46 @@ export function CrawledContentViewer() {
                               )}
                             </div>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedNode(node);
-                            }}
-                          >
-                            <Eye className="h-3.5 w-3.5 mr-1" />
-                            Xem
-                          </Button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Re-parse button for dirty nodes */}
+                            {(isDirty || node.parse_status === 'failed') && node.source_url && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSingleReparse(node.id);
+                                      }}
+                                      disabled={isReparsing}
+                                    >
+                                      {isReparsing ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <RotateCcw className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Re-parse với logic mới</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedNode(node);
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Xem
+                            </Button>
+                          </div>
                         </div>
                       </CardHeader>
                     </CollapsibleTrigger>
@@ -516,6 +709,66 @@ export function CrawledContentViewer() {
               </div>
             )}
           </ScrollArea>
+          {/* Re-parse button in detail dialog */}
+          {selectedNode && (hasHtmlLayoutArtifacts(selectedNode.full_text) || selectedNode.parse_status === 'failed') && selectedNode.source_url && (
+            <DialogFooter>
+              <Button 
+                onClick={() => {
+                  handleSingleReparse(selectedNode.id);
+                  setSelectedNode(null);
+                }}
+                disabled={isReparsing}
+              >
+                {isReparsing ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                )}
+                Re-parse văn bản này
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reparse Confirmation Dialog */}
+      <Dialog open={showBulkReparseDialog} onOpenChange={setShowBulkReparseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Re-parse {selectedNodeIds.size} văn bản
+            </DialogTitle>
+            <DialogDescription>
+              Các văn bản đã chọn sẽ được xử lý lại với logic extraction mới để loại bỏ HTML layout artifacts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <div className="text-sm">
+                <p className="font-medium">Sẽ thực hiện:</p>
+                <ul className="text-muted-foreground list-disc list-inside mt-1">
+                  <li>Tải lại nội dung từ nguồn gốc</li>
+                  <li>Áp dụng logic làm sạch HTML mới</li>
+                  <li>Cập nhật full_text trong database</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkReparseDialog(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleBulkReparse} disabled={isReparsing}>
+              {isReparsing ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-1" />
+              )}
+              Xác nhận Re-parse
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
