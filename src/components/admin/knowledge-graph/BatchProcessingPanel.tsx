@@ -99,11 +99,13 @@ export function BatchProcessingPanel() {
   const [selectedJobType, setSelectedJobType] = useState<string>('all');
   const [batchSize, setBatchSize] = useState<number>(10);
   const [isQualityReparsing, setIsQualityReparsing] = useState(false);
+  const [isTvplReparsing, setIsTvplReparsing] = useState(false);
   const [qualityReparseProgress, setQualityReparseProgress] = useState<{
     processed: number;
     total: number;
     avgBefore: number;
     avgAfter: number;
+    source?: string;
   } | null>(null);
 
   const { isReparsing, reparseNodes } = useReparseRegulations();
@@ -273,6 +275,58 @@ export function BatchProcessingPanel() {
       toast.error(`Lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsQualityReparsing(false);
+    }
+  };
+
+  // Start TVPL-specific reparse job
+  const handleTvplReparse = async () => {
+    try {
+      setIsTvplReparsing(true);
+      setQualityReparseProgress(null);
+      
+      toast.info(`Bắt đầu Reparse TVPL (${batchSize} nodes)...`);
+      
+      const response = await supabase.functions.invoke('reparse-with-quality', {
+        body: {
+          filter: {
+            source_domain: 'thuvienphapluat.vn',
+            limit: batchSize,
+          },
+          min_quality_threshold: 90, // Higher threshold for TVPL
+          dry_run: false,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Unknown error');
+      }
+
+      const result = response.data;
+      
+      if (result.success) {
+        setQualityReparseProgress({
+          processed: result.total_processed,
+          total: result.total_processed,
+          avgBefore: result.avg_quality_before || 0,
+          avgAfter: result.avg_quality_after || 0,
+          source: 'TVPL',
+        });
+        
+        const improved = result.improved || 0;
+        toast.success(
+          `TVPL Reparse hoàn thành! ${result.total_processed} nodes, ${improved} improved, Quality: ${result.avg_quality_before} → ${result.avg_quality_after}`
+        );
+      } else {
+        toast.error(result.error || 'Lỗi không xác định');
+      }
+      
+      refetchStats();
+      refetchJobs();
+    } catch (error) {
+      console.error('TVPL reparse error:', error);
+      toast.error(`Lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsTvplReparsing(false);
     }
   };
 
@@ -482,7 +536,7 @@ export function BatchProcessingPanel() {
               variant="default"
               size="sm"
               onClick={handleQualityReparse}
-              disabled={isQualityReparsing}
+              disabled={isQualityReparsing || isTvplReparsing}
               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
             >
               {isQualityReparsing ? (
@@ -491,6 +545,21 @@ export function BatchProcessingPanel() {
                 <Sparkles className="h-4 w-4 mr-1" />
               )}
               AI Quality Reparse
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTvplReparse}
+              disabled={isTvplReparsing || isQualityReparsing}
+              className="border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-purple-900/20"
+            >
+              {isTvplReparsing ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4 mr-1" />
+              )}
+              Reparse TVPL
             </Button>
           </div>
 

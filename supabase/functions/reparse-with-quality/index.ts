@@ -18,6 +18,7 @@ interface ReparseRequest {
     has_artifacts?: boolean;
     needs_ai_clean?: boolean;
     parse_status?: string;
+    source_domain?: string; // Filter by source domain: 'thuvienphapluat.vn', 'vbpl.vn', etc.
     limit?: number;
   };
   min_quality_threshold?: number; // Default 80
@@ -88,6 +89,11 @@ Deno.serve(async (req) => {
       if (filter.needs_ai_clean) {
         // Nodes with quality < 85 and high artifact penalty
         query = query.lt('content_quality_score', 85);
+      }
+      // Source domain filter for site-specific reparse
+      if (filter.source_domain) {
+        query = query.ilike('source_url', `%${filter.source_domain}%`);
+        console.log(`[reparse-quality] Filtering by source_domain: ${filter.source_domain}`);
       }
       if (filter.limit) {
         query = query.limit(filter.limit);
