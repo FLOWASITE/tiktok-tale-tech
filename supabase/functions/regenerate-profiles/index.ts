@@ -13,8 +13,11 @@ const corsHeaders = {
 
 interface RegenerateRequest {
   global_pack_id?: string;
+  globalPackId?: string; // Support camelCase from frontend
   jurisdiction_code?: string;
+  jurisdictionCode?: string; // Support camelCase from frontend
   regenerate_all?: boolean;
+  regenerateAll?: boolean; // Support camelCase from frontend
 }
 
 serve(async (req) => {
@@ -62,7 +65,10 @@ serve(async (req) => {
     }
 
     const body: RegenerateRequest = await req.json();
-    const { global_pack_id, jurisdiction_code, regenerate_all } = body;
+    // Support both snake_case and camelCase from frontend
+    const global_pack_id = body.global_pack_id || body.globalPackId;
+    const jurisdiction_code = body.jurisdiction_code || body.jurisdictionCode;
+    const regenerate_all = body.regenerate_all || body.regenerateAll;
 
     let regeneratedCount = 0;
     const errors: string[] = [];
