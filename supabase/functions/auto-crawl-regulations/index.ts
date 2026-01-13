@@ -265,10 +265,20 @@ async function processSource(
           stats.new_regulations++;
           stats.changes_detected++;
 
-          // Create propagation log for new regulation
+// Create propagation log for new regulation
           if (newNode) {
-            await supabase.from('regulation_propagation_log').insert({
+            // Find affected pack based on category
+            const { data: affectedPack } = await supabase
+              .from('industry_memory_packs')
+              .select('id')
+              .or(`category.eq.${source.category},name.ilike.%${source.category}%`)
+              .eq('is_active', true)
+              .limit(1)
+              .maybeSingle();
+
+            const { data: propagationLog } = await supabase.from('regulation_propagation_log').insert({
               source_node_id: newNode.id,
+              affected_pack_id: affectedPack?.id || null,
               change_type: 'new',
               change_summary: `New regulation detected: ${result.title}`,
               propagation_status: 'pending',
@@ -276,11 +286,29 @@ async function processSource(
               impact_analysis: {
                 auto_detected: true,
                 source: source.source_name,
+                source_id: source.id,
+                crawl_url: result.url,
                 disclaimer: source.jurisdiction === 'VN' 
                   ? '⚠️ Quy định này được phát hiện tự động và cần được xác minh bởi chuyên gia pháp lý trước khi áp dụng.'
                   : '⚠️ This regulation was auto-detected and requires verification by legal experts before application.',
               },
-            });
+            }).select('id').single();
+
+            // Trigger analyze-regulation-impact for new regulations
+            if (propagationLog && priority !== 'low') {
+              try {
+                await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/analyze-regulation-impact`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ propagation_id: propagationLog.id }),
+                });
+              } catch (e) {
+                console.log('[auto-crawl] analyze-regulation-impact trigger failed (non-blocking):', e);
+              }
+            }
           }
         }
       } else {
@@ -310,9 +338,19 @@ async function processSource(
           stats.updated_regulations++;
           stats.changes_detected++;
 
+// Find affected pack based on category
+          const { data: affectedPack } = await supabase
+            .from('industry_memory_packs')
+            .select('id')
+            .or(`category.eq.${source.category},name.ilike.%${source.category}%`)
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle();
+
           // Create propagation log for updated regulation
-          await supabase.from('regulation_propagation_log').insert({
+          const { data: propagationLog } = await supabase.from('regulation_propagation_log').insert({
             source_node_id: existingByUrl.id,
+            affected_pack_id: affectedPack?.id || null,
             change_type: 'updated',
             change_summary: `Regulation updated: ${result.title}`,
             propagation_status: 'pending',
@@ -320,13 +358,31 @@ async function processSource(
             impact_analysis: {
               auto_detected: true,
               source: source.source_name,
+              source_id: source.id,
+              crawl_url: result.url,
               previous_hash: existingByUrl.content_hash,
               new_hash: contentHash,
               disclaimer: source.jurisdiction === 'VN' 
                 ? '⚠️ Cập nhật quy định được phát hiện tự động và cần được xác minh.'
                 : '⚠️ Regulation update auto-detected and requires verification.',
             },
-          });
+          }).select('id').single();
+
+          // Trigger analyze-regulation-impact for updated regulations
+          if (propagationLog && priority !== 'low') {
+            try {
+              await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/analyze-regulation-impact`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ propagation_id: propagationLog.id }),
+              });
+            } catch (e) {
+              console.log('[auto-crawl] analyze-regulation-impact trigger failed (non-blocking):', e);
+            }
+          }
         } else {
           // Just update last_verified_at
           await supabase
