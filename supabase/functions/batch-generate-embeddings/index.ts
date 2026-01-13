@@ -244,7 +244,17 @@ async function processBatch(
   console.log(`[BatchEmbed] Processing ${nodes.length} nodes with retry enabled...`);
 
   // Process nodes sequentially to avoid model overload
+  // Track cumulative time to avoid CPU timeout (edge functions have ~400ms CPU limit)
+  const MAX_SAFE_TIME_MS = 8000; // Stop before 10s wall-clock to be safe
+  
   for (const node of nodes) {
+    // Early exit if approaching time limit
+    const elapsedMs = Date.now() - startTime;
+    if (elapsedMs > MAX_SAFE_TIME_MS) {
+      console.log(`[BatchEmbed] Approaching time limit (${elapsedMs}ms), stopping early`);
+      break;
+    }
+    
     processed++;
     const nodeId = node.id as string;
     const nodeStartTime = Date.now();
@@ -316,9 +326,10 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const body: BatchRequest = await req.json();
-    // Default batch size of 5 to avoid CPU timeout in edge functions
-    const { action, batch_size = 5, node_types } = body;
+const body: BatchRequest = await req.json();
+    // Default batch size of 3 to avoid CPU timeout in edge functions
+    // Edge functions have ~400ms CPU time limit - each embedding takes ~100-200ms
+    const { action, batch_size = 3, node_types } = body;
 
     console.log('[BatchEmbed] Action:', action, 'Batch size:', batch_size);
 
