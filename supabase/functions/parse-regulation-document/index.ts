@@ -1179,17 +1179,23 @@ async function extractTvplContent(url: string): Promise<{ text: string; success:
 
 /**
  * Clean TVPL-specific artifacts from extracted text
- * Enhanced v2: More aggressive artifact removal
+ * Enhanced v3: More aggressive artifact removal for mobile viewing
  */
 function cleanTvplContent(text: string): string {
   // TVPL-specific patterns to remove
   const tvplRemovePatterns = [
     // Login/Registration prompts
     /Bạn Chưa Đăng Nhập Thành Viên!/gi,
-    /Đăng nhập\/Đăng ký/gi,
+    /Đăng nhập\/Đăng ký\s*/gi,
     /Đăng nhập để xem/gi,
     /Xem văn bản đầy đủ/gi,
     /Click vào đây/gi,
+    /Dùng tài khoản \*\*LawNet\*\*.*?Đăng ký mới\]/gis,
+    /Dùng tài khoản LawNet.*?Đăng ký mới/gis,
+    
+    // Copyright/ownership notices
+    /Bản dịch này thuộc quyền sở hữu của \*{4}\..*?trí tuệ\./gis,
+    /Bản dịch này thuộc quyền sở hữu của.*?sở hữu trí tuệ\./gis,
     
     // Branding
     /THƯ VIỆN PHÁP LUẬT/gi,
@@ -1197,7 +1203,7 @@ function cleanTvplContent(text: string): string {
     /Copyright.*thuvienphapluat\.vn/gi,
     /©.*thuvienphapluat/gi,
     
-    // Navigation menu items
+    // Navigation menu items (sidebar)
     /^\s*-\s*\[Pháp luật\].*$/gim,
     /^\s*-\s*\[Pháp luật vừa ban hành\].*$/gim,
     /^\s*-\s*\[Chính sách mới\].*$/gim,
@@ -1206,6 +1212,16 @@ function cleanTvplContent(text: string): string {
     /^\s*-\s*\[Dịch vụ\].*$/gim,
     /^\s*-\s*\[Hỏi đáp\].*$/gim,
     /^\s*-\s*\[Biểu mẫu\].*$/gim,
+    /^\s*-\s*\[Lĩnh vực Pháp luật\].*$/gim,
+    /^\s*-\s*\[Chủ đề Pháp luật nổi bật\].*$/gim,
+    /^\s*-\s*\[Lịch Âm \d+\].*$/gim,
+    /^\s*-\s*\[Giá Vàng Hôm Nay\].*$/gim,
+    /^\s*-\s*\[Pháp luật về [^\]]+\].*$/gim,
+    
+    // Quick search patterns
+    /Tra cứu nhanh\s*:.*?\n/gi,
+    /Từ khoá:.*?Văn Bản\.+/gis,
+    /Văn bản PL.*?Dự thảo.*?Công văn.*?TCVN/gis,
     
     // Action buttons/links
     /\[Hỏi đáp pháp luật\]/gi,
@@ -1239,10 +1255,20 @@ function cleanTvplContent(text: string): string {
     /\[Print\]/gi,
     /\[Twitter\]/gi,
     
-    // Empty image markdown with CDN URLs
+    // Author/consultant info
+    /^Tham vấn bởi Luật sư \*\*[^*]+\*\*\s*\n/gm,
+    /^Chuyên viên pháp lý \*\*[^*]+\*\*\s*\n/gm,
+    /Tham vấn bởi Luật sư.*?\n/gi,
+    /Chuyên viên pháp lý.*?\n/gi,
+    
+    // Timestamps at wrong places
+    /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2} (AM|PM)\s*$/gim,
+    
+    // Empty image markdown with CDN URLs (including tooltip images)
     /!\[.*?\]\(https?:\/\/cdn\.thuvienphapluat\.vn\/.*?\)/gi,
     /!\[Mục lục bài viết\].*$/gim,
     /!\[\]\([^)]+\)/g,
+    /\[!\[\]\([^)]+\)\]\([^)]+\)/g, // Nested empty image links
     
     // Breadcrumb patterns
     /\[Chính sách mới >> [^\]]+\]\([^)]+\)/gi,
@@ -1256,6 +1282,7 @@ function cleanTvplContent(text: string): string {
     
     // Menu-style lists (lines that are just links)
     /^-\s*\[[^\]]+\]\([^)]+\)\s*$/gim,
+    /^\*\s*\[[^\]]+\]\([^)]+\)\s*$/gim,
   ];
   
   let cleaned = text;

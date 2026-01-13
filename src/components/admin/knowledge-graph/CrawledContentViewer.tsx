@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Sparkles,
+  Copy,
+  Maximize2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +46,12 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   Collapsible,
   CollapsibleContent,
@@ -133,6 +141,7 @@ export function CrawledContentViewer() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [showBulkReparseDialog, setShowBulkReparseDialog] = useState(false);
   const [parsingNodeId, setParsingNodeId] = useState<string | null>(null);
+  const [showFullTextSheet, setShowFullTextSheet] = useState(false);
 
   const { 
     isReparsing, 
@@ -666,42 +675,91 @@ export function CrawledContentViewer() {
         </ScrollArea>
       )}
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog - Mobile optimized */}
       <Dialog open={!!selectedNode} onOpenChange={() => setSelectedNode(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="w-[95vw] max-w-2xl h-[90vh] sm:h-auto sm:max-h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="text-xl">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <span className="text-lg sm:text-xl">
                 {getJurisdictionFlag(selectedNode?.properties?.jurisdiction)}
               </span>
-              {selectedNode?.display_name?.vi || selectedNode?.display_name?.en || 'Chi tiết'}
+              <span className="line-clamp-2">
+                {selectedNode?.display_name?.vi || selectedNode?.display_name?.en || 'Chi tiết'}
+              </span>
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 pr-2 sm:pr-4">
             {selectedNode && (
               <div className="space-y-4">
                 {/* Meta info */}
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{selectedNode.properties?.category}</Badge>
-                  <Badge variant="secondary">{selectedNode.properties?.jurisdiction}</Badge>
+                  <Badge variant="outline" className="text-xs">{selectedNode.properties?.category}</Badge>
+                  <Badge variant="secondary" className="text-xs">{selectedNode.properties?.jurisdiction}</Badge>
                   {selectedNode.properties?.auto_crawled && (
-                    <Badge variant="default" className="bg-blue-500">Auto-crawled</Badge>
+                    <Badge variant="default" className="bg-blue-500 text-xs">Auto-crawled</Badge>
+                  )}
+                  {selectedNode.parse_status && (
+                    <Badge 
+                      variant={selectedNode.parse_status === 'parsed' ? 'default' : 'destructive'} 
+                      className="text-xs"
+                    >
+                      {selectedNode.parse_status}
+                    </Badge>
                   )}
                 </div>
 
                 {/* Source URL */}
                 {selectedNode.source_url && (
-                  <div className="p-3 bg-muted rounded-lg">
+                  <div className="p-2 sm:p-3 bg-muted rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">URL Nguồn</p>
                     <a
                       href={selectedNode.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline break-all flex items-center gap-1"
+                      className="text-xs sm:text-sm text-primary hover:underline break-all flex items-start gap-1"
                     >
-                      <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                      {selectedNode.source_url}
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span className="line-clamp-2 sm:line-clamp-none">{selectedNode.source_url}</span>
                     </a>
+                  </div>
+                )}
+
+                {/* Full Text Content - NEW */}
+                {selectedNode.full_text && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FileText className="h-3.5 w-3.5" />
+                        Nội dung đã Parse ({selectedNode.full_text.length.toLocaleString()} ký tự)
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedNode.full_text || '');
+                          }}
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="h-7 px-2 text-xs sm:hidden"
+                          onClick={() => setShowFullTextSheet(true)}
+                        >
+                          <Maximize2 className="h-3 w-3 mr-1" />
+                          Mở rộng
+                        </Button>
+                      </div>
+                    </div>
+                    <ScrollArea className="h-[200px] sm:h-[300px]">
+                      <div className="text-xs bg-muted p-2 sm:p-3 rounded-lg whitespace-pre-wrap font-mono leading-relaxed">
+                        {selectedNode.full_text}
+                      </div>
+                    </ScrollArea>
                   </div>
                 )}
 
@@ -709,7 +767,7 @@ export function CrawledContentViewer() {
                 {selectedNode.extracted_data?.summary && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">📋 Tóm tắt AI</p>
-                    <p className="text-sm bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs sm:text-sm bg-muted/50 p-2 sm:p-3 rounded-lg">
                       {selectedNode.extracted_data.summary}
                     </p>
                     {selectedNode.extracted_data.confidence_score && (
@@ -724,7 +782,7 @@ export function CrawledContentViewer() {
                 {selectedNode.extracted_data?.key_changes && selectedNode.extracted_data.key_changes.length > 0 && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">🔄 Thay đổi chính</p>
-                    <ul className="text-sm list-disc list-inside space-y-1 bg-muted/50 p-3 rounded-lg">
+                    <ul className="text-xs sm:text-sm list-disc list-inside space-y-1 bg-muted/50 p-2 sm:p-3 rounded-lg">
                       {selectedNode.extracted_data.key_changes.map((change, i) => (
                         <li key={i}>{change}</li>
                       ))}
@@ -738,7 +796,7 @@ export function CrawledContentViewer() {
                     <p className="text-xs text-muted-foreground mb-1">⚠️ Hạn chế claim</p>
                     <div className="space-y-2">
                       {selectedNode.extracted_data.claim_restrictions.map((restriction, i) => (
-                        <div key={i} className="text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded border-l-2 border-red-500">
+                        <div key={i} className="text-xs sm:text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded border-l-2 border-red-500">
                           <p className="font-medium">{restriction.claim}</p>
                           <p className="text-xs text-muted-foreground">
                             Loại: {restriction.restriction_type}
@@ -753,21 +811,21 @@ export function CrawledContentViewer() {
                 {/* Description */}
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Mô tả</p>
-                  <p className="text-sm">
+                  <p className="text-xs sm:text-sm">
                     {selectedNode.description?.vi || selectedNode.description?.en || 'Không có mô tả'}
                   </p>
                 </div>
 
-                {/* Properties */}
+                {/* Properties - collapsible on mobile */}
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Thông tin chi tiết</p>
-                  <pre className="text-xs bg-muted p-3 rounded-lg overflow-auto max-h-40">
+                  <pre className="text-xs bg-muted p-2 sm:p-3 rounded-lg overflow-auto max-h-32 sm:max-h-40">
                     {JSON.stringify(selectedNode.properties, null, 2)}
                   </pre>
                 </div>
 
                 {/* Timestamps */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">Ngày tạo</p>
                     <p>{format(new Date(selectedNode.created_at), 'dd/MM/yyyy HH:mm')}</p>
@@ -789,15 +847,16 @@ export function CrawledContentViewer() {
                 {/* Node Key */}
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Node Key</p>
-                  <code className="text-xs bg-muted px-2 py-1 rounded">{selectedNode.node_key}</code>
+                  <code className="text-xs bg-muted px-2 py-1 rounded break-all">{selectedNode.node_key}</code>
                 </div>
               </div>
             )}
           </ScrollArea>
           {/* Re-parse button in detail dialog */}
           {selectedNode && (hasHtmlLayoutArtifacts(selectedNode.full_text) || selectedNode.parse_status === 'failed') && selectedNode.source_url && (
-            <DialogFooter>
+            <DialogFooter className="mt-2">
               <Button 
+                size="sm"
                 onClick={() => {
                   handleSingleReparse(selectedNode.id);
                   setSelectedNode(null);
@@ -815,6 +874,36 @@ export function CrawledContentViewer() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Full Text Sheet for Mobile */}
+      <Sheet open={showFullTextSheet} onOpenChange={setShowFullTextSheet}>
+        <SheetContent side="bottom" className="h-[85vh] flex flex-col">
+          <SheetHeader className="pb-2">
+            <SheetTitle className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Nội dung đã Parse
+              </span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedNode?.full_text || '');
+                }}
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copy
+              </Button>
+            </SheetTitle>
+          </SheetHeader>
+          <ScrollArea className="flex-1 mt-2">
+            <div className="text-xs font-mono whitespace-pre-wrap leading-relaxed p-2 bg-muted rounded-lg">
+              {selectedNode?.full_text}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
 
       {/* Bulk Reparse Confirmation Dialog */}
       <Dialog open={showBulkReparseDialog} onOpenChange={setShowBulkReparseDialog}>
