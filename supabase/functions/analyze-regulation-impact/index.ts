@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
           node_key, display_name, description, properties
         ),
         affected_pack:industry_global_packs!affected_pack_id(
-          industry_code, industry_name, compliance_rules
+          industry_code, global_compliance_rules
         )
       `)
       .eq('id', propagation_id)
@@ -163,8 +163,8 @@ ${propagation.source_node ? `
 
 ### Affected Industry Pack
 ${propagation.affected_pack ? `
-- Industry: ${propagation.affected_pack.industry_code} - ${JSON.stringify(propagation.affected_pack.industry_name)}
-- Current Compliance Rules: ${JSON.stringify(propagation.affected_pack.compliance_rules)}
+- Industry Code: ${propagation.affected_pack.industry_code}
+- Current Compliance Rules: ${JSON.stringify(propagation.affected_pack.global_compliance_rules)}
 ` : 'No affected pack details'}
 
 Please analyze this regulatory change and provide:
