@@ -460,8 +460,10 @@ async function extractPdfWithFirecrawl(pdfUrl: string): Promise<{ success: boole
       },
       body: JSON.stringify({
         url: pdfUrl,
-        // Request both markdown + html and keep whichever yields more content
-        formats: ['markdown', 'html'],
+        // Request multiple formats; PDFs can vary in what yields the most complete text
+        formats: ['markdown', 'html', 'rawHtml'],
+        // For PDFs we don't want any "main content" heuristics to drop annexes/appendices
+        onlyMainContent: false,
         timeout: 90000, // 90s timeout for large PDFs
       }),
     });
@@ -474,8 +476,9 @@ async function extractPdfWithFirecrawl(pdfUrl: string): Promise<{ success: boole
 
     const data = await response.json();
 
-    const markdown: string = data.data?.markdown || data.markdown || '';
-    const html: string = data.data?.html || data.html || '';
+    const markdown: string = (data.data?.markdown || data.markdown || '').toString();
+    const html: string = (data.data?.html || data.html || '').toString();
+    const rawHtml: string = (data.data?.rawHtml || data.rawHtml || '').toString();
 
     const stripHtml = (input: string) =>
       input
@@ -494,6 +497,7 @@ async function extractPdfWithFirecrawl(pdfUrl: string): Promise<{ success: boole
     const textCandidates = [
       { kind: 'markdown', text: markdown.trim() },
       { kind: 'html', text: stripHtml(html) },
+      { kind: 'rawHtml', text: stripHtml(rawHtml) },
     ].filter(c => c.text.length > 0);
 
     const best = textCandidates.sort((a, b) => b.text.length - a.text.length)[0];
