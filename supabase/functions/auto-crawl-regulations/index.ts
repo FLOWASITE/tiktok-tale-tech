@@ -551,12 +551,26 @@ async function processSource(
   const searchQuery = source.search_query || `${source.category} regulations site:${source.source_url}`;
   const lang = source.jurisdiction === 'VN' ? 'vi' : 'en';
 
-  // Execute search
-  const results = await searchWithFirecrawl(searchQuery, {
+  // Execute search (default: last month)
+  let results = await searchWithFirecrawl(searchQuery, {
     limit: 10,
     lang,
-    tbs: 'qdr:m', // Changed to last month for better coverage
+    tbs: 'qdr:m',
   });
+
+  // Fallback: broaden time range + relax overly-specific site paths (common for VBPL/LuatVietnam)
+  if (results.length === 0) {
+    const relaxedQuery = searchQuery.replace(/site:([^\s]+)/i, (_m, site) => {
+      const relaxedSite = String(site).replace(/\/(van-ban|TW\/Pages).*$/i, '');
+      return `site:${relaxedSite}`;
+    });
+
+    results = await searchWithFirecrawl(relaxedQuery, {
+      limit: 15,
+      lang,
+      tbs: 'qdr:y',
+    });
+  }
 
   stats.results_count = results.length;
   console.log(`[auto-crawl] Found ${results.length} results for ${source.source_name}`);
