@@ -249,7 +249,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: BatchRequest = await req.json();
-    const { action, batch_size = 50, node_types } = body;
+    // Reduced default batch size to 5 to avoid CPU timeout in edge functions
+    const { action, batch_size = 5, node_types } = body;
 
     console.log('[BatchEmbed] Action:', action, 'Batch size:', batch_size);
 
