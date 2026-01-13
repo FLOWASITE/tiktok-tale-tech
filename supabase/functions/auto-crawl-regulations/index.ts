@@ -372,10 +372,10 @@ async function scrapeVbplPdfPage(pdfPageUrl: string): Promise<string | null> {
       },
       body: JSON.stringify({
         url: pdfPageUrl,
-        formats: ['links', 'rawHtml'],
+        formats: ['links', 'rawHtml', 'markdown'],
         onlyMainContent: false,
-        waitFor: 2000,
-        timeout: 15000,
+        waitFor: 3000, // Wait longer for JS rendering
+        timeout: 20000,
       }),
     });
     
@@ -387,8 +387,9 @@ async function scrapeVbplPdfPage(pdfPageUrl: string): Promise<string | null> {
     const data = await response.json();
     const links: string[] = data.data?.links || [];
     const html: string = data.data?.rawHtml || '';
+    const markdown: string = data.data?.markdown || '';
     
-    // Find PDF or DOC download links
+    // === PRIORITY 1: Check links array for PDF/DOC ===
     for (const link of links) {
       if (link.match(/\.(pdf|docx?)$/i)) {
         console.log(`[auto-crawl] VBPL: Found document in links: ${link}`);
@@ -396,34 +397,76 @@ async function scrapeVbplPdfPage(pdfPageUrl: string): Promise<string | null> {
       }
     }
     
-    // Check HTML for embedded download links
-    const docMatch = html.match(/href=["']([^"']*\.(?:pdf|docx?))["']/i);
-    if (docMatch) {
-      let docUrl = docMatch[1];
-      if (docUrl.startsWith('/')) {
-        docUrl = `https://vbpl.vn${docUrl}`;
-      }
-      console.log(`[auto-crawl] VBPL: Found document in HTML: ${docUrl}`);
-      return docUrl;
-    }
-    
-    // Try to find download button/link pattern
-    const downloadPatterns = [
-      /href=["']([^"']*Download[^"']*\.(?:pdf|docx?)[^"']*)["']/i,
-      /href=["']([^"']*tailieu[^"']*\.(?:pdf|docx?)[^"']*)["']/i,
-      /href=["']([^"']*vanban[^"']*\.(?:pdf|docx?)[^"']*)["']/i,
+    // === PRIORITY 2: Find .signed.pdf pattern in HTML/markdown (common VBPL pattern) ===
+    // Pattern: 66qhm.signed.pdf or similar
+    const signedPdfPatterns = [
+      /href=["']([^"']*\.signed\.pdf)["']/i,
+      /href=["']([^"']*m\.signed\.pdf)["']/i,
+      /src=["']([^"']*\.signed\.pdf)["']/i,
+      // Look for filename mentions in text (VBPL shows filename as text near download icon)
+      /(\d+[a-z]*m?\.signed\.pdf)/i,
+      /([A-Za-z0-9_-]+\.signed\.pdf)/i,
     ];
     
-    for (const pattern of downloadPatterns) {
+    const allContent = html + ' ' + markdown;
+    for (const pattern of signedPdfPatterns) {
+      const match = allContent.match(pattern);
+      if (match && match[1]) {
+        let docUrl = match[1];
+        // Build absolute URL
+        if (!docUrl.startsWith('http')) {
+          // Extract ItemID from page URL to construct proper download path
+          const itemIdMatch = pdfPageUrl.match(/ItemID=(\d+)/i);
+          if (itemIdMatch) {
+            // VBPL PDF download pattern: /TW/Pages/File/... or similar
+            // Try common VBPL download paths
+            const tryPaths = [
+              `https://vbpl.vn/TW/Pages/File/${docUrl}`,
+              `https://vbpl.vn/botaichinh/Pages/File/${docUrl}`,
+              `https://vbpl.vn/TW/VBPQ/${docUrl}`,
+              `https://vbpl.vn/${docUrl}`,
+            ];
+            // Use first constructed path (will be validated by actual download)
+            docUrl = tryPaths[0];
+            console.log(`[auto-crawl] VBPL: Constructed PDF URL from filename: ${docUrl}`);
+          } else if (docUrl.startsWith('/')) {
+            docUrl = `https://vbpl.vn${docUrl}`;
+          } else {
+            docUrl = `https://vbpl.vn/${docUrl}`;
+          }
+        }
+        console.log(`[auto-crawl] VBPL: Found signed PDF: ${docUrl}`);
+        return docUrl;
+      }
+    }
+    
+    // === PRIORITY 3: Generic PDF/DOC patterns in HTML ===
+    const docPatterns = [
+      /href=["']([^"']*\.pdf)["']/i,
+      /href=["']([^"']*\.docx?)["']/i,
+      /href=["']([^"']*Download[^"']*ItemID=\d+[^"']*)["']/i,
+      /href=["']([^"']*tailieu[^"']*\.(?:pdf|docx?))["']/i,
+    ];
+    
+    for (const pattern of docPatterns) {
       const match = html.match(pattern);
       if (match) {
         let docUrl = match[1];
         if (docUrl.startsWith('/')) {
           docUrl = `https://vbpl.vn${docUrl}`;
+        } else if (!docUrl.startsWith('http')) {
+          docUrl = `https://vbpl.vn/${docUrl}`;
         }
         console.log(`[auto-crawl] VBPL: Found document via pattern: ${docUrl}`);
         return docUrl;
       }
+    }
+    
+    // === PRIORITY 4: Look for any PDF/DOC URL in content ===
+    const genericDocMatch = allContent.match(/(https?:\/\/[^"'\s<>]+\.(?:pdf|docx?))(?=["'\s<>]|$)/i);
+    if (genericDocMatch) {
+      console.log(`[auto-crawl] VBPL: Found document via generic pattern: ${genericDocMatch[1]}`);
+      return genericDocMatch[1];
     }
     
     console.log('[auto-crawl] VBPL: No document link found on PDF page');
