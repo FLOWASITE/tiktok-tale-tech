@@ -677,10 +677,10 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
       },
       body: JSON.stringify({
         url: pageUrl,
-        formats: ['links', 'rawHtml'],
+        formats: ['links', 'rawHtml', 'markdown'],
         onlyMainContent: false,
-        waitFor: 2000,
-        timeout: 15000,
+        waitFor: 3000, // Wait longer for JS rendering
+        timeout: 20000,
       }),
     });
     
@@ -692,8 +692,9 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
     const data = await response.json();
     const links: string[] = data.data?.links || [];
     const html: string = data.data?.rawHtml || '';
+    const markdown: string = data.data?.markdown || '';
     
-    // Find PDF or DOC download links in links array
+    // === PRIORITY 1: Check links array for PDF/DOC ===
     for (const link of links) {
       if (link.match(/\.(pdf|docx?)$/i)) {
         console.log(`[parse-document] VBPL: Found document in links: ${link}`);
@@ -701,15 +702,51 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
       }
     }
     
-    // Check HTML for embedded download links
-    const downloadPatterns = [
+    // === PRIORITY 2: Find .signed.pdf pattern in HTML/markdown (common VBPL pattern) ===
+    // Pattern: 66qhm.signed.pdf or similar - these appear as text near attachment icon
+    const signedPdfPatterns = [
+      /href=["']([^"']*\.signed\.pdf)["']/i,
+      /href=["']([^"']*m\.signed\.pdf)["']/i,
+      /src=["']([^"']*\.signed\.pdf)["']/i,
+      // Look for filename mentions in markdown/text (VBPL shows filename as text)
+      /(\d+[a-z]*m?\.signed\.pdf)/i,
+      /([A-Za-z0-9_-]+\.signed\.pdf)/i,
+    ];
+    
+    const allContent = html + ' ' + markdown;
+    for (const pattern of signedPdfPatterns) {
+      const match = allContent.match(pattern);
+      if (match && match[1]) {
+        let docUrl = match[1];
+        // Build absolute URL
+        if (!docUrl.startsWith('http')) {
+          // Extract ItemID from page URL to help construct paths
+          const itemIdMatch = pageUrl.match(/ItemID=(\d+)/i);
+          // Extract domain part from URL
+          const domainMatch = pageUrl.match(/(https:\/\/vbpl\.vn\/[^\/]+)/);
+          const baseDomain = domainMatch ? domainMatch[1] : 'https://vbpl.vn/TW';
+          
+          if (docUrl.startsWith('/')) {
+            docUrl = `https://vbpl.vn${docUrl}`;
+          } else {
+            // Try common VBPL download paths
+            docUrl = `${baseDomain}/Pages/File/${docUrl}`;
+          }
+        }
+        console.log(`[parse-document] VBPL: Found signed PDF: ${docUrl}`);
+        return docUrl;
+      }
+    }
+    
+    // === PRIORITY 3: Generic PDF/DOC patterns in HTML ===
+    const docPatterns = [
       /href=["']([^"']*\.pdf)["']/i,
       /href=["']([^"']*\.docx?)["']/i,
       /href=["']([^"']*Download[^"']*ItemID=\d+[^"']*)["']/i,
       /href=["']([^"']*tailieu[^"']*\.(?:pdf|docx?))["']/i,
     ];
     
-    for (const pattern of downloadPatterns) {
+    for (const pattern of docPatterns) {
       const match = html.match(pattern);
       if (match) {
         let docUrl = match[1];
@@ -718,13 +755,13 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
         } else if (!docUrl.startsWith('http')) {
           docUrl = `https://vbpl.vn/${docUrl}`;
         }
-        console.log(`[parse-document] VBPL: Found document in HTML: ${docUrl}`);
+        console.log(`[parse-document] VBPL: Found document via pattern: ${docUrl}`);
         return docUrl;
       }
     }
     
-    // Try to find any link containing .pdf or .doc
-    const genericDocMatch = html.match(/(https?:\/\/[^"'\s<>]+\.(?:pdf|docx?))(?=["'\s<>]|$)/i);
+    // === PRIORITY 4: Look for any PDF/DOC URL in content ===
+    const genericDocMatch = allContent.match(/(https?:\/\/[^"'\s<>]+\.(?:pdf|docx?))(?=["'\s<>]|$)/i);
     if (genericDocMatch) {
       console.log(`[parse-document] VBPL: Found document via generic pattern: ${genericDocMatch[1]}`);
       return genericDocMatch[1];
