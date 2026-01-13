@@ -5324,6 +5324,47 @@ export type Database = {
           },
         ]
       }
+      knowledge_graph_analytics: {
+        Row: {
+          created_at: string | null
+          duration_ms: number | null
+          id: string
+          organization_id: string | null
+          query_params: Json | null
+          query_type: string
+          result_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_ms?: number | null
+          id?: string
+          organization_id?: string | null
+          query_params?: Json | null
+          query_type: string
+          result_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_ms?: number | null
+          id?: string
+          organization_id?: string | null
+          query_params?: Json | null
+          query_type?: string
+          result_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_graph_analytics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_graph_cache: {
         Row: {
           cache_key: string
@@ -7586,6 +7627,14 @@ export type Database = {
           node_type: string
         }[]
       }
+      get_graph_health_summary: {
+        Args: never
+        Returns: {
+          metric_name: string
+          metric_value: number
+          status: string
+        }[]
+      }
       get_industry_regulations: {
         Args: { p_global_pack_id: string; p_include_inherited?: boolean }
         Returns: {
@@ -7595,6 +7644,16 @@ export type Database = {
           regulation_node_id: string
           regulation_properties: Json
           relationship_type: string
+        }[]
+      }
+      get_orphan_nodes: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          display_name: Json
+          node_id: string
+          node_key: string
+          node_type: string
         }[]
       }
       get_related_industries: {
@@ -7656,6 +7715,16 @@ export type Database = {
       is_org_member: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
+      }
+      log_knowledge_graph_query: {
+        Args: {
+          p_duration_ms?: number
+          p_organization_id?: string
+          p_query_params?: Json
+          p_query_type: string
+          p_result_count?: number
+        }
+        Returns: string
       }
       search_conversation_embeddings: {
         Args: {
