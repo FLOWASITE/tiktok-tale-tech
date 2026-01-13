@@ -1179,19 +1179,38 @@ async function extractTvplContent(url: string): Promise<{ text: string; success:
 
 /**
  * Clean TVPL-specific artifacts from extracted text
+ * Enhanced v2: More aggressive artifact removal
  */
 function cleanTvplContent(text: string): string {
   // TVPL-specific patterns to remove
   const tvplRemovePatterns = [
+    // Login/Registration prompts
     /Bạn Chưa Đăng Nhập Thành Viên!/gi,
+    /Đăng nhập\/Đăng ký/gi,
+    /Đăng nhập để xem/gi,
+    /Xem văn bản đầy đủ/gi,
+    /Click vào đây/gi,
+    
+    // Branding
     /THƯ VIỆN PHÁP LUẬT/gi,
     /Mọi hành vi sao chép.*?vi phạm pháp luật/gi,
+    /Copyright.*thuvienphapluat\.vn/gi,
+    /©.*thuvienphapluat/gi,
+    
+    // Navigation menu items
+    /^\s*-\s*\[Pháp luật\].*$/gim,
+    /^\s*-\s*\[Pháp luật vừa ban hành\].*$/gim,
+    /^\s*-\s*\[Chính sách mới\].*$/gim,
+    /^\s*-\s*\[Tra cứu\].*$/gim,
+    /^\s*-\s*\[Công cụ\].*$/gim,
+    /^\s*-\s*\[Dịch vụ\].*$/gim,
+    /^\s*-\s*\[Hỏi đáp\].*$/gim,
+    /^\s*-\s*\[Biểu mẫu\].*$/gim,
+    
+    // Action buttons/links
     /\[Hỏi đáp pháp luật\]/gi,
     /Download\s*(PDF|Word)/gi,
     /Chia sẻ:/gi,
-    /Văn bản liên quan/gi,
-    /Đang cập nhật/gi,
-    /Văn bản đang xem/gi,
     /Báo cáo sai sót/gi,
     /Lưu vào danh sách/gi,
     /In văn bản/gi,
@@ -1199,22 +1218,53 @@ function cleanTvplContent(text: string): string {
     /Tiện ích khác/gi,
     /Bản tiếng Anh/gi,
     /Văn bản gốc/gi,
+    /Xem thêm/gi,
+    /Đọc thêm/gi,
+    
+    // Document metadata (status, dates)
+    /Văn bản liên quan/gi,
+    /Văn bản đang xem/gi,
+    /Đang cập nhật/gi,
     /Tình trạng hiệu lực[^:]*:[^\n]+/gi,
     /Cập nhật:[^\n]+/gi,
     /Hiệu lực:[^\n]+/gi,
-    /Đăng nhập để xem/gi,
-    /Xem văn bản đầy đủ/gi,
-    /Click vào đây/gi,
+    
+    // Contact info
     /hotline:[^\n]+/gi,
     /\(028\)[^\n]+/gi,
-    /Copyright.*thuvienphapluat\.vn/gi,
-    /©.*thuvienphapluat/gi,
+    
+    // Social media
+    /\[Facebook\]/gi,
+    /\[Zalo\]/gi,
+    /\[Print\]/gi,
+    /\[Twitter\]/gi,
+    
+    // Empty image markdown with CDN URLs
+    /!\[.*?\]\(https?:\/\/cdn\.thuvienphapluat\.vn\/.*?\)/gi,
+    /!\[Mục lục bài viết\].*$/gim,
+    /!\[\]\([^)]+\)/g,
+    
+    // Breadcrumb patterns
+    /\[Chính sách mới >> [^\]]+\]\([^)]+\)/gi,
+    /^\s*\[[A-ZĐ][^\]]+\]\s*>>\s*\[[^\]]+\]\([^)]+\)/gim,
+    
+    // Empty/malformed tables
+    /\|\s*\|\s*\|\s*\|\s*\|\s*\|/g,
+    /\|\s*---\s*\|\s*---\s*\|/g,
+    /(\|\s*\|[\s\|]*\n)+/g,
+    /\|\s*---[\s\|\-]+\n/g,
+    
+    // Menu-style lists (lines that are just links)
+    /^-\s*\[[^\]]+\]\([^)]+\)\s*$/gim,
   ];
   
   let cleaned = text;
   for (const pattern of tvplRemovePatterns) {
     cleaned = cleaned.replace(pattern, '');
   }
+  
+  // Apply general markdown artifacts cleaner
+  cleaned = cleanMarkdownArtifacts(cleaned);
   
   // Clean up whitespace
   cleaned = cleaned
@@ -1224,6 +1274,71 @@ function cleanTvplContent(text: string): string {
     .trim();
   
   return cleaned;
+}
+
+/**
+ * Clean generic markdown artifacts from extracted text
+ * Removes images, empty tables, and navigation-style lists
+ */
+function cleanMarkdownArtifacts(text: string): string {
+  let cleaned = text;
+  
+  // Remove all image references completely (including tooltip images)
+  cleaned = cleaned.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
+  
+  // Remove empty or malformed tables
+  cleaned = cleaned.replace(/(\|\s*\|[\s\|]*\n)+/g, '\n');
+  cleaned = cleaned.replace(/\|\s*---[\s\|\-]+\n/g, '');
+  cleaned = cleaned.replace(/^\s*\|[\s\|]*\|\s*$/gm, '');
+  
+  // Remove navigation-style list items (just links with no content)
+  cleaned = cleaned.replace(/^-\s*\[[^\]]+\]\([^)]+\)\s*$/gim, '');
+  cleaned = cleaned.replace(/^\*\s*\[[^\]]+\]\([^)]+\)\s*$/gim, '');
+  
+  // Remove arrow tooltip images pattern
+  cleaned = cleaned.replace(/\[!\[]\(https?:\/\/[^\)]+\)\]\([^\)]+\)/g, '');
+  
+  // Remove standalone URLs on their own lines
+  cleaned = cleaned.replace(/^\s*https?:\/\/[^\s]+\s*$/gm, '');
+  
+  // Clean up excessive whitespace after removal
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  
+  return cleaned.trim();
+}
+
+/**
+ * Count artifacts in text to assess quality
+ * Higher count = more cleanup needed
+ */
+function countArtifacts(text: string): number {
+  let count = 0;
+  
+  // Count remaining image references
+  const imageMatches = text.match(/!\[[^\]]*\]\([^)]+\)/g);
+  if (imageMatches) count += imageMatches.length * 2;
+  
+  // Count empty table cells
+  const emptyTableMatches = text.match(/\|\s*\|\s*\|/g);
+  if (emptyTableMatches) count += emptyTableMatches.length;
+  
+  // Count navigation-style links on their own lines
+  const navLinkMatches = text.match(/^-\s*\[[^\]]+\]\([^)]+\)\s*$/gim);
+  if (navLinkMatches) count += navLinkMatches.length;
+  
+  // Count login/register prompts
+  const loginMatches = text.match(/đăng nhập|đăng ký|chưa đăng nhập/gi);
+  if (loginMatches) count += loginMatches.length * 3;
+  
+  // Count download/share buttons
+  const buttonMatches = text.match(/download|chia sẻ|lưu vào|in văn bản/gi);
+  if (buttonMatches) count += buttonMatches.length;
+  
+  // Count CDN image URLs
+  const cdnMatches = text.match(/cdn\.thuvienphapluat\.vn/gi);
+  if (cdnMatches) count += cdnMatches.length * 2;
+  
+  return count;
 }
 
 /**
@@ -1621,6 +1736,52 @@ async function tryFirecrawlScrape(url: string): Promise<{
   }
   
   try {
+    // === TVPL PRIORITY FIRST: Extract before trying other strategies ===
+    // ThưViệnPhápLuật.vn has clean HTML - parse directly for best results
+    if (url.includes('thuvienphapluat.vn')) {
+      console.log('[parse-document] TVPL: Detected ThưViệnPhápLuật.vn, using direct extraction FIRST');
+      const tvplResult = await extractTvplContent(url);
+      if (tvplResult.success && tvplResult.text.length > 500) {
+        const legalScore = detectLegalContent(tvplResult.text);
+        const sidebarPenalty = detectSidebarContent(tvplResult.text);
+        
+        // Additional quality check - reject if too many artifacts remain
+        const artifactCount = countArtifacts(tvplResult.text);
+        if (artifactCount > 15) {
+          console.log(`[parse-document] TVPL: Too many artifacts (${artifactCount}), trying AI extraction`);
+          const rawHtml = await fetchHtmlDirectly(url);
+          if (rawHtml && rawHtml.length > 1000) {
+            const aiResult = await extractWithAI(rawHtml, url);
+            if (aiResult.success && aiResult.text.length > 500) {
+              return {
+                success: true,
+                text: aiResult.text,
+                debug: {
+                  source: 'html',
+                  strategy: 'tvpl_ai_fallback',
+                  textLength: aiResult.text.length,
+                  legalScore: detectLegalContent(aiResult.text),
+                  sidebarPenalty: detectSidebarContent(aiResult.text),
+                },
+              };
+            }
+          }
+        }
+        
+        return {
+          success: true,
+          text: tvplResult.text,
+          debug: {
+            source: 'html',
+            strategy: 'tvpl_direct_priority',
+            textLength: tvplResult.text.length,
+            legalScore,
+            sidebarPenalty,
+          },
+        };
+      }
+    }
+    
     // First, try to find direct PDF link
     const pdfUrl = await findDirectPdfLink(url);
     if (pdfUrl) {
@@ -1751,24 +1912,7 @@ async function tryFirecrawlScrape(url: string): Promise<{
       };
     }
     
-    // === TVPL PRIORITY: ThưViệnPhápLuật.vn has easy HTML extraction ===
-    if (url.includes('thuvienphapluat.vn')) {
-      console.log('[parse-document] TVPL: Detected ThưViệnPhápLuật.vn, using direct extraction');
-      const tvplResult = await extractTvplContent(url);
-      if (tvplResult.success && tvplResult.text.length > 500) {
-        return {
-          success: true,
-          text: tvplResult.text,
-          debug: {
-            source: 'html',
-            strategy: 'tvpl_direct',
-            textLength: tvplResult.text.length,
-            legalScore: detectLegalContent(tvplResult.text),
-            sidebarPenalty: detectSidebarContent(tvplResult.text),
-          },
-        };
-      }
-    }
+    // Note: TVPL check moved to top of function for priority handling
     
     // === VBPL FALLBACK: Try toan-van extraction if other methods failed ===
     if (url.includes('vbpl.vn')) {
