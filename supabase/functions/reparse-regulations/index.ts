@@ -245,21 +245,44 @@ Deno.serve(async (req) => {
           });
           console.log(`[reparse-regulations] ✓ ${displayName}: ${textLengthBefore} → ${parseResult.text?.length || 0} chars`);
         } else {
-          // More detailed error logging
-          const errorReason = parseResult.error || 
-                             (parseResult.text?.length < 100 ? `Text too short: ${parseResult.text?.length} chars` : null) ||
-                             `Parse returned success=false (file_type: ${parseResult.file_type}, text_length: ${parseResult.text?.length || 0})`;
-          
-          results.failed++;
-          results.details.push({
-            node_id: node.id,
-            node_key: nodeKey,
-            status: 'failed',
-            reason: errorReason,
-            text_length_before: textLengthBefore,
-          });
-          console.log(`[reparse-regulations] ✗ ${displayName}: ${errorReason}`);
-          console.log(`[reparse-regulations] Full parse result:`, JSON.stringify(parseResult).slice(0, 500));
+          // VBPL can succeed via fallback (DB updated) even if the response indicates a download error.
+          // To avoid “false failed” UX, re-check the node once.
+          const { data: refreshed } = await supabase
+            .from('industry_knowledge_nodes')
+            .select('full_text, parse_status')
+            .eq('id', node.id)
+            .single();
+
+          const refreshedLen = refreshed?.full_text?.length || 0;
+          const isRecovered = refreshed?.parse_status === 'parsed' && refreshedLen > textLengthBefore + 200;
+
+          if (isRecovered) {
+            results.successful++;
+            results.details.push({
+              node_id: node.id,
+              node_key: nodeKey,
+              status: 'success',
+              text_length_before: textLengthBefore,
+              text_length_after: refreshedLen,
+            });
+            console.log(`[reparse-regulations] ✓ ${displayName}: recovered via fallback (${textLengthBefore} → ${refreshedLen} chars)`);
+          } else {
+            // More detailed error logging
+            const errorReason = parseResult.error ||
+              (parseResult.text?.length < 100 ? `Text too short: ${parseResult.text?.length} chars` : null) ||
+              `Parse returned success=false (file_type: ${parseResult.file_type}, text_length: ${parseResult.text?.length || 0})`;
+
+            results.failed++;
+            results.details.push({
+              node_id: node.id,
+              node_key: nodeKey,
+              status: 'failed',
+              reason: errorReason,
+              text_length_before: textLengthBefore,
+            });
+            console.log(`[reparse-regulations] ✗ ${displayName}: ${errorReason}`);
+            console.log(`[reparse-regulations] Full parse result:`, JSON.stringify(parseResult).slice(0, 500));
+          }
         }
       } catch (error) {
         results.failed++;

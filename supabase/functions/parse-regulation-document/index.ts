@@ -1471,15 +1471,14 @@ Deno.serve(async (req) => {
       console.log('[parse-document] Detected WopiFrame preview URL, extracting real file path...');
       const sourcedocMatch = url.match(/sourcedoc=([^&]+)/i);
       if (sourcedocMatch) {
-        const sourcedoc = decodeURIComponent(sourcedocMatch[1]);
-        console.log(`[parse-document] Sourcedoc path: ${sourcedoc}`);
-        
-        // Extract domain and file path from sourcedoc
-        const filePathMatch = sourcedoc.match(/\/([^\/]+)\/Lists\/vbpq\/Attachments\/(\d+)\/([^&\s]+)/i);
+        // IMPORTANT: sourcedoc is URL-encoded. Do NOT decode before extracting, otherwise spaces break regex matching.
+        const sourcedocEncoded = sourcedocMatch[1];
+        const filePathMatch = sourcedocEncoded.match(/\/?([^/]+)\/Lists\/vbpq\/Attachments\/(\d+)\/([^&]+)/i);
         if (filePathMatch) {
-          const [, extractedDomain, itemId, filename] = filePathMatch;
+          const [, extractedDomain, itemId, filenameEncoded] = filePathMatch;
+          const filename = encodeURIComponent(decodeURIComponent(filenameEncoded));
           targetUrl = `https://vbpl.vn/FileData/${extractedDomain}/Lists/vbpq/Attachments/${itemId}/${filename}`;
-          console.log(`[parse-document] Converted to FileData URL: ${targetUrl}`);
+          console.log(`[parse-document] Converted WopiFrame to FileData: ${targetUrl}`);
         }
       }
     }
@@ -1496,10 +1495,11 @@ Deno.serve(async (req) => {
         if (pdfUrl.includes('WopiFrame.aspx')) {
           const sourcedocMatch = pdfUrl.match(/sourcedoc=([^&]+)/i);
           if (sourcedocMatch) {
-            const sourcedoc = decodeURIComponent(sourcedocMatch[1]);
-            const filePathMatch = sourcedoc.match(/\/([^\/]+)\/Lists\/vbpq\/Attachments\/(\d+)\/([^&\s]+)/i);
+            const sourcedocEncoded = sourcedocMatch[1];
+            const filePathMatch = sourcedocEncoded.match(/\/?([^/]+)\/Lists\/vbpq\/Attachments\/(\d+)\/([^&]+)/i);
             if (filePathMatch) {
-              const [, extractedDomain, itemId, filename] = filePathMatch;
+              const [, extractedDomain, itemId, filenameEncoded] = filePathMatch;
+              const filename = encodeURIComponent(decodeURIComponent(filenameEncoded));
               pdfUrl = `https://vbpl.vn/FileData/${extractedDomain}/Lists/vbpq/Attachments/${itemId}/${filename}`;
               console.log(`[parse-document] Converted WopiFrame to FileData: ${pdfUrl}`);
             }
@@ -1704,7 +1704,9 @@ Deno.serve(async (req) => {
     
     // Optionally update the knowledge node directly
     if (node_id && result.success) {
-      await updateKnowledgeNode(node_id, targetUrl, result);
+      // If we ended up using HTML/toan-van fallback, keep the original page URL as document_url
+      const documentUrlForNode = result.file_type === 'html' ? url : targetUrl;
+      await updateKnowledgeNode(node_id, documentUrlForNode, result);
     }
     
     return new Response(
