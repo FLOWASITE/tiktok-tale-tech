@@ -1077,7 +1077,9 @@ Deno.serve(async (req) => {
     // POST - Trigger crawl
     if (method === 'POST') {
       const body = await req.json().catch(() => ({}));
-      const { source_id, crawl_all = false } = body;
+      const { source_id, crawl_all } = body;
+      
+      console.log('[auto-crawl] Request params:', { source_id, crawl_all });
 
       // Get sources to crawl
       let sourcesQuery = supabase
@@ -1085,8 +1087,12 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('is_active', true);
 
-      if (source_id && !crawl_all) {
+      // Only crawl specific source if source_id provided AND crawl_all is not explicitly true
+      if (source_id && crawl_all !== true) {
+        console.log('[auto-crawl] Filtering to single source:', source_id);
         sourcesQuery = sourcesQuery.eq('id', source_id);
+      } else {
+        console.log('[auto-crawl] Crawling all active sources');
       }
 
       const { data: sources, error: sourcesError } = await sourcesQuery;
