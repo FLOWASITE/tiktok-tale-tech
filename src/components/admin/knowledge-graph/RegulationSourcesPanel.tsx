@@ -273,7 +273,7 @@ export function RegulationSourcesPanel() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <TooltipProvider>
+                <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -287,11 +287,11 @@ export function RegulationSourcesPanel() {
                   ) : (
                     <Download className="h-4 w-4 mr-1" />
                   )}
-                  Seed VBPL.VN
+                  Seed VN Sources
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Thêm nguồn VBPL.VN ưu tiên (dễ download PDF/DOC, không CAPTCHA)</p>
+                <p>Thêm nguồn VBPL.VN + ThưViệnPhápLuật.vn (HTML dễ parse, không CAPTCHA)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

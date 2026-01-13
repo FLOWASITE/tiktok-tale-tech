@@ -486,6 +486,51 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
     }
   }
   
+  // Site-specific cleaning for thuvienphapluat.vn (TVPL)
+  if (sourceUrl.includes('thuvienphapluat.vn')) {
+    const tvplRemovePatterns = [
+      /Bạn Chưa Đăng Nhập Thành Viên!/gi,
+      /THƯ VIỆN PHÁP LUẬT/gi,
+      /Mọi hành vi sao chép.*?vi phạm pháp luật/gi,
+      /\[Hỏi đáp pháp luật\]/gi,
+      /Download\s*(PDF|Word)/gi,
+      /Chia sẻ:/gi,
+      /Văn bản liên quan/gi,
+      /Đang cập nhật/gi,
+      /Văn bản đang xem/gi,
+      /Báo cáo sai sót/gi,
+      /Lưu vào danh sách/gi,
+      /In văn bản/gi,
+      /So sánh văn bản/gi,
+      /Tiện ích khác/gi,
+      /Bản tiếng Anh/gi,
+      /Văn bản gốc/gi,
+      /Tình trạng hiệu lực[^:]*:[^\n]+/gi,
+      /Đăng nhập để xem/gi,
+      /Xem văn bản đầy đủ/gi,
+      /Click vào đây/gi,
+      /hotline:[^\n]+/gi,
+      /\(028\)[^\n]+/gi,
+      /Copyright.*thuvienphapluat\.vn/gi,
+      /©.*thuvienphapluat/gi,
+      /Xem thêm/gi,
+      /Đọc thêm/gi,
+    ];
+    
+    for (const pattern of tvplRemovePatterns) {
+      cleaned = cleaned.replace(pattern, '');
+    }
+    
+    // Try to extract main legal content section
+    const legalStartMatch = cleaned.match(/(CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM|QUYẾT ĐỊNH:|THÔNG TƯ:|NGHỊ ĐỊNH:|LUẬT:)/i);
+    if (legalStartMatch && legalStartMatch.index !== undefined) {
+      const beforeContent = cleaned.substring(0, legalStartMatch.index);
+      if (beforeContent.length < cleaned.length * 0.3) {
+        cleaned = cleaned.substring(legalStartMatch.index);
+      }
+    }
+  }
+  
   // Try to extract main content between document markers - but be careful not to lose content
   const mainContentMarkers = [
     // Vietnamese legal document markers
@@ -1026,6 +1071,162 @@ async function extractVbplToanVan(url: string): Promise<{ text: string; success:
 }
 
 /**
+ * Extract full text content from ThưViệnPhápLuật.vn (TVPL)
+ * TVPL provides clean HTML full text - easier to parse than PDF sources
+ */
+async function extractTvplContent(url: string): Promise<{ text: string; success: boolean }> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  
+  try {
+    console.log(`[parse-document] TVPL: Extracting content from: ${url}`);
+    
+    // TVPL has good HTML structure - try direct fetch first (faster)
+    const directHtml = await fetchHtmlDirectly(url);
+    
+    if (directHtml && directHtml.length > 1000) {
+      let extractedText = '';
+      
+      // TVPL-specific content selectors (priority order)
+      const tvplContentPatterns = [
+        // Main content div - most reliable
+        /<div[^>]*class="[^"]*content1[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class="[^"]*(?:footer|sidebar|menu)/gi,
+        /<div[^>]*id="[^"]*noidung[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        /<div[^>]*class="[^"]*noidungvb[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        /<div[^>]*class="[^"]*div-text[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        /<div[^>]*class="[^"]*fulltext[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        // Article content
+        /<article[^>]*>([\s\S]*?)<\/article>/gi,
+      ];
+      
+      for (const pattern of tvplContentPatterns) {
+        const matches = directHtml.matchAll(pattern);
+        for (const match of matches) {
+          if (match[1] && match[1].length > extractedText.length) {
+            // Clean HTML tags and extract text
+            extractedText = match[1]
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<[^>]+>/g, '\n')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"')
+              .replace(/&#\d+;/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+          }
+        }
+      }
+      
+      // Clean TVPL-specific artifacts
+      extractedText = cleanTvplContent(extractedText);
+      
+      const legalScore = detectLegalContent(extractedText);
+      const sidebarPenalty = detectSidebarContent(extractedText);
+      
+      console.log(`[parse-document] TVPL: Direct extraction got ${extractedText.length} chars, legal=${legalScore}, sidebar=${sidebarPenalty}`);
+      
+      if (extractedText.length >= 1000 && legalScore >= 5 && sidebarPenalty < 15) {
+        return { text: extractedText, success: true };
+      }
+    }
+    
+    // Fallback: Use Firecrawl for JS-rendered content
+    if (apiKey) {
+      console.log('[parse-document] TVPL: Trying Firecrawl scrape');
+      
+      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url,
+          formats: ['markdown', 'html'],
+          onlyMainContent: true,
+          waitFor: 3000,
+          timeout: 30000,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        let markdown = data.data?.markdown || '';
+        
+        // Clean TVPL artifacts from markdown
+        markdown = cleanTvplContent(markdown);
+        markdown = cleanScrapedContent(markdown, url);
+        
+        const legalScore = detectLegalContent(markdown);
+        const sidebarPenalty = detectSidebarContent(markdown);
+        
+        console.log(`[parse-document] TVPL: Firecrawl got ${markdown.length} chars, legal=${legalScore}`);
+        
+        if (markdown.length >= 800 && legalScore >= 5) {
+          return { text: markdown, success: true };
+        }
+      }
+    }
+    
+    return { text: '', success: false };
+  } catch (error) {
+    console.log('[parse-document] TVPL: extractTvplContent error:', error);
+    return { text: '', success: false };
+  }
+}
+
+/**
+ * Clean TVPL-specific artifacts from extracted text
+ */
+function cleanTvplContent(text: string): string {
+  // TVPL-specific patterns to remove
+  const tvplRemovePatterns = [
+    /Bạn Chưa Đăng Nhập Thành Viên!/gi,
+    /THƯ VIỆN PHÁP LUẬT/gi,
+    /Mọi hành vi sao chép.*?vi phạm pháp luật/gi,
+    /\[Hỏi đáp pháp luật\]/gi,
+    /Download\s*(PDF|Word)/gi,
+    /Chia sẻ:/gi,
+    /Văn bản liên quan/gi,
+    /Đang cập nhật/gi,
+    /Văn bản đang xem/gi,
+    /Báo cáo sai sót/gi,
+    /Lưu vào danh sách/gi,
+    /In văn bản/gi,
+    /So sánh văn bản/gi,
+    /Tiện ích khác/gi,
+    /Bản tiếng Anh/gi,
+    /Văn bản gốc/gi,
+    /Tình trạng hiệu lực[^:]*:[^\n]+/gi,
+    /Cập nhật:[^\n]+/gi,
+    /Hiệu lực:[^\n]+/gi,
+    /Đăng nhập để xem/gi,
+    /Xem văn bản đầy đủ/gi,
+    /Click vào đây/gi,
+    /hotline:[^\n]+/gi,
+    /\(028\)[^\n]+/gi,
+    /Copyright.*thuvienphapluat\.vn/gi,
+    /©.*thuvienphapluat/gi,
+  ];
+  
+  let cleaned = text;
+  for (const pattern of tvplRemovePatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Clean up whitespace
+  cleaned = cleaned
+    .replace(/\n{4,}/g, '\n\n\n')
+    .replace(/^\s*[-*•]\s*$/gm, '')
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim();
+  
+  return cleaned;
+}
+
+/**
  * Fetch HTML directly using native fetch (bypass Firecrawl)
  * Used when Firecrawl times out or fails
  */
@@ -1548,6 +1749,25 @@ async function tryFirecrawlScrape(url: string): Promise<{
           sidebarPenalty,
         },
       };
+    }
+    
+    // === TVPL PRIORITY: ThưViệnPhápLuật.vn has easy HTML extraction ===
+    if (url.includes('thuvienphapluat.vn')) {
+      console.log('[parse-document] TVPL: Detected ThưViệnPhápLuật.vn, using direct extraction');
+      const tvplResult = await extractTvplContent(url);
+      if (tvplResult.success && tvplResult.text.length > 500) {
+        return {
+          success: true,
+          text: tvplResult.text,
+          debug: {
+            source: 'html',
+            strategy: 'tvpl_direct',
+            textLength: tvplResult.text.length,
+            legalScore: detectLegalContent(tvplResult.text),
+            sidebarPenalty: detectSidebarContent(tvplResult.text),
+          },
+        };
+      }
     }
     
     // === VBPL FALLBACK: Try toan-van extraction if other methods failed ===

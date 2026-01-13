@@ -349,6 +349,67 @@ export function useRegulationSources() {
           is_active: false, // Disabled by default - harder to scrape
           properties: { priority: 3, supports_download: false, needs_captcha: true },
         },
+        // === ThưViệnPhápLuật.vn - Easy HTML Full Text (Priority 0.5) ===
+        {
+          source_name: 'TVPL - Thuế & Kế toán',
+          source_url: 'https://thuvienphapluat.vn',
+          jurisdiction: 'VN',
+          category: 'tax',
+          search_query: 'Luật thuế site:thuvienphapluat.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+          properties: { priority: 0.5, supports_download: false, html_fulltext: true },
+        },
+        {
+          source_name: 'TVPL - Quảng cáo & Marketing',
+          source_url: 'https://thuvienphapluat.vn',
+          jurisdiction: 'VN',
+          category: 'advertising',
+          search_query: 'Luật quảng cáo site:thuvienphapluat.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+          properties: { priority: 0.5, supports_download: false, html_fulltext: true },
+        },
+        {
+          source_name: 'TVPL - Bất động sản',
+          source_url: 'https://thuvienphapluat.vn',
+          jurisdiction: 'VN',
+          category: 'land',
+          search_query: 'Luật đất đai site:thuvienphapluat.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+          properties: { priority: 0.5, supports_download: false, html_fulltext: true },
+        },
+        {
+          source_name: 'TVPL - Ngân hàng & Tài chính',
+          source_url: 'https://thuvienphapluat.vn',
+          jurisdiction: 'VN',
+          category: 'finance',
+          search_query: 'Luật ngân hàng site:thuvienphapluat.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+          properties: { priority: 0.5, supports_download: false, html_fulltext: true },
+        },
+        {
+          source_name: 'TVPL - Thực phẩm & Y tế',
+          source_url: 'https://thuvienphapluat.vn',
+          jurisdiction: 'VN',
+          category: 'general',
+          search_query: 'Luật an toàn thực phẩm site:thuvienphapluat.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+          properties: { priority: 0.5, supports_download: false, html_fulltext: true },
+        },
+        {
+          source_name: 'TVPL - Lao động',
+          source_url: 'https://thuvienphapluat.vn',
+          jurisdiction: 'VN',
+          category: 'labor',
+          search_query: 'Bộ luật lao động site:thuvienphapluat.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+          properties: { priority: 0.5, supports_download: false, html_fulltext: true },
+        },
       ];
 
       // Check existing sources to avoid duplicates
@@ -374,7 +435,7 @@ export function useRegulationSources() {
       queryClient.invalidateQueries({ queryKey: regulationSourcesKeys.list() });
       toast({
         title: 'Seed hoàn tất',
-        description: `Đã thêm ${data.inserted} nguồn VN (ưu tiên VBPL.vn), bỏ qua ${data.skipped} nguồn đã tồn tại`,
+        description: `Đã thêm ${data.inserted} nguồn VN (VBPL.vn + TVPL), bỏ qua ${data.skipped} nguồn đã tồn tại`,
       });
     },
     onError: (error) => {
