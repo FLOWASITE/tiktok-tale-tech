@@ -453,19 +453,9 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
             />
           )}
 
-          {/* Step 4: Voice & Content */}
+          {/* Step 4: Voice */}
           {currentStep === 4 && (
             <BrandFormStepDNA
-              // Content
-              brandHashtags={brandHashtags}
-              setBrandHashtags={setBrandHashtags}
-              signaturePhrases={signaturePhrases}
-              setSignaturePhrases={setSignaturePhrases}
-              ctaTemplates={ctaTemplates}
-              setCtaTemplates={setCtaTemplates}
-              evergreenThemes={evergreenThemes}
-              setEvergreenThemes={setEvergreenThemes}
-              // Brand Voice
               brandPositioning={brandPositioning}
               setBrandPositioning={setBrandPositioning}
               toneOfVoice={toneOfVoice}
