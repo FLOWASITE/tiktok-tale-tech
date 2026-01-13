@@ -351,9 +351,255 @@ function detectLegalContent(text: string): number {
 }
 
 /**
+ * UNIVERSAL SMART TRIMMER - Phase 3
+ * Trim header content from ALL sources - find where legal content actually starts
+ */
+function trimUniversalHeader(text: string): string {
+  // Legal content start patterns (priority order)
+  const legalStartPatterns = [
+    /CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i,
+    /^##\s*(LUẬT|NGHỊ ĐỊNH|QUYẾT ĐỊNH|THÔNG TƯ|CHỈ THỊ)/m,
+    /^(LUẬT|NGHỊ ĐỊNH|QUYẾT ĐỊNH|THÔNG TƯ|CHỈ THỊ)\s+(SỐ\s+)?[\d\/]+/mi,
+    /QUỐC HỘI\s*[-—–_]{3,}/i,
+    /CHÍNH PHỦ\s*[-—–_]{3,}/i,
+    /^Điều\s+1[\.:]/mi,
+    /Số:\s*\d+\/\d+\/(NĐ|QĐ|TT)-/i,
+    /^##\s+Quốc hội/m,
+    /^##\s+Chính phủ/m,
+    /^#+\s*\*\*[^*]+\*\*$/m,  // ## **Luật Thuế...**
+  ];
+  
+  let earliestPos = text.length;
+  for (const pattern of legalStartPatterns) {
+    const match = text.match(pattern);
+    if (match?.index !== undefined && match.index < earliestPos) {
+      earliestPos = match.index;
+    }
+  }
+  
+  // Only trim if header < 40% of content and we found a valid start
+  if (earliestPos > 0 && earliestPos < text.length * 0.4) {
+    console.log(`[trim] Cutting universal header: 0-${earliestPos} (${earliestPos} chars)`);
+    return text.substring(earliestPos);
+  }
+  return text;
+}
+
+/**
+ * UNIVERSAL SMART TRIMMER - Phase 3
+ * Trim footer content from ALL sources - cut from common footer patterns to end
+ */
+function trimUniversalFooter(text: string): string {
+  // Universal footer patterns - match these to cut from match position to end
+  const footerCutPatterns = [
+    // === ChinhPhu.vn ===
+    /© Cổng Thông tin điện tử Chính phủ[\s\S]*$/i,
+    /Tổng Giám đốc:\s*\*?\*?[A-ZĐa-zđ\s]+[\s\S]*$/i,
+    /Trụ sở:\s*\d+\s+[A-ZĐa-zđ\s]+[\s\S]*$/i,
+    /Bản quyền thuộc Cổng Thông tin[\s\S]*$/i,
+    /Ghi rõ nguồn .+Cổng Thông tin[\s\S]*$/i,
+    /\[Giới thiệu[\s\S]*?Cổng TTĐT[\s\S]*$/i,
+    /Tải ứng dụng:[\s\S]*$/i,
+    /\[Nước CHXHCN[\s\S]*?chính phủ\]\([^)]+\)[\s\S]*$/i,
+    
+    // === VBPL.vn ===
+    /CƠ SỞ DỮ LIỆU QUỐC GIA VỀ VĂN BẢN PHÁP LUẬT[\s\S]*$/i,
+    /\[!\[Chung nhan Tin Nhiem Mang\][\s\S]*$/i,
+    /Chung nhan Tin Nhiem Mang[\s\S]*$/i,
+    /Tình huống pháp luật[\s\S]*$/i,
+    /Thông cáo báo chí văn bản[\s\S]*$/i,
+    /Lên đầu trang\s*Turn off more accessible[\s\S]*$/i,
+    
+    // === Common patterns across all sources ===
+    /VĂN BẢN LIÊN QUAN\s*[-—]*[\s\S]*$/i,
+    /Văn bản liên quan\s*\n\s*-\s*\[[\s\S]*$/i,
+    /Các văn bản khác[\s\S]*$/i,
+    /Văn bản được hướng dẫn[\s\S]*$/i,
+    /VĂN BẢN GỐC[\s\S]*$/i,
+    /LIÊN KẾT VĂN BẢN[\s\S]*$/i,
+    /Nơi nhận:[\s\S]{0,800}$/i,  // Only cut if < 800 chars remaining (signature section)
+    
+    // === Navigation/utility footers ===
+    /-\s*\[Tra cứu Văn bản\]\([^)]+\)[\s\S]*$/i,
+    /-\s*\[Lịch Âm[\s\S]*$/i,
+    /-\s*\[Giá Vàng[\s\S]*$/i,
+    /Bài viết liên quan[\s\S]*$/i,
+    /Xem thêm bài viết[\s\S]*$/i,
+  ];
+  
+  let latestCut = text.length;
+  for (const pattern of footerCutPatterns) {
+    const match = text.match(pattern);
+    if (match?.index !== undefined) {
+      // Only cut if footer appears after 50% of content
+      if (match.index > text.length * 0.5 && match.index < latestCut) {
+        latestCut = match.index;
+      }
+    }
+  }
+  
+  if (latestCut < text.length) {
+    console.log(`[trim] Cutting universal footer at position ${latestCut}`);
+    return text.substring(0, latestCut).trim();
+  }
+  return text;
+}
+
+/**
+ * UNIVERSAL SMART TRIMMER - Phase 3
+ * Clean navigation noise from ALL sources - menus, weather, accessibility links
+ */
+function cleanAllSiteNavigationNoise(text: string): string {
+  const noisePatterns = [
+    // === Accessibility and navigation links ===
+    /^\s*Lên đầu trang\s*$/gm,
+    /Turn on more accessible mode/gi,
+    /Turn off more accessible mode/gi,
+    /^\s*\[Liên hệ\]\([^)]+\)/gm,
+    /^\s*\[Sơ đồ cổng thông tin\]\([^)]+\)/gm,
+    /^\s*\[Hướng dẫn[^\]]*\]\([^)]+\)/gm,
+    /^\s*\[Đăng nhập\]\([^)]+\)/gm,
+    
+    // === Breadcrumb/menu navigation links ===
+    /^\s*-\s*\[Trang chủ\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Chính phủ\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Công dân\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Doanh nghiệp\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Kiều bào\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Tìm kiếm\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Tin tức\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Văn bản\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Hệ thống\]\([^)]+\)\s*$/gm,
+    /^\s*-\s*\[Văn bản pháp luật\]\([^)]+\)\s*$/gm,
+    /^\s*\*\s*\[[^\]]+\]\([^)]+\)\s*$/gm,  // * [Link](url)
+    
+    // === Date/weather headers (ChinhPhu specific) ===
+    /^Thứ\s+[A-Za-zĐđÀ-ỹ]+,\s+\d{1,2}\/\d{1,2}\/\d{4}\s*$/gm,
+    /\[Hà Nội\s*\d+°[^\]]*\]\([^)]+\)/gi,
+    /\[[A-ZĐa-zđÀ-ỹ\s]+\d+°\s*-\s*\d+°\]\([^)]+\)/gi,
+    /Hà Nội\s*\d+°\s*-\s*\d+°/gi,
+    /Lai Châu\s*\d+°\s*-\s*\d+°/gi,
+    
+    // === Empty markdown elements ===
+    /^\s*\|[\s\|]+\|\s*$/gm,
+    /^\s*-\s*$/gm,
+    /^\s*\*\s*$/gm,
+    /^#+\s*$/gm,
+    
+    // === Logos, banners and empty image links ===
+    /!\[[^\]]*\]\([^)]*banner[^)]*\)/gi,
+    /!\[[^\]]*\]\([^)]*logo[^)]*\)/gi,
+    /\[!\[\]\([^)]+\)\]\([^)]+\)/g,
+    /!\[\]\([^)]+\)/g,
+    
+    // === ChinhPhu specific elements ===
+    /\[Nước CHXHCN[\s\S]*?Việt Nam\]\([^)]+\)/gi,
+    /\[Giới thiệu[\s\S]*?Chính phủ\]\([^)]+\)/gi,
+    /\[Thư điện tử[\s\S]*?công vụ[^\]]*\]\([^)]+\)/gi,
+    /\[Báo điện tử chính phủ\]\([^)]+\)/gi,
+    /\[Văn phòng chính phủ\]\([^)]+\)/gi,
+    /\[English\]\([^)]+\)/gi,
+    /\[Tiếng Việt\]\([^)]+\)/gi,
+    /\[中文\]\([^)]+\)/gi,
+    
+    // === Social/app download ===
+    /\[App Store\]\([^)]+\)/gi,
+    /\[Google Play\]\([^)]+\)/gi,
+    /\[Facebook\]\([^)]+\)/gi,
+    /\[Twitter\]\([^)]+\)/gi,
+    /\[Youtube\]\([^)]+\)/gi,
+    /\[Zalo\]\([^)]+\)/gi,
+    
+    // === VBPL specific navigation ===
+    /\[Trang chủ\]\([^)]+\)/gi,
+    /\[Văn bản pháp luật\]\([^)]+\)/gi,
+  ];
+  
+  let cleaned = text;
+  for (const pattern of noisePatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Clean up excessive whitespace from removals
+  cleaned = cleaned.replace(/\n{4,}/g, '\n\n\n').trim();
+  
+  return cleaned;
+}
+
+/**
+ * UNIVERSAL SMART TRIMMER - Phase 3
+ * ChinhPhu.vn specific header cleanup
+ */
+function trimChinhPhuContent(text: string): string {
+  // ChinhPhu-specific header patterns to remove
+  const chinhPhuHeaderPatterns = [
+    /^\|[\s\S]*?(?=CỘNG HÒA|NGHỊ ĐỊNH|QUYẾT ĐỊNH|THÔNG TƯ)/i,
+    /^Thứ [A-Za-zĐđÀ-ỹ]+,[\s\S]*?(?=CỘNG HÒA|NGHỊ ĐỊNH)/i,
+  ];
+  
+  let cleaned = text;
+  for (const pattern of chinhPhuHeaderPatterns) {
+    const match = cleaned.match(pattern);
+    if (match && match[0].length < cleaned.length * 0.4) {
+      cleaned = cleaned.replace(pattern, '');
+    }
+  }
+  
+  // ChinhPhu footer patterns
+  const chinhPhuFooterPatterns = [
+    /© Cổng Thông tin điện tử Chính phủ[\s\S]*$/i,
+    /Tổng Giám đốc:[\s\S]*$/i,
+    /Trụ sở:\s*16\s+Lê Hồng Phong[\s\S]*$/i,
+  ];
+  
+  for (const pattern of chinhPhuFooterPatterns) {
+    const match = cleaned.match(pattern);
+    if (match?.index !== undefined && match.index > cleaned.length * 0.5) {
+      cleaned = cleaned.substring(0, match.index).trim();
+    }
+  }
+  
+  return cleaned;
+}
+
+/**
+ * VBPL.vn specific header/footer cleanup
+ */
+function trimVbplContent(text: string): string {
+  // VBPL header cleanup - find legal content start
+  const headerPatterns = [
+    /^[\s\S]*?(?=CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM)/i,
+  ];
+  
+  let cleaned = text;
+  for (const pattern of headerPatterns) {
+    const match = cleaned.match(pattern);
+    if (match && match[0].length < cleaned.length * 0.3) {
+      cleaned = cleaned.substring(match[0].length);
+    }
+  }
+  
+  // VBPL footer patterns
+  const footerPatterns = [
+    /CƠ SỞ DỮ LIỆU QUỐC GIA VỀ VĂN BẢN PHÁP LUẬT[\s\S]*$/i,
+    /Lên đầu trang[\s\S]*$/i,
+    /\[!\[Chung nhan Tin Nhiem Mang\][\s\S]*$/i,
+  ];
+  
+  for (const pattern of footerPatterns) {
+    const match = cleaned.match(pattern);
+    if (match?.index !== undefined && match.index > cleaned.length * 0.5) {
+      cleaned = cleaned.substring(0, match.index).trim();
+    }
+  }
+  
+  return cleaned;
+}
+
+/**
  * Clean scraped HTML/Markdown content to remove website layout artifacts
  * Specific patterns for Vietnamese government websites
- * Enhanced: Avoids over-truncation and detects sidebar content
+ * Enhanced: Uses Universal Smart Trimmer for comprehensive cleanup
  */
 function cleanScrapedContent(text: string, sourceUrl: string): string {
   const originalLength = text.length;
@@ -531,7 +777,25 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
     }
   }
   
-  // Try to extract main content between document markers - but be careful not to lose content
+  // === NEW: Apply Universal Smart Trimmers for ALL sources ===
+  
+  // Step 1: Site-specific content trimming
+  if (sourceUrl.includes('chinhphu.vn')) {
+    cleaned = trimChinhPhuContent(cleaned);
+  } else if (sourceUrl.includes('vbpl.vn')) {
+    cleaned = trimVbplContent(cleaned);
+  }
+  
+  // Step 2: Universal navigation noise removal (menus, weather, links)
+  cleaned = cleanAllSiteNavigationNoise(cleaned);
+  
+  // Step 3: Universal header trim (find legal document start)
+  cleaned = trimUniversalHeader(cleaned);
+  
+  // Step 4: Universal footer trim (remove footer from all sources)
+  cleaned = trimUniversalFooter(cleaned);
+  
+  // Step 5: Try to extract main content between document markers - but be careful not to lose content
   const mainContentMarkers = [
     // Vietnamese legal document markers
     { pattern: /(?:CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM[\s\S]*?)((?:Điều\s+\d+|Chương\s+[IVX]+)[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i, minLength: 2000 },
@@ -554,7 +818,7 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
     }
   }
   
-  // Clean up excessive newlines and whitespace
+  // Step 6: Final cleanup - excessive newlines and whitespace
   cleaned = cleaned
     .replace(/\n{4,}/g, '\n\n\n')
     .replace(/^\s*[-*]\s*$/gm, '') // Empty list items
@@ -569,7 +833,14 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
       .replace(/\[\s*\]\([^)]+\)/g, '') // Remove empty links
       .replace(/\n{4,}/g, '\n\n\n')
       .trim();
+    
+    // Even on revert, try universal trimmers as they're safer
+    cleaned = cleanAllSiteNavigationNoise(cleaned);
+    cleaned = trimUniversalHeader(cleaned);
+    cleaned = trimUniversalFooter(cleaned);
   }
+  
+  console.log(`[parse-document] cleanScrapedContent: ${originalLength} -> ${cleaned.length} chars`);
   
   return cleaned;
 }
@@ -1539,6 +1810,11 @@ function cleanTvplContent(text: string, url: string = ''): string {
   
   // Apply general markdown artifacts cleaner
   cleaned = cleanMarkdownArtifacts(cleaned);
+  
+  // === NEW: Apply universal trimmers for additional robustness ===
+  cleaned = cleanAllSiteNavigationNoise(cleaned);
+  cleaned = trimUniversalHeader(cleaned);
+  cleaned = trimUniversalFooter(cleaned);
   
   // Clean up whitespace
   cleaned = cleaned
