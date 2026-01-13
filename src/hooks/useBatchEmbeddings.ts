@@ -72,19 +72,21 @@ export function useBatchEmbeddings() {
     }
   }, [toast]);
 
-  const startBatch = useCallback(async (batchSize: number = 5, nodeTypes?: string[]) => {
+  const startBatch = useCallback(async (batchSize: number = 3, nodeTypes?: string[]) => {
     setIsProcessing(true);
     try {
+      const safeBatchSize = Math.min(3, Math.max(1, batchSize));
+
       const { data, error } = await supabase.functions.invoke('batch-generate-embeddings', {
-        body: { 
+        body: {
           action: 'start',
-          batch_size: batchSize,
+          batch_size: safeBatchSize,
           node_types: nodeTypes,
         },
       });
 
       if (error) throw error;
-      
+
       const response = data as BatchResponse;
       if (response.result) {
         setLastResult(response.result);
@@ -94,7 +96,7 @@ export function useBatchEmbeddings() {
         });
       }
       setStatus(response.status);
-      
+
       return response;
     } catch (err) {
       console.error('Failed to start batch:', err);
@@ -117,61 +119,63 @@ export function useBatchEmbeddings() {
     });
   }, [toast]);
 
-  const runFullBatch = useCallback(async (batchSize: number = 5) => {
+  const runFullBatch = useCallback(async (batchSize: number = 3) => {
     setIsProcessing(true);
     abortRef.current = false;
-    
+
+    const safeBatchSize = Math.min(3, Math.max(1, batchSize));
+
     let totalProcessed = 0;
     let totalSucceeded = 0;
     let totalFailed = 0;
     let totalRetried = 0;
     let currentBatch = 0;
     let avgTimePerNodeMs = 0;
-    
+
     const startTime = Date.now();
-    
+
     // Get initial status to know total nodes
     const initialStatus = await supabase.functions.invoke('batch-generate-embeddings', {
       body: { action: 'status' },
     });
-    
+
     const totalPending = (initialStatus.data as BatchStatus)?.nodes_pending || 0;
-    const estimatedBatches = Math.ceil(totalPending / batchSize);
-    
+    const estimatedBatches = Math.ceil(totalPending / safeBatchSize);
+
     try {
       // Keep processing until no more pending nodes or aborted
       let hasMore = true;
       while (hasMore && !abortRef.current) {
         currentBatch++;
-        
+
         const { data, error } = await supabase.functions.invoke('batch-generate-embeddings', {
-          body: { 
+          body: {
             action: 'start',
-            batch_size: batchSize,
+            batch_size: safeBatchSize,
           },
         });
 
         if (error) throw error;
-        
+
         const response = data as BatchResponse;
         if (response.result) {
           totalProcessed += response.result.processed;
           totalSucceeded += response.result.succeeded;
           totalFailed += response.result.failed;
           totalRetried += response.result.retried || 0;
-          
+
           // Update average time
           if (response.result.avg_time_per_node_ms) {
-            avgTimePerNodeMs = avgTimePerNodeMs 
-              ? (avgTimePerNodeMs + response.result.avg_time_per_node_ms) / 2 
+            avgTimePerNodeMs = avgTimePerNodeMs
+              ? (avgTimePerNodeMs + response.result.avg_time_per_node_ms) / 2
               : response.result.avg_time_per_node_ms;
           }
-          
+
           // Update progress
           const elapsedMs = Date.now() - startTime;
           const remaining = response.status.nodes_pending;
           const estimatedRemainingMs = avgTimePerNodeMs ? remaining * avgTimePerNodeMs : 0;
-          
+
           setProgress({
             currentBatch,
             totalBatches: estimatedBatches,
@@ -183,7 +187,7 @@ export function useBatchEmbeddings() {
             elapsedMs,
             estimatedRemainingMs,
           });
-          
+
           // If no nodes were processed, we're done
           if (response.result.processed === 0) {
             hasMore = false;
@@ -191,15 +195,15 @@ export function useBatchEmbeddings() {
         } else {
           hasMore = false;
         }
-        
+
         setStatus(response.status);
-        
+
         // Stop if all done
         if (response.status.nodes_pending === 0) {
           hasMore = false;
         }
-        
-        // Small delay between batches to avoid overwhelming the edge function
+
+        // Small delay between batches to avoid overwhelming the function
         if (hasMore && !abortRef.current) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
