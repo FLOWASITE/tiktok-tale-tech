@@ -1226,8 +1226,10 @@ function trimTvplHeader(text: string): string {
 
 /**
  * Trim TVPL footer content - remove company info, licenses, etc.
+ * Enhanced v5: More robust footer detection with earlier position threshold
  */
 function trimTvplFooter(text: string): string {
+  // Strong footer start patterns - match these greedily to end
   const footerPatterns = [
     /Chủ quản: Công ty[\s\S]*$/i,
     /Giấy phép số:[\s\S]*$/i,
@@ -1239,14 +1241,24 @@ function trimTvplFooter(text: string): string {
     /Địa chỉ:.*Centre Point[\s\S]*$/i,
     /Chứng nhận bản quyền[\s\S]*$/i,
     /028 3930 3279[\s\S]*$/i,
+    // Additional strong footer markers
+    /protected by reCAPTCHA[\s\S]*$/i,
+    /reCAPTCHA[\s\S]*Terms[\s\S]*$/i,
+    /This site is protected[\s\S]*$/i,
+    /Địa điểm Kinh Doanh[\s\S]*$/i,
+    /Giấy phép MXH[\s\S]*$/i,
+    /- \[Lịch Âm \d{4}\][\s\S]*$/i,
+    /- \[Giá Vàng Hôm Nay\][\s\S]*$/i,
+    /##### Thông báo\s*Bạn không có thông báo nào[\s\S]*$/i,
+    /Bài viết liên quan[\s\S]*$/i,
   ];
   
   let latestCut = text.length;
   for (const pattern of footerPatterns) {
     const match = text.match(pattern);
     if (match && match.index !== undefined) {
-      // Only cut if footer appears after 70% of content
-      if (match.index > text.length * 0.7 && match.index < latestCut) {
+      // Lower threshold to 60% for more aggressive footer removal
+      if (match.index > text.length * 0.6 && match.index < latestCut) {
         latestCut = match.index;
       }
     }
@@ -1362,6 +1374,11 @@ function cleanTvplContent(text: string, url: string = ''): string {
     /Bạn không có thông báo nào/gi,
     /##### Thông báo/gi,
     /reCAPTCHA/gi,
+    /protected by reCAPTCHA/gi,
+    /This site is protected by reCAPTCHA/gi,
+    /Google Privacy Policy/gi,
+    /Terms of Service apply/gi,
+    /Privacy Policy and Terms of Service/gi,
     
     // === Contact info ===
     /hotline:[^\n]+/gi,
@@ -1380,6 +1397,11 @@ function cleanTvplContent(text: string, url: string = ''): string {
     /!\[[^\]]*\]\(https?:\/\/cdn\.thuvienphapluat\.vn[^)]+\)/gi,
     /!\[\]\([^)]+\)/g,
     /\[!\[\]\([^)]+\)\]\([^)]+\)/g,
+    
+    // === reCAPTCHA full block removal ===
+    /This site is protected[\s\S]*?Terms of Service apply\./gi,
+    /protected by reCAPTCHA[\s\S]*?apply\./gi,
+    /reCAPTCHA[\s\S]*?Google[\s\S]*?apply\./gi,
     
     // === Empty/malformed tables ===
     /\|\s*\|\s*\|\s*\|\s*\|\s*\|/g,
@@ -2672,7 +2694,7 @@ function calculateContentQuality(text: string): ContentQualityResult {
 /**
  * AI Post-Processing Clean - Uses AI to remove artifacts when quality is too low
  * Only triggered when content_quality_score < threshold
- * v4: Enhanced TVPL-specific prompt for better cleaning
+ * v5: Force AI clean for TVPL if artifacts present, even with good quality score
  */
 async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedText: string; wasProcessed: boolean }> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -2690,9 +2712,16 @@ async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedT
   const preCheck = calculateContentQuality(text);
   console.log(`[parse-document] AI Post-Process: Pre-check quality=${preCheck.overall}, artifacts=${preCheck.breakdown.artifact_penalty}, isTVPL=${isTvpl}`);
   
-  if (preCheck.overall >= qualityThreshold && preCheck.breakdown.artifact_penalty < artifactThreshold) {
+  // Force AI clean for TVPL if artifacts > 5, even if quality is "good"
+  const forceAiClean = isTvpl && preCheck.breakdown.artifact_penalty > 5;
+  
+  if (!forceAiClean && preCheck.overall >= qualityThreshold && preCheck.breakdown.artifact_penalty < artifactThreshold) {
     console.log('[parse-document] AI Post-Process: Quality already good, skipping');
     return { cleanedText: text, wasProcessed: false };
+  }
+  
+  if (forceAiClean) {
+    console.log(`[parse-document] AI Post-Process: FORCE AI clean for TVPL (artifacts=${preCheck.breakdown.artifact_penalty})`);
   }
   
   try {
