@@ -176,7 +176,8 @@ async function searchWithFirecrawl(
 }
 
 // Find download link on detail page using Firecrawl
-async function findDownloadLink(url: string): Promise<{ downloadUrl: string | null; fileType: 'pdf' | 'docx' | null }> {
+// Enhanced v2: Priority detection for Vietnamese government document servers
+async function findDownloadLink(url: string): Promise<{ downloadUrl: string | null; fileType: 'pdf' | 'docx' | null; extractedMarkdown?: string }> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
   if (!apiKey) {
     return { downloadUrl: null, fileType: null };
@@ -191,61 +192,117 @@ async function findDownloadLink(url: string): Promise<{ downloadUrl: string | nu
       },
       body: JSON.stringify({
         url,
-        formats: ['links', 'html'],
-        timeout: 15000,
+        formats: ['links', 'html', 'markdown'],
+        onlyMainContent: true, // Get cleaner content
+        timeout: 20000,
       }),
     });
 
     const data = await response.json();
-    if (!data.success || !data.data?.links) {
+    if (!data.success) {
       return { downloadUrl: null, fileType: null };
     }
 
-    // Search for PDF/DOCX download links
-    const links: string[] = data.data.links || [];
+    const links: string[] = data.data?.links || [];
+    const html: string = data.data?.html || '';
+    const markdown: string = data.data?.markdown || '';
     
-    // Priority patterns for Vietnamese gov sites
-    const pdfPatterns = [
-      /\.pdf$/i,
-      /download.*pdf/i,
-      /\/file\//i,
-      /\/download\//i,
-      /vbpq.*\.pdf/i,
-    ];
+    // === PRIORITY 1: datafiles.chinhphu.vn PDF (most reliable for VN gov docs) ===
+    for (const link of links) {
+      if (link.includes('datafiles.chinhphu.vn') && link.toLowerCase().endsWith('.pdf')) {
+        console.log(`[auto-crawl] Found official PDF from datafiles: ${link}`);
+        return { downloadUrl: link, fileType: 'pdf' };
+      }
+    }
     
-    const docxPatterns = [
-      /\.docx?$/i,
-      /download.*doc/i,
-    ];
+    // Check HTML for embedded datafiles link (sometimes not in links array)
+    const datafilesMatch = html.match(
+      /href=["'](https?:\/\/datafiles\.chinhphu\.vn[^"']*\.pdf)["']/i
+    );
+    if (datafilesMatch) {
+      console.log(`[auto-crawl] Found embedded official PDF: ${datafilesMatch[1]}`);
+      return { downloadUrl: datafilesMatch[1], fileType: 'pdf' };
+    }
 
+    // === PRIORITY 2: Signed PDF patterns (official digitally signed documents) ===
+    const signedPdfPatterns = [
+      /\.signed\.pdf$/i,
+      /signed_.*\.pdf$/i,
+      /\.ky\.pdf$/i, // Vietnamese "ký" = signed
+    ];
+    
+    for (const link of links) {
+      for (const pattern of signedPdfPatterns) {
+        if (pattern.test(link)) {
+          console.log(`[auto-crawl] Found signed PDF: ${link}`);
+          return { downloadUrl: link, fileType: 'pdf' };
+        }
+      }
+    }
+
+    // === PRIORITY 3: Other PDF patterns for VN gov sites ===
+    const pdfPatterns = [
+      /vbpq.*\.pdf/i,           // vanban.chinhphu.vn pattern
+      /\/file\/.*\.pdf/i,       // Common file path
+      /\/download\/.*\.pdf/i,   // Download path
+      /attach.*\.pdf/i,         // Attachment pattern
+      /document.*\.pdf/i,       // Document pattern
+    ];
+    
     for (const link of links) {
       for (const pattern of pdfPatterns) {
         if (pattern.test(link)) {
+          console.log(`[auto-crawl] Found PDF: ${link}`);
           return { downloadUrl: link, fileType: 'pdf' };
         }
       }
     }
     
+    // === PRIORITY 4: Generic PDF extension check ===
+    for (const link of links) {
+      if (link.toLowerCase().endsWith('.pdf')) {
+        console.log(`[auto-crawl] Found generic PDF: ${link}`);
+        return { downloadUrl: link, fileType: 'pdf' };
+      }
+    }
+    
+    // === PRIORITY 5: DOCX patterns ===
+    const docxPatterns = [
+      /\.docx?$/i,
+      /download.*\.docx?/i,
+      /attach.*\.docx?/i,
+    ];
+
     for (const link of links) {
       for (const pattern of docxPatterns) {
         if (pattern.test(link)) {
+          console.log(`[auto-crawl] Found DOCX: ${link}`);
           return { downloadUrl: link, fileType: 'docx' };
         }
       }
     }
 
-    // Also check HTML content for embedded download links
-    const html = data.data.html || '';
+    // === PRIORITY 6: Check HTML for any embedded download links ===
     const downloadMatch = html.match(/href=["']([^"']*\.(pdf|docx?)(\?[^"']*)?)["']/i);
     if (downloadMatch) {
       const fileType = downloadMatch[2].toLowerCase().startsWith('doc') ? 'docx' : 'pdf';
       let downloadUrl = downloadMatch[1];
       // Make absolute if relative
       if (downloadUrl.startsWith('/')) {
-        const urlObj = new URL(url);
-        downloadUrl = `${urlObj.origin}${downloadUrl}`;
+        try {
+          const urlObj = new URL(url);
+          downloadUrl = `${urlObj.origin}${downloadUrl}`;
+        } catch { /* ignore invalid URL */ }
       }
+      console.log(`[auto-crawl] Found embedded download link: ${downloadUrl}`);
       return { downloadUrl, fileType };
+    }
+
+    // === FALLBACK: Return cleaned markdown if no download link found ===
+    // This allows using scraped content when PDF isn't available
+    if (markdown && markdown.length > 500) {
+      console.log(`[auto-crawl] No download link found, returning extracted markdown (${markdown.length} chars)`);
+      return { downloadUrl: null, fileType: null, extractedMarkdown: cleanExtractedMarkdown(markdown, url) };
     }
 
     return { downloadUrl: null, fileType: null };
@@ -253,6 +310,49 @@ async function findDownloadLink(url: string): Promise<{ downloadUrl: string | nu
     console.log('[auto-crawl] findDownloadLink error:', error);
     return { downloadUrl: null, fileType: null };
   }
+}
+
+// Clean extracted markdown content from gov sites
+function cleanExtractedMarkdown(markdown: string, sourceUrl: string): string {
+  let cleaned = markdown;
+  
+  // Remove common layout artifacts
+  const removePatterns = [
+    /!\[[^\]]*\]\([^)]+\)/g,           // Images
+    /\[!\[[^\]]*\]\([^)]+\)\]/g,       // Nested image links
+    /\[English\]\([^)]+\)/gi,          // Language switchers
+    /\[Tiếng Việt\]\([^)]+\)/gi,
+    /\[中文\]\([^)]+\)/gi,
+    /\|\s*---+\s*\|/g,                 // Table separators
+    /\*\*Tìm kiếm\*\*/gi,              // Search labels
+    /\*\*Đăng nhập\*\*/gi,             // Login labels
+    /Bản quyền thuộc về.*$/gm,         // Copyright
+    /Copyright ©.*$/gm,
+    /Trang chủ\s*>\s*/gi,              // Breadcrumbs
+  ];
+  
+  for (const pattern of removePatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Site-specific cleaning
+  if (sourceUrl.includes('chinhphu.vn')) {
+    // Try to extract main document content
+    const docMatch = cleaned.match(
+      /((?:CỘNG HÒA|QUYẾT ĐỊNH|THÔNG TƯ|NGHỊ ĐỊNH|LUẬT)[\s\S]*?)(?:Văn bản liên quan|Nơi nhận:|$)/i
+    );
+    if (docMatch && docMatch[1].length > 300) {
+      cleaned = docMatch[1];
+    }
+  }
+  
+  // Clean up whitespace
+  cleaned = cleaned
+    .replace(/\n{4,}/g, '\n\n\n')
+    .replace(/^\s*[-*]\s*$/gm, '')
+    .trim();
+    
+  return cleaned;
 }
 
 // Parse document using parse-regulation-document edge function
