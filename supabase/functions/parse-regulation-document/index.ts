@@ -553,11 +553,66 @@ Deno.serve(async (req) => {
     // Download and parse file (PDF, DOCX, or HTML)
     console.log(`[parse-document] Downloading: ${targetUrl}`);
     
+    // Check file size before downloading (5MB limit for edge functions)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    
     try {
+      // First, do a HEAD request to check file size
+      try {
+        const headResponse = await fetch(targetUrl, {
+          method: 'HEAD',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        });
+        
+        const contentLength = headResponse.headers.get('content-length');
+        if (contentLength) {
+          const size = parseInt(contentLength, 10);
+          if (size > MAX_FILE_SIZE) {
+            console.log(`[parse-document] File too large: ${size} bytes (max: ${MAX_FILE_SIZE})`);
+            return new Response(
+              JSON.stringify({
+                success: false,
+                text: '',
+                file_type: 'pdf',
+                file_size: size,
+                error: `File too large (${(size / 1024 / 1024).toFixed(1)}MB). Maximum allowed: 5MB. Large documents require external PDF parsing service.`,
+                metadata: {
+                  note: 'Consider using a dedicated PDF service for large documents',
+                  actual_pdf_url: targetUrl,
+                },
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      } catch (headError) {
+        console.log('[parse-document] HEAD request failed, proceeding with download:', headError);
+      }
+      
       const { buffer, contentType, size } = await downloadFile(targetUrl);
       const fileType = detectFileType(targetUrl, contentType);
       
       console.log(`[parse-document] Downloaded ${size} bytes, type: ${fileType}`);
+      
+      // Double-check size after download
+      if (size > MAX_FILE_SIZE) {
+        console.log(`[parse-document] Downloaded file too large: ${size} bytes`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            text: '',
+            file_type: fileType,
+            file_size: size,
+            error: `File too large (${(size / 1024 / 1024).toFixed(1)}MB). Maximum allowed: 5MB.`,
+            metadata: {
+              actual_pdf_url: targetUrl,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
       let extractedText = '';
       let pages: number | undefined;

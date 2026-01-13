@@ -200,21 +200,35 @@ Deno.serve(async (req) => {
           .update({ parse_status: 'parsing' })
           .eq('id', node.id);
 
-        // Call parse-regulation-document with the source URL
-        const parseResponse = await fetch(`${supabaseUrl}/functions/v1/parse-regulation-document`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({
-            url: node.source_url,
-            node_id: node.id, // This will update the node directly
-          }),
-        });
+        // Call parse-regulation-document with the source URL and timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 50000); // 50s timeout
+        
+        let parseResponse: Response;
+        try {
+          parseResponse = await fetch(`${supabaseUrl}/functions/v1/parse-regulation-document`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              url: node.source_url,
+              node_id: node.id, // This will update the node directly
+            }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (!parseResponse.ok) {
-          throw new Error(`Parse function returned ${parseResponse.status}`);
+          // Check if it's a known size/timeout issue
+          const errorBody = await parseResponse.text();
+          if (parseResponse.status === 546 || errorBody.includes('CPU Time')) {
+            throw new Error('File too large or processing timeout - requires external PDF service');
+          }
+          throw new Error(`Parse function returned ${parseResponse.status}: ${errorBody.slice(0, 200)}`);
         }
 
         const parseResult = await parseResponse.json();
