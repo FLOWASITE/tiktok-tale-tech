@@ -39,6 +39,12 @@ export default function AdminKnowledgeGraph() {
     setHighlightNodeId(nodeId);
   }, []);
 
+  // Handle orphan node click - navigate to AI Suggest tab to create connections
+  const handleOrphanNodeNavigate = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setActiveTab("suggestions");
+  }, []);
+
   return (
     <div className="container py-6 space-y-6">
       {/* Header */}
@@ -140,7 +146,7 @@ export default function AdminKnowledgeGraph() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
-          <GraphAnalyticsDashboard />
+          <GraphAnalyticsDashboard onNavigateToNode={handleOrphanNodeNavigate} />
         </TabsContent>
 
         <TabsContent value="embeddings" className="space-y-6">
