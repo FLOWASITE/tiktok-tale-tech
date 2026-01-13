@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   Sparkles,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -121,6 +122,7 @@ export function CrawledContentViewer() {
   const [showBulkReparseDialog, setShowBulkReparseDialog] = useState(false);
   const [parsingNodeId, setParsingNodeId] = useState<string | null>(null);
   const [showFullTextSheet, setShowFullTextSheet] = useState(false);
+  const [editModeOnOpen, setEditModeOnOpen] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -761,6 +763,30 @@ export function CrawledContentViewer() {
                                 </Tooltip>
                               </TooltipProvider>
                             )}
+                            {/* Edit button - only show when full_text exists */}
+                            {node.full_text && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedNode(node);
+                                        setEditModeOnOpen(true);
+                                      }}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                                      Sửa
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Chỉnh sửa nội dung đã parse</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -863,10 +889,15 @@ export function CrawledContentViewer() {
         isOpen={!!selectedNode}
         isReparsing={parsingNodeId === selectedNode?.id}
         showFullTextSheet={showFullTextSheet}
-        onClose={() => setSelectedNode(null)}
+        initialEditMode={editModeOnOpen}
+        onClose={() => {
+          setSelectedNode(null);
+          setEditModeOnOpen(false);
+        }}
         onReparse={(nodeId) => {
           handleSingleReparse(nodeId);
           setSelectedNode(null);
+          setEditModeOnOpen(false);
         }}
         onToggleFullTextSheet={setShowFullTextSheet}
         onRefresh={() => refetch()}
