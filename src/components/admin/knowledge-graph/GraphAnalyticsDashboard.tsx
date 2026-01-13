@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   BarChart3,
   PieChart,
@@ -27,6 +28,8 @@ import {
   Lightbulb,
   Users,
   Globe,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { useGraphStatistics } from "@/hooks/useGraphVisualization";
 import type { KnowledgeNodeType, KnowledgeEdgeType } from "@/types/knowledgeGraph";
@@ -340,8 +343,43 @@ export function GraphAnalyticsDashboard() {
     withEmbeddings = 0,
   } = stats || {};
 
+  // Check if action is needed
+  const needsEmbeddings = embeddingCoverage < 10;
+  const needsExtraction = (nodesByType.regulation || 0) === 0 && (nodesByType.term || 0) === 0;
+
   return (
     <div className="space-y-6">
+      {/* Action Required Alerts */}
+      {(needsEmbeddings || needsExtraction) && (
+        <Alert variant="destructive" className="border-amber-500/50 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-700">Cần thực hiện các bước cài đặt</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p className="text-sm text-amber-600">
+              Knowledge Graph cần được khởi tạo dữ liệu để các tính năng hoạt động đầy đủ:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {needsEmbeddings && (
+                <div className="flex items-center gap-2 text-sm bg-background/80 px-3 py-1.5 rounded-md border">
+                  <Zap className="h-4 w-4 text-amber-600" />
+                  <span>Vào tab <strong>Embeddings</strong></span>
+                  <ArrowRight className="h-3 w-3" />
+                  <span>Click "Chạy Tất Cả"</span>
+                </div>
+              )}
+              {needsExtraction && (
+                <div className="flex items-center gap-2 text-sm bg-background/80 px-3 py-1.5 rounded-md border">
+                  <Sparkles className="h-4 w-4 text-amber-600" />
+                  <span>Vào tab <strong>Extract</strong></span>
+                  <ArrowRight className="h-3 w-3" />
+                  <span>Click "Chạy Tất Cả"</span>
+                </div>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
