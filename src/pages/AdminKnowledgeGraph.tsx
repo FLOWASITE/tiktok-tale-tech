@@ -1,12 +1,13 @@
 import { useState, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Network, GitBranch, RefreshCw, Database, Scale, Search, Move3D, BarChart3, Wrench, Lightbulb, Globe } from "lucide-react";
+import { Network, GitBranch, RefreshCw, Database, Scale, Search, Move3D, BarChart3, Wrench, Lightbulb, Globe, Layers } from "lucide-react";
 import { 
   KnowledgeGraphViewer, 
   RegulationPropagationPanel,
   CreateNodeButton,
   BatchEmbeddingsPanel,
+  BatchProcessingPanel,
   EntityExtractionPanel,
   GraphCanvas,
   SemanticSearchPanel,
@@ -143,6 +144,10 @@ export default function AdminKnowledgeGraph() {
                   <RefreshCw className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Cập nhật</span>
                 </TabsTrigger>
+                <TabsTrigger value="batch-ops" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Layers className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Batch Ops</span>
+                </TabsTrigger>
                 <TabsTrigger value="tools" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
                   <Wrench className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Import/Export</span>
@@ -214,6 +219,10 @@ export default function AdminKnowledgeGraph() {
 
         <TabsContent value="sources" className="space-y-6">
           <RegulationSourcesPanel />
+        </TabsContent>
+
+        <TabsContent value="batch-ops" className="space-y-6">
+          <BatchProcessingPanel />
         </TabsContent>
 
         <TabsContent value="tools" className="space-y-6">
