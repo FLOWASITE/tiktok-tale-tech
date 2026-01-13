@@ -73,6 +73,13 @@ export interface QualityBreakdown {
   readability?: number;
 }
 
+export interface VersionHistoryEntry {
+  text: string;
+  edited_at: string;
+  quality_score: number | null;
+  char_count: number;
+}
+
 export interface CrawledNode {
   id: string;
   node_key: string;
@@ -86,6 +93,11 @@ export interface CrawledNode {
     auto_crawled?: boolean;
     crawled_at?: string;
     markdown?: string;
+    // Manual edit tracking
+    version_history?: VersionHistoryEntry[];
+    last_manual_edit?: string;
+    manual_edit_count?: number;
+    [key: string]: unknown; // Allow additional properties
   } | null;
   source_url: string | null;
   source_id: string | null;
