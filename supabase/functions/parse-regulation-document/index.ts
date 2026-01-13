@@ -460,27 +460,51 @@ async function extractPdfWithFirecrawl(pdfUrl: string): Promise<{ success: boole
       },
       body: JSON.stringify({
         url: pdfUrl,
-        formats: ['markdown'],
-        timeout: 60000, // 60s timeout for large PDFs
+        // Request both markdown + html and keep whichever yields more content
+        formats: ['markdown', 'html'],
+        timeout: 90000, // 90s timeout for large PDFs
       }),
     });
-    
+
     if (!response.ok) {
       const errorData = await response.text();
       console.log(`[parse-document] Firecrawl PDF extraction failed: ${response.status} - ${errorData}`);
       return { success: false, error: `Firecrawl error: ${response.status}` };
     }
-    
+
     const data = await response.json();
-    if (data.success && data.data?.markdown) {
-      const text = data.data.markdown;
-      console.log(`[parse-document] Firecrawl extracted ${text.length} chars from PDF`);
-      
-      if (text.length > 300) {
-        return { success: true, text };
+
+    const markdown: string = data.data?.markdown || data.markdown || '';
+    const html: string = data.data?.html || data.html || '';
+
+    const stripHtml = (input: string) =>
+      input
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#\d+;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const textCandidates = [
+      { kind: 'markdown', text: markdown.trim() },
+      { kind: 'html', text: stripHtml(html) },
+    ].filter(c => c.text.length > 0);
+
+    const best = textCandidates.sort((a, b) => b.text.length - a.text.length)[0];
+
+    if (best) {
+      console.log(`[parse-document] Firecrawl extracted ${best.text.length} chars from PDF (${best.kind})`);
+      if (best.text.length > 300) {
+        return { success: true, text: best.text };
       }
     }
-    
+
     return { success: false, error: 'Firecrawl returned empty content' };
   } catch (error) {
     console.error('[parse-document] Firecrawl PDF extraction error:', error);
