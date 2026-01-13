@@ -1,12 +1,14 @@
 // ============================================
 // Regulation Propagation Panel
 // Manage and review regulatory change propagation
+// Living System: Admin Review for Document-Parsed Regulations
 // ============================================
 
 import { useState } from "react";
 import {
   useRegulationPropagation,
   usePropagationStats,
+  usePendingReviewPropagations,
 } from "@/hooks/useRegulationPropagation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +25,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -35,6 +43,10 @@ import {
   AlertCircle,
   FileText,
   ArrowRight,
+  FileSearch,
+  ChevronDown,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import type {
@@ -505,50 +517,67 @@ export function RegulationPropagationPanel({ globalPackId }: RegulationPropagati
       {/* Stats */}
       <PropagationStatsCards />
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold">Hàng đợi Propagation</h3>
-          <p className="text-sm text-muted-foreground">
-            Xem xét và áp dụng các thay đổi quy định
-          </p>
+      <Tabs defaultValue="all" className="w-full">
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="all" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Tất cả
+            </TabsTrigger>
+            <TabsTrigger value="pending-review" className="gap-2">
+              <FileSearch className="h-4 w-4" />
+              Chờ duyệt
+              <PendingReviewCount />
+            </TabsTrigger>
+          </TabsList>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Làm mới
+          </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4 mr-1" />
-          Làm mới
-        </Button>
-      </div>
 
-      {/* List */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-      ) : propagations.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">Không có thay đổi nào cần xử lý</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {propagations.map((p) => (
-            <PropagationItem
-              key={p.id}
-              propagation={p}
-              onView={handleView}
-              onAnalyze={handleAnalyze}
-              onApply={handleApply}
-              onReject={handleReject}
-              isAnalyzing={isAnalyzing}
-              isApplying={isApplying}
-            />
-          ))}
-        </div>
-      )}
+        <TabsContent value="all">
+          {/* Original List */}
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-32" />
+              ))}
+            </div>
+          ) : propagations.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Không có thay đổi nào cần xử lý</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {propagations.map((p) => (
+                <PropagationItem
+                  key={p.id}
+                  propagation={p}
+                  onView={handleView}
+                  onAnalyze={handleAnalyze}
+                  onApply={handleApply}
+                  onReject={handleReject}
+                  isAnalyzing={isAnalyzing}
+                  isApplying={isApplying}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="pending-review">
+          <PendingReviewList
+            onView={handleView}
+            onApply={handleApply}
+            onReject={handleReject}
+            isApplying={isApplying}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Detail Dialog */}
       <PropagationDetailDialog
@@ -561,5 +590,293 @@ export function RegulationPropagationPanel({ globalPackId }: RegulationPropagati
         isRejecting={isRejecting}
       />
     </div>
+  );
+}
+
+// ============================================
+// Pending Review Components (Living System)
+// ============================================
+
+function PendingReviewCount() {
+  const { data: items = [] } = usePendingReviewPropagations();
+  if (items.length === 0) return null;
+  return (
+    <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+      {items.length}
+    </Badge>
+  );
+}
+
+interface PendingReviewListProps {
+  onView: (p: RegulationPropagation) => void;
+  onApply: (id: string) => Promise<void>;
+  onReject: (id: string, reason: string) => Promise<void>;
+  isApplying: boolean;
+}
+
+function PendingReviewList({ onView, onApply, onReject, isApplying }: PendingReviewListProps) {
+  const { data: items = [], isLoading, refetch } = usePendingReviewPropagations();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-40" />
+        ))}
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+          <p className="font-medium">Không có văn bản nào chờ duyệt</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tất cả văn bản đã được xem xét
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Sparkles className="h-4 w-4 text-yellow-500" />
+        <span>
+          Các văn bản đã được AI parse và extract - cần admin xác nhận trước khi áp dụng
+        </span>
+      </div>
+
+      {items.map((item) => (
+        <PendingReviewCard
+          key={item.id}
+          item={item}
+          isExpanded={expandedId === item.id}
+          onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+          onView={onView}
+          onApply={onApply}
+          onReject={onReject}
+          isApplying={isApplying}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface PendingReviewCardProps {
+  item: RegulationPropagation;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onView: (p: RegulationPropagation) => void;
+  onApply: (id: string) => Promise<void>;
+  onReject: (id: string, reason: string) => Promise<void>;
+  isApplying: boolean;
+}
+
+function PendingReviewCard({
+  item,
+  isExpanded,
+  onToggleExpand,
+  onView,
+  onApply,
+  onReject,
+  isApplying,
+}: PendingReviewCardProps) {
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const impactAnalysis = (item.impact_analysis || {}) as Record<string, unknown>;
+  const extractedData = (impactAnalysis.extracted_data || {}) as Record<string, unknown>;
+  const hasFullText = impactAnalysis.has_full_text as boolean | undefined;
+  const aiConfidence = (item as { ai_confidence_score?: number | null }).ai_confidence_score;
+
+  const handleApprove = async () => {
+    await onApply(item.id);
+  };
+
+  const handleReject = async () => {
+    if (!rejectReason.trim()) {
+      toast.error("Vui lòng nhập lý do từ chối");
+      return;
+    }
+    setIsRejecting(true);
+    try {
+      await onReject(item.id, rejectReason);
+      setShowRejectInput(false);
+      setRejectReason("");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  return (
+    <Card className="border-l-4 border-l-yellow-500">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="font-medium">{item.change_summary || "Văn bản mới"}</h4>
+              {hasFullText && (
+                <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50">
+                  <FileText className="h-3 w-3 mr-1" />
+                  Đã parse
+                </Badge>
+              )}
+              {aiConfidence != null && (
+                <Badge 
+                  variant="secondary" 
+                  className={aiConfidence >= 0.8 ? "bg-green-100" : aiConfidence >= 0.6 ? "bg-yellow-100" : "bg-red-100"}
+                >
+                  AI: {Math.round(aiConfidence * 100)}%
+                </Badge>
+              )}
+            </div>
+
+            {extractedData.document_number && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Số hiệu: {String(extractedData.document_number)}
+                {extractedData.effective_date && ` • Hiệu lực: ${String(extractedData.effective_date)}`}
+              </p>
+            )}
+
+            {extractedData.summary && (
+              <p className="text-sm mt-2 line-clamp-2">{String(extractedData.summary)}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="ghost" size="sm" onClick={() => onView(item)}>
+              <Eye className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Expandable Details */}
+        <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="mt-2 w-full justify-between">
+              <span className="text-xs">
+                {isExpanded ? "Ẩn chi tiết" : "Xem chi tiết AI Extract"}
+              </span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3 space-y-3">
+            {/* Key Changes */}
+            {Array.isArray(extractedData.key_changes) && extractedData.key_changes.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Thay đổi chính:</p>
+                <ul className="text-sm space-y-1">
+                  {(extractedData.key_changes as string[]).slice(0, 5).map((change: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <ArrowRight className="h-3 w-3 mt-1 text-blue-500 shrink-0" />
+                      <span>{change}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Claim Restrictions */}
+            {Array.isArray(extractedData.claim_restrictions) && extractedData.claim_restrictions.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  <AlertTriangle className="h-3 w-3 inline mr-1 text-orange-500" />
+                  Claims bị hạn chế/cấm:
+                </p>
+                <ul className="text-sm space-y-1">
+                  {(extractedData.claim_restrictions as string[]).map((claim: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-orange-700 bg-orange-50 p-2 rounded">
+                      <XCircle className="h-3 w-3 mt-1 shrink-0" />
+                      <span>{claim}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Affected Industries */}
+            {Array.isArray(extractedData.affected_industries) && extractedData.affected_industries.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground">Ngành ảnh hưởng:</span>
+                {(extractedData.affected_industries as string[]).map((ind: string, i: number) => (
+                  <Badge key={i} variant="outline" className="text-xs">
+                    {ind}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Document Link */}
+            {impactAnalysis.document_url && (
+              <Button
+                variant="link"
+                size="sm"
+                className="p-0 h-auto text-xs"
+                onClick={() => window.open(impactAnalysis.document_url as string, "_blank")}
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Xem văn bản gốc
+              </Button>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+          {showRejectInput ? (
+            <div className="flex-1 flex items-center gap-2">
+              <Textarea
+                placeholder="Lý do từ chối..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="h-10 min-h-0 text-sm"
+              />
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleReject}
+                disabled={isRejecting}
+              >
+                {isRejecting ? "..." : "Xác nhận"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowRejectInput(false)}
+              >
+                Hủy
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleApprove}
+                disabled={isApplying}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-1" />
+                Duyệt & Áp dụng
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRejectInput(true)}
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Từ chối
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
