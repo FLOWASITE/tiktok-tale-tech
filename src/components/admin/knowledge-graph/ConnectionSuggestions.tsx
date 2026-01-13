@@ -372,11 +372,15 @@ function BulkAutoConnectPanel({ onConnectionsCreated }: { onConnectionsCreated?:
                   <div className="space-y-1">
                     {previewResult.suggestions.slice(0, 10).map((s, i) => (
                       <div key={i} className="text-xs flex items-center gap-1 font-mono">
-                        <span className="truncate max-w-[100px]">{s.source_node_id.slice(0, 8)}...</span>
+                        <span className="truncate max-w-[100px]">
+                          {s.source_node_id ? `${s.source_node_id.slice(0, 8)}...` : 'N/A'}
+                        </span>
                         <ArrowRight className="h-3 w-3 shrink-0" />
-                        <span className="truncate max-w-[100px]">{s.target_node_id.slice(0, 8)}...</span>
+                        <span className="truncate max-w-[100px]">
+                          {s.target_node_id ? `${s.target_node_id.slice(0, 8)}...` : 'N/A'}
+                        </span>
                         <Badge variant="secondary" className="text-[10px]">
-                          {(s.similarity * 100).toFixed(0)}%
+                          {((s.similarity || 0) * 100).toFixed(0)}%
                         </Badge>
                       </div>
                     ))}
