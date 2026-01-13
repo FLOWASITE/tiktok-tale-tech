@@ -549,16 +549,55 @@ async function processSource(
       } else {
         // Check if content changed
         if (existingByUrl.content_hash !== contentHash) {
-          // Update existing node
+          // === LIVING SYSTEM: Re-parse updated document ===
+          let documentUrl: string | null = null;
+          let documentType: string | null = null;
+          let fullText: string | null = null;
+          let extractedData: any = null;
+          let effectiveDate: string | null = null;
+          let aiConfidenceScore: number | null = null;
+
+          // 1. Find new download link
+          const downloadInfo = await findDownloadLink(result.url);
+          if (downloadInfo.downloadUrl) {
+            documentUrl = downloadInfo.downloadUrl;
+            documentType = downloadInfo.fileType;
+            console.log(`[auto-crawl] [UPDATE] Found download link: ${documentUrl} (${documentType})`);
+
+            // 2. Parse document
+            const parseResult = await parseDocument(downloadInfo.downloadUrl);
+            if (parseResult.success && parseResult.text) {
+              fullText = parseResult.text;
+              stats.documents_parsed++;
+              console.log(`[auto-crawl] [UPDATE] Document parsed successfully (${fullText.length} chars)`);
+
+              // 3. Extract content with LLM
+              const extractResult = await extractContent(
+                parseResult.text,
+                source.category,
+                source.jurisdiction
+              );
+              if (extractResult.success && extractResult.data) {
+                extractedData = extractResult.data;
+                effectiveDate = extractResult.data.effective_date || null;
+                aiConfidenceScore = extractResult.data.confidence_score || null;
+                console.log(`[auto-crawl] [UPDATE] Content extracted successfully (confidence: ${aiConfidenceScore})`);
+              }
+            } else {
+              stats.documents_failed++;
+              console.log(`[auto-crawl] [UPDATE] Document parse failed`);
+            }
+          }
+
+          // Update existing node WITH Living System data
           await supabase
             .from('industry_knowledge_nodes')
             .update({
               content_hash: contentHash,
               last_verified_at: new Date().toISOString(),
-              description: {
-                vi: result.description,
-                en: result.description,
-              },
+              description: extractedData?.summary 
+                ? { vi: extractedData.summary, en: extractedData.summary }
+                : { vi: result.description, en: result.description },
               properties: {
                 jurisdiction: source.jurisdiction,
                 category: source.category,
@@ -567,13 +606,20 @@ async function processSource(
                 crawled_at: new Date().toISOString(),
                 previous_hash: existingByUrl.content_hash,
               },
+              // Living System fields
+              document_url: documentUrl,
+              document_type: documentType,
+              full_text: fullText,
+              extracted_data: extractedData,
+              effective_date: effectiveDate,
+              parse_status: fullText ? 'parsed' : 'pending',
             })
             .eq('id', existingByUrl.id);
 
           stats.updated_regulations++;
           stats.changes_detected++;
 
-// Find affected pack based on category mapping
+          // Find affected pack based on category mapping
           const mappedCategories = CATEGORY_MAPPING[source.category.toLowerCase()] || [source.category];
           const categoryFilters = mappedCategories.map(c => `category_code.eq.${c}`).join(',');
           
@@ -587,7 +633,7 @@ async function processSource(
           
           console.log(`[auto-crawl] Category mapping (update): ${source.category} -> ${mappedCategories.join(', ')}, matched pack: ${affectedPack?.name || 'none'}`);
 
-          // Create propagation log for updated regulation
+          // Create propagation log for updated regulation WITH Living System fields
           const { data: propagationLog } = await supabase.from('regulation_propagation_log').insert({
             source_node_id: existingByUrl.id,
             affected_pack_id: affectedPack?.id || null,
@@ -595,6 +641,14 @@ async function processSource(
             change_summary: `Regulation updated: ${result.title}`,
             propagation_status: 'pending',
             priority,
+            review_status: 'pending',  // Living System: require review
+            ai_confidence_score: aiConfidenceScore,
+            document_diff: {
+              previous_hash: existingByUrl.content_hash,
+              new_hash: contentHash,
+              has_full_text: !!fullText,
+              document_url: documentUrl,
+            },
             impact_analysis: {
               auto_detected: true,
               source: source.source_name,
@@ -602,6 +656,14 @@ async function processSource(
               crawl_url: result.url,
               previous_hash: existingByUrl.content_hash,
               new_hash: contentHash,
+              has_full_text: !!fullText,
+              document_url: documentUrl,
+              extracted_data: extractedData ? {
+                has_summary: !!extractedData.summary,
+                has_key_points: !!extractedData.key_points?.length,
+                has_affected_industries: !!extractedData.affected_industries?.length,
+                confidence: aiConfidenceScore,
+              } : null,
               disclaimer: source.jurisdiction === 'VN' 
                 ? '⚠️ Cập nhật quy định được phát hiện tự động và cần được xác minh.'
                 : '⚠️ Regulation update auto-detected and requires verification.',
