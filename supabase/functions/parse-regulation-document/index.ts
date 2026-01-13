@@ -440,6 +440,55 @@ async function findDirectPdfLink(url: string): Promise<string | null> {
 }
 
 /**
+ * Use Firecrawl to extract content from PDF directly
+ * Firecrawl can handle PDF extraction without CPU limits
+ */
+async function extractPdfWithFirecrawl(pdfUrl: string): Promise<{ success: boolean; text?: string; error?: string }> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) {
+    return { success: false, error: 'Firecrawl not configured' };
+  }
+  
+  try {
+    console.log(`[parse-document] Using Firecrawl to extract PDF: ${pdfUrl}`);
+    
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: pdfUrl,
+        formats: ['markdown'],
+        timeout: 60000, // 60s timeout for large PDFs
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.log(`[parse-document] Firecrawl PDF extraction failed: ${response.status} - ${errorData}`);
+      return { success: false, error: `Firecrawl error: ${response.status}` };
+    }
+    
+    const data = await response.json();
+    if (data.success && data.data?.markdown) {
+      const text = data.data.markdown;
+      console.log(`[parse-document] Firecrawl extracted ${text.length} chars from PDF`);
+      
+      if (text.length > 300) {
+        return { success: true, text };
+      }
+    }
+    
+    return { success: false, error: 'Firecrawl returned empty content' };
+  } catch (error) {
+    console.error('[parse-document] Firecrawl PDF extraction error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
  * Try to use Firecrawl for better extraction if available
  * Uses onlyMainContent to exclude headers/footers
  */
@@ -453,7 +502,12 @@ async function tryFirecrawlScrape(url: string): Promise<{ success: boolean; text
     // First, try to find direct PDF link
     const pdfUrl = await findDirectPdfLink(url);
     if (pdfUrl) {
-      // If PDF found, return it for proper parsing
+      // Try to extract PDF content using Firecrawl
+      const pdfResult = await extractPdfWithFirecrawl(pdfUrl);
+      if (pdfResult.success && pdfResult.text) {
+        return { success: true, text: pdfResult.text };
+      }
+      // If Firecrawl fails, return pdfUrl for local parsing attempt
       return { success: false, pdfUrl };
     }
     
