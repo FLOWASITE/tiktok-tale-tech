@@ -1,12 +1,9 @@
-import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -27,9 +24,6 @@ import {
   Info,
   Smile,
   Settings2,
-  Megaphone,
-  Hash,
-  MessageSquareQuote
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -75,15 +69,6 @@ export const FORMALITY_LEVEL_OPTIONS = [
 ];
 
 interface BrandFormStepDNAProps {
-  // Content
-  brandHashtags: string[];
-  setBrandHashtags: (value: string[]) => void;
-  signaturePhrases: string[];
-  setSignaturePhrases: (value: string[]) => void;
-  ctaTemplates: string[];
-  setCtaTemplates: (value: string[]) => void;
-  evergreenThemes: string[];
-  setEvergreenThemes: (value: string[]) => void;
   
   // Brand Voice
   brandPositioning: string;
@@ -105,11 +90,6 @@ interface BrandFormStepDNAProps {
 }
 
 export function BrandFormStepDNA({
-  // Content
-  brandHashtags, setBrandHashtags,
-  signaturePhrases, setSignaturePhrases,
-  ctaTemplates, setCtaTemplates,
-  evergreenThemes, setEvergreenThemes,
   // Brand Voice
   brandPositioning, setBrandPositioning,
   toneOfVoice, setToneOfVoice,
@@ -120,14 +100,6 @@ export function BrandFormStepDNA({
   forbiddenWords, setForbiddenWords,
   complianceRules, setComplianceRules,
 }: BrandFormStepDNAProps) {
-  const [activeTab, setActiveTab] = useState('voice');
-  
-  // Temp inputs
-  const [newHashtag, setNewHashtag] = useState('');
-  const [newPhrase, setNewPhrase] = useState('');
-  const [newCta, setNewCta] = useState('');
-  const [newTheme, setNewTheme] = useState('');
-
   const addToArray = (
     value: string,
     setter: (value: string[]) => void,
@@ -204,7 +176,6 @@ export function BrandFormStepDNA({
   const currentFormalityHint = FORMALITY_LEVEL_OPTIONS.find(o => o.value === formalityLevel)?.hint;
 
   // Count items for badges
-  const contentCount = brandHashtags.length + signaturePhrases.length + ctaTemplates.length + evergreenThemes.length;
   const voiceCount = toneOfVoice.length + (brandPositioning ? 1 : 0) + (formalityLevel ? 1 : 0);
   const advancedCount = preferredWords.length + forbiddenWords.length + complianceRules.length;
 
@@ -216,33 +187,12 @@ export function BrandFormStepDNA({
           <Mic2 className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h3 className="font-semibold">Giọng nói & Content</h3>
-          <p className="text-sm text-muted-foreground">Định hình cách thương hiệu giao tiếp</p>
+          <h3 className="font-semibold">Giọng nói</h3>
+          <p className="text-sm text-muted-foreground">Thiết lập Brand Voice & DNA</p>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-10">
-          <TabsTrigger value="voice" className="gap-1.5 text-xs sm:text-sm">
-            <Mic2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Giọng nói</span>
-            <span className="sm:hidden">GN</span>
-            {voiceCount > 0 && (
-              <Badge variant="secondary" className="h-4 px-1 text-[10px]">{voiceCount}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="content" className="gap-1.5 text-xs sm:text-sm">
-            <Megaphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Content</span>
-            <span className="sm:hidden">CT</span>
-            {contentCount > 0 && (
-              <Badge variant="secondary" className="h-4 px-1 text-[10px]">{contentCount}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Voice Tab */}
-        <TabsContent value="voice" className="mt-4 space-y-4">
+      <div className="space-y-4">
           {/* Brand Positioning */}
           <div className="space-y-2">
             <Label className="text-sm">Định vị thương hiệu</Label>
@@ -434,170 +384,8 @@ export function BrandFormStepDNA({
                 </div>
               </div>
             </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Content Tab */}
-        <TabsContent value="content" className="mt-4 space-y-4">
-          {/* Brand Hashtags */}
-          <div className="space-y-2">
-            <Label className="text-sm flex items-center gap-1.5">
-              <Hash className="w-3.5 h-3.5" />
-              Brand Hashtags
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                value={newHashtag}
-                onChange={(e) => setNewHashtag(e.target.value.replace(/^#/, ''))}
-                placeholder="#YourBrandHashtag"
-                className="text-sm flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const tag = newHashtag.startsWith('#') ? newHashtag : `#${newHashtag}`;
-                    addToArray(tag, setBrandHashtags, brandHashtags, () => setNewHashtag(''));
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const tag = newHashtag.startsWith('#') ? newHashtag : `#${newHashtag}`;
-                  addToArray(tag, setBrandHashtags, brandHashtags, () => setNewHashtag(''));
-                }}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            {brandHashtags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {brandHashtags.map((tag, i) => (
-                  <Badge key={i} variant="outline" className="gap-1 text-xs text-primary">
-                    {tag}
-                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeFromArray(i, setBrandHashtags, brandHashtags)} />
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Signature Phrases */}
-          <div className="space-y-2">
-            <Label className="text-sm flex items-center gap-1.5">
-              <MessageSquareQuote className="w-3.5 h-3.5" />
-              Signature Phrases
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                value={newPhrase}
-                onChange={(e) => setNewPhrase(e.target.value)}
-                placeholder="Câu nói đặc trưng..."
-                className="text-sm flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addToArray(newPhrase, setSignaturePhrases, signaturePhrases, () => setNewPhrase(''));
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addToArray(newPhrase, setSignaturePhrases, signaturePhrases, () => setNewPhrase(''))}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            {signaturePhrases.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {signaturePhrases.map((phrase, i) => (
-                  <Badge key={i} variant="secondary" className="gap-1 text-xs">
-                    "{phrase}"
-                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeFromArray(i, setSignaturePhrases, signaturePhrases)} />
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* CTA Templates */}
-          <div className="space-y-2">
-            <Label className="text-sm">CTA Templates</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newCta}
-                onChange={(e) => setNewCta(e.target.value)}
-                placeholder="Đăng ký ngay để nhận ưu đãi..."
-                className="text-sm flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addToArray(newCta, setCtaTemplates, ctaTemplates, () => setNewCta(''));
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addToArray(newCta, setCtaTemplates, ctaTemplates, () => setNewCta(''))}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            {ctaTemplates.length > 0 && (
-              <div className="space-y-1.5">
-                {ctaTemplates.map((cta, i) => (
-                  <div key={i} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-1.5 text-xs">
-                    <span>{cta}</span>
-                    <X className="w-3.5 h-3.5 cursor-pointer" onClick={() => removeFromArray(i, setCtaTemplates, ctaTemplates)} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Evergreen Themes */}
-          <div className="space-y-2">
-            <Label className="text-sm">Evergreen Themes</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newTheme}
-                onChange={(e) => setNewTheme(e.target.value)}
-                placeholder="Chủ đề có thể sử dụng quanh năm..."
-                className="text-sm flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addToArray(newTheme, setEvergreenThemes, evergreenThemes, () => setNewTheme(''));
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addToArray(newTheme, setEvergreenThemes, evergreenThemes, () => setNewTheme(''))}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            {evergreenThemes.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {evergreenThemes.map((theme, i) => (
-                  <Badge key={i} variant="outline" className="gap-1 text-xs">
-                    {theme}
-                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeFromArray(i, setEvergreenThemes, evergreenThemes)} />
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+        </Card>
+      </div>
     </div>
   );
 }
