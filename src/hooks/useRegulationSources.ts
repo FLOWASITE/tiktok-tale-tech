@@ -254,11 +254,11 @@ export function useRegulationSources() {
     mutationFn: async () => {
       const vnSources = [
         {
-          source_name: 'Văn bản Chính phủ - Thuế',
+          source_name: 'Văn bản Chính phủ - Thuế & Kế toán',
           source_url: 'https://vanban.chinhphu.vn',
           jurisdiction: 'VN',
-          category: 'tax',
-          search_query: 'Luật Quản lý thuế mới nhất site:vanban.chinhphu.vn',
+          category: 'tax', // Maps to 'finance' category_code
+          search_query: 'Luật Quản lý thuế 2019 site:vanban.chinhphu.vn',
           crawl_frequency: 'weekly',
           is_active: true,
         },
@@ -266,17 +266,35 @@ export function useRegulationSources() {
           source_name: 'Văn bản Chính phủ - Quảng cáo',
           source_url: 'https://vanban.chinhphu.vn',
           jurisdiction: 'VN',
-          category: 'advertising',
-          search_query: 'Luật Quảng cáo site:vanban.chinhphu.vn',
+          category: 'advertising', // Maps to 'lifestyle', 'commerce', 'services'
+          search_query: 'Luật Quảng cáo 2012 site:vanban.chinhphu.vn',
           crawl_frequency: 'weekly',
           is_active: true,
         },
         {
-          source_name: 'Văn bản Chính phủ - Đất đai',
+          source_name: 'Văn bản Chính phủ - Bất động sản',
           source_url: 'https://vanban.chinhphu.vn',
           jurisdiction: 'VN',
-          category: 'land',
+          category: 'land', // Maps to 'realestate' category_code
           search_query: 'Luật Đất đai 2024 site:vanban.chinhphu.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+        },
+        {
+          source_name: 'Văn bản Chính phủ - Ngân hàng & Tín dụng',
+          source_url: 'https://vanban.chinhphu.vn',
+          jurisdiction: 'VN',
+          category: 'banking', // Maps to 'finance' category_code
+          search_query: 'Luật Ngân hàng Nhà nước site:vanban.chinhphu.vn',
+          crawl_frequency: 'weekly',
+          is_active: true,
+        },
+        {
+          source_name: 'Văn bản Chính phủ - Thực phẩm & Đồ uống',
+          source_url: 'https://vanban.chinhphu.vn',
+          jurisdiction: 'VN',
+          category: 'food', // Maps to 'food' category_code
+          search_query: 'Luật An toàn thực phẩm site:vanban.chinhphu.vn',
           crawl_frequency: 'weekly',
           is_active: true,
         },

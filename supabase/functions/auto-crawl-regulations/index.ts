@@ -37,6 +37,36 @@ interface CrawlStats {
   updated_regulations: number;
 }
 
+// Category mapping: source.category -> industry_memory_packs.category_code
+// Maps crawl source categories to the appropriate category_codes in industry_memory_packs
+const CATEGORY_MAPPING: Record<string, string[]> = {
+  // Tax sources -> Finance industry packs
+  'tax': ['finance'],
+  // Advertising sources -> Lifestyle, Commerce, Services packs
+  'advertising': ['lifestyle', 'commerce', 'services'],
+  // Land/Property sources -> Real Estate packs
+  'land': ['realestate'],
+  'property': ['realestate'],
+  // Financial sources
+  'finance': ['finance'],
+  'banking': ['finance'],
+  'insurance': ['finance'],
+  // Technology sources
+  'tech': ['technology'],
+  'it': ['technology'],
+  // Healthcare sources
+  'health': ['lifestyle'],
+  'medical': ['lifestyle'],
+  // Commerce sources
+  'commerce': ['commerce'],
+  'retail': ['commerce'],
+  // Food & Beverage
+  'food': ['food'],
+  'fnb': ['food'],
+  // Education
+  'education': ['education'],
+};
+
 // Critical keywords for priority detection (Vietnamese)
 const CRITICAL_KEYWORDS_VN = [
   'xử phạt', 'cấm', 'bắt buộc', 'nghiêm cấm',
@@ -267,14 +297,21 @@ async function processSource(
 
 // Create propagation log for new regulation
           if (newNode) {
-            // Find affected pack based on category_code
+            // Get mapped category codes from CATEGORY_MAPPING
+            const mappedCategories = CATEGORY_MAPPING[source.category.toLowerCase()] || [source.category];
+            
+            // Build OR filter for all mapped categories  
+            const categoryFilters = mappedCategories.map(c => `category_code.eq.${c}`).join(',');
+            
             const { data: affectedPack } = await supabase
               .from('industry_memory_packs')
-              .select('id')
-              .or(`category_code.eq.${source.category},name.ilike.%${source.category}%`)
+              .select('id, name, category_code')
+              .or(`${categoryFilters},name.ilike.%${source.category}%,code.ilike.%${source.category}%`)
               .eq('is_active', true)
               .limit(1)
               .maybeSingle();
+            
+            console.log(`[auto-crawl] Category mapping: ${source.category} -> ${mappedCategories.join(', ')}, matched pack: ${affectedPack?.name || 'none'}`);
 
             const { data: propagationLog } = await supabase.from('regulation_propagation_log').insert({
               source_node_id: newNode.id,
@@ -338,14 +375,19 @@ async function processSource(
           stats.updated_regulations++;
           stats.changes_detected++;
 
-// Find affected pack based on category_code
+// Find affected pack based on category mapping
+          const mappedCategories = CATEGORY_MAPPING[source.category.toLowerCase()] || [source.category];
+          const categoryFilters = mappedCategories.map(c => `category_code.eq.${c}`).join(',');
+          
           const { data: affectedPack } = await supabase
             .from('industry_memory_packs')
-            .select('id')
-            .or(`category_code.eq.${source.category},name.ilike.%${source.category}%`)
+            .select('id, name, category_code')
+            .or(`${categoryFilters},name.ilike.%${source.category}%,code.ilike.%${source.category}%`)
             .eq('is_active', true)
             .limit(1)
             .maybeSingle();
+          
+          console.log(`[auto-crawl] Category mapping (update): ${source.category} -> ${mappedCategories.join(', ')}, matched pack: ${affectedPack?.name || 'none'}`);
 
           // Create propagation log for updated regulation
           const { data: propagationLog } = await supabase.from('regulation_propagation_log').insert({
