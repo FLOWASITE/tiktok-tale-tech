@@ -200,9 +200,10 @@ Deno.serve(async (req) => {
           .update({ parse_status: 'parsing' })
           .eq('id', node.id);
 
-        // Call parse-regulation-document with the source URL and timeout
+        // Call parse-regulation-document with the source URL and extended timeout
+        // PDF extraction with OCR can take 2-3 minutes, so we use 210s timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 50000); // 50s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 210000); // 210s timeout for PDF OCR
         
         let parseResponse: Response;
         try {
