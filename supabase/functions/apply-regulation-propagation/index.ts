@@ -87,23 +87,48 @@ Deno.serve(async (req) => {
     const affectedRules = (propagation.affected_rules || []) as AffectedRule[];
     const appliedChanges: string[] = [];
 
+    // Check if affected_pack_id exists
+    if (!propagation.affected_pack_id) {
+      console.log('[Apply] No affected_pack_id, marking as applied without pack changes');
+      
+      // Update propagation status to applied (no pack changes needed)
+      await supabase
+        .from('regulation_propagation_log')
+        .update({
+          propagation_status: 'applied',
+          reviewed_by: claims.user.id,
+          reviewed_at: new Date().toISOString(),
+          review_notes: 'Applied without pack changes (no affected_pack_id)',
+        })
+        .eq('id', propagation_id);
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          changes_applied: 0,
+          details: ['No affected pack specified - propagation marked as reviewed'],
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Fetch current pack compliance rules
     const { data: pack, error: packError } = await supabase
       .from('industry_global_packs')
-      .select('compliance_rules')
+      .select('global_compliance_rules')
       .eq('id', propagation.affected_pack_id)
       .single();
 
     if (packError) {
       console.error('[Apply] Pack fetch error:', packError);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch affected pack' }),
+        JSON.stringify({ error: 'Failed to fetch affected pack: ' + packError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Process affected rules
-    const currentRules = (pack?.compliance_rules as Record<string, unknown>) || {};
+    const currentRules = (pack?.global_compliance_rules as Record<string, unknown>) || {};
     const updatedRules = { ...currentRules };
     const rulesArray = (updatedRules.rules || []) as string[];
 
@@ -147,7 +172,7 @@ Deno.serve(async (req) => {
     const { error: updateError } = await supabase
       .from('industry_global_packs')
       .update({ 
-        compliance_rules: updatedRules,
+        global_compliance_rules: updatedRules,
         updated_at: new Date().toISOString(),
       })
       .eq('id', propagation.affected_pack_id);
