@@ -16,6 +16,17 @@ interface ParseRequest {
   node_id?: string; // Optional: update node directly after parsing
 }
 
+interface ParseDebugInfo {
+  source: 'pdf' | 'html' | 'download';
+  strategy?: string;
+  textLength: number;
+  legalScore?: number;
+  sidebarPenalty?: number;
+  qualityScore?: 'poor' | 'acceptable' | 'good' | 'excellent';
+  pdfUrlFound?: boolean;
+  timestamp: string;
+}
+
 interface ParseResult {
   success: boolean;
   text: string;
@@ -30,6 +41,7 @@ interface ParseResult {
     actual_pdf_url?: string;
     note?: string;
   };
+  debug?: ParseDebugInfo;
 }
 
 /**
@@ -278,10 +290,73 @@ function cleanText(text: string): string {
 }
 
 /**
+ * Detect if text contains sidebar/layout artifacts (not main legal content)
+ * Returns a penalty score - higher means more likely to be sidebar content
+ */
+function detectSidebarContent(text: string): number {
+  let penalty = 0;
+  
+  const sidebarPatterns = [
+    { pattern: /Các văn bản khác/gi, weight: 10 },
+    { pattern: /văn bản này/gi, weight: 3 },
+    { pattern: /Tìm kiếm/gi, weight: 5 },
+    { pattern: /Đăng nhập/gi, weight: 5 },
+    { pattern: /Đăng ký/gi, weight: 5 },
+    { pattern: /Liên hệ/gi, weight: 3 },
+    { pattern: /Trang chủ/gi, weight: 3 },
+    { pattern: /Menu/gi, weight: 5 },
+    { pattern: /Facebook|Twitter|Youtube/gi, weight: 5 },
+    { pattern: /Bản quyền thuộc về/gi, weight: 5 },
+    { pattern: /\[!\[\]\([^)]+\)/g, weight: 5 }, // Empty image links
+  ];
+  
+  for (const { pattern, weight } of sidebarPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      penalty += matches.length * weight;
+    }
+  }
+  
+  return penalty;
+}
+
+/**
+ * Detect if text contains legal document markers (main content indicators)
+ * Returns a bonus score - higher means more likely to be actual legal content
+ */
+function detectLegalContent(text: string): number {
+  let bonus = 0;
+  
+  const legalPatterns = [
+    { pattern: /CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/gi, weight: 20 },
+    { pattern: /Độc lập - Tự do - Hạnh phúc/gi, weight: 15 },
+    { pattern: /Điều\s+\d+/gi, weight: 5 },
+    { pattern: /Chương\s+[IVX\d]+/gi, weight: 5 },
+    { pattern: /QUYẾT ĐỊNH|NGHỊ ĐỊNH|THÔNG TƯ|LUẬT|CHỈ THỊ/gi, weight: 10 },
+    { pattern: /Căn cứ/gi, weight: 3 },
+    { pattern: /Xét đề nghị/gi, weight: 3 },
+    { pattern: /Khoản\s+\d+/gi, weight: 3 },
+    { pattern: /Nơi nhận:/gi, weight: 5 },
+    { pattern: /BỘ TRƯỞNG|THỦ TƯỚNG|CHỦ TỊCH/gi, weight: 5 },
+  ];
+  
+  for (const { pattern, weight } of legalPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      bonus += matches.length * weight;
+    }
+  }
+  
+  return bonus;
+}
+
+/**
  * Clean scraped HTML/Markdown content to remove website layout artifacts
  * Specific patterns for Vietnamese government websites
+ * Enhanced: Avoids over-truncation and detects sidebar content
  */
 function cleanScrapedContent(text: string, sourceUrl: string): string {
+  const originalLength = text.length;
   let cleaned = text;
   
   // Remove common Vietnamese gov site layout patterns
@@ -324,31 +399,52 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
   
   // Site-specific cleaning for vanban.chinhphu.vn
   if (sourceUrl.includes('chinhphu.vn')) {
-    // Remove header navigation
-    cleaned = cleaned.replace(/^[\s\S]*?(?=(?:CỘNG HÒA|QUYẾT ĐỊNH|THÔNG TƯ|NGHỊ ĐỊNH|LUẬT|CHỈ THỊ|VĂN BẢN))/i, '');
-    // Remove "Văn bản liên quan" sections
-    cleaned = cleaned.replace(/Văn bản liên quan[\s\S]*$/i, '');
-    cleaned = cleaned.replace(/Văn bản được hướng dẫn[\s\S]*$/i, '');
-    cleaned = cleaned.replace(/Văn bản bị thay thế[\s\S]*$/i, '');
+    // Remove header navigation - but only if we find legal content after it
+    const headerCutMatch = cleaned.match(/^[\s\S]*?(?=CỘNG HÒA|QUYẾT ĐỊNH|THÔNG TƯ|NGHỊ ĐỊNH|LUẬT|CHỈ THỊ)/i);
+    if (headerCutMatch && headerCutMatch[0].length < cleaned.length * 0.3) {
+      // Only cut if header is less than 30% of content
+      cleaned = cleaned.replace(/^[\s\S]*?(?=CỘNG HÒA|QUYẾT ĐỊNH|THÔNG TƯ|NGHỊ ĐỊNH|LUẬT|CHỈ THỊ)/i, '');
+    }
+    
+    // Remove "Văn bản liên quan" sections - but only if they appear in the LAST 30% of the document
+    const relatedDocsPatterns = [
+      /Văn bản liên quan/i,
+      /Văn bản được hướng dẫn/i,
+      /Văn bản bị thay thế/i,
+      /Các văn bản khác/i,
+    ];
+    
+    for (const pattern of relatedDocsPatterns) {
+      const match = cleaned.match(pattern);
+      if (match && match.index !== undefined) {
+        // Only cut if this appears in the last 30% of the document
+        if (match.index > cleaned.length * 0.7) {
+          cleaned = cleaned.substring(0, match.index);
+        }
+      }
+    }
   }
   
-  // Try to extract main content between document markers
+  // Try to extract main content between document markers - but be careful not to lose content
   const mainContentMarkers = [
     // Vietnamese legal document markers
-    /(?:CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM[\s\S]*?)((?:Điều\s+\d+|Chương\s+[IVX]+)[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i,
+    { pattern: /(?:CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM[\s\S]*?)((?:Điều\s+\d+|Chương\s+[IVX]+)[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i, minLength: 2000 },
     // Decree/Decision content
-    /(QUYẾT ĐỊNH:[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i,
+    { pattern: /(QUYẾT ĐỊNH:[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i, minLength: 1000 },
     // Circular content  
-    /(THÔNG TƯ:[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i,
-    // General regulation content
-    /(NỘI DUNG VĂN BẢN[\s\S]*?)(?:VĂN BẢN LIÊN QUAN|$)/i,
+    { pattern: /(THÔNG TƯ:[\s\S]*?)(?:Nơi nhận:|\.\/\.|$)/i, minLength: 1000 },
   ];
   
-  for (const pattern of mainContentMarkers) {
+  for (const { pattern, minLength } of mainContentMarkers) {
     const match = cleaned.match(pattern);
-    if (match && match[1] && match[1].length > 500) {
-      cleaned = match[0];
-      break;
+    if (match && match[0] && match[0].length > minLength) {
+      // Only use extracted content if it's substantial
+      const extracted = match[0];
+      // Guard rail: don't reduce content by more than 50%
+      if (extracted.length >= cleaned.length * 0.5) {
+        cleaned = extracted;
+        break;
+      }
     }
   }
   
@@ -359,18 +455,31 @@ function cleanScrapedContent(text: string, sourceUrl: string): string {
     .replace(/\n\s*\n\s*\n/g, '\n\n')
     .trim();
   
+  // Guard rail: if cleaning reduced content by more than 60%, revert to original with basic cleanup
+  if (cleaned.length < originalLength * 0.4) {
+    console.log(`[parse-document] Warning: cleaning reduced content from ${originalLength} to ${cleaned.length} chars, reverting`);
+    cleaned = text
+      .replace(/!\[[^\]]*\]\([^)]+\)/g, '') // Remove images
+      .replace(/\[\s*\]\([^)]+\)/g, '') // Remove empty links
+      .replace(/\n{4,}/g, '\n\n\n')
+      .trim();
+  }
+  
   return cleaned;
 }
 
 /**
  * Try to find direct PDF link from Vietnamese gov sites
  * Priority check for datafiles.chinhphu.vn (most reliable source)
+ * Enhanced: Uses multiple formats and waits for JS rendering
  */
 async function findDirectPdfLink(url: string): Promise<string | null> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
   if (!apiKey) return null;
   
   try {
+    console.log(`[parse-document] Searching for PDF link on: ${url}`);
+    
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: {
@@ -379,59 +488,87 @@ async function findDirectPdfLink(url: string): Promise<string | null> {
       },
       body: JSON.stringify({
         url,
-        formats: ['html', 'links'],
-        timeout: 15000,
+        formats: ['rawHtml', 'html', 'links'], // Include rawHtml for JS-rendered content
+        onlyMainContent: false, // CRITICAL: Include all page content to find PDF links
+        waitFor: 3000, // Wait for JS rendering
+        timeout: 25000,
       }),
     });
     
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log(`[parse-document] findDirectPdfLink scrape failed: HTTP ${response.status}`);
+      return null;
+    }
     
     const data = await response.json();
     const links: string[] = data.data?.links || [];
     const html: string = data.data?.html || '';
+    const rawHtml: string = data.data?.rawHtml || '';
+    const allHtml = html + ' ' + rawHtml;
+    
+    console.log(`[parse-document] Found ${links.length} links, searching for PDF...`);
     
     // Priority 1: datafiles.chinhphu.vn PDF (official document server)
     for (const link of links) {
-      if (link.includes('datafiles.chinhphu.vn') && link.toLowerCase().endsWith('.pdf')) {
-        console.log(`[parse-document] Found official PDF: ${link}`);
+      if (link.includes('datafiles.chinhphu.vn') && link.toLowerCase().includes('.pdf')) {
+        console.log(`[parse-document] Found official PDF from links: ${link}`);
         return link;
       }
     }
     
-    // Priority 2: Check HTML for embedded datafiles link
-    const datafilesMatch = html.match(
-      /href=["'](https?:\/\/datafiles\.chinhphu\.vn[^"']*\.pdf)["']/i
-    );
-    if (datafilesMatch) {
-      console.log(`[parse-document] Found embedded official PDF: ${datafilesMatch[1]}`);
-      return datafilesMatch[1];
+    // Priority 2: Check HTML/rawHtml for embedded datafiles link (covers JS-rendered links)
+    const datafilesPatterns = [
+      /href=["'](https?:\/\/datafiles\.chinhphu\.vn[^"']*\.pdf)["']/gi,
+      /src=["'](https?:\/\/datafiles\.chinhphu\.vn[^"']*\.pdf)["']/gi,
+      /(https?:\/\/datafiles\.chinhphu\.vn[^"'\s<>]*\.pdf)/gi,
+    ];
+    
+    for (const pattern of datafilesPatterns) {
+      const matches = allHtml.matchAll(pattern);
+      for (const match of matches) {
+        const pdfUrl = match[1] || match[0];
+        if (pdfUrl && pdfUrl.toLowerCase().includes('.pdf')) {
+          console.log(`[parse-document] Found embedded official PDF: ${pdfUrl}`);
+          return pdfUrl;
+        }
+      }
     }
     
-    // Priority 3: Any PDF link with common patterns
+    // Priority 3: Other PDF link patterns from Vietnamese gov sites
     const pdfPatterns = [
-      /vbpq.*\.pdf/i,
-      /\/file\/.*\.pdf/i,
-      /download.*\.pdf/i,
+      /vbpq[^"'\s]*\.pdf/i,
+      /\/file\/[^"'\s]*\.pdf/i,
+      /download[^"'\s]*\.pdf/i,
       /\.signed\.pdf/i,
+      /vbpqpl[^"'\s]*\.pdf/i,
+      /tailieu[^"'\s]*\.pdf/i,
     ];
     
     for (const link of links) {
       for (const pattern of pdfPatterns) {
         if (pattern.test(link)) {
-          console.log(`[parse-document] Found PDF link: ${link}`);
+          console.log(`[parse-document] Found PDF link via pattern: ${link}`);
           return link;
         }
       }
     }
     
-    // Priority 4: Generic PDF extension check
+    // Priority 4: Generic PDF extension check in links
     for (const link of links) {
-      if (link.toLowerCase().endsWith('.pdf')) {
-        console.log(`[parse-document] Found generic PDF: ${link}`);
+      if (link.toLowerCase().endsWith('.pdf') || link.toLowerCase().includes('.pdf?')) {
+        console.log(`[parse-document] Found generic PDF link: ${link}`);
         return link;
       }
     }
     
+    // Priority 5: Search in raw HTML for any PDF URL
+    const genericPdfMatch = allHtml.match(/(https?:\/\/[^"'\s<>]+\.pdf)(?=["'\s<>]|$)/i);
+    if (genericPdfMatch) {
+      console.log(`[parse-document] Found PDF in HTML: ${genericPdfMatch[1]}`);
+      return genericPdfMatch[1];
+    }
+    
+    console.log('[parse-document] No PDF link found');
     return null;
   } catch (error) {
     console.log('[parse-document] findDirectPdfLink error:', error);
@@ -643,10 +780,55 @@ function extractBestText(data: Record<string, unknown>): string {
 }
 
 /**
- * Try to use Firecrawl for better extraction if available
- * Uses onlyMainContent to exclude headers/footers
+ * HTML extraction strategies for multi-strategy approach
  */
-async function tryFirecrawlScrape(url: string): Promise<{ success: boolean; text?: string; pdfUrl?: string }> {
+interface HtmlExtractionStrategy {
+  name: string;
+  onlyMainContent: boolean;
+  formats: string[];
+  waitFor?: number;
+  timeout: number;
+}
+
+const HTML_EXTRACTION_STRATEGIES: HtmlExtractionStrategy[] = [
+  {
+    name: 'main_content_markdown',
+    onlyMainContent: true,
+    formats: ['markdown'],
+    timeout: 30000,
+  },
+  {
+    name: 'full_page_markdown',
+    onlyMainContent: false,
+    formats: ['markdown'],
+    waitFor: 2000,
+    timeout: 40000,
+  },
+  {
+    name: 'full_page_html',
+    onlyMainContent: false,
+    formats: ['html', 'rawHtml'],
+    waitFor: 3000,
+    timeout: 45000,
+  },
+];
+
+/**
+ * Try to use Firecrawl for better extraction if available
+ * Uses multi-strategy approach to find the best content
+ */
+async function tryFirecrawlScrape(url: string): Promise<{ 
+  success: boolean; 
+  text?: string; 
+  pdfUrl?: string;
+  debug?: {
+    source: 'pdf' | 'html';
+    strategy?: string;
+    textLength: number;
+    legalScore: number;
+    sidebarPenalty: number;
+  };
+}> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
   if (!apiKey) {
     return { success: false };
@@ -656,50 +838,136 @@ async function tryFirecrawlScrape(url: string): Promise<{ success: boolean; text
     // First, try to find direct PDF link
     const pdfUrl = await findDirectPdfLink(url);
     if (pdfUrl) {
+      console.log(`[parse-document] Found PDF link, attempting extraction: ${pdfUrl}`);
       // Try to extract PDF content using Firecrawl
       const pdfResult = await extractPdfWithFirecrawl(pdfUrl);
       if (pdfResult.success && pdfResult.text) {
-        return { success: true, text: pdfResult.text };
+        return { 
+          success: true, 
+          text: pdfResult.text,
+          debug: {
+            source: 'pdf',
+            strategy: pdfResult.strategy,
+            textLength: pdfResult.text.length,
+            legalScore: detectLegalContent(pdfResult.text),
+            sidebarPenalty: detectSidebarContent(pdfResult.text),
+          },
+        };
       }
       // If Firecrawl fails, return pdfUrl for local parsing attempt
       return { success: false, pdfUrl };
     }
     
-    // Scrape HTML with onlyMainContent for cleaner extraction
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url,
-        formats: ['markdown'],
-        onlyMainContent: true, // CRITICAL: Exclude headers, navs, footers
-        timeout: 30000,
-      }),
-    });
+    console.log('[parse-document] No PDF link found, trying HTML multi-strategy extraction');
     
-    if (!response.ok) {
-      return { success: false };
-    }
+    // Multi-strategy HTML extraction
+    let bestResult = {
+      text: '',
+      strategy: '',
+      score: -Infinity,
+    };
     
-    const data = await response.json();
-    if (data.success && data.data?.markdown) {
-      // Apply additional cleaning for gov sites
-      const cleanedText = cleanScrapedContent(data.data.markdown, url);
-      
-      // Only return if we have meaningful content
-      if (cleanedText.length > 300) {
-        return {
-          success: true,
-          text: cleanedText,
+    for (const strategy of HTML_EXTRACTION_STRATEGIES) {
+      try {
+        console.log(`[parse-document] HTML strategy: ${strategy.name}`);
+        
+        const requestBody: Record<string, unknown> = {
+          url,
+          formats: strategy.formats,
+          onlyMainContent: strategy.onlyMainContent,
+          timeout: strategy.timeout,
         };
+        
+        if (strategy.waitFor) {
+          requestBody.waitFor = strategy.waitFor;
+        }
+        
+        const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+        
+        if (!response.ok) {
+          console.log(`[parse-document] HTML strategy ${strategy.name} failed: HTTP ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        let extractedText = '';
+        
+        // Get text from available formats
+        if (data.data?.markdown) {
+          extractedText = data.data.markdown;
+        } else if (data.data?.html) {
+          extractedText = extractBestText(data);
+        } else if (data.data?.rawHtml) {
+          extractedText = extractBestText(data);
+        }
+        
+        if (!extractedText || extractedText.length < 100) {
+          continue;
+        }
+        
+        // Clean and score the content
+        const cleanedText = cleanScrapedContent(extractedText, url);
+        const legalScore = detectLegalContent(cleanedText);
+        const sidebarPenalty = detectSidebarContent(cleanedText);
+        
+        // Combined score: length + legal markers - sidebar penalty
+        const score = cleanedText.length + (legalScore * 100) - (sidebarPenalty * 200);
+        
+        console.log(`[parse-document] HTML strategy ${strategy.name}: ${cleanedText.length} chars, legal=${legalScore}, sidebar=${sidebarPenalty}, score=${score}`);
+        
+        // Reject if it looks like sidebar content (high penalty, low legal markers)
+        if (sidebarPenalty > 10 && legalScore < 5) {
+          console.log(`[parse-document] Rejecting ${strategy.name}: sidebar content detected`);
+          continue;
+        }
+        
+        if (score > bestResult.score) {
+          bestResult = {
+            text: cleanedText,
+            strategy: strategy.name,
+            score,
+          };
+        }
+        
+        // If we got excellent content, stop trying
+        if (cleanedText.length >= GOOD_EXTRACTION_LENGTH && legalScore >= 20) {
+          console.log(`[parse-document] Excellent HTML extraction with ${strategy.name}, stopping`);
+          break;
+        }
+        
+      } catch (error) {
+        console.log(`[parse-document] HTML strategy ${strategy.name} error:`, error);
+        continue;
       }
     }
     
+    if (bestResult.text.length > 300) {
+      const legalScore = detectLegalContent(bestResult.text);
+      const sidebarPenalty = detectSidebarContent(bestResult.text);
+      
+      return {
+        success: true,
+        text: bestResult.text,
+        debug: {
+          source: 'html',
+          strategy: bestResult.strategy,
+          textLength: bestResult.text.length,
+          legalScore,
+          sidebarPenalty,
+        },
+      };
+    }
+    
     return { success: false };
-  } catch {
+  } catch (error) {
+    console.log('[parse-document] tryFirecrawlScrape error:', error);
     return { success: false };
   }
 }
@@ -740,10 +1008,25 @@ Deno.serve(async (req) => {
       } else if (firecrawlResult.success && firecrawlResult.text) {
         // Successfully extracted clean HTML content
         console.log(`[parse-document] Using cleaned Firecrawl extraction (${firecrawlResult.text.length} chars)`);
+        
+        const debugInfo: ParseDebugInfo = {
+          source: firecrawlResult.debug?.source || 'html',
+          strategy: firecrawlResult.debug?.strategy,
+          textLength: firecrawlResult.text.length,
+          legalScore: firecrawlResult.debug?.legalScore,
+          sidebarPenalty: firecrawlResult.debug?.sidebarPenalty,
+          qualityScore: firecrawlResult.text.length >= 15000 ? 'excellent' : 
+                        firecrawlResult.text.length >= 5000 ? 'good' : 
+                        firecrawlResult.text.length >= 500 ? 'acceptable' : 'poor',
+          pdfUrlFound: false,
+          timestamp: new Date().toISOString(),
+        };
+        
         result = {
           success: true,
           text: cleanText(firecrawlResult.text),
           file_type: 'html',
+          debug: debugInfo,
         };
         
         // Skip to node update
@@ -904,6 +1187,7 @@ Deno.serve(async (req) => {
 
 /**
  * Helper function to update knowledge node with parse results
+ * Includes debug information for diagnostics
  */
 async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: ParseResult): Promise<void> {
   try {
@@ -913,17 +1197,36 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
     
     const parseStatus = result.success && result.text.length > 100 ? 'parsed' : 'failed';
     
+    // Prepare update payload
+    const updatePayload: Record<string, unknown> = {
+      full_text: result.text,
+      document_url: documentUrl,
+      document_type: result.file_type,
+      parse_status: parseStatus,
+    };
+    
+    // Add parse debug info to extracted_data if available
+    if (result.debug) {
+      // Get current extracted_data to merge
+      const { data: currentNode } = await supabase
+        .from('industry_knowledge_nodes')
+        .select('extracted_data')
+        .eq('id', nodeId)
+        .single();
+      
+      const currentExtractedData = (currentNode?.extracted_data as Record<string, unknown>) || {};
+      updatePayload.extracted_data = {
+        ...currentExtractedData,
+        parse_debug: result.debug,
+      };
+    }
+    
     await supabase
       .from('industry_knowledge_nodes')
-      .update({
-        full_text: result.text,
-        document_url: documentUrl,
-        document_type: result.file_type,
-        parse_status: parseStatus,
-      })
+      .update(updatePayload)
       .eq('id', nodeId);
       
-    console.log(`[parse-document] Updated node ${nodeId} with status: ${parseStatus}`);
+    console.log(`[parse-document] Updated node ${nodeId} with status: ${parseStatus}, debug: ${JSON.stringify(result.debug)}`);
   } catch (updateError) {
     console.error('[parse-document] Node update error:', updateError);
     // Don't fail the response for update errors
