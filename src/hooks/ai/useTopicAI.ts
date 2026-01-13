@@ -184,6 +184,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   const suggestPrevParamsRef = useRef<string>('');
   const suggestHasLoadedRef = useRef(false);
   const autoSavedTopicsRef = useRef<Set<string>>(new Set());
+  const suggestAbortControllerRef = useRef<AbortController | null>(null);
+  const suggestIsFetchingRef = useRef(false);
 
   // ============== SHARED ERROR HANDLER ==============
   const handleIntelApiError = useCallback((err: any, fallbackMessage: string) => {
@@ -777,6 +779,19 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   const fetchSuggestions = useCallback(async (forceRefresh = false) => {
     if (!enabled) return;
 
+    // OPTIMIZATION: Prevent duplicate parallel calls
+    if (suggestIsFetchingRef.current && !forceRefresh) {
+      console.log('[useTopicAI] Skipping duplicate fetch - already in progress');
+      return;
+    }
+
+    // Cancel any pending request
+    if (suggestAbortControllerRef.current) {
+      suggestAbortControllerRef.current.abort();
+    }
+    suggestAbortControllerRef.current = new AbortController();
+
+    suggestIsFetchingRef.current = true;
     setSuggestEnhancing(true);
     setSuggestError(null);
 
@@ -827,11 +842,17 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
         setSuggestError(data.error);
       }
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('[useTopicAI] Request aborted');
+        return;
+      }
       console.error('Error fetching enhanced topic suggestions:', err);
       setSuggestError(err instanceof Error ? err.message : 'Failed to fetch suggestions');
       setAllSuggestions([]);
       setSuggestSource('fallback');
     } finally {
+      suggestIsFetchingRef.current = false;
       setSuggestEnhancing(false);
     }
   }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id]);
