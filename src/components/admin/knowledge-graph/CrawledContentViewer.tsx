@@ -524,29 +524,31 @@ export function CrawledContentViewer() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            {/* Re-parse button for dirty nodes */}
-                            {(isDirty || node.parse_status === 'failed') && node.source_url && (
+                            {/* Parse button for all nodes with source_url */}
+                            {node.source_url && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
-                                      variant="outline"
+                                      variant={isDirty || node.parse_status === 'failed' ? "default" : "outline"}
                                       size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleSingleReparse(node.id);
                                       }}
                                       disabled={isReparsing}
+                                      className={isDirty || node.parse_status === 'failed' ? "bg-amber-500 hover:bg-amber-600" : ""}
                                     >
                                       {isReparsing ? (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                       ) : (
-                                        <RotateCcw className="h-3.5 w-3.5" />
+                                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
                                       )}
+                                      Parse
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Re-parse với logic mới</p>
+                                    <p>{isDirty ? 'Re-parse (có HTML artifacts)' : node.parse_status === 'failed' ? 'Thử lại parse' : 'Parse nội dung'}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
