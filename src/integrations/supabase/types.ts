@@ -4526,13 +4526,19 @@ export type Database = {
           created_at: string | null
           description: Json | null
           display_name: Json
+          document_type: string | null
+          document_url: string | null
+          effective_date: string | null
           embedding: string | null
+          extracted_data: Json | null
+          full_text: string | null
           global_pack_id: string | null
           id: string
           is_active: boolean | null
           last_verified_at: string | null
           node_key: string
           node_type: string
+          parse_status: string | null
           properties: Json | null
           source_id: string | null
           source_url: string | null
@@ -4543,13 +4549,19 @@ export type Database = {
           created_at?: string | null
           description?: Json | null
           display_name?: Json
+          document_type?: string | null
+          document_url?: string | null
+          effective_date?: string | null
           embedding?: string | null
+          extracted_data?: Json | null
+          full_text?: string | null
           global_pack_id?: string | null
           id?: string
           is_active?: boolean | null
           last_verified_at?: string | null
           node_key: string
           node_type: string
+          parse_status?: string | null
           properties?: Json | null
           source_id?: string | null
           source_url?: string | null
@@ -4560,13 +4572,19 @@ export type Database = {
           created_at?: string | null
           description?: Json | null
           display_name?: Json
+          document_type?: string | null
+          document_url?: string | null
+          effective_date?: string | null
           embedding?: string | null
+          extracted_data?: Json | null
+          full_text?: string | null
           global_pack_id?: string | null
           id?: string
           is_active?: boolean | null
           last_verified_at?: string | null
           node_key?: string
           node_type?: string
+          parse_status?: string | null
           properties?: Json | null
           source_id?: string | null
           source_url?: string | null
@@ -6346,15 +6364,18 @@ export type Database = {
         Row: {
           affected_pack_id: string | null
           affected_rules: Json | null
+          ai_confidence_score: number | null
           change_summary: string | null
           change_type: string
           created_at: string | null
+          document_diff: Json | null
           id: string
           impact_analysis: Json | null
           priority: string | null
           propagated_at: string | null
           propagation_status: string | null
           review_notes: string | null
+          review_status: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           source_node_id: string | null
@@ -6362,15 +6383,18 @@ export type Database = {
         Insert: {
           affected_pack_id?: string | null
           affected_rules?: Json | null
+          ai_confidence_score?: number | null
           change_summary?: string | null
           change_type: string
           created_at?: string | null
+          document_diff?: Json | null
           id?: string
           impact_analysis?: Json | null
           priority?: string | null
           propagated_at?: string | null
           propagation_status?: string | null
           review_notes?: string | null
+          review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           source_node_id?: string | null
@@ -6378,15 +6402,18 @@ export type Database = {
         Update: {
           affected_pack_id?: string | null
           affected_rules?: Json | null
+          ai_confidence_score?: number | null
           change_summary?: string | null
           change_type?: string
           created_at?: string | null
+          document_diff?: Json | null
           id?: string
           impact_analysis?: Json | null
           priority?: string | null
           propagated_at?: string | null
           propagation_status?: string | null
           review_notes?: string | null
+          review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           source_node_id?: string | null
