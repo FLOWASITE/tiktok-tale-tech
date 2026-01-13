@@ -2050,6 +2050,21 @@ Deno.serve(async (req) => {
     
     console.log(`[parse-document] Processing: ${url}`);
     
+    // URL validation - reject invalid URLs early
+    const urlValidation = isValidRegulationUrl(url);
+    if (!urlValidation.valid) {
+      console.log(`[parse-document] Invalid URL rejected: ${urlValidation.reason}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: urlValidation.reason,
+          text: '',
+          file_type: 'unknown',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
     let result: ParseResult;
     let targetUrl = url;
     
@@ -2358,6 +2373,76 @@ interface ContentQualityResult {
   };
 }
 
+/**
+ * Enhanced artifact patterns for comprehensive detection
+ * Includes VBPL, chinhphu.vn, TVPL specific patterns
+ */
+const COMPREHENSIVE_ARTIFACT_PATTERNS = [
+  // Empty/broken image links
+  { pattern: /\[!\[\]\([^)]+\)\]/g, penalty: 5 },
+  { pattern: /!\[[^\]]*\]\([^)]+\)/g, penalty: 3 },
+  
+  // Login/auth prompts
+  { pattern: /Đăng nhập|Đăng ký|Tìm kiếm/gi, penalty: 3 },
+  { pattern: /Bạn Chưa Đăng Nhập/gi, penalty: 5 },
+  
+  // Social media
+  { pattern: /Facebook|Twitter|Youtube|Zalo/gi, penalty: 2 },
+  
+  // Copyright/footer
+  { pattern: /Copyright|Bản quyền thuộc về/gi, penalty: 2 },
+  
+  // Empty tables
+  { pattern: /^\|[\s\|]+\|$/gm, penalty: 2 },
+  { pattern: /\|\s*---+\s*\|/g, penalty: 2 },
+  
+  // Navigation
+  { pattern: /Văn bản liên quan|Xem thêm|Đọc thêm/gi, penalty: 2 },
+  { pattern: /Trang chủ\s*>/gi, penalty: 3 },
+  { pattern: /Menu|Sidebar|Footer|Header/gi, penalty: 3 },
+  
+  // Contact info
+  { pattern: /Liên hệ|Hotline|Điện thoại:/gi, penalty: 2 },
+  
+  // Rating/stats
+  { pattern: /Bạn đánh giá.*?sao/gi, penalty: 3 },
+  { pattern: /\d+ lượt xem/gi, penalty: 2 },
+  { pattern: /\d+ lượt đánh giá/gi, penalty: 2 },
+  
+  // Related content
+  { pattern: /Bài viết liên quan/gi, penalty: 3 },
+  { pattern: /Mục lục/gi, penalty: 1 },
+  
+  // VBPL specific
+  { pattern: /Turn on more accessible mode/gi, penalty: 5 },
+  { pattern: /Turn off more accessible mode/gi, penalty: 5 },
+  { pattern: /\[\d{4} đến \d{4}\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /\[Tòa án nhân dân[^\]]*\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /\[Quốc hội\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /\[Chính phủ\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /\[Thủ tướng Chính phủ\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /\[Các Bộ, cơ quan ngang Bộ\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /Các văn bản khác/gi, penalty: 4 },
+  { pattern: /VB liên quan/gi, penalty: 3 },
+  { pattern: /Thuộc tính\s*văn bản/gi, penalty: 3 },
+  
+  // chinhphu.vn specific
+  { pattern: /\[!\[Cổng thông tin điện tử Chính phủ\][^\]]*\]\([^)]+\)/g, penalty: 5 },
+  { pattern: /\[English\]\([^)]+\)/g, penalty: 2 },
+  { pattern: /\[中文\]\([^)]+\)/g, penalty: 2 },
+  { pattern: /!\[.*?quoc-huy\.png.*?\]/g, penalty: 5 },
+  
+  // CDN URLs (TVPL)
+  { pattern: /cdn\.thuvienphapluat\.vn/gi, penalty: 4 },
+  
+  // Empty links
+  { pattern: /\[\s*\]\([^)]+\)/g, penalty: 3 },
+  { pattern: /\[#\]\([^)]+\)/g, penalty: 3 },
+  
+  // Navigation list items
+  { pattern: /^-\s*\[[^\]]+\]\([^)]+\)\s*$/gm, penalty: 2 },
+];
+
 function calculateContentQuality(text: string): ContentQualityResult {
   if (!text || text.length < 100) {
     return {
@@ -2374,30 +2459,14 @@ function calculateContentQuality(text: string): ContentQualityResult {
     readability: 0,
   };
 
-  // Artifact detection (negative) - comprehensive patterns
-  const artifactPatterns = [
-    { pattern: /\[!\[\]\([^)]+\)\]/g, penalty: 5 },
-    { pattern: /Đăng nhập|Đăng ký|Tìm kiếm/gi, penalty: 3 },
-    { pattern: /Facebook|Twitter|Youtube|Zalo/gi, penalty: 2 },
-    { pattern: /Copyright|Bản quyền/gi, penalty: 2 },
-    { pattern: /^\|[\s\|]+\|$/gm, penalty: 2 },
-    { pattern: /Văn bản liên quan|Xem thêm|Đọc thêm/gi, penalty: 2 },
-    { pattern: /Trang chủ\s*>/gi, penalty: 3 },
-    { pattern: /Menu|Sidebar|Footer|Header/gi, penalty: 3 },
-    { pattern: /Liên hệ|Hotline|Điện thoại:/gi, penalty: 2 },
-    { pattern: /Bạn đánh giá.*?sao/gi, penalty: 3 },
-    { pattern: /\d+ lượt xem/gi, penalty: 2 },
-    { pattern: /Bài viết liên quan/gi, penalty: 3 },
-    { pattern: /Mục lục/gi, penalty: 1 },
-  ];
-
-  for (const { pattern, penalty } of artifactPatterns) {
+  // Artifact detection using comprehensive patterns
+  for (const { pattern, penalty } of COMPREHENSIVE_ARTIFACT_PATTERNS) {
     const matches = text.match(pattern);
     if (matches) {
       breakdown.artifact_penalty += matches.length * penalty;
     }
   }
-  score -= Math.min(breakdown.artifact_penalty, 40);
+  score -= Math.min(breakdown.artifact_penalty, 50); // Cap at 50 penalty
 
   // Legal structure detection (positive)
   const legalPatterns = [
@@ -2458,8 +2527,147 @@ function calculateContentQuality(text: string): ContentQualityResult {
 }
 
 /**
+ * AI Post-Processing Clean - Uses AI to remove artifacts when quality is too low
+ * Only triggered when content_quality_score < 85 or artifact_penalty > 15
+ */
+async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedText: string; wasProcessed: boolean }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
+  if (!LOVABLE_API_KEY) {
+    console.log('[parse-document] LOVABLE_API_KEY not configured, skipping AI post-process clean');
+    return { cleanedText: text, wasProcessed: false };
+  }
+  
+  // Pre-check quality - only process if needed
+  const preCheck = calculateContentQuality(text);
+  console.log(`[parse-document] AI Post-Process: Pre-check quality=${preCheck.overall}, artifacts=${preCheck.breakdown.artifact_penalty}`);
+  
+  if (preCheck.overall >= 85 && preCheck.breakdown.artifact_penalty < 15) {
+    console.log('[parse-document] AI Post-Process: Quality already good, skipping');
+    return { cleanedText: text, wasProcessed: false };
+  }
+  
+  try {
+    console.log(`[parse-document] AI Post-Process: Cleaning ${text.length} chars from ${url}`);
+    
+    // Truncate if too large
+    const truncatedText = text.length > 80000 ? text.substring(0, 80000) : text;
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash", // Fast + cheap for cleaning
+        messages: [
+          {
+            role: "system",
+            content: `NHIỆM VỤ: Làm sạch văn bản pháp luật Việt Nam.
+
+BẮT BUỘC LOẠI BỎ:
+- Menu điều hướng, sidebar, breadcrumb
+- Links markdown rỗng: [](url), [![](url)]
+- Bảng rỗng: | | |, |---|---|
+- "Trang chủ >", "Đăng nhập", "Đăng ký", "Tìm kiếm"
+- "Văn bản liên quan", "Xem thêm", "Bài viết liên quan"
+- "Copyright", "Bản quyền", "Facebook", "Zalo", "Hotline"
+- "Turn on/off more accessible mode"
+- Links đến các năm: [2020 đến 2024](url)
+- Metadata website: "Số lượt xem", "Đánh giá"
+- Image markdown: ![...](...)
+
+BẮT BUỘC GIỮ LẠI:
+- Toàn bộ nội dung pháp lý
+- Quốc hiệu: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+- Các Điều, Khoản, Chương với nội dung đầy đủ
+- Thông tin ban hành, người ký
+- "Nơi nhận:", danh sách nơi nhận
+
+OUTPUT: Text thuần túy, giữ nguyên xuống dòng và cấu trúc pháp lý.
+KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã làm sạch.`
+          },
+          {
+            role: "user",
+            content: `Làm sạch văn bản sau:\n\n${truncatedText}`
+          }
+        ],
+        max_completion_tokens: 16000,
+        temperature: 0.1, // Low temp for consistent cleaning
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log(`[parse-document] AI Post-Process: API error ${response.status}`);
+      return { cleanedText: text, wasProcessed: false };
+    }
+    
+    const data = await response.json();
+    const cleanedText = data.choices?.[0]?.message?.content || '';
+    
+    if (!cleanedText || cleanedText.length < text.length * 0.3) {
+      console.log('[parse-document] AI Post-Process: Cleaned text too short, keeping original');
+      return { cleanedText: text, wasProcessed: false };
+    }
+    
+    // Post-check quality
+    const postCheck = calculateContentQuality(cleanedText);
+    console.log(`[parse-document] AI Post-Process: Post-check quality=${postCheck.overall}, artifacts=${postCheck.breakdown.artifact_penalty}`);
+    
+    // Only use cleaned version if it's actually better
+    if (postCheck.overall > preCheck.overall) {
+      console.log(`[parse-document] AI Post-Process: Improved quality ${preCheck.overall} -> ${postCheck.overall}`);
+      return { cleanedText: cleanedText, wasProcessed: true };
+    } else {
+      console.log('[parse-document] AI Post-Process: No improvement, keeping original');
+      return { cleanedText: text, wasProcessed: false };
+    }
+    
+  } catch (error) {
+    console.log(`[parse-document] AI Post-Process error:`, error);
+    return { cleanedText: text, wasProcessed: false };
+  }
+}
+
+/**
+ * Validate if URL is a valid regulation document URL
+ * Rejects search pages, listing pages, and invalid URLs
+ */
+function isValidRegulationUrl(url: string): { valid: boolean; reason?: string } {
+  const urlLower = url.toLowerCase();
+  
+  // Reject search/listing pages
+  if (urlLower.includes('search=') || urlLower.includes('keyword=')) {
+    return { valid: false, reason: 'Search page URL - not a regulation document' };
+  }
+  
+  if (urlLower.includes('ivanban.aspx') || urlLower.includes('timkiem.aspx')) {
+    return { valid: false, reason: 'Search results page - not a regulation document' };
+  }
+  
+  // Reject related documents pages
+  if (urlLower.includes('vanbanlienquan.aspx')) {
+    return { valid: false, reason: 'Related documents page - not a regulation document' };
+  }
+  
+  // Reject category/listing pages
+  if (urlLower.includes('/pages/cacbo.aspx') || urlLower.includes('/pages/home.aspx')) {
+    return { valid: false, reason: 'Category listing page - not a regulation document' };
+  }
+  
+  // Reject pure domain URLs without document path
+  const urlPath = new URL(url).pathname;
+  if (!urlPath || urlPath === '/' || urlPath.length < 5) {
+    return { valid: false, reason: 'No document path in URL' };
+  }
+  
+  return { valid: true };
+}
+
+/**
  * Helper function to update knowledge node with parse results
- * Includes debug information and content quality scoring
+ * Includes debug information, content quality scoring, and AI post-processing
  */
 async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: ParseResult): Promise<void> {
   try {
@@ -2467,14 +2675,31 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const parseStatus = result.success && result.text.length > 100 ? 'parsed' : 'failed';
+    let finalText = result.text;
+    let aiProcessed = false;
     
-    // Calculate content quality score
-    const qualityResult = calculateContentQuality(result.text);
+    // Calculate initial quality score
+    let qualityResult = calculateContentQuality(result.text);
+    
+    // Apply AI post-processing if quality is below threshold
+    if (result.success && qualityResult.overall < 85) {
+      console.log(`[parse-document] Node ${nodeId}: Quality ${qualityResult.overall} < 85, attempting AI post-process clean`);
+      
+      const aiCleanResult = await aiPostProcessClean(result.text, documentUrl);
+      if (aiCleanResult.wasProcessed) {
+        finalText = aiCleanResult.cleanedText;
+        aiProcessed = true;
+        // Recalculate quality after AI processing
+        qualityResult = calculateContentQuality(finalText);
+        console.log(`[parse-document] Node ${nodeId}: After AI clean, quality = ${qualityResult.overall}`);
+      }
+    }
+    
+    const parseStatus = result.success && finalText.length > 100 ? 'parsed' : 'failed';
     
     // Prepare update payload
     const updatePayload: Record<string, unknown> = {
-      full_text: result.text,
+      full_text: finalText,
       document_url: documentUrl,
       document_type: result.file_type,
       parse_status: parseStatus,
@@ -2482,30 +2707,30 @@ async function updateKnowledgeNode(nodeId: string, documentUrl: string, result: 
       quality_breakdown: qualityResult.breakdown,
     };
     
-    // Add parse debug info to extracted_data if available
-    if (result.debug) {
-      // Get current extracted_data to merge
-      const { data: currentNode } = await supabase
-        .from('industry_knowledge_nodes')
-        .select('extracted_data')
-        .eq('id', nodeId)
-        .single();
-      
-      const currentExtractedData = (currentNode?.extracted_data as Record<string, unknown>) || {};
-      updatePayload.extracted_data = {
-        ...currentExtractedData,
-        parse_debug: result.debug,
-        quality_score: qualityResult.overall,
-        quality_breakdown: qualityResult.breakdown,
-      };
-    }
+    // Get current extracted_data to merge
+    const { data: currentNode } = await supabase
+      .from('industry_knowledge_nodes')
+      .select('extracted_data')
+      .eq('id', nodeId)
+      .single();
+    
+    const currentExtractedData = (currentNode?.extracted_data as Record<string, unknown>) || {};
+    updatePayload.extracted_data = {
+      ...currentExtractedData,
+      parse_debug: result.debug,
+      quality_score: qualityResult.overall,
+      quality_breakdown: qualityResult.breakdown,
+      ai_post_processed: aiProcessed,
+      text_length: finalText.length,
+      parsed_at: new Date().toISOString(),
+    };
     
     await supabase
       .from('industry_knowledge_nodes')
       .update(updatePayload)
       .eq('id', nodeId);
       
-    console.log(`[parse-document] Updated node ${nodeId} with status: ${parseStatus}, quality: ${qualityResult.overall}, debug: ${JSON.stringify(result.debug)}`);
+    console.log(`[parse-document] Updated node ${nodeId}: status=${parseStatus}, quality=${qualityResult.overall}, ai_processed=${aiProcessed}, length=${finalText.length}`);
   } catch (updateError) {
     console.error('[parse-document] Node update error:', updateError);
     // Don't fail the response for update errors
