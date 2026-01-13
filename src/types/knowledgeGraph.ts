@@ -107,10 +107,15 @@ export interface RegulationPropagation {
   review_notes: string | null;
   propagated_at: string;
   created_at: string;
+  // Living System fields
+  review_status?: 'pending' | 'approved' | 'rejected';
+  document_diff?: Record<string, unknown> | null;
+  ai_confidence_score?: number | null;
 }
 
 /**
  * AI-generated impact analysis
+ * Extended for Living System with document parsing data
  */
 export interface ImpactAnalysis {
   severity?: 'low' | 'medium' | 'high' | 'critical';
@@ -118,6 +123,28 @@ export interface ImpactAnalysis {
   recommended_actions?: string[];
   estimated_effort?: string;
   summary?: string;
+  // Living System: Document extraction data
+  has_full_text?: boolean;
+  document_url?: string | null;
+  extracted_data?: ExtractedRegulationData | null;
+}
+
+/**
+ * Extracted regulation data from document parsing
+ * Living System: Output from extract-regulation-content
+ */
+export interface ExtractedRegulationData {
+  document_number?: string | null;
+  document_type?: string | null;
+  title?: string | null;
+  effective_date?: string | null;
+  issuing_authority?: string | null;
+  summary?: string | null;
+  key_changes?: string[];
+  claim_restrictions?: string[];
+  compliance_impacts?: ComplianceImpact[];
+  affected_industries?: string[];
+  confidence_score?: number;
 }
 
 /**
@@ -128,6 +155,17 @@ export interface AffectedRule {
   rule_text: string;
   impact_type: 'modify' | 'remove' | 'add';
   suggested_change?: string;
+}
+
+/**
+ * Compliance impact for a specific industry
+ * Living System: From extract-regulation-content
+ */
+export interface ComplianceImpact {
+  industry: string;
+  impact_level: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  required_actions?: string[];
 }
 
 // ============================================

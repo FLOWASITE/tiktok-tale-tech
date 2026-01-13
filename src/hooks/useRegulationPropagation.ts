@@ -201,6 +201,28 @@ export function usePendingPropagations(limit = 20) {
 }
 
 /**
+ * Fetch propagations with review_status = 'pending' (Living System)
+ * These are regulations that have been parsed and need admin review
+ */
+export function usePendingReviewPropagations(limit = 50) {
+  return useQuery({
+    queryKey: [...propagationKeys.all, 'pending-review'] as const,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('regulation_propagation_log')
+        .select('*')
+        .eq('review_status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (error) throw error;
+      return (data || []) as unknown as RegulationPropagation[];
+    },
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
  * Fetch propagation statistics
  */
 export function usePropagationStats() {

@@ -249,54 +249,86 @@ export function useRegulationSources() {
     [updateSourceMutation]
   );
 
-  // Seed initial VN sources
+  // Seed initial VN sources - Living System: Optimized for document download
   const seedInitialSourcesMutation = useMutation({
     mutationFn: async () => {
+      // Priority sources for Living System:
+      // 1. VBPL.vn - Best for direct PDF/DOCX download (no CAPTCHA)
+      // 2. LuatVietnam.vn - Good alternative with structured data
+      // 3. VanBan.ChinhPhu.vn - Official but harder to scrape
       const vnSources = [
+        // === VBPL.VN - Priority Source (Easy Download) ===
         {
-          source_name: 'Văn bản Chính phủ - Thuế & Kế toán',
-          source_url: 'https://vanban.chinhphu.vn',
+          source_name: 'VBPL - Thuế & Kế toán (Ưu tiên)',
+          source_url: 'https://vbpl.vn',
           jurisdiction: 'VN',
-          category: 'tax', // Maps to 'finance' category_code
-          search_query: 'Luật Quản lý thuế 2019 site:vanban.chinhphu.vn',
-          crawl_frequency: 'weekly',
+          category: 'tax',
+          search_query: 'Luật thuế site:vbpl.vn/van-ban',
+          crawl_frequency: 'monthly',
           is_active: true,
+          properties: { priority: 1, supports_download: true },
         },
         {
-          source_name: 'Văn bản Chính phủ - Quảng cáo',
-          source_url: 'https://vanban.chinhphu.vn',
+          source_name: 'VBPL - Quảng cáo & Marketing (Ưu tiên)',
+          source_url: 'https://vbpl.vn',
           jurisdiction: 'VN',
-          category: 'advertising', // Maps to 'lifestyle', 'commerce', 'services'
-          search_query: 'Luật Quảng cáo 2012 site:vanban.chinhphu.vn',
-          crawl_frequency: 'weekly',
+          category: 'advertising',
+          search_query: 'Luật quảng cáo site:vbpl.vn/van-ban',
+          crawl_frequency: 'monthly',
           is_active: true,
+          properties: { priority: 1, supports_download: true },
         },
         {
-          source_name: 'Văn bản Chính phủ - Bất động sản',
-          source_url: 'https://vanban.chinhphu.vn',
+          source_name: 'VBPL - Bất động sản (Ưu tiên)',
+          source_url: 'https://vbpl.vn',
           jurisdiction: 'VN',
-          category: 'land', // Maps to 'realestate' category_code
-          search_query: 'Luật Đất đai 2024 site:vanban.chinhphu.vn',
-          crawl_frequency: 'weekly',
+          category: 'land',
+          search_query: 'Luật đất đai site:vbpl.vn/van-ban',
+          crawl_frequency: 'monthly',
           is_active: true,
+          properties: { priority: 1, supports_download: true },
         },
         {
-          source_name: 'Văn bản Chính phủ - Ngân hàng & Tín dụng',
-          source_url: 'https://vanban.chinhphu.vn',
+          source_name: 'VBPL - Ngân hàng & Tài chính (Ưu tiên)',
+          source_url: 'https://vbpl.vn',
           jurisdiction: 'VN',
-          category: 'banking', // Maps to 'finance' category_code
-          search_query: 'Luật Ngân hàng Nhà nước site:vanban.chinhphu.vn',
-          crawl_frequency: 'weekly',
+          category: 'banking',
+          search_query: 'Luật ngân hàng site:vbpl.vn/van-ban',
+          crawl_frequency: 'monthly',
           is_active: true,
+          properties: { priority: 1, supports_download: true },
         },
         {
-          source_name: 'Văn bản Chính phủ - Thực phẩm & Đồ uống',
+          source_name: 'VBPL - Thực phẩm & Đồ uống (Ưu tiên)',
+          source_url: 'https://vbpl.vn',
+          jurisdiction: 'VN',
+          category: 'food',
+          search_query: 'Luật an toàn thực phẩm site:vbpl.vn/van-ban',
+          crawl_frequency: 'monthly',
+          is_active: true,
+          properties: { priority: 1, supports_download: true },
+        },
+        // === LuatVietnam.vn - Alternative Source ===
+        {
+          source_name: 'Luật Việt Nam - Tổng hợp',
+          source_url: 'https://luatvietnam.vn',
+          jurisdiction: 'VN',
+          category: 'general',
+          search_query: 'Luật mới 2026 site:luatvietnam.vn',
+          crawl_frequency: 'monthly',
+          is_active: true,
+          properties: { priority: 2, supports_download: true },
+        },
+        // === VanBan.ChinhPhu.vn - Official but harder ===
+        {
+          source_name: 'Văn bản Chính phủ - Official (Backup)',
           source_url: 'https://vanban.chinhphu.vn',
           jurisdiction: 'VN',
-          category: 'food', // Maps to 'food' category_code
-          search_query: 'Luật An toàn thực phẩm site:vanban.chinhphu.vn',
-          crawl_frequency: 'weekly',
-          is_active: true,
+          category: 'general',
+          search_query: 'Luật Quản lý thuế site:vanban.chinhphu.vn',
+          crawl_frequency: 'quarterly',
+          is_active: false, // Disabled by default - harder to scrape
+          properties: { priority: 3, supports_download: false, needs_captcha: true },
         },
       ];
 
@@ -323,7 +355,7 @@ export function useRegulationSources() {
       queryClient.invalidateQueries({ queryKey: regulationSourcesKeys.list() });
       toast({
         title: 'Seed hoàn tất',
-        description: `Đã thêm ${data.inserted} nguồn VN, bỏ qua ${data.skipped} nguồn đã tồn tại`,
+        description: `Đã thêm ${data.inserted} nguồn VN (ưu tiên VBPL.vn), bỏ qua ${data.skipped} nguồn đã tồn tại`,
       });
     },
     onError: (error) => {
