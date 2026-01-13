@@ -855,22 +855,39 @@ async function scrapeVbplForPdf(pageUrl: string): Promise<string | null> {
     }
     
     // === PRIORITY 4: WopiFrame.aspx patterns (extract from preview URLs) ===
+    // Convert WopiFrame preview URLs to direct FileData download URLs
     const wopiPatterns = [
-      /WopiFrame\.aspx\?sourcedoc=([^"'&]+)/i,
-      /sourcedoc=([^"'&]+)/i,
+      /WopiFrame\.aspx\?sourcedoc=([^"'&\s]+)/gi,
+      /sourcedoc=([^"'&\s]+)/gi,
     ];
     
     for (const pattern of wopiPatterns) {
-      const match = allContent.match(pattern);
-      if (match && match[1]) {
-        // The sourcedoc often contains the file path
-        const sourcedoc = decodeURIComponent(match[1]);
-        const filePathMatch = sourcedoc.match(/Attachments\/(\d+)\/([^"'&]+)/);
-        if (filePathMatch) {
-          const [, extractedItemId, filename] = filePathMatch;
-          const downloadUrl = buildVbplDownloadUrl(extractedItemId, filename, domain);
-          console.log(`[parse-document] VBPL: Extracted from WopiFrame: ${downloadUrl}`);
-          return downloadUrl;
+      const matches = allContent.matchAll(pattern);
+      for (const match of matches) {
+        if (match && match[1]) {
+          // The sourcedoc contains the file path
+          const sourcedoc = decodeURIComponent(match[1]);
+          console.log(`[parse-document] VBPL: Found sourcedoc: ${sourcedoc}`);
+          
+          // Extract domain and path from sourcedoc
+          // Pattern: /TW/Lists/vbpq/Attachments/178299/filename.docx
+          const filePathMatch = sourcedoc.match(/\/([^\/]+)\/Lists\/vbpq\/Attachments\/(\d+)\/([^"'&\s]+)/i);
+          if (filePathMatch) {
+            const [, extractedDomain, extractedItemId, filename] = filePathMatch;
+            // Build direct FileData URL
+            const downloadUrl = `https://vbpl.vn/FileData/${extractedDomain}/Lists/vbpq/Attachments/${extractedItemId}/${encodeURIComponent(filename)}`;
+            console.log(`[parse-document] VBPL: Converted WopiFrame to FileData URL: ${downloadUrl}`);
+            return downloadUrl;
+          }
+          
+          // Alternative pattern: just Attachments/{id}/{filename}
+          const simplePathMatch = sourcedoc.match(/Attachments\/(\d+)\/([^"'&\s]+)/);
+          if (simplePathMatch) {
+            const [, extractedItemId, filename] = simplePathMatch;
+            const downloadUrl = buildVbplDownloadUrl(extractedItemId, filename, domain);
+            console.log(`[parse-document] VBPL: Extracted from WopiFrame: ${downloadUrl}`);
+            return downloadUrl;
+          }
         }
       }
     }
@@ -1445,17 +1462,51 @@ Deno.serve(async (req) => {
     let targetUrl = url;
     
     // Check if URL is already a direct PDF/DOCX link
-    const isDirectDownload = /\.(pdf|docx?)(\?.*)?$/i.test(url);
+    // IMPORTANT: WopiFrame.aspx URLs are NOT direct downloads - they are preview wrappers
+    const isWopiFrame = url.includes('WopiFrame.aspx');
+    const isDirectDownload = !isWopiFrame && /\.(pdf|docx?)(\?.*)?$/i.test(url);
     
-    if (!isDirectDownload) {
+    // Handle WopiFrame URLs by extracting the actual file path
+    if (isWopiFrame) {
+      console.log('[parse-document] Detected WopiFrame preview URL, extracting real file path...');
+      const sourcedocMatch = url.match(/sourcedoc=([^&]+)/i);
+      if (sourcedocMatch) {
+        const sourcedoc = decodeURIComponent(sourcedocMatch[1]);
+        console.log(`[parse-document] Sourcedoc path: ${sourcedoc}`);
+        
+        // Extract domain and file path from sourcedoc
+        const filePathMatch = sourcedoc.match(/\/([^\/]+)\/Lists\/vbpq\/Attachments\/(\d+)\/([^&\s]+)/i);
+        if (filePathMatch) {
+          const [, extractedDomain, itemId, filename] = filePathMatch;
+          targetUrl = `https://vbpl.vn/FileData/${extractedDomain}/Lists/vbpq/Attachments/${itemId}/${filename}`;
+          console.log(`[parse-document] Converted to FileData URL: ${targetUrl}`);
+        }
+      }
+    }
+    
+    if (!isDirectDownload && !isWopiFrame) {
       // Try Firecrawl for HTML pages - may find PDF link or extract content
       console.log('[parse-document] Checking for PDF link on page...');
       const firecrawlResult = await tryFirecrawlScrape(url);
       
       if (firecrawlResult.pdfUrl) {
         // Found a PDF link - use that instead
-        console.log(`[parse-document] Found PDF, switching to: ${firecrawlResult.pdfUrl}`);
-        targetUrl = firecrawlResult.pdfUrl;
+        // Check if it's a WopiFrame URL and convert it
+        let pdfUrl = firecrawlResult.pdfUrl;
+        if (pdfUrl.includes('WopiFrame.aspx')) {
+          const sourcedocMatch = pdfUrl.match(/sourcedoc=([^&]+)/i);
+          if (sourcedocMatch) {
+            const sourcedoc = decodeURIComponent(sourcedocMatch[1]);
+            const filePathMatch = sourcedoc.match(/\/([^\/]+)\/Lists\/vbpq\/Attachments\/(\d+)\/([^&\s]+)/i);
+            if (filePathMatch) {
+              const [, extractedDomain, itemId, filename] = filePathMatch;
+              pdfUrl = `https://vbpl.vn/FileData/${extractedDomain}/Lists/vbpq/Attachments/${itemId}/${filename}`;
+              console.log(`[parse-document] Converted WopiFrame to FileData: ${pdfUrl}`);
+            }
+          }
+        }
+        console.log(`[parse-document] Found PDF, switching to: ${pdfUrl}`);
+        targetUrl = pdfUrl;
       } else if (firecrawlResult.success && firecrawlResult.text) {
         // Successfully extracted clean HTML content
         console.log(`[parse-document] Using cleaned Firecrawl extraction (${firecrawlResult.text.length} chars)`);
@@ -1586,6 +1637,21 @@ Deno.serve(async (req) => {
           extractedText = cleanScrapedContent(fallbackResult.text, url);
       }
       
+      // Check if extracted text is insufficient (common with WopiFrame wrapper responses)
+      if (extractedText.length < 500 && url.includes('vbpl.vn')) {
+        console.log(`[parse-document] VBPL: Extracted text too short (${extractedText.length} chars), trying toan-van fallback`);
+        
+        // Extract ItemID from original URL or targetUrl
+        const itemId = extractVbplItemId(url) || extractVbplItemId(targetUrl);
+        if (itemId) {
+          const toanVanResult = await extractVbplToanVan(url);
+          if (toanVanResult.success && toanVanResult.text.length > extractedText.length) {
+            console.log(`[parse-document] VBPL: Toan-van fallback succeeded with ${toanVanResult.text.length} chars`);
+            extractedText = toanVanResult.text;
+          }
+        }
+      }
+      
       result = {
         success: extractedText.length > 100,
         text: cleanText(extractedText),
@@ -1604,12 +1670,36 @@ Deno.serve(async (req) => {
       }
     } catch (downloadError) {
       console.error('[parse-document] Download/parse error:', downloadError);
-      result = {
-        success: false,
-        text: '',
-        file_type: 'unknown',
-        error: downloadError instanceof Error ? downloadError.message : 'Failed to download or parse document',
-      };
+      
+      // For VBPL URLs, try toan-van fallback before failing
+      if (url.includes('vbpl.vn')) {
+        console.log('[parse-document] VBPL: Download failed, trying toan-van fallback');
+        const toanVanResult = await extractVbplToanVan(url);
+        if (toanVanResult.success && toanVanResult.text.length > 500) {
+          result = {
+            success: true,
+            text: cleanText(toanVanResult.text),
+            file_type: 'html',
+            metadata: {
+              note: 'Extracted from toan-van page (download failed)',
+            },
+          };
+        } else {
+          result = {
+            success: false,
+            text: '',
+            file_type: 'unknown',
+            error: downloadError instanceof Error ? downloadError.message : 'Failed to download or parse document',
+          };
+        }
+      } else {
+        result = {
+          success: false,
+          text: '',
+          file_type: 'unknown',
+          error: downloadError instanceof Error ? downloadError.message : 'Failed to download or parse document',
+        };
+      }
     }
     
     // Optionally update the knowledge node directly
