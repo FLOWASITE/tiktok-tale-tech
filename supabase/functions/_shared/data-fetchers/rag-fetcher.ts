@@ -1,43 +1,31 @@
 // ============================================
 // RAG (Retrieval Augmented Generation) Fetcher
+// Uses Supabase.ai.Session with gte-small model (384 dimensions)
 // ============================================
 
 import { RAGResult } from "../types/chat-types.ts";
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-// Use text-embedding-004 (Gemini) which is supported by Lovable AI gateway
-const EMBEDDING_MODEL = 'text-embedding-004';
-const EMBEDDING_DIMENSIONS = 768;
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
+
+// Initialize gte-small embedding model (384 dimensions)
+const model = new Supabase.ai.Session('gte-small');
 
 /**
  * Generate embedding vector for a query string
  */
 export async function generateQueryEmbedding(query: string): Promise<number[] | null> {
-  if (!LOVABLE_API_KEY) return null;
-
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_MODEL,
-        input: [query],
-        dimensions: EMBEDDING_DIMENSIONS,
-      }),
+    console.log('[RAG] Generating embedding for:', query.substring(0, 50) + '...');
+    
+    const output = await model.run(query, {
+      mean_pool: true,
+      normalize: true,
     });
-
-    if (!response.ok) {
-      console.error('Embedding API error:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    return data.data[0].embedding;
+    
+    return Array.from(output as Float32Array);
   } catch (error) {
-    console.error('Error generating query embedding:', error);
+    console.error('[RAG] Error generating embedding:', error);
     return null;
   }
 }
@@ -45,6 +33,7 @@ export async function generateQueryEmbedding(query: string): Promise<number[] | 
 /**
  * Search for relevant past content using RAG
  */
+// deno-lint-ignore no-explicit-any
 export async function searchRelevantContent(
   supabase: any,
   query: string,
@@ -68,7 +57,7 @@ export async function searchRelevantContent(
     });
 
     if (error) {
-      console.error('RAG search error:', error);
+      console.error('[RAG] Search error:', error);
       return [];
     }
 
@@ -85,7 +74,7 @@ export async function searchRelevantContent(
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
   } catch (error) {
-    console.error('Error in RAG search:', error);
+    console.error('[RAG] Error in search:', error);
     return [];
   }
 }

@@ -1,17 +1,23 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// ============================================
+// Semantic Search Edge Function
+// Uses Supabase.ai.Session with gte-small model (384 dimensions)
+// ============================================
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const EMBEDDING_MODEL = 'text-embedding-004';
-const EMBEDDING_DIMENSIONS = 768;
+// Initialize gte-small embedding model (384 dimensions)
+const model = new Supabase.ai.Session('gte-small');
 
 interface SearchRequest {
   query: string;
@@ -32,41 +38,23 @@ interface SearchResult {
   content_id: string;
   content_text: string;
   similarity: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
-// Generate embedding for query
+// Generate embedding for query using Supabase.ai.Session
 async function generateQueryEmbedding(query: string): Promise<number[]> {
-  if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
   console.log('Generating embedding for query:', query.substring(0, 100));
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: [query],
-      dimensions: EMBEDDING_DIMENSIONS,
-    }),
+  const output = await model.run(query, {
+    mean_pool: true,
+    normalize: true,
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Embedding API error:', response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data[0].embedding;
+  return Array.from(output as Float32Array);
 }
 
 // Search embeddings using pgvector
+// deno-lint-ignore no-explicit-any
 async function searchEmbeddings(
   supabase: any,
   queryEmbedding: number[],
@@ -102,7 +90,7 @@ async function searchEmbeddings(
     results = results.filter((r: SearchResult) => {
       if (filters.category && r.metadata?.category !== filters.category) return false;
       if (filters.pillar && r.metadata?.pillar !== filters.pillar) return false;
-      if (filters.minPerformance && (r.metadata?.performance_score || 0) < filters.minPerformance) return false;
+      if (filters.minPerformance && ((r.metadata?.performance_score as number) || 0) < filters.minPerformance) return false;
       return true;
     });
   }
@@ -121,7 +109,7 @@ async function searchEmbeddings(
     .slice(0, limit);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

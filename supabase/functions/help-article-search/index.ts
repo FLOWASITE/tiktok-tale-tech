@@ -1,10 +1,21 @@
+// ============================================
+// Help Article Search Edge Function  
+// Uses Supabase.ai.Session with gte-small model (384 dimensions)
+// ============================================
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Initialize gte-small embedding model (384 dimensions)
+const model = new Supabase.ai.Session('gte-small');
 
 interface SearchRequest {
   query: string;
@@ -30,6 +41,16 @@ interface HelpArticle {
   keywords: string[] | null;
 }
 
+// Generate embedding using Supabase.ai.Session
+async function generateEmbedding(text: string): Promise<number[]> {
+  const output = await model.run(text, {
+    mean_pool: true,
+    normalize: true,
+  });
+  
+  return Array.from(output as Float32Array);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -44,11 +65,10 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error("[help-article-search] Missing required environment variables");
       return new Response(JSON.stringify({ articles: [], error: "Configuration error" }), {
         status: 500,
@@ -60,63 +80,41 @@ serve(async (req) => {
 
     console.log(`[help-article-search] Searching for: "${query}", route: ${currentRoute}, category: ${category}`);
 
-    // Step 1: Generate embedding for the query
-    const embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "text-embedding-004",
-        input: query,
-        dimensions: 768,
-      }),
-    });
+    // Step 1: Generate embedding for the query using gte-small
+    try {
+      const queryEmbedding = await generateEmbedding(query);
 
-    if (!embeddingResponse.ok) {
-      const errorText = await embeddingResponse.text();
-      console.error(`[help-article-search] Embedding API error: ${embeddingResponse.status}`, errorText);
-      
-      // Fallback to keyword search if embedding fails
+      // Step 2: Search using the database function
+      const { data: articles, error: searchError } = await supabase.rpc('search_help_articles', {
+        query_embedding: `[${queryEmbedding.join(',')}]`,
+        match_route: currentRoute || null,
+        match_category: category || null,
+        match_threshold: 0.5,
+        match_count: limit
+      });
+
+      if (searchError) {
+        console.error("[help-article-search] Search RPC error:", searchError);
+        return await fallbackKeywordSearch(supabase, query, currentRoute, category, limit, corsHeaders);
+      }
+
+      console.log(`[help-article-search] Found ${articles?.length || 0} articles via semantic search`);
+
+      // If semantic search returns no results, try keyword search
+      if (!articles || articles.length === 0) {
+        return await fallbackKeywordSearch(supabase, query, currentRoute, category, limit, corsHeaders);
+      }
+
+      return new Response(JSON.stringify({ 
+        articles: articles as ArticleResult[],
+        searchType: 'semantic'
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (embeddingError) {
+      console.error("[help-article-search] Embedding error:", embeddingError);
       return await fallbackKeywordSearch(supabase, query, currentRoute, category, limit, corsHeaders);
     }
-
-    const embeddingData = await embeddingResponse.json();
-    const queryEmbedding = embeddingData.data?.[0]?.embedding;
-
-    if (!queryEmbedding) {
-      console.error("[help-article-search] No embedding returned");
-      return await fallbackKeywordSearch(supabase, query, currentRoute, category, limit, corsHeaders);
-    }
-
-    // Step 2: Search using the database function
-    const { data: articles, error: searchError } = await supabase.rpc('search_help_articles', {
-      query_embedding: `[${queryEmbedding.join(',')}]`,
-      match_route: currentRoute || null,
-      match_category: category || null,
-      match_threshold: 0.5,
-      match_count: limit
-    });
-
-    if (searchError) {
-      console.error("[help-article-search] Search RPC error:", searchError);
-      return await fallbackKeywordSearch(supabase, query, currentRoute, category, limit, corsHeaders);
-    }
-
-    console.log(`[help-article-search] Found ${articles?.length || 0} articles via semantic search`);
-
-    // If semantic search returns no results, try keyword search
-    if (!articles || articles.length === 0) {
-      return await fallbackKeywordSearch(supabase, query, currentRoute, category, limit, corsHeaders);
-    }
-
-    return new Response(JSON.stringify({ 
-      articles: articles as ArticleResult[],
-      searchType: 'semantic'
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
 
   } catch (error) {
     console.error("[help-article-search] Error:", error);

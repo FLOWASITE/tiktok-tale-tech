@@ -1,15 +1,21 @@
 // ============================================
 // Batch Generate Embeddings Edge Function
 // Processes all knowledge graph nodes without embeddings
-// Supports progress tracking and resumable batching
+// Uses Supabase.ai.Session with gte-small model (384 dimensions)
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Initialize gte-small embedding model (384 dimensions)
+const model = new Supabase.ai.Session('gte-small');
 
 interface BatchRequest {
   action: 'start' | 'status' | 'resume';
@@ -35,34 +41,14 @@ interface BatchResult {
   duration_ms: number;
 }
 
-// Generate embedding using Lovable AI Gateway
+// Generate embedding using Supabase.ai.Session (gte-small)
 async function generateEmbedding(text: string): Promise<number[]> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
-  if (!apiKey) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-004',
-      input: text,
-      dimensions: 768,
-    }),
+  const output = await model.run(text, {
+    mean_pool: true,
+    normalize: true,
   });
-
-  if (!response.ok) {
-    const errorData = await response.text();
-    console.error('[BatchEmbed] API error:', response.status, errorData);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data?.[0]?.embedding || [];
+  
+  return Array.from(output as Float32Array);
 }
 
 // Generate text representation of a node for embedding
@@ -117,7 +103,7 @@ function nodeToText(node: Record<string, unknown>): string {
 }
 
 // Get current batch status
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// deno-lint-ignore no-explicit-any
 async function getBatchStatus(supabase: any): Promise<BatchStatus> {
   // Get total nodes count
   const { count: totalCount, error: totalError } = await supabase
@@ -155,7 +141,7 @@ async function getBatchStatus(supabase: any): Promise<BatchStatus> {
 }
 
 // Process a batch of nodes
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// deno-lint-ignore no-explicit-any
 async function processBatch(
   supabase: any,
   batchSize: number,
@@ -205,51 +191,38 @@ async function processBatch(
 
   console.log(`[BatchEmbed] Processing ${nodes.length} nodes...`);
 
-  // Process nodes in smaller concurrent batches to respect rate limits
-  const concurrentLimit = 5;
-  for (let i = 0; i < nodes.length; i += concurrentLimit) {
-    const batch = nodes.slice(i, i + concurrentLimit);
+  // Process nodes sequentially to avoid model overload
+  for (const node of nodes) {
+    processed++;
+    const nodeId = node.id as string;
     
-    const results = await Promise.allSettled(
-      batch.map(async (node: Record<string, unknown>) => {
-        const nodeId = node.id as string;
-        const nodeText = nodeToText(node);
-        console.log(`[BatchEmbed] Processing node ${nodeId}: ${nodeText.substring(0, 100)}...`);
-        
-        const embedding = await generateEmbedding(nodeText);
-        
-        // Update node with embedding
-        const { error: updateError } = await supabase
-          .from('industry_knowledge_nodes')
-          .update({ 
-            embedding: `[${embedding.join(',')}]`,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', nodeId);
+    try {
+      const nodeText = nodeToText(node);
+      console.log(`[BatchEmbed] Processing node ${nodeId}: ${nodeText.substring(0, 80)}...`);
+      
+      const embedding = await generateEmbedding(nodeText);
+      
+      // Update node with embedding
+      const { error: updateError } = await supabase
+        .from('industry_knowledge_nodes')
+        .update({ 
+          embedding: `[${embedding.join(',')}]`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', nodeId);
 
-        if (updateError) {
-          throw new Error(`Update failed for ${nodeId}: ${updateError.message}`);
-        }
-
-        return nodeId;
-      })
-    );
-
-    // Count results
-    for (const result of results) {
-      processed++;
-      if (result.status === 'fulfilled') {
-        succeeded++;
-      } else {
+      if (updateError) {
         failed++;
-        errors.push(result.reason?.message || 'Unknown error');
-        console.error('[BatchEmbed] Node error:', result.reason);
+        errors.push(`Update failed for ${nodeId}: ${updateError.message}`);
+        console.error('[BatchEmbed] Update error:', updateError);
+      } else {
+        succeeded++;
       }
-    }
-
-    // Small delay between concurrent batches to avoid rate limits
-    if (i + concurrentLimit < nodes.length) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (err) {
+      failed++;
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      errors.push(`Node ${nodeId}: ${errMsg}`);
+      console.error('[BatchEmbed] Node error:', err);
     }
   }
 
