@@ -100,6 +100,7 @@ export function BatchProcessingPanel() {
   const [batchSize, setBatchSize] = useState<number>(10);
   const [isQualityReparsing, setIsQualityReparsing] = useState(false);
   const [isTvplReparsing, setIsTvplReparsing] = useState(false);
+  const [isTextReparsing, setIsTextReparsing] = useState(false);
   const [qualityReparseProgress, setQualityReparseProgress] = useState<{
     processed: number;
     total: number;
@@ -330,6 +331,59 @@ export function BatchProcessingPanel() {
     }
   };
 
+  // Start reparse for all nodes with text but no quality score
+  const handleReparseAllWithText = async () => {
+    try {
+      setIsTextReparsing(true);
+      setQualityReparseProgress(null);
+      
+      toast.info(`Bắt đầu Reparse All With Text (${batchSize} nodes)...`);
+      
+      const response = await supabase.functions.invoke('reparse-with-quality', {
+        body: {
+          filter: {
+            has_text: true,
+            no_quality_score: true,
+            limit: batchSize,
+          },
+          min_quality_threshold: 85,
+          dry_run: false,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Unknown error');
+      }
+
+      const result = response.data;
+      
+      if (result.success) {
+        setQualityReparseProgress({
+          processed: result.total_processed,
+          total: result.total_processed,
+          avgBefore: result.avg_quality_before || 0,
+          avgAfter: result.avg_quality_after || 0,
+          source: 'All With Text',
+        });
+        
+        const improved = result.improved || 0;
+        toast.success(
+          `Reparse All With Text hoàn thành! ${result.total_processed} nodes, ${improved} improved, Avg Quality: ${result.avg_quality_after}`
+        );
+      } else {
+        toast.error(result.error || 'Lỗi không xác định');
+      }
+      
+      refetchStats();
+      refetchJobs();
+    } catch (error) {
+      console.error('Reparse all with text error:', error);
+      toast.error(`Lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsTextReparsing(false);
+    }
+  };
+
   // Calculate quality distribution for chart
   const qualityDistribution = useMemo(() => {
     const levels = ['excellent', 'good', 'acceptable', 'poor', 'unscored'];
@@ -551,7 +605,7 @@ export function BatchProcessingPanel() {
               variant="outline"
               size="sm"
               onClick={handleTvplReparse}
-              disabled={isTvplReparsing || isQualityReparsing}
+              disabled={isTvplReparsing || isQualityReparsing || isTextReparsing}
               className="border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-purple-900/20"
             >
               {isTvplReparsing ? (
@@ -560,6 +614,21 @@ export function BatchProcessingPanel() {
                 <Zap className="h-4 w-4 mr-1" />
               )}
               Reparse TVPL
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReparseAllWithText}
+              disabled={isTextReparsing || isQualityReparsing || isTvplReparsing}
+              className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/20"
+            >
+              {isTextReparsing ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4 mr-1" />
+              )}
+              Reparse All With Text
             </Button>
           </div>
 

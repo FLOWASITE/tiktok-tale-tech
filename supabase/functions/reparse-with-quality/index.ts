@@ -19,6 +19,8 @@ interface ReparseRequest {
     needs_ai_clean?: boolean;
     parse_status?: string;
     source_domain?: string; // Filter by source domain: 'thuvienphapluat.vn', 'vbpl.vn', etc.
+    has_text?: boolean; // Filter nodes that have full_text but may need quality scoring
+    no_quality_score?: boolean; // Filter nodes without quality score
     limit?: number;
   };
   min_quality_threshold?: number; // Default 80
@@ -94,6 +96,16 @@ Deno.serve(async (req) => {
       if (filter.source_domain) {
         query = query.ilike('source_url', `%${filter.source_domain}%`);
         console.log(`[reparse-quality] Filtering by source_domain: ${filter.source_domain}`);
+      }
+      // Filter nodes with text but possibly no quality score
+      if (filter.has_text) {
+        query = query.not('full_text', 'is', null);
+        console.log(`[reparse-quality] Filtering by has_text: true`);
+      }
+      // Filter nodes without quality score
+      if (filter.no_quality_score) {
+        query = query.is('content_quality_score', null);
+        console.log(`[reparse-quality] Filtering by no_quality_score: true`);
       }
       if (filter.limit) {
         query = query.limit(filter.limit);
