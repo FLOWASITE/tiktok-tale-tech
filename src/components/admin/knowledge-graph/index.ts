@@ -17,3 +17,8 @@ export { BulkImportExport } from "./BulkImportExport";
 
 // Phase 9: Analytics & Dashboard
 export { GraphAnalyticsDashboard } from "./GraphAnalyticsDashboard";
+
+// Phase 10: Content Quality Intelligence
+export { BatchProcessingPanel } from "./BatchProcessingPanel";
+export { ContentQualityBadge, estimateContentQuality } from "./ContentQualityBadge";
+export { CrawledContentViewer } from "./CrawledContentViewer";
