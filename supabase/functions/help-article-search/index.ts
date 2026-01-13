@@ -68,7 +68,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "text-embedding-3-small",
+        model: "text-embedding-004",
         input: query,
         dimensions: 768,
       }),

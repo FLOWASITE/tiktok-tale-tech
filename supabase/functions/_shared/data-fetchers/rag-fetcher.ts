@@ -5,8 +5,8 @@
 import { RAGResult } from "../types/chat-types.ts";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-// Use text-embedding-3-small which is supported by Lovable AI gateway
-const EMBEDDING_MODEL = 'text-embedding-3-small';
+// Use text-embedding-004 (Gemini) which is supported by Lovable AI gateway
+const EMBEDDING_MODEL = 'text-embedding-004';
 const EMBEDDING_DIMENSIONS = 768;
 
 /**
