@@ -265,6 +265,7 @@ export function CostDashboard() {
                 fillOpacity={1}
                 fill="url(#colorCost)"
                 strokeWidth={2}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ChartContainer>
@@ -294,6 +295,7 @@ export function CostDashboard() {
                         innerRadius={50}
                         outerRadius={80}
                         paddingAngle={2}
+                        isAnimationActive={false}
                       >
                         {costByModel.map((_, index) => (
                           <Cell
@@ -364,7 +366,7 @@ export function CostDashboard() {
                       />
                     }
                   />
-                  <Bar dataKey="cost" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="cost" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} isAnimationActive={false} />
                 </BarChart>
               </ChartContainer>
             ) : (

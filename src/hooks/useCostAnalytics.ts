@@ -52,7 +52,7 @@ export function useCostAnalytics(days: number = 30) {
   const monthStart = startOfMonth(now);
   const rangeStart = subDays(now, days);
 
-  // Summary query
+  // Summary query - optimized with staleTime to prevent continuous refetching
   const summaryQuery = useQuery({
     queryKey: ["cost-analytics-summary", days],
     queryFn: async (): Promise<CostSummary> => {
@@ -98,9 +98,12 @@ export function useCostAnalytics(days: number = 30) {
         costTrend,
       };
     },
+    staleTime: 60_000, // 60 seconds - prevent refetch if data is less than 1 minute old
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Daily costs query
+  // Daily costs query - optimized with staleTime
   const dailyCostsQuery = useQuery({
     queryKey: ["cost-analytics-daily", days],
     queryFn: async (): Promise<DailyCost[]> => {
@@ -149,9 +152,12 @@ export function useCostAnalytics(days: number = 30) {
 
       return result;
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Cost by model query
+  // Cost by model query - optimized with staleTime
   const costByModelQuery = useQuery({
     queryKey: ["cost-analytics-by-model", days],
     queryFn: async (): Promise<CostByModel[]> => {
@@ -195,9 +201,12 @@ export function useCostAnalytics(days: number = 30) {
         }))
         .sort((a, b) => b.cost - a.cost);
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Cost by function query
+  // Cost by function query - optimized with staleTime
   const costByFunctionQuery = useQuery({
     queryKey: ["cost-analytics-by-function", days],
     queryFn: async (): Promise<CostByFunction[]> => {
@@ -228,9 +237,12 @@ export function useCostAnalytics(days: number = 30) {
         }))
         .sort((a, b) => b.cost - a.cost);
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Recent entries query
+  // Recent entries query - shorter staleTime for more recent data
   const recentEntriesQuery = useQuery({
     queryKey: ["cost-analytics-recent"],
     queryFn: async (): Promise<RecentCostEntry[]> => {
@@ -266,6 +278,9 @@ export function useCostAnalytics(days: number = 30) {
         };
       });
     },
+    staleTime: 30_000, // 30 seconds for recent entries - more frequent updates
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   return {
