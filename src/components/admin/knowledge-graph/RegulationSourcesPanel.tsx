@@ -22,6 +22,7 @@ import {
   Pencil,
   Download,
   AlertTriangle,
+  FileText,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useRegulationSources, RegulationSource, CrawlHistory } from '@/hooks/useRegulationSources';
 import { EditSourceDialog } from './EditSourceDialog';
+import { CrawledContentViewer } from './CrawledContentViewer';
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -422,11 +424,19 @@ export function RegulationSourcesPanel() {
             <Globe className="h-4 w-4" />
             Nguồn ({sources.length})
           </TabsTrigger>
+          <TabsTrigger value="content" className="flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            Nội Dung Crawl
+          </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-1">
             <History className="h-4 w-4" />
-            Lịch Sử Crawl
+            Lịch Sử
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="content" className="mt-4">
+          <CrawledContentViewer />
+        </TabsContent>
 
         <TabsContent value="sources" className="mt-4">
           {isLoadingSources ? (
