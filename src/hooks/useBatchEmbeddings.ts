@@ -54,7 +54,7 @@ export function useBatchEmbeddings() {
     }
   }, [toast]);
 
-  const startBatch = useCallback(async (batchSize: number = 50, nodeTypes?: string[]) => {
+  const startBatch = useCallback(async (batchSize: number = 5, nodeTypes?: string[]) => {
     setIsProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('batch-generate-embeddings', {
@@ -91,7 +91,7 @@ export function useBatchEmbeddings() {
     }
   }, [toast]);
 
-  const runFullBatch = useCallback(async (batchSize: number = 50) => {
+  const runFullBatch = useCallback(async (batchSize: number = 5) => {
     setIsProcessing(true);
     let totalProcessed = 0;
     let totalSucceeded = 0;
@@ -129,6 +129,11 @@ export function useBatchEmbeddings() {
         // Stop if all done
         if (response.status.nodes_pending === 0) {
           hasMore = false;
+        }
+        
+        // Small delay between batches to avoid overwhelming the edge function
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
       
