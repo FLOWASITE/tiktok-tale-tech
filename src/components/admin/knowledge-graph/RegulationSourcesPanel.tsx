@@ -213,30 +213,28 @@ export function RegulationSourcesPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {sources.length === 0 && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSeedSources}
-                    disabled={isSeeding}
-                  >
-                    {isSeeding ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4 mr-1" />
-                    )}
-                    Seed VN
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Thêm 3 nguồn VN mặc định (Thuế, Quảng cáo, Đất đai)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSeedSources}
+                  disabled={isSeeding}
+                >
+                  {isSeeding ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1" />
+                  )}
+                  Seed VBPL.VN
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Thêm nguồn VBPL.VN ưu tiên (dễ download PDF/DOC, không CAPTCHA)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button
             variant="outline"
             size="sm"
