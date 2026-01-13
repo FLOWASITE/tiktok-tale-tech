@@ -432,6 +432,7 @@ function QueryPerformancePanel() {
 
 export function GraphAnalyticsDashboard() {
   const { data: stats, isLoading, refetch, isRefetching } = useGraphStatistics();
+  const { data: healthMetrics } = useGraphHealthSummary();
 
   if (isLoading) {
     return (
@@ -459,36 +460,46 @@ export function GraphAnalyticsDashboard() {
     withEmbeddings = 0,
   } = stats || {};
 
-  // Check if action is needed
-  const needsEmbeddings = embeddingCoverage < 10;
+  // Check if action is needed based on health metrics
+  const orphanPct = healthMetrics?.find(m => m.metric_name === 'orphan_percentage')?.metric_value || 0;
+  const needsEmbeddings = embeddingCoverage < 50;
   const needsExtraction = (nodesByType.regulation || 0) === 0 && (nodesByType.term || 0) === 0;
+  const hasOrphanIssue = orphanPct > 15;
 
   return (
     <div className="space-y-6">
       {/* Action Required Alerts */}
-      {(needsEmbeddings || needsExtraction) && (
+      {(needsEmbeddings || needsExtraction || hasOrphanIssue) && (
         <Alert variant="destructive" className="border-amber-500/50 bg-amber-500/10">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-700">Cần thực hiện các bước cài đặt</AlertTitle>
+          <AlertTitle className="text-amber-700">Cần thực hiện các bước tối ưu</AlertTitle>
           <AlertDescription className="space-y-3">
             <p className="text-sm text-amber-600">
-              Knowledge Graph cần được khởi tạo dữ liệu để các tính năng hoạt động đầy đủ:
+              Knowledge Graph cần được tối ưu để các tính năng hoạt động đầy đủ:
             </p>
             <div className="flex flex-wrap gap-2">
               {needsEmbeddings && (
                 <div className="flex items-center gap-2 text-sm bg-background/80 px-3 py-1.5 rounded-md border">
                   <Zap className="h-4 w-4 text-amber-600" />
-                  <span>Vào tab <strong>Embeddings</strong></span>
+                  <span>Embedding Coverage: <strong>{embeddingCoverage.toFixed(0)}%</strong></span>
                   <ArrowRight className="h-3 w-3" />
-                  <span>Click "Chạy Tất Cả"</span>
+                  <span>Tab <strong>Embeddings</strong> → "Chạy Tất Cả"</span>
                 </div>
               )}
               {needsExtraction && (
                 <div className="flex items-center gap-2 text-sm bg-background/80 px-3 py-1.5 rounded-md border">
                   <Sparkles className="h-4 w-4 text-amber-600" />
-                  <span>Vào tab <strong>Extract</strong></span>
+                  <span>Thiếu regulation/term nodes</span>
                   <ArrowRight className="h-3 w-3" />
-                  <span>Click "Chạy Tất Cả"</span>
+                  <span>Tab <strong>Extract</strong> → "Chạy Tất Cả"</span>
+                </div>
+              )}
+              {hasOrphanIssue && (
+                <div className="flex items-center gap-2 text-sm bg-background/80 px-3 py-1.5 rounded-md border">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <span>Nhiều orphan nodes ({'>'} 15%)</span>
+                  <ArrowRight className="h-3 w-3" />
+                  <span>Tab <strong>AI Suggest</strong> → Bulk Auto-Connect</span>
                 </div>
               )}
             </div>
