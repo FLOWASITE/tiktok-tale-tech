@@ -7930,6 +7930,7 @@ export type Database = {
           quality_level: string
         }[]
       }
+      get_detailed_quality_stats: { Args: never; Returns: Json }
       get_graph_health_summary: {
         Args: never
         Returns: {
