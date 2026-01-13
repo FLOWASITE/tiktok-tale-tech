@@ -170,7 +170,7 @@ function PropagationItem({
                   {propagation.change_summary || `${propagation.change_type} change`}
                 </h4>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Pack: {propagation.affected_pack_id.slice(0, 8)}...
+                  Pack: {propagation.affected_pack_id ? `${propagation.affected_pack_id.slice(0, 8)}...` : 'N/A'}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
