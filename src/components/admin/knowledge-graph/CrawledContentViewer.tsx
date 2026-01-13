@@ -58,6 +58,24 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useReparseRegulations, hasHtmlLayoutArtifacts } from '@/hooks/useReparseRegulations';
+import { cn } from '@/lib/utils';
+
+// Source color mapping for visual distinction
+const getSourceColor = (sourceName: string): string => {
+  const colors: Record<string, string> = {
+    'vbpl.vn': 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400',
+    'luatvietnam.vn': 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400',
+    'chinhphu.vn': 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400',
+    'thuvienphapluat.vn': 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400',
+    'eur-lex.europa.eu': 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-400',
+    'sec.gov': 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400',
+  };
+  const normalized = sourceName.toLowerCase();
+  for (const [key, color] of Object.entries(colors)) {
+    if (normalized.includes(key)) return color;
+  }
+  return 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400';
+};
 
 interface CrawledNode {
   id: string;
@@ -460,6 +478,14 @@ export function CrawledContentViewer() {
                               <Badge variant="outline" className="text-xs">
                                 {node.properties?.category || 'general'}
                               </Badge>
+                              {node.source_id && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn("text-xs", getSourceColor(getSourceName(node.source_id)))}
+                                >
+                                  {getSourceName(node.source_id)}
+                                </Badge>
+                              )}
                               {node.parse_status && (
                                 <Badge 
                                   variant={node.parse_status === 'parsed' ? 'default' : 'secondary'}
