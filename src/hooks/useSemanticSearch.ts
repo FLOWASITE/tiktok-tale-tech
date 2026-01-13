@@ -63,6 +63,7 @@ async function performSemanticSearch(
   options: SemanticSearchOptions
 ): Promise<SemanticSearchResult[]> {
   const { query, nodeTypes, globalPackId, threshold = 0.7, limit = 10 } = options;
+  const startTime = performance.now();
 
   // Generate embedding for query
   const embedding = await generateEmbedding(query);
@@ -80,7 +81,23 @@ async function performSemanticSearch(
   });
 
   if (error) throw error;
-  return (data || []) as unknown as SemanticSearchResult[];
+  
+  const results = (data || []) as unknown as SemanticSearchResult[];
+  const durationMs = Math.round(performance.now() - startTime);
+
+  // Log query to analytics (fire-and-forget)
+  try {
+    supabase.rpc('log_knowledge_graph_query', {
+      p_query_type: 'semantic_search',
+      p_query_params: { query, nodeTypes, threshold, limit },
+      p_result_count: results.length,
+      p_duration_ms: durationMs,
+    });
+  } catch {
+    // Ignore logging errors
+  }
+
+  return results;
 }
 
 // ============================================

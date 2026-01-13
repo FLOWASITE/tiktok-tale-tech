@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -33,6 +36,10 @@ import {
   Globe,
   AlertCircle,
   Search,
+  Zap,
+  Eye,
+  Play,
+  Network,
 } from "lucide-react";
 import { useFindSimilarNodes } from "@/hooks/useSemanticSearch";
 import { supabase } from "@/integrations/supabase/client";
@@ -169,6 +176,227 @@ function SuggestionCard({
 }
 
 // ============================================
+// Bulk Auto-Connect Panel
+// ============================================
+
+interface BulkAutoConnectStatus {
+  nodes_with_embeddings: number;
+  existing_edges: number;
+}
+
+interface BulkAutoConnectResult {
+  suggestions?: Array<{
+    source_node_id: string;
+    target_node_id: string;
+    similarity: number;
+    edge_type: string;
+  }>;
+  edges_created?: number;
+  suggestions_count?: number;
+  duration_ms?: number;
+  error?: string;
+}
+
+function BulkAutoConnectPanel({ onConnectionsCreated }: { onConnectionsCreated?: () => void }) {
+  const [threshold, setThreshold] = useState(0.85);
+  const [status, setStatus] = useState<BulkAutoConnectStatus | null>(null);
+  const [previewResult, setPreviewResult] = useState<BulkAutoConnectResult | null>(null);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const { toast } = useToast();
+
+  const fetchStatus = async () => {
+    setIsLoadingStatus(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-suggest-connections', {
+        body: { action: 'status' },
+      });
+      if (error) throw error;
+      setStatus(data as BulkAutoConnectStatus);
+    } catch (err) {
+      console.error('Failed to fetch status:', err);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể lấy trạng thái graph',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingStatus(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    setIsPreviewLoading(true);
+    setPreviewResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-suggest-connections', {
+        body: { action: 'suggest', threshold, dry_run: true },
+      });
+      if (error) throw error;
+      setPreviewResult(data as BulkAutoConnectResult);
+    } catch (err) {
+      console.error('Preview failed:', err);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tạo preview',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const handleApply = async () => {
+    setIsApplying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-suggest-connections', {
+        body: { action: 'apply', threshold, dry_run: false },
+      });
+      if (error) throw error;
+      const result = data as BulkAutoConnectResult;
+      toast({
+        title: 'Thành công! 🎉',
+        description: `Đã tạo ${result.edges_created || 0} edges mới trong ${((result.duration_ms || 0) / 1000).toFixed(1)}s`,
+      });
+      setPreviewResult(null);
+      onConnectionsCreated?.();
+      fetchStatus(); // Refresh status
+    } catch (err) {
+      console.error('Apply failed:', err);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tạo connections',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Network className="h-5 w-5 text-purple-500" />
+          Bulk Auto-Connect
+        </CardTitle>
+        <CardDescription>
+          Tự động tạo kết nối "related_to" giữa các nodes có embedding tương đồng
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Status */}
+        {isLoadingStatus ? (
+          <Skeleton className="h-16" />
+        ) : status ? (
+          <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+            <div className="text-center">
+              <p className="text-2xl font-bold">{status.nodes_with_embeddings}</p>
+              <p className="text-xs text-muted-foreground">Nodes có embedding</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{status.existing_edges}</p>
+              <p className="text-xs text-muted-foreground">Edges hiện có</p>
+            </div>
+          </div>
+        ) : null}
+
+        <Separator />
+
+        {/* Threshold Slider */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">Similarity Threshold</label>
+            <Badge variant="outline" className="font-mono">
+              {(threshold * 100).toFixed(0)}%
+            </Badge>
+          </div>
+          <Slider
+            value={[threshold]}
+            onValueChange={([v]) => setThreshold(v)}
+            min={0.75}
+            max={0.95}
+            step={0.01}
+            className="w-full"
+          />
+          <p className="text-xs text-muted-foreground">
+            Threshold cao hơn = ít connections hơn nhưng chính xác hơn
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handlePreview}
+            disabled={isPreviewLoading || isApplying}
+            className="flex-1"
+          >
+            {isPreviewLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Eye className="h-4 w-4 mr-2" />
+            )}
+            Preview
+          </Button>
+          <Button
+            onClick={handleApply}
+            disabled={isApplying || isPreviewLoading}
+            className="flex-1"
+          >
+            {isApplying ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            Apply
+          </Button>
+        </div>
+
+        {/* Preview Result */}
+        {previewResult && (
+          <Alert className="border-blue-500/50 bg-blue-500/10">
+            <Eye className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-blue-700">Preview Result</AlertTitle>
+            <AlertDescription>
+              <p className="text-sm mt-1">
+                Sẽ tạo <strong>{previewResult.suggestions_count || 0}</strong> edges mới
+              </p>
+              {previewResult.suggestions && previewResult.suggestions.length > 0 && (
+                <ScrollArea className="h-32 mt-2">
+                  <div className="space-y-1">
+                    {previewResult.suggestions.slice(0, 10).map((s, i) => (
+                      <div key={i} className="text-xs flex items-center gap-1 font-mono">
+                        <span className="truncate max-w-[100px]">{s.source_node_id.slice(0, 8)}...</span>
+                        <ArrowRight className="h-3 w-3 shrink-0" />
+                        <span className="truncate max-w-[100px]">{s.target_node_id.slice(0, 8)}...</span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {(s.similarity * 100).toFixed(0)}%
+                        </Badge>
+                      </div>
+                    ))}
+                    {(previewResult.suggestions_count || 0) > 10 && (
+                      <p className="text-xs text-muted-foreground">
+                        ... và {(previewResult.suggestions_count || 0) - 10} edges khác
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================
 // Main Component
 // ============================================
 
@@ -266,77 +494,72 @@ export function ConnectionSuggestions({
 
   if (!effectiveNodeId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lightbulb className="h-5 w-5" />
-            Connection Suggestions
-          </CardTitle>
-          <CardDescription>
-            Chọn một node để xem gợi ý kết nối AI
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Để sử dụng tính năng này, bạn cần:
-              <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
-                <li>Chọn node từ tab <strong>Search</strong> hoặc <strong>Explorer</strong></li>
-                <li>Hoặc chọn trực tiếp từ danh sách bên dưới</li>
-              </ol>
-            </AlertDescription>
-          </Alert>
+      <div className="space-y-6">
+        {/* Bulk Auto-Connect Panel */}
+        <BulkAutoConnectPanel onConnectionsCreated={onConnectionCreated} />
+        
+        {/* Individual Node Suggestions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5" />
+              Node-Specific Suggestions
+            </CardTitle>
+            <CardDescription>
+              Chọn một node cụ thể để xem gợi ý kết nối AI
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Node Selector Dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Chọn node để tìm gợi ý kết nối:</label>
+              {isLoadingNodes ? (
+                <Skeleton className="h-10 w-full" />
+              ) : nodesWithEmbeddings && nodesWithEmbeddings.length > 0 ? (
+                <Select
+                  value={selectedLocalNodeId || ""}
+                  onValueChange={(value) => setSelectedLocalNodeId(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn một node..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nodesWithEmbeddings.map((node) => {
+                      const config = NODE_TYPE_CONFIG[node.node_type as KnowledgeNodeType];
+                      const Icon = config?.icon || Building2;
+                      const displayName = (node.display_name as any)?.vi || (node.display_name as any)?.en || node.node_key;
+                      return (
+                        <SelectItem key={node.id} value={node.id}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-3 w-3" />
+                            <span className="truncate">{displayName}</span>
+                            <Badge variant="outline" className="text-xs ml-1">
+                              {node.node_type}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Chưa có node nào có embedding. Vui lòng vào tab <strong>Embeddings</strong> và chạy "Chạy Tất Cả" trước.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
 
-          {/* Node Selector Dropdown */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Chọn node để tìm gợi ý kết nối:</label>
-            {isLoadingNodes ? (
-              <Skeleton className="h-10 w-full" />
-            ) : nodesWithEmbeddings && nodesWithEmbeddings.length > 0 ? (
-              <Select
-                value={selectedLocalNodeId || ""}
-                onValueChange={(value) => setSelectedLocalNodeId(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn một node..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {nodesWithEmbeddings.map((node) => {
-                    const config = NODE_TYPE_CONFIG[node.node_type as KnowledgeNodeType];
-                    const Icon = config?.icon || Building2;
-                    const displayName = (node.display_name as any)?.vi || (node.display_name as any)?.en || node.node_key;
-                    return (
-                      <SelectItem key={node.id} value={node.id}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-3 w-3" />
-                          <span className="truncate">{displayName}</span>
-                          <Badge variant="outline" className="text-xs ml-1">
-                            {node.node_type}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Chưa có node nào có embedding. Vui lòng vào tab <strong>Embeddings</strong> và chạy "Chạy Tất Cả" trước.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          {/* Quick action */}
-          <div className="flex items-center justify-center py-4 text-muted-foreground">
-            <Search className="h-6 w-6 mr-2 opacity-50" />
-            <span className="text-sm">Hoặc vào tab Search để tìm và chọn node</span>
-          </div>
-        </CardContent>
-      </Card>
+            {/* Quick action */}
+            <div className="flex items-center justify-center py-4 text-muted-foreground">
+              <Search className="h-6 w-6 mr-2 opacity-50" />
+              <span className="text-sm">Hoặc vào tab Search để tìm và chọn node</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
