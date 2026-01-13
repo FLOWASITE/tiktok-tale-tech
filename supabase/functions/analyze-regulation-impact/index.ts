@@ -181,8 +181,37 @@ Please analyze this regulatory change and provide:
 
     console.log('[Analyze] Analysis complete:', analysis.impact_analysis.severity);
 
+    // Update propagation with analysis results and set status to 'ready'
+    const { error: updateError } = await supabase
+      .from('regulation_propagation_log')
+      .update({
+        propagation_status: 'ready',
+        impact_analysis: {
+          ...propagation.impact_analysis,
+          ...analysis.impact_analysis,
+          analyzed_at: new Date().toISOString(),
+        },
+        affected_rules: analysis.affected_rules,
+        priority: analysis.impact_analysis.severity === 'critical' ? 'critical' 
+                : analysis.impact_analysis.severity === 'high' ? 'high'
+                : analysis.impact_analysis.severity === 'medium' ? 'medium' : 'low',
+      })
+      .eq('id', propagation_id);
+
+    if (updateError) {
+      console.error('[Analyze] Update error:', updateError);
+      throw new Error('Failed to save analysis results');
+    }
+
+    console.log('[Analyze] Propagation updated to ready status');
+
     return new Response(
-      JSON.stringify(analysis),
+      JSON.stringify({
+        success: true,
+        propagation_id,
+        status: 'ready',
+        ...analysis,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
