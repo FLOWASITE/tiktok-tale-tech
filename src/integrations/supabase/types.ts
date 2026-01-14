@@ -7932,20 +7932,14 @@ export type Database = {
       find_duplicate_regulations: {
         Args: { p_limit?: number; p_similarity_threshold?: number }
         Returns: {
-          created_at_1: string
-          created_at_2: string
+          display_name_1: string
+          display_name_2: string
           match_type: string
-          name_1: string
-          name_2: string
           node_id_1: string
           node_id_2: string
-          node_key_1: string
-          node_key_2: string
           quality_1: number
           quality_2: number
           similarity: number
-          source_url_1: string
-          source_url_2: string
         }[]
       }
       find_node_duplicates: {
@@ -7955,12 +7949,9 @@ export type Database = {
           p_similarity_threshold?: number
         }
         Returns: {
-          duplicate_created_at: string
+          duplicate_id: string
           duplicate_name: string
-          duplicate_node_id: string
-          duplicate_node_key: string
           duplicate_quality: number
-          duplicate_source_url: string
           match_type: string
           similarity: number
         }[]

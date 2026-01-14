@@ -327,34 +327,14 @@ export function DuplicateDetectionPanel({ selectedNodeId }: DuplicateDetectionPa
                                           <Star className="h-3 w-3 text-yellow-500 shrink-0" />
                                         )}
                                       </div>
-                                      <div className="text-xs text-muted-foreground mt-1 space-y-1">
-                                        <div className="truncate font-mono">
-                                          {node.node_key}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                          <span className="flex items-center gap-1">
-                                            <Calendar className="h-3 w-3" />
-                                            {format(new Date(node.created_at), 'dd/MM/yyyy', { locale: vi })}
-                                          </span>
-                                          {node.quality && (
-                                            <Badge variant="outline" className="text-xs">
-                                              Quality: {node.quality}
-                                            </Badge>
-                                          )}
-                                        </div>
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        {node.quality != null && (
+                                          <Badge variant="outline" className="text-xs">
+                                            Quality: {node.quality}
+                                          </Badge>
+                                        )}
                                       </div>
                                     </div>
-                                    {node.source_url && (
-                                      <a
-                                        href={node.source_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="text-muted-foreground hover:text-foreground"
-                                      >
-                                        <ExternalLink className="h-4 w-4" />
-                                      </a>
-                                    )}
                                   </div>
                                 </div>
                               ))}
