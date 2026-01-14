@@ -13,9 +13,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  XCircle,
+  SkipForward,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Drawer,
   DrawerClose,
@@ -29,9 +32,17 @@ import { cn } from '@/lib/utils';
 import type { CrawledNode } from './CrawledNodeCard';
 import { getJurisdictionFlag } from './CrawledNodeCard';
 
+interface ParseResult {
+  status: 'success' | 'failed' | 'skipped';
+  reason?: string;
+  textLengthBefore?: number;
+  textLengthAfter?: number;
+}
+
 interface CrawledNodeMobileCardProps {
   node: CrawledNode;
   isReparsing: boolean;
+  parseResult?: ParseResult;
   onReparse: (nodeId: string) => void;
   onView: (node: CrawledNode) => void;
   onEdit: (node: CrawledNode) => void;
@@ -75,9 +86,16 @@ const getParseStatusDisplay = (status: string | null | undefined) => {
   }
 };
 
+const formatCharCount = (count: number | undefined) => {
+  if (!count) return '0';
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+  return count.toString();
+};
+
 export const CrawledNodeMobileCard: React.FC<CrawledNodeMobileCardProps> = ({
   node,
   isReparsing,
+  parseResult,
   onReparse,
   onView,
   onEdit,
@@ -244,6 +262,43 @@ export const CrawledNodeMobileCard: React.FC<CrawledNodeMobileCardProps> = ({
               {node.node_key}
             </p>
           </div>
+          
+          {/* Parse Result Feedback */}
+          {parseResult && !isReparsing && (
+            <Alert 
+              variant={parseResult.status === 'success' ? 'default' : 'destructive'}
+              className={cn(
+                'py-2',
+                parseResult.status === 'success' && 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800',
+                parseResult.status === 'skipped' && 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
+              )}
+            >
+              <AlertDescription className="flex items-center gap-2 text-sm">
+                {parseResult.status === 'success' && (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span className="text-emerald-700 dark:text-emerald-400">
+                      ✓ Đã parse: {formatCharCount(parseResult.textLengthBefore)} → {formatCharCount(parseResult.textLengthAfter)} ký tự
+                    </span>
+                  </>
+                )}
+                {parseResult.status === 'failed' && (
+                  <>
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    <span>Lỗi: {parseResult.reason || 'Không thể parse văn bản'}</span>
+                  </>
+                )}
+                {parseResult.status === 'skipped' && (
+                  <>
+                    <SkipForward className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span className="text-amber-700 dark:text-amber-400">
+                      Bỏ qua: {parseResult.reason || 'Không có URL nguồn'}
+                    </span>
+                  </>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
         
         <DrawerFooter className="pt-2 pb-6">

@@ -127,6 +127,14 @@ export function CrawledContentViewer() {
   const [showFullTextSheet, setShowFullTextSheet] = useState(false);
   const [editModeOnOpen, setEditModeOnOpen] = useState(false);
   
+  // Parse result feedback state
+  const [parseResults, setParseResults] = useState<Record<string, {
+    status: 'success' | 'failed' | 'skipped';
+    reason?: string;
+    textLengthBefore?: number;
+    textLengthAfter?: number;
+  }>>({});
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -375,9 +383,35 @@ export function CrawledContentViewer() {
 
   const handleSingleReparse = async (nodeId: string) => {
     setParsingNodeId(nodeId);
+    // Clear previous result for this node
+    setParseResults(prev => {
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+    
+    // Get current node's text length before parsing
+    const currentNode = crawledNodes.find(n => n.id === nodeId);
+    const textLengthBefore = currentNode?.full_text?.length || 0;
     
     try {
-      await reparseNode(nodeId);
+      const result = await reparseNode(nodeId);
+      
+      // Store parse result for feedback display
+      if (result) {
+        const detail = result.details?.[0];
+        if (detail) {
+          setParseResults(prev => ({
+            ...prev,
+            [nodeId]: {
+              status: detail.status,
+              reason: detail.reason,
+              textLengthBefore: detail.text_length_before ?? textLengthBefore,
+              textLengthAfter: detail.text_length_after,
+            }
+          }));
+        }
+      }
       
       // Poll for completion - handle slow/timeout scenarios
       // Parse may succeed even if response times out (DB is updated)
@@ -386,16 +420,28 @@ export function CrawledContentViewer() {
       
       const pollInterval = setInterval(async () => {
         pollAttempts++;
-        const result = await refetch();
+        const fetchResult = await refetch();
         
         // Find the node we're parsing
-        const updatedNode = result.data?.nodes?.find(n => n.id === nodeId);
+        const updatedNode = fetchResult.data?.nodes?.find(n => n.id === nodeId);
         
         if (updatedNode) {
           // Stop polling if parse completed (success or fail)
           if (updatedNode.parse_status === 'parsed' || updatedNode.parse_status === 'failed') {
             clearInterval(pollInterval);
             setParsingNodeId(null);
+            
+            // Update result with final status if not already set
+            if (!parseResults[nodeId]) {
+              setParseResults(prev => ({
+                ...prev,
+                [nodeId]: {
+                  status: updatedNode.parse_status === 'parsed' ? 'success' : 'failed',
+                  textLengthBefore,
+                  textLengthAfter: updatedNode.full_text?.length || 0,
+                }
+              }));
+            }
             return;
           }
         }
@@ -404,6 +450,13 @@ export function CrawledContentViewer() {
         if (pollAttempts >= maxPollAttempts) {
           clearInterval(pollInterval);
           setParsingNodeId(null);
+          setParseResults(prev => ({
+            ...prev,
+            [nodeId]: {
+              status: 'failed',
+              reason: 'Timeout - vui lòng thử lại',
+            }
+          }));
         }
       }, 2000); // Poll every 2 seconds
       
@@ -416,19 +469,35 @@ export function CrawledContentViewer() {
       
       const pollInterval = setInterval(async () => {
         pollAttempts++;
-        const result = await refetch();
+        const fetchResult = await refetch();
         
-        const updatedNode = result.data?.nodes?.find(n => n.id === nodeId);
+        const updatedNode = fetchResult.data?.nodes?.find(n => n.id === nodeId);
         
         if (updatedNode?.parse_status === 'parsed' || updatedNode?.parse_status === 'failed') {
           clearInterval(pollInterval);
           setParsingNodeId(null);
+          
+          setParseResults(prev => ({
+            ...prev,
+            [nodeId]: {
+              status: updatedNode.parse_status === 'parsed' ? 'success' : 'failed',
+              textLengthBefore,
+              textLengthAfter: updatedNode.full_text?.length || 0,
+            }
+          }));
           return;
         }
         
         if (pollAttempts >= maxPollAttempts) {
           clearInterval(pollInterval);
           setParsingNodeId(null);
+          setParseResults(prev => ({
+            ...prev,
+            [nodeId]: {
+              status: 'failed',
+              reason: 'Lỗi kết nối - vui lòng thử lại',
+            }
+          }));
         }
       }, 2000);
     }
@@ -644,6 +713,7 @@ export function CrawledContentViewer() {
                     key={node.id}
                     node={node}
                     isReparsing={parsingNodeId === node.id}
+                    parseResult={parseResults[node.id]}
                     onReparse={handleSingleReparse}
                     onView={(n) => {
                       setSelectedNode(n);
