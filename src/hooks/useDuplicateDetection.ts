@@ -2,21 +2,16 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Matches RPC output: find_duplicate_regulations
 export interface DuplicatePair {
   node_id_1: string;
   node_id_2: string;
-  name_1: string;
-  name_2: string;
-  node_key_1: string;
-  node_key_2: string;
-  source_url_1: string | null;
-  source_url_2: string | null;
+  display_name_1: string;
+  display_name_2: string;
+  similarity: number;
+  match_type: 'semantic' | 'exact_title';
   quality_1: number | null;
   quality_2: number | null;
-  created_at_1: string;
-  created_at_2: string;
-  similarity: number;
-  match_type: 'semantic' | 'exact' | 'exact_title';
 }
 
 export interface DuplicateGroup {
@@ -24,24 +19,19 @@ export interface DuplicateGroup {
   nodes: Array<{
     id: string;
     name: string;
-    node_key: string;
-    source_url: string | null;
     quality: number | null;
-    created_at: string;
   }>;
   similarity: number;
   match_type: string;
 }
 
+// Matches RPC output: find_node_duplicates
 export interface NodeDuplicate {
-  duplicate_node_id: string;
+  duplicate_id: string;
   duplicate_name: string;
-  duplicate_node_key: string;
-  duplicate_source_url: string | null;
-  duplicate_quality: number | null;
-  duplicate_created_at: string;
   similarity: number;
   match_type: string;
+  duplicate_quality: number | null;
 }
 
 export function useDuplicateDetection() {
@@ -104,21 +94,15 @@ export function useDuplicateDetection() {
             if (group.has(pair.node_id_1)) {
               nodeInfo.set(pair.node_id_1, {
                 id: pair.node_id_1,
-                name: pair.name_1,
-                node_key: pair.node_key_1,
-                source_url: pair.source_url_1,
+                name: pair.display_name_1,
                 quality: pair.quality_1,
-                created_at: pair.created_at_1
               });
             }
             if (group.has(pair.node_id_2)) {
               nodeInfo.set(pair.node_id_2, {
                 id: pair.node_id_2,
-                name: pair.name_2,
-                node_key: pair.node_key_2,
-                source_url: pair.source_url_2,
+                name: pair.display_name_2,
                 quality: pair.quality_2,
-                created_at: pair.created_at_2
               });
             }
           });
