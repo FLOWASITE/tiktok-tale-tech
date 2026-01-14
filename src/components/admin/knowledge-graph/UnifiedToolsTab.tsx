@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wrench, FileJson, RefreshCw } from "lucide-react";
+import { Wrench, FileJson, RefreshCw, Search } from "lucide-react";
 import { BulkImportExport } from "./BulkImportExport";
 import { RegulationPropagationPanel } from "./RegulationPropagationPanel";
+import { DuplicateDetectionPanel } from "./DuplicateDetectionPanel";
 
-export function UnifiedToolsTab() {
+interface UnifiedToolsTabProps {
+  selectedNodeId?: string | null;
+}
+
+export function UnifiedToolsTab({ selectedNodeId }: UnifiedToolsTabProps) {
   const [subTab, setSubTab] = useState("import-export");
 
   return (
@@ -16,7 +21,7 @@ export function UnifiedToolsTab() {
           Công cụ quản lý
         </CardTitle>
         <CardDescription>
-          Import/Export dữ liệu và quản lý cập nhật quy định tự động
+          Import/Export dữ liệu, quản lý cập nhật quy định và kiểm tra trùng lặp
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -30,6 +35,10 @@ export function UnifiedToolsTab() {
               <RefreshCw className="h-4 w-4" />
               Cập nhật quy định
             </TabsTrigger>
+            <TabsTrigger value="duplicates" className="gap-1.5">
+              <Search className="h-4 w-4" />
+              Trùng lặp
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="import-export" className="mt-0">
@@ -38,6 +47,10 @@ export function UnifiedToolsTab() {
 
           <TabsContent value="propagation" className="mt-0">
             <RegulationPropagationPanel />
+          </TabsContent>
+
+          <TabsContent value="duplicates" className="mt-0">
+            <DuplicateDetectionPanel selectedNodeId={selectedNodeId} />
           </TabsContent>
         </Tabs>
       </CardContent>

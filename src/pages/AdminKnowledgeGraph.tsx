@@ -144,9 +144,9 @@ export default function AdminKnowledgeGraph() {
           />
         </TabsContent>
 
-        {/* Tab 6: Công cụ (Import/Export + Propagation) */}
+        {/* Tab 6: Công cụ (Import/Export + Propagation + Duplicate Detection) */}
         <TabsContent value="tools" className="space-y-6">
-          <UnifiedToolsTab />
+          <UnifiedToolsTab selectedNodeId={selectedNodeId} />
         </TabsContent>
       </Tabs>
     </div>

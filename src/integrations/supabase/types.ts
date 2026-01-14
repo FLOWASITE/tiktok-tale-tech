@@ -4050,6 +4050,48 @@ export type Database = {
           },
         ]
       }
+      duplicate_ignore_list: {
+        Row: {
+          id: string
+          ignored_at: string | null
+          ignored_by: string | null
+          node_id_1: string
+          node_id_2: string
+          reason: string | null
+        }
+        Insert: {
+          id?: string
+          ignored_at?: string | null
+          ignored_by?: string | null
+          node_id_1: string
+          node_id_2: string
+          reason?: string | null
+        }
+        Update: {
+          id?: string
+          ignored_at?: string | null
+          ignored_by?: string | null
+          node_id_1?: string
+          node_id_2?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duplicate_ignore_list_node_id_1_fkey"
+            columns: ["node_id_1"]
+            isOneToOne: false
+            referencedRelation: "industry_knowledge_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duplicate_ignore_list_node_id_2_fkey"
+            columns: ["node_id_2"]
+            isOneToOne: false
+            referencedRelation: "industry_knowledge_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generation_tasks: {
         Row: {
           completed_at: string | null
@@ -7887,6 +7929,42 @@ export type Database = {
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
+      find_duplicate_regulations: {
+        Args: { p_limit?: number; p_similarity_threshold?: number }
+        Returns: {
+          created_at_1: string
+          created_at_2: string
+          match_type: string
+          name_1: string
+          name_2: string
+          node_id_1: string
+          node_id_2: string
+          node_key_1: string
+          node_key_2: string
+          quality_1: number
+          quality_2: number
+          similarity: number
+          source_url_1: string
+          source_url_2: string
+        }[]
+      }
+      find_node_duplicates: {
+        Args: {
+          p_limit?: number
+          p_node_id: string
+          p_similarity_threshold?: number
+        }
+        Returns: {
+          duplicate_created_at: string
+          duplicate_name: string
+          duplicate_node_id: string
+          duplicate_node_key: string
+          duplicate_quality: number
+          duplicate_source_url: string
+          match_type: string
+          similarity: number
+        }[]
+      }
       get_batch_processing_stats: {
         Args: never
         Returns: {
@@ -8032,6 +8110,14 @@ export type Database = {
           p_result_count?: number
         }
         Returns: string
+      }
+      merge_duplicate_nodes: {
+        Args: {
+          p_keep_node_id: string
+          p_performed_by?: string
+          p_remove_node_ids: string[]
+        }
+        Returns: Json
       }
       search_conversation_embeddings: {
         Args: {
