@@ -286,23 +286,90 @@ export function IndustryExcelImportDialog({
                 </div>
               )}
 
-              {/* Data Preview Tabs */}
-              <Tabs defaultValue="translations">
-                <TabsList className="grid grid-cols-4 w-full">
+              {/* Data Preview Tabs - All 9 sheets */}
+              <Tabs defaultValue="pack_info">
+                <TabsList className="grid grid-cols-5 w-full mb-2">
+                  <TabsTrigger value="pack_info" className="text-xs">
+                    <Package className="h-3 w-3 mr-1" />
+                    Pack Info
+                  </TabsTrigger>
                   <TabsTrigger value="translations" className="text-xs">
-                    Translations ({parseResult.translations.length})
+                    <Languages className="h-3 w-3 mr-1" />
+                    Dịch ({parseResult.translations.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="forbidden" className="text-xs">
+                    <Ban className="h-3 w-3 mr-1" />
+                    Cấm ({parseResult.forbiddenTerms.length})
                   </TabsTrigger>
                   <TabsTrigger value="rules" className="text-xs">
-                    Rules ({parseResult.complianceRules.length + parseResult.systemRules.length})
+                    <Scale className="h-3 w-3 mr-1" />
+                    Quy tắc ({parseResult.complianceRules.length})
                   </TabsTrigger>
                   <TabsTrigger value="claims" className="text-xs">
+                    <MessageSquareWarning className="h-3 w-3 mr-1" />
                     Claims ({parseResult.claimRestrictions.length})
                   </TabsTrigger>
+                </TabsList>
+                <TabsList className="grid grid-cols-4 w-full">
+                  <TabsTrigger value="patterns" className="text-xs">
+                    <Lightbulb className="h-3 w-3 mr-1" />
+                    Patterns ({parseResult.argumentPatterns.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="system" className="text-xs">
+                    <Settings className="h-3 w-3 mr-1" />
+                    System ({parseResult.systemRules.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="jurisdictions" className="text-xs">
+                    <Globe className="h-3 w-3 mr-1" />
+                    Quốc gia ({parseResult.jurisdictions.length})
+                  </TabsTrigger>
                   <TabsTrigger value="personas" className="text-xs">
+                    <Users className="h-3 w-3 mr-1" />
                     Personas ({parseResult.personas.length})
                   </TabsTrigger>
                 </TabsList>
 
+                {/* Pack Info Tab */}
+                <TabsContent value="pack_info" className="mt-4">
+                  {parseResult.packInfo ? (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="space-y-2">
+                        <div className="flex justify-between p-2 bg-muted/30 rounded">
+                          <span className="text-muted-foreground">Mã ngành:</span>
+                          <span className="font-mono font-medium">{parseResult.packInfo.code}</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-muted/30 rounded">
+                          <span className="text-muted-foreground">Category:</span>
+                          <span>{parseResult.packInfo.category_code}</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-muted/30 rounded">
+                          <span className="text-muted-foreground">Level:</span>
+                          <Badge variant="outline">{parseResult.packInfo.industry_level || 'core'}</Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between p-2 bg-muted/30 rounded">
+                          <span className="text-muted-foreground">Target:</span>
+                          <Badge>{parseResult.packInfo.target_audience || 'B2C'}</Badge>
+                        </div>
+                        <div className="flex justify-between p-2 bg-muted/30 rounded">
+                          <span className="text-muted-foreground">Formality:</span>
+                          <span>{parseResult.packInfo.formality_level || 'semi_formal'}</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-muted/30 rounded">
+                          <span className="text-muted-foreground">Emoji:</span>
+                          <span>{parseResult.packInfo.allow_emoji === 'true' ? '✅ Cho phép' : '❌ Không'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground p-4">
+                      Không có thông tin Pack Info
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Translations Tab */}
                 <TabsContent value="translations" className="mt-4">
                   <Table>
                     <TableHeader>
@@ -329,7 +396,7 @@ export function IndustryExcelImportDialog({
                       {parseResult.translations.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={4} className="text-center text-muted-foreground">
-                            Không có dữ liệu bản dịch
+                            Không có dữ liệu
                           </TableCell>
                         </TableRow>
                       )}
@@ -337,17 +404,35 @@ export function IndustryExcelImportDialog({
                   </Table>
                 </TabsContent>
 
+                {/* Forbidden Terms Tab */}
+                <TabsContent value="forbidden" className="mt-4">
+                  <div className="flex flex-wrap gap-2">
+                    {parseResult.forbiddenTerms.slice(0, 30).map((t, i) => (
+                      <Badge key={i} variant="destructive" className="text-xs">
+                        {t.term}
+                      </Badge>
+                    ))}
+                    {parseResult.forbiddenTerms.length > 30 && (
+                      <Badge variant="outline">+{parseResult.forbiddenTerms.length - 30} khác</Badge>
+                    )}
+                    {parseResult.forbiddenTerms.length === 0 && (
+                      <p className="text-muted-foreground text-sm">Không có thuật ngữ cấm</p>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Compliance Rules Tab */}
                 <TabsContent value="rules" className="mt-4">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Mã quy tắc</TableHead>
+                        <TableHead>Mã</TableHead>
                         <TableHead>Nội dung</TableHead>
                         <TableHead>Mức độ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {parseResult.complianceRules.slice(0, 10).map((row, i) => (
+                      {parseResult.complianceRules.slice(0, 8).map((row, i) => (
                         <TableRow key={i}>
                           <TableCell className="font-mono text-xs">{row.rule_id}</TableCell>
                           <TableCell className="max-w-md truncate">{row.rule_text}</TableCell>
@@ -358,10 +443,10 @@ export function IndustryExcelImportDialog({
                           </TableCell>
                         </TableRow>
                       ))}
-                      {parseResult.complianceRules.length > 10 && (
+                      {parseResult.complianceRules.length > 8 && (
                         <TableRow>
                           <TableCell colSpan={3} className="text-center text-muted-foreground">
-                            ... và {parseResult.complianceRules.length - 10} quy tắc khác
+                            ... và {parseResult.complianceRules.length - 8} quy tắc khác
                           </TableCell>
                         </TableRow>
                       )}
@@ -369,17 +454,18 @@ export function IndustryExcelImportDialog({
                   </Table>
                 </TabsContent>
 
+                {/* Claims Tab */}
                 <TabsContent value="claims" className="mt-4">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Claim bị cấm</TableHead>
+                        <TableHead>Claim cấm</TableHead>
                         <TableHead>Gợi ý thay thế</TableHead>
                         <TableHead>Mức độ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {parseResult.claimRestrictions.slice(0, 10).map((row, i) => (
+                      {parseResult.claimRestrictions.slice(0, 8).map((row, i) => (
                         <TableRow key={i}>
                           <TableCell className="text-destructive">{row.forbidden_claim}</TableCell>
                           <TableCell className="text-green-600">{row.suggested_alternative}</TableCell>
@@ -399,6 +485,61 @@ export function IndustryExcelImportDialog({
                   </Table>
                 </TabsContent>
 
+                {/* Argument Patterns Tab */}
+                <TabsContent value="patterns" className="mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 text-green-600">✓ Valid Patterns</h4>
+                      <div className="space-y-1">
+                        {parseResult.argumentPatterns.filter(p => p.type === 'valid').slice(0, 5).map((p, i) => (
+                          <p key={i} className="text-xs bg-green-500/10 p-2 rounded">{p.pattern}</p>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 text-red-600">✗ Forbidden</h4>
+                      <div className="space-y-1">
+                        {parseResult.argumentPatterns.filter(p => p.type === 'forbidden').slice(0, 5).map((p, i) => (
+                          <p key={i} className="text-xs bg-red-500/10 p-2 rounded">{p.pattern}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* System Rules Tab */}
+                <TabsContent value="system" className="mt-4">
+                  <div className="space-y-2">
+                    {parseResult.systemRules.slice(0, 10).map((rule, i) => (
+                      <div key={i} className="flex items-start gap-2 p-2 bg-muted/30 rounded text-sm">
+                        <Badge variant={rule.priority === 'critical' ? 'destructive' : rule.priority === 'high' ? 'default' : 'outline'} className="text-xs">
+                          {rule.priority}
+                        </Badge>
+                        <span className="flex-1">{rule.rule}</span>
+                      </div>
+                    ))}
+                    {parseResult.systemRules.length === 0 && (
+                      <p className="text-muted-foreground text-sm text-center">Không có system rules</p>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Jurisdictions Tab */}
+                <TabsContent value="jurisdictions" className="mt-4">
+                  <div className="flex flex-wrap gap-2">
+                    {parseResult.jurisdictions.map((j, i) => (
+                      <Badge key={i} variant="outline" className="gap-1">
+                        <Globe className="h-3 w-3" />
+                        {j.jurisdiction_code}
+                      </Badge>
+                    ))}
+                    {parseResult.jurisdictions.length === 0 && (
+                      <p className="text-muted-foreground text-sm">Không có jurisdiction profiles</p>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Personas Tab */}
                 <TabsContent value="personas" className="mt-4">
                   <div className="grid grid-cols-2 gap-3">
                     {parseResult.personas.slice(0, 4).map((persona, i) => (
@@ -416,6 +557,9 @@ export function IndustryExcelImportDialog({
                           )}
                           {persona.gender && (
                             <Badge variant="outline" className="text-xs">{persona.gender}</Badge>
+                          )}
+                          {persona.income_level && (
+                            <Badge variant="outline" className="text-xs">{persona.income_level}</Badge>
                           )}
                         </div>
                       </Card>

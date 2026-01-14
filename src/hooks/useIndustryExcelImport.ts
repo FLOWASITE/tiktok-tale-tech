@@ -8,6 +8,18 @@ import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SHEETS } from '@/utils/industryExcelGenerator';
+import {
+  validateTranslations,
+  validateJurisdictions,
+  validateComplianceRules,
+  validateClaimRestrictions,
+  validatePackInfo,
+  validateArgumentPatterns,
+  validateSystemRules,
+  validatePersonas,
+  type ValidationError,
+  type ValidationWarning,
+} from '@/utils/excelValidation';
 
 export type ImportStep = 'upload' | 'preview' | 'validate' | 'importing' | 'done';
 
@@ -20,19 +32,8 @@ export interface ParsedSheetData {
   warnings: ValidationWarning[];
 }
 
-export interface ValidationError {
-  sheet: string;
-  row: number;
-  column: string;
-  message: string;
-  value?: string;
-}
-
-export interface ValidationWarning {
-  sheet: string;
-  row: number;
-  message: string;
-}
+// Re-export types for external use
+export type { ValidationError, ValidationWarning };
 
 export interface ParseResult {
   packInfo: Record<string, string> | null;
@@ -235,6 +236,39 @@ export function useIndustryExcelImport() {
           message: 'Thiếu mã ngành (industry code) - trường bắt buộc',
         });
       }
+
+      // Advanced validation for each sheet
+      const packInfoValidation = validatePackInfo(result.packInfo, '1. Pack Info');
+      allErrors.push(...packInfoValidation.errors);
+      allWarnings.push(...packInfoValidation.warnings);
+
+      const translationsValidation = validateTranslations(result.translations, '2. Translations');
+      allErrors.push(...translationsValidation.errors);
+      allWarnings.push(...translationsValidation.warnings);
+
+      const complianceValidation = validateComplianceRules(result.complianceRules, '4. Compliance Rules');
+      allErrors.push(...complianceValidation.errors);
+      allWarnings.push(...complianceValidation.warnings);
+
+      const claimValidation = validateClaimRestrictions(result.claimRestrictions, '5. Claim Restrictions');
+      allErrors.push(...claimValidation.errors);
+      allWarnings.push(...claimValidation.warnings);
+
+      const patternsValidation = validateArgumentPatterns(result.argumentPatterns, '6. Argument Patterns');
+      allErrors.push(...patternsValidation.errors);
+      allWarnings.push(...patternsValidation.warnings);
+
+      const systemRulesValidation = validateSystemRules(result.systemRules, '7. System Rules');
+      allErrors.push(...systemRulesValidation.errors);
+      allWarnings.push(...systemRulesValidation.warnings);
+
+      const jurisdictionsValidation = validateJurisdictions(result.jurisdictions, '8. Jurisdictions');
+      allErrors.push(...jurisdictionsValidation.errors);
+      allWarnings.push(...jurisdictionsValidation.warnings);
+
+      const personasValidation = validatePersonas(result.personas, '9. Personas');
+      allErrors.push(...personasValidation.errors);
+      allWarnings.push(...personasValidation.warnings);
 
       setSheetData(parsedSheets);
       setParseResult(result);
