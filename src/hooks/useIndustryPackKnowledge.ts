@@ -15,6 +15,7 @@ export interface IndustryPackInfo {
   targetAudience: 'B2B' | 'B2C' | 'both';
   isActive: boolean;
   version: string;
+  nodeCount?: number;
 }
 
 export interface KnowledgeStats {
@@ -82,6 +83,20 @@ async function fetchPacksList(
     return [];
   }
 
+  // Fetch node counts for all packs
+  const { data: countData } = await supabase
+    .from('industry_knowledge_nodes')
+    .select('global_pack_id')
+    .not('global_pack_id', 'is', null);
+
+  const countMap = new Map<string, number>();
+  (countData || []).forEach(row => {
+    const packId = row.global_pack_id;
+    if (packId) {
+      countMap.set(packId, (countMap.get(packId) || 0) + 1);
+    }
+  });
+
   return (data || []).map(row => {
     const translations = row.industry_pack_translations as unknown as { name: string }[];
     return {
@@ -91,6 +106,7 @@ async function fetchPacksList(
       targetAudience: row.target_audience as 'B2B' | 'B2C' | 'both',
       isActive: row.is_active ?? true,
       version: row.version || '1.0',
+      nodeCount: countMap.get(row.id) || 0,
     };
   });
 }
