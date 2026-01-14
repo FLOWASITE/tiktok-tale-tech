@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Network, BarChart3, Lightbulb, Globe, Layers, Wrench } from "lucide-react";
+import { Network, BarChart3, Lightbulb, Globe, Layers, Wrench, Factory } from "lucide-react";
 import { 
   CreateNodeButton,
   ConnectionSuggestions,
@@ -12,6 +12,7 @@ import { RealtimeStatusIndicator } from "@/hooks/useRealtimeGraph";
 import { UnifiedExplorerTab } from "@/components/admin/knowledge-graph/UnifiedExplorerTab";
 import { UnifiedProcessingTab } from "@/components/admin/knowledge-graph/UnifiedProcessingTab";
 import { UnifiedToolsTab } from "@/components/admin/knowledge-graph/UnifiedToolsTab";
+import { IndustryKnowledgeExplorer } from "@/components/admin/knowledge-graph/IndustryKnowledgeExplorer";
 
 export default function AdminKnowledgeGraph() {
   const [activeTab, setActiveTab] = useState("explorer");
@@ -78,7 +79,22 @@ export default function AdminKnowledgeGraph() {
 
             <div className="w-px h-6 bg-border hidden sm:block" />
 
-            {/* Group 2: Intelligence */}
+            {/* Group 2: Industry Content */}
+            <div className="flex items-center gap-0.5 px-1">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mr-1 hidden sm:inline">
+                Ngành
+              </span>
+              <TabsList className="h-9 bg-transparent p-0">
+                <TabsTrigger value="industry" className="gap-1.5 data-[state=active]:bg-background h-8 px-3 text-xs">
+                  <Factory className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Nội dung ngành</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="w-px h-6 bg-border hidden sm:block" />
+
+            {/* Group 3: Intelligence */}
             <div className="flex items-center gap-0.5 px-1">
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mr-1 hidden sm:inline">
                 AI
@@ -131,12 +147,17 @@ export default function AdminKnowledgeGraph() {
           <UnifiedProcessingTab />
         </TabsContent>
 
-        {/* Tab 4: Phân tích */}
+        {/* Tab 4: Nội dung ngành */}
+        <TabsContent value="industry" className="space-y-6">
+          <IndustryKnowledgeExplorer />
+        </TabsContent>
+
+        {/* Tab 5: Phân tích */}
         <TabsContent value="analytics" className="space-y-6">
           <GraphAnalyticsDashboard onNavigateToNode={handleOrphanNodeNavigate} />
         </TabsContent>
 
-        {/* Tab 5: AI Gợi ý */}
+        {/* Tab 6: AI Gợi ý */}
         <TabsContent value="suggestions" className="space-y-6">
           <ConnectionSuggestions 
             nodeId={selectedNodeId}
@@ -144,7 +165,7 @@ export default function AdminKnowledgeGraph() {
           />
         </TabsContent>
 
-        {/* Tab 6: Công cụ (Import/Export + Propagation + Duplicate Detection) */}
+        {/* Tab 7: Công cụ (Import/Export + Propagation + Duplicate Detection) */}
         <TabsContent value="tools" className="space-y-6">
           <UnifiedToolsTab selectedNodeId={selectedNodeId} />
         </TabsContent>
