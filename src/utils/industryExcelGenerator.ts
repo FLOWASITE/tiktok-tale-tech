@@ -1,9 +1,17 @@
 /**
  * Industry Import Excel Generator v2.2
  * Enhanced PRO with Risk Guidelines, Key Regulations, and Extended Personas
+ * + Reference Sheet with dynamic data from database
  */
 
 import * as XLSX from 'xlsx';
+import { supabase } from '@/integrations/supabase/client';
+
+// Reference data from database
+interface ReferenceData {
+  categories: Array<{ code: string; label: string }>;
+  corePacks: Array<{ industry_code: string }>;
+}
 
 // Template data structure
 interface TemplateColumn {
@@ -222,8 +230,147 @@ function createInstructionsSheet(): unknown[][] {
   ];
 }
 
+// Enum values for reference
+const ENUM_VALUES = {
+  target_audience: ['B2B', 'B2C', 'both'],
+  formality_level: ['formal', 'semi_formal', 'casual'],
+  emoji_policy: ['none', 'limited', 'moderate', 'frequent'],
+  industry_level: ['core', 'sub'],
+  severity: ['error', 'warning', 'info'],
+  priority: ['critical', 'high', 'medium', 'low'],
+  validity_status: ['current', 'superseded', 'pending'],
+  persona_type: ['primary', 'secondary', 'tertiary'],
+  gender: ['male', 'female', 'all'],
+  income_level: ['low', 'medium', 'high', 'very_high'],
+  education_level: ['high_school', 'college', 'bachelor', 'master', 'phd'],
+  location_type: ['urban', 'suburban', 'rural'],
+  family_status: ['single', 'married', 'married_with_kids'],
+  tech_savviness: ['low', 'medium', 'high'],
+  price_sensitivity: ['low', 'medium', 'high'],
+  purchase_frequency: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'],
+  communication_style: ['direct', 'emotional', 'analytical'],
+  argument_type: ['valid', 'forbidden'],
+};
+
 /**
- * Generate and download the complete Excel template
+ * Fetch reference data from database
+ */
+async function fetchReferenceData(): Promise<ReferenceData> {
+  const [categoriesRes, corePacksRes] = await Promise.all([
+    supabase
+      .from('industry_categories')
+      .select('code, label')
+      .order('label'),
+    supabase
+      .from('industry_global_packs')
+      .select('industry_code')
+      .eq('industry_level', 'core')
+      .order('industry_code'),
+  ]);
+
+  return {
+    categories: (categoriesRes.data || []) as Array<{ code: string; label: string }>,
+    corePacks: (corePacksRes.data || []) as Array<{ industry_code: string }>,
+  };
+}
+
+/**
+ * Create reference sheet with all valid values
+ */
+function createReferenceSheet(refData: ReferenceData): XLSX.WorkSheet {
+  const data: unknown[][] = [
+    ['📋 BẢNG THAM CHIẾU GIÁ TRỊ HỢP LỆ'],
+    ['Sử dụng sheet này để tra cứu nhanh các giá trị hợp lệ khi nhập liệu'],
+    [''],
+    ['═══════════════════════════════════════════════════════════════'],
+    ['📁 CATEGORY CODES (18 danh mục)'],
+    ['═══════════════════════════════════════════════════════════════'],
+    ['Code', 'Tên danh mục'],
+  ];
+
+  // Add categories
+  refData.categories.forEach(cat => {
+    data.push([cat.code, cat.label]);
+  });
+
+  data.push(['']);
+  data.push(['═══════════════════════════════════════════════════════════════']);
+  data.push(['🏭 PARENT_PACK_CODE (Core Industries - có thể làm ngành cha)']);
+  data.push(['═══════════════════════════════════════════════════════════════']);
+  data.push(['industry_code']);
+
+  // Add core packs
+  refData.corePacks.forEach(pack => {
+    data.push([pack.industry_code]);
+  });
+
+  data.push(['']);
+  data.push(['═══════════════════════════════════════════════════════════════']);
+  data.push(['📝 ENUM VALUES (Giá trị hợp lệ cho các trường)']);
+  data.push(['═══════════════════════════════════════════════════════════════']);
+  data.push(['Trường', 'Giá trị hợp lệ']);
+
+  // Add enum values
+  Object.entries(ENUM_VALUES).forEach(([key, values]) => {
+    data.push([key, values.join(', ')]);
+  });
+
+  data.push(['']);
+  data.push(['═══════════════════════════════════════════════════════════════']);
+  data.push(['📅 ĐỊNH DẠNG ĐẶC BIỆT']);
+  data.push(['═══════════════════════════════════════════════════════════════']);
+  data.push(['Loại', 'Ví dụ', 'Mô tả']);
+  data.push(['Date', '2024-01-15', 'Định dạng YYYY-MM-DD']);
+  data.push(['Language Code', 'vi, en, zh, ja, ko', 'Mã ngôn ngữ ISO 639-1']);
+  data.push(['Country Code', 'VN, US, SG, JP, KR', 'Mã quốc gia ISO 3166-1']);
+  data.push(['Array', 'value1;value2;value3', 'Dùng dấu ; phân cách']);
+  data.push(['JSON', '{"key":"value"}', 'Đúng cú pháp JSON']);
+
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+  worksheet['!cols'] = [{ wch: 35 }, { wch: 50 }, { wch: 40 }];
+  
+  return worksheet;
+}
+
+/**
+ * Generate and download the complete Excel template (ASYNC version with reference data)
+ */
+export async function downloadIndustryPackTemplateAsync(industryCode?: string): Promise<void> {
+  // Fetch reference data from database
+  const refData = await fetchReferenceData();
+  
+  const workbook = XLSX.utils.book_new();
+  
+  // 1. Add Reference sheet FIRST
+  const refSheet = createReferenceSheet(refData);
+  XLSX.utils.book_append_sheet(workbook, refSheet, '0. Reference');
+  
+  // 2. Add instructions sheet
+  const instructionsData = createInstructionsSheet();
+  const instructionsSheet = XLSX.utils.aoa_to_sheet(instructionsData);
+  instructionsSheet['!cols'] = [{ wch: 80 }];
+  XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Hướng dẫn');
+  
+  // 3. Add each data sheet
+  Object.entries(SHEETS).forEach(([key, sheet]) => {
+    const data = createSheetData(sheet.columns);
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    worksheet['!cols'] = sheet.columns.map(col => ({
+      wch: Math.max(col.name.length, col.example.length, col.description.length / 2, 15)
+    }));
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.title);
+  });
+  
+  const filename = industryCode 
+    ? `industry_pack_${industryCode}_v2.2.xlsx`
+    : `industry_pack_template_v2.2.xlsx`;
+  
+  XLSX.writeFile(workbook, filename);
+}
+
+/**
+ * Sync version for backward compatibility (no reference data)
+ * @deprecated Use downloadIndustryPackTemplateAsync instead
  */
 export function downloadIndustryPackTemplate(industryCode?: string) {
   const workbook = XLSX.utils.book_new();

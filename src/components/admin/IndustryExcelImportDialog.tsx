@@ -3,7 +3,7 @@
  * UI for importing a complete Industry Pack from the Excel template
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Dialog,
@@ -31,6 +31,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Upload,
+  Download,
   FileSpreadsheet,
   AlertCircle,
   AlertTriangle,
@@ -51,7 +52,8 @@ import {
 } from 'lucide-react';
 import { useIndustryExcelImport } from '@/hooks/useIndustryExcelImport';
 import { cn } from '@/lib/utils';
-import { downloadIndustryPackTemplate } from '@/utils/industryExcelGenerator';
+import { downloadIndustryPackTemplateAsync } from '@/utils/industryExcelGenerator';
+import { toast } from 'sonner';
 
 interface IndustryExcelImportDialogProps {
   open: boolean;
@@ -77,6 +79,8 @@ export function IndustryExcelImportDialog({
   onOpenChange,
   onSuccess,
 }: IndustryExcelImportDialogProps) {
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+  
   const {
     step,
     file,
@@ -97,6 +101,19 @@ export function IndustryExcelImportDialog({
     reset,
     getSummary,
   } = useIndustryExcelImport();
+
+  const handleDownloadTemplate = async () => {
+    setIsDownloadingTemplate(true);
+    try {
+      await downloadIndustryPackTemplateAsync();
+      toast.success('Đã tải template với sheet Reference!');
+    } catch (error) {
+      console.error('Download template error:', error);
+      toast.error('Lỗi tải template. Vui lòng thử lại.');
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
 
   const summary = getSummary();
 
@@ -226,12 +243,20 @@ export function IndustryExcelImportDialog({
                 <div>
                   <h4 className="font-medium mb-1">Chưa có template?</h4>
                   <p className="text-sm text-muted-foreground">
-                    Tải xuống template Excel với 10 sheets đầy đủ (v2.2)
+                    Tải template Excel với sheet Reference + 10 data sheets (v2.2)
                   </p>
                 </div>
-                <Button variant="outline" onClick={() => downloadIndustryPackTemplate()}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Tải Template
+                <Button 
+                  variant="outline" 
+                  onClick={handleDownloadTemplate}
+                  disabled={isDownloadingTemplate}
+                >
+                  {isDownloadingTemplate ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {isDownloadingTemplate ? 'Đang tải...' : 'Tải Template'}
                 </Button>
               </div>
 
