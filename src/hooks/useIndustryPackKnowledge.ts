@@ -116,7 +116,7 @@ async function fetchPackKnowledge(
 
   if (packError || !packData) {
     console.error('Failed to fetch pack info:', packError);
-    return null;
+    throw new Error(packError?.message || 'Không thể tải thông tin Industry Pack');
   }
 
   const translations = packData.industry_pack_translations as unknown as { name: string }[];
@@ -139,7 +139,7 @@ async function fetchPackKnowledge(
 
   if (nodesError) {
     console.error('Failed to fetch nodes:', nodesError);
-    return null;
+    throw new Error(nodesError.message || 'Không thể tải nodes Knowledge Graph');
   }
 
   const nodes: KnowledgeNodeData[] = (nodesData || []).map(node => {
