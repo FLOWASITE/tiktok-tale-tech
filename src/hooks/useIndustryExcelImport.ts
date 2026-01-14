@@ -406,7 +406,7 @@ export function useIndustryExcelImport() {
       const packInfo = parseResult.packInfo;
       let packId: string;
 
-      // Step 1: Create or update global pack with Risk Guidelines
+      // Step 1: Create or update global pack with Risk Guidelines + All JSONB data
       startStep(1);
 
       // Build risk_guidelines from pack info
@@ -427,6 +427,97 @@ export function useIndustryExcelImport() {
         },
       };
 
+      // Build brand_voice from pack info
+      const globalBrandVoice = {
+        tone_of_voice: packInfo.tone_of_voice || '',
+        formality_level: packInfo.formality_level || 'semi_formal',
+        language_style: packInfo.language_style || '',
+        cta_policy: packInfo.cta_policy || '',
+        allow_emoji: packInfo.allow_emoji === 'true',
+        emoji_policy: packInfo.emoji_policy || 'limited',
+      };
+
+      // Build terminology from forbidden terms
+      const globalTerminology = {
+        forbidden_terms: parseResult.forbiddenTerms.map(t => ({
+          term: t.term,
+          reason: t.reason || null,
+        })),
+      };
+
+      // Build compliance rules array
+      const globalComplianceRules = parseResult.complianceRules.map(r => ({
+        rule_id: r.rule_id,
+        rule_text: r.rule_text,
+        category: r.category || 'general',
+        severity: r.severity || 'warning',
+      }));
+
+      // Build claim restrictions array
+      const globalClaimRestrictions = parseResult.claimRestrictions.map(c => ({
+        forbidden_claim: c.forbidden_claim,
+        suggested_alternative: c.suggested_alternative,
+        severity: c.severity || 'warning',
+      }));
+
+      // Build argument patterns
+      const globalArgumentPatterns = {
+        valid: parseResult.argumentPatterns
+          .filter(p => p.type === 'valid')
+          .map(p => ({ pattern: p.pattern, category: p.category || 'general' })),
+        forbidden: parseResult.argumentPatterns
+          .filter(p => p.type === 'forbidden')
+          .map(p => ({ pattern: p.pattern, category: p.category || 'general' })),
+      };
+
+      // Build system rules array
+      const globalSystemRules = parseResult.systemRules.map(r => ({
+        rule: r.rule,
+        priority: r.priority || 'medium',
+      }));
+
+      // Prepare related_industries array
+      const relatedIndustries = packInfo.related_industries?.split(';').map(i => i.trim()).filter(Boolean) || [];
+
+      // Look up parent_pack_id if parent_pack_code provided
+      let parentPackId: string | null = null;
+      if (packInfo.parent_pack_code) {
+        const { data: parentPack } = await supabase
+          .from('industry_global_packs')
+          .select('id')
+          .eq('industry_code', packInfo.parent_pack_code)
+          .single();
+        parentPackId = parentPack?.id || null;
+      }
+
+      // Look up category_id from category_code
+      let categoryId: string | null = null;
+      if (packInfo.category_code) {
+        const { data: category } = await supabase
+          .from('industry_categories')
+          .select('id')
+          .eq('code', packInfo.category_code)
+          .single();
+        categoryId = category?.id || null;
+      }
+
+      const packData = {
+        industry_code: packInfo.code,
+        category_id: categoryId,
+        target_audience: packInfo.target_audience || 'B2C',
+        global_brand_voice: globalBrandVoice,
+        global_terminology: globalTerminology,
+        global_compliance_rules: globalComplianceRules,
+        global_claim_restrictions: globalClaimRestrictions,
+        global_argument_patterns: globalArgumentPatterns,
+        global_system_rules: globalSystemRules,
+        risk_guidelines: riskGuidelines,
+        related_industries: relatedIndustries,
+        industry_level: packInfo.industry_level || 'core',
+        parent_pack_id: parentPackId,
+        sort_order: parseInt(packInfo.sort_order) || 0,
+      };
+
       if (existingPack && conflictAction !== 'skip') {
         if (conflictAction === 'replace') {
           // Delete existing and recreate
@@ -435,47 +526,67 @@ export function useIndustryExcelImport() {
         
         if (conflictAction === 'merge') {
           packId = existingPack.id;
-          // Update existing pack
+          // Update existing pack - merge JSONB data
+          const { data: currentPack } = await supabase
+            .from('industry_global_packs')
+            .select('global_terminology, global_compliance_rules, global_claim_restrictions, global_argument_patterns, global_system_rules')
+            .eq('id', existingPack.id)
+            .single();
+
+          // Merge arrays and objects
+          const mergedTerminology = {
+            forbidden_terms: [
+              ...((currentPack?.global_terminology as any)?.forbidden_terms || []),
+              ...globalTerminology.forbidden_terms,
+            ].filter((v, i, a) => a.findIndex(t => t.term === v.term) === i), // Remove duplicates
+          };
+
+          const mergedComplianceRules = [
+            ...((currentPack?.global_compliance_rules as any[]) || []),
+            ...globalComplianceRules,
+          ].filter((v, i, a) => a.findIndex(t => t.rule_id === v.rule_id) === i);
+
+          const mergedClaimRestrictions = [
+            ...((currentPack?.global_claim_restrictions as any[]) || []),
+            ...globalClaimRestrictions,
+          ].filter((v, i, a) => a.findIndex(t => t.forbidden_claim === v.forbidden_claim) === i);
+
+          const existingPatterns = (currentPack?.global_argument_patterns as any) || { valid: [], forbidden: [] };
+          const mergedPatterns = {
+            valid: [...(existingPatterns.valid || []), ...globalArgumentPatterns.valid]
+              .filter((v, i, a) => a.findIndex(t => t.pattern === v.pattern) === i),
+            forbidden: [...(existingPatterns.forbidden || []), ...globalArgumentPatterns.forbidden]
+              .filter((v, i, a) => a.findIndex(t => t.pattern === v.pattern) === i),
+          };
+
+          const mergedSystemRules = [
+            ...((currentPack?.global_system_rules as any[]) || []),
+            ...globalSystemRules,
+          ].filter((v, i, a) => a.findIndex(t => t.rule === v.rule) === i);
+
           await supabase
             .from('industry_global_packs')
             .update({
-              category_id: packInfo.category_code,
+              category_id: categoryId,
               target_audience: packInfo.target_audience || 'B2C',
-              brand_voice_base: {
-                tone_of_voice: packInfo.tone_of_voice || '',
-                formality_level: packInfo.formality_level || 'semi_formal',
-                language_style: packInfo.language_style || '',
-                cta_policy: packInfo.cta_policy || '',
-                allow_emoji: packInfo.allow_emoji === 'true',
-                emoji_policy: packInfo.emoji_policy || 'limited',
-              },
+              global_brand_voice: globalBrandVoice,
+              global_terminology: mergedTerminology,
+              global_compliance_rules: mergedComplianceRules,
+              global_claim_restrictions: mergedClaimRestrictions,
+              global_argument_patterns: mergedPatterns,
+              global_system_rules: mergedSystemRules,
               risk_guidelines: riskGuidelines,
+              related_industries: relatedIndustries,
               industry_level: packInfo.industry_level || 'core',
               sort_order: parseInt(packInfo.sort_order) || 0,
               updated_at: new Date().toISOString(),
             })
             .eq('id', packId);
         } else {
-          // Create new
+          // Create new (after replace deleted)
           const { data: newPack, error } = await supabase
             .from('industry_global_packs')
-            .insert({
-              industry_code: packInfo.code,
-              category_id: packInfo.category_code,
-              target_audience: packInfo.target_audience || 'B2C',
-              brand_voice_base: {
-                tone_of_voice: packInfo.tone_of_voice || '',
-                formality_level: packInfo.formality_level || 'semi_formal',
-                language_style: packInfo.language_style || '',
-                cta_policy: packInfo.cta_policy || '',
-                allow_emoji: packInfo.allow_emoji === 'true',
-                emoji_policy: packInfo.emoji_policy || 'limited',
-              },
-              risk_guidelines: riskGuidelines,
-              industry_level: packInfo.industry_level || 'core',
-              parent_pack_id: packInfo.parent_pack_code || null,
-              sort_order: parseInt(packInfo.sort_order) || 0,
-            })
+            .insert(packData)
             .select('id')
             .single();
 
@@ -486,23 +597,7 @@ export function useIndustryExcelImport() {
         // Create new pack
         const { data: newPack, error } = await supabase
           .from('industry_global_packs')
-          .insert({
-            industry_code: packInfo.code,
-            category_id: packInfo.category_code,
-            target_audience: packInfo.target_audience || 'B2C',
-            brand_voice_base: {
-              tone_of_voice: packInfo.tone_of_voice || '',
-              formality_level: packInfo.formality_level || 'semi_formal',
-              language_style: packInfo.language_style || '',
-              cta_policy: packInfo.cta_policy || '',
-              allow_emoji: packInfo.allow_emoji === 'true',
-              emoji_policy: packInfo.emoji_policy || 'limited',
-            },
-            risk_guidelines: riskGuidelines,
-            industry_level: packInfo.industry_level || 'core',
-            parent_pack_id: packInfo.parent_pack_code || null,
-            sort_order: parseInt(packInfo.sort_order) || 0,
-          })
+          .insert(packData)
           .select('id')
           .single();
 
@@ -520,6 +615,13 @@ export function useIndustryExcelImport() {
       }
 
       completeStep(1, 1);
+
+      // Update counts for forbidden terms, compliance, etc. (already in pack)
+      details.forbiddenTerms = parseResult.forbiddenTerms.length;
+      details.complianceRules = parseResult.complianceRules.length;
+      details.claimRestrictions = parseResult.claimRestrictions.length;
+      details.argumentPatterns = parseResult.argumentPatterns.length;
+      details.systemRules = parseResult.systemRules.length;
 
       // Step 2: Import translations with glossary
       startStep(2);
@@ -551,98 +653,24 @@ export function useIndustryExcelImport() {
       }
       completeStep(2, details.translations);
 
-      // Step 3: Import forbidden terms (using type assertion for tables not in generated types)
+      // Step 3: Mark forbidden terms (already saved in Step 1)
       startStep(3);
-      if (parseResult.forbiddenTerms.length > 0) {
-        for (const term of parseResult.forbiddenTerms) {
-          const { error } = await (supabase
-            .from('industry_forbidden_terms' as any)
-            .upsert({
-              global_pack_id: packId,
-              term: term.term,
-              reason: term.reason || null,
-            }, {
-              onConflict: 'global_pack_id,term',
-            }) as any);
-          if (!error) details.forbiddenTerms++;
-        }
-      }
       completeStep(3, details.forbiddenTerms);
 
-      // Step 4: Import compliance rules
+      // Step 4: Mark compliance rules (already saved in Step 1)
       startStep(4);
-      if (parseResult.complianceRules.length > 0) {
-        for (const rule of parseResult.complianceRules) {
-          const { error } = await (supabase
-            .from('industry_compliance_rules' as any)
-            .upsert({
-              global_pack_id: packId,
-              rule_id: rule.rule_id,
-              rule_text: rule.rule_text,
-              category: rule.category || 'general',
-              severity: rule.severity || 'warning',
-            }, {
-              onConflict: 'global_pack_id,rule_id',
-            }) as any);
-          if (!error) details.complianceRules++;
-        }
-      }
       completeStep(4, details.complianceRules);
 
-      // Step 5: Import claim restrictions
+      // Step 5: Mark claim restrictions (already saved in Step 1)
       startStep(5);
-      if (parseResult.claimRestrictions.length > 0) {
-        for (const claim of parseResult.claimRestrictions) {
-          const { error } = await (supabase
-            .from('industry_claim_restrictions' as any)
-            .upsert({
-              global_pack_id: packId,
-              forbidden_claim: claim.forbidden_claim,
-              suggested_alternative: claim.suggested_alternative,
-              severity: claim.severity || 'warning',
-            }, {
-              onConflict: 'global_pack_id,forbidden_claim',
-            }) as any);
-          if (!error) details.claimRestrictions++;
-        }
-      }
       completeStep(5, details.claimRestrictions);
 
-      // Step 6: Import argument patterns
+      // Step 6: Mark argument patterns (already saved in Step 1)
       startStep(6);
-      if (parseResult.argumentPatterns.length > 0) {
-        for (const pattern of parseResult.argumentPatterns) {
-          const { error } = await (supabase
-            .from('industry_argument_patterns' as any)
-            .upsert({
-              global_pack_id: packId,
-              type: pattern.type,
-              pattern: pattern.pattern,
-              category: pattern.category || 'general',
-            }, {
-              onConflict: 'global_pack_id,pattern',
-            }) as any);
-          if (!error) details.argumentPatterns++;
-        }
-      }
       completeStep(6, details.argumentPatterns);
 
-      // Step 7: Import system rules
+      // Step 7: Mark system rules (already saved in Step 1)
       startStep(7);
-      if (parseResult.systemRules.length > 0) {
-        for (const rule of parseResult.systemRules) {
-          const { error } = await (supabase
-            .from('industry_system_rules' as any)
-            .upsert({
-              global_pack_id: packId,
-              rule: rule.rule,
-              priority: rule.priority || 'medium',
-            }, {
-              onConflict: 'global_pack_id,rule',
-            }) as any);
-          if (!error) details.systemRules++;
-        }
-      }
       completeStep(7, details.systemRules);
 
       // Step 8: Import jurisdictions with extended fields
