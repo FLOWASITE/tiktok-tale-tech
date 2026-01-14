@@ -2,7 +2,7 @@
  * IndustryContentTabs - Tabbed content viewer for Industry Pack knowledge
  */
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,11 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { 
   FileText, 
   BookOpen, 
@@ -31,19 +26,36 @@ import {
   CheckCircle2,
   XCircle,
   Calendar,
-  Hash,
-  Sparkles
+  Download,
+  ExternalLink,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import type { KnowledgeNodeData, KnowledgeEdgeData } from "@/hooks/useIndustryPackKnowledge";
 import type { KnowledgeNodeType } from "@/types/knowledgeGraph";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import Papa from "papaparse";
 
 interface IndustryContentTabsProps {
   nodes: KnowledgeNodeData[];
   edges: KnowledgeEdgeData[];
   activeFilter: KnowledgeNodeType | null;
+}
+
+// ============================================
+// Export CSV Utility
+// ============================================
+
+function exportToCSV(data: Record<string, unknown>[], filename: string) {
+  const csv = Papa.unparse(data);
+  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${filename}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 export function IndustryContentTabs({ nodes, edges, activeFilter }: IndustryContentTabsProps) {
@@ -110,7 +122,14 @@ export function IndustryContentTabs({ nodes, edges, activeFilter }: IndustryCont
             <BookOpen className="h-3.5 w-3.5" />
             Thuật ngữ
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-              {terms.length}
+              {terms.length + concepts.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="personas" className="gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            Persona
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+              {personas.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="graph" className="gap-1.5">
@@ -132,6 +151,11 @@ export function IndustryContentTabs({ nodes, edges, activeFilter }: IndustryCont
           <TermsGrid terms={[...terms, ...concepts]} />
         </TabsContent>
 
+        {/* Personas Tab */}
+        <TabsContent value="personas" className="mt-4">
+          <PersonasGrid personas={personas} />
+        </TabsContent>
+
         {/* Graph/Relationships Tab */}
         <TabsContent value="graph" className="mt-4">
           <RelationshipsPanel nodes={filteredNodes} edges={edges} />
@@ -142,11 +166,29 @@ export function IndustryContentTabs({ nodes, edges, activeFilter }: IndustryCont
 }
 
 // ============================================
-// Regulations Table
+// Regulations Table (Fixed Collapsible Pattern)
 // ============================================
 
 function RegulationsTable({ regulations }: { regulations: KnowledgeNodeData[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleExportCSV = useCallback(() => {
+    const data = regulations.map(reg => ({
+      'Tên quy định (VI)': reg.displayName.vi || '',
+      'Tên quy định (EN)': reg.displayName.en || '',
+      'Loại văn bản': reg.documentType || '',
+      'Ngày hiệu lực': reg.effectiveDate || '',
+      'Có Embedding': reg.hasEmbedding ? 'Có' : 'Không',
+      'Chất lượng': reg.contentQualityScore ? `${Math.round(reg.contentQualityScore * 100)}%` : '',
+      'Mô tả': reg.description || '',
+      'URL nguồn': reg.sourceUrl || '',
+    }));
+    exportToCSV(data, `quy-dinh-${format(new Date(), 'yyyyMMdd')}`);
+  }, [regulations]);
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedId(prev => prev === id ? null : id);
+  }, []);
 
   if (regulations.length === 0) {
     return (
@@ -161,6 +203,15 @@ function RegulationsTable({ regulations }: { regulations: KnowledgeNodeData[] })
 
   return (
     <Card>
+      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm font-medium">
+          Danh sách quy định ({regulations.length})
+        </CardTitle>
+        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
+          <Download className="h-3.5 w-3.5" />
+          Xuất CSV
+        </Button>
+      </CardHeader>
       <ScrollArea className="max-h-[500px]">
         <Table>
           <TableHeader>
@@ -174,90 +225,99 @@ function RegulationsTable({ regulations }: { regulations: KnowledgeNodeData[] })
           </TableHeader>
           <TableBody>
             {regulations.map((reg) => (
-              <Collapsible key={reg.id} asChild>
-                <>
-                  <TableRow 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setExpandedId(expandedId === reg.id ? null : reg.id)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6">
-                            <ChevronDown className={cn(
-                              "h-4 w-4 transition-transform",
-                              expandedId === reg.id && "rotate-180"
-                            )} />
-                          </Button>
-                        </CollapsibleTrigger>
-                        <span className="font-medium line-clamp-1">
-                          {reg.displayName.vi || reg.displayName.en || 'Không có tên'}
-                        </span>
+              <React.Fragment key={reg.id}>
+                {/* Main Row */}
+                <TableRow 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => toggleExpand(reg.id)}
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                        <ChevronDown className={cn(
+                          "h-4 w-4 transition-transform",
+                          expandedId === reg.id && "rotate-180"
+                        )} />
+                      </Button>
+                      <span className="font-medium line-clamp-1">
+                        {reg.displayName.vi || reg.displayName.en || 'Không có tên'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {reg.documentType ? (
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded flex items-center gap-1 w-fit">
+                        {reg.documentType}
+                      </code>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {reg.effectiveDate ? (
+                      <span className="text-sm flex items-center gap-1">
+                        <Calendar className="h-3 w-3 text-muted-foreground" />
+                        {format(new Date(reg.effectiveDate), 'dd/MM/yyyy', { locale: vi })}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {reg.hasEmbedding ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-400 mx-auto" />
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {reg.contentQualityScore !== undefined ? (
+                      <QualityBadge score={reg.contentQualityScore} />
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+                
+                {/* Expanded Row (conditional render - no Collapsible) */}
+                {expandedId === reg.id && (
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableCell colSpan={5} className="p-4">
+                      <div className="space-y-3">
+                        {reg.description && (
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground mb-1">Mô tả</h4>
+                            <p className="text-sm">{reg.description}</p>
+                          </div>
+                        )}
+                        {reg.fullText && (
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground mb-1">Nội dung đầy đủ</h4>
+                            <ScrollArea className="max-h-40 rounded border bg-background p-3">
+                              <p className="text-sm whitespace-pre-wrap">{reg.fullText}</p>
+                            </ScrollArea>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                          <span>Cập nhật: {format(new Date(reg.updatedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}</span>
+                          {reg.sourceUrl && (
+                            <a 
+                              href={reg.sourceUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Xem nguồn gốc
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {reg.documentType ? (
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded flex items-center gap-1 w-fit">
-                          {reg.documentType}
-                        </code>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {reg.effectiveDate ? (
-                        <span className="text-sm flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          {format(new Date(reg.effectiveDate), 'dd/MM/yyyy', { locale: vi })}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {reg.hasEmbedding ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-400 mx-auto" />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {reg.contentQualityScore !== undefined ? (
-                        <QualityBadge score={reg.contentQualityScore} />
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
                   </TableRow>
-                  <CollapsibleContent asChild>
-                    {expandedId === reg.id && (
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={5} className="p-4">
-                          <div className="space-y-3">
-                            {reg.description && (
-                              <div>
-                                <h4 className="text-xs font-medium text-muted-foreground mb-1">Mô tả</h4>
-                                <p className="text-sm">{reg.description}</p>
-                              </div>
-                            )}
-                            {reg.fullText && (
-                              <div>
-                                <h4 className="text-xs font-medium text-muted-foreground mb-1">Nội dung đầy đủ</h4>
-                                <ScrollArea className="max-h-40 rounded border bg-background p-3">
-                                  <p className="text-sm whitespace-pre-wrap">{reg.fullText}</p>
-                                </ScrollArea>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Cập nhật: {format(new Date(reg.updatedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}</span>
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </CollapsibleContent>
-                </>
-              </Collapsible>
+                )}
+              </React.Fragment>
             ))}
           </TableBody>
         </Table>
@@ -271,6 +331,17 @@ function RegulationsTable({ regulations }: { regulations: KnowledgeNodeData[] })
 // ============================================
 
 function TermsGrid({ terms }: { terms: KnowledgeNodeData[] }) {
+  const handleExportCSV = useCallback(() => {
+    const data = terms.map(term => ({
+      'Tên (VI)': term.displayName.vi || '',
+      'Tên (EN)': term.displayName.en || '',
+      'Loại': term.nodeType === 'term' ? 'Thuật ngữ' : 'Khái niệm',
+      'Mô tả': term.description || '',
+      'Có Embedding': term.hasEmbedding ? 'Có' : 'Không',
+    }));
+    exportToCSV(data, `thuat-ngu-${format(new Date(), 'yyyyMMdd')}`);
+  }, [terms]);
+
   if (terms.length === 0) {
     return (
       <Card>
@@ -283,41 +354,123 @@ function TermsGrid({ terms }: { terms: KnowledgeNodeData[] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {terms.map((term) => (
-        <Card key={term.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-sm truncate">
-                  {term.displayName.vi || term.displayName.en || 'Không có tên'}
-                </h3>
-                {term.displayName.en && term.displayName.vi && (
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {term.displayName.en}
-                  </p>
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
+          <Download className="h-3.5 w-3.5" />
+          Xuất CSV
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {terms.map((term) => (
+          <Card key={term.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-sm truncate">
+                    {term.displayName.vi || term.displayName.en || 'Không có tên'}
+                  </h3>
+                  {term.displayName.en && term.displayName.vi && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {term.displayName.en}
+                    </p>
+                  )}
+                </div>
+                <Badge variant={term.nodeType === 'term' ? 'default' : 'secondary'} className="text-[10px] shrink-0">
+                  {term.nodeType === 'term' ? 'Thuật ngữ' : 'Khái niệm'}
+                </Badge>
+              </div>
+              {term.description && (
+                <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                  {term.description}
+                </p>
+              )}
+              <div className="flex items-center gap-2 mt-3">
+                {term.hasEmbedding && (
+                  <Badge variant="outline" className="text-[10px] gap-0.5">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Embedding
+                  </Badge>
                 )}
               </div>
-              <Badge variant={term.nodeType === 'term' ? 'default' : 'secondary'} className="text-[10px] shrink-0">
-                {term.nodeType === 'term' ? 'Thuật ngữ' : 'Khái niệm'}
-              </Badge>
-            </div>
-            {term.description && (
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                {term.description}
-              </p>
-            )}
-            <div className="flex items-center gap-2 mt-3">
-              {term.hasEmbedding && (
-                <Badge variant="outline" className="text-[10px] gap-0.5">
-                  <Sparkles className="h-2.5 w-2.5" />
-                  Embedding
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Personas Grid (NEW)
+// ============================================
+
+function PersonasGrid({ personas }: { personas: KnowledgeNodeData[] }) {
+  const handleExportCSV = useCallback(() => {
+    const data = personas.map(persona => ({
+      'Tên (VI)': persona.displayName.vi || '',
+      'Tên (EN)': persona.displayName.en || '',
+      'Mô tả': persona.description || '',
+      'Có Embedding': persona.hasEmbedding ? 'Có' : 'Không',
+    }));
+    exportToCSV(data, `persona-${format(new Date(), 'yyyyMMdd')}`);
+  }, [personas]);
+
+  if (personas.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          <Users className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <p>Chưa có persona nào</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
+          <Download className="h-3.5 w-3.5" />
+          Xuất CSV
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {personas.map((persona) => (
+          <Card key={persona.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-sm">
+                    {persona.displayName.vi || persona.displayName.en || 'Không có tên'}
+                  </h3>
+                  {persona.displayName.en && persona.displayName.vi && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {persona.displayName.en}
+                    </p>
+                  )}
+                  {persona.description && (
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-3">
+                      {persona.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-3">
+                    {persona.hasEmbedding && (
+                      <Badge variant="outline" className="text-[10px] gap-0.5">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        Embedding
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
@@ -360,6 +513,22 @@ function RelationshipsPanel({
     applies_to: 'Áp dụng cho',
   };
 
+  const handleExportCSV = useCallback(() => {
+    const data = edges.map(edge => {
+      const source = nodeMap.get(edge.sourceNodeId);
+      const target = nodeMap.get(edge.targetNodeId);
+      return {
+        'Loại quan hệ': edgeTypeLabels[edge.edgeType] || edge.edgeType,
+        'Node nguồn (VI)': source?.displayName.vi || '',
+        'Node nguồn (EN)': source?.displayName.en || '',
+        'Node đích (VI)': target?.displayName.vi || '',
+        'Node đích (EN)': target?.displayName.en || '',
+        'Trọng số': edge.weight ?? '',
+      };
+    });
+    exportToCSV(data, `moi-quan-he-${format(new Date(), 'yyyyMMdd')}`);
+  }, [edges, nodeMap, edgeTypeLabels]);
+
   if (edges.length === 0) {
     return (
       <Card>
@@ -373,6 +542,12 @@ function RelationshipsPanel({
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
+          <Download className="h-3.5 w-3.5" />
+          Xuất CSV
+        </Button>
+      </div>
       {Object.entries(edgesByType).map(([type, typeEdges]) => (
         <Card key={type}>
           <CardHeader className="py-3 px-4">
