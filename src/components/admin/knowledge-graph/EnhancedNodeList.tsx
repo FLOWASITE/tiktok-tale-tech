@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +61,7 @@ export function EnhancedNodeList({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("industry_knowledge_nodes")
-        .select("id, node_type, node_key, display_name, description, created_at, updated_at, global_pack_id, properties, embedding, is_active")
+        .select("id, node_type, node_key, display_name, properties")
         .eq("is_active", true)
         .order("node_type")
         .order("node_key");
@@ -243,7 +243,12 @@ interface NodeListItemProps {
   onViewInGraph?: () => void;
 }
 
-function NodeListItem({ node, isSelected, onSelect, onViewInGraph }: NodeListItemProps) {
+const NodeListItem = React.memo(function NodeListItem({ 
+  node, 
+  isSelected, 
+  onSelect, 
+  onViewInGraph 
+}: NodeListItemProps) {
   const config = NODE_TYPE_CONFIG[node.node_type];
   const Icon = config.icon;
   const displayName = node.display_name?.vi || node.display_name?.en || node.node_key;
@@ -284,4 +289,4 @@ function NodeListItem({ node, isSelected, onSelect, onViewInGraph }: NodeListIte
       </div>
     </div>
   );
-}
+});
