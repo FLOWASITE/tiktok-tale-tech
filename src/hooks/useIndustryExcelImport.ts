@@ -108,9 +108,14 @@ export function useIndustryExcelImport() {
     const allWarnings: ValidationWarning[] = [];
     const parsedSheets: ParsedSheetData[] = [];
 
+    console.log('[ExcelImport] Starting to parse file:', file.name, file.size, file.type);
+
     try {
       const buffer = await file.arrayBuffer();
+      console.log('[ExcelImport] File buffer loaded, size:', buffer.byteLength);
+      
       const workbook = XLSX.read(buffer, { type: 'array' });
+      console.log('[ExcelImport] Workbook parsed, sheets:', workbook.SheetNames);
 
       // Parse each expected sheet
       for (const [sheetKey, sheetDef] of Object.entries(SHEETS)) {
