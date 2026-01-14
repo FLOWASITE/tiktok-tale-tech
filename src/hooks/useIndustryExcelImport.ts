@@ -17,6 +17,8 @@ import {
   validateArgumentPatterns,
   validateSystemRules,
   validatePersonas,
+  validateKeyRegulations,
+  validateForbiddenTerms,
   type ValidationError,
   type ValidationWarning,
 } from '@/utils/excelValidation';
@@ -44,6 +46,7 @@ export interface ParseResult {
   argumentPatterns: Record<string, string>[];
   systemRules: Record<string, string>[];
   jurisdictions: Record<string, string>[];
+  keyRegulations: Record<string, string>[]; // NEW v2.2
   personas: Record<string, string>[];
 }
 
@@ -66,6 +69,7 @@ export interface ImportResult {
     argumentPatterns: number;
     systemRules: number;
     jurisdictions: number;
+    keyRegulations: number; // NEW v2.2
     personas: number;
   };
 }
@@ -224,6 +228,7 @@ export function useIndustryExcelImport() {
         argumentPatterns: findSheet('argument_patterns'),
         systemRules: findSheet('system_rules'),
         jurisdictions: findSheet('jurisdictions'),
+        keyRegulations: findSheet('key_regulations'),
         personas: findSheet('personas'),
       };
 
@@ -266,7 +271,15 @@ export function useIndustryExcelImport() {
       allErrors.push(...jurisdictionsValidation.errors);
       allWarnings.push(...jurisdictionsValidation.warnings);
 
-      const personasValidation = validatePersonas(result.personas, '9. Personas');
+      const keyRegulationsValidation = validateKeyRegulations(result.keyRegulations, '9. Key Regulations');
+      allErrors.push(...keyRegulationsValidation.errors);
+      allWarnings.push(...keyRegulationsValidation.warnings);
+
+      const forbiddenTermsValidation = validateForbiddenTerms(result.forbiddenTerms, '3. Forbidden Terms');
+      allErrors.push(...forbiddenTermsValidation.errors);
+      allWarnings.push(...forbiddenTermsValidation.warnings);
+
+      const personasValidation = validatePersonas(result.personas, '10. Personas');
       allErrors.push(...personasValidation.errors);
       allWarnings.push(...personasValidation.warnings);
 
@@ -328,6 +341,7 @@ export function useIndustryExcelImport() {
       argumentPatterns: 0,
       systemRules: 0,
       jurisdictions: 0,
+      keyRegulations: 0,
       personas: 0,
     };
 
@@ -335,8 +349,26 @@ export function useIndustryExcelImport() {
       const packInfo = parseResult.packInfo;
       let packId: string;
 
-      // Step 1: Create or update global pack
-      setProgress({ current: 1, total: 9, currentStep: 'Tạo Industry Pack...' });
+      // Step 1: Create or update global pack with Risk Guidelines
+      setProgress({ current: 1, total: 10, currentStep: 'Tạo Industry Pack...' });
+
+      // Build risk_guidelines from pack info
+      const riskGuidelines = {
+        related_industries: packInfo.related_industries?.split(';').map(i => i.trim()).filter(Boolean) || [],
+        high_risk_keywords: packInfo.high_risk_keywords?.split(';').map(k => k.trim()).filter(Boolean) || [],
+        scoring_weights: {
+          forbidden_term: parseInt(packInfo.weight_forbidden_term) || 50,
+          claim_restriction: parseInt(packInfo.weight_claim_restriction) || 30,
+          forbidden_pattern: parseInt(packInfo.weight_forbidden_pattern) || 20,
+          high_risk_keyword: parseInt(packInfo.weight_high_risk_keyword) || 10,
+        },
+        thresholds: {
+          low: parseInt(packInfo.threshold_low) || 0,
+          medium: parseInt(packInfo.threshold_medium) || 30,
+          high: parseInt(packInfo.threshold_high) || 60,
+          blocked: parseInt(packInfo.threshold_blocked) || 100,
+        },
+      };
 
       if (existingPack && conflictAction !== 'skip') {
         if (conflictAction === 'replace') {
@@ -358,7 +390,9 @@ export function useIndustryExcelImport() {
                 language_style: packInfo.language_style || '',
                 cta_policy: packInfo.cta_policy || '',
                 allow_emoji: packInfo.allow_emoji === 'true',
+                emoji_policy: packInfo.emoji_policy || 'limited',
               },
+              risk_guidelines: riskGuidelines,
               industry_level: packInfo.industry_level || 'core',
               sort_order: parseInt(packInfo.sort_order) || 0,
               updated_at: new Date().toISOString(),
@@ -378,7 +412,9 @@ export function useIndustryExcelImport() {
                 language_style: packInfo.language_style || '',
                 cta_policy: packInfo.cta_policy || '',
                 allow_emoji: packInfo.allow_emoji === 'true',
+                emoji_policy: packInfo.emoji_policy || 'limited',
               },
+              risk_guidelines: riskGuidelines,
               industry_level: packInfo.industry_level || 'core',
               parent_pack_id: packInfo.parent_pack_code || null,
               sort_order: parseInt(packInfo.sort_order) || 0,
@@ -403,7 +439,9 @@ export function useIndustryExcelImport() {
               language_style: packInfo.language_style || '',
               cta_policy: packInfo.cta_policy || '',
               allow_emoji: packInfo.allow_emoji === 'true',
+              emoji_policy: packInfo.emoji_policy || 'limited',
             },
+            risk_guidelines: riskGuidelines,
             industry_level: packInfo.industry_level || 'core',
             parent_pack_id: packInfo.parent_pack_code || null,
             sort_order: parseInt(packInfo.sort_order) || 0,
@@ -424,10 +462,18 @@ export function useIndustryExcelImport() {
         return;
       }
 
-      // Step 2: Import translations
-      setProgress({ current: 2, total: 9, currentStep: 'Import bản dịch...' });
+      // Step 2: Import translations with glossary
+      setProgress({ current: 2, total: 10, currentStep: 'Import bản dịch...' });
       if (parseResult.translations.length > 0) {
         for (const trans of parseResult.translations) {
+          // Build glossary object from keys/values
+          const glossaryKeys = trans.glossary_keys?.split(';').map(k => k.trim()).filter(Boolean) || [];
+          const glossaryValues = trans.glossary_values?.split(';').map(v => v.trim()).filter(Boolean) || [];
+          const glossary = glossaryKeys.reduce((acc, key, i) => ({
+            ...acc,
+            [key]: glossaryValues[i] || '',
+          }), {} as Record<string, string>);
+
           const { error } = await supabase
             .from('industry_pack_translations')
             .upsert({
@@ -435,8 +481,9 @@ export function useIndustryExcelImport() {
               language_code: trans.language_code,
               name: trans.name,
               short_name: trans.short_name || null,
-              preferred_words: trans.preferred_words?.split(',').map(w => w.trim()) || [],
-              forbidden_words: trans.forbidden_words?.split(',').map(w => w.trim()) || [],
+              preferred_terms: trans.preferred_words?.split(',').map(w => w.trim()).filter(Boolean) || [],
+              forbidden_terms: trans.forbidden_words?.split(',').map(w => w.trim()).filter(Boolean) || [],
+              glossary: Object.keys(glossary).length > 0 ? glossary : null,
             }, {
               onConflict: 'global_pack_id,language_code',
             });
@@ -445,7 +492,7 @@ export function useIndustryExcelImport() {
       }
 
       // Step 3: Import forbidden terms (using type assertion for tables not in generated types)
-      setProgress({ current: 3, total: 9, currentStep: 'Import thuật ngữ cấm...' });
+      setProgress({ current: 3, total: 10, currentStep: 'Import thuật ngữ cấm...' });
       if (parseResult.forbiddenTerms.length > 0) {
         for (const term of parseResult.forbiddenTerms) {
           const { error } = await (supabase
@@ -462,7 +509,7 @@ export function useIndustryExcelImport() {
       }
 
       // Step 4: Import compliance rules
-      setProgress({ current: 4, total: 9, currentStep: 'Import quy tắc tuân thủ...' });
+      setProgress({ current: 4, total: 10, currentStep: 'Import quy tắc tuân thủ...' });
       if (parseResult.complianceRules.length > 0) {
         for (const rule of parseResult.complianceRules) {
           const { error } = await (supabase
@@ -481,7 +528,7 @@ export function useIndustryExcelImport() {
       }
 
       // Step 5: Import claim restrictions
-      setProgress({ current: 5, total: 9, currentStep: 'Import giới hạn claim...' });
+      setProgress({ current: 5, total: 10, currentStep: 'Import giới hạn claim...' });
       if (parseResult.claimRestrictions.length > 0) {
         for (const claim of parseResult.claimRestrictions) {
           const { error } = await (supabase
@@ -499,7 +546,7 @@ export function useIndustryExcelImport() {
       }
 
       // Step 6: Import argument patterns
-      setProgress({ current: 6, total: 9, currentStep: 'Import mẫu lập luận...' });
+      setProgress({ current: 6, total: 10, currentStep: 'Import mẫu lập luận...' });
       if (parseResult.argumentPatterns.length > 0) {
         for (const pattern of parseResult.argumentPatterns) {
           const { error } = await (supabase
@@ -517,7 +564,7 @@ export function useIndustryExcelImport() {
       }
 
       // Step 7: Import system rules
-      setProgress({ current: 7, total: 9, currentStep: 'Import quy tắc hệ thống...' });
+      setProgress({ current: 7, total: 10, currentStep: 'Import quy tắc hệ thống...' });
       if (parseResult.systemRules.length > 0) {
         for (const rule of parseResult.systemRules) {
           const { error } = await (supabase
@@ -533,8 +580,8 @@ export function useIndustryExcelImport() {
         }
       }
 
-      // Step 8: Import jurisdictions
-      setProgress({ current: 8, total: 9, currentStep: 'Import hồ sơ quốc gia...' });
+      // Step 8: Import jurisdictions with extended fields
+      setProgress({ current: 8, total: 10, currentStep: 'Import hồ sơ quốc gia...' });
       if (parseResult.jurisdictions.length > 0) {
         for (const jurisdiction of parseResult.jurisdictions) {
           const { error } = await supabase
@@ -542,9 +589,12 @@ export function useIndustryExcelImport() {
             .upsert({
               global_pack_id: packId,
               jurisdiction_code: jurisdiction.jurisdiction_code,
-              additional_forbidden_terms: jurisdiction.additional_forbidden_terms?.split(';').map(t => t.trim()) || [],
+              additional_forbidden_terms: jurisdiction.additional_forbidden_terms?.split(';').map(t => t.trim()).filter(Boolean) || [],
               modified_compliance_rules: jurisdiction.modified_compliance_rules ? JSON.parse(jurisdiction.modified_compliance_rules) : null,
-              notes: jurisdiction.notes || null,
+              disclaimer: jurisdiction.notes || null,
+              validity_status: jurisdiction.validity_status || 'current',
+              last_verified_date: jurisdiction.last_verified_date || null,
+              industry_trends: jurisdiction.industry_trends?.split(';').map(t => t.trim()).filter(Boolean) || [],
             }, {
               onConflict: 'global_pack_id,jurisdiction_code',
             });
@@ -552,8 +602,53 @@ export function useIndustryExcelImport() {
         }
       }
 
-      // Step 9: Import personas with proper upsert logic
-      setProgress({ current: 9, total: 9, currentStep: 'Import personas...' });
+      // Step 9: Import key regulations (store in resolved_rules of jurisdiction profiles)
+      setProgress({ current: 9, total: 10, currentStep: 'Import quy định pháp luật...' });
+      if (parseResult.keyRegulations.length > 0) {
+        // Group regulations by jurisdiction
+        const regulationsByJurisdiction = parseResult.keyRegulations.reduce((acc, reg) => {
+          const code = reg.jurisdiction_code?.toUpperCase();
+          if (code) {
+            if (!acc[code]) acc[code] = [];
+            acc[code].push({
+              regulation_name: reg.regulation_name,
+              effective_date: reg.effective_date,
+              summary: reg.summary || '',
+              source_url: reg.source_url || '',
+              validity_status: reg.validity_status || 'current',
+            });
+          }
+          return acc;
+        }, {} as Record<string, any[]>);
+
+        // Update each jurisdiction profile with key regulations
+        for (const [jurisdictionCode, regulations] of Object.entries(regulationsByJurisdiction)) {
+          // Get current resolved_rules
+          const { data: profile } = await supabase
+            .from('industry_jurisdiction_profiles')
+            .select('resolved_rules')
+            .eq('global_pack_id', packId)
+            .eq('jurisdiction_code', jurisdictionCode)
+            .single();
+
+          const currentRules = (profile?.resolved_rules as Record<string, any>) || {};
+          const updatedRules = {
+            ...currentRules,
+            key_regulations: regulations,
+          };
+
+          await supabase
+            .from('industry_jurisdiction_profiles')
+            .update({ resolved_rules: updatedRules })
+            .eq('global_pack_id', packId)
+            .eq('jurisdiction_code', jurisdictionCode);
+
+          details.keyRegulations += regulations.length;
+        }
+      }
+
+      // Step 10: Import personas with Extended PRO fields
+      setProgress({ current: 10, total: 10, currentStep: 'Import personas...' });
       if (parseResult.personas.length > 0) {
         // First, get existing personas for this pack to enable update logic
         const { data: existingPersonas } = await supabase
@@ -566,6 +661,12 @@ export function useIndustryExcelImport() {
         );
 
         for (const persona of parseResult.personas) {
+          // Parse JSON fields safely
+          const parseJSON = (str: string | undefined) => {
+            if (!str || str.trim() === '') return null;
+            try { return JSON.parse(str); } catch { return null; }
+          };
+
           const personaData = {
             global_pack_id: packId,
             name: persona.name,
@@ -587,7 +688,7 @@ export function useIndustryExcelImport() {
             communication_style: persona.communication_style || 'direct',
             response_tone_hints: persona.response_tone_hints?.split(';').map(h => h.trim()).filter(Boolean) || [],
             sort_order: parseInt(persona.sort_order) || 0,
-            // Extended fields
+            // Extended PRO fields
             lifestyle: persona.lifestyle || null,
             tech_savviness: persona.tech_savviness || null,
             price_sensitivity: persona.price_sensitivity || null,
@@ -596,6 +697,16 @@ export function useIndustryExcelImport() {
             personality_traits: persona.personality_traits?.split(';').map(t => t.trim()).filter(Boolean) || [],
             social_platforms: persona.social_platforms?.split(';').map(s => s.trim()).filter(Boolean) || [],
             content_consumption: persona.content_consumption?.split(';').map(c => c.trim()).filter(Boolean) || [],
+            trigger_words: persona.trigger_words?.split(';').map(w => w.trim()).filter(Boolean) || [],
+            persona_type: persona.persona_type || 'primary',
+            // New v2.2 Extended PRO fields (JSON parsed)
+            avatar_url: persona.avatar_url || null,
+            segment_size: persona.segment_size ? parseFloat(persona.segment_size) : null,
+            priority_score: persona.priority_score ? parseInt(persona.priority_score) : null,
+            device_usage: parseJSON(persona.device_usage),
+            content_preferences: parseJSON(persona.content_preferences),
+            journey_stages: parseJSON(persona.journey_stages),
+            country_variants: parseJSON(persona.country_variants),
             is_active: true,
           };
 
@@ -665,6 +776,7 @@ export function useIndustryExcelImport() {
       argumentPatterns: parseResult.argumentPatterns.length,
       systemRules: parseResult.systemRules.length,
       jurisdictions: parseResult.jurisdictions.length,
+      keyRegulations: parseResult.keyRegulations.length,
       personas: parseResult.personas.length,
       totalErrors: errors.length,
       totalWarnings: warnings.length,

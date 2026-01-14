@@ -47,6 +47,7 @@ import {
   Settings,
   Globe,
   Users,
+  FileText,
 } from 'lucide-react';
 import { useIndustryExcelImport } from '@/hooks/useIndustryExcelImport';
 import { cn } from '@/lib/utils';
