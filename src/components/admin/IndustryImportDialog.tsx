@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/table';
 import {
   Upload,
-  FileText,
+  FileSpreadsheet,
   AlertCircle,
   AlertTriangle,
   CheckCircle,
@@ -35,9 +35,20 @@ import {
   Loader2,
   FileWarning,
   RefreshCw,
+  Download,
+  Package,
+  Languages,
+  Ban,
+  Scale,
+  MessageSquareWarning,
+  Lightbulb,
+  Settings,
+  Globe,
+  Users,
 } from 'lucide-react';
 import { useIndustryImport, type ConflictAction } from '@/hooks/useIndustryImport';
 import { cn } from '@/lib/utils';
+import { downloadIndustryPackTemplate } from '@/utils/industryExcelGenerator';
 
 interface IndustryImportDialogProps {
   open: boolean;
@@ -72,7 +83,11 @@ export function IndustryImportDialog({ open, onOpenChange, onSuccess }: Industry
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'text/csv': ['.csv'] },
+    accept: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'text/csv': ['.csv'],
+    },
     multiple: true,
   });
 
@@ -103,11 +118,11 @@ export function IndustryImportDialog({ open, onOpenChange, onSuccess }: Industry
   };
 
   const stepTitles = {
-    upload: 'Upload CSV Files',
-    preview: 'Preview Data',
-    validate: 'Validate & Configure',
-    importing: 'Importing...',
-    done: 'Import Complete',
+    upload: 'Tải lên file Excel/CSV',
+    preview: 'Xem trước dữ liệu',
+    validate: 'Xác thực & Cấu hình',
+    importing: 'Đang import...',
+    done: 'Hoàn thành',
   };
 
   return (
@@ -163,51 +178,69 @@ export function IndustryImportDialog({ open, onOpenChange, onSuccess }: Industry
                 )}
               >
                 <input {...getInputProps()} />
-                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 {isDragActive ? (
-                  <p className="text-lg font-medium">Drop CSV files here...</p>
+                  <p className="text-lg font-medium">Thả file tại đây...</p>
                 ) : (
                   <>
-                    <p className="text-lg font-medium mb-2">Drag & drop CSV files here</p>
-                    <p className="text-sm text-muted-foreground">or click to select files</p>
+                    <p className="text-lg font-medium mb-2">Kéo thả file Excel/CSV vào đây</p>
+                    <p className="text-sm text-muted-foreground">hoặc click để chọn file</p>
                   </>
                 )}
               </div>
 
+              {/* Download Template Button */}
+              <div className="flex items-center justify-between bg-muted/50 rounded-lg p-4">
+                <div>
+                  <h4 className="font-medium mb-1">Chưa có template?</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Tải xuống template Excel với 9 sheets đầy đủ
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => downloadIndustryPackTemplate()}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Tải Template Excel
+                </Button>
+              </div>
+
               <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-medium mb-2">Expected CSV files:</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    industry_info.csv
+                <h4 className="font-medium mb-3">Các sheet trong template Excel:</h4>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Package className="h-4 w-4 text-primary" />
+                    <span>1. Pack Info</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    forbidden_terms.csv
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Languages className="h-4 w-4 text-blue-500" />
+                    <span>2. Translations</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    preferred_words.csv
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Ban className="h-4 w-4 text-red-500" />
+                    <span>3. Forbidden Terms</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    forbidden_words.csv
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Scale className="h-4 w-4 text-amber-500" />
+                    <span>4. Compliance Rules</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    compliance_rules.csv
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <MessageSquareWarning className="h-4 w-4 text-orange-500" />
+                    <span>5. Claim Restrictions</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    claim_restrictions.csv
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Lightbulb className="h-4 w-4 text-yellow-500" />
+                    <span>6. Argument Patterns</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    argument_patterns.csv
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Settings className="h-4 w-4 text-gray-500" />
+                    <span>7. System Rules</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    system_rules.csv
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Globe className="h-4 w-4 text-green-500" />
+                    <span>8. Jurisdictions</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-background rounded">
+                    <Users className="h-4 w-4 text-purple-500" />
+                    <span>9. Personas</span>
                   </div>
                 </div>
               </div>
