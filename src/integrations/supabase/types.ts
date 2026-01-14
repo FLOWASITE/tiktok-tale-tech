@@ -8041,6 +8041,15 @@ export type Database = {
           node_type: string
         }[]
       }
+      get_regulation_embedding_stats: {
+        Args: never
+        Returns: {
+          embedding_percentage: number
+          missing_embedding: number
+          total_regulations: number
+          with_embedding: number
+        }[]
+      }
       get_related_industries: {
         Args: {
           p_global_pack_id: string
