@@ -518,35 +518,72 @@ export function useIndustryExcelImport() {
         }
       }
 
-      // Step 9: Import personas
+      // Step 9: Import personas with proper upsert logic
       setProgress({ current: 9, total: 9, currentStep: 'Import personas...' });
       if (parseResult.personas.length > 0) {
+        // First, get existing personas for this pack to enable update logic
+        const { data: existingPersonas } = await supabase
+          .from('industry_personas_v2')
+          .select('id, name')
+          .eq('global_pack_id', packId);
+        
+        const existingPersonaMap = new Map(
+          (existingPersonas || []).map(p => [p.name.toLowerCase().trim(), p.id])
+        );
+
         for (const persona of parseResult.personas) {
-          const { error } = await supabase
-            .from('industry_personas_v2')
-            .insert({
-              global_pack_id: packId,
-              name: persona.name,
-              description: persona.description || null,
-              age_range: persona.age_range || null,
-              gender: persona.gender || 'all',
-              income_level: persona.income_level || 'medium',
-              education_level: persona.education_level || null,
-              occupation: persona.occupation || null,
-              location_type: persona.location_type || 'urban',
-              family_status: persona.family_status || null,
-              pain_points: persona.pain_points?.split(';').map(p => p.trim()) || [],
-              goals: persona.goals?.split(';').map(g => g.trim()) || [],
-              objections: persona.objections?.split(';').map(o => o.trim()) || [],
-              values: persona.values?.split(';').map(v => v.trim()) || [],
-              interests: persona.interests?.split(';').map(i => i.trim()) || [],
-              buying_motivation: persona.buying_motivation?.split(';').map(m => m.trim()) || [],
-              preferred_channels: persona.preferred_channels?.split(';').map(c => c.trim()) || [],
-              communication_style: persona.communication_style || 'direct',
-              response_tone_hints: persona.response_tone_hints?.split(';').map(h => h.trim()) || [],
-              sort_order: parseInt(persona.sort_order) || 0,
-            });
-          if (!error) details.personas++;
+          const personaData = {
+            global_pack_id: packId,
+            name: persona.name,
+            description: persona.description || null,
+            age_range: persona.age_range || null,
+            gender: persona.gender || 'all',
+            income_level: persona.income_level || 'medium',
+            education_level: persona.education_level || null,
+            occupation: persona.occupation || null,
+            location_type: persona.location_type || 'urban',
+            family_status: persona.family_status || null,
+            pain_points: persona.pain_points?.split(';').map(p => p.trim()).filter(Boolean) || [],
+            goals: persona.goals?.split(';').map(g => g.trim()).filter(Boolean) || [],
+            objections: persona.objections?.split(';').map(o => o.trim()).filter(Boolean) || [],
+            values: persona.values?.split(';').map(v => v.trim()).filter(Boolean) || [],
+            interests: persona.interests?.split(';').map(i => i.trim()).filter(Boolean) || [],
+            buying_motivation: persona.buying_motivation?.split(';').map(m => m.trim()).filter(Boolean) || [],
+            preferred_channels: persona.preferred_channels?.split(';').map(c => c.trim()).filter(Boolean) || [],
+            communication_style: persona.communication_style || 'direct',
+            response_tone_hints: persona.response_tone_hints?.split(';').map(h => h.trim()).filter(Boolean) || [],
+            sort_order: parseInt(persona.sort_order) || 0,
+            // Extended fields
+            lifestyle: persona.lifestyle || null,
+            tech_savviness: persona.tech_savviness || null,
+            price_sensitivity: persona.price_sensitivity || null,
+            purchase_frequency: persona.purchase_frequency || null,
+            decision_factors: persona.decision_factors?.split(';').map(d => d.trim()).filter(Boolean) || [],
+            personality_traits: persona.personality_traits?.split(';').map(t => t.trim()).filter(Boolean) || [],
+            social_platforms: persona.social_platforms?.split(';').map(s => s.trim()).filter(Boolean) || [],
+            content_consumption: persona.content_consumption?.split(';').map(c => c.trim()).filter(Boolean) || [],
+            is_active: true,
+          };
+
+          const existingId = existingPersonaMap.get(persona.name.toLowerCase().trim());
+          
+          if (existingId && conflictAction === 'merge') {
+            // Update existing persona
+            const { error } = await supabase
+              .from('industry_personas_v2')
+              .update({
+                ...personaData,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingId);
+            if (!error) details.personas++;
+          } else if (!existingId) {
+            // Insert new persona
+            const { error } = await supabase
+              .from('industry_personas_v2')
+              .insert(personaData);
+            if (!error) details.personas++;
+          }
         }
       }
 
