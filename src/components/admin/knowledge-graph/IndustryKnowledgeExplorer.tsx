@@ -106,7 +106,9 @@ export function IndustryKnowledgeExplorer() {
                       activeFilter={nodeTypeFilter}
                     />
                   </>
-                ) : null}
+                ) : (
+                  <EmptyState />
+                )}
               </div>
             </ScrollArea>
           </SheetContent>
