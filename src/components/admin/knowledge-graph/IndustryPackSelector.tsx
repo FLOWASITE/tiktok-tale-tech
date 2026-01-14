@@ -105,6 +105,8 @@ interface PackItemProps {
 }
 
 function PackItem({ pack, isSelected, onClick, audienceIcon }: PackItemProps) {
+  const hasNodes = (pack.nodeCount ?? 0) > 0;
+  
   return (
     <button
       onClick={onClick}
@@ -122,12 +124,24 @@ function PackItem({ pack, isSelected, onClick, audienceIcon }: PackItemProps) {
           <Factory className="h-3.5 w-3.5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className={cn(
-            "font-medium text-sm truncate",
-            isSelected && "text-primary"
-          )}>
-            {pack.name}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className={cn(
+              "font-medium text-sm truncate flex-1",
+              isSelected && "text-primary"
+            )}>
+              {pack.name}
+            </p>
+            {/* Node count badge */}
+            {hasNodes ? (
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] shrink-0">
+                {pack.nodeCount}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground shrink-0">
+                Trống
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 mt-1">
             <code className="text-[10px] text-muted-foreground bg-muted px-1 py-0.5 rounded">
               {pack.industryCode}
