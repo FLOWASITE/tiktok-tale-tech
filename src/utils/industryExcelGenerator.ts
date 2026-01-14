@@ -1,6 +1,6 @@
 /**
- * Industry Import Excel Generator
- * Generates a single Excel file with multiple sheets for complete Industry Pack import
+ * Industry Import Excel Generator v2.2
+ * Enhanced PRO with Risk Guidelines, Key Regulations, and Extended Personas
  */
 
 import * as XLSX from 'xlsx';
@@ -13,7 +13,7 @@ interface TemplateColumn {
   description: string;
 }
 
-// All sheet definitions for a complete Industry Pack
+// All sheet definitions for a complete Industry Pack v2.2
 const SHEETS: Record<string, { title: string; columns: TemplateColumn[] }> = {
   pack_info: {
     title: '1. Pack Info',
@@ -29,6 +29,17 @@ const SHEETS: Record<string, { title: string; columns: TemplateColumn[] }> = {
       { name: 'language_style', required: false, example: 'Đời thường, dễ hiểu', description: 'Phong cách ngôn ngữ' },
       { name: 'cta_policy', required: false, example: 'Mạnh mẽ, rõ ràng', description: 'Chính sách CTA' },
       { name: 'allow_emoji', required: false, example: 'true', description: 'true hoặc false' },
+      { name: 'emoji_policy', required: false, example: 'limited', description: 'none/limited/moderate/frequent' },
+      { name: 'related_industries', required: false, example: 'health.fitness;health.medical', description: 'Ngành liên quan (dấu ;)' },
+      { name: 'high_risk_keywords', required: false, example: 'cure;guaranteed;miracle', description: 'Từ khóa rủi ro cao (dấu ;)' },
+      { name: 'weight_forbidden_term', required: false, example: '50', description: 'Điểm rủi ro forbidden term (default: 50)' },
+      { name: 'weight_claim_restriction', required: false, example: '30', description: 'Điểm rủi ro claim (default: 30)' },
+      { name: 'weight_forbidden_pattern', required: false, example: '20', description: 'Điểm rủi ro pattern (default: 20)' },
+      { name: 'weight_high_risk_keyword', required: false, example: '15', description: 'Điểm rủi ro keyword (default: 15)' },
+      { name: 'threshold_low', required: false, example: '0', description: 'Ngưỡng thấp (default: 0)' },
+      { name: 'threshold_medium', required: false, example: '30', description: 'Ngưỡng TB (default: 30)' },
+      { name: 'threshold_high', required: false, example: '60', description: 'Ngưỡng cao (default: 60)' },
+      { name: 'threshold_blocked', required: false, example: '80', description: 'Ngưỡng chặn (default: 80)' },
     ],
   },
   translations: {
@@ -37,8 +48,10 @@ const SHEETS: Record<string, { title: string; columns: TemplateColumn[] }> = {
       { name: 'language_code', required: true, example: 'vi', description: 'Mã ngôn ngữ (vi, en)' },
       { name: 'name', required: true, example: 'Thực phẩm & Đồ uống', description: 'Tên đầy đủ' },
       { name: 'short_name', required: false, example: 'F&B', description: 'Tên ngắn' },
-      { name: 'preferred_words', required: false, example: 'tươi ngon, chất lượng, dinh dưỡng', description: 'Từ ưu tiên (phẩy cách)' },
-      { name: 'forbidden_words', required: false, example: 'rẻ mạt, ế ẩm', description: 'Từ cấm (phẩy cách)' },
+      { name: 'preferred_words', required: false, example: 'tươi ngon, chất lượng', description: 'Từ ưu tiên (dấu ,)' },
+      { name: 'forbidden_words', required: false, example: 'rẻ mạt, ế ẩm', description: 'Từ cấm (dấu ,)' },
+      { name: 'glossary_keys', required: false, example: 'supplement;vitamin;dosage', description: 'Glossary keys (dấu ;)' },
+      { name: 'glossary_values', required: false, example: 'thực phẩm bổ sung;vitamin;liều dùng', description: 'Glossary values (dấu ;)' },
     ],
   },
   forbidden_terms: {
@@ -83,41 +96,59 @@ const SHEETS: Record<string, { title: string; columns: TemplateColumn[] }> = {
   jurisdictions: {
     title: '8. Jurisdictions',
     columns: [
-      { name: 'jurisdiction_code', required: true, example: 'VN', description: 'Mã quốc gia (VN, US, SG...)' },
+      { name: 'jurisdiction_code', required: true, example: 'VN', description: 'Mã quốc gia ISO (VN, US, SG...)' },
       { name: 'additional_forbidden_terms', required: false, example: 'số 1;tốt nhất', description: 'Từ cấm thêm (dấu ;)' },
       { name: 'modified_compliance_rules', required: false, example: '{"rule_id":"new_text"}', description: 'Quy tắc sửa đổi (JSON)' },
       { name: 'notes', required: false, example: 'Tuân thủ Luật ATTP 2010', description: 'Ghi chú' },
+      { name: 'validity_status', required: false, example: 'current', description: 'current/superseded/pending' },
+      { name: 'last_verified_date', required: false, example: '2024-01-15', description: 'Ngày xác minh (YYYY-MM-DD)' },
+      { name: 'industry_trends', required: false, example: 'organic;personalized nutrition', description: 'Xu hướng ngành (dấu ;)' },
+    ],
+  },
+  key_regulations: {
+    title: '9. Key Regulations',
+    columns: [
+      { name: 'jurisdiction_code', required: true, example: 'VN', description: 'Mã quốc gia ISO' },
+      { name: 'regulation_name', required: true, example: 'Nghị định 15/2018/NĐ-CP', description: 'Tên quy định' },
+      { name: 'effective_date', required: true, example: '2018-02-02', description: 'Ngày hiệu lực (YYYY-MM-DD)' },
+      { name: 'summary', required: false, example: 'Quy định về an toàn thực phẩm', description: 'Tóm tắt' },
+      { name: 'source_url', required: false, example: 'https://...', description: 'URL nguồn' },
+      { name: 'validity_status', required: false, example: 'current', description: 'current/superseded/pending' },
     ],
   },
   personas: {
-    title: '9. Personas',
+    title: '10. Personas',
     columns: [
       { name: 'name', required: true, example: 'Người nội trợ', description: 'Tên persona' },
+      { name: 'persona_type', required: false, example: 'primary', description: 'primary/secondary/tertiary' },
       { name: 'description', required: false, example: 'Phụ nữ nội trợ 30-45 tuổi', description: 'Mô tả' },
+      { name: 'avatar_url', required: false, example: 'https://...', description: 'URL ảnh đại diện' },
       { name: 'age_range', required: false, example: '30-45', description: 'Độ tuổi' },
       { name: 'gender', required: false, example: 'female', description: 'male, female, all' },
       { name: 'income_level', required: false, example: 'medium', description: 'low, medium, high, very_high' },
-      { name: 'education_level', required: false, example: 'bachelor', description: 'high_school, college, bachelor, master, doctorate' },
+      { name: 'education_level', required: false, example: 'bachelor', description: 'high_school, college, bachelor, master' },
       { name: 'occupation', required: false, example: 'Nội trợ', description: 'Nghề nghiệp' },
       { name: 'location_type', required: false, example: 'urban', description: 'urban, suburban, rural' },
-      { name: 'family_status', required: false, example: 'married_with_kids', description: 'single, married_no_kids, married_with_kids, empty_nest' },
+      { name: 'family_status', required: false, example: 'married_with_kids', description: 'single, married, married_with_kids' },
       { name: 'lifestyle', required: false, example: 'Bận rộn, thực tế', description: 'Lối sống' },
       { name: 'tech_savviness', required: false, example: 'medium', description: 'low, medium, high' },
+      { name: 'segment_size', required: false, example: '35', description: 'Kích thước phân khúc (0-100%)' },
+      { name: 'priority_score', required: false, example: '8', description: 'Điểm ưu tiên (1-10)' },
       { name: 'price_sensitivity', required: false, example: 'medium', description: 'low, medium, high' },
-      { name: 'purchase_frequency', required: false, example: 'weekly', description: 'daily, weekly, monthly, quarterly, yearly' },
+      { name: 'purchase_frequency', required: false, example: 'weekly', description: 'daily, weekly, monthly, quarterly' },
       { name: 'pain_points', required: false, example: 'Thiếu thời gian;Lo lắng dinh dưỡng', description: 'Pain points (dấu ;)' },
-      { name: 'goals', required: false, example: 'Gia đình khỏe mạnh;Tiết kiệm thời gian', description: 'Mục tiêu (dấu ;)' },
-      { name: 'objections', required: false, example: 'Giá cao;Chưa tin tưởng thương hiệu mới', description: 'Phản đối (dấu ;)' },
-      { name: 'values', required: false, example: 'Sức khỏe gia đình;Chất lượng', description: 'Giá trị (dấu ;)' },
-      { name: 'interests', required: false, example: 'Nấu ăn;Dinh dưỡng;Mẹo vặt', description: 'Sở thích (dấu ;)' },
-      { name: 'buying_motivation', required: false, example: 'An toàn cho gia đình;Tiện lợi', description: 'Động lực mua (dấu ;)' },
-      { name: 'decision_factors', required: false, example: 'Giá cả;Chất lượng;Thương hiệu', description: 'Yếu tố quyết định (dấu ;)' },
-      { name: 'personality_traits', required: false, example: 'Cẩn thận;Chu đáo;Tiết kiệm', description: 'Đặc điểm tính cách (dấu ;)' },
+      { name: 'goals', required: false, example: 'Gia đình khỏe mạnh', description: 'Mục tiêu (dấu ;)' },
+      { name: 'objections', required: false, example: 'Giá cao;Chưa tin tưởng', description: 'Phản đối (dấu ;)' },
+      { name: 'buying_motivation', required: false, example: 'An toàn cho gia đình', description: 'Động lực mua (dấu ;)' },
+      { name: 'decision_factors', required: false, example: 'Giá;Chất lượng;Thương hiệu', description: 'Yếu tố quyết định (dấu ;)' },
       { name: 'preferred_channels', required: false, example: 'facebook;zalo;youtube', description: 'Kênh ưa thích (dấu ;)' },
-      { name: 'social_platforms', required: false, example: 'facebook;tiktok;zalo', description: 'Mạng xã hội (dấu ;)' },
-      { name: 'content_consumption', required: false, example: 'Video ngắn;Bài viết hướng dẫn', description: 'Loại nội dung ưa thích (dấu ;)' },
-      { name: 'communication_style', required: false, example: 'emotional', description: 'direct, emotional, analytical, consultative, storytelling' },
-      { name: 'response_tone_hints', required: false, example: 'empathetic;friendly;reassuring', description: 'Gợi ý tone (dấu ;)' },
+      { name: 'communication_style', required: false, example: 'emotional', description: 'direct, emotional, analytical' },
+      { name: 'response_tone_hints', required: false, example: 'empathetic;friendly', description: 'Gợi ý tone (dấu ;)' },
+      { name: 'trigger_words', required: false, example: 'an toàn;tự nhiên;organic', description: 'Từ kích hoạt (dấu ;)' },
+      { name: 'device_usage', required: false, example: '{"mobile":70,"desktop":20,"tablet":10}', description: 'JSON: % sử dụng thiết bị' },
+      { name: 'content_preferences', required: false, example: '{"video":true,"blog":true}', description: 'JSON: loại nội dung ưa thích' },
+      { name: 'journey_stages', required: false, example: '{"awareness":"...","decision":"..."}', description: 'JSON: hành trình khách hàng' },
+      { name: 'country_variants', required: false, example: '{"VN":{"price_sensitivity":"high"}}', description: 'JSON: biến thể theo quốc gia' },
       { name: 'sort_order', required: false, example: '1', description: 'Thứ tự hiển thị' },
     ],
   },
@@ -127,49 +158,35 @@ const SHEETS: Record<string, { title: string; columns: TemplateColumn[] }> = {
  * Create sheet data with headers, description row, and example row
  */
 function createSheetData(columns: TemplateColumn[]): unknown[][] {
-  // Row 1: Headers
   const headers = columns.map(col => col.required ? `${col.name} *` : col.name);
-  
-  // Row 2: Description (for reference)
   const descriptions = columns.map(col => col.description);
-  
-  // Row 3: Example data
   const examples = columns.map(col => col.example);
-  
-  // Row 4+: Empty rows for user data
   const emptyRow = columns.map(() => '');
   
-  return [
-    headers,
-    descriptions,
-    examples,
-    emptyRow,
-    emptyRow,
-    emptyRow,
-  ];
+  return [headers, descriptions, examples, emptyRow, emptyRow, emptyRow];
 }
 
 /**
- * Create instructions sheet
+ * Create instructions sheet v2.2
  */
 function createInstructionsSheet(): unknown[][] {
   return [
-    ['📋 HƯỚNG DẪN SỬ DỤNG TEMPLATE IMPORT INDUSTRY PACK'],
+    ['📋 HƯỚNG DẪN SỬ DỤNG TEMPLATE IMPORT INDUSTRY PACK v2.2'],
     [''],
     ['🎯 MỤC ĐÍCH'],
     ['Template này cho phép bạn import toàn bộ dữ liệu của MỘT Industry Pack vào hệ thống.'],
-    ['Tất cả các sheet trong file này liên quan đến CÙNG MỘT industry code.'],
     [''],
-    ['📑 CÁC SHEET TRONG FILE'],
-    ['1. Pack Info - Thông tin cơ bản của ngành (bắt buộc)'],
-    ['2. Translations - Bản dịch đa ngôn ngữ'],
+    ['📑 CÁC SHEET TRONG FILE (10 sheets)'],
+    ['1. Pack Info - Thông tin cơ bản + Risk Guidelines (bắt buộc)'],
+    ['2. Translations - Bản dịch đa ngôn ngữ + Glossary'],
     ['3. Forbidden Terms - Thuật ngữ cấm sử dụng'],
     ['4. Compliance Rules - Quy tắc tuân thủ pháp luật'],
     ['5. Claim Restrictions - Giới hạn về claim quảng cáo'],
     ['6. Argument Patterns - Mẫu lập luận hợp lệ/cấm'],
     ['7. System Rules - Quy tắc hệ thống cho AI'],
-    ['8. Jurisdictions - Hồ sơ theo quốc gia/vùng lãnh thổ'],
-    ['9. Personas - Chân dung khách hàng mục tiêu'],
+    ['8. Jurisdictions - Hồ sơ theo quốc gia + Xu hướng ngành'],
+    ['9. Key Regulations - Các quy định pháp lý quan trọng (MỚI v2.2)'],
+    ['10. Personas - Chân dung khách hàng Enhanced PRO (MỚI v2.2)'],
     [''],
     ['⚠️ QUY TẮC QUAN TRỌNG'],
     ['• Dòng 1: Header (tên cột có * là bắt buộc)'],
@@ -177,11 +194,18 @@ function createInstructionsSheet(): unknown[][] {
     ['• Dòng 3: Ví dụ mẫu (tham khảo, xóa hoặc thay đổi)'],
     ['• Dòng 4+: Dữ liệu thực tế của bạn'],
     [''],
-    ['• Các trường array sử dụng dấu ; để phân cách'],
-    ['  Ví dụ: "value1;value2;value3"'],
+    ['📝 ĐỊNH DẠNG DỮ LIỆU'],
+    ['• Array fields: Dùng dấu ; để phân cách (VD: value1;value2;value3)'],
+    ['• JSON fields: Nhập đúng format JSON (VD: {"key":"value"})'],
+    ['• Date: YYYY-MM-DD (VD: 2024-01-15)'],
+    ['• Language Code: ISO 639-1 (vi, en, zh, ja...)'],
+    ['• Country Code: ISO 3166-1 (VN, US, SG, JP...)'],
     [''],
-    ['• Sheet "Pack Info" chỉ cần 1 dòng dữ liệu'],
-    ['• Các sheet khác có thể có nhiều dòng'],
+    ['🆕 TÍNH NĂNG MỚI v2.2'],
+    ['• Risk Guidelines: Cấu hình đánh giá rủi ro nội dung trong Pack Info'],
+    ['• Key Regulations: Quản lý quy định pháp lý theo quốc gia'],
+    ['• Enhanced Personas: segment_size, priority_score, device_usage, journey_stages, country_variants'],
+    ['• Glossary: Từ điển thuật ngữ trong Translations'],
     [''],
     ['✅ TRƯỚC KHI IMPORT'],
     ['1. Xóa dòng 2 (mô tả) ở tất cả các sheet'],
@@ -189,6 +213,12 @@ function createInstructionsSheet(): unknown[][] {
     ['3. Điền dữ liệu thực tế từ dòng 3 trở đi'],
     ['4. Kiểm tra tất cả các trường bắt buộc (*) đã có giá trị'],
     ['5. Lưu file với định dạng .xlsx'],
+    [''],
+    ['📊 RISK GUIDELINES (trong Pack Info)'],
+    ['• weight_*: Điểm số cho từng loại vi phạm'],
+    ['• threshold_*: Ngưỡng để phân loại mức rủi ro (low/medium/high/blocked)'],
+    ['• Mặc định: forbidden_term=50, claim=30, pattern=20, keyword=15'],
+    ['• Ngưỡng mặc định: low=0, medium=30, high=60, blocked=80'],
   ];
 }
 
@@ -201,31 +231,23 @@ export function downloadIndustryPackTemplate(industryCode?: string) {
   // Add instructions sheet first
   const instructionsData = createInstructionsSheet();
   const instructionsSheet = XLSX.utils.aoa_to_sheet(instructionsData);
-  
-  // Set column width for instructions
   instructionsSheet['!cols'] = [{ wch: 80 }];
-  
   XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Hướng dẫn');
   
   // Add each data sheet
   Object.entries(SHEETS).forEach(([key, sheet]) => {
     const data = createSheetData(sheet.columns);
     const worksheet = XLSX.utils.aoa_to_sheet(data);
-    
-    // Set column widths based on content
     worksheet['!cols'] = sheet.columns.map(col => ({
       wch: Math.max(col.name.length, col.example.length, col.description.length / 2, 15)
     }));
-    
     XLSX.utils.book_append_sheet(workbook, worksheet, sheet.title);
   });
   
-  // Generate filename
   const filename = industryCode 
-    ? `industry_pack_${industryCode}.xlsx`
-    : `industry_pack_template.xlsx`;
+    ? `industry_pack_${industryCode}_v2.2.xlsx`
+    : `industry_pack_template_v2.2.xlsx`;
   
-  // Download
   XLSX.writeFile(workbook, filename);
 }
 
