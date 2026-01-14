@@ -69,6 +69,7 @@ const SHEET_ICONS: Record<string, React.ElementType> = {
   system_rules: Settings,
   jurisdictions: Globe,
   personas: Users,
+  key_regulations: FileText,
 };
 
 export function IndustryExcelImportDialog({
@@ -258,7 +259,7 @@ export function IndustryExcelImportDialog({
 
               {/* Summary Stats */}
               {summary && (
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-6 gap-2">
                   <div className="bg-muted/50 rounded-lg p-3 text-center">
                     <Languages className="h-4 w-4 mx-auto mb-1 text-blue-500" />
                     <p className="text-lg font-bold">{summary.translations}</p>
@@ -283,6 +284,11 @@ export function IndustryExcelImportDialog({
                     <Users className="h-4 w-4 mx-auto mb-1 text-purple-500" />
                     <p className="text-lg font-bold">{summary.personas}</p>
                     <p className="text-xs text-muted-foreground">Personas</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3 text-center">
+                    <FileText className="h-4 w-4 mx-auto mb-1 text-teal-500" />
+                    <p className="text-lg font-bold">{summary.keyRegulations || 0}</p>
+                    <p className="text-xs text-muted-foreground">Quy định</p>
                   </div>
                 </div>
               )}
@@ -311,7 +317,7 @@ export function IndustryExcelImportDialog({
                     Claims ({parseResult.claimRestrictions.length})
                   </TabsTrigger>
                 </TabsList>
-                <TabsList className="grid grid-cols-4 w-full">
+                <TabsList className="grid grid-cols-5 w-full">
                   <TabsTrigger value="patterns" className="text-xs">
                     <Lightbulb className="h-3 w-3 mr-1" />
                     Patterns ({parseResult.argumentPatterns.length})
@@ -327,6 +333,10 @@ export function IndustryExcelImportDialog({
                   <TabsTrigger value="personas" className="text-xs">
                     <Users className="h-3 w-3 mr-1" />
                     Personas ({parseResult.personas.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="key_regulations" className="text-xs">
+                    <FileText className="h-3 w-3 mr-1" />
+                    Quy định ({parseResult.keyRegulations?.length || 0})
                   </TabsTrigger>
                 </TabsList>
 
@@ -576,6 +586,60 @@ export function IndustryExcelImportDialog({
                       </div>
                     )}
                   </div>
+                </TabsContent>
+
+                {/* Key Regulations Tab */}
+                <TabsContent value="key_regulations" className="mt-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Quốc gia</TableHead>
+                        <TableHead>Tên quy định</TableHead>
+                        <TableHead>Ngày hiệu lực</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {parseResult.keyRegulations?.slice(0, 8).map((reg, i) => (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <Badge variant="outline" className="gap-1">
+                              <Globe className="h-3 w-3" />
+                              {reg.jurisdiction_code}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate font-medium">
+                            {reg.regulation_name}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {reg.effective_date || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={reg.validity_status === 'current' ? 'default' : 'outline'}
+                              className="text-xs"
+                            >
+                              {reg.validity_status || 'current'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(parseResult.keyRegulations?.length || 0) > 8 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-muted-foreground">
+                            ... và {(parseResult.keyRegulations?.length || 0) - 8} quy định khác
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {(!parseResult.keyRegulations || parseResult.keyRegulations.length === 0) && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-muted-foreground">
+                            Không có key regulations
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </TabsContent>
               </Tabs>
             </div>
