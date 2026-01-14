@@ -7,28 +7,115 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Factory, AlertCircle, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Factory, AlertCircle, ArrowRight, ChevronRight } from "lucide-react";
 import { IndustryPackSelector } from "./IndustryPackSelector";
 import { IndustryContentStats } from "./IndustryContentStats";
 import { IndustryContentTabs } from "./IndustryContentTabs";
 import { useIndustryPackKnowledge } from "@/hooks/useIndustryPackKnowledge";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { KnowledgeNodeType } from "@/types/knowledgeGraph";
 
 export function IndustryKnowledgeExplorer() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
   const [nodeTypeFilter, setNodeTypeFilter] = useState<KnowledgeNodeType | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const { data: packKnowledge, isLoading, error } = useIndustryPackKnowledge(selectedPackId);
+
+  // Handle pack selection - open sheet on mobile
+  const handleSelectPack = (packId: string) => {
+    setSelectedPackId(packId);
+    if (isMobile) {
+      setSheetOpen(true);
+    }
+  };
 
   // Navigate to Graph tab with pack filter
   const handleViewGraph = () => {
     if (selectedPackId && packKnowledge?.packInfo) {
-      // Navigate to Khám phá tab with global_pack_id filter
       navigate(`/admin/knowledge-graph?tab=explorer&packId=${selectedPackId}`);
     }
   };
 
+  // Mobile layout with Sheet
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        {/* Selected Pack Badge */}
+        {selectedPackId && packKnowledge?.packInfo && (
+          <div 
+            className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20 cursor-pointer"
+            onClick={() => setSheetOpen(true)}
+          >
+            <div className="flex items-center gap-2">
+              <Factory className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm">{packKnowledge.packInfo.name}</span>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1 text-xs">
+              Xem chi tiết
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {/* Pack Selector Full Width */}
+        <Card>
+          <IndustryPackSelector
+            selectedPackId={selectedPackId}
+            onSelectPack={handleSelectPack}
+          />
+        </Card>
+
+        {/* Sheet for Content */}
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent side="bottom" className="h-[85vh] px-0">
+            <SheetHeader className="px-4 pb-2">
+              <SheetTitle className="flex items-center gap-2">
+                <Factory className="h-4 w-4 text-primary" />
+                {packKnowledge?.packInfo?.name || "Nội dung ngành"}
+              </SheetTitle>
+            </SheetHeader>
+            <ScrollArea className="h-[calc(85vh-60px)] px-4">
+              <div className="space-y-4 pb-6">
+                {isLoading ? (
+                  <LoadingState />
+                ) : error ? (
+                  <ErrorState error={error} />
+                ) : packKnowledge ? (
+                  <>
+                    <IndustryContentStats
+                      packInfo={packKnowledge.packInfo}
+                      stats={packKnowledge.stats}
+                      activeFilter={nodeTypeFilter}
+                      onFilterChange={setNodeTypeFilter}
+                      onViewGraph={handleViewGraph}
+                    />
+                    <IndustryContentTabs
+                      nodes={packKnowledge.nodes}
+                      edges={packKnowledge.edges}
+                      activeFilter={nodeTypeFilter}
+                    />
+                  </>
+                ) : null}
+              </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
+      </div>
+    );
+  }
+
+  // Desktop layout - 2 columns
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 min-h-[600px]">
       {/* Sidebar - Pack Selector */}

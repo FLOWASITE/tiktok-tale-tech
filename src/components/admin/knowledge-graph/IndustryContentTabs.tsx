@@ -108,38 +108,40 @@ export function IndustryContentTabs({ nodes, edges, activeFilter }: IndustryCont
         />
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Scrollable on mobile */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="regulations" className="gap-1.5">
-            <FileText className="h-3.5 w-3.5" />
-            Quy định
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-              {regulations.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="terms" className="gap-1.5">
-            <BookOpen className="h-3.5 w-3.5" />
-            Thuật ngữ
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-              {terms.length + concepts.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="personas" className="gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            Persona
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-              {personas.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="graph" className="gap-1.5">
-            <Network className="h-3.5 w-3.5" />
-            Mối quan hệ
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-              {edges.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 pb-1">
+          <TabsList className="w-max min-w-full">
+            <TabsTrigger value="regulations" className="gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Quy định</span>
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                {regulations.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="terms" className="gap-1.5">
+              <BookOpen className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Thuật ngữ</span>
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                {terms.length + concepts.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="personas" className="gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Persona</span>
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                {personas.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="graph" className="gap-1.5">
+              <Network className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Mối quan hệ</span>
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                {edges.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Regulations Tab */}
         <TabsContent value="regulations" className="mt-4">

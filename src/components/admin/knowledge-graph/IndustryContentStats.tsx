@@ -100,15 +100,15 @@ export function IndustryContentStats({
 
   return (
     <div className="space-y-4">
-      {/* Pack Header */}
-      <div className="flex items-center justify-between">
+      {/* Pack Header - Responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+          <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
             <Factory className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h2 className="font-semibold text-lg">{packInfo.name}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-lg truncate">{packInfo.name}</h2>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                 {packInfo.industryCode}
               </code>
@@ -118,32 +118,34 @@ export function IndustryContentStats({
               <Badge variant="outline" className="text-[10px]">
                 {packInfo.targetAudience}
               </Badge>
-              {onViewGraph && (
-                <Button variant="outline" size="sm" onClick={onViewGraph} className="ml-2 gap-1.5">
-                  <Network className="h-3.5 w-3.5" />
-                  Xem Graph
-                </Button>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Total & Embedding Stats */}
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <div className="flex items-center gap-1.5">
-              <Database className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold text-lg">{stats.total}</span>
+        {/* Total & Embedding Stats + View Graph Button */}
+        <div className="flex items-center gap-4 justify-between sm:justify-end">
+          <div className="flex items-center gap-4">
+            <div className="text-left sm:text-right">
+              <div className="flex items-center gap-1.5">
+                <Database className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold text-lg">{stats.total}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Tổng nodes</span>
             </div>
-            <span className="text-xs text-muted-foreground">Tổng nodes</span>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold text-lg">{embeddingPercent}%</span>
+            <div className="text-left sm:text-right">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold text-lg">{embeddingPercent}%</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Có embedding</span>
             </div>
-            <span className="text-xs text-muted-foreground">Có embedding</span>
           </div>
+          {onViewGraph && (
+            <Button variant="outline" size="sm" onClick={onViewGraph} className="gap-1.5 shrink-0">
+              <Network className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Xem Graph</span>
+            </Button>
+          )}
         </div>
       </div>
 
