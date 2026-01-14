@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { IndustryBrowserV2 } from '@/components/admin/IndustryBrowserV2';
 import { JurisdictionProfilesPanel } from '@/components/admin/JurisdictionProfilesPanel';
-import { IndustryImportDialog } from '@/components/admin/IndustryImportDialog';
+import { IndustryExcelImportDialog } from '@/components/admin/IndustryExcelImportDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -79,13 +79,13 @@ export function AdminIndustriesV2() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Import
+            Import Excel
           </Button>
         </div>
       </div>
 
       {/* Import Dialog */}
-      <IndustryImportDialog
+      <IndustryExcelImportDialog
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
         onSuccess={() => {}}

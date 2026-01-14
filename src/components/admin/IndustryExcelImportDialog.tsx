@@ -150,7 +150,16 @@ export function IndustryExcelImportDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          handleClose();
+        } else {
+          onOpenChange(true);
+        }
+      }}
+    >
       <DialogContent className="max-w-5xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
