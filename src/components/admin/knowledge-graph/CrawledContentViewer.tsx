@@ -166,6 +166,7 @@ export function CrawledContentViewer() {
         .from('industry_knowledge_nodes')
         .select('*', { count: 'exact', head: true })
         .eq('node_type', 'regulation')
+        .eq('is_active', true)
         .not('source_id', 'is', null);
       
       const { count } = await countQuery;
@@ -176,6 +177,7 @@ export function CrawledContentViewer() {
         .from('industry_knowledge_nodes')
         .select('*')
         .eq('node_type', 'regulation')
+        .eq('is_active', true)
         .not('source_id', 'is', null)
         .order('created_at', { ascending: false })
         .range(offset, offset + itemsPerPage - 1);
