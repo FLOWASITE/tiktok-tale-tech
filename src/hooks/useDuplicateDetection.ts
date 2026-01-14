@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 export interface DuplicatePair {
   node_id_1: string;
   node_id_2: string;
-  display_name_1: string;
-  display_name_2: string;
+  name_1: string;
+  name_2: string;
   similarity: number;
   match_type: 'semantic' | 'exact_title';
   quality_1: number | null;
@@ -94,14 +94,14 @@ export function useDuplicateDetection() {
             if (group.has(pair.node_id_1)) {
               nodeInfo.set(pair.node_id_1, {
                 id: pair.node_id_1,
-                name: pair.display_name_1,
+                name: pair.name_1,
                 quality: pair.quality_1,
               });
             }
             if (group.has(pair.node_id_2)) {
               nodeInfo.set(pair.node_id_2, {
                 id: pair.node_id_2,
-                name: pair.display_name_2,
+                name: pair.name_2,
                 quality: pair.quality_2,
               });
             }

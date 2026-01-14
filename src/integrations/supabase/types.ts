@@ -7932,9 +7932,9 @@ export type Database = {
       find_duplicate_regulations: {
         Args: { p_limit?: number; p_similarity_threshold?: number }
         Returns: {
-          display_name_1: string
-          display_name_2: string
           match_type: string
+          name_1: string
+          name_2: string
           node_id_1: string
           node_id_2: string
           quality_1: number
