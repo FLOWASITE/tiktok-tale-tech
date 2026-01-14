@@ -77,7 +77,7 @@ export function EditSourceDialog({
     category: 'general',
     search_query: '',
     crawl_frequency: 'weekly' as 'daily' | 'weekly' | 'monthly',
-    target_industry_category_ids: [] as string[],
+    target_industry_pack_ids: [] as string[],
   });
 
   // Sync form data when source changes
@@ -90,7 +90,7 @@ export function EditSourceDialog({
         category: source.category,
         search_query: source.search_query || '',
         crawl_frequency: source.crawl_frequency,
-        target_industry_category_ids: source.target_industry_category_ids || [],
+        target_industry_pack_ids: source.target_industry_pack_ids || [],
       });
     }
   }, [source]);
@@ -204,8 +204,8 @@ export function EditSourceDialog({
           
           {/* Target Industries Multi-Select */}
           <IndustryMultiSelect
-            selectedIds={formData.target_industry_category_ids}
-            onChange={(ids) => setFormData({ ...formData, target_industry_category_ids: ids })}
+            selectedIds={formData.target_industry_pack_ids}
+            onChange={(ids) => setFormData({ ...formData, target_industry_pack_ids: ids })}
           />
         </div>
         <DialogFooter>
