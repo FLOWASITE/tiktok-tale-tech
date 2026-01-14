@@ -56,6 +56,16 @@ export interface ImportProgress {
   currentStep: string;
 }
 
+export interface ImportLogEntry {
+  step: number;
+  name: string;
+  status: 'pending' | 'running' | 'success' | 'error' | 'skipped';
+  startTime?: number;
+  endTime?: number;
+  count?: number;
+  error?: string;
+}
+
 export interface ImportResult {
   success: boolean;
   packId?: string;
@@ -83,7 +93,8 @@ export function useIndustryExcelImport() {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [warnings, setWarnings] = useState<ValidationWarning[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState<ImportProgress>({ current: 0, total: 8, currentStep: '' });
+  const [progress, setProgress] = useState<ImportProgress>({ current: 0, total: 10, currentStep: '' });
+  const [importLogs, setImportLogs] = useState<ImportLogEntry[]>([]);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [existingPack, setExistingPack] = useState<{ id: string; code: string } | null>(null);
   const [conflictAction, setConflictAction] = useState<'skip' | 'merge' | 'replace'>('merge');
@@ -96,7 +107,8 @@ export function useIndustryExcelImport() {
     setErrors([]);
     setWarnings([]);
     setIsProcessing(false);
-    setProgress({ current: 0, total: 8, currentStep: '' });
+    setProgress({ current: 0, total: 10, currentStep: '' });
+    setImportLogs([]);
     setImportResult(null);
     setExistingPack(null);
     setConflictAction('merge');
@@ -350,12 +362,52 @@ export function useIndustryExcelImport() {
       personas: 0,
     };
 
+    // Initialize import logs
+    const stepNames = [
+      'Tạo Industry Pack',
+      'Import bản dịch',
+      'Import thuật ngữ cấm',
+      'Import quy tắc tuân thủ',
+      'Import giới hạn claim',
+      'Import mẫu lập luận',
+      'Import quy tắc hệ thống',
+      'Import hồ sơ quốc gia',
+      'Import quy định pháp luật',
+      'Import personas',
+    ];
+
+    const initialLogs: ImportLogEntry[] = stepNames.map((name, i) => ({
+      step: i + 1,
+      name,
+      status: 'pending' as const,
+    }));
+    setImportLogs(initialLogs);
+
+    const updateLog = (step: number, updates: Partial<ImportLogEntry>) => {
+      setImportLogs(prev => prev.map(log => 
+        log.step === step ? { ...log, ...updates } : log
+      ));
+    };
+
+    const startStep = (step: number) => {
+      updateLog(step, { status: 'running', startTime: Date.now() });
+      setProgress({ current: step, total: 10, currentStep: stepNames[step - 1] });
+    };
+
+    const completeStep = (step: number, count?: number) => {
+      updateLog(step, { status: 'success', endTime: Date.now(), count });
+    };
+
+    const failStep = (step: number, error: string) => {
+      updateLog(step, { status: 'error', endTime: Date.now(), error });
+    };
+
     try {
       const packInfo = parseResult.packInfo;
       let packId: string;
 
       // Step 1: Create or update global pack with Risk Guidelines
-      setProgress({ current: 1, total: 10, currentStep: 'Tạo Industry Pack...' });
+      startStep(1);
 
       // Build risk_guidelines from pack info
       const riskGuidelines = {
@@ -467,8 +519,10 @@ export function useIndustryExcelImport() {
         return;
       }
 
+      completeStep(1, 1);
+
       // Step 2: Import translations with glossary
-      setProgress({ current: 2, total: 10, currentStep: 'Import bản dịch...' });
+      startStep(2);
       if (parseResult.translations.length > 0) {
         for (const trans of parseResult.translations) {
           // Build glossary object from keys/values
@@ -495,9 +549,10 @@ export function useIndustryExcelImport() {
           if (!error) details.translations++;
         }
       }
+      completeStep(2, details.translations);
 
       // Step 3: Import forbidden terms (using type assertion for tables not in generated types)
-      setProgress({ current: 3, total: 10, currentStep: 'Import thuật ngữ cấm...' });
+      startStep(3);
       if (parseResult.forbiddenTerms.length > 0) {
         for (const term of parseResult.forbiddenTerms) {
           const { error } = await (supabase
@@ -512,9 +567,10 @@ export function useIndustryExcelImport() {
           if (!error) details.forbiddenTerms++;
         }
       }
+      completeStep(3, details.forbiddenTerms);
 
       // Step 4: Import compliance rules
-      setProgress({ current: 4, total: 10, currentStep: 'Import quy tắc tuân thủ...' });
+      startStep(4);
       if (parseResult.complianceRules.length > 0) {
         for (const rule of parseResult.complianceRules) {
           const { error } = await (supabase
@@ -531,9 +587,10 @@ export function useIndustryExcelImport() {
           if (!error) details.complianceRules++;
         }
       }
+      completeStep(4, details.complianceRules);
 
       // Step 5: Import claim restrictions
-      setProgress({ current: 5, total: 10, currentStep: 'Import giới hạn claim...' });
+      startStep(5);
       if (parseResult.claimRestrictions.length > 0) {
         for (const claim of parseResult.claimRestrictions) {
           const { error } = await (supabase
@@ -549,9 +606,10 @@ export function useIndustryExcelImport() {
           if (!error) details.claimRestrictions++;
         }
       }
+      completeStep(5, details.claimRestrictions);
 
       // Step 6: Import argument patterns
-      setProgress({ current: 6, total: 10, currentStep: 'Import mẫu lập luận...' });
+      startStep(6);
       if (parseResult.argumentPatterns.length > 0) {
         for (const pattern of parseResult.argumentPatterns) {
           const { error } = await (supabase
@@ -567,9 +625,10 @@ export function useIndustryExcelImport() {
           if (!error) details.argumentPatterns++;
         }
       }
+      completeStep(6, details.argumentPatterns);
 
       // Step 7: Import system rules
-      setProgress({ current: 7, total: 10, currentStep: 'Import quy tắc hệ thống...' });
+      startStep(7);
       if (parseResult.systemRules.length > 0) {
         for (const rule of parseResult.systemRules) {
           const { error } = await (supabase
@@ -584,9 +643,10 @@ export function useIndustryExcelImport() {
           if (!error) details.systemRules++;
         }
       }
+      completeStep(7, details.systemRules);
 
       // Step 8: Import jurisdictions with extended fields
-      setProgress({ current: 8, total: 10, currentStep: 'Import hồ sơ quốc gia...' });
+      startStep(8);
       if (parseResult.jurisdictions.length > 0) {
         for (const jurisdiction of parseResult.jurisdictions) {
           const { error } = await supabase
@@ -606,9 +666,10 @@ export function useIndustryExcelImport() {
           if (!error) details.jurisdictions++;
         }
       }
+      completeStep(8, details.jurisdictions);
 
       // Step 9: Import key regulations (store in resolved_rules of jurisdiction profiles)
-      setProgress({ current: 9, total: 10, currentStep: 'Import quy định pháp luật...' });
+      startStep(9);
       if (parseResult.keyRegulations.length > 0) {
         // Group regulations by jurisdiction
         const regulationsByJurisdiction = parseResult.keyRegulations.reduce((acc, reg) => {
@@ -651,9 +712,10 @@ export function useIndustryExcelImport() {
           details.keyRegulations += regulations.length;
         }
       }
+      completeStep(9, details.keyRegulations);
 
       // Step 10: Import personas with Extended PRO fields
-      setProgress({ current: 10, total: 10, currentStep: 'Import personas...' });
+      startStep(10);
       if (parseResult.personas.length > 0) {
         // First, get existing personas for this pack to enable update logic
         const { data: existingPersonas } = await supabase
@@ -736,6 +798,7 @@ export function useIndustryExcelImport() {
           }
         }
       }
+      completeStep(10, details.personas);
 
       setImportResult({
         success: true,
@@ -797,6 +860,7 @@ export function useIndustryExcelImport() {
     warnings,
     isProcessing,
     progress,
+    importLogs,
     importResult,
     existingPack,
     conflictAction,
