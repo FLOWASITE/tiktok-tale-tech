@@ -134,7 +134,7 @@ export function IndustryKnowledgeExplorer() {
 
   // Desktop layout - 2 columns
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 min-h-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 min-h-[600px]">
       {/* Sidebar - Pack Selector */}
       <Card className="h-fit lg:sticky lg:top-6">
         <IndustryPackSelector
