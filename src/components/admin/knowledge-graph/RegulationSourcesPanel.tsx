@@ -358,43 +358,23 @@ export function RegulationSourcesPanel() {
                     onChange={(e) => setFormData({ ...formData, source_url: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Khu vực pháp lý</Label>
-                    <Select
-                      value={formData.jurisdiction}
-                      onValueChange={(value) => setFormData({ ...formData, jurisdiction: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {JURISDICTIONS.map((j) => (
-                          <SelectItem key={j.value} value={j.value}>
-                            {j.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Danh mục</Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value) => setFormData({ ...formData, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Khu vực pháp lý</Label>
+                  <Select
+                    value={formData.jurisdiction}
+                    onValueChange={(value) => setFormData({ ...formData, jurisdiction: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {JURISDICTIONS.map((j) => (
+                        <SelectItem key={j.value} value={j.value}>
+                          {j.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="search_query">Query Tìm Kiếm</Label>
