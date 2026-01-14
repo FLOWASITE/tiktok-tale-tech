@@ -248,18 +248,21 @@ export const CrawledNodeMobileCard: React.FC<CrawledNodeMobileCardProps> = ({
         
         <DrawerFooter className="pt-2 pb-6">
           <div className="grid grid-cols-4 gap-2">
-            <DrawerClose asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onReparse(node.id)}
-                disabled={isReparsing}
-                className="flex-col h-auto py-2 gap-1"
-              >
-                <RefreshCw className={cn('h-4 w-4', isReparsing && 'animate-spin')} />
-                <span className="text-[10px]">Parse</span>
-              </Button>
-            </DrawerClose>
+            {/* Parse button: NO DrawerClose - keep drawer open during parsing */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onReparse(node.id)}
+              disabled={isReparsing}
+              className="flex-col h-auto py-2 gap-1"
+            >
+              {isReparsing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              <span className="text-[10px]">{isReparsing ? 'Đang...' : 'Parse'}</span>
+            </Button>
             
             {node.full_text && (
               <DrawerClose asChild>
