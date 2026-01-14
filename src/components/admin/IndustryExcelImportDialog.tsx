@@ -51,6 +51,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { useIndustryExcelImport } from '@/hooks/useIndustryExcelImport';
+import { ImportProgressLog } from '@/components/admin/ImportProgressLog';
 import { cn } from '@/lib/utils';
 import { downloadIndustryPackTemplateAsync } from '@/utils/industryExcelGenerator';
 import { toast } from 'sonner';
@@ -90,6 +91,7 @@ export function IndustryExcelImportDialog({
     warnings,
     isProcessing,
     progress,
+    importLogs,
     importResult,
     existingPack,
     conflictAction,
@@ -785,15 +787,26 @@ export function IndustryExcelImportDialog({
 
           {/* Step 4: Importing */}
           {step === 'importing' && (
-            <div className="space-y-6 py-8">
-              <div className="text-center">
-                <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-                <h3 className="mt-4 text-lg font-medium">{progress.currentStep}</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Bước {progress.current} / {progress.total}
-                </p>
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium">{progress.currentStep}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Đang xử lý bước {progress.current} / {progress.total}
+                  </p>
+                </div>
               </div>
               <Progress value={(progress.current / progress.total) * 100} className="h-2" />
+              
+              {/* Progress Log */}
+              <ImportProgressLog 
+                logs={importLogs}
+                currentStep={progress.current}
+                totalSteps={progress.total}
+              />
             </div>
           )}
 
