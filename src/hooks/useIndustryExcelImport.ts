@@ -673,21 +673,29 @@ export function useIndustryExcelImport() {
       startStep(7);
       completeStep(7, details.systemRules);
 
-      // Step 8: Import jurisdictions with extended fields
+      // Step 8: Import jurisdictions - store extended fields in resolved_rules JSONB
       startStep(8);
       if (parseResult.jurisdictions.length > 0) {
         for (const jurisdiction of parseResult.jurisdictions) {
+          // Build resolved_rules with all extended fields
+          const resolvedRules = {
+            additional_forbidden_terms: jurisdiction.additional_forbidden_terms?.split(';').map(t => t.trim()).filter(Boolean) || [],
+            modified_compliance_rules: jurisdiction.modified_compliance_rules ? (() => {
+              try { return JSON.parse(jurisdiction.modified_compliance_rules); } catch { return null; }
+            })() : null,
+            industry_trends: jurisdiction.industry_trends?.split(';').map(t => t.trim()).filter(Boolean) || [],
+            notes: jurisdiction.notes || null,
+          };
+
           const { error } = await supabase
             .from('industry_jurisdiction_profiles')
             .upsert({
               global_pack_id: packId,
               jurisdiction_code: jurisdiction.jurisdiction_code,
-              additional_forbidden_terms: jurisdiction.additional_forbidden_terms?.split(';').map(t => t.trim()).filter(Boolean) || [],
-              modified_compliance_rules: jurisdiction.modified_compliance_rules ? JSON.parse(jurisdiction.modified_compliance_rules) : null,
+              resolved_rules: resolvedRules,
               disclaimer: jurisdiction.notes || null,
               validity_status: jurisdiction.validity_status || 'current',
               last_verified_date: jurisdiction.last_verified_date || null,
-              industry_trends: jurisdiction.industry_trends?.split(';').map(t => t.trim()).filter(Boolean) || [],
             }, {
               onConflict: 'global_pack_id,jurisdiction_code',
             });
@@ -762,6 +770,16 @@ export function useIndustryExcelImport() {
             try { return JSON.parse(str); } catch { return null; }
           };
 
+          // Build content_preferences with extended PRO fields merged in
+          const baseContentPrefs = parseJSON(persona.content_preferences) || {};
+          const contentPreferences = {
+            ...baseContentPrefs,
+            trigger_words: persona.trigger_words?.split(';').map(w => w.trim()).filter(Boolean) || [],
+            segment_size: persona.segment_size ? parseFloat(persona.segment_size) : null,
+            priority_score: persona.priority_score ? parseInt(persona.priority_score) : null,
+            persona_type: persona.persona_type || 'primary',
+          };
+
           const personaData = {
             global_pack_id: packId,
             name: persona.name,
@@ -783,7 +801,7 @@ export function useIndustryExcelImport() {
             communication_style: persona.communication_style || 'direct',
             response_tone_hints: persona.response_tone_hints?.split(';').map(h => h.trim()).filter(Boolean) || [],
             sort_order: parseInt(persona.sort_order) || 0,
-            // Extended PRO fields
+            // Extended PRO fields that exist in schema
             lifestyle: persona.lifestyle || null,
             tech_savviness: persona.tech_savviness || null,
             price_sensitivity: persona.price_sensitivity || null,
@@ -792,14 +810,10 @@ export function useIndustryExcelImport() {
             personality_traits: persona.personality_traits?.split(';').map(t => t.trim()).filter(Boolean) || [],
             social_platforms: persona.social_platforms?.split(';').map(s => s.trim()).filter(Boolean) || [],
             content_consumption: persona.content_consumption?.split(';').map(c => c.trim()).filter(Boolean) || [],
-            trigger_words: persona.trigger_words?.split(';').map(w => w.trim()).filter(Boolean) || [],
-            persona_type: persona.persona_type || 'primary',
-            // New v2.2 Extended PRO fields (JSON parsed)
             avatar_url: persona.avatar_url || null,
-            segment_size: persona.segment_size ? parseFloat(persona.segment_size) : null,
-            priority_score: persona.priority_score ? parseInt(persona.priority_score) : null,
+            // JSONB fields with extended data merged
             device_usage: parseJSON(persona.device_usage),
-            content_preferences: parseJSON(persona.content_preferences),
+            content_preferences: contentPreferences,
             journey_stages: parseJSON(persona.journey_stages),
             country_variants: parseJSON(persona.country_variants),
             is_active: true,
