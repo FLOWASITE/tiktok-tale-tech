@@ -1,14 +1,21 @@
 /**
- * IndustryPackSelector - Sidebar for selecting Industry Packs
+ * IndustryPackSelector - Sidebar for selecting Industry Packs with Category Groups
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Factory, Users, Building2 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Search, Factory, Users, Building2, ChevronDown, FolderOpen } from "lucide-react";
 import { useIndustryPacksList, type IndustryPackInfo } from "@/hooks/useIndustryPackKnowledge";
+import { useIndustryCategories, type IndustryCategory } from "@/hooks/useIndustryCategories";
+import { getIconByName } from "@/lib/iconMapper";
 import { cn } from "@/lib/utils";
 
 interface IndustryPackSelectorProps {
@@ -16,10 +23,22 @@ interface IndustryPackSelectorProps {
   onSelectPack: (packId: string) => void;
 }
 
+interface GroupedPacks {
+  category: IndustryCategory | null;
+  packs: IndustryPackInfo[];
+  totalNodes: number;
+}
+
 export function IndustryPackSelector({ selectedPackId, onSelectPack }: IndustryPackSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: packs, isLoading } = useIndustryPacksList();
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  
+  const { data: packs, isLoading: packsLoading } = useIndustryPacksList();
+  const { data: categories, isLoading: categoriesLoading } = useIndustryCategories();
 
+  const isLoading = packsLoading || categoriesLoading;
+
+  // Filter packs by search query
   const filteredPacks = useMemo(() => {
     if (!packs) return [];
     if (!searchQuery.trim()) return packs;
@@ -31,6 +50,82 @@ export function IndustryPackSelector({ selectedPackId, onSelectPack }: IndustryP
         pack.industryCode.toLowerCase().includes(query)
     );
   }, [packs, searchQuery]);
+
+  // Group packs by category
+  const groupedPacks = useMemo(() => {
+    const groups = new Map<string, GroupedPacks>();
+
+    // Initialize groups from categories
+    categories?.forEach(cat => {
+      groups.set(cat.id, {
+        category: cat,
+        packs: [],
+        totalNodes: 0,
+      });
+    });
+
+    // Add packs to their categories
+    filteredPacks.forEach(pack => {
+      const categoryId = pack.categoryId || 'uncategorized';
+      
+      if (!groups.has(categoryId)) {
+        groups.set(categoryId, {
+          category: null,
+          packs: [],
+          totalNodes: 0,
+        });
+      }
+      
+      const group = groups.get(categoryId)!;
+      group.packs.push(pack);
+      group.totalNodes += pack.nodeCount || 0;
+    });
+
+    // Sort and filter empty groups
+    return Array.from(groups.entries())
+      .filter(([_, group]) => group.packs.length > 0)
+      .sort((a, b) => {
+        const orderA = a[1].category?.sortOrder ?? 999;
+        const orderB = b[1].category?.sortOrder ?? 999;
+        return orderA - orderB;
+      });
+  }, [filteredPacks, categories]);
+
+  // Total stats
+  const totalPacks = filteredPacks.length;
+  const totalCategories = groupedPacks.length;
+
+  // Auto-expand category containing selected pack
+  useEffect(() => {
+    if (selectedPackId && packs) {
+      const pack = packs.find(p => p.id === selectedPackId);
+      if (pack?.categoryId) {
+        setExpandedCategories(prev => new Set([...prev, pack.categoryId!]));
+      }
+    }
+  }, [selectedPackId, packs]);
+
+  // Auto-expand categories with search matches
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const matchingCategoryIds = new Set(
+        filteredPacks.map(p => p.categoryId || 'uncategorized')
+      );
+      setExpandedCategories(matchingCategoryIds);
+    }
+  }, [searchQuery, filteredPacks]);
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  };
 
   const getAudienceIcon = (audience: 'B2B' | 'B2C' | 'both') => {
     switch (audience) {
@@ -47,8 +142,14 @@ export function IndustryPackSelector({ selectedPackId, onSelectPack }: IndustryP
     return (
       <div className="space-y-4 p-4">
         <Skeleton className="h-9 w-full" />
-        {[...Array(8)].map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full" />
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <div className="pl-4 space-y-1">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -68,24 +169,30 @@ export function IndustryPackSelector({ selectedPackId, onSelectPack }: IndustryP
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {filteredPacks.length} ngành {searchQuery && `(lọc từ ${packs?.length || 0})`}
+          {totalPacks} ngành • {totalCategories} nhóm
+          {searchQuery && ` (lọc từ ${packs?.length || 0})`}
         </p>
       </div>
 
-      {/* Pack List */}
+      {/* Category Groups */}
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
-          {filteredPacks.map((pack) => (
-            <PackItem
-              key={pack.id}
-              pack={pack}
-              isSelected={selectedPackId === pack.id}
-              onClick={() => onSelectPack(pack.id)}
-              audienceIcon={getAudienceIcon(pack.targetAudience)}
+          {groupedPacks.map(([categoryId, group]) => (
+            <CategoryGroup
+              key={categoryId}
+              categoryId={categoryId}
+              category={group.category}
+              packs={group.packs}
+              totalNodes={group.totalNodes}
+              isExpanded={expandedCategories.has(categoryId)}
+              onToggle={() => toggleCategory(categoryId)}
+              selectedPackId={selectedPackId}
+              onSelectPack={onSelectPack}
+              getAudienceIcon={getAudienceIcon}
             />
           ))}
 
-          {filteredPacks.length === 0 && (
+          {groupedPacks.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <Factory className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">Không tìm thấy ngành</p>
@@ -94,6 +201,96 @@ export function IndustryPackSelector({ selectedPackId, onSelectPack }: IndustryP
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+interface CategoryGroupProps {
+  categoryId: string;
+  category: IndustryCategory | null;
+  packs: IndustryPackInfo[];
+  totalNodes: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  selectedPackId: string | null;
+  onSelectPack: (packId: string) => void;
+  getAudienceIcon: (audience: 'B2B' | 'B2C' | 'both') => React.ReactNode;
+}
+
+function CategoryGroup({
+  categoryId,
+  category,
+  packs,
+  totalNodes,
+  isExpanded,
+  onToggle,
+  selectedPackId,
+  onSelectPack,
+  getAudienceIcon,
+}: CategoryGroupProps) {
+  const CategoryIcon = category?.iconName 
+    ? getIconByName(category.iconName) 
+    : FolderOpen;
+
+  const categoryLabel = category?.label || 'Chưa phân loại';
+  const hasSelectedPack = packs.some(p => p.id === selectedPackId);
+
+  return (
+    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+      <CollapsibleTrigger className="w-full">
+        <div
+          className={cn(
+            "flex items-center justify-between p-2 rounded-md transition-colors",
+            "hover:bg-accent/50",
+            hasSelectedPack && "bg-accent/30"
+          )}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={cn(
+              "p-1.5 rounded-md shrink-0",
+              hasSelectedPack ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+            )}>
+              <CategoryIcon className="h-4 w-4" />
+            </div>
+            <span className={cn(
+              "font-medium text-sm truncate",
+              hasSelectedPack && "text-primary"
+            )}>
+              {categoryLabel}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+              {packs.length}
+            </Badge>
+            {totalNodes > 0 && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-muted-foreground">
+                {totalNodes}
+              </Badge>
+            )}
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform",
+                isExpanded && "rotate-180"
+              )}
+            />
+          </div>
+        </div>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
+        <div className="pl-3 pt-1 space-y-0.5">
+          {packs.map((pack) => (
+            <PackItem
+              key={pack.id}
+              pack={pack}
+              isSelected={selectedPackId === pack.id}
+              onClick={() => onSelectPack(pack.id)}
+              audienceIcon={getAudienceIcon(pack.targetAudience)}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -106,29 +303,25 @@ interface PackItemProps {
 
 function PackItem({ pack, isSelected, onClick, audienceIcon }: PackItemProps) {
   const hasNodes = (pack.nodeCount ?? 0) > 0;
-  
+
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left p-3 rounded-lg transition-colors",
+        "w-full text-left p-2.5 rounded-lg transition-colors",
         "hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring",
         isSelected && "bg-accent border border-primary/30"
       )}
     >
       <div className="flex items-start gap-2">
-        <div className={cn(
-          "p-1.5 rounded-md mt-0.5",
-          isSelected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-        )}>
-          <Factory className="h-3.5 w-3.5" />
-        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className={cn(
-              "font-medium text-sm truncate flex-1",
-              isSelected && "text-primary"
-            )}>
+            <p
+              className={cn(
+                "font-medium text-sm truncate flex-1",
+                isSelected && "text-primary"
+              )}
+            >
               {pack.name}
             </p>
             {/* Node count badge */}
@@ -137,7 +330,10 @@ function PackItem({ pack, isSelected, onClick, audienceIcon }: PackItemProps) {
                 {pack.nodeCount}
               </Badge>
             ) : (
-              <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground shrink-0">
+              <Badge
+                variant="outline"
+                className="h-4 px-1 text-[9px] text-muted-foreground shrink-0"
+              >
                 Trống
               </Badge>
             )}

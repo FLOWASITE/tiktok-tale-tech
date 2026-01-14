@@ -16,6 +16,11 @@ export interface IndustryPackInfo {
   isActive: boolean;
   version: string;
   nodeCount?: number;
+  // Category info
+  categoryId?: string;
+  categoryCode?: string;
+  categoryLabel?: string;
+  categorySortOrder?: number;
 }
 
 export interface KnowledgeStats {
@@ -72,6 +77,13 @@ async function fetchPacksList(
       target_audience,
       is_active,
       version,
+      category_id,
+      industry_categories (
+        id,
+        code,
+        label,
+        sort_order
+      ),
       industry_pack_translations!inner (name)
     `)
     .eq('industry_pack_translations.language_code', languageCode)
@@ -99,6 +111,13 @@ async function fetchPacksList(
 
   return (data || []).map(row => {
     const translations = row.industry_pack_translations as unknown as { name: string }[];
+    const category = row.industry_categories as unknown as { 
+      id: string; 
+      code: string; 
+      label: string; 
+      sort_order: number | null;
+    } | null;
+
     return {
       id: row.id,
       industryCode: row.industry_code,
@@ -107,6 +126,10 @@ async function fetchPacksList(
       isActive: row.is_active ?? true,
       version: row.version || '1.0',
       nodeCount: countMap.get(row.id) || 0,
+      categoryId: category?.id || undefined,
+      categoryCode: category?.code || undefined,
+      categoryLabel: category?.label || undefined,
+      categorySortOrder: category?.sort_order ?? 999,
     };
   });
 }
