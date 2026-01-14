@@ -74,7 +74,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useRegulationSources, RegulationSource, CrawlHistory, CrawlingTarget } from '@/hooks/useRegulationSources';
-import { useIndustryCategories } from '@/hooks/useIndustryCategories';
 import { EditSourceDialog } from './EditSourceDialog';
 import { IndustryMultiSelect } from './IndustryMultiSelect';
 import { CrawledContentViewer } from './CrawledContentViewer';
@@ -118,7 +117,7 @@ interface AddSourceFormData {
   category: string;
   search_query: string;
   crawl_frequency: 'daily' | 'weekly' | 'monthly';
-  target_industry_category_ids: string[];
+  target_industry_pack_ids: string[];
 }
 
 const initialFormData: AddSourceFormData = {
@@ -128,7 +127,7 @@ const initialFormData: AddSourceFormData = {
   category: 'general',
   search_query: '',
   crawl_frequency: 'weekly',
-  target_industry_category_ids: [],
+  target_industry_pack_ids: [],
 };
 
 export function RegulationSourcesPanel() {
@@ -152,8 +151,6 @@ export function RegulationSourcesPanel() {
     refetchSources,
     refetchHistory,
   } = useRegulationSources();
-  
-  const { data: industryCategories = [] } = useIndustryCategories();
   
   // Helper: check if a specific source is being crawled
   const isSourceCrawling = (sourceId: string) => 
@@ -180,7 +177,7 @@ export function RegulationSourcesPanel() {
       ...formData,
       is_active: true,
       properties: {},
-      target_industry_pack_ids: [],
+      target_industry_category_ids: [],
     });
     setIsAddDialogOpen(false);
     setFormData(initialFormData);
@@ -434,8 +431,8 @@ export function RegulationSourcesPanel() {
                 
                 {/* Target Industries Multi-Select */}
                 <IndustryMultiSelect
-                  selectedIds={formData.target_industry_category_ids}
-                  onChange={(ids) => setFormData({ ...formData, target_industry_category_ids: ids })}
+                  selectedIds={formData.target_industry_pack_ids}
+                  onChange={(ids) => setFormData({ ...formData, target_industry_pack_ids: ids })}
                 />
               </div>
               <DialogFooter>
@@ -569,17 +566,12 @@ export function RegulationSourcesPanel() {
                         )}
                         
                         {/* Target Industries Display */}
-                        {source.target_industry_category_ids?.length > 0 && (
+                        {source.target_industry_pack_ids && source.target_industry_pack_ids.length > 0 && (
                           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                             <Target className="h-3 w-3 text-primary" />
-                            {source.target_industry_category_ids.map(catId => {
-                              const cat = industryCategories.find(c => c.id === catId);
-                              return cat ? (
-                                <Badge key={catId} variant="outline" className="text-xs bg-primary/5">
-                                  {cat.label}
-                                </Badge>
-                              ) : null;
-                            })}
+                            <Badge variant="outline" className="text-xs bg-primary/5">
+                              {source.target_industry_pack_ids.length} ngành mục tiêu
+                            </Badge>
                           </div>
                         )}
                         
