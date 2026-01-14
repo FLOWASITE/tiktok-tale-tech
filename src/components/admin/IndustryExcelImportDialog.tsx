@@ -217,7 +217,7 @@ export function IndustryExcelImportDialog({
                 <div>
                   <h4 className="font-medium mb-1">Chưa có template?</h4>
                   <p className="text-sm text-muted-foreground">
-                    Tải xuống template Excel với 9 sheets đầy đủ
+                    Tải xuống template Excel với 10 sheets đầy đủ (v2.2)
                   </p>
                 </div>
                 <Button variant="outline" onClick={() => downloadIndustryPackTemplate()}>
