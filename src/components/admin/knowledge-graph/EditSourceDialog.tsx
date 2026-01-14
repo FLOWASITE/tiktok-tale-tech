@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { IndustryMultiSelect } from './IndustryMultiSelect';
 import type { RegulationSource } from '@/hooks/useRegulationSources';
 
 // Jurisdiction options
@@ -76,6 +77,7 @@ export function EditSourceDialog({
     category: 'general',
     search_query: '',
     crawl_frequency: 'weekly' as 'daily' | 'weekly' | 'monthly',
+    target_industry_category_ids: [] as string[],
   });
 
   // Sync form data when source changes
@@ -88,6 +90,7 @@ export function EditSourceDialog({
         category: source.category,
         search_query: source.search_query || '',
         crawl_frequency: source.crawl_frequency,
+        target_industry_category_ids: source.target_industry_category_ids || [],
       });
     }
   }, [source]);
@@ -198,6 +201,12 @@ export function EditSourceDialog({
               </SelectContent>
             </Select>
           </div>
+          
+          {/* Target Industries Multi-Select */}
+          <IndustryMultiSelect
+            selectedIds={formData.target_industry_category_ids}
+            onChange={(ids) => setFormData({ ...formData, target_industry_category_ids: ids })}
+          />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

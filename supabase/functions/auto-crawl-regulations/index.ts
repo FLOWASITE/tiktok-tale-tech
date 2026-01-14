@@ -20,6 +20,9 @@ interface RegulationSource {
   last_crawled_at: string | null;
   is_active: boolean;
   properties: Record<string, unknown>;
+  // Target industries for auto-linking regulations
+  target_industry_category_ids: string[] | null;
+  target_industry_pack_ids: string[] | null;
 }
 
 interface CrawlResult {
@@ -124,6 +127,119 @@ function generateRegulationKey(jurisdiction: string, category: string, title: st
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '');
   return `reg_${jurisdiction.toLowerCase()}_${category}_${sanitizedTitle}`;
+}
+
+/**
+ * Create regulated_by edges from industry nodes to regulation node
+ * Based on source's target_industry_category_ids configuration
+ */
+async function createRegulatedByEdges(
+  supabase: any, // Using any to avoid complex typing issues
+  regulationNodeId: string,
+  source: RegulationSource
+): Promise<number> {
+  const targetCategoryIds = source.target_industry_category_ids || [];
+  const targetPackIds = source.target_industry_pack_ids || [];
+  
+  if (targetCategoryIds.length === 0 && targetPackIds.length === 0) {
+    console.log(`[auto-crawl] No target industries configured for source: ${source.source_name}`);
+    return 0;
+  }
+  
+  const edges: Array<{
+    source_node_id: string;
+    target_node_id: string;
+    edge_type: string;
+    weight: number;
+    properties: Record<string, unknown>;
+  }> = [];
+  
+  // Find industry nodes by category IDs
+  if (targetCategoryIds.length > 0) {
+    // Get industry packs with matching category
+    const { data: matchingPacks } = await supabase
+      .from('industry_global_packs')
+      .select('id')
+      .in('category_id', targetCategoryIds)
+      .eq('is_active', true);
+    
+    const packsList = (matchingPacks || []) as Array<{ id: string }>;
+    if (packsList.length > 0) {
+      const packIds = packsList.map(p => p.id);
+      
+      // Get industry nodes from these packs
+      const { data: industryNodes } = await supabase
+        .from('industry_knowledge_nodes')
+        .select('id')
+        .eq('node_type', 'industry')
+        .in('global_pack_id', packIds)
+        .eq('is_active', true);
+      
+      const nodesList = (industryNodes || []) as Array<{ id: string }>;
+      for (const node of nodesList) {
+        edges.push({
+          source_node_id: node.id,           // Industry
+          target_node_id: regulationNodeId,   // Regulation
+          edge_type: 'regulated_by',
+          weight: 1.0,
+          properties: { 
+            auto_linked: true,
+            source_id: source.id,
+            linked_at: new Date().toISOString(),
+            link_method: 'category_mapping'
+          }
+        });
+      }
+    }
+  }
+  
+  // Find industry nodes by specific pack IDs
+  if (targetPackIds.length > 0) {
+    const { data: specificNodes } = await supabase
+      .from('industry_knowledge_nodes')
+      .select('id')
+      .eq('node_type', 'industry')
+      .in('global_pack_id', targetPackIds)
+      .eq('is_active', true);
+    
+    const nodesList = (specificNodes || []) as Array<{ id: string }>;
+    for (const node of nodesList) {
+      // Avoid duplicates
+      if (!edges.some(e => e.source_node_id === node.id)) {
+        edges.push({
+          source_node_id: node.id,
+          target_node_id: regulationNodeId,
+          edge_type: 'regulated_by',
+          weight: 1.0,
+          properties: { 
+            auto_linked: true, 
+            source_id: source.id,
+            linked_at: new Date().toISOString(),
+            link_method: 'pack_mapping'
+          }
+        });
+      }
+    }
+  }
+  
+  // Bulk insert edges (upsert to avoid duplicates)
+  if (edges.length > 0) {
+    const { error } = await supabase
+      .from('industry_knowledge_edges')
+      .upsert(edges as any, {
+        onConflict: 'source_node_id,target_node_id,edge_type',
+        ignoreDuplicates: true
+      });
+    
+    if (error) {
+      console.error(`[auto-crawl] Failed to create regulated_by edges: ${error.message}`);
+      return 0;
+    }
+    
+    console.log(`[auto-crawl] Created ${edges.length} regulated_by edges for regulation ${regulationNodeId}`);
+  }
+  
+  return edges.length;
 }
 
 // Search using Firecrawl
@@ -897,6 +1013,14 @@ async function processSource(
 
           stats.new_regulations++;
           stats.changes_detected++;
+
+          // === AUTO-LINK: Create regulated_by edges based on source's target industries ===
+          if (newNode) {
+            const edgesCreated = await createRegulatedByEdges(supabase, newNode.id, source);
+            if (edgesCreated > 0) {
+              console.log(`[auto-crawl] Linked regulation to ${edgesCreated} industries`);
+            }
+          }
 
           // === LIVING SYSTEM: Try to find and parse document ===
           if (enableFullParsing && newNode) {
