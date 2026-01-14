@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -20,11 +20,21 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  Trash2
+  Trash2,
+  Database,
+  AlertCircle
 } from 'lucide-react';
 import { useDuplicateDetection, DuplicateGroup } from '@/hooks/useDuplicateDetection';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { supabase } from '@/integrations/supabase/client';
+
+interface EmbeddingStats {
+  total_regulations: number;
+  with_embedding: number;
+  missing_embedding: number;
+  embedding_percentage: number;
+}
 
 interface DuplicateDetectionPanelProps {
   selectedNodeId?: string | null;
@@ -34,6 +44,8 @@ export function DuplicateDetectionPanel({ selectedNodeId }: DuplicateDetectionPa
   const [threshold, setThreshold] = useState(0.85);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedForMerge, setSelectedForMerge] = useState<Map<string, string>>(new Map()); // groupId -> keepNodeId
+  const [embeddingStats, setEmbeddingStats] = useState<EmbeddingStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   const {
     isScanning,
@@ -46,6 +58,24 @@ export function DuplicateDetectionPanel({ selectedNodeId }: DuplicateDetectionPa
     ignoreDuplicate,
     clearResults
   } = useDuplicateDetection();
+
+  // Fetch embedding stats on mount
+  useEffect(() => {
+    const fetchStats = async () => {
+      setLoadingStats(true);
+      try {
+        const { data, error } = await supabase.rpc('get_regulation_embedding_stats');
+        if (!error && data && data.length > 0) {
+          setEmbeddingStats(data[0] as EmbeddingStats);
+        }
+      } catch (err) {
+        console.error('Error fetching embedding stats:', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    fetchStats();
+  }, [duplicates]); // Refresh when duplicates change (after merge)
 
   const handleScanAll = () => {
     scanAll(threshold, 200);
@@ -125,6 +155,32 @@ export function DuplicateDetectionPanel({ selectedNodeId }: DuplicateDetectionPa
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Embedding Stats Alert */}
+        {embeddingStats && embeddingStats.missing_embedding > 0 && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <div>
+                <strong>{embeddingStats.missing_embedding}/{embeddingStats.total_regulations}</strong> văn bản thiếu embedding 
+                ({Math.round(embeddingStats.embedding_percentage)}% đã có).
+                <br />
+                <span className="text-sm">
+                  Các văn bản thiếu embedding sẽ được so sánh bằng <strong>tên chính xác</strong> thay vì ngữ nghĩa.
+                </span>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="shrink-0 ml-2"
+                onClick={() => window.location.hash = '#vectors'}
+              >
+                <Database className="h-4 w-4 mr-1" />
+                Tạo Embeddings
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Controls */}
         <div className="space-y-4">
           <div className="space-y-2">
