@@ -7929,8 +7929,9 @@ export type Database = {
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
+      extract_doc_year: { Args: { doc_name: string }; Returns: string }
       find_duplicate_regulations: {
-        Args: { p_limit?: number; p_similarity_threshold?: number }
+        Args: { max_results?: number; similarity_threshold?: number }
         Returns: {
           match_type: string
           name_1: string
@@ -7944,13 +7945,13 @@ export type Database = {
       }
       find_node_duplicates: {
         Args: {
-          p_limit?: number
-          p_node_id: string
-          p_similarity_threshold?: number
+          max_results?: number
+          similarity_threshold?: number
+          target_node_id: string
         }
         Returns: {
-          duplicate_id: string
           duplicate_name: string
+          duplicate_node_id: string
           duplicate_quality: number
           match_type: string
           similarity: number
@@ -8101,6 +8102,10 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      levenshtein_similarity: {
+        Args: { text1: string; text2: string }
+        Returns: number
+      }
       log_knowledge_graph_query: {
         Args: {
           p_duration_ms?: number
@@ -8119,6 +8124,7 @@ export type Database = {
         }
         Returns: Json
       }
+      normalize_vn_text: { Args: { input_text: string }; Returns: string }
       search_conversation_embeddings: {
         Args: {
           exclude_conversation_id?: string

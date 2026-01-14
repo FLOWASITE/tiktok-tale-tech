@@ -9,7 +9,7 @@ export interface DuplicatePair {
   name_1: string;
   name_2: string;
   similarity: number;
-  match_type: 'semantic' | 'exact_title';
+  match_type: 'exact_code' | 'same_number' | 'same_year' | 'semantic_only';
   quality_1: number | null;
   quality_2: number | null;
 }
@@ -27,7 +27,7 @@ export interface DuplicateGroup {
 
 // Matches RPC output: find_node_duplicates
 export interface NodeDuplicate {
-  duplicate_id: string;
+  duplicate_node_id: string;
   duplicate_name: string;
   similarity: number;
   match_type: string;
@@ -129,8 +129,8 @@ export function useDuplicateDetection() {
 
     try {
       const { data, error } = await supabase.rpc('find_duplicate_regulations', {
-        p_similarity_threshold: threshold,
-        p_limit: limit
+        similarity_threshold: threshold,
+        max_results: limit
       });
 
       setScanProgress(70);
@@ -166,9 +166,9 @@ export function useDuplicateDetection() {
 
     try {
       const { data, error } = await supabase.rpc('find_node_duplicates', {
-        p_node_id: nodeId,
-        p_similarity_threshold: threshold,
-        p_limit: 10
+        target_node_id: nodeId,
+        similarity_threshold: threshold,
+        max_results: 10
       });
 
       if (error) {
