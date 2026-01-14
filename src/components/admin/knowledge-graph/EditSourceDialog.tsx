@@ -34,19 +34,6 @@ const JURISDICTIONS = [
   { value: 'JP', label: '🇯🇵 Japan' },
 ];
 
-// Category options
-const CATEGORIES = [
-  { value: 'tax', label: 'Thuế / Tax' },
-  { value: 'advertising', label: 'Quảng cáo / Advertising' },
-  { value: 'land', label: 'Đất đai / Land' },
-  { value: 'finance', label: 'Tài chính / Finance' },
-  { value: 'healthcare', label: 'Y tế / Healthcare' },
-  { value: 'environment', label: 'Môi trường / Environment' },
-  { value: 'labor', label: 'Lao động / Labor' },
-  { value: 'data_privacy', label: 'Bảo mật dữ liệu / Data Privacy' },
-  { value: 'consumer', label: 'Bảo vệ người tiêu dùng / Consumer Protection' },
-  { value: 'general', label: 'Chung / General' },
-];
 
 // Frequency options
 const FREQUENCIES = [
@@ -74,7 +61,6 @@ export function EditSourceDialog({
     source_name: '',
     source_url: '',
     jurisdiction: 'VN',
-    category: 'general',
     search_query: '',
     crawl_frequency: 'weekly' as 'daily' | 'weekly' | 'monthly',
     target_industry_pack_ids: [] as string[],
@@ -87,7 +73,6 @@ export function EditSourceDialog({
         source_name: source.source_name,
         source_url: source.source_url,
         jurisdiction: source.jurisdiction,
-        category: source.category,
         search_query: source.search_query || '',
         crawl_frequency: source.crawl_frequency,
         target_industry_pack_ids: source.target_industry_pack_ids || [],
@@ -131,43 +116,23 @@ export function EditSourceDialog({
               onChange={(e) => setFormData({ ...formData, source_url: e.target.value })}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Khu vực pháp lý</Label>
-              <Select
-                value={formData.jurisdiction}
-                onValueChange={(value) => setFormData({ ...formData, jurisdiction: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {JURISDICTIONS.map((j) => (
-                    <SelectItem key={j.value} value={j.value}>
-                      {j.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Danh mục</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Khu vực pháp lý</Label>
+            <Select
+              value={formData.jurisdiction}
+              onValueChange={(value) => setFormData({ ...formData, jurisdiction: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {JURISDICTIONS.map((j) => (
+                  <SelectItem key={j.value} value={j.value}>
+                    {j.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit_search_query">Query Tìm Kiếm</Label>
