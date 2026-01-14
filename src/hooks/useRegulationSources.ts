@@ -26,6 +26,9 @@ export interface RegulationSource {
   properties: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  // Target industries for auto-linking regulations
+  target_industry_category_ids: string[];
+  target_industry_pack_ids: string[];
 }
 
 export interface CrawlHistory {
@@ -164,6 +167,8 @@ export function useRegulationSources() {
       if (updates.search_query !== undefined) updateData.search_query = updates.search_query;
       if (updates.crawl_frequency !== undefined) updateData.crawl_frequency = updates.crawl_frequency;
       if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
+      if (updates.target_industry_category_ids !== undefined) updateData.target_industry_category_ids = updates.target_industry_category_ids;
+      if (updates.target_industry_pack_ids !== undefined) updateData.target_industry_pack_ids = updates.target_industry_pack_ids;
 
       const { data, error } = await supabase
         .from('regulation_sources')

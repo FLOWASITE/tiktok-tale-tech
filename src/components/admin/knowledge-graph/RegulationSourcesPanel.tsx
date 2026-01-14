@@ -23,6 +23,7 @@ import {
   Download,
   AlertTriangle,
   FileText,
+  Target,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,7 +74,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useRegulationSources, RegulationSource, CrawlHistory, CrawlingTarget } from '@/hooks/useRegulationSources';
+import { useIndustryCategories } from '@/hooks/useIndustryCategories';
 import { EditSourceDialog } from './EditSourceDialog';
+import { IndustryMultiSelect } from './IndustryMultiSelect';
 import { CrawledContentViewer } from './CrawledContentViewer';
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -115,6 +118,7 @@ interface AddSourceFormData {
   category: string;
   search_query: string;
   crawl_frequency: 'daily' | 'weekly' | 'monthly';
+  target_industry_category_ids: string[];
 }
 
 const initialFormData: AddSourceFormData = {
@@ -124,6 +128,7 @@ const initialFormData: AddSourceFormData = {
   category: 'general',
   search_query: '',
   crawl_frequency: 'weekly',
+  target_industry_category_ids: [],
 };
 
 export function RegulationSourcesPanel() {
@@ -147,6 +152,8 @@ export function RegulationSourcesPanel() {
     refetchSources,
     refetchHistory,
   } = useRegulationSources();
+  
+  const { data: industryCategories = [] } = useIndustryCategories();
   
   // Helper: check if a specific source is being crawled
   const isSourceCrawling = (sourceId: string) => 
@@ -173,6 +180,7 @@ export function RegulationSourcesPanel() {
       ...formData,
       is_active: true,
       properties: {},
+      target_industry_pack_ids: [],
     });
     setIsAddDialogOpen(false);
     setFormData(initialFormData);
@@ -423,6 +431,12 @@ export function RegulationSourcesPanel() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Target Industries Multi-Select */}
+                <IndustryMultiSelect
+                  selectedIds={formData.target_industry_category_ids}
+                  onChange={(ids) => setFormData({ ...formData, target_industry_category_ids: ids })}
+                />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -553,6 +567,22 @@ export function RegulationSourcesPanel() {
                             {source.search_query}
                           </p>
                         )}
+                        
+                        {/* Target Industries Display */}
+                        {source.target_industry_category_ids?.length > 0 && (
+                          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            <Target className="h-3 w-3 text-primary" />
+                            {source.target_industry_category_ids.map(catId => {
+                              const cat = industryCategories.find(c => c.id === catId);
+                              return cat ? (
+                                <Badge key={catId} variant="outline" className="text-xs bg-primary/5">
+                                  {cat.label}
+                                </Badge>
+                              ) : null;
+                            })}
+                          </div>
+                        )}
+                        
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                           {source.last_crawled_at && (
                             <span className="flex items-center gap-1">

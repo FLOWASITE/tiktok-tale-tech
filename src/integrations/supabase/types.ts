@@ -6571,6 +6571,8 @@ export type Database = {
           search_query: string | null
           source_name: string
           source_url: string
+          target_industry_category_ids: string[] | null
+          target_industry_pack_ids: string[] | null
           updated_at: string | null
         }
         Insert: {
@@ -6586,6 +6588,8 @@ export type Database = {
           search_query?: string | null
           source_name: string
           source_url: string
+          target_industry_category_ids?: string[] | null
+          target_industry_pack_ids?: string[] | null
           updated_at?: string | null
         }
         Update: {
@@ -6601,6 +6605,8 @@ export type Database = {
           search_query?: string | null
           source_name?: string
           source_url?: string
+          target_industry_category_ids?: string[] | null
+          target_industry_pack_ids?: string[] | null
           updated_at?: string | null
         }
         Relationships: []
