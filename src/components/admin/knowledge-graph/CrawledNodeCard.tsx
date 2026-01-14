@@ -204,9 +204,6 @@ export function CrawledNodeCard({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge variant="outline" className="text-xs">
-                    {node.properties?.category || 'general'}
-                  </Badge>
                   {node.source_id && (
                     <Badge 
                       variant="outline" 

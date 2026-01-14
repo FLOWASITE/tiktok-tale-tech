@@ -529,15 +529,11 @@ export function RegulationSourcesPanel() {
                             href={source.source_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 hover:text-foreground transition-colors"
+                            className="flex items-center gap-1 hover:text-foreground transition-colors truncate max-w-md"
                           >
-                            <ExternalLink className="h-3 w-3" />
+                            <ExternalLink className="h-3 w-3 shrink-0" />
                             {source.source_url}
                           </a>
-                          <span className="flex items-center gap-1">
-                            <Search className="h-3 w-3" />
-                            {source.category}
-                          </span>
                         </div>
                         {source.search_query && (
                           <p className="text-xs text-muted-foreground mt-1 font-mono bg-muted px-2 py-1 rounded">
@@ -545,12 +541,13 @@ export function RegulationSourcesPanel() {
                           </p>
                         )}
                         
-                        {/* Target Industries Display */}
+                        {/* Target Industries Display - Improved */}
                         {source.target_industry_pack_ids && source.target_industry_pack_ids.length > 0 && (
                           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                            <Target className="h-3 w-3 text-primary" />
-                            <Badge variant="outline" className="text-xs bg-primary/5">
-                              {source.target_industry_pack_ids.length} ngành mục tiêu
+                            <Target className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="text-xs text-muted-foreground">Liên kết đến:</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {source.target_industry_pack_ids.length} ngành
                             </Badge>
                           </div>
                         )}
