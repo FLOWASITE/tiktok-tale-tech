@@ -4,15 +4,18 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  FileText, 
-  BookOpen, 
-  Lightbulb, 
-  Users, 
-  Factory, 
-  Globe,
+import { Button } from "@/components/ui/button";
+import {
+  Scale,
+  BookOpen,
+  Lightbulb,
+  Users,
+  Sparkles,
   Database,
-  Sparkles
+  Factory,
+  Globe,
+  Network,
+  FileText,
 } from "lucide-react";
 import type { KnowledgeStats, IndustryPackInfo } from "@/hooks/useIndustryPackKnowledge";
 import { cn } from "@/lib/utils";
@@ -23,6 +26,7 @@ interface IndustryContentStatsProps {
   stats: KnowledgeStats;
   activeFilter: KnowledgeNodeType | null;
   onFilterChange: (type: KnowledgeNodeType | null) => void;
+  onViewGraph?: () => void;
 }
 
 const STAT_CARDS: {
@@ -87,7 +91,8 @@ export function IndustryContentStats({
   packInfo, 
   stats, 
   activeFilter, 
-  onFilterChange 
+  onFilterChange,
+  onViewGraph,
 }: IndustryContentStatsProps) {
   const embeddingPercent = stats.total > 0 
     ? Math.round((stats.withEmbedding / stats.total) * 100) 
@@ -113,6 +118,12 @@ export function IndustryContentStats({
               <Badge variant="outline" className="text-[10px]">
                 {packInfo.targetAudience}
               </Badge>
+              {onViewGraph && (
+                <Button variant="outline" size="sm" onClick={onViewGraph} className="ml-2 gap-1.5">
+                  <Network className="h-3.5 w-3.5" />
+                  Xem Graph
+                </Button>
+              )}
             </div>
           </div>
         </div>

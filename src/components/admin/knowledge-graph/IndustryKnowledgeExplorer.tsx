@@ -3,6 +3,7 @@
  */
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,10 +15,19 @@ import { useIndustryPackKnowledge } from "@/hooks/useIndustryPackKnowledge";
 import type { KnowledgeNodeType } from "@/types/knowledgeGraph";
 
 export function IndustryKnowledgeExplorer() {
+  const navigate = useNavigate();
   const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
   const [nodeTypeFilter, setNodeTypeFilter] = useState<KnowledgeNodeType | null>(null);
 
   const { data: packKnowledge, isLoading, error } = useIndustryPackKnowledge(selectedPackId);
+
+  // Navigate to Graph tab with pack filter
+  const handleViewGraph = () => {
+    if (selectedPackId && packKnowledge?.packInfo) {
+      // Navigate to Khám phá tab with global_pack_id filter
+      navigate(`/admin/knowledge-graph?tab=explorer&packId=${selectedPackId}`);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 min-h-[600px]">
@@ -44,6 +54,7 @@ export function IndustryKnowledgeExplorer() {
               stats={packKnowledge.stats}
               activeFilter={nodeTypeFilter}
               onFilterChange={setNodeTypeFilter}
+              onViewGraph={handleViewGraph}
             />
             <IndustryContentTabs
               nodes={packKnowledge.nodes}
