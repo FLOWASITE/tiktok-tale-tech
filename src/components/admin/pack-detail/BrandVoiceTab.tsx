@@ -24,16 +24,26 @@ interface BrandVoice {
 }
 
 interface BrandVoiceTabProps {
-  brandVoice: BrandVoice;
+  brandVoice: Record<string, unknown>;
 }
 
+// Helper to safely convert value to array
+const toArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.filter(v => typeof v === 'string');
+  if (typeof value === 'string' && value.trim()) return [value];
+  return [];
+};
+
 export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
-  const tones = brandVoice.tone_of_voice || [];
-  const languageStyles = Array.isArray(brandVoice.language_style) 
-    ? brandVoice.language_style 
-    : brandVoice.language_style ? [brandVoice.language_style] : [];
-  const ctaStyles = brandVoice.preferred_cta_styles || [];
-  const principles = brandVoice.content_principles || [];
+  const tones = toArray(brandVoice?.tone_of_voice);
+  const languageStyles = toArray(brandVoice?.language_style);
+  const ctaStyles = toArray(brandVoice?.preferred_cta_styles);
+  const principles = toArray(brandVoice?.content_principles);
+  
+  const formality = typeof brandVoice?.formality_level === 'string' ? brandVoice.formality_level : '';
+  const allowEmoji = Boolean(brandVoice?.allow_emoji);
+  const emojiPolicy = typeof brandVoice?.emoji_policy === 'string' ? brandVoice.emoji_policy : '';
+  const ctaPolicy = typeof brandVoice?.cta_policy === 'string' ? brandVoice.cta_policy : '';
 
   const getCtaPolicyColor = (policy: string) => {
     switch (policy) {
@@ -98,9 +108,9 @@ export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {brandVoice.formality_level ? (
-              <Badge className={`text-sm py-2 px-4 ${getFormalityColor(brandVoice.formality_level)}`}>
-                {brandVoice.formality_level}
+            {formality ? (
+              <Badge className={`text-sm py-2 px-4 ${getFormalityColor(formality)}`}>
+                {formality}
               </Badge>
             ) : (
               <p className="text-muted-foreground text-sm">Không xác định</p>
@@ -143,13 +153,13 @@ export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <Badge variant={brandVoice.allow_emoji ? 'default' : 'destructive'}>
-                  {brandVoice.allow_emoji ? '✅ Cho phép' : '❌ Không cho phép'}
+                <Badge variant={allowEmoji ? 'default' : 'destructive'}>
+                  {allowEmoji ? '✅ Cho phép' : '❌ Không cho phép'}
                 </Badge>
               </div>
-              {brandVoice.emoji_policy && (
+              {emojiPolicy && (
                 <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-                  {brandVoice.emoji_policy}
+                  {emojiPolicy}
                 </p>
               )}
             </div>
@@ -165,9 +175,9 @@ export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {brandVoice.cta_policy && (
-                <Badge className={`text-sm py-2 px-4 ${getCtaPolicyColor(brandVoice.cta_policy)}`}>
-                  {brandVoice.cta_policy.toUpperCase()}
+              {ctaPolicy && (
+                <Badge className={`text-sm py-2 px-4 ${getCtaPolicyColor(ctaPolicy)}`}>
+                  {ctaPolicy.toUpperCase()}
                 </Badge>
               )}
               {ctaStyles.length > 0 && (
