@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { IndustryBrowserV2 } from '@/components/admin/IndustryBrowserV2';
 import { JurisdictionProfilesPanel } from '@/components/admin/JurisdictionProfilesPanel';
 import { IndustryExcelImportDialog } from '@/components/admin/IndustryExcelImportDialog';
+import { IndustryJsonImporter } from '@/components/admin/IndustryJsonImporter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,11 +20,13 @@ import {
   MapPin,
   Globe,
   ArrowLeft,
+  FileJson,
 } from 'lucide-react';
 
 export function AdminIndustriesV2() {
   const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isJsonImportOpen, setIsJsonImportOpen] = useState(false);
 
   // Fetch real stats from database
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -77,6 +80,10 @@ export function AdminIndustriesV2() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsJsonImportOpen(true)}>
+            <FileJson className="h-4 w-4 mr-2" />
+            Import JSON
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Import Excel
@@ -84,10 +91,15 @@ export function AdminIndustriesV2() {
         </div>
       </div>
 
-      {/* Import Dialog */}
+      {/* Import Dialogs */}
       <IndustryExcelImportDialog
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
+        onSuccess={() => {}}
+      />
+      <IndustryJsonImporter
+        open={isJsonImportOpen}
+        onOpenChange={setIsJsonImportOpen}
         onSuccess={() => {}}
       />
 
