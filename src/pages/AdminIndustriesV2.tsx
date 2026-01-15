@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { IndustryBrowserV2 } from '@/components/admin/IndustryBrowserV2';
-import { JurisdictionProfilesPanel } from '@/components/admin/JurisdictionProfilesPanel';
+import { IndustryPackDetailView } from '@/components/admin/IndustryPackDetailView';
 import { IndustryExcelImportDialog } from '@/components/admin/IndustryExcelImportDialog';
 import { IndustryJsonImporter } from '@/components/admin/IndustryJsonImporter';
 import { Button } from '@/components/ui/button';
@@ -165,7 +165,7 @@ export function AdminIndustriesV2() {
 
       {/* Main Content */}
       {selectedPackId ? (
-        <JurisdictionProfilesPanel
+        <IndustryPackDetailView
           globalPackId={selectedPackId}
           onBack={() => setSelectedPackId(null)}
         />
