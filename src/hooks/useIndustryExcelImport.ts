@@ -778,6 +778,12 @@ export function useIndustryExcelImport() {
             segment_size: persona.segment_size ? parseFloat(persona.segment_size) : null,
             priority_score: persona.priority_score ? parseInt(persona.priority_score) : null,
             persona_type: persona.persona_type || 'primary',
+            // Extended fields from Excel that don't exist in schema - store in JSONB
+            content_format_preferences: persona.content_format_preferences?.split(';').map(f => f.trim()).filter(Boolean) || [],
+            best_posting_times: persona.best_posting_times?.split(';').map(t => t.trim()).filter(Boolean) || [],
+            engagement_patterns: persona.engagement_patterns || null,
+            trust_factors: persona.trust_factors?.split(';').map(f => f.trim()).filter(Boolean) || [],
+            brand_loyalty: persona.brand_loyalty || null,
           };
 
           const personaData = {
@@ -796,7 +802,8 @@ export function useIndustryExcelImport() {
             objections: persona.objections?.split(';').map(o => o.trim()).filter(Boolean) || [],
             values: persona.values?.split(';').map(v => v.trim()).filter(Boolean) || [],
             interests: persona.interests?.split(';').map(i => i.trim()).filter(Boolean) || [],
-            buying_motivation: persona.buying_motivation?.split(';').map(m => m.trim()).filter(Boolean) || [],
+            // Map buying_triggers (Excel) -> buying_motivation (DB schema)
+            buying_motivation: (persona.buying_triggers || persona.buying_motivation)?.split(';').map(m => m.trim()).filter(Boolean) || [],
             preferred_channels: persona.preferred_channels?.split(';').map(c => c.trim()).filter(Boolean) || [],
             communication_style: persona.communication_style || 'direct',
             response_tone_hints: persona.response_tone_hints?.split(';').map(h => h.trim()).filter(Boolean) || [],
@@ -806,7 +813,8 @@ export function useIndustryExcelImport() {
             tech_savviness: persona.tech_savviness || null,
             price_sensitivity: persona.price_sensitivity || null,
             purchase_frequency: persona.purchase_frequency || null,
-            decision_factors: persona.decision_factors?.split(';').map(d => d.trim()).filter(Boolean) || [],
+            // Map decision_drivers (Excel) -> decision_factors (DB schema)
+            decision_factors: (persona.decision_drivers || persona.decision_factors)?.split(';').map(d => d.trim()).filter(Boolean) || [],
             personality_traits: persona.personality_traits?.split(';').map(t => t.trim()).filter(Boolean) || [],
             social_platforms: persona.social_platforms?.split(';').map(s => s.trim()).filter(Boolean) || [],
             content_consumption: persona.content_consumption?.split(';').map(c => c.trim()).filter(Boolean) || [],
