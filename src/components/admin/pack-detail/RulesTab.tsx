@@ -42,12 +42,26 @@ interface ArgumentPatterns {
   forbidden_patterns?: string[];
 }
 
+interface SystemRule {
+  rule: string;
+  priority?: number | string;
+}
+
 interface RulesTabProps {
   complianceRules: ComplianceRule[];
   claimRestrictions: ClaimRestriction[];
-  systemRules: string[];
+  systemRules: (string | SystemRule)[];
   argumentPatterns: ArgumentPatterns;
 }
+
+// Helper to extract rule text from system rule (can be string or object)
+const getSystemRuleText = (rule: string | SystemRule): string => {
+  if (typeof rule === 'string') return rule;
+  if (typeof rule === 'object' && rule !== null && typeof rule.rule === 'string') {
+    return rule.rule;
+  }
+  return '';
+};
 
 export function RulesTab({ 
   complianceRules, 
@@ -84,9 +98,10 @@ export function RulesTab({
     r.alternative?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredSystemRules = systemRules.filter(r =>
-    !searchTerm || r.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSystemRules = systemRules.filter(r => {
+    const text = getSystemRuleText(r);
+    return !searchTerm || text.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="space-y-4">
@@ -252,22 +267,25 @@ export function RulesTab({
             <CardContent>
               {filteredSystemRules.length > 0 ? (
                 <ol className="space-y-3">
-                  {filteredSystemRules.map((rule, i) => (
-                    <li key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                      <Badge variant="outline" className="shrink-0 font-mono">
-                        {i + 1}
-                      </Badge>
-                      <span className="text-sm flex-1">{rule}</span>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="shrink-0"
-                        onClick={() => copyToClipboard(rule)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </li>
-                  ))}
+                  {filteredSystemRules.map((rule, i) => {
+                    const ruleText = getSystemRuleText(rule);
+                    return (
+                      <li key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <Badge variant="outline" className="shrink-0 font-mono">
+                          {i + 1}
+                        </Badge>
+                        <span className="text-sm flex-1">{ruleText}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="shrink-0"
+                          onClick={() => copyToClipboard(ruleText)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </li>
+                    );
+                  })}
                 </ol>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">
