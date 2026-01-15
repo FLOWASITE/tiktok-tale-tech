@@ -275,6 +275,10 @@ export function useIndustryJsonImport() {
         thresholds: pack.risk_guidelines.risk_thresholds,
       };
 
+      // Determine industry_level: if no parent_pack specified, it's a 'core' pack
+      const industryLevel = (pack as any).industry_level || 'core';
+      const parentPackId = (pack as any).parent_pack_id || null;
+
       const packData = {
         industry_code: pack.industry_code,
         category_id: categoryData?.id || null,
@@ -289,6 +293,9 @@ export function useIndustryJsonImport() {
         related_industries: pack.related_industries,
         version: pack.version,
         status: 'active',
+        industry_level: industryLevel,
+        parent_pack_id: parentPackId,
+        is_active: true,
         updated_at: new Date().toISOString(),
       };
 
