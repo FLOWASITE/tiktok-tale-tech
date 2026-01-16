@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   BookOpen, 
   Search,
@@ -136,7 +135,7 @@ export function GlossaryTab({ translations }: GlossaryTabProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[500px]">
+          <div className="max-h-[60vh] sm:max-h-[500px] overflow-y-auto overscroll-contain">
             <div className="divide-y">
               {filteredItems.map((item, i) => (
                 <div 
@@ -185,7 +184,7 @@ export function GlossaryTab({ translations }: GlossaryTabProps) {
                 Không tìm thấy thuật ngữ nào
               </div>
             )}
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
     </div>
