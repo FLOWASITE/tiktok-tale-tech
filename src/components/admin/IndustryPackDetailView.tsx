@@ -201,7 +201,7 @@ export function IndustryPackDetailView({ globalPackId, onBack }: IndustryPackDet
           </TabsContent>
 
           <TabsContent value="regulations">
-            <RegulationsTab profiles={profiles} />
+            <RegulationsTab profiles={profiles} globalPackId={globalPackId} />
           </TabsContent>
 
           <TabsContent value="jurisdictions">
