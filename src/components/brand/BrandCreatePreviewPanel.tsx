@@ -234,7 +234,7 @@ export function BrandCreatePreviewPanel({
         </Card>
 
         {/* Brand Voice Summary */}
-        {(toneOfVoice.length > 0 || formalityLevel || brandPositioning) && (
+        {(safeToneOfVoice.length > 0 || formalityLevel || brandPositioning) && (
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -423,11 +423,11 @@ export function BrandCreatePreviewPanel({
             <div className="space-y-2">
               {[
                 { label: 'Tên thương hiệu', done: !!brandName },
-                { label: 'Industry/Ngành hàng', done: industries.length > 0 },
+                { label: 'Industry/Ngành hàng', done: safeIndustries.length > 0 },
                 { label: 'Brand Positioning', done: !!brandPositioning },
-                { label: 'Tone of Voice', done: toneOfVoice.length > 0 },
-                { label: 'Customer Personas', done: personas.length > 0 },
-                { label: 'Sản phẩm', done: localProducts.length > 0 },
+                { label: 'Tone of Voice', done: safeToneOfVoice.length > 0 },
+                { label: 'Customer Personas', done: safePersonas.length > 0 },
+                { label: 'Sản phẩm', done: safeLocalProducts.length > 0 },
                 { label: 'Channel Settings', done: channelCount > 0 },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
