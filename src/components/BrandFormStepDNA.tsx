@@ -131,13 +131,6 @@ export function BrandFormStepDNA({
     const normalized = (tone || '').trim();
     if (!normalized) return;
 
-    console.log('[BrandFormStepDNA] toggleTone', {
-      tone,
-      normalized,
-      before: safeToneOfVoice,
-      allowEmoji,
-    });
-
     const isSelected = safeToneOfVoice.includes(normalized);
     const next = isSelected
       ? safeToneOfVoice.filter((t) => t !== normalized)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Palette, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -137,9 +137,14 @@ export default function BrandCreate() {
     }
   }, [editingTemplate?.id, dbPersonas]);
 
-  // Populate form with editing template data
+  // Hydration flag to prevent re-running form population on every render
+  const hasHydratedRef = useRef(false);
+
+  // Populate form with editing template data - ONLY ONCE
   useEffect(() => {
-    if (editingTemplate) {
+    if (editingTemplate && !hasHydratedRef.current) {
+      hasHydratedRef.current = true;
+      
       setName(editingTemplate.name || '');
       setBrandName(editingTemplate.brand_name || '');
       setIndustries(asStringArray(editingTemplate.industry));
@@ -241,16 +246,36 @@ export default function BrandCreate() {
     // Use global_pack_id for v2.1 architecture (keeping industryTemplateId for backward compatibility)
     setGlobalPackId(packData.id);
     setIndustries(asStringArray(packData.name));
-    setBrandPositioning(packData.brandPositioning || '');
+    
+    if (packData.brandPositioning) {
+      setBrandPositioning(packData.brandPositioning);
+    }
 
     const voice = (packData as any).brandVoice || {};
-    setToneOfVoice(asStringArray(voice.tone_of_voice));
-    setFormalityLevel(voice.formality_level || '');
-    setLanguageStyle(asStringArray(voice.language_style));
-    setAllowEmoji(voice.allow_emoji ?? false);
+    // Only set values if pack provides them - don't reset to empty
+    const packTones = asStringArray(voice.tone_of_voice);
+    if (packTones.length > 0) {
+      setToneOfVoice(packTones);
+    }
+    if (voice.formality_level) {
+      setFormalityLevel(voice.formality_level);
+    }
+    const packLangStyle = asStringArray(voice.language_style);
+    if (packLangStyle.length > 0) {
+      setLanguageStyle(packLangStyle);
+    }
+    if (typeof voice.allow_emoji === 'boolean') {
+      setAllowEmoji(voice.allow_emoji);
+    }
 
-    setPreferredWords(asStringArray((packData as any).preferredTerms));
-    setForbiddenWords(asStringArray((packData as any).forbiddenTerms));
+    const packPreferred = asStringArray((packData as any).preferredTerms);
+    if (packPreferred.length > 0) {
+      setPreferredWords(packPreferred);
+    }
+    const packForbidden = asStringArray((packData as any).forbiddenTerms);
+    if (packForbidden.length > 0) {
+      setForbiddenWords(packForbidden);
+    }
 
     setShowQuickStart(false);
     setCurrentStep(1);
