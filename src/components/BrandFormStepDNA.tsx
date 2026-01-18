@@ -128,17 +128,30 @@ export function BrandFormStepDNA({
   };
 
   const toggleTone = (tone: string) => {
-    const isSelected = safeToneOfVoice.includes(tone);
-    if (isSelected) {
-      setToneOfVoice(safeToneOfVoice.filter(t => t !== tone));
-    } else if (safeToneOfVoice.length < 3) {
-      const newTones = [...safeToneOfVoice, tone];
-      setToneOfVoice(newTones);
-      // Auto-enable emoji if tone suggests it
-      const option = TONE_OF_VOICE_OPTIONS.find(o => o.value === tone);
-      if (option?.suggestEmoji && !allowEmoji) {
-        setAllowEmoji(true);
-      }
+    const normalized = (tone || '').trim();
+    if (!normalized) return;
+
+    console.log('[BrandFormStepDNA] toggleTone', {
+      tone,
+      normalized,
+      before: safeToneOfVoice,
+      allowEmoji,
+    });
+
+    const isSelected = safeToneOfVoice.includes(normalized);
+    const next = isSelected
+      ? safeToneOfVoice.filter((t) => t !== normalized)
+      : safeToneOfVoice.length < 3
+        ? [...safeToneOfVoice, normalized]
+        : safeToneOfVoice;
+
+    // Force new reference even if something upstream passes a frozen array
+    setToneOfVoice([...next]);
+
+    // Auto-enable emoji if tone suggests it
+    const option = TONE_OF_VOICE_OPTIONS.find((o) => o.value === normalized);
+    if (!isSelected && option?.suggestEmoji && !allowEmoji) {
+      setAllowEmoji(true);
     }
   };
 
@@ -242,7 +255,11 @@ export function BrandFormStepDNA({
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => !isDisabled && toggleTone(opt.value)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!isDisabled) toggleTone(opt.value);
+                    }}
                     className={cn(
                       "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all",
                       "bg-background/50 text-left",
