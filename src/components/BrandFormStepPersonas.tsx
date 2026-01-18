@@ -124,6 +124,11 @@ export function BrandFormStepPersonas({
   // Fetch industry personas for import (v2 priority, v1 fallback)
   const { personas: industryPersonas, isLoading: loadingIndustry } = useIndustryPersonasForImport(industryTemplateId, globalPackId);
 
+  // Defensive guards (avoid runtime errors when upstream data is null/undefined)
+  const safePersonas: CustomerPersona[] = Array.isArray(personas) ? personas : [];
+  const safeIndustryPersonas = Array.isArray(industryPersonas) ? industryPersonas : [];
+  const safeLocalProducts: LocalProduct[] = Array.isArray(localProducts) ? localProducts : [];
+  const safeLocalMappings: LocalProductPersonaMapping[] = Array.isArray(localMappings) ? localMappings : [];
   // Helper to calculate persona completeness
   const getPersonaCompleteness = (persona: CustomerPersona): number => {
     let score = 0;
@@ -147,15 +152,15 @@ export function BrandFormStepPersonas({
 
   // Batch import with immediate use option
   const handleImportPersona = (industryPersona: any, openEditor: boolean = false) => {
-    if (personas.length >= 5) return;
-    if (personas.some(p => (p as any).source_industry_persona_id === industryPersona.id)) return;
-    
+    if (safePersonas.length >= 5) return;
+    if (safePersonas.some(p => (p as any).source_industry_persona_id === industryPersona.id)) return;
+
     const newPersona: CustomerPersona = {
       id: `temp-${Date.now()}`,
       brand_template_id: '',
       name: industryPersona.name,
       avatar_emoji: industryPersona.avatar_emoji || '👤',
-      is_primary: personas.length === 0,
+      is_primary: safePersonas.length === 0,
       age_range: industryPersona.age_range,
       gender: industryPersona.gender,
       location: industryPersona.location,
@@ -177,40 +182,40 @@ export function BrandFormStepPersonas({
       source_industry_persona_id: industryPersona.id,
       is_customized: false,
     };
-    
-    onPersonasChange([...personas, newPersona]);
-    
+
+    onPersonasChange([...safePersonas, newPersona]);
+
     if (openEditor) {
       setEditingId(newPersona.id);
       setEditorTab('basic');
     }
-    
+
     setShowIndustryImport(false);
   };
 
   // Batch import industry personas
   const handleBatchImport = () => {
     if (selectedIndustryPersonaIds.size === 0) return;
-    
+
     const newPersonas: CustomerPersona[] = [];
-    const remainingSlots = 5 - personas.length;
+    const remainingSlots = 5 - safePersonas.length;
     let importCount = 0;
-    
+
     for (const id of selectedIndustryPersonaIds) {
       if (importCount >= remainingSlots) break;
-      
-      const industryPersona = industryPersonas.find(p => p.id === id);
+
+      const industryPersona = safeIndustryPersonas.find(p => p.id === id);
       if (!industryPersona) continue;
-      
+
       // Check if already imported
-      if (personas.some(p => (p as any).source_industry_persona_id === id)) continue;
-      
+      if (safePersonas.some(p => (p as any).source_industry_persona_id === id)) continue;
+
       const newPersona: CustomerPersona = {
         id: `temp-${Date.now()}-${importCount}`,
         brand_template_id: '',
         name: industryPersona.name,
         avatar_emoji: industryPersona.avatar_emoji || '👤',
-        is_primary: personas.length === 0 && importCount === 0,
+        is_primary: safePersonas.length === 0 && importCount === 0,
         age_range: industryPersona.age_range,
         gender: industryPersona.gender,
         location: industryPersona.location,
@@ -232,29 +237,29 @@ export function BrandFormStepPersonas({
         source_industry_persona_id: industryPersona.id,
         is_customized: false,
       };
-      
+
       newPersonas.push(newPersona);
       importCount++;
     }
-    
+
     if (newPersonas.length > 0) {
-      onPersonasChange([...personas, ...newPersonas]);
+      onPersonasChange([...safePersonas, ...newPersonas]);
       setEditingId(newPersonas[0].id);
     }
-    
+
     setSelectedIndustryPersonaIds(new Set());
     setShowIndustryImport(false);
   };
 
   const addPersona = (template?: Partial<CustomerPersona>) => {
-    if (personas.length >= 5) return;
-    
+    if (safePersonas.length >= 5) return;
+
     const newPersona: CustomerPersona = {
       id: `temp-${Date.now()}`,
       brand_template_id: '',
-      name: template?.name || `Persona ${personas.length + 1}`,
+      name: template?.name || `Persona ${safePersonas.length + 1}`,
       avatar_emoji: template?.avatar_emoji || '👤',
-      is_primary: personas.length === 0,
+      is_primary: safePersonas.length === 0,
       age_range: template?.age_range || null,
       gender: template?.gender || null,
       location: null,
@@ -271,13 +276,13 @@ export function BrandFormStepPersonas({
       typical_funnel_stage: template?.typical_funnel_stage || null,
     };
     
-    onPersonasChange([...personas, newPersona]);
+    onPersonasChange([...safePersonas, newPersona]);
     setEditingId(newPersona.id);
     setEditorTab('basic');
   };
 
   const updatePersona = (id: string, updates: Partial<CustomerPersona>) => {
-    onPersonasChange(personas.map(p => {
+    onPersonasChange(safePersonas.map(p => {
       if (p.id === id) {
         return { ...p, ...updates };
       }
@@ -290,7 +295,7 @@ export function BrandFormStepPersonas({
   };
 
   const removePersona = (id: string) => {
-    const remaining = personas.filter(p => p.id !== id);
+    const remaining = safePersonas.filter(p => p.id !== id);
     // If removed was primary, set first as primary
     if (remaining.length > 0 && !remaining.some(p => p.is_primary)) {
       remaining[0].is_primary = true;
@@ -300,9 +305,9 @@ export function BrandFormStepPersonas({
   };
 
   const handleAddTag = (personaId: string, field: keyof CustomerPersona, value: string) => {
-    const persona = personas.find(p => p.id === personaId);
+    const persona = safePersonas.find(p => p.id === personaId);
     if (!persona || !value.trim()) return;
-    
+
     const currentArray = (persona[field] as string[]) || [];
     if (!currentArray.includes(value.trim())) {
       updatePersona(personaId, { [field]: [...currentArray, value.trim()] });
@@ -310,14 +315,14 @@ export function BrandFormStepPersonas({
   };
 
   const handleRemoveTag = (personaId: string, field: keyof CustomerPersona, value: string) => {
-    const persona = personas.find(p => p.id === personaId);
+    const persona = safePersonas.find(p => p.id === personaId);
     if (!persona) return;
-    
+
     const currentArray = (persona[field] as string[]) || [];
     updatePersona(personaId, { [field]: currentArray.filter(v => v !== value) });
   };
 
-  const editingPersona = editingId ? personas.find(p => p.id === editingId) : null;
+  const editingPersona = editingId ? safePersonas.find(p => p.id === editingId) : null;
 
   return (
     <TooltipProvider>
@@ -347,7 +352,7 @@ export function BrandFormStepPersonas({
             </p>
           </div>
           <Badge variant="outline" className="text-xs">
-            {personas.length}/5
+            {safePersonas.length}/5
           </Badge>
         </div>
 
@@ -362,9 +367,9 @@ export function BrandFormStepPersonas({
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {personas.length > 0 ? (
+                {safePersonas.length > 0 ? (
                   <div className="space-y-2">
-                    {personas.map((persona) => {
+                    {safePersonas.map((persona) => {
                       const completeness = getPersonaCompleteness(persona);
                       const isSelected = editingId === persona.id;
                       return (
@@ -438,11 +443,11 @@ export function BrandFormStepPersonas({
                                     )}
                                   </div>
                                   {/* Linked Products Count */}
-                                  {localMappings.filter(m => m.persona_id === persona.id).length > 0 && (
+                                  {safeLocalMappings.filter(m => m.persona_id === persona.id).length > 0 && (
                                     <div className="flex items-center gap-1 mt-1">
                                       <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1">
                                         <Package className="w-2.5 h-2.5" />
-                                        {localMappings.filter(m => m.persona_id === persona.id).length} sản phẩm
+                                        {safeLocalMappings.filter(m => m.persona_id === persona.id).length} sản phẩm
                                       </Badge>
                                     </div>
                                   )}
@@ -472,13 +477,13 @@ export function BrandFormStepPersonas({
                             </div>
                             
                             {/* Product Linker - visible when selected */}
-                            {isSelected && localProducts.length > 0 && onLocalMappingsChange && (
+                            {isSelected && safeLocalProducts.length > 0 && onLocalMappingsChange && (
                               <LocalProductPersonaLinker
                                 mode="persona"
                                 personaId={persona.id}
-                                products={localProducts}
-                                personas={personas}
-                                mappings={localMappings}
+                                products={safeLocalProducts}
+                                personas={safePersonas}
+                                mappings={safeLocalMappings}
                                 onMappingsChange={onLocalMappingsChange}
                               />
                             )}
@@ -496,9 +501,9 @@ export function BrandFormStepPersonas({
                 )}
 
                 {/* Add Buttons */}
-                {personas.length < 5 && (
+                {safePersonas.length < 5 && (
                   <div className="space-y-2 pt-2 border-t">
-                    {(globalPackId || industryTemplateId) && industryPersonas.length > 0 && (
+                    {(globalPackId || industryTemplateId) && safeIndustryPersonas.length > 0 && (
                       <Dialog open={showIndustryImport} onOpenChange={setShowIndustryImport}>
                         <DialogTrigger asChild>
                           <Button
@@ -509,7 +514,7 @@ export function BrandFormStepPersonas({
                             disabled={disabled || loadingIndustry}
                           >
                             <Building2 className="w-3.5 h-3.5 mr-1.5" />
-                            Import từ Industry ({industryPersonas.length})
+                            Import từ Industry ({safeIndustryPersonas.length})
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
@@ -519,26 +524,36 @@ export function BrandFormStepPersonas({
                               Import Personas từ Industry Pack
                             </DialogTitle>
                           </DialogHeader>
-                          
+
                           <div className="flex-1 overflow-y-auto space-y-3 py-2">
                             {/* Selection header */}
                             <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-lg border border-primary/20">
                               <div className="flex items-center gap-2">
                                 <CheckCheck className="w-4 h-4 text-primary" />
                                 <span className="text-sm font-medium">
-                                  Đã chọn: <span className="text-primary">{selectedIndustryPersonaIds.size}</span> / {Math.min(5 - personas.length, industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).length)} có thể import
+                                  Đã chọn: <span className="text-primary">{selectedIndustryPersonaIds.size}</span> / {Math.min(
+                                    5 - safePersonas.length,
+                                    safeIndustryPersonas.filter(
+                                      ip => !safePersonas.some(p => (p as any).source_industry_persona_id === ip.id)
+                                    ).length
+                                  )}{' '}
+                                  có thể import
                                 </span>
                               </div>
-                              {industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).length > 0 && (
+                              {safeIndustryPersonas.filter(
+                                ip => !safePersonas.some(p => (p as any).source_industry_persona_id === ip.id)
+                              ).length > 0 && (
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 text-xs"
                                   onClick={() => {
-                                    const available = industryPersonas
-                                      .filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id))
-                                      .slice(0, 5 - personas.length)
+                                    const available = safeIndustryPersonas
+                                      .filter(
+                                        ip => !safePersonas.some(p => (p as any).source_industry_persona_id === ip.id)
+                                      )
+                                      .slice(0, 5 - safePersonas.length)
                                       .map(ip => ip.id);
                                     if (selectedIndustryPersonaIds.size === available.length) {
                                       setSelectedIndustryPersonaIds(new Set());
@@ -547,25 +562,30 @@ export function BrandFormStepPersonas({
                                     }
                                   }}
                                 >
-                                  {selectedIndustryPersonaIds.size === industryPersonas.filter(ip => !personas.some(p => (p as any).source_industry_persona_id === ip.id)).slice(0, 5 - personas.length).length 
-                                    ? 'Bỏ chọn tất cả' 
+                                  {selectedIndustryPersonaIds.size ===
+                                  safeIndustryPersonas
+                                    .filter(
+                                      ip => !safePersonas.some(p => (p as any).source_industry_persona_id === ip.id)
+                                    )
+                                    .slice(0, 5 - safePersonas.length).length
+                                    ? 'Bỏ chọn tất cả'
                                     : 'Chọn tất cả'}
                                 </Button>
                               )}
                             </div>
-                            
+
                             <p className="text-xs text-muted-foreground">
-                              Còn <span className="font-semibold text-primary">{5 - personas.length}</span> slot. Chọn nhiều personas rồi import cùng lúc.
+                              Còn <span className="font-semibold text-primary">{5 - safePersonas.length}</span> slot. Chọn nhiều personas rồi import cùng lúc.
                             </p>
-                            
+
                             <div className="grid gap-3 sm:grid-cols-2">
-                              {industryPersonas.map((ip) => {
-                                const alreadyImported = personas.some(
+                              {safeIndustryPersonas.map((ip) => {
+                                const alreadyImported = safePersonas.some(
                                   p => (p as any).source_industry_persona_id === ip.id
                                 );
                                 const isSelected = selectedIndustryPersonaIds.has(ip.id);
-                                const canSelect = !alreadyImported && (isSelected || selectedIndustryPersonaIds.size < (5 - personas.length));
-                                
+                                const canSelect = !alreadyImported && (isSelected || selectedIndustryPersonaIds.size < (5 - safePersonas.length));
+
                                 return (
                                   <Card 
                                     key={ip.id}
