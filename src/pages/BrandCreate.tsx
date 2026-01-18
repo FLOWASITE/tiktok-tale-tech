@@ -108,6 +108,19 @@ export default function BrandCreate() {
   const [guidelineExampleBad, setGuidelineExampleBad] = useState('');
   const [guidelineKeyPrinciples, setGuidelineKeyPrinciples] = useState<string[]>([]);
 
+  // Defensive helpers (backend data can be null/string/object)
+  const asStringArray = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+    }
+    if (typeof value === 'string' && value.trim().length > 0) return [value.trim()];
+    return [];
+  };
+
+  const asObject = <T,>(value: unknown, fallback: T): T => {
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as T) : fallback;
+  };
+
   // Customer personas hook
   const {
     personas: dbPersonas,
@@ -129,24 +142,33 @@ export default function BrandCreate() {
     if (editingTemplate) {
       setName(editingTemplate.name || '');
       setBrandName(editingTemplate.brand_name || '');
-      setIndustries(editingTemplate.industry || []);
+      setIndustries(asStringArray(editingTemplate.industry));
       setBrandGuideline(editingTemplate.brand_guideline || DEFAULT_BRAND_GUIDELINE);
       setIncludeLogo(editingTemplate.include_logo);
       setIsDefault(editingTemplate.is_default);
       setPrimaryColor(editingTemplate.primary_color || '#000000');
       setLogoPreview(editingTemplate.logo_url);
-      setScope(editingTemplate.user_id && editingTemplate.organization_id ? 'both' : editingTemplate.organization_id ? 'organization' : 'personal');
+      setScope(
+        editingTemplate.user_id && editingTemplate.organization_id
+          ? 'both'
+          : editingTemplate.organization_id
+            ? 'organization'
+            : 'personal'
+      );
+
       setBrandPositioning(editingTemplate.brand_positioning || '');
-      setToneOfVoice(editingTemplate.tone_of_voice || []);
+      setToneOfVoice(asStringArray(editingTemplate.tone_of_voice));
       setFormalityLevel(editingTemplate.formality_level || '');
-      setLanguageStyle(editingTemplate.language_style || []);
-      setPreferredWords(editingTemplate.preferred_words || []);
-      setForbiddenWords(editingTemplate.forbidden_words || []);
+      setLanguageStyle(asStringArray(editingTemplate.language_style));
+      setPreferredWords(asStringArray(editingTemplate.preferred_words));
+      setForbiddenWords(asStringArray(editingTemplate.forbidden_words));
       setAllowEmoji(editingTemplate.allow_emoji ?? true);
-      setComplianceRules(editingTemplate.compliance_rules || []);
-      setChannelOverrides(editingTemplate.channel_overrides || {});
+      setComplianceRules(asStringArray(editingTemplate.compliance_rules));
+      setChannelOverrides(asObject(editingTemplate.channel_overrides, {} as ChannelOverrides));
       setIndustryTemplateId(editingTemplate.industry_template_id || null);
-      setFooterInfo(editingTemplate.footer_info || DEFAULT_FOOTER_INFO);
+      setGlobalPackId((editingTemplate as any).global_pack_id || null);
+      setFooterInfo(asObject(editingTemplate.footer_info, DEFAULT_FOOTER_INFO));
+
       setMission(editingTemplate.mission || '');
       setVision(editingTemplate.vision || '');
       setUniqueValueProposition(editingTemplate.unique_value_proposition || '');
@@ -154,15 +176,18 @@ export default function BrandCreate() {
       setTargetAgeRange(editingTemplate.target_age_range || '');
       setTargetGender(editingTemplate.target_gender || '');
       setMarketSegment(editingTemplate.market_segment || '');
-      setTargetLocations(editingTemplate.target_locations || []);
-      setBrandHashtags(editingTemplate.brand_hashtags || []);
-      setSignaturePhrases(editingTemplate.signature_phrases || []);
-      setCtaTemplates(editingTemplate.cta_templates || []);
-      setEvergreenThemes(editingTemplate.evergreen_themes || []);
-      setSecondaryColors(editingTemplate.secondary_colors || []);
+
+      setTargetLocations(asStringArray(editingTemplate.target_locations));
+      setBrandHashtags(asStringArray(editingTemplate.brand_hashtags));
+      setSignaturePhrases(asStringArray(editingTemplate.signature_phrases));
+      setCtaTemplates(asStringArray(editingTemplate.cta_templates));
+      setEvergreenThemes(asStringArray(editingTemplate.evergreen_themes));
+      setSecondaryColors(asStringArray(editingTemplate.secondary_colors));
+
       setImageStyle(editingTemplate.image_style || '');
-      setMainCompetitors(editingTemplate.main_competitors || []);
-      setCompetitiveAdvantages(editingTemplate.competitive_advantages || []);
+      setMainCompetitors(asStringArray(editingTemplate.main_competitors));
+      setCompetitiveAdvantages(asStringArray(editingTemplate.competitive_advantages));
+
       setShowQuickStart(false);
       setCurrentStep(1);
     }
@@ -215,14 +240,18 @@ export default function BrandCreate() {
   const handleIndustryTemplateSelect = (packData: GlobalPackForSelection) => {
     // Use global_pack_id for v2.1 architecture (keeping industryTemplateId for backward compatibility)
     setGlobalPackId(packData.id);
-    setIndustries([packData.name]);
+    setIndustries(asStringArray(packData.name));
     setBrandPositioning(packData.brandPositioning || '');
-    setToneOfVoice(packData.brandVoice.tone_of_voice || []);
-    setFormalityLevel(packData.brandVoice.formality_level || '');
-    setLanguageStyle(packData.brandVoice.language_style || []);
-    setAllowEmoji(packData.brandVoice.allow_emoji || false);
-    setPreferredWords(packData.preferredTerms || []);
-    setForbiddenWords(packData.forbiddenTerms || []);
+
+    const voice = (packData as any).brandVoice || {};
+    setToneOfVoice(asStringArray(voice.tone_of_voice));
+    setFormalityLevel(voice.formality_level || '');
+    setLanguageStyle(asStringArray(voice.language_style));
+    setAllowEmoji(voice.allow_emoji ?? false);
+
+    setPreferredWords(asStringArray((packData as any).preferredTerms));
+    setForbiddenWords(asStringArray((packData as any).forbiddenTerms));
+
     setShowQuickStart(false);
     setCurrentStep(1);
     toast.success('Đã liên kết Industry Memory v2!');
