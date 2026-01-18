@@ -86,33 +86,48 @@ export function BrandFormStepGuideline({
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
-  
+
+  // Defensive guards (avoid calling array methods on non-array values)
+  const safeIndustries: string[] = Array.isArray(industries) ? industries : [];
+  const safeToneOfVoice: string[] = Array.isArray(toneOfVoice) ? toneOfVoice : [];
+  const safeLanguageStyle: string[] = Array.isArray(languageStyle) ? languageStyle : [];
+  const safePreferredWords: string[] = Array.isArray(preferredWords) ? preferredWords : [];
+  const safeForbiddenWords: string[] = Array.isArray(forbiddenWords) ? forbiddenWords : [];
+  const safeGuidelineKeyPrinciples: string[] = Array.isArray(guidelineKeyPrinciples)
+    ? guidelineKeyPrinciples
+    : [];
+  const safeChannelOverrides: ChannelOverrides =
+    channelOverrides && typeof channelOverrides === 'object' ? channelOverrides : {};
+
   const isGuidelineEmpty = !brandGuideline.trim();
-  
+
   // Preprocess guideline text to proper Markdown format
   const formatGuidelineForDisplay = (text: string): string => {
     let formatted = text;
-    
+
     // Replace ".." or ". ." with proper line breaks
     formatted = formatted.replace(/\.\.\s*/g, '.\n\n');
     formatted = formatted.replace(/\.\s*\.\s*/g, '.\n\n');
-    
+
     // Replace "• " or "- " at the start or after newlines with proper bullet points
     formatted = formatted.replace(/•\s*/g, '\n- ');
     formatted = formatted.replace(/\*\s+/g, '\n- ');
-    
+
     // Handle "Tone:", "Xưng hô:", etc. as headers
     formatted = formatted.replace(/\n*(Tone|Xưng hô|Nguyên tắc|Lưu ý|Cấu trúc|Phong cách|Định vị|Giọng điệu|Từ ngữ|Kênh|Mục tiêu):\s*/gi, '\n\n## $1\n');
-    
+
     // Clean up multiple newlines
     formatted = formatted.replace(/\n{3,}/g, '\n\n');
-    
+
     // Ensure bullet points start on new lines
     formatted = formatted.replace(/([.!?])\s*-\s+/g, '$1\n\n- ');
-    
+
     return formatted.trim();
   };
-  const activeChannels = Object.keys(channelOverrides).filter(k => channelOverrides[k]?.enabled);
+
+  const activeChannels = Object.keys(safeChannelOverrides).filter(
+    (k) => safeChannelOverrides[k]?.enabled
+  );
   
   // Auto-suggest generation when step loads and guideline is empty
   useEffect(() => {
@@ -137,17 +152,17 @@ export function BrandFormStepGuideline({
         body: {
           brand_name: brandName.trim(),
           brand_template_id: brandTemplateId,
-          industry: industries,
+          industry: safeIndustries,
           primary_color: primaryColor,
           has_logo: hasLogo,
-          tone_of_voice: toneOfVoice,
+          tone_of_voice: safeToneOfVoice,
           formality_level: formalityLevel,
           brand_positioning: brandPositioning,
-          language_style: languageStyle,
-          preferred_words: preferredWords,
-          forbidden_words: forbiddenWords,
+          language_style: safeLanguageStyle,
+          preferred_words: safePreferredWords,
+          forbidden_words: safeForbiddenWords,
           allow_emoji: allowEmoji,
-          channel_overrides: channelOverrides,
+          channel_overrides: safeChannelOverrides,
         },
       });
 
@@ -190,7 +205,7 @@ export function BrandFormStepGuideline({
             </div>
             <p className="text-sm font-semibold truncate">{brandName || 'Chưa có'}</p>
             <p className="text-xs text-muted-foreground truncate">
-              {industries.length > 0 ? industries.join(', ') : 'Chưa chọn ngành'}
+              {safeIndustries.length > 0 ? safeIndustries.join(', ') : 'Chưa chọn ngành'}
             </p>
           </CardContent>
         </Card>
@@ -227,17 +242,17 @@ export function BrandFormStepGuideline({
               <span className="text-xs font-medium">Brand Voice</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {toneOfVoice.slice(0, 2).map((tone, idx) => (
+              {safeToneOfVoice.slice(0, 2).map((tone, idx) => (
                 <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0">
                   {tone}
                 </Badge>
               ))}
-              {toneOfVoice.length > 2 && (
+              {safeToneOfVoice.length > 2 && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  +{toneOfVoice.length - 2}
+                  +{safeToneOfVoice.length - 2}
                 </Badge>
               )}
-              {toneOfVoice.length === 0 && (
+              {safeToneOfVoice.length === 0 && (
                 <span className="text-xs text-muted-foreground">Chưa thiết lập</span>
               )}
             </div>
@@ -469,7 +484,7 @@ Hỗ trợ Markdown:
       </div>
       
       {/* AI Guideline Preview */}
-      {(guidelineExampleGood || guidelineExampleBad || guidelineKeyPrinciples.length > 0) && (
+      {(guidelineExampleGood || guidelineExampleBad || safeGuidelineKeyPrinciples.length > 0) && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -477,11 +492,11 @@ Hỗ trợ Markdown:
               AI Preview - Chi tiết Guideline
             </div>
             
-            {guidelineKeyPrinciples.length > 0 && (
+            {safeGuidelineKeyPrinciples.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Nguyên tắc chính:</p>
                 <ul className="text-sm space-y-1.5">
-                  {guidelineKeyPrinciples.map((principle, idx) => (
+                  {safeGuidelineKeyPrinciples.map((principle, idx) => (
                     <li key={idx} className="flex items-start gap-2">
                       <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                       <span className="text-muted-foreground">{principle}</span>
