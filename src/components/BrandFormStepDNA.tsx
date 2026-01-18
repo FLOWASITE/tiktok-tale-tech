@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -107,6 +108,12 @@ export function BrandFormStepDNA({
   const safeForbiddenWords = Array.isArray(forbiddenWords) ? forbiddenWords : [];
   const safeComplianceRules = Array.isArray(complianceRules) ? complianceRules : [];
 
+  // Keep a ref of latest tones to avoid StrictMode/double-invoke edge cases
+  const toneRef = useRef<string[]>(safeToneOfVoice);
+  useEffect(() => {
+    toneRef.current = safeToneOfVoice;
+  }, [safeToneOfVoice]);
+
   const addToArray = (
     value: string,
     setter: (value: string[]) => void,
@@ -131,15 +138,19 @@ export function BrandFormStepDNA({
     const normalized = (tone || '').trim();
     if (!normalized) return;
 
-    const isSelected = safeToneOfVoice.includes(normalized);
-    const next = isSelected
-      ? safeToneOfVoice.filter((t) => t !== normalized)
-      : safeToneOfVoice.length < 3
-        ? [...safeToneOfVoice, normalized]
-        : safeToneOfVoice;
+    const prevArr = Array.isArray(toneRef.current) ? toneRef.current : [];
+    const isSelected = prevArr.includes(normalized);
 
-    // Force new reference even if something upstream passes a frozen array
-    setToneOfVoice([...next]);
+    const next = isSelected
+      ? prevArr.filter((t) => t !== normalized)
+      : prevArr.length < 3
+        ? [...prevArr, normalized]
+        : prevArr;
+
+    // If nothing changes (hit max 3), do nothing
+    if (next === prevArr) return;
+
+    setToneOfVoice(next);
 
     // Auto-enable emoji if tone suggests it
     const option = TONE_OF_VOICE_OPTIONS.find((o) => o.value === normalized);
