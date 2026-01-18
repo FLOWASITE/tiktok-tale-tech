@@ -498,7 +498,7 @@ export function BrandFormStepPersonas({
                 {/* Add Buttons */}
                 {personas.length < 5 && (
                   <div className="space-y-2 pt-2 border-t">
-                    {industryTemplateId && industryPersonas.length > 0 && (
+                    {(globalPackId || industryTemplateId) && industryPersonas.length > 0 && (
                       <Dialog open={showIndustryImport} onOpenChange={setShowIndustryImport}>
                         <DialogTrigger asChild>
                           <Button
