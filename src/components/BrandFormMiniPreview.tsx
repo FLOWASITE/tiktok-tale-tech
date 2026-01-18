@@ -70,16 +70,23 @@ export function BrandFormMiniPreview({
   channelOverrides,
   completionPercentage,
 }: BrandFormMiniPreviewProps) {
-  const channelCount = useMemo(() => Object.keys(channelOverrides).length, [channelOverrides]);
+  // Defensive guards: ensure array props are always arrays
+  const safeToneOfVoice = Array.isArray(toneOfVoice) ? toneOfVoice : [];
+  const safeIndustries = Array.isArray(industries) ? industries : [];
+  const safeLanguageStyle = Array.isArray(languageStyle) ? languageStyle : [];
+  const safePreferredWords = Array.isArray(preferredWords) ? preferredWords : [];
+  const safeForbiddenWords = Array.isArray(forbiddenWords) ? forbiddenWords : [];
+
+  const channelCount = useMemo(() => Object.keys(channelOverrides || {}).length, [channelOverrides]);
   
   const completionItems = useMemo(() => [
     { label: 'Tên thương hiệu', done: !!brandName.trim() },
-    { label: 'Ngành', done: industries.length > 0 },
+    { label: 'Ngành', done: safeIndustries.length > 0 },
     { label: 'Màu chủ đạo', done: primaryColor !== '#000000' },
     { label: 'Định vị', done: !!brandPositioning },
-    { label: 'Tone of Voice', done: toneOfVoice.length > 0 },
+    { label: 'Tone of Voice', done: safeToneOfVoice.length > 0 },
     { label: 'Phong cách', done: formalityLevel !== '' },
-  ], [brandName, industries, primaryColor, brandPositioning, toneOfVoice, formalityLevel]);
+  ], [brandName, safeIndustries, primaryColor, brandPositioning, safeToneOfVoice, formalityLevel]);
 
   const doneCount = completionItems.filter(i => i.done).length;
 
@@ -132,9 +139,9 @@ export function BrandFormMiniPreview({
                 </>
               )}
             </Badge>
-            {industries.length > 0 && (
+            {safeIndustries.length > 0 && (
               <Badge variant="secondary" className="text-xs truncate max-w-[100px]">
-                {industries[0]}
+                {safeIndustries[0]}
               </Badge>
             )}
           </div>
@@ -165,12 +172,12 @@ export function BrandFormMiniPreview({
         </div>
 
         {/* Tone */}
-        {toneOfVoice.length > 0 && (
+        {safeToneOfVoice.length > 0 && (
           <div className="flex items-center gap-2 col-span-2">
             <MessageSquare className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <span className="text-muted-foreground truncate">
-              {toneOfVoice.slice(0, 2).map(t => toneLabels[t] || t).join(', ')}
-              {toneOfVoice.length > 2 && ` +${toneOfVoice.length - 2}`}
+              {safeToneOfVoice.slice(0, 2).map(t => toneLabels[t] || t).join(', ')}
+              {safeToneOfVoice.length > 2 && ` +${safeToneOfVoice.length - 2}`}
             </span>
           </div>
         )}
@@ -208,34 +215,34 @@ export function BrandFormMiniPreview({
       )}
 
       {/* Word badges */}
-      {(preferredWords.length > 0 || forbiddenWords.length > 0) && (
+      {(safePreferredWords.length > 0 || safeForbiddenWords.length > 0) && (
         <>
           <Separator />
           <div className="space-y-2">
-            {preferredWords.length > 0 && (
+            {safePreferredWords.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {preferredWords.slice(0, 3).map((word, i) => (
+                {safePreferredWords.slice(0, 3).map((word, i) => (
                   <Badge key={i} variant="outline" className="text-xs bg-green-500/10 text-green-700 border-green-200">
                     {word}
                   </Badge>
                 ))}
-                {preferredWords.length > 3 && (
+                {safePreferredWords.length > 3 && (
                   <Badge variant="outline" className="text-xs">
-                    +{preferredWords.length - 3}
+                    +{safePreferredWords.length - 3}
                   </Badge>
                 )}
               </div>
             )}
-            {forbiddenWords.length > 0 && (
+            {safeForbiddenWords.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {forbiddenWords.slice(0, 3).map((word, i) => (
+                {safeForbiddenWords.slice(0, 3).map((word, i) => (
                   <Badge key={i} variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20 line-through">
                     {word}
                   </Badge>
                 ))}
-                {forbiddenWords.length > 3 && (
+                {safeForbiddenWords.length > 3 && (
                   <Badge variant="outline" className="text-xs">
-                    +{forbiddenWords.length - 3}
+                    +{safeForbiddenWords.length - 3}
                   </Badge>
                 )}
               </div>

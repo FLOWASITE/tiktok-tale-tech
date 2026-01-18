@@ -31,8 +31,8 @@ export function BrandSpotlightHeader({
   const displayedPillars = showAllPillars ? contentPillars : contentPillars.slice(0, 4);
   const hiddenPillarsCount = contentPillars.length - 4;
 
-  // Parse tone of voice
-  const toneOfVoice = selectedBrand?.tone_of_voice || [];
+  // Parse tone of voice with defensive guard
+  const toneOfVoice = Array.isArray(selectedBrand?.tone_of_voice) ? selectedBrand.tone_of_voice : [];
 
   if (!selectedBrand) {
     // Empty state - prompt to select brand

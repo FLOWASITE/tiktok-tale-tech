@@ -91,7 +91,7 @@ export function BrandInfoCard({
   }
 
   const contentPillars: ContentPillar[] = (brand.content_pillars as ContentPillar[]) || [];
-  const toneOfVoice = brand.tone_of_voice || [];
+  const toneOfVoice = Array.isArray(brand.tone_of_voice) ? brand.tone_of_voice : [];
 
   return (
     <Card className={cn('gradient-card overflow-hidden', className)}>
