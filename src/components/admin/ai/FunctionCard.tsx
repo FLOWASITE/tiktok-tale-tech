@@ -2,8 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { AIFunctionType, AIFunctionConfig, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
+import { AIFunctionType, AIFunctionTag, AIFunctionConfig, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
 import { ProviderIndicator } from './ModelCard';
+import { FunctionTagBadges } from './FunctionTagBadges';
 import { Settings, Check, X, Zap, Star, Sparkles, Clock, ChevronDown, Coins, Scale, LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
@@ -19,6 +20,7 @@ export interface AIFunction {
   category: string;
   type: AIFunctionType;
   currentModel: string;
+  tags?: AIFunctionTag[];
 }
 
 interface FunctionCardProps {
@@ -45,6 +47,7 @@ const CATEGORY_BORDER: Record<string, string> = {
   image: 'border-l-pink-500',
   brand: 'border-l-orange-500',
   analysis: 'border-l-cyan-500',
+  utility: 'border-l-gray-500',
 };
 
 interface QuickPreset {
@@ -192,6 +195,7 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-medium text-sm truncate">{fn.name}</span>
+              <FunctionTagBadges tags={fn.tags} compact />
               {hasOverride && (
                 <Badge variant="outline" className="text-[9px] py-0 px-1 bg-primary/10 text-primary border-primary/30">
                   Override
@@ -335,11 +339,12 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-semibold text-sm">{fn.name}</h4>
             <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", typeBadge.className)}>
               {typeBadge.label}
             </Badge>
+            <FunctionTagBadges tags={fn.tags} />
             {hasOverride && (
               <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-primary/10 text-primary border-primary/30">
                 Override

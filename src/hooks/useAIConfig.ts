@@ -37,6 +37,9 @@ export interface AIFunctionConfig {
 // Function types for model filtering
 export type AIFunctionType = 'text' | 'image' | 'image-direct' | 'search';
 
+// Function tags for categorization
+export type AIFunctionTag = 'knowledge-graph' | 'regulation' | 'embedding' | 'crawl';
+
 // Known AI functions in the project with type metadata
 export const AI_FUNCTIONS = [
   // Text Generation Functions (Lovable AI) - Content
@@ -70,13 +73,20 @@ export const AI_FUNCTIONS = [
   { name: 'learn-from-feedback', description: 'Học từ feedback của user', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'predict-ad-performance', description: 'Dự đoán hiệu quả quảng cáo', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'score-ad-creative', description: 'Chấm điểm creative quảng cáo', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'analyze-regulation-impact', description: 'Phân tích ảnh hưởng quy định', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
+  { name: 'categorize-industries', description: 'Phân loại ngành nghề', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['knowledge-graph'] as AIFunctionTag[] },
   
   // Ideation Functions
   { name: 'topic-ai', description: 'Topic AI (suggest, refine, trending, analysis)', category: 'ideation', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'auto-suggest-connections', description: 'Gợi ý kết nối tự động', category: 'ideation', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['knowledge-graph'] as AIFunctionTag[] },
   
   // Brand Functions
   { name: 'generate-brand-voice', description: 'Tạo brand voice', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-brand-guideline', description: 'Tạo brand guideline', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'enrich-industry-profiles', description: 'Làm giàu profile ngành', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
+  { name: 'enrich-personas', description: 'Làm giàu personas', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
+  { name: 'generate-missing-profiles', description: 'Tạo profiles còn thiếu', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
+  { name: 'regenerate-profiles', description: 'Tái tạo profiles', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
   
   // Image Generation Functions  
   { name: 'generate-brand-image', description: 'Tạo hình ảnh thương hiệu', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
@@ -86,9 +96,23 @@ export const AI_FUNCTIONS = [
   
   // Research & Search Functions
   { name: 'firecrawl-trends', description: 'Crawl và phân tích trends', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar-pro' },
-  { name: 'semantic-search', description: 'Tìm kiếm ngữ nghĩa', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar' },
-  { name: 'help-article-search', description: 'Tìm kiếm bài viết hỗ trợ', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar' },
-  { name: 'generate-embedding', description: 'Tạo embeddings cho semantic search', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'semantic-search', description: 'Tìm kiếm ngữ nghĩa', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar', tags: ['knowledge-graph', 'embedding'] as AIFunctionTag[] },
+  { name: 'help-article-search', description: 'Tìm kiếm bài viết hỗ trợ', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar', tags: ['embedding'] as AIFunctionTag[] },
+  { name: 'generate-embedding', description: 'Tạo embeddings cho semantic search', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['embedding'] as AIFunctionTag[] },
+  
+  // Knowledge Graph & Regulations
+  { name: 'auto-crawl-regulations', description: 'Crawl quy định tự động', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph', 'regulation', 'crawl'] as AIFunctionTag[] },
+  { name: 'extract-knowledge-entities', description: 'Trích xuất entities từ knowledge', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
+  { name: 'extract-regulation-content', description: 'Trích xuất nội dung quy định', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
+  { name: 'generate-knowledge-embeddings', description: 'Tạo embeddings cho knowledge graph', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['knowledge-graph', 'embedding'] as AIFunctionTag[] },
+  { name: 'parse-regulation-document', description: 'Parse document quy định', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
+  { name: 'reparse-regulations', description: 'Reparse quy định', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
+  { name: 'reparse-with-quality', description: 'Reparse với quality check', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
+  { name: 'batch-generate-embeddings', description: 'Tạo embeddings hàng loạt', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['knowledge-graph', 'embedding'] as AIFunctionTag[] },
+  
+  // Utility - Data Operations
+  { name: 'migrate-to-knowledge-graph', description: 'Migrate dữ liệu sang knowledge graph', category: 'utility', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
+  { name: 'apply-regulation-propagation', description: 'Áp dụng propagation quy định', category: 'utility', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
 ] as const;
 
 // Models by function type for filtering

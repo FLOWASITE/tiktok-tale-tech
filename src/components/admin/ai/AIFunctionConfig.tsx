@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionConfig as FunctionConfigType, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
+import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionTag, AIFunctionConfig as FunctionConfigType, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
 import { useCategoryConfig } from '@/hooks/useCategoryConfig';
 import { ModelSelector } from './ModelSelector';
@@ -17,7 +17,8 @@ import { QuickSelectButton, ProviderIndicator } from './ModelCard';
 import { FunctionCategoryGroup } from './FunctionCategoryGroup';
 import { CategoryManager } from './CategoryManager';
 import { AIFunction } from './FunctionCard';
-import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen } from 'lucide-react';
+import { countByTag } from './FunctionTagBadges';
+import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen, Network } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -30,9 +31,10 @@ const TYPE_FILTERS = [
   { id: 'text', label: 'Text', icon: <Type className="h-3 w-3" /> },
   { id: 'image', label: 'Image', icon: <Image className="h-3 w-3" /> },
   { id: 'search', label: 'Search', icon: <Globe className="h-3 w-3" /> },
+  { id: 'knowledge-graph', label: 'Knowledge Graph', icon: <Network className="h-3 w-3" />, isTagFilter: true },
 ];
 
-const CATEGORY_ORDER = ['content', 'ideation', 'chat', 'brand', 'image', 'analysis', 'research'];
+const CATEGORY_ORDER = ['content', 'ideation', 'chat', 'brand', 'image', 'analysis', 'research', 'utility'];
 
 const QUICK_PRESETS = {
   default: { label: 'Mặc định', description: 'Model được khuyến nghị cho function này', icon: <Sparkles className="h-5 w-5" /> },
@@ -100,16 +102,21 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     }
     
     if (typeFilter !== 'all') {
-      result = result.filter(fn => {
-        if (typeFilter === 'image') {
-          return fn.type === 'image' || fn.type === 'image-direct';
-        }
-        return fn.type === typeFilter;
-      });
+      // Check if it's a tag filter (knowledge-graph)
+      if (typeFilter === 'knowledge-graph') {
+        result = result.filter(fn => fn.tags?.includes('knowledge-graph'));
+      } else if (typeFilter === 'image') {
+        result = result.filter(fn => fn.type === 'image' || fn.type === 'image-direct');
+      } else {
+        result = result.filter(fn => fn.type === typeFilter);
+      }
     }
     
     return result;
   }, [searchQuery, typeFilter]);
+
+  // Count Knowledge Graph functions
+  const kgCount = useMemo(() => countByTag(AI_FUNCTIONS as unknown as { tags?: AIFunctionTag[] }[], 'knowledge-graph'), []);
 
   // Group functions by category using database categories
   const groupedFunctions = useMemo(() => {
@@ -281,27 +288,38 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
           </div>
 
           {/* Type Filter */}
-          <div className="flex items-center gap-1">
-            {TYPE_FILTERS.map((filter) => (
-              <Button
-                key={filter.id}
-                variant={typeFilter === filter.id ? "default" : "outline"}
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => setTypeFilter(filter.id)}
-              >
-                {filter.icon}
-                <span className={filter.icon ? "ml-1" : ""}>{filter.label}</span>
-                {filter.id !== 'all' && (
-                  <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
-                    {AI_FUNCTIONS.filter(fn => {
-                      if (filter.id === 'image') return fn.type === 'image' || fn.type === 'image-direct';
-                      return fn.type === filter.id;
-                    }).length}
-                  </Badge>
-                )}
-              </Button>
-            ))}
+          <div className="flex items-center gap-1 flex-wrap">
+            {TYPE_FILTERS.map((filter) => {
+              const isTagFilter = 'isTagFilter' in filter && filter.isTagFilter;
+              const count = isTagFilter 
+                ? kgCount 
+                : AI_FUNCTIONS.filter(fn => {
+                    if (filter.id === 'image') return fn.type === 'image' || fn.type === 'image-direct';
+                    return fn.type === filter.id;
+                  }).length;
+              
+              return (
+                <Button
+                  key={filter.id}
+                  variant={typeFilter === filter.id ? "default" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "h-8 text-xs",
+                    isTagFilter && typeFilter === filter.id && "bg-violet-600 hover:bg-violet-700",
+                    isTagFilter && typeFilter !== filter.id && "border-violet-500/50 text-violet-600 hover:bg-violet-500/10"
+                  )}
+                  onClick={() => setTypeFilter(filter.id)}
+                >
+                  {filter.icon}
+                  <span className={filter.icon ? "ml-1" : ""}>{filter.label}</span>
+                  {filter.id !== 'all' && (
+                    <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
+                      {count}
+                    </Badge>
+                  )}
+                </Button>
+              );
+            })}
           </div>
 
           {/* View Mode Toggle */}
