@@ -100,6 +100,13 @@ export function BrandFormStepDNA({
   forbiddenWords, setForbiddenWords,
   complianceRules, setComplianceRules,
 }: BrandFormStepDNAProps) {
+  // Defensive guards: avoid calling array methods on non-array values
+  const safeToneOfVoice = Array.isArray(toneOfVoice) ? toneOfVoice : [];
+  const safeLanguageStyle = Array.isArray(languageStyle) ? languageStyle : [];
+  const safePreferredWords = Array.isArray(preferredWords) ? preferredWords : [];
+  const safeForbiddenWords = Array.isArray(forbiddenWords) ? forbiddenWords : [];
+  const safeComplianceRules = Array.isArray(complianceRules) ? complianceRules : [];
+
   const addToArray = (
     value: string,
     setter: (value: string[]) => void,
@@ -121,11 +128,11 @@ export function BrandFormStepDNA({
   };
 
   const toggleTone = (tone: string) => {
-    const isSelected = toneOfVoice.includes(tone);
+    const isSelected = safeToneOfVoice.includes(tone);
     if (isSelected) {
-      setToneOfVoice(toneOfVoice.filter(t => t !== tone));
-    } else if (toneOfVoice.length < 3) {
-      const newTones = [...toneOfVoice, tone];
+      setToneOfVoice(safeToneOfVoice.filter(t => t !== tone));
+    } else if (safeToneOfVoice.length < 3) {
+      const newTones = [...safeToneOfVoice, tone];
       setToneOfVoice(newTones);
       // Auto-enable emoji if tone suggests it
       const option = TONE_OF_VOICE_OPTIONS.find(o => o.value === tone);
@@ -168,7 +175,7 @@ export function BrandFormStepDNA({
     }
   };
 
-  const shouldSuggestEmoji = toneOfVoice.some(tone => {
+  const shouldSuggestEmoji = safeToneOfVoice.some(tone => {
     const option = TONE_OF_VOICE_OPTIONS.find(o => o.value === tone);
     return option?.suggestEmoji === true;
   });
@@ -176,8 +183,8 @@ export function BrandFormStepDNA({
   const currentFormalityHint = FORMALITY_LEVEL_OPTIONS.find(o => o.value === formalityLevel)?.hint;
 
   // Count items for badges
-  const voiceCount = toneOfVoice.length + (brandPositioning ? 1 : 0) + (formalityLevel ? 1 : 0);
-  const advancedCount = preferredWords.length + forbiddenWords.length + complianceRules.length;
+  const voiceCount = safeToneOfVoice.length + (brandPositioning ? 1 : 0) + (formalityLevel ? 1 : 0);
+  const advancedCount = safePreferredWords.length + safeForbiddenWords.length + safeComplianceRules.length;
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
@@ -228,8 +235,8 @@ export function BrandFormStepDNA({
             </div>
             <div className="grid grid-cols-2 gap-2">
               {TONE_OF_VOICE_OPTIONS.map((opt) => {
-                const isSelected = toneOfVoice.includes(opt.value);
-                const isDisabled = !isSelected && toneOfVoice.length >= 3;
+                const isSelected = safeToneOfVoice.includes(opt.value);
+                const isDisabled = !isSelected && safeToneOfVoice.length >= 3;
 
                 return (
                   <button
@@ -319,12 +326,12 @@ export function BrandFormStepDNA({
               {/* Preferred Words */}
               <div className="space-y-2">
                 <Label className="text-sm text-emerald-600">✓ Từ NÊN dùng</Label>
-                {preferredWords.length > 0 && (
+                {safePreferredWords.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {preferredWords.map(word => (
+                    {safePreferredWords.map(word => (
                       <Badge key={word} variant="secondary" className="gap-1 text-xs bg-emerald-500/10 text-emerald-700">
                         {word}
-                        <button type="button" onClick={() => handleRemoveWord(word, preferredWords, setPreferredWords)}>
+                        <button type="button" onClick={() => handleRemoveWord(word, safePreferredWords, setPreferredWords)}>
                           <X className="w-3 h-3" />
                         </button>
                       </Badge>
@@ -336,14 +343,14 @@ export function BrandFormStepDNA({
                     id="dna-preferred-word"
                     placeholder="Nhập từ và Enter..."
                     className="h-8 text-sm"
-                    onKeyDown={(e) => handleKeyDown(e, 'dna-preferred-word', preferredWords, setPreferredWords)}
+                    onKeyDown={(e) => handleKeyDown(e, 'dna-preferred-word', safePreferredWords, setPreferredWords)}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => handleAddWord('dna-preferred-word', preferredWords, setPreferredWords)}
+                    onClick={() => handleAddWord('dna-preferred-word', safePreferredWords, setPreferredWords)}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </Button>
@@ -353,12 +360,12 @@ export function BrandFormStepDNA({
               {/* Forbidden Words */}
               <div className="space-y-2">
                 <Label className="text-sm text-destructive">✗ Từ CẤM dùng</Label>
-                {forbiddenWords.length > 0 && (
+                {safeForbiddenWords.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {forbiddenWords.map(word => (
+                    {safeForbiddenWords.map(word => (
                       <Badge key={word} variant="destructive" className="gap-1 text-xs">
                         {word}
-                        <button type="button" onClick={() => handleRemoveWord(word, forbiddenWords, setForbiddenWords)}>
+                        <button type="button" onClick={() => handleRemoveWord(word, safeForbiddenWords, setForbiddenWords)}>
                           <X className="w-3 h-3" />
                         </button>
                       </Badge>
@@ -370,14 +377,14 @@ export function BrandFormStepDNA({
                     id="dna-forbidden-word"
                     placeholder="Nhập từ và Enter..."
                     className="h-8 text-sm"
-                    onKeyDown={(e) => handleKeyDown(e, 'dna-forbidden-word', forbiddenWords, setForbiddenWords)}
+                    onKeyDown={(e) => handleKeyDown(e, 'dna-forbidden-word', safeForbiddenWords, setForbiddenWords)}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => handleAddWord('dna-forbidden-word', forbiddenWords, setForbiddenWords)}
+                    onClick={() => handleAddWord('dna-forbidden-word', safeForbiddenWords, setForbiddenWords)}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </Button>
