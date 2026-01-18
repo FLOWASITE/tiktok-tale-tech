@@ -162,13 +162,16 @@ export function BrandVoiceSection({
   customerPersonas = [],
   onCustomerPersonasChange,
 }: BrandVoiceSectionProps) {
+  // Defensive guards: avoid calling array methods on non-array values
+  const safeToneOfVoice = Array.isArray(toneOfVoice) ? toneOfVoice : [];
+
   // Check if any selected tone suggests emoji
   const shouldSuggestEmoji = useMemo(() => {
-    return toneOfVoice.some(tone => {
+    return safeToneOfVoice.some(tone => {
       const option = TONE_OF_VOICE_OPTIONS.find(o => o.value === tone);
       return option?.suggestEmoji === true;
     });
-  }, [toneOfVoice]);
+  }, [safeToneOfVoice]);
 
   // Get current formality hint
   const currentFormalityHint = useMemo(() => {
@@ -177,10 +180,10 @@ export function BrandVoiceSection({
   }, [formalityLevel]);
 
   // Keep a ref of latest tones to avoid side effects inside React state updaters (StrictMode can invoke them twice)
-  const toneRef = useRef<string[]>(toneOfVoice);
+  const toneRef = useRef<string[]>(safeToneOfVoice);
   useEffect(() => {
-    toneRef.current = toneOfVoice;
-  }, [toneOfVoice]);
+    toneRef.current = safeToneOfVoice;
+  }, [safeToneOfVoice]);
 
   const toggleTone = (tone: string) => {
     const prevArr = Array.isArray(toneRef.current) ? toneRef.current : [];
@@ -285,10 +288,10 @@ export function BrandVoiceSection({
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {TONE_OF_VOICE_OPTIONS.map((opt) => {
-              const isSelected = toneOfVoice.includes(opt.value);
-              const isDisabled = !isSelected && toneOfVoice.length >= 3;
-              const checkboxId = `tone-${opt.value}`;
+              {TONE_OF_VOICE_OPTIONS.map((opt) => {
+                const isSelected = safeToneOfVoice.includes(opt.value);
+                const isDisabled = !isSelected && safeToneOfVoice.length >= 3;
+                const checkboxId = `tone-${opt.value}`;
 
               return (
                 <label

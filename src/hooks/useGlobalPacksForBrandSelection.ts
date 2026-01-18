@@ -114,10 +114,10 @@ async function fetchGlobalPacksForSelection(
       categoryId: pack.category_id,
       categoryCode: category?.code || null,
       brandVoice: {
-        tone_of_voice: brandVoice?.tone_of_voice || [],
-        formality_level: brandVoice?.formality_level || 'professional',
-        language_style: brandVoice?.language_style || [],
-        allow_emoji: brandVoice?.allow_emoji ?? false,
+        tone_of_voice: Array.isArray(brandVoice?.tone_of_voice) ? brandVoice!.tone_of_voice! : [],
+        formality_level: typeof brandVoice?.formality_level === 'string' ? brandVoice.formality_level : 'professional',
+        language_style: Array.isArray(brandVoice?.language_style) ? brandVoice!.language_style! : [],
+        allow_emoji: typeof brandVoice?.allow_emoji === 'boolean' ? brandVoice.allow_emoji : false,
       },
       brandPositioning: null, // Will be fetched from jurisdiction profile if needed
       preferredTerms: translation?.preferred_terms || [],
