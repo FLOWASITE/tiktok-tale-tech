@@ -81,8 +81,17 @@ export function BrandCreatePreviewPanel({
   currentStep,
   totalSteps,
 }: BrandCreatePreviewPanelProps) {
+  // Defensive guards to ensure arrays are always arrays (fix for .slice().map() errors)
+  const safeToneOfVoice = Array.isArray(toneOfVoice) ? toneOfVoice : [];
+  const safeLanguageStyle = Array.isArray(languageStyle) ? languageStyle : [];
+  const safePreferredWords = Array.isArray(preferredWords) ? preferredWords : [];
+  const safeForbiddenWords = Array.isArray(forbiddenWords) ? forbiddenWords : [];
+  const safePersonas = Array.isArray(personas) ? personas : [];
+  const safeLocalProducts = Array.isArray(localProducts) ? localProducts : [];
+  const safeIndustries = Array.isArray(industries) ? industries : [];
+
   const channelCount = useMemo(() => 
-    Object.keys(channelOverrides).length,
+    Object.keys(channelOverrides || {}).length,
     [channelOverrides]
   );
 
@@ -179,9 +188,9 @@ export function BrandCreatePreviewPanel({
                         </>
                       )}
                     </Badge>
-                    {industries.length > 0 && (
+                    {safeIndustries.length > 0 && (
                       <Badge variant="outline" className="text-xs truncate max-w-[120px]">
-                        {industries[0]}
+                        {safeIndustries[0]}
                       </Badge>
                     )}
                   </div>
@@ -208,11 +217,11 @@ export function BrandCreatePreviewPanel({
               {/* Quick Stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center p-2 rounded-lg bg-muted/30">
-                  <p className="text-lg font-bold text-foreground">{personas.length}</p>
+                  <p className="text-lg font-bold text-foreground">{safePersonas.length}</p>
                   <p className="text-[10px] text-muted-foreground">Personas</p>
                 </div>
                 <div className="text-center p-2 rounded-lg bg-muted/30">
-                  <p className="text-lg font-bold text-foreground">{localProducts.length}</p>
+                  <p className="text-lg font-bold text-foreground">{safeLocalProducts.length}</p>
                   <p className="text-[10px] text-muted-foreground">Sản phẩm</p>
                 </div>
                 <div className="text-center p-2 rounded-lg bg-muted/30">
@@ -250,18 +259,18 @@ export function BrandCreatePreviewPanel({
                 </div>
               )}
 
-              {toneOfVoice.length > 0 && (
+              {safeToneOfVoice.length > 0 && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5">Tone of Voice</p>
                   <div className="flex flex-wrap gap-1">
-                    {toneOfVoice.slice(0, 4).map((tone) => (
+                    {safeToneOfVoice.slice(0, 4).map((tone) => (
                       <Badge key={tone} variant="outline" className="text-xs">
                         {toneLabels[tone] || tone}
                       </Badge>
                     ))}
-                    {toneOfVoice.length > 4 && (
+                    {safeToneOfVoice.length > 4 && (
                       <Badge variant="outline" className="text-xs">
-                        +{toneOfVoice.length - 4}
+                        +{safeToneOfVoice.length - 4}
                       </Badge>
                     )}
                   </div>
@@ -280,7 +289,7 @@ export function BrandCreatePreviewPanel({
         )}
 
         {/* Words Summary */}
-        {(preferredWords.length > 0 || forbiddenWords.length > 0) && (
+        {(safePreferredWords.length > 0 || safeForbiddenWords.length > 0) && (
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -289,42 +298,42 @@ export function BrandCreatePreviewPanel({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {preferredWords.length > 0 && (
+              {safePreferredWords.length > 0 && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                     Ưu tiên sử dụng
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {preferredWords.slice(0, 5).map((word, i) => (
+                    {safePreferredWords.slice(0, 5).map((word, i) => (
                       <Badge key={i} variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
                         {word}
                       </Badge>
                     ))}
-                    {preferredWords.length > 5 && (
+                    {safePreferredWords.length > 5 && (
                       <Badge variant="outline" className="text-xs">
-                        +{preferredWords.length - 5}
+                        +{safePreferredWords.length - 5}
                       </Badge>
                     )}
                   </div>
                 </div>
               )}
 
-              {forbiddenWords.length > 0 && (
+              {safeForbiddenWords.length > 0 && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
                     <Circle className="w-3 h-3 text-destructive" />
                     Không sử dụng
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {forbiddenWords.slice(0, 5).map((word, i) => (
+                    {safeForbiddenWords.slice(0, 5).map((word, i) => (
                       <Badge key={i} variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
                         {word}
                       </Badge>
                     ))}
-                    {forbiddenWords.length > 5 && (
+                    {safeForbiddenWords.length > 5 && (
                       <Badge variant="outline" className="text-xs">
-                        +{forbiddenWords.length - 5}
+                        +{safeForbiddenWords.length - 5}
                       </Badge>
                     )}
                   </div>
@@ -335,17 +344,17 @@ export function BrandCreatePreviewPanel({
         )}
 
         {/* Personas Preview */}
-        {personas.length > 0 && (
+        {safePersonas.length > 0 && (
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
-                Customer Personas ({personas.length})
+                Customer Personas ({safePersonas.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {personas.slice(0, 3).map((persona, i) => (
+                {safePersonas.slice(0, 3).map((persona, i) => (
                   <div 
                     key={persona.id || i}
                     className="flex items-center gap-2 p-2 rounded-lg bg-muted/30"
@@ -362,9 +371,9 @@ export function BrandCreatePreviewPanel({
                     )}
                   </div>
                 ))}
-                {personas.length > 3 && (
+                {safePersonas.length > 3 && (
                   <p className="text-xs text-muted-foreground text-center">
-                    +{personas.length - 3} personas khác
+                    +{safePersonas.length - 3} personas khác
                   </p>
                 )}
               </div>
@@ -373,17 +382,17 @@ export function BrandCreatePreviewPanel({
         )}
 
         {/* Products Preview */}
-        {localProducts.length > 0 && (
+        {safeLocalProducts.length > 0 && (
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Package className="w-4 h-4 text-primary" />
-                Sản phẩm ({localProducts.length})
+                Sản phẩm ({safeLocalProducts.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {localProducts.slice(0, 3).map((product, i) => (
+                {safeLocalProducts.slice(0, 3).map((product, i) => (
                   <div 
                     key={product.id || i}
                     className="flex items-center gap-2 p-2 rounded-lg bg-muted/30"
@@ -392,9 +401,9 @@ export function BrandCreatePreviewPanel({
                     <p className="text-sm truncate">{product.name}</p>
                   </div>
                 ))}
-                {localProducts.length > 3 && (
+                {safeLocalProducts.length > 3 && (
                   <p className="text-xs text-muted-foreground text-center">
-                    +{localProducts.length - 3} sản phẩm khác
+                    +{safeLocalProducts.length - 3} sản phẩm khác
                   </p>
                 )}
               </div>
