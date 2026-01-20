@@ -2202,6 +2202,12 @@ Nội dung sẵn sàng đăng ngay.`;
     if (formData.stream === true) {
       console.log("[streaming-mode] Streaming mode enabled, starting SSE response...");
       
+      // NEW: Task tracking - mark as generating at start
+      const taskId = formData.taskId;
+      if (taskId) {
+        await updateTaskProgress(supabase, taskId, 5, 'Khởi tạo...', 'init', 'generating');
+      }
+      
       // Get AI config for models
       const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
       const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
@@ -2818,12 +2824,21 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             
             if (dbError) {
               console.error('[streaming-mode] DB error:', dbError);
+              // NEW: Mark task as failed
+              if (taskId) {
+                await failTask(supabase, taskId, 'Không thể lưu nội dung: ' + dbError.message);
+              }
               emit({ type: 'error', message: 'Không thể lưu nội dung: ' + dbError.message });
               controller.close();
               return;
             }
             
             console.log('[streaming-mode] Saved content with ID:', savedContent.id);
+            
+            // NEW: Mark task as completed with result reference
+            if (taskId) {
+              await completeTask(supabase, taskId, savedContent.id, 'multi_channel_contents');
+            }
             
             // ============================================
             // PHASE 1: METRICS LOGGING (Streaming mode)
@@ -2913,6 +2928,12 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             }
             
             console.error('[streaming-mode] Error:', error);
+            
+            // NEW: Mark task as failed
+            if (taskId) {
+              await failTask(supabase, taskId, error instanceof Error ? error.message : 'Lỗi không xác định');
+            }
+            
             try {
               emit({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
             } catch {}
