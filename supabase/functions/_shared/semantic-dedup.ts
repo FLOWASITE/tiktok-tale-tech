@@ -6,8 +6,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const EMBEDDING_MODEL = 'text-embedding-004';
-const EMBEDDING_DIMENSIONS = 768;
+// Use a supported embedding model from Lovable AI Gateway
+// text-embedding-004 is not supported - using openai text-embedding-3-small instead
+const EMBEDDING_MODEL = 'text-embedding-3-small';
+const EMBEDDING_DIMENSIONS = 1536;
 
 // Deduplication configuration
 export const DEDUP_CONFIG = {
