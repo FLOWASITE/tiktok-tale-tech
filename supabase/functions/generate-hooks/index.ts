@@ -95,20 +95,31 @@ async function generateHookForPlatform(
 
   const durationContext = duration ? `\nVideo Duration: ${duration}` : '';
 
-  // Fetch system prompt from registry with variables
-  const systemPrompt = await pm.get('system', {
-    platform: platform.toUpperCase(),
-    brandContext,
-    durationContext,
-    channelOptimizationContext: channelOptimizationContext ? `\n\n${channelOptimizationContext}` : '',
-  });
+  // Build strict JSON-enforcing system prompt
+  const systemPrompt = `Bạn là chuyên gia viết hooks và opening lines cho social media. 
+Nhiệm vụ: Tạo hook cho platform ${platform.toUpperCase()}.
+${brandContext}${durationContext}${channelOptimizationContext ? `\n\n${channelOptimizationContext}` : ''}
 
-  // Fetch generate prompt from registry
-  const userPrompt = await pm.get('generate', {
-    topic,
-    platform: platform.toUpperCase(),
-    count: '1',
-  });
+NGUYÊN TẮC:
+1. Gây tò mò ngay từ đầu
+2. Đánh vào pain point hoặc desire  
+3. Tạo urgency hoặc FOMO
+4. Dùng số liệu hoặc facts gây shock
+
+CRITICAL: Bạn PHẢI trả về ĐÚNG 1 JSON object (không phải array). KHÔNG giải thích, KHÔNG markdown, KHÔNG text nào khác.`;
+
+  // Build user prompt with strict JSON schema
+  const userPrompt = `Tạo 1 hook cho chủ đề: "${topic}"
+
+Trả về CHÍNH XÁC 1 JSON object với format sau (KHÔNG có \`\`\`, KHÔNG có text khác):
+{
+  "opening_line": "Câu hook thu hút attention",
+  "visual_direction": "Mô tả ngắn về hình ảnh/video đi kèm",
+  "text_overlay": "Text hiển thị trên màn hình",
+  "framework": "question|bold_statement|transformation|story|number|negative|social_proof|direct_address|shocking_fact|challenge",
+  "psychology_reason": "Giải thích tâm lý tại sao hook này hiệu quả",
+  "engagement_level": "high|medium|low"
+}`;
 
   // Calculate optimized max tokens
   const baseMaxTokens = 1024; // Smaller since only 1 hook
@@ -281,20 +292,33 @@ serve(async (req) => {
     const platformContext = platform ? `\nTarget Platform: ${platform}` : '';
     const durationContext = duration ? `\nVideo Duration: ${duration}` : '';
 
-    // Fetch prompts from registry
-    const systemPrompt = await pm.get('system', {
-      platform: targetChannel.toUpperCase(),
-      brandContext,
-      platformContext,
-      durationContext,
-      channelOptimizationContext: channelOptimizationContext ? `\n\n${channelOptimizationContext}` : '',
-    });
+    // Build strict JSON-enforcing system prompt
+    const systemPrompt = `Bạn là chuyên gia viết hooks và opening lines cho social media.
+Nhiệm vụ: Tạo ${count} hooks cho platform ${targetChannel.toUpperCase()}.
+${brandContext}${platformContext}${durationContext}${channelOptimizationContext ? `\n\n${channelOptimizationContext}` : ''}
 
-    const userPrompt = await pm.get('generate', {
-      topic,
-      platform: targetChannel.toUpperCase(),
-      count: String(count),
-    });
+NGUYÊN TẮC:
+1. Gây tò mò ngay từ đầu
+2. Đánh vào pain point hoặc desire
+3. Tạo urgency hoặc FOMO
+4. Dùng số liệu hoặc facts gây shock
+
+CRITICAL: Bạn PHẢI trả về JSON array. KHÔNG giải thích, KHÔNG markdown, KHÔNG text nào khác.`;
+
+    // Build user prompt with strict JSON schema
+    const userPrompt = `Tạo ${count} hooks cho chủ đề: "${topic}"
+
+Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔNG có \`\`\`, KHÔNG có text khác):
+[
+  {
+    "opening_line": "Câu hook thu hút attention",
+    "visual_direction": "Mô tả ngắn về hình ảnh/video đi kèm", 
+    "text_overlay": "Text hiển thị trên màn hình",
+    "framework": "question|bold_statement|transformation|story|number|negative|social_proof|direct_address|shocking_fact|challenge",
+    "psychology_reason": "Giải thích tâm lý tại sao hook này hiệu quả",
+    "engagement_level": "high|medium|low"
+  }
+]`;
 
     // Calculate optimized max tokens
     const baseMaxTokens = 2048;
