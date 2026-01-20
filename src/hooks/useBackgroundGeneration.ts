@@ -49,7 +49,7 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  // Check for active tasks on mount - only fetch recent tasks (within 1 hour)
+  // Check for active tasks on mount
   const checkActiveTasks = useCallback(async () => {
     if (!user?.id) {
       setIsChecking(false);
@@ -57,15 +57,11 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
     }
 
     try {
-      // Only show tasks created within the last hour to avoid orphaned/stale tasks
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      
       const { data: tasks, error } = await supabase
         .from('generation_tasks')
         .select('*')
         .eq('user_id', user.id)
         .in('status', ['pending', 'generating'])
-        .gte('created_at', oneHourAgo)
         .order('created_at', { ascending: false });
 
       if (error) {
