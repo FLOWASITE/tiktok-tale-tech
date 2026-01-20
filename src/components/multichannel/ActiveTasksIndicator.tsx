@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -57,6 +57,16 @@ const TaskCard = memo(function TaskCard({
   onRetry?: (taskId: string) => Promise<GenerationTask | null>;
 }) {
   const [isRetrying, setIsRetrying] = useState(false);
+
+  // Auto-dismiss completed tasks after 3 seconds
+  useEffect(() => {
+    if (task.status === 'completed' && onDismiss) {
+      const timer = setTimeout(() => {
+        onDismiss(task.id);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [task.status, task.id, onDismiss]);
 
   const handleClick = useCallback(() => {
     onTaskClick?.(task);

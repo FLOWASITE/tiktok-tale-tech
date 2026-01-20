@@ -227,9 +227,11 @@ export function MultiChannelFormWizard({
             description: 'Bạn có thể tiếp tục tạo nội dung đa kênh',
           });
         }
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => dismissTask(task.id), 3000);
       }
       
-      // NEW: Handle multichannel task completion
+      // Handle multichannel task completion
       if (task.task_type === 'multichannel') {
         toast.success('Nội dung đa kênh đã sẵn sàng!', {
           action: {
@@ -242,6 +244,8 @@ export function MultiChannelFormWizard({
           },
           duration: 10000,
         });
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => dismissTask(task.id), 3000);
       }
     },
   });
@@ -1530,7 +1534,7 @@ export function MultiChannelFormWizard({
 
         {/* Background Tasks Indicator - shows tasks that continue when user navigates away */}
         <ActiveTasksIndicator
-          tasks={[...activeTasks, ...completedTasks]}
+          tasks={activeTasks}
           pendingQueue={pendingQueueItems}
           onDismiss={dismissTask}
           onTaskClick={handleTaskClick}
