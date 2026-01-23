@@ -29,6 +29,7 @@ interface InlineTopicSuggestionsProps {
   onSelectTopic: (topic: string) => void;
   disabled?: boolean;
   className?: string;
+  compact?: boolean;
 }
 
 export function InlineTopicSuggestions({
@@ -37,6 +38,7 @@ export function InlineTopicSuggestions({
   onSelectTopic,
   disabled,
   className,
+  compact = false,
 }: InlineTopicSuggestionsProps) {
   const [suggestions, setSuggestions] = useState<TopicSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -147,6 +149,56 @@ export function InlineTopicSuggestions({
     );
   }
 
+  // Compact mode - horizontal chips
+  if (compact) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {suggestions.length} gợi ý cho {goalInfo?.label}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={disabled || isLoading}
+            className="h-6 px-2 text-xs gap-1"
+          >
+            <RefreshCw className={cn("w-3 h-3", isLoading && "animate-spin")} />
+          </Button>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => handleSelect(suggestion, index)}
+              disabled={disabled}
+              className={cn(
+                "px-3 py-1.5 text-xs rounded-full border transition-all duration-200",
+                "hover:bg-accent hover:border-primary/30",
+                "max-w-[200px] truncate",
+                selectedIndex === index 
+                  ? "bg-primary/10 border-primary text-primary font-medium" 
+                  : "bg-card border-border text-foreground",
+                suggestion.type === 'trending' && selectedIndex !== index && "border-rose-500/30",
+                suggestion.type === 'evergreen' && selectedIndex !== index && "border-emerald-500/30",
+                disabled && "opacity-50 cursor-not-allowed"
+              )}
+              title={suggestion.topic}
+            >
+              {suggestion.type === 'trending' && <TrendingUp className="w-3 h-3 inline mr-1 text-rose-500" />}
+              {suggestion.topic.length > 40 ? `${suggestion.topic.slice(0, 40)}...` : suggestion.topic}
+              {selectedIndex === index && <Check className="w-3 h-3 inline ml-1" />}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Full mode - cards
   return (
     <div className={cn("space-y-3", className)}>
       {/* Header */}

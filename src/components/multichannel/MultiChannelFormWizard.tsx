@@ -933,47 +933,72 @@ export function MultiChannelFormWizard({
                     </div>
                   </div>
 
-                  {/* Inline Topic Suggestions */}
-                  <div className="pt-2">
+                  {/* Hero Brainstorm Card - TRỌNG TÂM */}
+                  <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30 overflow-hidden">
+                    <CardContent className="p-6 text-center space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
+                        <MessageSquare className="w-8 h-8 text-primary" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-semibold">Brainstorm với AI</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                          Trò chuyện với AI để tìm chủ đề hoàn hảo. 
+                          AI sẽ gợi ý dựa trên brand và mục tiêu của bạn.
+                        </p>
+                      </div>
+                      
+                      <ul className="text-xs text-muted-foreground space-y-1.5">
+                        <li className="flex items-center justify-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                          AI hiểu brand của bạn
+                        </li>
+                        <li className="flex items-center justify-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                          Gợi ý phù hợp với mục tiêu: {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label || 'Giáo dục'}
+                        </li>
+                        <li className="flex items-center justify-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                          Hỗ trợ refine và điều chỉnh ý tưởng
+                        </li>
+                      </ul>
+                      
+                      <Button
+                        onClick={() => setShowBrainstormSheet(true)}
+                        size="lg"
+                        className="w-full max-w-xs gap-2"
+                        disabled={isGenerating}
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Bắt đầu Brainstorm
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Suggestions - Secondary */}
+                  <div className="pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Separator className="flex-1" />
+                      <span className="text-xs text-muted-foreground px-2">Gợi ý nhanh</span>
+                      <Separator className="flex-1" />
+                    </div>
+                    
                     <InlineTopicSuggestions
                       brandTemplateId={brandTemplateId}
                       contentGoal={formData.contentGoal || 'education'}
                       onSelectTopic={(topic) => {
                         setFormData(prev => ({ ...prev, topic }));
-                        // Switch to quick tab to show the selected topic
                         setTopicInputMode('quick');
                       }}
                       disabled={isGenerating}
+                      compact
                     />
                   </div>
 
-                  {/* Advanced Brainstorm Sheet Button */}
-                  <div className="flex items-center gap-2 pt-2">
-                    <Separator className="flex-1" />
-                    <span className="text-xs text-muted-foreground">hoặc</span>
-                    <Separator className="flex-1" />
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowBrainstormSheet(true)}
-                    className={cn(
-                      "w-full gap-2",
-                      "border-dashed border-muted-foreground/30",
-                      "text-muted-foreground hover:text-foreground",
-                      "hover:border-primary/50 hover:bg-primary/5"
-                    )}
-                    disabled={isGenerating}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Chat với AI để brainstorm chi tiết
-                    <ArrowRight className="w-3.5 h-3.5 ml-auto" />
-                  </Button>
-
                   {/* Show selected topic if any */}
                   {formData.topic.trim() && (
-                    <Card className="bg-primary/5 border-primary/20">
+                    <Card className="bg-primary/5 border-primary/20 mt-4">
                       <CardContent className="p-3">
                         <div className="flex items-start gap-2">
                           <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
