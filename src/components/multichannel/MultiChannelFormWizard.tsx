@@ -217,6 +217,7 @@ export function MultiChannelFormWizard({
   // Core Content generation settings
   const [coreContentAngle, setCoreContentAngle] = useState<ContentAngle | '__none__'>('__none__');
   const [coreContentAudience, setCoreContentAudience] = useState('');
+  const [coreContentPersonaId, setCoreContentPersonaId] = useState<string | undefined>();
   const [coreContentLengthMode, setCoreContentLengthMode] = useState<CoreContentLengthMode>('medium');
   const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
 
@@ -458,12 +459,13 @@ export function MultiChannelFormWizard({
         brandTemplateId: brandTemplateId,
         organizationId,
         targetAudience: coreContentAudience || undefined,
-        enableResearch, // NEW: Pass research flag
+        personaId: coreContentPersonaId, // NEW: Pass persona ID
+        enableResearch,
       });
     } catch (error) {
       console.error('Core Content generation error:', error);
     }
-  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
+  }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentPersonaId, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
   // Can proceed logic - NEW for 4-step flow with parallel workflow
   const canProceed = useMemo(() => {
@@ -1037,15 +1039,24 @@ export function MultiChannelFormWizard({
                         disabled={isGeneratingCoreContent}
                       />
 
-                      {/* Target Audience */}
+                      {/* Target Audience - PersonaSelector or Textarea fallback */}
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Đối tượng mục tiêu (tuỳ chọn)</Label>
-                        <Textarea
-                          value={coreContentAudience}
-                          onChange={(e) => setCoreContentAudience(e.target.value)}
-                          placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
-                          className="min-h-[60px] text-sm resize-none"
-                        />
+                        {brandTemplateId ? (
+                          <PersonaSelector
+                            brandTemplateId={brandTemplateId}
+                            value={coreContentPersonaId}
+                            onValueChange={(id) => setCoreContentPersonaId(id)}
+                            disabled={isGeneratingCoreContent}
+                          />
+                        ) : (
+                          <Textarea
+                            value={coreContentAudience}
+                            onChange={(e) => setCoreContentAudience(e.target.value)}
+                            placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
+                            className="min-h-[60px] text-sm resize-none"
+                          />
+                        )}
                       </div>
 
                       {/* Length Mode Selector */}

@@ -43,6 +43,7 @@ interface GenerateRequest {
   brandTemplateId?: string;
   organizationId: string;
   targetAudience?: string;
+  personaId?: string;
   additionalContext?: string;
   enableResearch?: boolean;
   researchRecency?: 'day' | 'week' | 'month' | 'year';
