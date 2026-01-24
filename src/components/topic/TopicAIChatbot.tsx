@@ -3,7 +3,7 @@
 // Uses modular hooks and sub-components
 // ============================================
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -38,7 +38,12 @@ import {
 } from './chatbot';
 import { SimpleMessageList } from './chatbot/SimpleMessageList';
 
-export function TopicAIChatbot({
+// Ref handle type for parent components
+export interface TopicAIChatbotHandle {
+  focusInput: () => void;
+}
+
+export const TopicAIChatbot = forwardRef<TopicAIChatbotHandle, TopicAIChatbotProps>(function TopicAIChatbot({
   brandTemplateId,
   contentGoal,
   onNavigate,
@@ -46,7 +51,7 @@ export function TopicAIChatbot({
   isExpanded = false,
   mode = 'standalone',
   onTopicSelect,
-}: TopicAIChatbotProps) {
+}, ref) {
   const isEmbedded = mode === 'embedded';
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
@@ -118,6 +123,11 @@ export function TopicAIChatbot({
     onSend: handleSend,
     isLoading: streamingHook.isLoading,
   });
+  
+  // Expose focusInput to parent via ref
+  useImperativeHandle(ref, () => ({
+    focusInput: inputHook.focusInput,
+  }), [inputHook.focusInput]);
   
   // Global keyboard shortcuts
   useEffect(() => {
@@ -348,4 +358,4 @@ export function TopicAIChatbot({
       </div>
     </TooltipProvider>
   );
-}
+});
