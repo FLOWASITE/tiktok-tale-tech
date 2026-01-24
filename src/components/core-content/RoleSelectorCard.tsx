@@ -1,15 +1,16 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Sprout, Leaf, Sun } from 'lucide-react';
+import { Sprout, Leaf, Sun, Sparkles } from 'lucide-react';
 import { ContentRole, CONTENT_ROLES, GOAL_TO_ROLE_MAP } from '@/types/coreContent';
-import { ContentGoal } from '@/types/multichannel';
+import { ContentGoal, ContentAngle, CONTENT_ANGLES, CONTENT_GOALS, ANGLE_TO_ROLE_MAP } from '@/types/multichannel';
 
 interface RoleSelectorCardProps {
   value?: ContentRole;
   onValueChange: (role: ContentRole) => void;
   suggestedRole?: ContentRole;
   contentGoal?: ContentGoal;
+  contentAngle?: ContentAngle;
   disabled?: boolean;
   className?: string;
 }
@@ -46,14 +47,35 @@ export function RoleSelectorCard({
   onValueChange,
   suggestedRole,
   contentGoal,
+  contentAngle,
   disabled,
   className,
 }: RoleSelectorCardProps) {
-  // Auto-suggest role from contentGoal if not provided
-  const effectiveSuggestedRole = suggestedRole || (contentGoal ? GOAL_TO_ROLE_MAP[contentGoal] : undefined);
+  // Priority: suggestedRole (explicit) > Angle-based > Goal-based
+  const effectiveSuggestedRole = 
+    suggestedRole || 
+    (contentAngle ? ANGLE_TO_ROLE_MAP[contentAngle] : undefined) ||
+    (contentGoal ? GOAL_TO_ROLE_MAP[contentGoal] : undefined);
+
+  // Determine suggestion source for hint display
+  const getSuggestionSource = (): { source: 'angle' | 'goal'; label: string } | null => {
+    if (suggestedRole) return null; // Explicit override, no hint
+    if (contentAngle && ANGLE_TO_ROLE_MAP[contentAngle]) {
+      const angleLabel = CONTENT_ANGLES.find(a => a.value === contentAngle)?.label;
+      return { source: 'angle', label: angleLabel || contentAngle };
+    }
+    if (contentGoal && GOAL_TO_ROLE_MAP[contentGoal]) {
+      const goalLabel = CONTENT_GOALS.find(g => g.value === contentGoal)?.label;
+      return { source: 'goal', label: goalLabel || contentGoal };
+    }
+    return null;
+  };
+
+  const suggestionSource = getSuggestionSource();
 
   return (
-    <div className={cn("grid grid-cols-1 sm:grid-cols-3 gap-3", className)}>
+    <div className={cn("space-y-2", className)}>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {CONTENT_ROLES.map((role) => {
         const isSelected = value === role.value;
         const isSuggested = effectiveSuggestedRole === role.value && !value;
@@ -130,6 +152,18 @@ export function RoleSelectorCard({
           </Card>
         );
       })}
+    </div>
+    
+    {/* Suggestion source hint */}
+    {suggestionSource && !value && (
+      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+        <Sparkles className="w-3 h-3 text-primary" />
+        {suggestionSource.source === 'angle' 
+          ? `Gợi ý từ góc tiếp cận "${suggestionSource.label}"`
+          : `Gợi ý từ mục tiêu "${suggestionSource.label}"`
+        }
+      </p>
+    )}
     </div>
   );
 }

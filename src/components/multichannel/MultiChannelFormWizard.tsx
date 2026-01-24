@@ -1283,6 +1283,7 @@ export function MultiChannelFormWizard({
                   value={formData.contentRole}
                   onValueChange={(role) => setFormData(prev => ({ ...prev, contentRole: role }))}
                   contentGoal={coreContentData?.contentGoal || formData.contentGoal}
+                  contentAngle={coreContentAngle !== '__none__' ? coreContentAngle : undefined}
                   disabled={isGenerating}
                 />
               </div>
