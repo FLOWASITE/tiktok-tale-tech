@@ -1121,6 +1121,21 @@ export function MultiChannelFormWizard({
                           </p>
                         </div>
                       </div>
+                      
+                      {/* Context Richness Indicator */}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3 p-2 bg-muted/30 rounded-lg">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <span>AI Context:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {brandTemplateId && <Badge variant="outline" className="text-[9px] py-0">Brand</Badge>}
+                          {coreContentPersonaId && <Badge variant="outline" className="text-[9px] py-0">Persona</Badge>}
+                          {enableResearch && <Badge variant="outline" className="text-[9px] py-0">Research</Badge>}
+                          {coreContentAngle !== '__none__' && <Badge variant="outline" className="text-[9px] py-0">Angle</Badge>}
+                          {!brandTemplateId && !coreContentPersonaId && !enableResearch && coreContentAngle === '__none__' && (
+                            <span className="text-muted-foreground/70 italic">Cơ bản</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Generate Button */}
