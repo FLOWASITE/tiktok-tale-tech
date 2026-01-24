@@ -91,6 +91,7 @@ import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
 import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
+import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
 import { cn } from '@/lib/utils';
 import { 
@@ -1250,6 +1251,13 @@ export function MultiChannelFormWizard({
           {/* ========== STEP 3: VAI TRÒ ========== */}
           {currentStep === 3 && (
             <div className="space-y-5 animate-fade-in">
+              {/* Strategy Overview Card - Summary from Step 1-2 */}
+              <StrategyOverviewCard
+                contentGoal={coreContentData?.contentGoal || formData.contentGoal}
+                contentAngle={coreContentAngle !== '__none__' ? coreContentAngle : undefined}
+                lengthMode={coreContentLengthMode}
+              />
+
               {/* Core Content Summary */}
               {coreContentData && (
                 <Card className="bg-muted/30 border-border/50">
@@ -1257,7 +1265,7 @@ export function MultiChannelFormWizard({
                     <div className="flex items-start gap-3">
                       <BookOpen className="w-5 h-5 text-primary mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-xs text-muted-foreground mb-1">Core Content</p>
+                        <p className="text-xs text-muted-foreground mb-1">Core Content đã tạo</p>
                         <p className="font-medium text-sm line-clamp-1">{coreContentData.title}</p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {coreContentData.wordCount} từ • {coreContentData.keyMessages.length} thông điệp
