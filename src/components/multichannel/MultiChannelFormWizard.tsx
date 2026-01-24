@@ -1030,26 +1030,12 @@ export function MultiChannelFormWizard({
                         <span>Tuỳ chọn chi tiết</span>
                       </div>
 
-                      {/* Content Angle */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Góc tiếp cận</Label>
-                        <Select
-                          value={coreContentAngle}
-                          onValueChange={(v) => setCoreContentAngle(v as ContentAngle | '__none__')}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Tự động" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Tự động</SelectItem>
-                            {CONTENT_ANGLES.map((angle) => (
-                              <SelectItem key={angle.value} value={angle.value}>
-                                {angle.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {/* Content Angle - Visual Badges */}
+                      <ContentAngleSelector
+                        value={coreContentAngle === '__none__' ? undefined : coreContentAngle}
+                        onValueChange={(angle) => setCoreContentAngle(angle || '__none__')}
+                        disabled={isGeneratingCoreContent}
+                      />
 
                       {/* Target Audience */}
                       <div className="space-y-1.5">
