@@ -1022,102 +1022,97 @@ export function MultiChannelFormWizard({
                       </div>
                     </div>
 
-                    {/* Optional Settings - Collapsible */}
-                    <Collapsible>
-                      <CollapsibleTrigger className="w-full">
-                        <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
-                          <span className="text-sm text-muted-foreground flex items-center gap-2">
-                            <Settings2 className="w-4 h-4" />
-                            Tuỳ chọn nâng cao
-                          </span>
-                          <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="pt-3 space-y-3">
-                        {/* Content Angle */}
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Góc tiếp cận</Label>
-                          <Select
-                            value={coreContentAngle}
-                            onValueChange={(v) => setCoreContentAngle(v as ContentAngle | '__none__')}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Tự động" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Tự động</SelectItem>
-                              {CONTENT_ANGLES.map((angle) => (
-                                <SelectItem key={angle.value} value={angle.value}>
-                                  {angle.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                    {/* Advanced Settings - Always visible */}
+                    <Separator className="my-2" />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Settings2 className="w-4 h-4" />
+                        <span>Tuỳ chọn chi tiết</span>
+                      </div>
 
-                        {/* Target Audience */}
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Đối tượng mục tiêu (tuỳ chọn)</Label>
-                          <Textarea
-                            value={coreContentAudience}
-                            onChange={(e) => setCoreContentAudience(e.target.value)}
-                            placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
-                            className="min-h-[60px] text-sm resize-none"
-                          />
-                        </div>
-
-                        {/* Length Mode Selector - NEW */}
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Độ dài nội dung</Label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {CORE_CONTENT_LENGTH_MODES.map((mode) => (
-                              <button
-                                key={mode.value}
-                                type="button"
-                                onClick={() => setCoreContentLengthMode(mode.value)}
-                                className={cn(
-                                  "p-2.5 rounded-lg border text-left transition-all relative",
-                                  coreContentLengthMode === mode.value
-                                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                    : "border-border/50 hover:bg-muted/30"
-                                )}
-                              >
-                                {mode.recommended && (
-                                  <Badge 
-                                    variant="outline" 
-                                    className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30"
-                                  >
-                                    Khuyến khích
-                                  </Badge>
-                                )}
-                                <div className="text-sm font-medium">{mode.labelVi}</div>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  {mode.minWords}-{mode.maxWords} từ
-                                </p>
-                              </button>
+                      {/* Content Angle */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Góc tiếp cận</Label>
+                        <Select
+                          value={coreContentAngle}
+                          onValueChange={(v) => setCoreContentAngle(v as ContentAngle | '__none__')}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Tự động" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Tự động</SelectItem>
+                            {CONTENT_ANGLES.map((angle) => (
+                              <SelectItem key={angle.value} value={angle.value}>
+                                {angle.label}
+                              </SelectItem>
                             ))}
-                          </div>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Target Audience */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Đối tượng mục tiêu (tuỳ chọn)</Label>
+                        <Textarea
+                          value={coreContentAudience}
+                          onChange={(e) => setCoreContentAudience(e.target.value)}
+                          placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
+                          className="min-h-[60px] text-sm resize-none"
+                        />
+                      </div>
+
+                      {/* Length Mode Selector */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Độ dài nội dung</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {CORE_CONTENT_LENGTH_MODES.map((mode) => (
+                            <button
+                              key={mode.value}
+                              type="button"
+                              onClick={() => setCoreContentLengthMode(mode.value)}
+                              className={cn(
+                                "p-2.5 rounded-lg border text-left transition-all relative",
+                                coreContentLengthMode === mode.value
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                  : "border-border/50 hover:bg-muted/30"
+                              )}
+                            >
+                              {mode.recommended && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30"
+                                >
+                                  Khuyến khích
+                                </Badge>
+                              )}
+                              <div className="text-sm font-medium">{mode.labelVi}</div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {mode.minWords}-{mode.maxWords} từ
+                              </p>
+                            </button>
+                          ))}
                         </div>
-                        
-                        {/* Auto Research Toggle - NEW */}
-                        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
-                          <Checkbox
-                            id="enable-research"
-                            checked={enableResearch}
-                            onCheckedChange={(checked) => setEnableResearch(checked === true)}
-                          />
-                          <div className="flex-1">
-                            <label htmlFor="enable-research" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-primary" />
-                              Tự động nghiên cứu từ internet
-                            </label>
-                            <p className="text-xs text-muted-foreground">
-                              AI tìm kiếm facts và số liệu mới nhất trước khi viết
-                            </p>
-                          </div>
+                      </div>
+                      
+                      {/* Auto Research Toggle */}
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
+                        <Checkbox
+                          id="enable-research"
+                          checked={enableResearch}
+                          onCheckedChange={(checked) => setEnableResearch(checked === true)}
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="enable-research" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-primary" />
+                            Tự động nghiên cứu từ internet
+                          </label>
+                          <p className="text-xs text-muted-foreground">
+                            AI tìm kiếm facts và số liệu mới nhất trước khi viết
+                          </p>
                         </div>
-                      </CollapsibleContent>
-                    </Collapsible>
+                      </div>
+                    </div>
 
                     {/* Generate Button */}
                     <Button
@@ -1306,38 +1301,26 @@ export function MultiChannelFormWizard({
                 </Card>
               )}
 
-              {/* Journey Stage - Collapsible */}
+              {/* Journey Stage - Always visible */}
               <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <Collapsible>
-                  <CollapsibleTrigger className="w-full">
-                    <CardContent className="p-5 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Rocket className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="text-left">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-foreground">Giai đoạn hành trình</h3>
-                            <Badge variant="outline" className="text-[10px]">Nâng cao</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">Điều chỉnh messaging theo phễu</p>
-                        </div>
-                      </div>
-                      <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-                    </CardContent>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="px-5 pb-5">
-                      <Separator className="mb-4" />
-                      <JourneyStageSelector
-                        value={formData.journeyStage}
-                        onValueChange={(stage) => setFormData(prev => ({ ...prev, journeyStage: stage }))}
-                        disabled={isGenerating}
-                        showEmotionalTone={true}
-                      />
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Rocket className="w-5 h-5 text-primary" />
                     </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                    <div>
+                      <h3 className="font-semibold text-foreground">Giai đoạn hành trình</h3>
+                      <p className="text-xs text-muted-foreground">Điều chỉnh messaging theo phễu</p>
+                    </div>
+                  </div>
+                  <Separator />
+                  <JourneyStageSelector
+                    value={formData.journeyStage}
+                    onValueChange={(stage) => setFormData(prev => ({ ...prev, journeyStage: stage }))}
+                    disabled={isGenerating}
+                    showEmotionalTone={true}
+                  />
+                </CardContent>
               </Card>
 
               {/* Channel Selection */}
