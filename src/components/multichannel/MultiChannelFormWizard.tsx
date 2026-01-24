@@ -105,6 +105,7 @@ import {
   CONTENT_ANGLES,
   JOURNEY_TO_GOAL_MAP,
   JOURNEY_TO_ANGLE_MAP,
+  GOAL_TO_ANGLE_MAP,
   AiSuggestionContext,
 } from '@/types/multichannel';
 import { GOAL_TO_ROLE_MAP, CoreContentLengthMode, CORE_CONTENT_LENGTH_MODES } from '@/types/coreContent';
@@ -392,6 +393,19 @@ export function MultiChannelFormWizard({
       }));
     }
   }, [formData.journeyStage]);
+
+  // Auto-suggest Content Angle based on Content Goal (Step 1 → Step 2)
+  useEffect(() => {
+    // Only suggest if:
+    // 1. User has selected a contentGoal from Step 1
+    // 2. Current angle is still default '__none__'
+    if (formData.contentGoal && coreContentAngle === '__none__') {
+      const suggestedAngle = GOAL_TO_ANGLE_MAP[formData.contentGoal];
+      if (suggestedAngle) {
+        setCoreContentAngle(suggestedAngle);
+      }
+    }
+  }, [formData.contentGoal]);
 
   // Topic Refinement
   const {
@@ -1039,6 +1053,14 @@ export function MultiChannelFormWizard({
                         onValueChange={(angle) => setCoreContentAngle(angle || '__none__')}
                         disabled={isGeneratingCoreContent}
                       />
+                      {/* Auto-suggestion hint - shows when angle was auto-suggested from Goal */}
+                      {formData.contentGoal && coreContentAngle !== '__none__' && 
+                       GOAL_TO_ANGLE_MAP[formData.contentGoal] === coreContentAngle && (
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 -mt-1">
+                          <Sparkles className="w-3 h-3 text-primary" />
+                          Gợi ý từ mục tiêu "{CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}"
+                        </p>
+                      )}
 
                       {/* Target Audience - PersonaSelector or Textarea fallback */}
                       <div className="space-y-1.5">
