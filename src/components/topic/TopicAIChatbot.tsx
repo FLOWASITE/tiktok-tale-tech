@@ -3,7 +3,7 @@
 // Uses modular hooks and sub-components
 // ============================================
 
-import { useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -31,6 +31,7 @@ import {
   DiscoveryTab,
   ArtifactsPanel,
   type TopicAIChatbotProps,
+  type TopicAIChatbotHandle,
   type ChatMessage,
   type ExtractedTopic,
   triggerHaptic,
@@ -38,12 +39,10 @@ import {
 } from './chatbot';
 import { SimpleMessageList } from './chatbot/SimpleMessageList';
 
-// Ref handle type for parent components
-export interface TopicAIChatbotHandle {
-  focusInput: () => void;
-}
+// Re-export handle type for consumers
+export type { TopicAIChatbotHandle } from './chatbot';
 
-export const TopicAIChatbot = forwardRef<TopicAIChatbotHandle, TopicAIChatbotProps>(function TopicAIChatbot({
+export function TopicAIChatbot({
   brandTemplateId,
   contentGoal,
   onNavigate,
@@ -51,7 +50,8 @@ export const TopicAIChatbot = forwardRef<TopicAIChatbotHandle, TopicAIChatbotPro
   isExpanded = false,
   mode = 'standalone',
   onTopicSelect,
-}, ref) {
+  onReady,
+}: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
@@ -124,10 +124,14 @@ export const TopicAIChatbot = forwardRef<TopicAIChatbotHandle, TopicAIChatbotPro
     isLoading: streamingHook.isLoading,
   });
   
-  // Expose focusInput to parent via ref
-  useImperativeHandle(ref, () => ({
-    focusInput: inputHook.focusInput,
-  }), [inputHook.focusInput]);
+  // Expose focusInput to parent via onReady callback
+  const handleRef = useRef<TopicAIChatbotHandle | null>(null);
+  useEffect(() => {
+    if (!handleRef.current) {
+      handleRef.current = { focusInput: inputHook.focusInput };
+      onReady?.(handleRef.current);
+    }
+  }, [inputHook.focusInput, onReady]);
   
   // Global keyboard shortcuts
   useEffect(() => {
@@ -358,4 +362,4 @@ export const TopicAIChatbot = forwardRef<TopicAIChatbotHandle, TopicAIChatbotPro
       </div>
     </TooltipProvider>
   );
-});
+}
