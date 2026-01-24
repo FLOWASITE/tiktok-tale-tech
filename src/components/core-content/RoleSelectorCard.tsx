@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Sprout, Leaf, Sun, Sparkles } from 'lucide-react';
+import { Sprout, Leaf, Sun, Sparkles, AlertTriangle } from 'lucide-react';
 import { ContentRole, CONTENT_ROLES, GOAL_TO_ROLE_MAP } from '@/types/coreContent';
 import { ContentGoal, ContentAngle, CONTENT_ANGLES, CONTENT_GOALS, ANGLE_TO_ROLE_MAP } from '@/types/multichannel';
 
@@ -42,6 +42,26 @@ const ROLE_COLORS: Record<ContentRole, { bg: string; border: string; text: strin
   },
 };
 
+// Mismatch warnings for specific Goal + Role combinations
+const ROLE_MISMATCH_WARNINGS: Record<string, string> = {
+  // High-intent goals with low-intent roles
+  'conversion_seed': 'Goal "Chuyển đổi" thường cần CTA mạnh, nhưng Seed tập trung awareness. Cân nhắc chọn Harvest.',
+  'conversion_sprout': 'Goal "Chuyển đổi" cần push mạnh hơn. Sprout phù hợp cho trust-building, nhưng có thể thiếu CTA.',
+  // Low-intent goals with high-intent roles  
+  'awareness_harvest': 'Goal "Nhận diện" nên soft-sell, nhưng Harvest có CTA mạnh có thể gây khó chịu.',
+  'education_harvest': 'Goal "Giáo dục" nên chia sẻ giá trị, Harvest có thể làm nội dung quá bán hàng.',
+  // Mismatched engagement
+  'engagement_harvest': 'Goal "Tương tác" cần nội dung thảo luận, Harvest quá tập trung chuyển đổi.',
+};
+
+// Angle-based mismatch warnings
+const ANGLE_MISMATCH_WARNINGS: Record<string, string> = {
+  'promotional_seed': 'Góc "Quảng cáo" cần CTA rõ, nhưng Seed không có selling intent.',
+  'promotional_sprout': 'Góc "Quảng cáo" nên có call-to-action mạnh hơn Sprout.',
+  'educational_harvest': 'Góc "Kiến thức" nên chia sẻ giá trị, Harvest có thể quá pushy.',
+  'storytelling_harvest': 'Góc "Kể chuyện" cần emotional flow, Harvest có thể làm gián đoạn narrative.',
+};
+
 export function RoleSelectorCard({
   value,
   onValueChange,
@@ -71,7 +91,31 @@ export function RoleSelectorCard({
     return null;
   };
 
+  // Check for mismatch warning when user selects a role different from suggested
+  const getMismatchWarning = (): string | null => {
+    if (!value || value === effectiveSuggestedRole) return null;
+    
+    // Check angle-based mismatch first (higher priority)
+    if (contentAngle) {
+      const angleKey = `${contentAngle}_${value}`;
+      if (ANGLE_MISMATCH_WARNINGS[angleKey]) {
+        return ANGLE_MISMATCH_WARNINGS[angleKey];
+      }
+    }
+    
+    // Check goal-based mismatch
+    if (contentGoal) {
+      const goalKey = `${contentGoal}_${value}`;
+      if (ROLE_MISMATCH_WARNINGS[goalKey]) {
+        return ROLE_MISMATCH_WARNINGS[goalKey];
+      }
+    }
+    
+    return null;
+  };
+
   const suggestionSource = getSuggestionSource();
+  const mismatchWarning = getMismatchWarning();
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -163,6 +207,21 @@ export function RoleSelectorCard({
           : `Gợi ý từ mục tiêu "${suggestionSource.label}"`
         }
       </p>
+    )}
+
+    {/* Mismatch warning */}
+    {mismatchWarning && (
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            Lựa chọn có thể không phù hợp
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {mismatchWarning}
+          </p>
+        </div>
+      </div>
     )}
     </div>
   );
