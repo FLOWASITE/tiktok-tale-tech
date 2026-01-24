@@ -19,6 +19,16 @@ export const JOURNEY_TO_ANGLE_MAP: Partial<Record<JourneyStage, ContentAngle>> =
   loyalty: 'storytelling', // Giữ chân → kể chuyện, gắn kết
 };
 
+// Content Goal → Suggested Content Angle Mapping
+// Auto-suggest the most effective angle for each goal
+export const GOAL_TO_ANGLE_MAP: Partial<Record<ContentGoal, ContentAngle>> = {
+  education: 'educational',    // Giáo dục → Tips, hướng dẫn
+  awareness: 'storytelling',   // Nhận diện → Câu chuyện, cảm xúc
+  engagement: 'qa_faq',        // Tương tác → Q&A, thảo luận
+  expertise: 'social_proof',   // Xây chuyên gia → Case study, testimonial
+  conversion: 'promotional',   // Chuyển đổi → CTA mạnh, urgency
+};
+
 export type ContentGoal = 
   | 'education'      // Giáo dục
   | 'awareness'      // Nhận diện  
