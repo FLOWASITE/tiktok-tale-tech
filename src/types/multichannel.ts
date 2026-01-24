@@ -1,7 +1,7 @@
 import { GraduationCap, Eye, MessageCircle, Award, Target, LucideIcon } from 'lucide-react';
 import { ContentPurpose, MarketingFramework } from './topicDiscovery';
 import { JourneyStage } from './journeyStageMessaging';
-
+import { ContentRole } from './coreContent';
 // Journey Stage → Content Goal Mapping
 // Auto-derive contentGoal from journeyStage to reduce user input
 export const JOURNEY_TO_GOAL_MAP: Record<JourneyStage, ContentGoal> = {
@@ -27,6 +27,18 @@ export const GOAL_TO_ANGLE_MAP: Partial<Record<ContentGoal, ContentAngle>> = {
   engagement: 'qa_faq',        // Tương tác → Q&A, thảo luận
   expertise: 'social_proof',   // Xây chuyên gia → Case study, testimonial
   conversion: 'promotional',   // Chuyển đổi → CTA mạnh, urgency
+};
+
+// Content Angle → Suggested Content Role Mapping
+// Auto-suggest role based on the chosen content angle approach
+// Priority: User-selected > Angle-suggested > Goal-suggested
+export const ANGLE_TO_ROLE_MAP: Partial<Record<ContentAngle, ContentRole>> = {
+  educational: 'sprout',       // Kiến thức → Build trust, explain
+  storytelling: 'seed',        // Kể chuyện → Awareness, emotional connection
+  promotional: 'harvest',      // Quảng cáo → Strong CTA, conversion
+  social_proof: 'sprout',      // Testimonial → Build credibility/trust
+  behind_the_scenes: 'seed',   // Hậu trường → Humanize brand, awareness
+  qa_faq: 'sprout',            // Q&A → Address concerns, build trust
 };
 
 export type ContentGoal = 
@@ -281,8 +293,8 @@ export const HOOK_TYPES = [
 
 export type HookType = typeof HOOK_TYPES[number];
 
-// Content Role for Content Orchestration Flow
-export type ContentRole = 'seed' | 'sprout' | 'harvest';
+// Re-export ContentRole from coreContent for backward compatibility
+export type { ContentRole } from './coreContent';
 
 export interface MultiChannelFormData {
   topic: string;
