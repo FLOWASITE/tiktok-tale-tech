@@ -303,7 +303,7 @@ export function InlineTopicSuggestions({
 
       {/* Hint */}
       <p className="text-xs text-muted-foreground text-center">
-        Click vào chủ đề để chọn, hoặc nhập thủ công ở tab "Nhập nhanh"
+        Click vào chủ đề để chọn
       </p>
     </div>
   );

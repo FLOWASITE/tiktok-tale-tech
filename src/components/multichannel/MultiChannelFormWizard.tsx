@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -7,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Collapsible,
   CollapsibleContent,
@@ -155,8 +155,8 @@ const channelIcons: Record<Channel, React.ReactNode> = {
 
 const MAX_TOPIC_LENGTH = 500;
 
-// Topic Input Mode for Step 1 tabs
-type TopicInputMode = 'quick' | 'brainstorm';
+// Threshold for showing refinement vs brainstorm suggestions
+const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;
 
 // Goal icons mapping
 const GOAL_ICONS: Record<ContentGoal, React.ReactNode> = {
@@ -200,9 +200,6 @@ export function MultiChannelFormWizard({
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
-  
-  // NEW: Topic input mode for Step 1 tabs
-  const [topicInputMode, setTopicInputMode] = useState<TopicInputMode>('quick');
 
   // NEW: Core Content generation state
   const [coreContentData, setCoreContentData] = useState<GeneratedCoreContent | null>(null);
@@ -761,80 +758,176 @@ export function MultiChannelFormWizard({
 
         {/* Step Content */}
         <div className="min-h-[350px]">
-          {/* ========== STEP 1: CHỦ ĐỀ ========== */}
+          {/* ========== STEP 1: CHỦ ĐỀ (Progressive Smart Input) ========== */}
           {currentStep === 1 && (
             <div className="space-y-5 animate-fade-in">
-              <Tabs 
-                value={topicInputMode} 
-                onValueChange={(v) => setTopicInputMode(v as TopicInputMode)}
-                className="w-full"
-              >
-                {/* Tab Toggle */}
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="quick" className="gap-2">
-                    <Pencil className="w-4 h-4" />
-                    Nhập nhanh
-                  </TabsTrigger>
-                  <TabsTrigger value="brainstorm" className="gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    AI Brainstorm
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* ===== TAB 1: NHẬP NHANH (Quick Input) ===== */}
-                <TabsContent value="quick" className="space-y-4 mt-0">
-                  {/* Hint */}
-                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-                    💡 Chế độ này dành cho bạn khi đã có ý tưởng rõ ràng. Nhập chủ đề và tiếp tục.
-                  </p>
-
-                  {/* Topic Textarea */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-foreground font-semibold flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
-                        Chủ đề / Ý tưởng
-                        <span className="text-primary">*</span>
-                      </Label>
-                      <span className={cn(
-                        "text-xs",
-                        formData.topic.length < 10 ? 'text-amber-500' : 'text-muted-foreground'
-                      )}>
-                        {formData.topic.length}/{MAX_TOPIC_LENGTH}
-                      </span>
-                    </div>
-
-                    <Textarea
-                      ref={topicTextareaRef}
-                      value={formData.topic}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                      }))}
-                      placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024"
-                      className="min-h-[140px] resize-y text-sm"
+              {/* Content Goal Selector - ALWAYS VISIBLE */}
+              <div className="space-y-2">
+                <Label className="text-foreground font-semibold flex items-center gap-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  Mục tiêu nội dung
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Xác định mục tiêu giúp AI gợi ý và tạo nội dung phù hợp hơn
+                </p>
+                
+                {/* Goal Button Group */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                  {CONTENT_GOALS.map((goal) => (
+                    <button
+                      key={goal.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, contentGoal: goal.value }))}
                       disabled={isGenerating}
-                      autoFocus
-                    />
+                      className={cn(
+                        "p-2.5 rounded-lg border text-center transition-all duration-200",
+                        "flex flex-col items-center gap-1",
+                        "hover:shadow-sm",
+                        formData.contentGoal === goal.value 
+                          ? "border-primary bg-primary/10 text-primary shadow-sm" 
+                          : "border-border bg-card hover:bg-accent/50 hover:border-primary/30",
+                        isGenerating && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <span className={cn(
+                        "w-7 h-7 rounded-full flex items-center justify-center",
+                        formData.contentGoal === goal.value 
+                          ? "bg-primary/20" 
+                          : "bg-muted"
+                      )}>
+                        {GOAL_ICONS[goal.value]}
+                      </span>
+                      <span className="text-xs font-medium">{goal.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                    {formData.topic.length > 0 && formData.topic.length < 10 && (
-                      <p className="text-xs text-amber-500">
-                        Chủ đề nên có ít nhất 10 ký tự
-                      </p>
-                    )}
+              {/* Topic Textarea with AI Button */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-foreground font-semibold flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    Chủ đề / Ý tưởng
+                    <span className="text-primary">*</span>
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowBrainstormSheet(true)}
+                      disabled={isGenerating}
+                      className="h-7 px-2 text-xs gap-1.5 text-primary hover:bg-primary/10"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Brainstorm AI</span>
+                    </Button>
+                    <span className={cn(
+                      "text-xs",
+                      formData.topic.length < TOPIC_MIN_LENGTH_FOR_REFINEMENT ? 'text-amber-500' : 'text-muted-foreground'
+                    )}>
+                      {formData.topic.length}/{MAX_TOPIC_LENGTH}
+                    </span>
                   </div>
+                </div>
 
-                  {/* Compliance Warning */}
-                  {formData.topic.trim().length >= 10 && complianceCheckResult && (
-                    <ComplianceWarningBadge
-                      result={complianceCheckResult}
-                      onSuggestCompliant={handleSuggestCompliant}
-                      isSuggesting={isCheckingCompliance}
-                    />
-                  )}
+                <Textarea
+                  ref={topicTextareaRef}
+                  value={formData.topic}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                  }))}
+                  placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024..."
+                  className="min-h-[100px] resize-y text-sm"
+                  disabled={isGenerating}
+                  autoFocus
+                />
 
-                  {/* Topic Refinement - only show in Quick mode when topic is entered */}
-                  {formData.topic.trim().length >= 10 && (
+                {formData.topic.length > 0 && formData.topic.length < TOPIC_MIN_LENGTH_FOR_REFINEMENT && (
+                  <p className="text-xs text-amber-500">
+                    Chủ đề nên có ít nhất {TOPIC_MIN_LENGTH_FOR_REFINEMENT} ký tự để AI có thể gợi ý tốt hơn
+                  </p>
+                )}
+              </div>
+
+              {/* ===== DYNAMIC ZONE - Changes based on topic length ===== */}
+              <AnimatePresence mode="wait">
+                {formData.topic.trim().length < TOPIC_MIN_LENGTH_FOR_REFINEMENT ? (
+                  /* Empty/Short Input State: Show AI Brainstorm options */
+                  <motion.div
+                    key="ai-suggestions"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-4"
+                  >
+                    {/* Hero Brainstorm Card */}
+                    <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30 overflow-hidden">
+                      <CardContent className="p-5 flex flex-col sm:flex-row items-center gap-4">
+                        <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                          <MessageSquare className="w-7 h-7 text-primary" />
+                        </div>
+                        
+                        <div className="flex-1 text-center sm:text-left space-y-1">
+                          <h3 className="font-semibold">Chưa có ý tưởng?</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Brainstorm với AI để tìm chủ đề hoàn hảo dựa trên brand và mục tiêu của bạn.
+                          </p>
+                        </div>
+                        
+                        <Button
+                          onClick={() => setShowBrainstormSheet(true)}
+                          className="gap-2 shrink-0"
+                          disabled={isGenerating}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          Brainstorm
+                          <ArrowRight className="w-4 h-4" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Quick Suggestions - Compact Chips */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Separator className="flex-1" />
+                        <span className="text-xs text-muted-foreground px-2">Hoặc chọn gợi ý nhanh</span>
+                        <Separator className="flex-1" />
+                      </div>
+                      
+                      <InlineTopicSuggestions
+                        brandTemplateId={brandTemplateId}
+                        contentGoal={formData.contentGoal || 'education'}
+                        onSelectTopic={(topic) => {
+                          setFormData(prev => ({ ...prev, topic }));
+                        }}
+                        disabled={isGenerating}
+                        compact
+                      />
+                    </div>
+                  </motion.div>
+                ) : (
+                  /* Has Content State: Show refinement suggestions */
+                  <motion.div
+                    key="refinement"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-4"
+                  >
+                    {/* Compliance Warning */}
+                    {complianceCheckResult && (
+                      <ComplianceWarningBadge
+                        result={complianceCheckResult}
+                        onSuggestCompliant={handleSuggestCompliant}
+                        isSuggesting={isCheckingCompliance}
+                      />
+                    )}
+
+                    {/* Topic Refinement Suggestions */}
                     <TopicRefinementSuggestions
                       refinedTopics={refinedTopics}
                       isLoading={isLoadingRefinement}
@@ -865,161 +958,23 @@ export function MultiChannelFormWizard({
                       onRefresh={refreshRefinement}
                       disabled={isGenerating}
                     />
-                  )}
 
-                  {/* Switch to Brainstorm hint */}
-                  {!formData.topic.trim() && (
-                    <div className="text-center pt-2">
+                    {/* Secondary Brainstorm button */}
+                    <div className="flex justify-center pt-2">
                       <Button
-                        variant="link"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => setTopicInputMode('brainstorm')}
-                        className="text-muted-foreground hover:text-primary gap-1"
-                      >
-                        Chưa có ý tưởng? 
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Để AI gợi ý
-                      </Button>
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* ===== TAB 2: AI BRAINSTORM ===== */}
-                <TabsContent value="brainstorm" className="space-y-4 mt-0">
-                  {/* Hint */}
-                  <p className="text-xs text-muted-foreground bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg px-3 py-2 border border-violet-500/20">
-                    ✨ Để AI gợi ý chủ đề phù hợp với mục tiêu nội dung của bạn.
-                  </p>
-
-                  {/* Content Goal Selector - FIRST in Brainstorm mode */}
-                  <div className="space-y-2">
-                    <Label className="text-foreground font-semibold flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary" />
-                      Mục tiêu nội dung
-                    </Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Xác định mục tiêu giúp AI gợi ý chủ đề phù hợp hơn
-                    </p>
-                    
-                    {/* Goal Button Group */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                      {CONTENT_GOALS.map((goal) => (
-                        <button
-                          key={goal.value}
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, contentGoal: goal.value }))}
-                          disabled={isGenerating}
-                          className={cn(
-                            "p-3 rounded-lg border text-center transition-all duration-200",
-                            "flex flex-col items-center gap-1.5",
-                            "hover:shadow-sm",
-                            formData.contentGoal === goal.value 
-                              ? "border-primary bg-primary/10 text-primary shadow-sm" 
-                              : "border-border bg-card hover:bg-accent/50 hover:border-primary/30",
-                            isGenerating && "opacity-50 cursor-not-allowed"
-                          )}
-                        >
-                          <span className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center",
-                            formData.contentGoal === goal.value 
-                              ? "bg-primary/20" 
-                              : "bg-muted"
-                          )}>
-                            {GOAL_ICONS[goal.value]}
-                          </span>
-                          <span className="text-xs font-medium">{goal.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Hero Brainstorm Card - TRỌNG TÂM */}
-                  <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30 overflow-hidden">
-                    <CardContent className="p-6 text-center space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
-                        <MessageSquare className="w-8 h-8 text-primary" />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold">Brainstorm với AI</h3>
-                        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                          Trò chuyện với AI để tìm chủ đề hoàn hảo. 
-                          AI sẽ gợi ý dựa trên brand và mục tiêu của bạn.
-                        </p>
-                      </div>
-                      
-                      <ul className="text-xs text-muted-foreground space-y-1.5">
-                        <li className="flex items-center justify-center gap-2">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                          AI hiểu brand của bạn
-                        </li>
-                        <li className="flex items-center justify-center gap-2">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                          Gợi ý phù hợp với mục tiêu: {CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label || 'Giáo dục'}
-                        </li>
-                        <li className="flex items-center justify-center gap-2">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                          Hỗ trợ refine và điều chỉnh ý tưởng
-                        </li>
-                      </ul>
-                      
-                      <Button
                         onClick={() => setShowBrainstormSheet(true)}
-                        size="lg"
-                        className="w-full max-w-xs gap-2"
                         disabled={isGenerating}
+                        className="gap-2 text-muted-foreground hover:text-primary"
                       >
                         <Sparkles className="w-4 h-4" />
-                        Bắt đầu Brainstorm
-                        <ArrowRight className="w-4 h-4" />
+                        Brainstorm thêm ý tưởng
                       </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Quick Suggestions - Secondary */}
-                  <div className="pt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Separator className="flex-1" />
-                      <span className="text-xs text-muted-foreground px-2">Gợi ý nhanh</span>
-                      <Separator className="flex-1" />
                     </div>
-                    
-                    <InlineTopicSuggestions
-                      brandTemplateId={brandTemplateId}
-                      contentGoal={formData.contentGoal || 'education'}
-                      onSelectTopic={(topic) => {
-                        setFormData(prev => ({ ...prev, topic }));
-                        setTopicInputMode('quick');
-                      }}
-                      disabled={isGenerating}
-                      compact
-                    />
-                  </div>
-
-                  {/* Show selected topic if any */}
-                  {formData.topic.trim() && (
-                    <Card className="bg-primary/5 border-primary/20 mt-4">
-                      <CardContent className="p-3">
-                        <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-muted-foreground mb-1">Chủ đề đã chọn:</p>
-                            <p className="text-sm font-medium line-clamp-2">{formData.topic}</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setTopicInputMode('quick')}
-                            className="shrink-0 h-7 px-2 text-xs"
-                          >
-                            Chỉnh sửa
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </TabsContent>
-              </Tabs>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 
