@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { 
   Collapsible,
@@ -1092,17 +1093,28 @@ export function MultiChannelFormWizard({
                         </div>
                       </div>
                       
-                      {/* Auto Research Toggle */}
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
-                        <Checkbox
+                      {/* Auto Research Toggle - Enhanced UI */}
+                      <div className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                        enableResearch 
+                          ? "border-primary/50 bg-primary/5" 
+                          : "border-border/50 hover:bg-muted/30"
+                      )}>
+                        <Switch
                           id="enable-research"
                           checked={enableResearch}
-                          onCheckedChange={(checked) => setEnableResearch(checked === true)}
+                          onCheckedChange={setEnableResearch}
+                          disabled={isGeneratingCoreContent}
                         />
                         <div className="flex-1">
                           <label htmlFor="enable-research" className="text-sm font-medium cursor-pointer flex items-center gap-2">
                             <Globe className="w-4 h-4 text-primary" />
                             Tự động nghiên cứu từ internet
+                            {enableResearch && (
+                              <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0 border-primary/30 text-primary">
+                                Bật
+                              </Badge>
+                            )}
                           </label>
                           <p className="text-xs text-muted-foreground">
                             AI tìm kiếm facts và số liệu mới nhất trước khi viết
