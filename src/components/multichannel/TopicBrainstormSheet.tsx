@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
+import { TopicAIChatbot, type TopicAIChatbotHandle } from '@/components/topic/TopicAIChatbot';
 import { ContentGoal } from '@/types/multichannel';
 import { MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,19 +20,24 @@ export function TopicBrainstormSheet({
   contentGoal,
   onSelectTopic,
 }: TopicBrainstormSheetProps) {
-  const chatbotRef = useRef<{ focusInput: () => void } | null>(null);
+  const chatbotHandleRef = useRef<TopicAIChatbotHandle | null>(null);
   
   const handleTopicSelect = (topic: string) => {
     onSelectTopic(topic);
     onOpenChange(false);
   };
 
+  // Store chatbot handle when ready
+  const handleChatbotReady = useCallback((handle: TopicAIChatbotHandle) => {
+    chatbotHandleRef.current = handle;
+  }, []);
+
   // Auto-focus chat input when sheet opens with smooth delay for animation
   useEffect(() => {
     if (open) {
       // Wait for slide-in animation to complete before focusing
       const timer = setTimeout(() => {
-        chatbotRef.current?.focusInput();
+        chatbotHandleRef.current?.focusInput();
       }, 350); // Match the animation duration
       return () => clearTimeout(timer);
     }
@@ -58,12 +63,12 @@ export function TopicBrainstormSheet({
         
         <div className="flex-1 min-h-0 overflow-hidden">
           <TopicAIChatbot
-            ref={chatbotRef}
             brandTemplateId={brandTemplateId}
             contentGoal={contentGoal}
             mode="embedded"
             onTopicSelect={handleTopicSelect}
             onNavigate={() => {}} // Not used in embedded mode
+            onReady={handleChatbotReady}
             className="h-full border-0 rounded-none"
           />
         </div>

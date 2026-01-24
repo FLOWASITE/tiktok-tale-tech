@@ -66,6 +66,11 @@ export interface ExtractedTopic {
   format?: string;
 }
 
+// Handle interface for imperative methods
+export interface TopicAIChatbotHandle {
+  focusInput: () => void;
+}
+
 export interface TopicAIChatbotProps {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
@@ -77,6 +82,8 @@ export interface TopicAIChatbotProps {
   mode?: 'standalone' | 'embedded';
   /** Callback when user selects a topic in embedded mode */
   onTopicSelect?: (topic: string) => void;
+  /** Callback when chatbot is ready with imperative handle */
+  onReady?: (handle: TopicAIChatbotHandle) => void;
 }
 
 // Agent turn events for multi-turn agentic loop
