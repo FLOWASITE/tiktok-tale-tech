@@ -1,22 +1,24 @@
 
 
-## Kế hoạch: Cải thiện UX PersonaSelector khi không có Personas
+## Kế hoạch: Cải thiện UX PersonaSelector khi Brand không có Personas
 
-### Vấn đề hiện tại
-Brand template đang được chọn (`4d7e0d97-bc99-4fd2-ad08-514c8a1ab969`) **chưa có personas nào** trong database. UI hiện tại:
-- Hiển thị "Không tìm thấy persona" trong dropdown
-- Không có hướng dẫn hoặc action tiếp theo
+### Mục tiêu
+Khi user đã chọn Brand nhưng brand đó chưa có personas, cung cấp UX rõ ràng với CTA và fallback thay vì dead-end "Không tìm thấy".
 
-### Giải pháp đề xuất
+---
 
-#### Thay đổi 1: Empty State với CTA rõ ràng
+### Thay đổi 1: Empty State với CTA trong PersonaSelector
 
 **File:** `src/components/multichannel/PersonaSelector.tsx`
 
-Thêm empty state thông minh trong PopoverContent:
+Thay thế `CommandEmpty` đơn giản bằng empty state có action:
 
 ```tsx
-{personas.length === 0 && !isLoading && (
+import { Users, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+// Trong CommandList, thay thế line 109:
+{personas.length === 0 && !isLoading ? (
   <div className="p-4 text-center space-y-3">
     <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto">
       <Users className="w-6 h-6 text-muted-foreground" />
@@ -24,7 +26,7 @@ Thêm empty state thông minh trong PopoverContent:
     <div className="space-y-1">
       <p className="text-sm font-medium">Chưa có Persona</p>
       <p className="text-xs text-muted-foreground">
-        Thêm Customer Personas để AI hiểu rõ đối tượng mục tiêu của bạn
+        Thêm Customer Personas để AI hiểu rõ đối tượng mục tiêu
       </p>
     </div>
     <Button
@@ -39,57 +41,120 @@ Thêm empty state thông minh trong PopoverContent:
       </Link>
     </Button>
   </div>
+) : (
+  <CommandEmpty>Không tìm thấy persona.</CommandEmpty>
 )}
 ```
 
-#### Thay đổi 2: Hint text khi hover button rỗng
+---
 
-Khi chưa có personas, button hiển thị hint nhẹ:
+### Thay đổi 2: Expose personas count từ hook
+
+**File:** `src/components/multichannel/PersonaSelector.tsx`
+
+Export thông tin personas để parent component biết khi nào cần fallback:
 
 ```tsx
-<span>{isLoading ? "Đang tải..." : personas.length === 0 ? "Chưa có persona (click để thêm)" : placeholder}</span>
+// Thêm prop callback để thông báo personas count
+interface PersonaSelectorProps {
+  // ...existing props
+  onPersonasLoaded?: (count: number) => void;
+}
+
+// Trong component, thêm useEffect:
+useEffect(() => {
+  if (!isLoading && onPersonasLoaded) {
+    onPersonasLoaded(personas.length);
+  }
+}, [personas.length, isLoading, onPersonasLoaded]);
 ```
 
-#### Thay đổi 3: Fallback về Textarea kèm gợi ý
+---
+
+### Thay đổi 3: Smart Fallback trong MultiChannelFormWizard
 
 **File:** `src/components/multichannel/MultiChannelFormWizard.tsx`
 
-Trong Step 2, nếu brand có nhưng không có personas, hiển thị Textarea + gợi ý:
+**Step 2 (~line 1066-1084)** - Thêm state và logic fallback:
 
 ```tsx
-{brandTemplateId && personas.length === 0 ? (
-  <div className="space-y-2">
-    <Textarea
-      value={coreContentAudience}
-      onChange={(e) => setCoreContentAudience(e.target.value)}
-      placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
-      className="min-h-[60px] text-sm resize-none"
+// Thêm state để track personas count
+const [brandPersonasCount, setBrandPersonasCount] = useState<number | null>(null);
+
+// Trong JSX:
+{brandTemplateId ? (
+  brandPersonasCount === 0 ? (
+    // Fallback: Textarea + hint khi brand không có personas
+    <div className="space-y-2">
+      <Textarea
+        value={coreContentAudience}
+        onChange={(e) => setCoreContentAudience(e.target.value)}
+        placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi, quan tâm đến..."
+        className="min-h-[60px] text-sm resize-none"
+      />
+      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+        <Info className="w-3 h-3 shrink-0" />
+        <span>
+          <Link 
+            to={`/brand-templates/${brandTemplateId}/edit?tab=personas`}
+            className="underline text-primary hover:text-primary/80"
+          >
+            Thêm Personas cho brand
+          </Link>
+          {' '}để AI targeting chính xác hơn
+        </span>
+      </p>
+    </div>
+  ) : (
+    <PersonaSelector
+      brandTemplateId={brandTemplateId}
+      value={coreContentPersonaId}
+      onValueChange={(id) => setCoreContentPersonaId(id)}
+      onPersonasLoaded={setBrandPersonasCount}
+      disabled={isGeneratingCoreContent}
     />
-    <p className="text-xs text-muted-foreground flex items-center gap-1">
-      <Info className="w-3 h-3" />
-      <Link to={`/brand-templates/${brandTemplateId}/edit?tab=personas`} className="underline text-primary">
-        Thêm Personas cho brand
-      </Link>
-      {' '}để AI targeting chính xác hơn
-    </p>
-  </div>
+  )
 ) : (
-  <PersonaSelector ... />
+  <Textarea ... /> // Existing fallback khi chưa chọn brand
 )}
 ```
+
+---
+
+### Thay đổi 4: Button Hint Text
+
+**File:** `src/components/multichannel/PersonaSelector.tsx` (line 98)
+
+Cập nhật text hiển thị khi không có personas:
+
+```tsx
+<span>
+  {isLoading 
+    ? "Đang tải..." 
+    : personas.length === 0 
+      ? "Chưa có persona" 
+      : placeholder
+  }
+</span>
+```
+
+---
 
 ### Files cần sửa
 
 | File | Thay đổi |
 |------|----------|
-| `src/components/multichannel/PersonaSelector.tsx` | Thêm empty state với CTA "Thêm Persona" |
-| `src/components/multichannel/MultiChannelFormWizard.tsx` | Fallback thông minh khi brand không có personas |
+| `src/components/multichannel/PersonaSelector.tsx` | Empty state với CTA, button hint text, callback prop |
+| `src/components/multichannel/MultiChannelFormWizard.tsx` | Smart fallback logic với Textarea + hint link |
+
+---
 
 ### Kết quả mong đợi
 
-| Scenario | Hiện tại | Sau khi fix |
-|----------|----------|-------------|
-| Brand có personas | Dropdown hoạt động | Không đổi |
-| Brand không có personas | "Không tìm thấy" (dead-end) | CTA "Thêm Persona" + Textarea fallback |
-| Chưa chọn brand | Fallback Textarea | Không đổi |
+| Scenario | Hiện tại | Sau khi implement |
+|----------|----------|-------------------|
+| Brand có personas | ✅ Dropdown hoạt động | Không đổi |
+| Brand không có personas | ❌ "Không tìm thấy" (dead-end) | ✅ CTA "Thêm Persona" trong dropdown |
+| Brand không có personas (Step 2) | ❌ PersonaSelector rỗng | ✅ Textarea fallback + hint link |
+| Chưa chọn brand | ✅ Fallback Textarea | Không đổi |
 
