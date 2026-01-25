@@ -1082,7 +1082,7 @@ export function MultiChannelFormWizard({
                                 <Sparkles className="w-3 h-3 shrink-0 text-primary" />
                                 <span>
                                   <Link 
-                                    to={`/brand-templates/${brandTemplateId}/edit?tab=personas`}
+                                    to={`/brands/${brandTemplateId}?tab=personas`}
                                     className="underline text-primary hover:text-primary/80"
                                   >
                                     Thêm Personas cho brand
