@@ -1,102 +1,106 @@
 
 
-## Kế hoạch: Debug và fix lỗi "Không thêm Persona được" trong BrandView
+## Kế hoạch: Fix kiến trúc PersonaQuickAddDialog - Nhận createPersona từ props
 
-### Phân tích hiện trạng
+### Vấn đề hiện tại
 
-**Dữ liệu đã xác nhận:**
-- Brand template `4d7e0d97-bc99-4fd2-ad08-514c8a1ab969` thuộc organization `bccfec38-2d27-4992-9420-023409184491`
-- User đang đăng nhập là **owner** của organization này
-- RLS policies đã cho phép INSERT với điều kiện organization match
-- API GET trả về `[]` (chưa có personas) - điều này đúng
+Trong `PersonaQuickAddDialog.tsx` (dòng 56):
+```typescript
+const { createPersona, personas } = useCustomerPersonas({ brandTemplateId, enabled: true });
+```
 
-**Không tìm thấy trong network logs:** Không có request POST nào cho `customer_personas`, nghĩa là:
-- Dialog không mở được, HOẶC
-- Dialog mở nhưng user chưa submit, HOẶC
-- Submit bị chặn ở frontend trước khi gửi request
+Dialog gọi **instance riêng biệt** của `useCustomerPersonas` hook, trong khi `BrandViewPersonasTab` cũng gọi hook riêng của nó. Điều này gây ra:
+- 2 instances riêng biệt với state riêng
+- Khi dialog tạo persona, nó gọi `createPersona` từ instance 1, nhưng refresh gọi từ instance 2
+- Potential mismatch về `currentOrganization` giữa các contexts
+
+### Giải pháp
+
+Refactor `PersonaQuickAddDialog` để **nhận callbacks qua props** thay vì gọi hook riêng.
 
 ---
 
-### Kế hoạch Debug
-
-#### Thay đổi 1: Thêm Debug Logging trong PersonaQuickAddDialog
+### Thay đổi 1: Update PersonaQuickAddDialog props
 
 **File:** `src/components/brand/PersonaQuickAddDialog.tsx`
 
 ```typescript
-const handleSubmit = async () => {
-  console.log('[PersonaQuickAddDialog] handleSubmit called');
-  console.log('[PersonaQuickAddDialog] formData:', formData);
-  console.log('[PersonaQuickAddDialog] brandTemplateId:', brandTemplateId);
-  console.log('[PersonaQuickAddDialog] organizationId:', organizationId);
-  
-  if (!formData.name?.trim()) {
-    console.log('[PersonaQuickAddDialog] Validation failed: name is empty');
-    toast({ title: 'Lỗi', description: 'Vui lòng nhập tên persona', variant: 'destructive' });
-    return;
-  }
-
-  setIsSubmitting(true);
-  try {
-    console.log('[PersonaQuickAddDialog] Calling createPersona...');
-    // ... rest of code
-  } catch (error) {
-    console.error('[PersonaQuickAddDialog] Error:', error);
-    // ...
-  }
-};
+interface PersonaQuickAddDialogProps {
+  brandTemplateId: string;
+  organizationId?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+  // Thêm props mới
+  createPersona: (persona: Omit<CustomerPersona, 'id' | 'created_at' | 'updated_at'>) => Promise<any>;
+  existingPersonasCount: number; // Để xác định is_primary
+}
 ```
 
-#### Thay đổi 2: Thêm Debug Logging trong useCustomerPersonas hook
+---
 
-**File:** `src/hooks/useCustomerPersonas.ts`
+### Thay đổi 2: Remove hook call từ PersonaQuickAddDialog
 
+**File:** `src/components/brand/PersonaQuickAddDialog.tsx`
+
+Xóa dòng:
 ```typescript
-const createPersona = useCallback(async (persona) => {
-  console.log('[useCustomerPersonas] createPersona called');
-  console.log('[useCustomerPersonas] Input persona:', persona);
-  console.log('[useCustomerPersonas] currentOrganization from context:', currentOrganization);
-  
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log('[useCustomerPersonas] Current user:', user?.id);
-    
-    const insertData = {
-      // ...existing code
-    };
-    
-    console.log('[useCustomerPersonas] Insert data:', insertData);
-    
-    const { data, error } = await supabase
-      .from('customer_personas')
-      .insert(insertData)
-      .select()
-      .single();
-    
-    console.log('[useCustomerPersonas] Insert result:', { data, error });
-    
-    if (error) throw error;
-    // ...
-  } catch (err) {
-    console.error('[useCustomerPersonas] createPersona error:', err);
-    throw err;
-  }
-}, [currentOrganization, fetchPersonas]);
+// XÓA DÒNG NÀY:
+const { createPersona, personas } = useCustomerPersonas({ brandTemplateId, enabled: true });
 ```
 
-#### Thay đổi 3: Verify Dialog Opens Correctly
+Thay thế bằng:
+```typescript
+// Sử dụng props trực tiếp
+const { createPersona, existingPersonasCount } = props;
+```
+
+Cập nhật logic `isPrimary`:
+```typescript
+// Thay đổi từ:
+const isPrimary = personas.length === 0 ? true : formData.is_primary;
+
+// Thành:
+const isPrimary = existingPersonasCount === 0 ? true : formData.is_primary;
+```
+
+Cập nhật điều kiện hiển thị "Set as Primary" button:
+```typescript
+// Thay đổi từ:
+{personas.length > 0 && (
+
+// Thành:
+{existingPersonasCount > 0 && (
+```
+
+---
+
+### Thay đổi 3: Update BrandViewPersonasTab để truyền props
 
 **File:** `src/components/brand/BrandViewPersonasTab.tsx`
 
-Thêm log khi dialog mở:
+Ở 2 vị trí sử dụng `PersonaQuickAddDialog` (dòng ~492-498 và ~537-543):
 
 ```typescript
-<EmptyState onAddClick={() => {
-  console.log('[BrandViewPersonasTab] Add button clicked, opening dialog');
-  console.log('[BrandViewPersonasTab] template.id:', template.id);
-  console.log('[BrandViewPersonasTab] currentOrganization:', currentOrganization);
-  setShowAddDialog(true);
-}} />
+<PersonaQuickAddDialog
+  brandTemplateId={template.id}
+  organizationId={currentOrganization?.id}
+  open={showAddDialog}
+  onOpenChange={setShowAddDialog}
+  onSuccess={() => refresh()}
+  // THÊM 2 PROPS MỚI:
+  createPersona={createPersona}
+  existingPersonasCount={personas.length}
+/>
+```
+
+Cần cập nhật destructure từ hook:
+```typescript
+// Thay đổi từ:
+const { personas, isLoading, refresh } = useCustomerPersonas({...});
+
+// Thành:
+const { personas, isLoading, refresh, createPersona } = useCustomerPersonas({...});
 ```
 
 ---
@@ -105,29 +109,25 @@ Thêm log khi dialog mở:
 
 | File | Thay đổi |
 |------|----------|
-| `src/components/brand/PersonaQuickAddDialog.tsx` | Thêm debug logging trong handleSubmit |
-| `src/hooks/useCustomerPersonas.ts` | Thêm debug logging trong createPersona |
-| `src/components/brand/BrandViewPersonasTab.tsx` | Thêm debug logging khi click add button |
+| `src/components/brand/PersonaQuickAddDialog.tsx` | Nhận `createPersona` và `existingPersonasCount` qua props, xóa hook call |
+| `src/components/brand/BrandViewPersonasTab.tsx` | Truyền `createPersona` và `personas.length` vào dialog |
 
 ---
 
 ### Kết quả mong đợi
 
-Sau khi implement, khi bạn:
-1. Click "Thêm persona đầu tiên" → Console sẽ log action
-2. Nhập tên và click "Thêm persona" → Console sẽ log toàn bộ flow
-3. Nếu có lỗi → Console sẽ hiển thị chi tiết lỗi
-
-Điều này giúp xác định chính xác lỗi xảy ra ở đâu trong flow.
+| Trước | Sau |
+|-------|-----|
+| Dialog gọi hook riêng, có thể mismatch organization | Dialog sử dụng cùng instance với parent |
+| 2 fetch requests cho personas | 1 fetch request duy nhất |
+| Potential race condition khi refresh | Đồng bộ hoàn toàn giữa parent và dialog |
 
 ---
 
 ### Lưu ý
 
-Nếu sau khi thêm logging mà vẫn **không thấy log nào xuất hiện**, điều đó có nghĩa là:
-- Button không phản hồi click event
-- Dialog không render đúng
-- Có CSS/JS conflict chặn interaction
-
-Trong trường hợp đó, cần kiểm tra thêm về render logic và event handlers.
+Sau khi implement, các debug logs đã thêm sẽ giúp xác nhận:
+1. `[BrandViewPersonasTab]` logs hiển thị `template.id` và `currentOrganization`
+2. `[PersonaQuickAddDialog]` logs hiển thị dữ liệu được truyền đúng
+3. `[useCustomerPersonas]` logs hiển thị INSERT request thực sự được gọi
 
