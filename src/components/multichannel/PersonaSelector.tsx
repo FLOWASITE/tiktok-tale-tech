@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Check, ChevronsUpDown, User, X, Star } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, ChevronsUpDown, User, X, Star, Users, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +25,7 @@ interface PersonaSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  onPersonasLoaded?: (count: number) => void;
 }
 
 export function PersonaSelector({
@@ -33,12 +35,20 @@ export function PersonaSelector({
   placeholder = "Chọn persona mục tiêu...",
   disabled = false,
   className,
+  onPersonasLoaded,
 }: PersonaSelectorProps) {
   const [open, setOpen] = useState(false);
   const { personas, isLoading } = useCustomerPersonas({
     brandTemplateId,
     enabled: !!brandTemplateId,
   });
+
+  // Notify parent about personas count
+  useEffect(() => {
+    if (!isLoading && onPersonasLoaded) {
+      onPersonasLoaded(personas.length);
+    }
+  }, [personas.length, isLoading, onPersonasLoaded]);
 
   const selectedPersona = personas.find((p) => p.id === value);
 
@@ -95,7 +105,14 @@ export function PersonaSelector({
             ) : (
               <>
                 <User className="h-4 w-4" />
-                <span>{isLoading ? "Đang tải..." : placeholder}</span>
+                <span>
+                  {isLoading 
+                    ? "Đang tải..." 
+                    : personas.length === 0 
+                      ? "Chưa có persona" 
+                      : placeholder
+                  }
+                </span>
               </>
             )}
           </div>
@@ -106,7 +123,33 @@ export function PersonaSelector({
         <Command>
           <CommandInput placeholder="Tìm persona..." />
           <CommandList>
-            <CommandEmpty>Không tìm thấy persona.</CommandEmpty>
+            {/* Empty state with CTA when no personas */}
+            {personas.length === 0 && !isLoading ? (
+              <div className="p-4 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto">
+                  <Users className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Chưa có Persona</p>
+                  <p className="text-xs text-muted-foreground">
+                    Thêm Customer Personas để AI hiểu rõ đối tượng mục tiêu
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  asChild
+                >
+                  <Link to={`/brand-templates/${brandTemplateId}/edit?tab=personas`}>
+                    <Plus className="w-4 h-4" />
+                    Thêm Persona
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <CommandEmpty>Không tìm thấy persona.</CommandEmpty>
+            )}
             
             {/* Clear option */}
             {value && (

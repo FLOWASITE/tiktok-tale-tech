@@ -223,6 +223,7 @@ export function MultiChannelFormWizard({
   const [coreContentPersonaId, setCoreContentPersonaId] = useState<string | undefined>();
   const [coreContentLengthMode, setCoreContentLengthMode] = useState<CoreContentLengthMode>('medium');
   const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
+  const [brandPersonasCount, setBrandPersonasCount] = useState<number | null>(null); // Track personas availability
 
   // Background generation tracking - for tasks that continue when user navigates away
   const { activeTasks, completedTasks, getTaskResult, dismissTask, isChecking: isCheckingTasks } = useBackgroundGeneration({
@@ -1067,12 +1068,38 @@ export function MultiChannelFormWizard({
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Đối tượng mục tiêu (tuỳ chọn)</Label>
                         {brandTemplateId ? (
-                          <PersonaSelector
-                            brandTemplateId={brandTemplateId}
-                            value={coreContentPersonaId}
-                            onValueChange={(id) => setCoreContentPersonaId(id)}
-                            disabled={isGeneratingCoreContent}
-                          />
+                          brandPersonasCount === 0 ? (
+                            // Fallback: Textarea + hint when brand has no personas
+                            <div className="space-y-2">
+                              <Textarea
+                                value={coreContentAudience}
+                                onChange={(e) => setCoreContentAudience(e.target.value)}
+                                placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi, quan tâm đến..."
+                                className="min-h-[60px] text-sm resize-none"
+                                disabled={isGeneratingCoreContent}
+                              />
+                              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <Sparkles className="w-3 h-3 shrink-0 text-primary" />
+                                <span>
+                                  <Link 
+                                    to={`/brand-templates/${brandTemplateId}/edit?tab=personas`}
+                                    className="underline text-primary hover:text-primary/80"
+                                  >
+                                    Thêm Personas cho brand
+                                  </Link>
+                                  {' '}để AI targeting chính xác hơn
+                                </span>
+                              </p>
+                            </div>
+                          ) : (
+                            <PersonaSelector
+                              brandTemplateId={brandTemplateId}
+                              value={coreContentPersonaId}
+                              onValueChange={(id) => setCoreContentPersonaId(id)}
+                              onPersonasLoaded={setBrandPersonasCount}
+                              disabled={isGeneratingCoreContent}
+                            />
+                          )
                         ) : (
                           <Textarea
                             value={coreContentAudience}
