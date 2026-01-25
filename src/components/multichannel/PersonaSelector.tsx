@@ -141,7 +141,7 @@ export function PersonaSelector({
                   className="w-full gap-2"
                   asChild
                 >
-                  <Link to={`/brand-templates/${brandTemplateId}/edit?tab=personas`}>
+                  <Link to={`/brands/${brandTemplateId}?tab=personas`}>
                     <Plus className="w-4 h-4" />
                     Thêm Persona
                   </Link>
