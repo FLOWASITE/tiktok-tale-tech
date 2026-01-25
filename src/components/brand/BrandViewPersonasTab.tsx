@@ -483,7 +483,12 @@ export function BrandViewPersonasTab({ template }: BrandViewPersonasTabProps) {
   if (personas.length === 0) {
     return (
       <>
-        <EmptyState onAddClick={() => setShowAddDialog(true)} />
+        <EmptyState onAddClick={() => {
+          console.log('[BrandViewPersonasTab] Add button clicked, opening dialog');
+          console.log('[BrandViewPersonasTab] template.id:', template.id);
+          console.log('[BrandViewPersonasTab] currentOrganization:', currentOrganization);
+          setShowAddDialog(true);
+        }} />
         <PersonaQuickAddDialog
           brandTemplateId={template.id}
           organizationId={currentOrganization?.id}

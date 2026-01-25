@@ -73,8 +73,13 @@ export function useCustomerPersonas({ brandTemplateId, enabled = true }: UseCust
 
   // Create a new persona
   const createPersona = useCallback(async (persona: Omit<CustomerPersona, 'id' | 'created_at' | 'updated_at'>) => {
+    console.log('[useCustomerPersonas] createPersona called');
+    console.log('[useCustomerPersonas] Input persona:', persona);
+    console.log('[useCustomerPersonas] currentOrganization from context:', currentOrganization);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('[useCustomerPersonas] Current user:', user?.id);
       
       const insertData = {
         brand_template_id: persona.brand_template_id,
@@ -99,11 +104,15 @@ export function useCustomerPersonas({ brandTemplateId, enabled = true }: UseCust
         typical_funnel_stage: persona.typical_funnel_stage,
       };
 
+      console.log('[useCustomerPersonas] Insert data:', insertData);
+
       const { data, error: insertError } = await supabase
         .from('customer_personas')
         .insert(insertData)
         .select()
         .single();
+
+      console.log('[useCustomerPersonas] Insert result:', { data, error: insertError });
 
       if (insertError) throw insertError;
 
@@ -120,7 +129,7 @@ export function useCustomerPersonas({ brandTemplateId, enabled = true }: UseCust
       toast.success('Đã thêm Customer Persona');
       return data;
     } catch (err) {
-      console.error('Error creating persona:', err);
+      console.error('[useCustomerPersonas] createPersona error:', err);
       toast.error('Không thể thêm persona');
       throw err;
     }

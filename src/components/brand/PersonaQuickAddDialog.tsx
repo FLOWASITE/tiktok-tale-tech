@@ -60,7 +60,13 @@ export function PersonaQuickAddDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    console.log('[PersonaQuickAddDialog] handleSubmit called');
+    console.log('[PersonaQuickAddDialog] formData:', formData);
+    console.log('[PersonaQuickAddDialog] brandTemplateId:', brandTemplateId);
+    console.log('[PersonaQuickAddDialog] organizationId:', organizationId);
+    
     if (!formData.name?.trim()) {
+      console.log('[PersonaQuickAddDialog] Validation failed: name is empty');
       toast({ title: 'Lỗi', description: 'Vui lòng nhập tên persona', variant: 'destructive' });
       return;
     }
@@ -70,6 +76,8 @@ export function PersonaQuickAddDialog({
       // If this is the first persona, make it primary
       const isPrimary = personas.length === 0 ? true : formData.is_primary;
       
+      console.log('[PersonaQuickAddDialog] Calling createPersona with isPrimary:', isPrimary);
+      
       await createPersona({
         ...formData,
         is_primary: isPrimary,
@@ -77,11 +85,13 @@ export function PersonaQuickAddDialog({
         organization_id: organizationId || null,
       } as Omit<CustomerPersona, 'id' | 'created_at' | 'updated_at' | 'user_id'>);
       
+      console.log('[PersonaQuickAddDialog] createPersona success');
       toast({ title: 'Thành công', description: 'Đã thêm persona mới' });
       setFormData(defaultFormData);
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
+      console.error('[PersonaQuickAddDialog] Error:', error);
       toast({ title: 'Lỗi', description: 'Không thể thêm persona', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
