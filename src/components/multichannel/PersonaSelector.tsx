@@ -50,6 +50,16 @@ export function PersonaSelector({
     }
   }, [personas.length, isLoading, onPersonasLoaded]);
 
+  // Auto-select primary persona as default when personas load and no value is set
+  useEffect(() => {
+    if (!isLoading && personas.length > 0 && !value) {
+      const primaryPersona = personas.find((p) => p.is_primary);
+      if (primaryPersona) {
+        onValueChange(primaryPersona.id);
+      }
+    }
+  }, [personas, isLoading, value, onValueChange]);
+
   const selectedPersona = personas.find((p) => p.id === value);
 
   const handleSelect = (personaId: string) => {
