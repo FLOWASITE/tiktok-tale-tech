@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown, User, X, Star, Users, Plus } from 'lucide-react';
+import { Check, ChevronsUpDown, User, X, Star, Users, Plus, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Command,
   CommandEmpty,
@@ -10,6 +11,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from '@/components/ui/command';
 import {
   Popover,
@@ -17,6 +19,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
 interface PersonaSelectorProps {
   brandTemplateId?: string;
@@ -38,7 +41,13 @@ export function PersonaSelector({
   onPersonasLoaded,
 }: PersonaSelectorProps) {
   const [open, setOpen] = useState(false);
-  const { personas, isLoading } = useCustomerPersonas({
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [quickCreateName, setQuickCreateName] = useState('');
+  const [quickCreateOccupation, setQuickCreateOccupation] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  
+  const { currentOrganization } = useOrganizationContext();
+  const { personas, isLoading, createPersona } = useCustomerPersonas({
     brandTemplateId,
     enabled: !!brandTemplateId,
   });
@@ -70,6 +79,50 @@ export function PersonaSelector({
   const handleClear = () => {
     onValueChange(undefined);
     setOpen(false);
+  };
+
+  const handleQuickCreate = async () => {
+    if (!quickCreateName.trim() || !brandTemplateId) return;
+    
+    setIsCreating(true);
+    try {
+      const newPersona = await createPersona({
+        brand_template_id: brandTemplateId,
+        organization_id: currentOrganization?.id,
+        name: quickCreateName.trim(),
+        occupation: quickCreateOccupation.trim() || undefined,
+        is_primary: personas.length === 0, // Auto-set as primary if first persona
+        avatar_emoji: '👤',
+        pain_points: [],
+        desires: [],
+        objections: [],
+        values: [],
+        interests: [],
+        buying_triggers: [],
+        information_sources: [],
+        preferred_channels: [],
+      });
+      
+      if (newPersona) {
+        onValueChange(newPersona.id);
+      }
+      
+      // Reset form
+      setQuickCreateName('');
+      setQuickCreateOccupation('');
+      setShowQuickCreate(false);
+      setOpen(false);
+    } catch (error) {
+      console.error('Failed to create persona:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCancelQuickCreate = () => {
+    setQuickCreateName('');
+    setQuickCreateOccupation('');
+    setShowQuickCreate(false);
   };
 
   if (!brandTemplateId) {
@@ -129,12 +182,57 @@ export function PersonaSelector({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent className="w-[320px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Tìm persona..." />
           <CommandList>
-            {/* Empty state with CTA when no personas */}
-            {personas.length === 0 && !isLoading ? (
+            {/* Quick Create Form */}
+            {showQuickCreate && (
+              <div className="p-3 border-b space-y-3">
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Tên persona (VD: Chủ doanh nghiệp SME)"
+                    value={quickCreateName}
+                    onChange={(e) => setQuickCreateName(e.target.value)}
+                    className="h-8 text-sm"
+                    autoFocus
+                  />
+                  <Input
+                    placeholder="Nghề nghiệp (tùy chọn)"
+                    value={quickCreateOccupation}
+                    onChange={(e) => setQuickCreateOccupation(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-7 text-xs"
+                    onClick={handleCancelQuickCreate}
+                    disabled={isCreating}
+                  >
+                    Hủy
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 h-7 text-xs gap-1"
+                    onClick={handleQuickCreate}
+                    disabled={!quickCreateName.trim() || isCreating}
+                  >
+                    {isCreating ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Plus className="w-3 h-3" />
+                    )}
+                    Tạo nhanh
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Empty state with Quick Create CTA when no personas */}
+            {personas.length === 0 && !isLoading && !showQuickCreate ? (
               <div className="p-4 text-center space-y-3">
                 <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto">
                   <Users className="w-6 h-6 text-muted-foreground" />
@@ -146,14 +244,22 @@ export function PersonaSelector({
                   </p>
                 </div>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   className="w-full gap-2"
+                  onClick={() => setShowQuickCreate(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Tạo Persona nhanh
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
                   asChild
                 >
                   <Link to={`/brands/${brandTemplateId}?tab=personas`}>
-                    <Plus className="w-4 h-4" />
-                    Thêm Persona
+                    Hoặc cấu hình đầy đủ →
                   </Link>
                 </Button>
               </div>
@@ -229,6 +335,22 @@ export function PersonaSelector({
                   </CommandItem>
                 ))}
               </CommandGroup>
+            )}
+
+            {/* Quick Create Action - when personas exist */}
+            {personas.length > 0 && !showQuickCreate && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => setShowQuickCreate(true)}
+                    className="text-muted-foreground"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Tạo persona mới...
+                  </CommandItem>
+                </CommandGroup>
+              </>
             )}
           </CommandList>
         </Command>
