@@ -188,3 +188,16 @@ export interface TrendingTopic {
   created_at: string;
   expires_at: string;
 }
+
+// ============== AUDIENCE SUGGESTION TYPES ==============
+export interface SuggestAudienceResult {
+  success: boolean;
+  matchedPersonaId?: string;
+  matchedPersonaName?: string;
+  matchScore: number;
+  suggestedAudience: string;
+  reasoning: string;
+  keyCharacteristics: string[];
+  alternativePersonaIds?: string[];
+  alternativePersonaNames?: string[];
+}

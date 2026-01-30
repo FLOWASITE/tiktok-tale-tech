@@ -162,12 +162,12 @@ const createApiErrorHandler = (setError, setErrorCode, moduleName) => {
 
 ### Roadmap đề xuất
 
-| Phase | Công việc | Ưu tiên |
-|-------|-----------|---------|
-| Phase 1 | Thêm `suggest_audience` action (cần cho AudienceSmartSelector) | Cao |
-| Phase 2 | Semantic persona matching với embeddings | Trung bình |
-| Phase 3 | Smart parallel calls & cost optimization | Trung bình |
-| Phase 4 | Cache key enhancement & error consolidation | Thấp |
+| Phase | Công việc | Ưu tiên | Trạng thái |
+|-------|-----------|---------|------------|
+| Phase 1 | Thêm `suggest_audience` action (cần cho AudienceSmartSelector) | Cao | ✅ Hoàn thành |
+| Phase 2 | Semantic persona matching với embeddings | Trung bình | Chưa bắt đầu |
+| Phase 3 | Smart parallel calls & cost optimization | Trung bình | Chưa bắt đầu |
+| Phase 4 | Cache key enhancement & error consolidation | Thấp | Chưa bắt đầu |
 
 ---
 
@@ -175,7 +175,7 @@ const createApiErrorHandler = (setError, setErrorCode, moduleName) => {
 
 | Trước | Sau |
 |-------|-----|
-| Không có AI gợi ý audience | AI match persona từ topic với reasoning |
+| Không có AI gợi ý audience | ✅ AI match persona từ topic với reasoning |
 | String-based persona matching | Semantic matching với embeddings |
 | Luôn gọi Perplexity API | Smart conditional calls giảm cost |
 | Error handlers trùng lặp | Consolidated, maintainable code |

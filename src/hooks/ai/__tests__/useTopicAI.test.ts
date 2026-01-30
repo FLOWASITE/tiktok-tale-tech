@@ -43,13 +43,14 @@ describe('useTopicAI', () => {
   });
 
   describe('initialization', () => {
-    it('returns all five modules', () => {
+    it('returns all six modules', () => {
       const { result } = renderHook(() => useTopicAI({}));
       expect(result.current).toHaveProperty('refinement');
       expect(result.current).toHaveProperty('intelligence');
       expect(result.current).toHaveProperty('recommendations');
       expect(result.current).toHaveProperty('trending');
       expect(result.current).toHaveProperty('suggestions');
+      expect(result.current).toHaveProperty('audience');
     });
 
     it('initializes with empty states', () => {
@@ -57,6 +58,7 @@ describe('useTopicAI', () => {
       expect(result.current.refinement.refinedTopics).toEqual([]);
       expect(result.current.intelligence.gaps).toBeNull();
       expect(result.current.trending.topics).toEqual([]);
+      expect(result.current.audience.result).toBeNull();
     });
   });
 
