@@ -1149,18 +1149,19 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           keyCharacteristics: data.keyCharacteristics || [],
           alternativePersonaIds: data.alternativePersonaIds || [],
           alternativePersonaNames: data.alternativePersonaNames || [],
+          matchMethod: data.matchMethod,
         };
         setAudienceResult(result);
         return result;
       } else {
         if (data?.errorCode) {
-          handleIntelApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể gợi ý audience');
+          handleAudienceApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể gợi ý audience');
           return null;
         }
         throw new Error(data?.error || 'Unknown error');
       }
     } catch (err: any) {
-      handleIntelApiError(err, 'Không thể gợi ý audience');
+      handleAudienceApiError(err, 'Không thể gợi ý audience');
       return null;
     } finally {
       setAudienceLoading(false);
