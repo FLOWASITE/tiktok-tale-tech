@@ -96,6 +96,11 @@ import {
   buildKnowledgeGraphPromptSection,
   type KnowledgeGraphContext,
 } from "../_shared/data-fetchers/knowledge-graph-fetcher.ts";
+// NEW: Strategy Validation Layer - P0 Consistency Check
+import {
+  validateStrategy,
+  type StrategyValidationResult,
+} from "../_shared/strategy-validator.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -1281,6 +1286,22 @@ serve(async (req) => {
     }
 
     // ============================================
+    // STRATEGY VALIDATION LAYER (P0)
+    // Detect Goal-Angle-Role conflicts and prepare prompt adjustments
+    // ============================================
+    const strategyValidation = validateStrategy(
+      formData.contentGoal,
+      formData.contentAngle,
+      formData.contentRole
+    );
+    
+    if (strategyValidation.conflicts.length > 0) {
+      console.log(`[strategy-validation] Detected ${strategyValidation.conflicts.length} conflicts:`,
+        strategyValidation.conflicts.map(c => `${c.type}: ${c.field1}-${c.field2} (${c.severity})`).join(', '));
+      console.log(`[strategy-validation] Score penalty: ${strategyValidation.scorePenalty}, Suggested role: ${strategyValidation.suggestedRole}`);
+    }
+
+    // ============================================
     // PREVIEW MODE HANDLER
     // Ultra-fast path - no DB save, no Self-Critique
     // ============================================
@@ -2284,6 +2305,11 @@ Nội dung sẵn sàng đăng ngay.`;
         formData.contentRole // NEW: Content role for orchestration flow
       );
       
+      // Inject strategy conflict adjustments if any
+      const fullSystemPrompt = strategyValidation.promptAdjustments 
+        ? systemPrompt + strategyValidation.promptAdjustments 
+        : systemPrompt;
+      
       // ============================================
       // TARGETED PRODUCT/PERSONA CONTEXT (Streaming mode)
       // ============================================
@@ -2564,7 +2590,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             
             const parallelResult = await generateChannelsParallel({
               channels,
-              systemPrompt,
+              systemPrompt: fullSystemPrompt, // Use adjusted prompt with strategy conflict compensation
               buildUserPrompt: buildChannelUserPrompt,
               context: streamingContext,
               emit,
@@ -2689,6 +2715,19 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                 wasRefined = critiqueLoop.wasRefined;
                 refinementCount = critiqueLoop.refinementCount;
                 needsManualReview = critiqueLoop.needsManualReview;
+                
+                // Apply strategy validation penalty if conflicts detected
+                if (critiqueResult && strategyValidation.scorePenalty > 0) {
+                  const originalScore = critiqueResult.overall_score;
+                  critiqueResult.overall_score = Math.max(0, critiqueResult.overall_score - strategyValidation.scorePenalty);
+                  critiqueResult.issues = critiqueResult.issues || [];
+                  critiqueResult.issues.push({
+                    category: 'structure', // Use 'structure' for strategy alignment issues
+                    severity: strategyValidation.conflictLevel === 'severe' ? 'error' : 'warning',
+                    description: `Strategy conflict: ${strategyValidation.conflicts.map(c => c.message).join('; ')}`,
+                  });
+                  console.log(`[streaming-mode][strategy-penalty] Score adjusted: ${originalScore} → ${critiqueResult.overall_score} (penalty: ${strategyValidation.scorePenalty})`);
+                }
 
                 emit({ 
                   type: 'progress', 
@@ -3021,7 +3060,11 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
       qualityMode,
       formData.contentRole // NEW: Content role for orchestration flow
     );
-
+    
+    // Inject strategy conflict adjustments if any (normal mode)
+    const fullSystemPrompt = strategyValidation.promptAdjustments 
+      ? systemPrompt + strategyValidation.promptAdjustments 
+      : systemPrompt;
     // Fetch targeted product/persona if specified
     let targetedProductContext = '';
     let targetedPersonaContext = '';
@@ -3924,6 +3967,19 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         wasRefined = critiqueLoop.wasRefined;
         refinementCount = critiqueLoop.refinementCount;
         needsManualReview = critiqueLoop.needsManualReview || websiteWordCountShort;
+        
+        // Apply strategy validation penalty if conflicts detected (normal mode)
+        if (critiqueResult && strategyValidation.scorePenalty > 0) {
+          const originalScore = critiqueResult.overall_score;
+          critiqueResult.overall_score = Math.max(0, critiqueResult.overall_score - strategyValidation.scorePenalty);
+          critiqueResult.issues = critiqueResult.issues || [];
+          critiqueResult.issues.push({
+            category: 'structure',
+            severity: strategyValidation.conflictLevel === 'severe' ? 'error' : 'warning',
+            description: `Strategy conflict: ${strategyValidation.conflicts.map(c => c.message).join('; ')}`,
+          });
+          console.log(`[strategy-penalty] Score adjusted: ${originalScore} → ${critiqueResult.overall_score} (penalty: ${strategyValidation.scorePenalty})`);
+        }
 
         console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}, needsReview=${needsManualReview}, shortContent=${websiteWordCountShort}`);
       } catch (critiqueError) {
