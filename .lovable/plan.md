@@ -165,7 +165,7 @@ const createApiErrorHandler = (setError, setErrorCode, moduleName) => {
 | Phase | Công việc | Ưu tiên | Trạng thái |
 |-------|-----------|---------|------------|
 | Phase 1 | Thêm `suggest_audience` action (cần cho AudienceSmartSelector) | Cao | ✅ Hoàn thành |
-| Phase 2 | Semantic persona matching với embeddings | Trung bình | Chưa bắt đầu |
+| Phase 2 | Semantic persona matching với embeddings | Trung bình | ✅ Hoàn thành |
 | Phase 3 | Smart parallel calls & cost optimization | Trung bình | Chưa bắt đầu |
 | Phase 4 | Cache key enhancement & error consolidation | Thấp | Chưa bắt đầu |
 

@@ -200,4 +200,6 @@ export interface SuggestAudienceResult {
   keyCharacteristics: string[];
   alternativePersonaIds?: string[];
   alternativePersonaNames?: string[];
+  /** Method used for matching: 'semantic' | 'keyword' | 'ai' | 'ai_generate' | 'semantic_fallback' */
+  matchMethod?: 'semantic' | 'keyword' | 'ai' | 'ai_generate' | 'semantic_fallback';
 }

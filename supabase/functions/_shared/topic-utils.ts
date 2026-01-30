@@ -5,6 +5,18 @@
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
+
+// Initialize gte-small embedding model (384 dimensions) for semantic matching
+let embeddingModel: any = null;
+function getEmbeddingModel() {
+  if (!embeddingModel) {
+    embeddingModel = new Supabase.ai.Session('gte-small');
+  }
+  return embeddingModel;
+}
+
 // ========== TYPES ==========
 
 export interface IndustryContext {
@@ -848,4 +860,205 @@ export function createCreditsExhaustedResponse(): Response {
     402,
     'CREDITS_EXHAUSTED'
   );
+}
+
+// ========== SEMANTIC PERSONA MATCHING ==========
+
+/**
+ * Generate embedding for text using gte-small model
+ */
+async function generateEmbedding(text: string): Promise<number[]> {
+  try {
+    const model = getEmbeddingModel();
+    const output = await model.run(text, {
+      mean_pool: true,
+      normalize: true,
+    });
+    return Array.from(output as Float32Array);
+  } catch (error) {
+    console.error('[Embedding] Error generating embedding:', error);
+    return [];
+  }
+}
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  return denominator === 0 ? 0 : dotProduct / denominator;
+}
+
+/**
+ * Build text representation of persona for embedding
+ */
+function personaToText(persona: PersonaData): string {
+  const parts: string[] = [];
+  
+  parts.push(`Persona: ${persona.name}`);
+  if (persona.occupation) parts.push(`Nghề nghiệp: ${persona.occupation}`);
+  if (persona.age_range) parts.push(`Độ tuổi: ${persona.age_range}`);
+  if (persona.pain_points?.length) {
+    parts.push(`Pain points: ${persona.pain_points.slice(0, 5).join(', ')}`);
+  }
+  if (persona.desires?.length) {
+    parts.push(`Desires: ${persona.desires.slice(0, 5).join(', ')}`);
+  }
+  if (persona.buying_triggers?.length) {
+    parts.push(`Buying triggers: ${persona.buying_triggers.slice(0, 3).join(', ')}`);
+  }
+  if (persona.objections?.length) {
+    parts.push(`Objections: ${persona.objections.slice(0, 3).join(', ')}`);
+  }
+  if (persona.communication_style) {
+    parts.push(`Communication style: ${persona.communication_style}`);
+  }
+  
+  return parts.join('\n');
+}
+
+export interface SemanticMatchResult {
+  personaId: string;
+  personaName: string;
+  score: number;
+  matchType: 'semantic' | 'keyword' | 'ai';
+}
+
+/**
+ * Semantic matching of topic with personas using embeddings
+ * Returns sorted list of matches with similarity scores (0-100)
+ */
+export async function semanticMatchPersona(
+  topic: string,
+  personas: PersonaData[],
+  options?: {
+    minScore?: number;
+    maxResults?: number;
+  }
+): Promise<SemanticMatchResult[]> {
+  const { minScore = 40, maxResults = 5 } = options || {};
+  
+  if (!topic || personas.length === 0) {
+    console.log('[SemanticMatch] Empty topic or no personas');
+    return [];
+  }
+
+  const startTime = Date.now();
+  
+  try {
+    // Generate embedding for topic
+    const topicEmbedding = await generateEmbedding(topic);
+    if (topicEmbedding.length === 0) {
+      console.warn('[SemanticMatch] Failed to generate topic embedding, falling back to keyword match');
+      return keywordMatchPersona(topic, personas, minScore, maxResults);
+    }
+
+    // Generate embeddings for all personas and calculate similarity
+    const results: SemanticMatchResult[] = [];
+    
+    for (const persona of personas) {
+      const personaText = personaToText(persona);
+      const personaEmbedding = await generateEmbedding(personaText);
+      
+      if (personaEmbedding.length > 0) {
+        const similarity = cosineSimilarity(topicEmbedding, personaEmbedding);
+        const score = Math.round(similarity * 100);
+        
+        if (score >= minScore) {
+          results.push({
+            personaId: persona.id,
+            personaName: persona.name,
+            score,
+            matchType: 'semantic',
+          });
+        }
+      }
+    }
+
+    // Sort by score descending
+    results.sort((a, b) => b.score - a.score);
+    
+    const duration = Date.now() - startTime;
+    console.log(`[SemanticMatch] Matched ${results.length} personas (min score: ${minScore}) in ${duration}ms`);
+    
+    return results.slice(0, maxResults);
+  } catch (error) {
+    console.error('[SemanticMatch] Error:', error);
+    // Fallback to keyword matching
+    return keywordMatchPersona(topic, personas, minScore, maxResults);
+  }
+}
+
+/**
+ * Keyword-based fallback matching when embeddings fail
+ */
+function keywordMatchPersona(
+  topic: string,
+  personas: PersonaData[],
+  minScore: number,
+  maxResults: number
+): SemanticMatchResult[] {
+  const topicLower = topic.toLowerCase();
+  const topicWords = topicLower.split(/\s+/).filter(w => w.length > 2);
+  
+  const results: SemanticMatchResult[] = [];
+  
+  for (const persona of personas) {
+    let matchCount = 0;
+    let totalKeywords = 0;
+    
+    // Check pain points
+    const painPoints = (persona.pain_points || []).join(' ').toLowerCase();
+    const desires = (persona.desires || []).join(' ').toLowerCase();
+    const triggers = (persona.buying_triggers || []).join(' ').toLowerCase();
+    const occupation = (persona.occupation || '').toLowerCase();
+    
+    const allText = `${painPoints} ${desires} ${triggers} ${occupation}`;
+    
+    for (const word of topicWords) {
+      totalKeywords++;
+      if (allText.includes(word)) {
+        matchCount++;
+      }
+    }
+    
+    // Also check if topic contains persona-related keywords
+    const personaKeywords = [...(persona.pain_points || []), ...(persona.desires || [])];
+    for (const keyword of personaKeywords) {
+      const kw = keyword.toLowerCase();
+      if (kw.length > 3 && topicLower.includes(kw.substring(0, Math.min(kw.length, 10)))) {
+        matchCount += 2; // Boost for keyword match
+      }
+    }
+    
+    const score = totalKeywords > 0 
+      ? Math.min(100, Math.round((matchCount / Math.max(totalKeywords, 1)) * 100) + (persona.is_primary ? 15 : 0))
+      : (persona.is_primary ? 60 : 30);
+    
+    if (score >= minScore) {
+      results.push({
+        personaId: persona.id,
+        personaName: persona.name,
+        score,
+        matchType: 'keyword',
+      });
+    }
+  }
+  
+  results.sort((a, b) => b.score - a.score);
+  console.log(`[KeywordMatch] Matched ${results.length} personas via keyword fallback`);
+  
+  return results.slice(0, maxResults);
 }

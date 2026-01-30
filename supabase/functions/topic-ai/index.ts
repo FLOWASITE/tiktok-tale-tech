@@ -33,8 +33,10 @@ import {
   inferContentTier,
   inferMediaOwnership,
   inferJourneyStage,
+  semanticMatchPersona,
   type TopicBrandContext,
   type TopicHistoryItem,
+  type SemanticMatchResult,
 } from "../_shared/topic-utils.ts";
 import { 
   buildCoTSection, 
@@ -939,7 +941,7 @@ async function handleSuggestAudience(
   const personas = brandContext?.personas || [];
   console.log(`[topic-ai:suggest_audience] Topic: "${topic.substring(0, 50)}...", Personas: ${personas.length}`);
 
-  // If no personas, generate audience description directly
+  // If no personas, generate audience description directly with AI
   if (personas.length === 0) {
     const prompt = `Phân tích chủ đề sau và đề xuất đối tượng mục tiêu phù hợp nhất:
 
@@ -995,10 +997,56 @@ Trả về JSON:
       keyCharacteristics: parsed.keyCharacteristics || [],
       alternativePersonaIds: [],
       alternativePersonaNames: [],
+      matchMethod: 'ai_generate',
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
-  // Has personas - use AI to match topic with personas
+  // ======== PHASE 2: SEMANTIC MATCHING ========
+  // Try semantic matching first (fast, no AI cost)
+  const semanticMatches = await semanticMatchPersona(topic, personas, {
+    minScore: 50, // Lower threshold for semantic
+    maxResults: 5,
+  });
+
+  console.log(`[topic-ai:suggest_audience] Semantic matches: ${semanticMatches.length}`);
+
+  // If semantic matching found good matches (score >= 70), use them directly
+  const bestSemanticMatch = semanticMatches.length > 0 ? semanticMatches[0] : null;
+  const hasStrongSemanticMatch = bestSemanticMatch && bestSemanticMatch.score >= 70;
+
+  if (hasStrongSemanticMatch) {
+    // Build audience description from matched persona
+    const matchedPersona = personas.find(p => p.id === bestSemanticMatch.personaId);
+    const suggestedAudience = matchedPersona 
+      ? `${matchedPersona.name}${matchedPersona.occupation ? ` (${matchedPersona.occupation})` : ''}: ${(matchedPersona.pain_points || []).slice(0, 2).join(', ')} - ${(matchedPersona.desires || []).slice(0, 2).join(', ')}`
+      : bestSemanticMatch.personaName;
+
+    const alternatives = semanticMatches.slice(1, 4).filter(m => m.score >= 50);
+
+    console.log(`[topic-ai:suggest_audience] Strong semantic match: ${bestSemanticMatch.personaName} (${bestSemanticMatch.score}%), skipping AI call, took ${Date.now() - startTime}ms`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      matchedPersonaId: bestSemanticMatch.personaId,
+      matchedPersonaName: bestSemanticMatch.personaName,
+      matchScore: bestSemanticMatch.score,
+      suggestedAudience,
+      reasoning: `Semantic matching với ${bestSemanticMatch.matchType}: Nội dung topic phù hợp ${bestSemanticMatch.score}% với pain points và desires của ${bestSemanticMatch.personaName}`,
+      keyCharacteristics: matchedPersona 
+        ? [
+            matchedPersona.occupation || '',
+            matchedPersona.age_range || '',
+            ...(matchedPersona.pain_points || []).slice(0, 2),
+          ].filter(Boolean)
+        : [],
+      alternativePersonaIds: alternatives.map(a => a.personaId),
+      alternativePersonaNames: alternatives.map(a => a.personaName),
+      matchMethod: bestSemanticMatch.matchType,
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  // ======== FALLBACK: AI MATCHING ========
+  // Semantic matching didn't find strong match, use AI for detailed analysis
   const personasInfo = personas.map(p => ({
     id: p.id,
     name: p.name,
@@ -1010,11 +1058,16 @@ Trả về JSON:
     typical_funnel_stage: p.typical_funnel_stage || 'awareness',
   }));
 
+  // Include semantic matches as hints for AI
+  const semanticHint = semanticMatches.length > 0
+    ? `\nGỢI Ý TỪ SEMANTIC MATCHING (có thể tham khảo):\n${semanticMatches.slice(0, 3).map(m => `- ${m.personaName}: ${m.score}%`).join('\n')}\n`
+    : '';
+
   const prompt = `Phân tích chủ đề nội dung và matching với customer personas:
 
 CHỦ ĐỀ: "${topic}"
 MỤC TIÊU: ${contentGoal || 'engagement'}
-
+${semanticHint}
 DANH SÁCH PERSONAS:
 ${personasInfo.map((p, i) => `
 ${i + 1}. ${p.name} (ID: ${p.id})
@@ -1055,6 +1108,27 @@ Trả về JSON:
   });
 
   if (!result.success) {
+    // If AI fails but we have semantic matches, use them as fallback
+    if (semanticMatches.length > 0) {
+      const fallbackMatch = semanticMatches[0];
+      const fallbackPersona = personas.find(p => p.id === fallbackMatch.personaId);
+      
+      console.log(`[topic-ai:suggest_audience] AI failed, using semantic fallback: ${fallbackMatch.personaName}`);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        matchedPersonaId: fallbackMatch.score >= 60 ? fallbackMatch.personaId : null,
+        matchedPersonaName: fallbackMatch.score >= 60 ? fallbackMatch.personaName : null,
+        matchScore: fallbackMatch.score,
+        suggestedAudience: fallbackPersona?.name || fallbackMatch.personaName,
+        reasoning: `Semantic matching (AI fallback): Score ${fallbackMatch.score}%`,
+        keyCharacteristics: fallbackPersona?.pain_points?.slice(0, 3) || [],
+        alternativePersonaIds: semanticMatches.slice(1, 4).map(m => m.personaId),
+        alternativePersonaNames: semanticMatches.slice(1, 4).map(m => m.personaName),
+        matchMethod: 'semantic_fallback',
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    
     if (result.error?.includes('Rate limit')) return createRateLimitResponse();
     if (result.error?.includes('Payment')) return createCreditsExhaustedResponse();
     return createErrorResponse(result.error || 'AI call failed', 500);
@@ -1082,7 +1156,7 @@ Trả về JSON:
     .sort((a: any, b: any) => b.score - a.score)
     .slice(0, 3);
 
-  console.log(`[topic-ai:suggest_audience] Matched: ${parsed.bestMatchName || 'none'} (${parsed.bestMatchScore}%), alternatives: ${alternatives.length}, took ${Date.now() - startTime}ms`);
+  console.log(`[topic-ai:suggest_audience] AI matched: ${parsed.bestMatchName || 'none'} (${parsed.bestMatchScore}%), alternatives: ${alternatives.length}, took ${Date.now() - startTime}ms`);
 
   return new Response(JSON.stringify({
     success: true,
@@ -1094,6 +1168,7 @@ Trả về JSON:
     keyCharacteristics: parsed.keyCharacteristics || [],
     alternativePersonaIds: alternatives.map((a: any) => a.personaId),
     alternativePersonaNames: alternatives.map((a: any) => a.personaName),
+    matchMethod: 'ai',
   }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
