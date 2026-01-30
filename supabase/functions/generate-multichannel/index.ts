@@ -118,6 +118,28 @@ import {
   type PersonaData,
   type MultiChannelPersonaFitResult,
 } from "../_shared/persona-fit-scorer.ts";
+// NEW P2: Hook Consistency Engine - Ensures cross-channel hook consistency
+import {
+  buildHookConsistencyInstruction,
+  validateHookConsistency,
+} from "../_shared/hook-consistency.ts";
+// NEW P2: Role-Channel Adaptation - Adapts behavior based on content role
+import {
+  getRoleChannelConfig,
+  buildRoleChannelInstruction,
+  validateRoleCompliance,
+  type RoleChannelConfig,
+} from "../_shared/role-channel-adapter.ts";
+// NEW P2: Quality-Context Auto-Balancer - Adjusts quality mode based on context
+import {
+  buildContextIndicators,
+  calculateContextRichness,
+  getAutoBalancedQualityMode,
+  getContextCostMultiplier,
+  buildContextRichnessSummary,
+  type ContextIndicators,
+  type ContextRichnessScore,
+} from "../_shared/quality-context-balancer.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
