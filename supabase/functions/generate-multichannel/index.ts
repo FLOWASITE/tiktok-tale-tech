@@ -101,6 +101,12 @@ import {
   validateStrategy,
   type StrategyValidationResult,
 } from "../_shared/strategy-validator.ts";
+// NEW: Channel Transformation Matrix - P0 Core Content Transform Rules
+import {
+  buildTransformationInstruction,
+  calculateChannelWordCount,
+  validateCoreContentForTransform,
+} from "../_shared/channel-transform-rules.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -1282,6 +1288,20 @@ serve(async (req) => {
         if (!formData.contentGoal && coreContent.content_goal) {
           formData.contentGoal = coreContent.content_goal;
         }
+      }
+    }
+    
+    // ============================================
+    // CORE CONTENT TRANSFORM VALIDATION (P0)
+    // Check if Core Content is suitable for target channels
+    // ============================================
+    let transformValidation: { valid: boolean; warnings: string[] } = { valid: true, warnings: [] };
+    if (coreContent && formData.channels.length > 0) {
+      const coreWordCount = coreContent.word_count || coreContent.content?.split(/\s+/).length || 0;
+      transformValidation = validateCoreContentForTransform(coreWordCount, formData.channels);
+      
+      if (transformValidation.warnings.length > 0) {
+        console.log(`[core-content-transform] Warnings: ${transformValidation.warnings.join('; ')}`);
       }
     }
 
@@ -2568,11 +2588,27 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             const channelResults: Record<string, string> = {};
             const completedChannelsSet = new Set<string>();
             
-            // Build user prompt for each channel (with channel-specific hook)
+            // Build user prompt for each channel (with channel-specific hook and transformation rules)
+            const coreContentWordCount = coreContent?.word_count || coreContent?.content?.split(/\s+/).length || 0;
+            
             const buildChannelUserPrompt = (channel: string) => {
               const channelHookSection = buildHookSection(channel, formData.selectedHooks, formData.globalHook);
+              
+              // NEW: Channel-specific transformation rules when using Core Content
+              let transformSection = '';
+              if (coreContent && coreContentWordCount > 0) {
+                transformSection = buildTransformationInstruction(
+                  channel,
+                  coreContentWordCount,
+                  formData.contentRole
+                );
+                const targetWords = calculateChannelWordCount(channel, coreContentWordCount);
+                console.log(`[streaming-mode][transform] ${channel}: ${targetWords.min}-${targetWords.max} words target (from ${coreContentWordCount} core)`);
+              }
+              
               return `${userPrompt}
 ${channelHookSection}
+${transformSection}
 
 Bây giờ viết nội dung cho kênh: ${channel.toUpperCase()}
 Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
