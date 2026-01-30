@@ -1,184 +1,173 @@
 
 
-## Kế hoạch: Redesign UX "Đối tượng mục tiêu" - Multi-mode Smart Audience Selector
+## Phân tích cải tiến Topic AI - Tình trạng hiện tại và Đề xuất
 
-### Tổng quan thiết kế mới
+### Tình trạng hiện tại của Topic AI
 
-Thay thế logic hiện tại (PersonaSelector OR Textarea) bằng một **Unified Audience Control** kết hợp cả 4 hướng:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Đối tượng mục tiêu                              [AI Gợi ý] │
-├─────────────────────────────────────────────────────────────┤
-│ ┌─────┐ ┌─────────────┐ ┌───────────┐ ┌─────────────┐       │
-│ │👤 A │ │👩‍💼 Chủ DN   │ │ 🎯 Gen Z  │ │  + Tùy chỉnh │       │
-│ └─────┘ └─────────────┘ └───────────┘ └─────────────────────┤
-│                                                             │
-│ ┌─ Preview Card (khi chọn persona) ─────────────────────┐   │
-│ │ 👩‍💼 Chủ doanh nghiệp SME                    [★ Primary]│   │
-│ │ 30-45 tuổi · Quản lý · Thu nhập cao                   │   │
-│ │ Pain points: Thiếu thời gian, ROI không rõ...         │   │
-│ │ ┌──────────────────────────────────────────────────┐  │   │
-│ │ │ + Bổ sung chi tiết: Quan tâm đến AI...           │  │   │
-│ │ └──────────────────────────────────────────────────┘  │   │
-│ └───────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+**Architecture:**
+- Edge function `topic-ai` thống nhất với 12 actions: suggest, refine, refine_intel, next_best, weekly_plan, conflict_check, learning, trending, gap_analysis, cluster, keywords, suggest_compliant
+- Frontend hook `useTopicAI` consolidates 5 modules: refinement, intelligence, recommendations, trending, suggestions
+- Đã tích hợp Perplexity API cho real-time web search
+- Có caching với 8-hour buckets (đã tối ưu từ 4h)
+- Có Learning Context để học từ feedback
 
 ---
 
-### Thay đổi 1: Tạo component mới `AudienceSmartSelector.tsx`
+### Điểm cần cải tiến
 
-**File mới:** `src/components/multichannel/AudienceSmartSelector.tsx`
+| Lĩnh vực | Vấn đề | Mức độ |
+|----------|--------|--------|
+| **Missing Feature** | Chưa có `suggest_audience` action để gợi ý đối tượng mục tiêu từ topic | Cao |
+| **Cost Optimization** | Nhiều parallel calls không cần thiết (industryInsight + audienceQA luôn chạy) | Trung bình |
+| **Persona Matching** | Logic match persona chỉ dựa trên tên, không có semantic matching | Trung bình |
+| **Error Handling** | Error handling lặp lại code giữa các modules | Thấp |
+| **Cache Strategy** | Cache key không bao gồm personas/products context | Thấp |
+| **Prompt Engineering** | Prompts cho một số actions chưa tận dụng hết learning context | Thấp |
 
-**Tính năng chính:**
-1. **Quick Chips Row** - Horizontal scrollable chips hiển thị tất cả personas của brand
-2. **AI Suggest Button** - Gợi ý audience dựa trên topic đã nhập
-3. **Card-based Preview** - Khi chọn persona, hiển thị preview card với thông tin chi tiết
-4. **Hybrid Input** - Textarea bổ sung cho custom details
+---
 
-**Props interface:**
+### Cải tiến 1: Thêm `suggest_audience` Action (Ưu tiên cao)
+
+**Mục đích:** Hỗ trợ AudienceSmartSelector gợi ý audience dựa trên topic đã nhập
+
+**Request interface:**
 ```typescript
-interface AudienceSmartSelectorProps {
+interface SuggestAudienceRequest {
+  action: 'suggest_audience';
+  topic: string;
+  contentGoal?: string;
   brandTemplateId?: string;
-  topic?: string;           // Để AI suggest
-  contentGoal?: string;     // Để AI suggest phù hợp
-  selectedPersonaId?: string;
-  customAudience?: string;  // Hybrid text
-  onPersonaChange: (id: string | undefined) => void;
-  onCustomAudienceChange: (text: string) => void;
-  disabled?: boolean;
+  organizationId?: string;
 }
 ```
 
-**UI States:**
-- **Idle (no brand):** Chỉ hiển thị Textarea
-- **Brand selected, no personas:** Empty state + Quick Create chip
-- **Brand selected, has personas:** Chips + Optional AI Suggest
-- **Persona selected:** Chips + Preview Card + Optional Hybrid Input
-
----
-
-### Thay đổi 2: PersonaPreviewCard component
-
-**File mới:** `src/components/multichannel/PersonaPreviewCard.tsx`
-
-**Hiển thị thông tin persona đã chọn:**
+**Response interface:**
 ```typescript
-interface PersonaPreviewCardProps {
-  persona: CustomerPersona;
-  onClear: () => void;
-  hybridInput?: string;
-  onHybridInputChange?: (text: string) => void;
-  showHybridInput?: boolean;
+interface SuggestAudienceResponse {
+  success: boolean;
+  matchedPersonaId?: string;        // ID của persona phù hợp nhất
+  matchedPersonaName?: string;
+  matchScore: number;               // 0-100
+  suggestedAudience: string;        // Mô tả audience nếu không match persona
+  reasoning: string;                // Giải thích vì sao match/suggest
+  keyCharacteristics: string[];     // Đặc điểm chính của audience
+  alternativePersonaIds?: string[]; // IDs của personas khác có thể phù hợp
 }
 ```
 
-**Layout:**
-- Avatar emoji + Name + Primary badge
-- Demographics: Age range, Gender, Location, Occupation
-- Key insights (collapsed by default):
-  - Pain points (top 3)
-  - Desires (top 3)
-  - Values (top 2)
-- Optional: Hybrid input textarea ở dưới cùng với placeholder "Bổ sung chi tiết cụ thể..."
+**Logic:**
+1. Fetch all personas từ brand
+2. Nếu có personas:
+   - Gọi AI để analyze topic vs persona pain points/desires
+   - Trả về matchedPersonaId nếu score > 70%
+   - Trả về top 2-3 alternatives nếu có nhiều match
+3. Nếu không có personas:
+   - AI generate suggested audience description
+   - Gợi ý tạo persona từ description
 
 ---
 
-### Thay đổi 3: AI Audience Suggestion
+### Cải tiến 2: Semantic Persona Matching (Ưu tiên trung bình)
 
-**Tích hợp với `topic-ai` edge function hoặc tạo action mới:**
-
-Khi user click "AI Gợi ý":
-1. Gửi `topic`, `contentGoal`, `brandContext` đến AI
-2. AI trả về:
-   - Matched persona ID (nếu có persona phù hợp trong brand)
-   - Suggested audience description (nếu không match)
-3. Auto-select persona hoặc fill Textarea
-
-**Flow:**
-```
-Topic: "5 sai lầm khi khởi nghiệp"
-Goal: Education
-AI Response: {
-  matchedPersonaId: "xxx-xxx", // hoặc null
-  suggestedAudience: "Người mới khởi nghiệp, 25-35 tuổi, đang tìm kiếm mentor và nguồn vốn",
-  reasoning: "Topic phù hợp với Chủ doanh nghiệp SME vì..."
-}
-```
-
----
-
-### Thay đổi 4: Update MultiChannelFormWizard.tsx
-
-**File:** `src/components/multichannel/MultiChannelFormWizard.tsx`
-
-Thay thế block hiện tại (lines 1067-1111):
-
+**Vấn đề hiện tại (line 1086-1091):**
 ```typescript
-// TỪ:
-{brandTemplateId ? (
-  brandPersonasCount === 0 ? (
-    <Textarea ... />
-  ) : (
-    <PersonaSelector ... />
-  )
-) : (
-  <Textarea ... />
-)}
+// Chỉ match bằng string includes - không chính xác
+const matchedPersona = brandContext.personas.find((p: any) =>
+  p.name?.toLowerCase().includes(item.targetPersona.toLowerCase()) ||
+  item.targetPersona.toLowerCase().includes(p.name?.toLowerCase())
+);
+```
 
-// THÀNH:
-<AudienceSmartSelector
-  brandTemplateId={brandTemplateId}
-  topic={topic}
-  contentGoal={contentGoal}
-  selectedPersonaId={coreContentPersonaId}
-  customAudience={coreContentAudience}
-  onPersonaChange={setCoreContentPersonaId}
-  onCustomAudienceChange={setCoreContentAudience}
-  disabled={isGeneratingCoreContent}
-/>
+**Giải pháp đề xuất:**
+1. Sử dụng embeddings để match semantic:
+   - Tạo embedding cho topic + angle
+   - So sánh với embeddings của persona pain_points + desires
+   - Chọn persona có cosine similarity cao nhất
+
+2. Fallback logic:
+   - Nếu không có embeddings, dùng keyword matching
+   - Match pain_points, desires, occupation keywords
+
+---
+
+### Cải tiến 3: Smart Parallel Calls (Ưu tiên trung bình)
+
+**Vấn đề hiện tại (line 189-192):**
+```typescript
+// Luôn gọi cả 2, ngay cả khi không cần
+const [industryInsight, audienceQA] = await Promise.all([
+  industryToSearch ? searchIndustryData(...) : null,
+  industryToSearch ? searchAudienceQuestions(...) : null,
+]);
+```
+
+**Giải pháp:**
+1. Thêm flag `skipWebSearch` để bypass Perplexity calls khi:
+   - Brand đã có đủ learning context (> 20 feedback points)
+   - Cache hit recent (< 4 hours)
+   - User đang trong trial/low-cost mode
+
+2. Conditional parallel calls:
+```typescript
+const parallelTasks = [];
+if (shouldSearchIndustry) parallelTasks.push(searchIndustryData(...));
+if (shouldMineAudienceQA) parallelTasks.push(searchAudienceQuestions(...));
+const results = await Promise.all(parallelTasks);
 ```
 
 ---
 
-### Thay đổi 5: Update generate-core-content để xử lý Hybrid Input
+### Cải tiến 4: Enhanced Cache Key (Ưu tiên thấp)
 
-**File:** `supabase/functions/generate-core-content/index.ts` và `core-content-pipeline.ts`
-
-Khi cả `personaId` và `customAudience` đều có giá trị:
-- Fetch full persona data
-- Append customAudience vào prompt block
-
+**Vấn đề:** Cache key không reflect personas/products changes
 ```typescript
-${buildPersonaContextBlock(config.personas)}
-${config.customAudienceDetails ? `\n### BỔ SUNG TỪ USER\n${config.customAudienceDetails}` : ''}
+// Hiện tại
+const cacheKey = `topic-suggestions-v7:${orgId}:${industry}:${goal}:${brandId}:${format}:${hourBucket}`;
+```
+
+**Giải pháp:**
+```typescript
+// Thêm hash của personas/products count để invalidate khi data thay đổi
+const contextHash = hashCode(`${personas.length}-${products.length}-${mappings.length}`);
+const cacheKey = `topic-suggestions-v8:${orgId}:${industry}:${goal}:${brandId}:${format}:${contextHash}:${hourBucket}`;
+```
+
+---
+
+### Cải tiến 5: Consolidated Error Handler (Ưu tiên thấp)
+
+**Vấn đề:** `handleIntelApiError` và `handleRecApiError` trong useTopicAI.ts gần như giống nhau (lines 191-273)
+
+**Giải pháp:** Tạo generic handler:
+```typescript
+const createApiErrorHandler = (setError, setErrorCode, moduleName) => {
+  return (err, fallbackMessage) => {
+    // Unified logic
+  };
+};
 ```
 
 ---
 
 ### Files cần tạo/sửa
 
-| File | Thay đổi |
-|------|----------|
-| `src/components/multichannel/AudienceSmartSelector.tsx` | **Mới** - Component chính |
-| `src/components/multichannel/PersonaPreviewCard.tsx` | **Mới** - Preview card |
-| `src/components/multichannel/MultiChannelFormWizard.tsx` | Thay PersonaSelector bằng AudienceSmartSelector |
-| `supabase/functions/generate-core-content/index.ts` | Xử lý hybrid input |
-| `supabase/functions/_shared/core-content-pipeline.ts` | Append custom audience details |
+| File | Thay đổi | Độ phức tạp |
+|------|----------|-------------|
+| `supabase/functions/topic-ai/index.ts` | Thêm `handleSuggestAudience` handler | Trung bình |
+| `supabase/functions/_shared/topic-utils.ts` | Thêm `semanticMatchPersona` utility | Trung bình |
+| `src/hooks/ai/useTopicAI.ts` | Thêm `suggestAudience` method vào module | Thấp |
+| `src/hooks/ai/types.ts` | Thêm `SuggestAudienceResult` type | Thấp |
 
 ---
 
-### UX Flow mới
+### Roadmap đề xuất
 
-| Bước | User Action | System Response |
-|------|-------------|-----------------|
-| 1 | Nhập topic "5 sai lầm khởi nghiệp" | UI hiện Chips + [AI Gợi ý] button |
-| 2 | Click "AI Gợi ý" | AI analyze topic → Auto-select matching persona |
-| 3 | Persona được chọn | Preview Card xuất hiện với pain points |
-| 4 | User muốn bổ sung | Click "Bổ sung chi tiết" → Textarea mở |
-| 5 | Nhập thêm "Tập trung vào người Việt Nam" | Hybrid input saved cùng persona |
-| 6 | Generate | AI nhận cả persona data + custom text |
+| Phase | Công việc | Ưu tiên |
+|-------|-----------|---------|
+| Phase 1 | Thêm `suggest_audience` action (cần cho AudienceSmartSelector) | Cao |
+| Phase 2 | Semantic persona matching với embeddings | Trung bình |
+| Phase 3 | Smart parallel calls & cost optimization | Trung bình |
+| Phase 4 | Cache key enhancement & error consolidation | Thấp |
 
 ---
 
@@ -186,9 +175,8 @@ ${config.customAudienceDetails ? `\n### BỔ SUNG TỪ USER\n${config.customAudi
 
 | Trước | Sau |
 |-------|-----|
-| Dropdown ẩn chi tiết persona | Preview Card hiển thị rõ AI context |
-| Phải navigate đến brand settings để tạo persona | Quick Create chip inline |
-| User không biết AI dùng thông tin gì | Card hiển thị pain points, demographics |
-| Chỉ chọn HOẶC nhập | Hybrid: Chọn persona + Bổ sung chi tiết |
-| User phải tự quyết định audience | AI gợi ý dựa trên topic |
+| Không có AI gợi ý audience | AI match persona từ topic với reasoning |
+| String-based persona matching | Semantic matching với embeddings |
+| Luôn gọi Perplexity API | Smart conditional calls giảm cost |
+| Error handlers trùng lặp | Consolidated, maintainable code |
 
