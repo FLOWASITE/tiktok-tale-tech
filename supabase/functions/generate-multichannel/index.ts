@@ -77,8 +77,12 @@ import {
   buildWordBudgetInstruction,
   validateAllChannels,
   getChannelsNeedingExpansion,
+  getPriorityChannelsNeedingExpansion,
   buildExpansionPrompt,
+  buildValidationSummary,
+  HIGH_PRIORITY_CHANNELS,
   type LengthValidationResult,
+  type MultiChannelLengthValidation,
 } from "../_shared/length-validator.ts";
 // Learning Context for RAG-enhanced generation
 import { fetchLearningContext } from "../_shared/learning-context.ts";
@@ -3040,6 +3044,18 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   scorePenalty: strategyValidation.scorePenalty,
                   wasAdjusted: strategyValidation.promptAdjustments.length > 0,
                 } : null,
+                lengthCompliance: lengthValidation ? {
+                  overallCompliance: lengthValidation.overallCompliance,
+                  complianceScore: lengthValidation.complianceScore,
+                  channelsNeedingExpansion: lengthValidation.channelsNeedingExpansion,
+                  expansionCount,
+                  results: Object.fromEntries(
+                    Object.entries(lengthValidation.results).map(([ch, res]) => [
+                      ch,
+                      { actualLength: res.actualLength, minRequired: res.minRequired, maxAllowed: res.maxAllowed, complianceLevel: res.complianceLevel }
+                    ])
+                  ),
+                } : null,
               }
             });
             
@@ -4088,6 +4104,103 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     }
 
     // ============================================
+    // LENGTH VALIDATION & AUTO-EXPANSION - P1 Dynamic Length Enforcement
+    // Validate all channels and auto-expand priority channels if too short
+    // ============================================
+    let lengthValidation: MultiChannelLengthValidation | null = null;
+    let expansionCount = 0;
+    const MAX_EXPANSIONS = 2;
+    
+    if (!fromCache && qualityMode !== 'fast') {
+      try {
+        const channelContentsForValidation: Record<string, string> = {};
+        for (const channel of formData.channels) {
+          const contentKey = `${channel}_content`;
+          if (generatedData[contentKey]) {
+            if (typeof generatedData[contentKey] === 'object' && generatedData[contentKey].content) {
+              channelContentsForValidation[channel] = generatedData[contentKey].content;
+            } else if (typeof generatedData[contentKey] === 'string') {
+              channelContentsForValidation[channel] = generatedData[contentKey];
+            }
+          }
+        }
+        
+        lengthValidation = validateAllChannels(channelContentsForValidation, channelOverrides as Record<string, { min_length?: number; max_length?: number }> | undefined);
+        console.log(`[length-validation] Initial: compliance=${lengthValidation.overallCompliance}, score=${lengthValidation.complianceScore}/100`);
+        
+        for (const [ch, res] of Object.entries(lengthValidation.results)) {
+          const icon = res.complianceLevel === 'optimal' ? '✅' : res.complianceLevel === 'acceptable' ? '✓' : res.complianceLevel === 'warning' ? '⚠️' : '❌';
+          console.log(`  ${icon} ${ch}: ${res.actualLength}/${res.minRequired}-${res.maxAllowed}`);
+        }
+        
+        const priorityNeedingExpansion = getPriorityChannelsNeedingExpansion(lengthValidation.results);
+        
+        if (priorityNeedingExpansion.length > 0 && qualityMode === 'quality') {
+          console.log(`[length-auto-fix] ${priorityNeedingExpansion.length} priority channels need expansion`);
+          
+          for (const channel of priorityNeedingExpansion) {
+            if (expansionCount >= MAX_EXPANSIONS * priorityNeedingExpansion.length) break;
+            
+            const result = lengthValidation.results[channel];
+            const currentContent = channelContentsForValidation[channel];
+            if (!currentContent || !result) continue;
+            
+            const expansionPrompt = buildExpansionPrompt(channel, currentContent, result, {
+              topic: formData.topic,
+              contentGoal: formData.contentGoal,
+            });
+            
+            try {
+              console.log(`[length-auto-fix] Expanding ${channel} (${result.actualLength}/${result.minRequired})...`);
+              
+              const channelConfig = channelModelConfigs.get(channel);
+              const effectiveModel = channelConfig?.model || aiConfig.model;
+              
+              const expandResult = await callAI({
+                functionName: 'generate-multichannel-expand',
+                organizationId: organizationId || undefined,
+                modelOverride: effectiveModel,
+                temperatureOverride: 0.7,
+                messages: [
+                  { role: "system", content: "Bạn là chuyên gia mở rộng nội dung. Chỉ trả về nội dung đã mở rộng, không giải thích." },
+                  { role: "user", content: expansionPrompt },
+                ],
+                maxTokensOverride: 2048,
+              });
+              
+              if (expandResult.success && expandResult.data?.choices?.[0]?.message?.content) {
+                const expandedContent = expandResult.data.choices[0].message.content.trim();
+                const contentKey = `${channel}_content`;
+                if (typeof generatedData[contentKey] === 'object') {
+                  generatedData[contentKey].content = expandedContent;
+                } else {
+                  generatedData[contentKey] = expandedContent;
+                }
+                channelContentsForValidation[channel] = expandedContent;
+                expansionCount++;
+                console.log(`[length-auto-fix] ✅ ${channel} expanded`);
+              }
+            } catch (expandError) {
+              console.warn(`[length-auto-fix] Failed to expand ${channel}:`, expandError);
+            }
+          }
+          
+          if (expansionCount > 0) {
+            lengthValidation = validateAllChannels(channelContentsForValidation, channelOverrides as Record<string, { min_length?: number; max_length?: number }> | undefined);
+            console.log(`[length-validation] After auto-fix: compliance=${lengthValidation.overallCompliance}, score=${lengthValidation.complianceScore}/100`);
+          }
+        }
+        
+        if (lengthValidation.overallCompliance === 'fail') {
+          needsManualReview = true;
+          console.warn(`[length-validation] ⚠️ Content still below requirements, flagging for review`);
+        }
+      } catch (lengthError) {
+        console.warn('[length-validation] Validation failed:', lengthError);
+      }
+    }
+
+    // ============================================
     // AUTO-APPEND FOOTER INFO (Post AI-generation)
     // Only append if user opts in (default: true)
     // ============================================
@@ -4496,7 +4609,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       console.warn('[metrics] Failed to save:', metricsError);
     }
 
-    // Include dedup result in response for UI notification
+    // Include dedup result, strategy validation, and length compliance in response
     const responseData = { 
       ...content, 
       fromCache,
@@ -4506,6 +4619,29 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         similarity: dedupResult.similarity,
         matchedContentPreview: dedupResult.matchedContentPreview,
         matchedContentId: dedupResult.matchedContentId,
+      } : null,
+      // Strategy validation warnings (P0)
+      strategyValidation: strategyValidation.conflicts.length > 0 ? {
+        conflicts: strategyValidation.conflicts.map(c => ({
+          type: c.type,
+          severity: c.severity,
+          message: c.message,
+        })),
+        scorePenalty: strategyValidation.scorePenalty,
+        wasAdjusted: strategyValidation.promptAdjustments.length > 0,
+      } : null,
+      // Length compliance info (P1)
+      lengthCompliance: lengthValidation ? {
+        overallCompliance: lengthValidation.overallCompliance,
+        complianceScore: lengthValidation.complianceScore,
+        channelsNeedingExpansion: lengthValidation.channelsNeedingExpansion,
+        expansionCount,
+        results: Object.fromEntries(
+          Object.entries(lengthValidation.results).map(([ch, res]) => [
+            ch,
+            { actualLength: res.actualLength, minRequired: res.minRequired, maxAllowed: res.maxAllowed, complianceLevel: res.complianceLevel }
+          ])
+        ),
       } : null,
     };
     
