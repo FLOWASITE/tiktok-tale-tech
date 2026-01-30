@@ -140,6 +140,14 @@ import {
   type ContextIndicators,
   type ContextRichnessScore,
 } from "../_shared/quality-context-balancer.ts";
+// NEW P3: Cross-Channel Deduplication - Prevents repetitive content across channels
+import {
+  checkCrossChannelDuplicate,
+  buildCrossChannelDiversifyInstruction,
+  getChannelsToRegenerate,
+  calculateDiversityBonus,
+  type CrossChannelDedupResult,
+} from "../_shared/cross-channel-dedup.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -2838,6 +2846,33 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             }
             
             // ============================================
+            // CROSS-CHANNEL DEDUPLICATION - P3
+            // Ensures content diversity across channels
+            // ============================================
+            let crossChannelDedupResult: CrossChannelDedupResult | null = null;
+            
+            if (channels.length >= 2 && formData.action !== 'expand') {
+              try {
+                emit({ type: 'progress', step: 'cross-dedup', progress: 83, message: 'Kiểm tra đa dạng nội dung...' });
+                crossChannelDedupResult = await checkCrossChannelDuplicate(channelResults);
+                
+                if (crossChannelDedupResult.hasDuplicates) {
+                  emit({
+                    type: 'progress',
+                    step: 'cross-dedup',
+                    progress: 84,
+                    message: `⚠️ ${crossChannelDedupResult.channelsNeedingDiversification.length} kênh cần đa dạng hóa`,
+                  });
+                  console.log(`[streaming-mode][cross-dedup] Duplicates found: ${crossChannelDedupResult.channelsNeedingDiversification.join(', ')}`);
+                } else {
+                  console.log(`[streaming-mode][cross-dedup] Diversity score: ${crossChannelDedupResult.overallScore}%`);
+                }
+              } catch (crossDedupError) {
+                console.warn('[streaming-mode][cross-dedup] Check failed:', crossDedupError);
+              }
+            }
+            
+            // ============================================
             // PERSONA FIT SCORING - P1 Alignment Evaluation
             // ============================================
             let personaFitResult: MultiChannelPersonaFitResult | null = null;
@@ -3077,6 +3112,15 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                       { actualLength: res.actualLength, minRequired: res.minRequired, maxAllowed: res.maxAllowed, complianceLevel: res.complianceLevel }
                     ])
                   ),
+                } : null,
+                // P3: Cross-Channel Deduplication result
+                crossChannelDedup: crossChannelDedupResult ? {
+                  hasDuplicates: crossChannelDedupResult.hasDuplicates,
+                  hasWarnings: crossChannelDedupResult.hasWarnings,
+                  overallScore: crossChannelDedupResult.overallScore,
+                  channelsNeedingDiversification: crossChannelDedupResult.channelsNeedingDiversification,
+                  diversificationSuggestions: crossChannelDedupResult.diversificationSuggestions,
+                  pairs: crossChannelDedupResult.pairs.slice(0, 10), // Limit pairs to reduce payload
                 } : null,
               }
             });
@@ -3980,6 +4024,38 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     }
 
     // ============================================
+    // CROSS-CHANNEL DEDUPLICATION - P3 (Normal mode)
+    // Ensures content diversity across channels
+    // ============================================
+    let crossChannelDedupResult: CrossChannelDedupResult | null = null;
+    if (formData.channels.length >= 2 && formData.action !== 'expand' && !fromCache) {
+      try {
+        // Extract channel contents for cross-channel check
+        const channelContents: Record<string, string> = {};
+        for (const channel of formData.channels) {
+          const contentKey = `${channel}_content`;
+          if (generatedData[contentKey]) {
+            if (typeof generatedData[contentKey] === 'object' && generatedData[contentKey].content) {
+              channelContents[channel] = generatedData[contentKey].content;
+            } else if (typeof generatedData[contentKey] === 'string') {
+              channelContents[channel] = generatedData[contentKey];
+            }
+          }
+        }
+        
+        crossChannelDedupResult = await checkCrossChannelDuplicate(channelContents);
+        
+        if (crossChannelDedupResult.hasDuplicates) {
+          console.log(`[cross-dedup] ⚠️ ${crossChannelDedupResult.channelsNeedingDiversification.length} channels need diversification`);
+        } else {
+          console.log(`[cross-dedup] ✅ Diversity score: ${crossChannelDedupResult.overallScore}%`);
+        }
+      } catch (crossDedupError) {
+        console.warn('[cross-dedup] Check failed:', crossDedupError);
+      }
+    }
+
+    // ============================================
     // POST-PROCESS: Auto-fix missing SEO fields for website + word count validation
     // ============================================
     let websiteWordCountShort = false;
@@ -4664,6 +4740,15 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
             { actualLength: res.actualLength, minRequired: res.minRequired, maxAllowed: res.maxAllowed, complianceLevel: res.complianceLevel }
           ])
         ),
+      } : null,
+      // P3: Cross-Channel Deduplication result
+      crossChannelDedup: crossChannelDedupResult ? {
+        hasDuplicates: crossChannelDedupResult.hasDuplicates,
+        hasWarnings: crossChannelDedupResult.hasWarnings,
+        overallScore: crossChannelDedupResult.overallScore,
+        channelsNeedingDiversification: crossChannelDedupResult.channelsNeedingDiversification,
+        diversificationSuggestions: crossChannelDedupResult.diversificationSuggestions,
+        pairs: crossChannelDedupResult.pairs.slice(0, 10),
       } : null,
     };
     
