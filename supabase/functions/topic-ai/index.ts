@@ -64,7 +64,8 @@ type TopicAIAction =
   | 'gap_analysis'      // Analyze content gaps
   | 'cluster'           // Cluster similar topics
   | 'keywords'          // Expand keywords
-  | 'suggest_compliant'; // Suggest compliant topic alternative
+  | 'suggest_compliant' // Suggest compliant topic alternative
+  | 'suggest_audience'; // Suggest best audience/persona for a topic
 
 
 interface TopicAIRequest {
@@ -89,7 +90,7 @@ interface TopicAIRequest {
     reason?: string;
   };
   // For suggest_compliant action
-  topic?: string;              // for 'suggest_compliant'
+  topic?: string;              // for 'suggest_compliant' and 'suggest_audience'
   issues?: Array<{             // for 'suggest_compliant'
     type: string;
     term: string;
@@ -142,6 +143,8 @@ serve(async (req) => {
         return await handleAnalysis(action, supabase, brandContext, params, startTime);
       case 'suggest_compliant':
         return await handleSuggestCompliant(supabase, brandContext, params, startTime);
+      case 'suggest_audience':
+        return await handleSuggestAudience(supabase, brandContext, params, startTime);
       default:
         return createErrorResponse(`Invalid action: ${action}`, 400);
     }
@@ -917,6 +920,180 @@ CHỈ TRẢ VỀ TOPIC MỚI, KHÔNG GIẢI THÍCH.`;
     suggestedTopic,
     originalTopic: topic,
     issuesAddressed: issues.length,
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+// ========== Handler: Suggest Audience ==========
+async function handleSuggestAudience(
+  supabase: any,
+  brandContext: TopicBrandContext | null,
+  params: TopicAIRequest,
+  startTime: number
+): Promise<Response> {
+  const { topic, contentGoal, organizationId, brandTemplateId } = params;
+
+  if (!topic || topic.trim().length < 5) {
+    return createErrorResponse('topic is required (min 5 chars)', 400);
+  }
+
+  const personas = brandContext?.personas || [];
+  console.log(`[topic-ai:suggest_audience] Topic: "${topic.substring(0, 50)}...", Personas: ${personas.length}`);
+
+  // If no personas, generate audience description directly
+  if (personas.length === 0) {
+    const prompt = `Phân tích chủ đề sau và đề xuất đối tượng mục tiêu phù hợp nhất:
+
+CHỦ ĐỀ: "${topic}"
+MỤC TIÊU NỘI DUNG: ${contentGoal || 'engagement'}
+
+Trả về JSON:
+{
+  "suggestedAudience": "Mô tả đối tượng mục tiêu chi tiết (30-50 từ)",
+  "keyCharacteristics": ["đặc điểm 1", "đặc điểm 2", "đặc điểm 3"],
+  "reasoning": "Lý do vì sao đối tượng này phù hợp với topic (1-2 câu)"
+}`;
+
+    const result = await callAIWithMetrics(supabase, {
+      functionName: 'topic-ai',
+      organizationId,
+      brandTemplateId,
+      actionType: 'suggest_audience',
+      messages: [
+        { role: 'system', content: 'Bạn là Content Strategist chuyên phân tích đối tượng mục tiêu cho nội dung marketing.' },
+        { role: 'user', content: prompt }
+      ],
+      modelOverride: 'google/gemini-2.5-flash-lite',
+    });
+
+    if (!result.success) {
+      if (result.error?.includes('Rate limit')) return createRateLimitResponse();
+      if (result.error?.includes('Payment')) return createCreditsExhaustedResponse();
+      return createErrorResponse(result.error || 'AI call failed', 500);
+    }
+
+    let parsed: any = {
+      suggestedAudience: 'Không thể phân tích',
+      keyCharacteristics: [],
+      reasoning: '',
+    };
+
+    try {
+      const content = result.data?.choices?.[0]?.message?.content || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    } catch { /* Use default */ }
+
+    console.log(`[topic-ai:suggest_audience] No personas, generated description in ${Date.now() - startTime}ms`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      matchedPersonaId: null,
+      matchedPersonaName: null,
+      matchScore: 0,
+      suggestedAudience: parsed.suggestedAudience,
+      reasoning: parsed.reasoning || 'Đề xuất dựa trên phân tích nội dung topic',
+      keyCharacteristics: parsed.keyCharacteristics || [],
+      alternativePersonaIds: [],
+      alternativePersonaNames: [],
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  // Has personas - use AI to match topic with personas
+  const personasInfo = personas.map(p => ({
+    id: p.id,
+    name: p.name,
+    occupation: p.occupation || 'N/A',
+    age_range: p.age_range || 'N/A',
+    pain_points: (p.pain_points || []).slice(0, 5),
+    desires: (p.desires || []).slice(0, 5),
+    buying_triggers: (p.buying_triggers || []).slice(0, 3),
+    typical_funnel_stage: p.typical_funnel_stage || 'awareness',
+  }));
+
+  const prompt = `Phân tích chủ đề nội dung và matching với customer personas:
+
+CHỦ ĐỀ: "${topic}"
+MỤC TIÊU: ${contentGoal || 'engagement'}
+
+DANH SÁCH PERSONAS:
+${personasInfo.map((p, i) => `
+${i + 1}. ${p.name} (ID: ${p.id})
+   - Nghề nghiệp: ${p.occupation}, Tuổi: ${p.age_range}
+   - Pain points: ${p.pain_points.join(', ')}
+   - Desires: ${p.desires.join(', ')}
+   - Funnel stage: ${p.typical_funnel_stage}
+`).join('')}
+
+NHIỆM VỤ:
+1. Đánh giá mức độ phù hợp của topic với từng persona (0-100)
+2. Xác định persona PHÙ HỢP NHẤT (score > 70 = match tốt)
+3. Giải thích ngắn gọn lý do matching
+
+Trả về JSON:
+{
+  "matches": [
+    { "personaId": "uuid", "personaName": "tên", "score": 0-100, "reason": "lý do ngắn" }
+  ],
+  "bestMatchId": "uuid hoặc null nếu không có match > 70",
+  "bestMatchName": "tên hoặc null",
+  "bestMatchScore": 0-100,
+  "suggestedAudience": "Mô tả đối tượng tổng hợp dựa trên personas phù hợp",
+  "reasoning": "Giải thích chi tiết vì sao đây là đối tượng tốt nhất",
+  "keyCharacteristics": ["đặc điểm 1", "đặc điểm 2", "đặc điểm 3"]
+}`;
+
+  const result = await callAIWithMetrics(supabase, {
+    functionName: 'topic-ai',
+    organizationId,
+    brandTemplateId,
+    actionType: 'suggest_audience',
+    messages: [
+      { role: 'system', content: 'Bạn là Content Strategist chuyên nghiệp, giỏi phân tích target audience và matching content với personas.' },
+      { role: 'user', content: prompt }
+    ],
+    modelOverride: 'google/gemini-2.5-flash',
+  });
+
+  if (!result.success) {
+    if (result.error?.includes('Rate limit')) return createRateLimitResponse();
+    if (result.error?.includes('Payment')) return createCreditsExhaustedResponse();
+    return createErrorResponse(result.error || 'AI call failed', 500);
+  }
+
+  let parsed: any = {
+    matches: [],
+    bestMatchId: null,
+    bestMatchName: null,
+    bestMatchScore: 0,
+    suggestedAudience: '',
+    reasoning: '',
+    keyCharacteristics: [],
+  };
+
+  try {
+    const content = result.data?.choices?.[0]?.message?.content || '';
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+  } catch { /* Use default */ }
+
+  // Get alternative persona IDs (top 3 with score > 50, excluding best match)
+  const alternatives = (parsed.matches || [])
+    .filter((m: any) => m.personaId !== parsed.bestMatchId && m.score >= 50)
+    .sort((a: any, b: any) => b.score - a.score)
+    .slice(0, 3);
+
+  console.log(`[topic-ai:suggest_audience] Matched: ${parsed.bestMatchName || 'none'} (${parsed.bestMatchScore}%), alternatives: ${alternatives.length}, took ${Date.now() - startTime}ms`);
+
+  return new Response(JSON.stringify({
+    success: true,
+    matchedPersonaId: parsed.bestMatchScore >= 70 ? parsed.bestMatchId : null,
+    matchedPersonaName: parsed.bestMatchScore >= 70 ? parsed.bestMatchName : null,
+    matchScore: parsed.bestMatchScore || 0,
+    suggestedAudience: parsed.suggestedAudience || '',
+    reasoning: parsed.reasoning || '',
+    keyCharacteristics: parsed.keyCharacteristics || [],
+    alternativePersonaIds: alternatives.map((a: any) => a.personaId),
+    alternativePersonaNames: alternatives.map((a: any) => a.personaName),
   }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 

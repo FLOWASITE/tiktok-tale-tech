@@ -33,6 +33,7 @@ import type {
   TopicFormat,
   SortOption,
   calculateOverallScore,
+  SuggestAudienceResult,
 } from './types';
 import { ContentGoal } from '@/types/multichannel';
 
@@ -120,12 +121,23 @@ interface SuggestionsModule {
   saveSuggestion: (suggestion: EnhancedTopicSuggestion) => Promise<string | null>;
 }
 
+// ============== AUDIENCE MODULE ==============
+interface AudienceModule {
+  result: SuggestAudienceResult | null;
+  isLoading: boolean;
+  error: string | null;
+  errorCode: AIErrorCode | null;
+  suggestAudience: (topic: string, contentGoal?: string) => Promise<SuggestAudienceResult | null>;
+  clear: () => void;
+}
+
 export interface UseTopicAIResult {
   refinement: RefinementModule;
   intelligence: IntelligenceModule;
   recommendations: RecommendationsModule;
   trending: TrendingModule;
   suggestions: SuggestionsModule;
+  audience: AudienceModule;
 }
 
 export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
@@ -186,6 +198,12 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   const autoSavedTopicsRef = useRef<Set<string>>(new Set());
   const suggestAbortControllerRef = useRef<AbortController | null>(null);
   const suggestIsFetchingRef = useRef(false);
+
+  // ============== AUDIENCE STATE ==============
+  const [audienceResult, setAudienceResult] = useState<SuggestAudienceResult | null>(null);
+  const [audienceLoading, setAudienceLoading] = useState(false);
+  const [audienceError, setAudienceError] = useState<string | null>(null);
+  const [audienceErrorCode, setAudienceErrorCode] = useState<AIErrorCode | null>(null);
 
   // ============== SHARED ERROR HANDLER ==============
   const handleIntelApiError = useCallback((err: any, fallbackMessage: string) => {
@@ -1102,6 +1120,67 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }
   }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format]);
 
+  // ============== AUDIENCE METHODS ==============
+  const suggestAudience = useCallback(async (
+    topic: string,
+    goalOverride?: string
+  ): Promise<SuggestAudienceResult | null> => {
+    if (!topic || topic.trim().length < 5) {
+      return null;
+    }
+
+    setAudienceLoading(true);
+    setAudienceError(null);
+    setAudienceErrorCode(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+        body: {
+          action: 'suggest_audience',
+          topic: topic.trim(),
+          contentGoal: goalOverride || contentGoal,
+          brandTemplateId,
+          organizationId: currentOrganization?.id,
+        },
+      });
+
+      if (fnError) throw fnError;
+
+      if (data?.success) {
+        const result: SuggestAudienceResult = {
+          success: true,
+          matchedPersonaId: data.matchedPersonaId || undefined,
+          matchedPersonaName: data.matchedPersonaName || undefined,
+          matchScore: data.matchScore || 0,
+          suggestedAudience: data.suggestedAudience || '',
+          reasoning: data.reasoning || '',
+          keyCharacteristics: data.keyCharacteristics || [],
+          alternativePersonaIds: data.alternativePersonaIds || [],
+          alternativePersonaNames: data.alternativePersonaNames || [],
+        };
+        setAudienceResult(result);
+        return result;
+      } else {
+        if (data?.errorCode) {
+          handleIntelApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể gợi ý audience');
+          return null;
+        }
+        throw new Error(data?.error || 'Unknown error');
+      }
+    } catch (err: any) {
+      handleIntelApiError(err, 'Không thể gợi ý audience');
+      return null;
+    } finally {
+      setAudienceLoading(false);
+    }
+  }, [brandTemplateId, contentGoal, currentOrganization?.id, handleIntelApiError]);
+
+  const clearAudienceResult = useCallback(() => {
+    setAudienceResult(null);
+    setAudienceError(null);
+    setAudienceErrorCode(null);
+  }, []);
+
   // ============== RETURN CONSOLIDATED RESULT ==============
   return {
     refinement: {
@@ -1169,6 +1248,14 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       autoSaveSuggestions,
       submitFeedback: submitSuggestFeedback,
       saveSuggestion,
+    },
+    audience: {
+      result: audienceResult,
+      isLoading: audienceLoading,
+      error: audienceError,
+      errorCode: audienceErrorCode,
+      suggestAudience,
+      clear: clearAudienceResult,
     },
   };
 }
