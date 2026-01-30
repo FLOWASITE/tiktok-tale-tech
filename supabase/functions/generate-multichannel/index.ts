@@ -107,6 +107,13 @@ import {
   calculateChannelWordCount,
   validateCoreContentForTransform,
 } from "../_shared/channel-transform-rules.ts";
+// NEW: Persona Fit Scoring - P1 Alignment Evaluation
+import {
+  calculateMultiChannelPersonaFit,
+  buildPersonaFitBoostPrompt,
+  type PersonaData,
+  type MultiChannelPersonaFitResult,
+} from "../_shared/persona-fit-scorer.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -2360,6 +2367,9 @@ ${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${
         }
       }
       
+      // Store persona data for Persona Fit Scoring
+      let targetPersonaData: PersonaData | null = null;
+      
       if (formData.targetPersonaId && formData.brandTemplateId) {
         const { data: targetPersona } = await supabase
           .from('customer_personas')
@@ -2369,6 +2379,23 @@ ${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${
           .single();
         
         if (targetPersona) {
+          // Store for Persona Fit Scoring
+          targetPersonaData = {
+            id: targetPersona.id,
+            name: targetPersona.name,
+            occupation: targetPersona.occupation,
+            ageRange: targetPersona.age_range,
+            gender: targetPersona.gender,
+            painPoints: targetPersona.pain_points || [],
+            desires: targetPersona.desires || [],
+            objections: targetPersona.objections || [],
+            buyingTriggers: targetPersona.buying_triggers || [],
+            communicationStyle: targetPersona.communication_style,
+            preferredChannels: targetPersona.preferred_channels || [],
+            techSavviness: targetPersona.tech_savviness,
+            buyingMotivation: targetPersona.buying_motivation || [],
+          };
+          
           targetedPersonaContext = `
 ## 👤 PERSONA MỤC TIÊU
 **Tên**: ${targetPersona.name} ${targetPersona.avatar_emoji || ''}
@@ -2379,6 +2406,8 @@ ${targetPersona.desires?.length ? `**Mong muốn**: ${targetPersona.desires.join
 ${targetPersona.buying_triggers?.length ? `**Trigger mua hàng**: ${targetPersona.buying_triggers.join(', ')}` : ''}
 ${targetPersona.objections?.length ? `**Objections thường gặp**: ${targetPersona.objections.join(', ')}` : ''}
 ${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPersona.communication_style}` : ''}
+
+${buildPersonaFitBoostPrompt(targetPersonaData)}
 
 ⚡ NỘI DUNG PHẢI VIẾT CHO PERSONA NÀY:
 - Tone phù hợp với phong cách giao tiếp của họ
@@ -2782,6 +2811,21 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               emit({ type: 'progress', step: 'critique', progress: 82, message: 'Bỏ qua đánh giá (chế độ nhanh)' });
             }
             
+            // ============================================
+            // PERSONA FIT SCORING - P1 Alignment Evaluation
+            // ============================================
+            let personaFitResult: MultiChannelPersonaFitResult | null = null;
+            
+            if (targetPersonaData) {
+              try {
+                emit({ type: 'progress', step: 'persona-fit', progress: 85, message: 'Đánh giá Persona Fit...' });
+                personaFitResult = calculateMultiChannelPersonaFit(channelResults, targetPersonaData);
+                console.log(`[streaming-mode][persona-fit] Score: ${personaFitResult.averageScore}/100 (${personaFitResult.averageGrade})`);
+              } catch (personaFitError) {
+                console.warn('[streaming-mode][persona-fit] Scoring failed:', personaFitError);
+              }
+            }
+            
             emit({ type: 'progress', step: 'finalize', progress: 88, message: 'Đang lưu kết quả...' });
             
             // Check organization's approval settings
@@ -2969,7 +3013,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
             await streamDelay(100);
             
-            // Return saved content with dedup warning if applicable
+            // Return saved content with dedup warning and persona fit if applicable
             emit({ 
               type: 'result', 
               data: {
@@ -2979,6 +3023,22 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   similarity: dedupResult.similarity,
                   matchedContentPreview: dedupResult.matchedContentPreview,
                   matchedContentId: dedupResult.matchedContentId,
+                } : null,
+                personaFit: personaFitResult ? {
+                  averageScore: personaFitResult.averageScore,
+                  averageGrade: personaFitResult.averageGrade,
+                  channelScores: personaFitResult.channelScores,
+                  topSuggestions: personaFitResult.topSuggestions,
+                  matchedElements: personaFitResult.overallMatchedElements,
+                } : null,
+                strategyValidation: strategyValidation.conflicts.length > 0 ? {
+                  conflicts: strategyValidation.conflicts.map(c => ({
+                    type: c.type,
+                    severity: c.severity,
+                    message: c.message,
+                  })),
+                  scorePenalty: strategyValidation.scorePenalty,
+                  wasAdjusted: strategyValidation.promptAdjustments.length > 0,
                 } : null,
               }
             });
