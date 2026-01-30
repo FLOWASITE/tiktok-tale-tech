@@ -1385,21 +1385,23 @@ function parseRefinedTopics(content: string, brandContext: TopicBrandContext | n
         suggestedJourneyStage: angleToJourneyMap[item.angle?.toLowerCase()] || 'awareness',
       };
 
-      // Match persona ID
+      // Match persona ID (with null-safe checks)
       if (item.targetPersona && brandContext?.personas?.length) {
-        const matchedPersona = brandContext.personas.find((p: any) =>
-          p.name?.toLowerCase().includes(item.targetPersona.toLowerCase()) ||
-          item.targetPersona.toLowerCase().includes(p.name?.toLowerCase())
-        );
+        const targetLower = item.targetPersona.toLowerCase();
+        const matchedPersona = brandContext.personas.find((p: any) => {
+          const personaName = p.name?.toLowerCase() || '';
+          return personaName.includes(targetLower) || targetLower.includes(personaName);
+        });
         if (matchedPersona) result.targetPersonaId = matchedPersona.id;
       }
 
-      // Match product ID
+      // Match product ID (with null-safe checks)
       if (item.productFit && brandContext?.products?.length) {
-        const matchedProduct = brandContext.products.find((p: any) =>
-          p.name?.toLowerCase().includes(item.productFit.toLowerCase()) ||
-          item.productFit.toLowerCase().includes(p.name?.toLowerCase())
-        );
+        const fitLower = item.productFit.toLowerCase();
+        const matchedProduct = brandContext.products.find((p: any) => {
+          const productName = p.name?.toLowerCase() || '';
+          return productName.includes(fitLower) || fitLower.includes(productName);
+        });
         if (matchedProduct) result.productFitId = matchedProduct.id;
       }
 
