@@ -17,8 +17,12 @@ export function useTopicRefinement(options: {
   const { rawTopic, videoType, brandTemplateId, enabled = true } = options;
   const topicAI = useTopicAI({ brandTemplateId, enabled });
 
-  // Auto-refine when rawTopic changes (avoid calling setState during render)
+  // Use refs to avoid stale closures and dependency issues
   const lastRefinedTopicRef = useRef<string>('');
+  const refineRef = useRef(topicAI.refinement.refine);
+  
+  // Keep refine function ref updated
+  refineRef.current = topicAI.refinement.refine;
 
   useEffect(() => {
     const next = rawTopic?.trim() ?? '';
@@ -26,8 +30,9 @@ export function useTopicRefinement(options: {
     if (next === lastRefinedTopicRef.current) return;
 
     lastRefinedTopicRef.current = next;
-    topicAI.refinement.refine(next, videoType);
-  }, [rawTopic, enabled, videoType, topicAI.refinement]);
+    // Use ref to call the latest refine function without it being a dependency
+    refineRef.current(next, videoType);
+  }, [rawTopic, enabled, videoType]);
 
   return topicAI.refinement;
 }
