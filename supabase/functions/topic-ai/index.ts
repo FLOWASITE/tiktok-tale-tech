@@ -35,6 +35,7 @@ import {
   inferJourneyStage,
   semanticMatchPersona,
   shouldSkipWebSearch,
+  hashContextData,
   type TopicBrandContext,
   type TopicHistoryItem,
   type SemanticMatchResult,
@@ -171,9 +172,10 @@ async function handleSuggest(
 ): Promise<Response> {
   const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch } = params;
 
-  // OPTIMIZATION: Increased cache window from 4h to 8h to reduce AI costs
+  // Phase 4: Enhanced cache key with context hash to invalidate when personas/products change
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 8)); // 8-hour buckets
-  const cacheKey = `topic-suggestions-v7:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${hourBucket}`;
+  const contextHash = hashContextData(brandContext);
+  const cacheKey = `topic-suggestions-v8:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${hourBucket}`;
   
   // Check cache first
   let cacheHitTimestamp: number | undefined;
